@@ -16,13 +16,14 @@
 # under the License.
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
-                                        CRecordBatch, CSchema,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CDataType,
+                                        CField, CRecordBatch, CSchema,
                                         CTable, CTensor)
 
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
     cdef int import_pyarrow() except -1
+    cdef object wrap_buffer(const shared_ptr[CBuffer]& buffer)
     cdef object wrap_data_type(const shared_ptr[CDataType]& type)
     cdef object wrap_field(const shared_ptr[CField]& field)
     cdef object wrap_schema(const shared_ptr[CSchema]& schema)

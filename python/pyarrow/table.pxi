@@ -83,7 +83,7 @@ cdef class ChunkedArray:
         pyarrow.Array
         """
         self._check_nullptr()
-        return wrap_array(self.chunked_array.chunk(i))
+        return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
     def iterchunks(self):
         for i in range(self.num_chunks):
@@ -126,7 +126,7 @@ cdef class Column:
 
         cdef shared_ptr[CColumn] sp_column
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
-        return wrap_column(sp_column)
+        return pyarrow_wrap_column(sp_column)
 
     def to_pandas(self):
         """
@@ -232,7 +232,7 @@ cdef class Column:
         -------
         pyarrow.DataType
         """
-        return wrap_data_type(self.column.type())
+        return pyarrow_wrap_data_type(self.column.type())
 
     @property
     def data(self):
@@ -384,7 +384,7 @@ cdef class RecordBatch:
         return self._schema
 
     def __getitem__(self, i):
-        return wrap_array(self.batch.column(i))
+        return pyarrow_wrap_array(self.batch.column(i))
 
     def slice(self, offset=0, length=None):
         """
@@ -412,7 +412,7 @@ cdef class RecordBatch:
         else:
             result = self.batch.Slice(offset, length)
 
-        return wrap_batch(result)
+        return pyarrow_wrap_batch(result)
 
     def equals(self, RecordBatch other):
         cdef:
@@ -510,7 +510,7 @@ cdef class RecordBatch:
             c_arrays.push_back(arr.sp_array)
 
         batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
-        return wrap_batch(batch)
+        return pyarrow_wrap_batch(batch)
 
 
 cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
@@ -689,7 +689,7 @@ cdef class Table:
                 raise ValueError(type(arrays[i]))
 
         table.reset(new CTable(schema, columns))
-        return wrap_table(table)
+        return pyarrow_wrap_table(table)
 
     @staticmethod
     def from_batches(batches):
@@ -713,7 +713,7 @@ cdef class Table:
         with nogil:
             check_status(CTable.FromRecordBatches(c_batches, &c_table))
 
-        return wrap_table(c_table)
+        return pyarrow_wrap_table(c_table)
 
     def to_pandas(self, nthreads=None):
         """
@@ -760,7 +760,7 @@ cdef class Table:
         -------
         pyarrow.Schema
         """
-        return wrap_schema(self.table.schema())
+        return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, index):
         """
@@ -839,7 +839,7 @@ cdef class Table:
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
 
-        return wrap_table(c_table)
+        return pyarrow_wrap_table(c_table)
 
     def append_column(self, Column column):
         """
@@ -856,7 +856,7 @@ cdef class Table:
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
 
-        return wrap_table(c_table)
+        return pyarrow_wrap_table(c_table)
 
 
 def concat_tables(tables):
@@ -881,4 +881,4 @@ def concat_tables(tables):
     with nogil:
         check_status(ConcatenateTables(c_tables, &c_result))
 
-    return wrap_table(c_result)
+    return pyarrow_wrap_table(c_result)

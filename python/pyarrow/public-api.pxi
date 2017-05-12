@@ -20,7 +20,15 @@ from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor)
 
-cdef public api object wrap_data_type(const shared_ptr[CDataType]& type):
+
+cdef public api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
+    cdef Buffer result = Buffer()
+    result.init(buf)
+    return result
+
+
+cdef public api object pyarrow_wrap_data_type(
+    const shared_ptr[CDataType]& type):
     cdef:
         DataType out
 
@@ -42,7 +50,7 @@ cdef public api object wrap_data_type(const shared_ptr[CDataType]& type):
     return out
 
 
-cdef public api object wrap_field(const shared_ptr[CField]& field):
+cdef public api object pyarrow_wrap_field(const shared_ptr[CField]& field):
     if field.get() == NULL:
         return None
     cdef Field out = Field()
@@ -50,13 +58,13 @@ cdef public api object wrap_field(const shared_ptr[CField]& field):
     return out
 
 
-cdef public api object wrap_schema(const shared_ptr[CSchema]& type):
+cdef public api object pyarrow_wrap_schema(const shared_ptr[CSchema]& type):
     cdef Schema out = Schema()
     out.init_schema(type)
     return out
 
 
-cdef public api object wrap_array(const shared_ptr[CArray]& sp_array):
+cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('Array was NULL')
 
@@ -70,7 +78,8 @@ cdef public api object wrap_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
-cdef public api object wrap_tensor(const shared_ptr[CTensor]& sp_tensor):
+cdef public api object pyarrow_wrap_tensor(
+    const shared_ptr[CTensor]& sp_tensor):
     if sp_tensor.get() == NULL:
         raise ValueError('Tensor was NULL')
 
@@ -79,19 +88,20 @@ cdef public api object wrap_tensor(const shared_ptr[CTensor]& sp_tensor):
     return tensor
 
 
-cdef public api object wrap_column(const shared_ptr[CColumn]& ccolumn):
+cdef public api object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn):
     cdef Column column = Column()
     column.init(ccolumn)
     return column
 
 
-cdef public api object wrap_table(const shared_ptr[CTable]& ctable):
+cdef public api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
     cdef Table table = Table()
     table.init(ctable)
     return table
 
 
-cdef public api object wrap_batch(const shared_ptr[CRecordBatch]& cbatch):
+cdef public api object pyarrow_wrap_batch(
+    const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch()
     batch.init(cbatch)
     return batch

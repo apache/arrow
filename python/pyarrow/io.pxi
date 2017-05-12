@@ -163,7 +163,7 @@ cdef class NativeFile:
         with nogil:
             check_status(self.rd_file.get().ReadB(c_nbytes, &output))
 
-        return wrap_buffer(output)
+        return pyarrow_wrap_buffer(output)
 
     def download(self, stream_or_path, buffer_size=None):
         """
@@ -483,7 +483,7 @@ cdef class Buffer:
             if parent_buf.get() == NULL:
                 return None
             else:
-                return wrap_buffer(parent_buf)
+                return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
         # TODO(wesm): buffer slicing
@@ -531,7 +531,7 @@ cdef class InMemoryOutputStream(NativeFile):
     def get_result(self):
         check_status(self.wr_file.get().Close())
         self.is_open = False
-        return wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
+        return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
 
 cdef class BufferReader(NativeFile):
@@ -566,16 +566,9 @@ def frombuffer(object obj):
     try:
         memoryview(obj)
         buf.reset(new PyBuffer(obj))
-        return wrap_buffer(buf)
+        return pyarrow_wrap_buffer(buf)
     except TypeError:
         raise ValueError('Must pass object that implements buffer protocol')
-
-
-
-cdef Buffer wrap_buffer(const shared_ptr[CBuffer]& buf):
-    cdef Buffer result = Buffer()
-    result.init(buf)
-    return result
 
 
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader):
@@ -993,7 +986,7 @@ cdef class _StreamReader:
         if batch.get() == NULL:
             raise StopIteration
 
-        return wrap_batch(batch)
+        return pyarrow_wrap_batch(batch)
 
     def read_all(self):
         """
@@ -1013,7 +1006,7 @@ cdef class _StreamReader:
 
             check_status(CTable.FromRecordBatches(batches, &table))
 
-        return wrap_table(table)
+        return pyarrow_wrap_table(table)
 
 
 cdef class _FileWriter(_StreamWriter):
@@ -1066,7 +1059,7 @@ cdef class _FileReader:
         with nogil:
             check_status(self.reader.get().GetRecordBatch(i, &batch))
 
-        return wrap_batch(batch)
+        return pyarrow_wrap_batch(batch)
 
     # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
     # time has passed
@@ -1089,7 +1082,7 @@ cdef class _FileReader:
                 check_status(self.reader.get().GetRecordBatch(i, &batches[i]))
             check_status(CTable.FromRecordBatches(batches, &table))
 
-        return wrap_table(table)
+        return pyarrow_wrap_table(table)
 
 
 #----------------------------------------------------------------------
@@ -1257,4 +1250,4 @@ def read_tensor(NativeFile source):
     with nogil:
         check_status(ReadTensor(offset, source.rd_file.get(), &sp_tensor))
 
-    return wrap_tensor(sp_tensor)
+    return pyarrow_wrap_tensor(sp_tensor)
