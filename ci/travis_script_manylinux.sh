@@ -18,4 +18,4 @@ set -ex
 pushd python/manylinux1
 git clone ../../ arrow
 docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+docker run --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
