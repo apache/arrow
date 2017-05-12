@@ -161,7 +161,9 @@ class build_ext(_build_ext):
             cmake_command = (['cmake', self.extra_cmake_args] +
                              cmake_options + [source])
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             args = ['make']
             if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                 args.append('VERBOSE=1')
@@ -183,7 +185,9 @@ class build_ext(_build_ext):
             if "-G" in self.extra_cmake_args:
                 cmake_command = cmake_command[:-2]
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             # Do the build
             self.spawn(['cmake', '--build', '.', '--config', self.build_type])
 
