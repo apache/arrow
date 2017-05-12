@@ -265,12 +265,8 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  _array
   _config
-  _error
-  _io
-  _memory
-  _table
+  lib
 )
 
 set(LINK_LIBS

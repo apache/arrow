@@ -22,7 +22,6 @@
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
 from pyarrow._array cimport Array, Schema, box_schema
 from pyarrow._error cimport check_status
 from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool

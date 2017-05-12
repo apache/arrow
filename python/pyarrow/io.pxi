@@ -18,22 +18,7 @@
 # Cython wrappers for IO interfaces defined in arrow::io and messaging in
 # arrow::ipc
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-
-from cython.operator cimport dereference as deref
 from libc.stdlib cimport malloc, free
-from pyarrow.includes.libarrow cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
-from pyarrow._array cimport Array, Tensor, box_tensor, Schema
-from pyarrow._error cimport check_status
-from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
-from pyarrow._table cimport (Column, RecordBatch, batch_from_cbatch,
-                             table_from_ctable)
-cimport cpython as cp
-
-import pyarrow._config
 from pyarrow.compat import frombytes, tobytes, encode_file_path
 
 import re
@@ -51,6 +36,7 @@ DEFAULT_BUFFER_SIZE = 2 ** 16
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSizeNative" PyBytes_FromStringAndSize"(
         char *v, Py_ssize_t len) except NULL
+
 
 cdef class NativeFile:
 
@@ -315,11 +301,11 @@ cdef class PythonFile(NativeFile):
         self.handle = handle
 
         if mode.startswith('w'):
-            self.wr_file.reset(new pyarrow.PyOutputStream(handle))
+            self.wr_file.reset(new PyOutputStream(handle))
             self.is_readable = 0
             self.is_writeable = 1
         elif mode.startswith('r'):
-            self.rd_file.reset(new pyarrow.PyReadableFile(handle))
+            self.rd_file.reset(new PyReadableFile(handle))
             self.is_readable = 1
             self.is_writeable = 0
         else:
@@ -554,7 +540,7 @@ cdef class BufferReader(NativeFile):
 
     Parameters
     ----------
-    obj : Python bytes or pyarrow.io.Buffer
+    obj : Python bytes or pyarrow.Buffer
     """
     cdef:
         Buffer buffer
@@ -579,7 +565,7 @@ def frombuffer(object obj):
     cdef shared_ptr[CBuffer] buf
     try:
         memoryview(obj)
-        buf.reset(new pyarrow.PyBuffer(obj))
+        buf.reset(new PyBuffer(obj))
         return wrap_buffer(buf)
     except TypeError:
         raise ValueError('Must pass object that implements buffer protocol')
@@ -1007,7 +993,7 @@ cdef class _StreamReader:
         if batch.get() == NULL:
             raise StopIteration
 
-        return batch_from_cbatch(batch)
+        return wrap_batch(batch)
 
     def read_all(self):
         """
@@ -1027,7 +1013,7 @@ cdef class _StreamReader:
 
             check_status(CTable.FromRecordBatches(batches, &table))
 
-        return table_from_ctable(table)
+        return wrap_table(table)
 
 
 cdef class _FileWriter(_StreamWriter):
@@ -1080,7 +1066,7 @@ cdef class _FileReader:
         with nogil:
             check_status(self.reader.get().GetRecordBatch(i, &batch))
 
-        return batch_from_cbatch(batch)
+        return wrap_batch(batch)
 
     # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
     # time has passed
@@ -1103,7 +1089,7 @@ cdef class _FileReader:
                 check_status(self.reader.get().GetRecordBatch(i, &batches[i]))
             check_status(CTable.FromRecordBatches(batches, &table))
 
-        return table_from_ctable(table)
+        return wrap_table(table)
 
 
 #----------------------------------------------------------------------
@@ -1271,4 +1257,4 @@ def read_tensor(NativeFile source):
     with nogil:
         check_status(ReadTensor(offset, source.rd_file.get(), &sp_tensor))
 
-    return box_tensor(sp_tensor)
+    return wrap_tensor(sp_tensor)

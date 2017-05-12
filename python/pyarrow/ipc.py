@@ -17,10 +17,10 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
-import pyarrow._io as _io
+import pyarrow.lib as lib
 
 
-class StreamReader(_io._StreamReader):
+class StreamReader(lib._StreamReader):
     """
     Reader for the Arrow streaming binary format
 
@@ -37,7 +37,7 @@ class StreamReader(_io._StreamReader):
             yield self.get_next_batch()
 
 
-class StreamWriter(_io._StreamWriter):
+class StreamWriter(lib._StreamWriter):
     """
     Writer for the Arrow streaming binary format
 
@@ -52,7 +52,7 @@ class StreamWriter(_io._StreamWriter):
         self._open(sink, schema)
 
 
-class FileReader(_io._FileReader):
+class FileReader(lib._FileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -68,7 +68,7 @@ class FileReader(_io._FileReader):
         self._open(source, footer_offset=footer_offset)
 
 
-class FileWriter(_io._FileWriter):
+class FileWriter(lib._FileWriter):
     """
     Writer to create the Arrow binary file format
 

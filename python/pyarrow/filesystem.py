@@ -19,7 +19,7 @@ from os.path import join as pjoin
 import os
 
 from pyarrow.util import implements
-import pyarrow._io as io
+import pyarrow.lib as lib
 
 
 class Filesystem(object):
@@ -133,7 +133,7 @@ class LocalFilesystem(Filesystem):
         return open(path, mode=mode)
 
 
-class HdfsClient(io._HdfsClient, Filesystem):
+class HdfsClient(lib._HdfsClient, Filesystem):
     """
     Connect to an HDFS cluster. All parameters are optional and should
     only be set if the defaults need to be overridden.
@@ -168,19 +168,19 @@ class HdfsClient(io._HdfsClient, Filesystem):
 
     @implements(Filesystem.isdir)
     def isdir(self, path):
-        return io._HdfsClient.isdir(self, path)
+        return lib._HdfsClient.isdir(self, path)
 
     @implements(Filesystem.isfile)
     def isfile(self, path):
-        return io._HdfsClient.isfile(self, path)
+        return lib._HdfsClient.isfile(self, path)
 
     @implements(Filesystem.delete)
     def delete(self, path, recursive=False):
-        return io._HdfsClient.delete(self, path, recursive)
+        return lib._HdfsClient.delete(self, path, recursive)
 
     @implements(Filesystem.mkdir)
     def mkdir(self, path, create_parents=True):
-        return io._HdfsClient.mkdir(self, path)
+        return lib._HdfsClient.mkdir(self, path)
 
     def ls(self, path, full_info=False):
         """
@@ -196,4 +196,4 @@ class HdfsClient(io._HdfsClient, Filesystem):
         -------
         result : list of dicts (full_info=True) or strings (full_info=False)
         """
-        return io._HdfsClient.ls(self, path, full_info)
+        return lib._HdfsClient.ls(self, path, full_info)
