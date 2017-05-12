@@ -104,7 +104,8 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
   bool NextLevels(int16_t* def_level, int16_t* rep_level) {
     if (level_offset_ == levels_buffered_) {
       levels_buffered_ = typed_reader_->ReadBatch(
-          batch_size_, &def_levels_[0], &rep_levels_[0], values_, &values_buffered_);
+          batch_size_, def_levels_.data(), rep_levels_.data(),
+          values_, &values_buffered_);
 
       value_offset_ = 0;
       level_offset_ = 0;
