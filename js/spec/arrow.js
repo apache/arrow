@@ -87,7 +87,7 @@ test_files = [
             ["Hermione", 25, new Float32Array([-53.235599517822266, 40.231998443603516])],
             ["Severus", 30, new Float32Array([-62.22999954223633, 3])],
           ], [
-            ["Ron", 20, new Float32Array([23, -100.23652648925781])]
+            ["Harry", 20, new Float32Array([23, -100.23652648925781])]
           ]
         ]
       }
