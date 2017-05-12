@@ -623,9 +623,9 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
       ParquetType::INT64, LogicalType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_MS, false));
 
-  // parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
-  //     ParquetType::INT64, LogicalType::TIMESTAMP_MICROS));
-  // arrow_fields.push_back(std::make_shared<Field>("timestamp", TIMESTAMP_US, false));
+  parquet_fields.push_back(PrimitiveNode::Make("timestamp[us]", Repetition::REQUIRED,
+      ParquetType::INT64, LogicalType::TIMESTAMP_MICROS));
+  arrow_fields.push_back(std::make_shared<Field>("timestamp[us]", TIMESTAMP_US, false));
 
   parquet_fields.push_back(
       PrimitiveNode::Make("float", Repetition::OPTIONAL, ParquetType::FLOAT));
