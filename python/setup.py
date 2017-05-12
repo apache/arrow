@@ -161,14 +161,18 @@ class build_ext(_build_ext):
             cmake_command = (['cmake', self.extra_cmake_args] +
                              cmake_options + [source])
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             args = ['make']
             if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                 args.append('VERBOSE=1')
 
             if 'PYARROW_PARALLEL' in os.environ:
                 args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+            print("-- Running cmake --build for pyarrow")
             self.spawn(args)
+            print("-- Finished cmake --build for pyarrow")
         else:
             import shlex
             cmake_generator = 'Visual Studio 14 2015 Win64'
@@ -183,9 +187,13 @@ class build_ext(_build_ext):
             if "-G" in self.extra_cmake_args:
                 cmake_command = cmake_command[:-2]
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             # Do the build
+            print("-- Running cmake --build for pyarrow")
             self.spawn(['cmake', '--build', '.', '--config', self.build_type])
+            print("-- Finished cmake --build for pyarrow")
 
         if self.inplace:
             # a bit hacky
@@ -225,6 +233,10 @@ class build_ext(_build_ext):
                     os.symlink(lib_filename, link_name)
 
         if self.bundle_arrow_cpp:
+            print(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
+            if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
+                shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+            shutil.move(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
             if self.with_jemalloc:
