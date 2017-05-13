@@ -221,7 +221,7 @@ class build_ext(_build_ext):
             # Also copy libraries with ABI/SO version suffix
             if sys.platform == 'darwin':
                 lib_pattern = (shared_library_prefix + lib_name +
-                              ".*." + shared_library_suffix)
+                              ".*" + shared_library_suffix)
                 libs = glob.glob(pjoin(self.build_type, lib_pattern))
             else:
                 libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
