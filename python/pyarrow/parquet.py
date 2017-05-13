@@ -24,8 +24,7 @@ from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
 import pyarrow._parquet as _parquet  # noqa
-import pyarrow._array as _array
-import pyarrow._table as _table
+import pyarrow.lib as lib
 
 
 # ----------------------------------------------------------------------
@@ -241,8 +240,8 @@ class ParquetDatasetPiece(object):
                 # manifest, so ['a', 'b', 'c'] as in our example above.
                 dictionary = partitions.levels[i].dictionary
 
-                arr = _array.DictionaryArray.from_arrays(indices, dictionary)
-                col = _table.Column.from_array(name, arr)
+                arr = lib.DictionaryArray.from_arrays(indices, dictionary)
+                col = lib.Column.from_array(name, arr)
                 table = table.append_column(col)
 
         return table
@@ -298,9 +297,9 @@ class PartitionSet(object):
         # Only integer and string partition types are supported right now
         try:
             integer_keys = [int(x) for x in self.keys]
-            dictionary = _array.array(integer_keys)
+            dictionary = lib.array(integer_keys)
         except ValueError:
-            dictionary = _array.array(self.keys)
+            dictionary = lib.array(self.keys)
 
         self._dictionary = dictionary
         return dictionary
@@ -539,7 +538,7 @@ class ParquetDataset(object):
                                open_file_func=open_file)
             tables.append(table)
 
-        all_data = _table.concat_tables(tables)
+        all_data = lib.concat_tables(tables)
         return all_data
 
     def _get_open_file_func(self):

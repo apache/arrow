@@ -325,3 +325,13 @@ cdef class NativeFile:
 
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
+
+cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
+cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
+cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
+cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
+cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
+cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
+cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
+cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
