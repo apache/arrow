@@ -99,12 +99,12 @@ class TestFile(MessagingTest, unittest.TestCase):
 class TestStream(MessagingTest, unittest.TestCase):
 
     def _get_writer(self, sink, schema):
-        return pa.StreamWriter(sink, schema)
+        return pa.BatchStreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(file_contents)
+        reader = pa.BatchStreamReader(file_contents)
 
         assert reader.schema.equals(batches[0].schema)
 

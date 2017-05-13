@@ -84,6 +84,6 @@ class BatchFileWriter(lib._BatchFileWriter):
 
 
 StreamWriter = BatchStreamWriter
-StreamReader = BatchStreamWriter
+StreamReader = BatchStreamReader
 FileWriter = BatchFileWriter
 FileReader = BatchFileReader
