@@ -74,6 +74,13 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
+  - language: node_js
+    os: linux
+    node_js: node
+    before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
 
 before_install:
 - ulimit -c unlimited -S
