@@ -177,10 +177,12 @@ Interprocess Communication and Messaging
 .. autosummary::
    :toctree: generated/
 
-   BatchFileReader
-   BatchFileWriter
-   BatchStreamReader
-   BatchStreamWriter
+   RecordBatchFileReader
+   RecordBatchFileWriter
+   RecordBatchStreamReader
+   RecordBatchStreamWriter
+   open_file
+   open_stream
 
 .. _api.memory_pool:
 

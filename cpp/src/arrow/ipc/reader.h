@@ -45,9 +45,9 @@ class RandomAccessFile;
 namespace ipc {
 
 /// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT BatchStreamReader {
+class ARROW_EXPORT RecordBatchReader {
  public:
-  virtual ~BatchStreamReader();
+  virtual ~RecordBatchReader();
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -60,9 +60,9 @@ class ARROW_EXPORT BatchStreamReader {
   virtual Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) = 0;
 };
 
-/// \class InputStreamReader
+/// \class RecordBatchStreamReader
 /// \brief Synchronous batch stream reader that reads from io::InputStream
-class ARROW_EXPORT InputStreamReader : public BatchStreamReader {
+class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
  public:
   /// Create batch reader from InputStream
   ///
@@ -70,22 +70,22 @@ class ARROW_EXPORT InputStreamReader : public BatchStreamReader {
   /// \param(out) reader the created reader object
   /// \return Status
   static Status Open(const std::shared_ptr<io::InputStream>& stream,
-      std::shared_ptr<InputStreamReader>* reader);
+      std::shared_ptr<RecordBatchStreamReader>* reader);
 
   std::shared_ptr<Schema> schema() const override;
   Status GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) override;
 
  private:
-  InputStreamReader();
+  RecordBatchStreamReader();
 
-  class ARROW_NO_EXPORT InputStreamReaderImpl;
-  std::unique_ptr<InputStreamReaderImpl> impl_;
+  class ARROW_NO_EXPORT RecordBatchStreamReaderImpl;
+  std::unique_ptr<RecordBatchStreamReaderImpl> impl_;
 };
 
-/// \brief Reads the random access record batch file format
-class ARROW_EXPORT BatchFileReader {
+/// \brief Reads the record batch file format
+class ARROW_EXPORT RecordBatchFileReader {
  public:
-  ~BatchFileReader();
+  ~RecordBatchFileReader();
 
   // Open a file-like object that is assumed to be self-contained; i.e., the
   // end of the file interface is the end of the Arrow file. Note that there
@@ -93,7 +93,7 @@ class ARROW_EXPORT BatchFileReader {
   // need only locate the end of the Arrow file stream to discover the metadata
   // and then proceed to read the data into memory.
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
-      std::shared_ptr<BatchFileReader>* reader);
+      std::shared_ptr<RecordBatchFileReader>* reader);
 
   // If the file is embedded within some larger file or memory region, you can
   // pass the absolute memory offset to the end of the file (which contains the
@@ -103,7 +103,7 @@ class ARROW_EXPORT BatchFileReader {
   // @param file: the data source
   // @param footer_offset: the position of the end of the Arrow "file"
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
-      int64_t footer_offset, std::shared_ptr<BatchFileReader>* reader);
+      int64_t footer_offset, std::shared_ptr<RecordBatchFileReader>* reader);
 
   /// The schema includes any dictionaries
   std::shared_ptr<Schema> schema() const;
@@ -123,10 +123,10 @@ class ARROW_EXPORT BatchFileReader {
   Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch);
 
  private:
-  BatchFileReader();
+  RecordBatchFileReader();
 
-  class ARROW_NO_EXPORT BatchFileReaderImpl;
-  std::unique_ptr<BatchFileReaderImpl> impl_;
+  class ARROW_NO_EXPORT RecordBatchFileReaderImpl;
+  std::unique_ptr<RecordBatchFileReaderImpl> impl_;
 };
 
 // Generic read functions; does not copy data if the input supports zero copy reads
@@ -173,8 +173,8 @@ Status ARROW_EXPORT ReadTensor(
 /// Backwards-compatibility for Arrow < 0.4.0
 ///
 #ifndef ARROW_NO_DEPRECATED_API
-using StreamReader = BatchStreamReader;
-using FileReader = BatchFileReader;
+using StreamReader = RecordBatchReader;
+using FileReader = RecordBatchFileReader;
 #endif
 
 }  // namespace ipc

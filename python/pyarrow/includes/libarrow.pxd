@@ -547,40 +547,44 @@ cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
-    cdef cppclass CBatchStreamWriter " arrow::ipc::BatchStreamWriter":
+    cdef cppclass CRecordBatchWriter \
+        " arrow::ipc::RecordBatchWriter":
         CStatus Close()
         CStatus WriteRecordBatch(const CRecordBatch& batch)
 
-    cdef cppclass CBatchStreamReader " arrow::ipc::BatchStreamReader":
+    cdef cppclass CRecordBatchReader \
+        " arrow::ipc::RecordBatchReader":
         shared_ptr[CSchema] schema()
         CStatus GetNextRecordBatch(shared_ptr[CRecordBatch]* batch)
 
-    cdef cppclass CInputStreamReader \
-        " arrow::ipc::InputStreamReader"(CBatchStreamReader):
+    cdef cppclass CRecordBatchStreamReader \
+        " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
         CStatus Open(const shared_ptr[InputStream]& stream,
-                     shared_ptr[CInputStreamReader]* out)
+                     shared_ptr[CRecordBatchStreamReader]* out)
 
-    cdef cppclass COutputStreamWriter \
-        " arrow::ipc::OutputStreamWriter"(CBatchStreamWriter):
+    cdef cppclass CRecordBatchStreamWriter \
+        " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[COutputStreamWriter]* out)
+                     shared_ptr[CRecordBatchStreamWriter]* out)
 
-    cdef cppclass CBatchFileWriter \
-        " arrow::ipc::BatchFileWriter"(CBatchStreamWriter):
+    cdef cppclass CRecordBatchFileWriter \
+        " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CBatchFileWriter]* out)
+                     shared_ptr[CRecordBatchFileWriter]* out)
 
-    cdef cppclass CBatchFileReader " arrow::ipc::BatchFileReader":
+    cdef cppclass CRecordBatchFileReader \
+        " arrow::ipc::RecordBatchFileReader":
         @staticmethod
         CStatus Open(const shared_ptr[RandomAccessFile]& file,
-                     shared_ptr[CBatchFileReader]* out)
+                     shared_ptr[CRecordBatchFileReader]* out)
 
         @staticmethod
         CStatus Open2" Open"(const shared_ptr[RandomAccessFile]& file,
-                     int64_t footer_offset, shared_ptr[CBatchFileReader]* out)
+                             int64_t footer_offset,
+                             shared_ptr[CRecordBatchFileReader]* out)
 
         shared_ptr[CSchema] schema()
 

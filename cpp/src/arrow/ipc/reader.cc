@@ -156,7 +156,7 @@ Status ReadDictionary(const Message& metadata, const DictionaryTypeMap& dictiona
 }
 
 // ----------------------------------------------------------------------
-// InputStreamReader implementation
+// RecordBatchStreamReader implementation
 
 static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock(block->offset(), block->metaDataLength(), block->bodyLength());
@@ -176,12 +176,12 @@ static inline std::string message_type_name(Message::Type type) {
   return "unknown";
 }
 
-BatchStreamReader::~BatchStreamReader() {}
+RecordBatchReader::~RecordBatchReader() {}
 
-class InputStreamReader::InputStreamReaderImpl {
+class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
  public:
-  InputStreamReaderImpl() {}
-  ~InputStreamReaderImpl() {}
+  RecordBatchStreamReaderImpl() {}
+  ~RecordBatchStreamReaderImpl() {}
 
   Status Open(const std::shared_ptr<io::InputStream>& stream) {
     stream_ = stream;
@@ -269,31 +269,31 @@ class InputStreamReader::InputStreamReaderImpl {
   std::shared_ptr<Schema> schema_;
 };
 
-InputStreamReader::InputStreamReader() {
-  impl_.reset(new InputStreamReaderImpl());
+RecordBatchStreamReader::RecordBatchStreamReader() {
+  impl_.reset(new RecordBatchStreamReaderImpl());
 }
 
-Status InputStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
-    std::shared_ptr<InputStreamReader>* reader) {
+Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+    std::shared_ptr<RecordBatchStreamReader>* reader) {
   // Private ctor
-  *reader = std::shared_ptr<InputStreamReader>(new InputStreamReader());
+  *reader = std::shared_ptr<RecordBatchStreamReader>(new RecordBatchStreamReader());
   return (*reader)->impl_->Open(stream);
 }
 
-std::shared_ptr<Schema> InputStreamReader::schema() const {
+std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
   return impl_->schema();
 }
 
-Status InputStreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+Status RecordBatchStreamReader::GetNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
   return impl_->GetNextRecordBatch(batch);
 }
 
 // ----------------------------------------------------------------------
 // Reader implementation
 
-class BatchFileReader::BatchFileReaderImpl {
+class RecordBatchFileReader::RecordBatchFileReaderImpl {
  public:
-  BatchFileReaderImpl() { dictionary_memo_ = std::make_shared<DictionaryMemo>(); }
+  RecordBatchFileReaderImpl() { dictionary_memo_ = std::make_shared<DictionaryMemo>(); }
 
   Status ReadFooter() {
     int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
@@ -432,38 +432,38 @@ class BatchFileReader::BatchFileReaderImpl {
   std::shared_ptr<Schema> schema_;
 };
 
-BatchFileReader::BatchFileReader() {
-  impl_.reset(new BatchFileReaderImpl());
+RecordBatchFileReader::RecordBatchFileReader() {
+  impl_.reset(new RecordBatchFileReaderImpl());
 }
 
-BatchFileReader::~BatchFileReader() {}
+RecordBatchFileReader::~RecordBatchFileReader() {}
 
-Status BatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
-    std::shared_ptr<BatchFileReader>* reader) {
+Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
+    std::shared_ptr<RecordBatchFileReader>* reader) {
   int64_t footer_offset;
   RETURN_NOT_OK(file->GetSize(&footer_offset));
   return Open(file, footer_offset, reader);
 }
 
-Status BatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
-    int64_t footer_offset, std::shared_ptr<BatchFileReader>* reader) {
-  *reader = std::shared_ptr<BatchFileReader>(new BatchFileReader());
+Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
+    int64_t footer_offset, std::shared_ptr<RecordBatchFileReader>* reader) {
+  *reader = std::shared_ptr<RecordBatchFileReader>(new RecordBatchFileReader());
   return (*reader)->impl_->Open(file, footer_offset);
 }
 
-std::shared_ptr<Schema> BatchFileReader::schema() const {
+std::shared_ptr<Schema> RecordBatchFileReader::schema() const {
   return impl_->schema();
 }
 
-int BatchFileReader::num_record_batches() const {
+int RecordBatchFileReader::num_record_batches() const {
   return impl_->num_record_batches();
 }
 
-MetadataVersion BatchFileReader::version() const {
+MetadataVersion RecordBatchFileReader::version() const {
   return impl_->version();
 }
 
-Status BatchFileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
+Status RecordBatchFileReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
   return impl_->GetRecordBatch(i, batch);
 }
 

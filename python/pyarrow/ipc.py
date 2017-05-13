@@ -20,7 +20,7 @@
 import pyarrow.lib as lib
 
 
-class BatchStreamReader(lib._BatchStreamReader):
+class RecordBatchStreamReader(lib._RecordBatchReader):
     """
     Reader for the Arrow streaming binary format
 
@@ -37,7 +37,7 @@ class BatchStreamReader(lib._BatchStreamReader):
             yield self.get_next_batch()
 
 
-class BatchStreamWriter(lib._BatchStreamWriter):
+class RecordBatchStreamWriter(lib._RecordBatchWriter):
     """
     Writer for the Arrow streaming binary format
 
@@ -52,7 +52,7 @@ class BatchStreamWriter(lib._BatchStreamWriter):
         self._open(sink, schema)
 
 
-class BatchFileReader(lib._BatchFileReader):
+class RecordBatchFileReader(lib._RecordBatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -68,7 +68,7 @@ class BatchFileReader(lib._BatchFileReader):
         self._open(source, footer_offset=footer_offset)
 
 
-class BatchFileWriter(lib._BatchFileWriter):
+class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     """
     Writer to create the Arrow binary file format
 
@@ -83,7 +83,39 @@ class BatchFileWriter(lib._BatchFileWriter):
         self._open(sink, schema)
 
 
-StreamWriter = BatchStreamWriter
-StreamReader = BatchStreamReader
-FileWriter = BatchFileWriter
-FileReader = BatchFileReader
+def open_stream(source):
+    """
+    Create reader for Arrow streaming format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchStreamReader
+    """
+    return RecordBatchStreamReader(source)
+
+
+def open_file(source, footer_offset=None):
+    """
+    Create reader for Arrow file format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchFileReader
+    """
+    return RecordBatchFileReader(source, footer_offset=footer_offset)

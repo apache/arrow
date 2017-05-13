@@ -46,11 +46,11 @@ class OutputStream;
 
 namespace ipc {
 
-/// \class BatchStreamWriter
+/// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
-class ARROW_EXPORT BatchStreamWriter {
+class ARROW_EXPORT RecordBatchWriter {
  public:
-  virtual ~BatchStreamWriter();
+  virtual ~RecordBatchWriter();
 
   /// Write a record batch to the stream
   ///
@@ -70,9 +70,10 @@ class ARROW_EXPORT BatchStreamWriter {
   virtual void set_memory_pool(MemoryPool* pool) = 0;
 };
 
-/// \class OutputStreamWriter
-/// \brief Synchronous batch stream writer that writes to io::OutputStream
-class ARROW_EXPORT OutputStreamWriter : public BatchStreamWriter {
+/// \class RecordBatchStreamWriter
+/// \brief Synchronous batch stream writer that writes the Arrow streaming
+/// format
+class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
  public:
   /// Create a new writer from stream sink and schema. User is responsible for
   /// closing the actual OutputStream.
@@ -82,26 +83,26 @@ class ARROW_EXPORT OutputStreamWriter : public BatchStreamWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<OutputStreamWriter>* out);
+      std::shared_ptr<RecordBatchStreamWriter>* out);
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
   void set_memory_pool(MemoryPool* pool) override;
 
  protected:
-  OutputStreamWriter();
-  class ARROW_NO_EXPORT OutputStreamWriterImpl;
-  std::unique_ptr<OutputStreamWriterImpl> impl_;
+  RecordBatchStreamWriter();
+  class ARROW_NO_EXPORT RecordBatchStreamWriterImpl;
+  std::unique_ptr<RecordBatchStreamWriterImpl> impl_;
 };
 
-/// \brief Creates the random access record batch file format
+/// \brief Creates the Arrow record batch file format
 ///
 /// Implements the random access file format, which structurally is a record
 /// batch stream followed by a metadata footer at the end of the file. Magic
 /// numbers are written at the start and end of the file
-class ARROW_EXPORT BatchFileWriter : public OutputStreamWriter {
+class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
  public:
-  virtual ~BatchFileWriter();
+  virtual ~RecordBatchFileWriter();
 
   /// Create a new writer from stream sink and schema
   ///
@@ -110,15 +111,15 @@ class ARROW_EXPORT BatchFileWriter : public OutputStreamWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<BatchFileWriter>* out);
+      std::shared_ptr<RecordBatchFileWriter>* out);
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
 
  private:
-  BatchFileWriter();
-  class ARROW_NO_EXPORT BatchFileWriterImpl;
-  std::unique_ptr<BatchFileWriterImpl> impl_;
+  RecordBatchFileWriter();
+  class ARROW_NO_EXPORT RecordBatchFileWriterImpl;
+  std::unique_ptr<RecordBatchFileWriterImpl> impl_;
 };
 
 /// Write the RecordBatch (collection of equal-length Arrow arrays) to the
@@ -174,8 +175,8 @@ Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
 /// Backwards-compatibility for Arrow < 0.4.0
 ///
 #ifndef ARROW_NO_DEPRECATED_API
-using FileWriter = BatchFileWriter;
-using StreamWriter = OutputStreamWriter;
+using FileWriter = RecordBatchFileWriter;
+using StreamWriter = RecordBatchStreamWriter;
 #endif
 
 }  // namespace ipc
