@@ -230,16 +230,17 @@ find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
 function(bundle_arrow_lib library_path)
+  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
   configure_file(${${library_path}}
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
       COPYONLY)
 
   if (APPLE)
-    configure_file(${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
         ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}.${CMAKE_SHARED_LIBRARY_SUFFIX}
         COPYONLY)
-    configure_file(${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
         ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
         COPYONLY)
   else()
