@@ -852,7 +852,8 @@ if (UNIX)
     )
 
   FOREACH(item ${LINT_FILES})
-    IF(NOT (item MATCHES "_generated.h"))
+    IF(NOT ((item MATCHES "_generated.h") OR
+            (item MATCHES "pyarrow_api.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
   ENDFOREACH(item ${LINT_FILES})
@@ -878,6 +879,7 @@ if (${CLANG_FORMAT_FOUND})
     `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h |
     sed -e '/_generated/g' |
     sed -e '/windows_compatibility.h/g' |
+    sed -e '/pyarrow_api.h/g' |
     sed -e '/config.h/g' |   # python/config.h
     sed -e '/platform.h/g'`  # python/platform.h
     )

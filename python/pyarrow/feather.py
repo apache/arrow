@@ -22,9 +22,9 @@ import six
 import pandas as pd
 
 from pyarrow.compat import pdapi
-from pyarrow._io import FeatherError  # noqa
-from pyarrow._table import Table
-import pyarrow._io as ext
+from pyarrow.lib import FeatherError  # noqa
+from pyarrow.lib import Table
+import pyarrow.lib as ext
 
 
 if LooseVersion(pd.__version__) < '0.17.0':

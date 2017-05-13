@@ -50,6 +50,7 @@ set(ARROW_PYTHON_SRCS
   io.cc
   numpy_convert.cc
   pandas_convert.cc
+  pyarrow.cc
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
@@ -90,6 +91,7 @@ install(FILES
   numpy_interop.h
   pandas_convert.h
   platform.h
+  pyarrow.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 

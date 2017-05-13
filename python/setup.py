@@ -106,14 +106,9 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
-        '_array',
-        '_config',
-        '_error',
-        '_io',
+        'lib',
         '_jemalloc',
-        '_memory',
-        '_parquet',
-        '_table']
+        '_parquet']
 
     def _run_cmake(self):
         # The directory containing this setup.py

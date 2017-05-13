@@ -22,16 +22,16 @@
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
-from pyarrow._array cimport Array, Schema, box_schema
-from pyarrow._error cimport check_status
-from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
-from pyarrow._table cimport Table, table_from_ctable
-from pyarrow._io cimport NativeFile, get_reader, get_writer
+from pyarrow.lib cimport (Array, Schema,
+                          check_status,
+                          MemoryPool, maybe_unbox_memory_pool,
+                          Table,
+                          pyarrow_wrap_schema,
+                          pyarrow_wrap_table,
+                          NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow._error import ArrowException
-from pyarrow._io import NativeFile
+from pyarrow.lib import ArrowException, NativeFile
 
 import six
 
@@ -213,7 +213,7 @@ cdef class ParquetSchema:
         with nogil:
             check_status(FromParquetSchema(self.schema, &sp_arrow_schema))
 
-        return box_schema(sp_arrow_schema)
+        return pyarrow_wrap_schema(sp_arrow_schema)
 
     def equals(self, ParquetSchema other):
         """
@@ -426,7 +426,7 @@ cdef class ParquetReader:
             with nogil:
                 check_status(self.reader.get()
                              .ReadRowGroup(i, &ctable))
-        return table_from_ctable(ctable)
+        return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None):
         cdef:
@@ -445,7 +445,7 @@ cdef class ParquetReader:
             with nogil:
                 check_status(self.reader.get()
                              .ReadTable(&ctable))
-        return table_from_ctable(ctable)
+        return pyarrow_wrap_table(ctable)
 
     def column_name_idx(self, column_name):
         """

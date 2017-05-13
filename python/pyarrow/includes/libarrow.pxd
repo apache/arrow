@@ -149,7 +149,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         PoolBuffer()
         PoolBuffer(CMemoryPool*)
 
-    cdef CMemoryPool* default_memory_pool()
+    cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)
@@ -625,3 +625,62 @@ cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
 
         CStatus GetColumn(int i, shared_ptr[CColumn]* out)
         c_string GetColumnName(int i)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
+    shared_ptr[CDataType] GetPrimitiveType(Type type)
+    shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              shared_ptr[CArray]* out)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              shared_ptr[CArray]* out,
+                              const shared_ptr[CDataType]& type)
+
+    CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+
+    CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
+                          const shared_ptr[CDataType]& type,
+                          shared_ptr[CArray]* out)
+
+    CStatus PandasObjectsToArrow(CMemoryPool* pool, object ao, object mo,
+                                 const shared_ptr[CDataType]& type,
+                                 shared_ptr[CArray]* out)
+
+    CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
+                            shared_ptr[CTensor]* out);
+
+    CStatus TensorToNdarray(const CTensor& tensor, object base,
+                            PyObject** out)
+
+    CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
+                                 object py_ref, PyObject** out)
+
+    CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
+                                  object py_ref, PyObject** out)
+
+    CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
+                                 int nthreads, PyObject** out)
+
+    void c_set_default_memory_pool \
+        " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
+
+    CMemoryPool* c_get_memory_pool \
+        " arrow::py::get_memory_pool"()
+
+    cdef cppclass PyBuffer(CBuffer):
+        PyBuffer(object o)
+
+    cdef cppclass PyReadableFile(RandomAccessFile):
+        PyReadableFile(object fo)
+
+    cdef cppclass PyOutputStream(OutputStream):
+        PyOutputStream(object fo)
+
+    cdef cppclass PyBytesReader(CBufferReader):
+        PyBytesReader(object fo)
+
+cdef extern from 'arrow/python/init.h':
+    int arrow_init_numpy() except -1
+
+cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
+    void set_numpy_nan(object o)

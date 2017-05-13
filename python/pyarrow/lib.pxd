@@ -17,11 +17,30 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-
 from cpython cimport PyObject
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
+
+
+from pyarrow.includes.libarrow cimport CStatus
+
+
+cdef int check_status(const CStatus& status) nogil except -1
+
+
+cdef class MemoryPool:
+    cdef:
+        CMemoryPool* pool
+
+    cdef init(self, CMemoryPool* pool)
+
+
+cdef class LoggingMemoryPool(MemoryPool):
+    pass
+
+
+cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool)
 
 
 cdef class DataType:
@@ -237,11 +256,82 @@ cdef class DictionaryArray(Array):
 
 
 cdef wrap_array_output(PyObject* output)
-cdef DataType box_data_type(const shared_ptr[CDataType]& type)
-cdef Field box_field(const shared_ptr[CField]& field)
-cdef Schema box_schema(const shared_ptr[CSchema]& schema)
-cdef object box_array(const shared_ptr[CArray]& sp_array)
-cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef object box_scalar(DataType type,
                        const shared_ptr[CArray]& sp_array,
                        int64_t index)
+
+
+cdef class ChunkedArray:
+    cdef:
+        shared_ptr[CChunkedArray] sp_chunked_array
+        CChunkedArray* chunked_array
+
+    cdef init(self, const shared_ptr[CChunkedArray]& chunked_array)
+    cdef _check_nullptr(self)
+
+
+cdef class Column:
+    cdef:
+        shared_ptr[CColumn] sp_column
+        CColumn* column
+
+    cdef init(self, const shared_ptr[CColumn]& column)
+    cdef _check_nullptr(self)
+
+
+cdef class Table:
+    cdef:
+        shared_ptr[CTable] sp_table
+        CTable* table
+
+    cdef init(self, const shared_ptr[CTable]& table)
+    cdef _check_nullptr(self)
+
+
+cdef class RecordBatch:
+    cdef:
+        shared_ptr[CRecordBatch] sp_batch
+        CRecordBatch* batch
+        Schema _schema
+
+    cdef init(self, const shared_ptr[CRecordBatch]& table)
+    cdef _check_nullptr(self)
+
+
+cdef class Buffer:
+    cdef:
+        shared_ptr[CBuffer] buffer
+        Py_ssize_t shape[1]
+        Py_ssize_t strides[1]
+
+    cdef init(self, const shared_ptr[CBuffer]& buffer)
+
+
+cdef class NativeFile:
+    cdef:
+        shared_ptr[RandomAccessFile] rd_file
+        shared_ptr[OutputStream] wr_file
+        bint is_readable
+        bint is_writeable
+        bint is_open
+        bint own_file
+
+    # By implementing these "virtual" functions (all functions in Cython
+    # extension classes are technically virtual in the C++ sense) we can expose
+    # the arrow::io abstract file interfaces to other components throughout the
+    # suite of Arrow C++ libraries
+    cdef read_handle(self, shared_ptr[RandomAccessFile]* file)
+    cdef write_handle(self, shared_ptr[OutputStream]* file)
+
+cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
+cdef get_writer(object source, shared_ptr[OutputStream]* writer)
+
+cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
+cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
+cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
+cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
+cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
+cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
+cdef public object pyarrow_wrap_column(const shared_ptr[CColumn]& ccolumn)
+cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)

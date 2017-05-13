@@ -15,31 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-
-from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.common cimport PyObject_to_object
-cimport pyarrow.includes.pyarrow as pyarrow
-from pyarrow._error cimport check_status
-from pyarrow._memory cimport MemoryPool, maybe_unbox_memory_pool
-cimport cpython as cp
-
-
-import datetime
-import decimal as _pydecimal
-import numpy as np
-import six
-import pyarrow._config
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
-
-
-cdef _pandas():
-    import pandas as pd
-    return pd
-
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -186,7 +162,7 @@ cdef class Field:
     cdef init(self, const shared_ptr[CField]& field):
         self.sp_field = field
         self.field = field.get()
-        self.type = box_data_type(field.get().type())
+        self.type = pyarrow_wrap_data_type(field.get().type())
 
     def equals(self, Field other):
         """
@@ -244,7 +220,7 @@ cdef class Field:
         with nogil:
             check_status(self.field.AddMetadata(c_meta, &new_field))
 
-        return box_field(new_field)
+        return pyarrow_wrap_field(new_field)
 
     def remove_metadata(self):
         """
@@ -257,7 +233,7 @@ cdef class Field:
         cdef shared_ptr[CField] new_field
         with nogil:
             new_field = self.field.RemoveMetadata()
-        return box_field(new_field)
+        return pyarrow_wrap_field(new_field)
 
 
 cdef class Schema:
@@ -274,7 +250,7 @@ cdef class Schema:
 
         cdef Field result = Field()
         result.init(self.schema.field(i))
-        result.type = box_data_type(result.field.type())
+        result.type = pyarrow_wrap_data_type(result.field.type())
 
         return result
 
@@ -322,7 +298,7 @@ cdef class Schema:
         -------
         field: pyarrow.Field
         """
-        return box_field(self.schema.GetFieldByName(tobytes(name)))
+        return pyarrow_wrap_field(self.schema.GetFieldByName(tobytes(name)))
 
     def add_metadata(self, dict metadata):
         """
@@ -344,7 +320,7 @@ cdef class Schema:
         with nogil:
             check_status(self.schema.AddMetadata(c_meta, &new_schema))
 
-        return box_schema(new_schema)
+        return pyarrow_wrap_schema(new_schema)
 
     def remove_metadata(self):
         """
@@ -357,7 +333,7 @@ cdef class Schema:
         cdef shared_ptr[CSchema] new_schema
         with nogil:
             new_schema = self.schema.RemoveMetadata()
-        return box_schema(new_schema)
+        return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
         return frombytes(self.schema.ToString())
@@ -383,7 +359,7 @@ cdef DataType primitive_type(Type type):
         return _type_cache[type]
 
     cdef DataType out = DataType()
-    out.init(pyarrow.GetPrimitiveType(type))
+    out.init(GetPrimitiveType(type))
 
     _type_cache[type] = out
     return out
@@ -604,7 +580,7 @@ def float64():
 cpdef DataType decimal(int precision, int scale=0):
     cdef shared_ptr[CDataType] decimal_type
     decimal_type.reset(new CDecimalType(precision, scale))
-    return box_data_type(decimal_type)
+    return pyarrow_wrap_data_type(decimal_type)
 
 
 def string():
@@ -629,7 +605,7 @@ def binary(int length=-1):
 
     cdef shared_ptr[CDataType] fixed_size_binary_type
     fixed_size_binary_type.reset(new CFixedSizeBinaryType(length))
-    return box_data_type(fixed_size_binary_type)
+    return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
 def list_(DataType value_type):
@@ -695,49 +671,15 @@ def schema(fields):
     return result
 
 
-cdef DataType box_data_type(const shared_ptr[CDataType]& type):
-    cdef:
-        DataType out
-
-    if type.get() == NULL:
-        return None
-
-    if type.get().id() == _Type_DICTIONARY:
-        out = DictionaryType()
-    elif type.get().id() == _Type_TIMESTAMP:
-        out = TimestampType()
-    elif type.get().id() == _Type_FIXED_SIZE_BINARY:
-        out = FixedSizeBinaryType()
-    elif type.get().id() == _Type_DECIMAL:
-        out = DecimalType()
-    else:
-        out = DataType()
-
-    out.init(type)
-    return out
-
-cdef Field box_field(const shared_ptr[CField]& field):
-    if field.get() == NULL:
-        return None
-    cdef Field out = Field()
-    out.init(field)
-    return out
-
-cdef Schema box_schema(const shared_ptr[CSchema]& type):
-    cdef Schema out = Schema()
-    out.init_schema(type)
-    return out
-
-
 def from_numpy_dtype(object dtype):
     """
     Convert NumPy dtype to pyarrow.DataType
     """
     cdef shared_ptr[CDataType] c_type
     with nogil:
-        check_status(pyarrow.NumPyDtypeToArrow(dtype, &c_type))
+        check_status(NumPyDtypeToArrow(dtype, &c_type))
 
-    return box_data_type(c_type)
+    return pyarrow_wrap_data_type(c_type)
 
 
 NA = None
@@ -960,7 +902,7 @@ cdef class ListValue(ArrayValue):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = <CListArray*> sp_array.get()
-        self.value_type = box_data_type(self.ap.value_type())
+        self.value_type = pyarrow_wrap_data_type(self.ap.value_type())
 
     cdef getitem(self, int64_t i):
         cdef int64_t j = self.ap.value_offset(self.index) + i
@@ -1076,15 +1018,15 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
 
     pool = maybe_unbox_memory_pool(memory_pool)
     if type is None:
-        check_status(pyarrow.ConvertPySequence(sequence, pool, &sp_array))
+        check_status(ConvertPySequence(sequence, pool, &sp_array))
     else:
         check_status(
-            pyarrow.ConvertPySequence(
+            ConvertPySequence(
                 sequence, pool, &sp_array, type.sp_type
             )
         )
 
-    return box_array(sp_array)
+    return pyarrow_wrap_array(sp_array)
 
 
 
@@ -1093,7 +1035,7 @@ cdef class Array:
     cdef init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
-        self.type = box_data_type(self.sp_array.get().type())
+        self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,
@@ -1172,22 +1114,22 @@ cdef class Array:
             if type is not None:
                 c_type = type.sp_type
             with nogil:
-                check_status(pyarrow.PandasObjectsToArrow(
+                check_status(PandasObjectsToArrow(
                     pool, values, mask, c_type, &out))
         else:
             values, type = maybe_coerce_datetime64(
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
             if type is None:
-                check_status(pyarrow.NumPyDtypeToArrow(values.dtype, &c_type))
+                check_status(NumPyDtypeToArrow(values.dtype, &c_type))
             else:
                 c_type = type.sp_type
 
             with nogil:
-                check_status(pyarrow.PandasToArrow(
+                check_status(PandasToArrow(
                     pool, values, mask, c_type, &out))
 
-        return box_array(out)
+        return pyarrow_wrap_array(out)
 
     property null_count:
 
@@ -1271,7 +1213,7 @@ cdef class Array:
         else:
             result = self.ap.Slice(offset, length)
 
-        return box_array(result)
+        return pyarrow_wrap_array(result)
 
     def to_pandas(self):
         """
@@ -1287,8 +1229,7 @@ cdef class Array:
             PyObject* out
 
         with nogil:
-            check_status(
-                pyarrow.ConvertArrayToPandas(self.sp_array, self, &out))
+            check_status(ConvertArrayToPandas(self.sp_array, self, &out))
         return wrap_array_output(out)
 
     def to_pylist(self):
@@ -1303,7 +1244,7 @@ cdef class Tensor:
     cdef init(self, const shared_ptr[CTensor]& sp_tensor):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
-        self.type = box_data_type(self.tp.type())
+        self.type = pyarrow_wrap_data_type(self.tp.type())
 
     def __repr__(self):
         return """<pyarrow.Tensor>
@@ -1314,9 +1255,8 @@ strides: {2}""".format(self.type, self.shape, self.strides)
     @staticmethod
     def from_numpy(obj):
         cdef shared_ptr[CTensor] ctensor
-        check_status(pyarrow.NdarrayToTensor(default_memory_pool(),
-                                             obj, &ctensor))
-        return box_tensor(ctensor)
+        check_status(NdarrayToTensor(c_default_memory_pool(), obj, &ctensor))
+        return pyarrow_wrap_tensor(ctensor)
 
     def to_numpy(self):
         """
@@ -1325,7 +1265,7 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         cdef:
             PyObject* out
 
-        check_status(pyarrow.TensorToNdarray(deref(self.tp), self, &out))
+        check_status(TensorToNdarray(deref(self.tp), self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):
@@ -1502,7 +1442,7 @@ cdef class DictionaryArray(Array):
             cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
             if self._dictionary is None:
-                self._dictionary = box_array(darr.dictionary())
+                self._dictionary = pyarrow_wrap_array(darr.dictionary())
 
             return self._dictionary
 
@@ -1512,7 +1452,7 @@ cdef class DictionaryArray(Array):
             cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
 
             if self._indices is None:
-                self._indices = box_array(darr.indices())
+                self._indices = pyarrow_wrap_array(darr.indices())
 
             return self._indices
 
@@ -1596,28 +1536,6 @@ cdef dict _array_classes = {
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL: DecimalArray,
 }
-
-cdef object box_array(const shared_ptr[CArray]& sp_array):
-    if sp_array.get() == NULL:
-        raise ValueError('Array was NULL')
-
-    cdef CDataType* data_type = sp_array.get().type().get()
-
-    if data_type == NULL:
-        raise ValueError('Array data type was NULL')
-
-    cdef Array arr = _array_classes[data_type.id()]()
-    arr.init(sp_array)
-    return arr
-
-
-cdef object box_tensor(const shared_ptr[CTensor]& sp_tensor):
-    if sp_tensor.get() == NULL:
-        raise ValueError('Tensor was NULL')
-
-    cdef Tensor tensor = Tensor()
-    tensor.init(sp_tensor)
-    return tensor
 
 
 cdef object get_series_values(object obj):

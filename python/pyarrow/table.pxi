@@ -15,31 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-
-from cython.operator cimport dereference as deref
-
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.common cimport *
-cimport pyarrow.includes.pyarrow as pyarrow
-from pyarrow._array cimport (Array, box_array, wrap_array_output,
-                             box_data_type, box_schema, DataType, Field)
-from pyarrow._error cimport check_status
-cimport cpython
-
-import pyarrow._config
-from pyarrow._error import ArrowException
-from pyarrow._array import field
-from pyarrow.compat import frombytes, tobytes
-
 from collections import OrderedDict
-
-
-cdef _pandas():
-    import pandas as pd
-    return pd
 
 
 cdef class ChunkedArray:
@@ -104,10 +80,10 @@ cdef class ChunkedArray:
 
         Returns
         -------
-        pyarrow.array.Array
+        pyarrow.Array
         """
         self._check_nullptr()
-        return box_array(self.chunked_array.chunk(i))
+        return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
     def iterchunks(self):
         for i in range(self.num_chunks):
@@ -150,7 +126,7 @@ cdef class Column:
 
         cdef shared_ptr[CColumn] sp_column
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
-        return box_column(sp_column)
+        return pyarrow_wrap_column(sp_column)
 
     def to_pandas(self):
         """
@@ -163,8 +139,8 @@ cdef class Column:
         cdef:
             PyObject* out
 
-        check_status(pyarrow.ConvertColumnToPandas(self.sp_column,
-                                                   self, &out))
+        check_status(libarrow.ConvertColumnToPandas(self.sp_column,
+                                                    self, &out))
 
         return _pandas().Series(wrap_array_output(out), name=self.name)
 
@@ -254,9 +230,9 @@ cdef class Column:
 
         Returns
         -------
-        pyarrow.schema.DataType
+        pyarrow.DataType
         """
-        return box_data_type(self.column.type())
+        return pyarrow_wrap_data_type(self.column.type())
 
     @property
     def data(self):
@@ -265,7 +241,7 @@ cdef class Column:
 
         Returns
         -------
-        pyarrow.table.ChunkedArray
+        pyarrow.ChunkedArray
         """
         cdef ChunkedArray chunked_array = ChunkedArray()
         chunked_array.init(self.column.data())
@@ -396,7 +372,7 @@ cdef class RecordBatch:
 
         Returns
         -------
-        pyarrow.schema.Schema
+        pyarrow.Schema
         """
         cdef Schema schema
         self._check_nullptr()
@@ -408,7 +384,7 @@ cdef class RecordBatch:
         return self._schema
 
     def __getitem__(self, i):
-        return box_array(self.batch.column(i))
+        return pyarrow_wrap_array(self.batch.column(i))
 
     def slice(self, offset=0, length=None):
         """
@@ -436,7 +412,7 @@ cdef class RecordBatch:
         else:
             result = self.batch.Slice(offset, length)
 
-        return batch_from_cbatch(result)
+        return pyarrow_wrap_batch(result)
 
     def equals(self, RecordBatch other):
         cdef:
@@ -492,7 +468,7 @@ cdef class RecordBatch:
 
         Returns
         -------
-        pyarrow.table.RecordBatch
+        pyarrow.RecordBatch
         """
         names, arrays, metadata = _dataframe_to_arrays(df, False, schema)
         return cls.from_arrays(arrays, names, metadata)
@@ -511,7 +487,7 @@ cdef class RecordBatch:
 
         Returns
         -------
-        pyarrow.table.RecordBatch
+        pyarrow.RecordBatch
         """
         cdef:
             Array arr
@@ -534,7 +510,7 @@ cdef class RecordBatch:
             c_arrays.push_back(arr.sp_array)
 
         batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
-        return batch_from_cbatch(batch)
+        return pyarrow_wrap_batch(batch)
 
 
 cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
@@ -548,8 +524,8 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
     from pyarrow.compat import DatetimeTZDtype
 
     with nogil:
-        check_status(pyarrow.ConvertTableToPandas(table, nthreads,
-                                                  &result_obj))
+        check_status(libarrow.ConvertTableToPandas(table, nthreads,
+                                                   &result_obj))
 
     result = PyObject_to_object(result_obj)
 
@@ -652,7 +628,7 @@ cdef class Table:
 
         Returns
         -------
-        pyarrow.table.Table
+        pyarrow.Table
 
         Examples
         --------
@@ -664,7 +640,7 @@ cdef class Table:
             ...     'str': ['a', 'b']
             ... })
         >>> pa.Table.from_pandas(df)
-        <pyarrow.table.Table object at 0x7f05d1fb1b40>
+        <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         names, arrays, metadata = _dataframe_to_arrays(df,
                                              timestamps_to_ms=timestamps_to_ms,
@@ -686,7 +662,7 @@ cdef class Table:
 
         Returns
         -------
-        pyarrow.table.Table
+        pyarrow.Table
 
         """
         cdef:
@@ -713,7 +689,7 @@ cdef class Table:
                 raise ValueError(type(arrays[i]))
 
         table.reset(new CTable(schema, columns))
-        return table_from_ctable(table)
+        return pyarrow_wrap_table(table)
 
     @staticmethod
     def from_batches(batches):
@@ -737,7 +713,7 @@ cdef class Table:
         with nogil:
             check_status(CTable.FromRecordBatches(c_batches, &c_table))
 
-        return table_from_ctable(c_table)
+        return pyarrow_wrap_table(c_table)
 
     def to_pandas(self, nthreads=None):
         """
@@ -755,7 +731,7 @@ cdef class Table:
         pandas.DataFrame
         """
         if nthreads is None:
-            nthreads = pyarrow._config.cpu_count()
+            nthreads = cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
         return _pandas().DataFrame(mgr)
@@ -782,9 +758,9 @@ cdef class Table:
 
         Returns
         -------
-        pyarrow.schema.Schema
+        pyarrow.Schema
         """
-        return box_schema(self.table.schema())
+        return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, index):
         """
@@ -796,7 +772,7 @@ cdef class Table:
 
         Returns
         -------
-        pyarrow.table.Column
+        pyarrow.Column
         """
         self._check_nullptr()
         cdef Column column = Column()
@@ -863,7 +839,7 @@ cdef class Table:
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
 
-        return table_from_ctable(c_table)
+        return pyarrow_wrap_table(c_table)
 
     def append_column(self, Column column):
         """
@@ -880,7 +856,7 @@ cdef class Table:
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
 
-        return table_from_ctable(c_table)
+        return pyarrow_wrap_table(c_table)
 
 
 def concat_tables(tables):
@@ -905,22 +881,4 @@ def concat_tables(tables):
     with nogil:
         check_status(ConcatenateTables(c_tables, &c_result))
 
-    return table_from_ctable(c_result)
-
-
-cdef object box_column(const shared_ptr[CColumn]& ccolumn):
-    cdef Column column = Column()
-    column.init(ccolumn)
-    return column
-
-
-cdef api object table_from_ctable(const shared_ptr[CTable]& ctable):
-    cdef Table table = Table()
-    table.init(ctable)
-    return table
-
-
-cdef api object batch_from_cbatch(const shared_ptr[CRecordBatch]& cbatch):
-    cdef RecordBatch batch = RecordBatch()
-    batch.init(cbatch)
-    return batch
+    return pyarrow_wrap_table(c_result)
