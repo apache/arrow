@@ -730,6 +730,8 @@ RecordBatchStreamWriter::RecordBatchStreamWriter() {
   impl_.reset(new RecordBatchStreamWriterImpl());
 }
 
+RecordBatchStreamWriter::~RecordBatchStreamWriter() {}
+
 Status RecordBatchStreamWriter::WriteRecordBatch(
     const RecordBatch& batch, bool allow_64bit) {
   return impl_->WriteRecordBatch(batch, allow_64bit);

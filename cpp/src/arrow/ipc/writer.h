@@ -75,6 +75,8 @@ class ARROW_EXPORT RecordBatchWriter {
 /// format
 class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
  public:
+  virtual ~RecordBatchStreamWriter();
+
   /// Create a new writer from stream sink and schema. User is responsible for
   /// closing the actual OutputStream.
   ///

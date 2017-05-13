@@ -64,6 +64,8 @@ class ARROW_EXPORT RecordBatchReader {
 /// \brief Synchronous batch stream reader that reads from io::InputStream
 class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
  public:
+  virtual ~RecordBatchStreamReader();
+
   /// Create batch reader from InputStream
   ///
   /// \param(in) stream an input stream instance

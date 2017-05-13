@@ -273,6 +273,8 @@ RecordBatchStreamReader::RecordBatchStreamReader() {
   impl_.reset(new RecordBatchStreamReaderImpl());
 }
 
+RecordBatchStreamReader::~RecordBatchStreamReader() {}
+
 Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
     std::shared_ptr<RecordBatchStreamReader>* reader) {
   // Private ctor
