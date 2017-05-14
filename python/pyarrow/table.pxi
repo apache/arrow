@@ -762,24 +762,37 @@ cdef class Table:
         """
         return pyarrow_wrap_schema(self.table.schema())
 
-    def column(self, index):
+    def column(self, int64_t i):
         """
         Select a column by its numeric index.
 
         Parameters
         ----------
-        index: int
+        i : int
 
         Returns
         -------
         pyarrow.Column
         """
         self._check_nullptr()
-        cdef Column column = Column()
+
+        cdef:
+            Column column = Column()
+            int64_t num_columns = self.num_columns
+            int64_t index
+
+        if not -num_columns <= i < num_columns:
+            raise IndexError(
+                'Table column index {:d} is out of range'.format(i)
+            )
+
+        index = i if i >= 0 else num_columns + i
+        assert index >= 0
+
         column.init(self.table.column(index))
         return column
 
-    def __getitem__(self, i):
+    def __getitem__(self, int64_t i):
         return self.column(i)
 
     def itercolumns(self):

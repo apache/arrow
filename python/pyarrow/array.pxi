@@ -244,12 +244,22 @@ cdef class Schema:
     def __len__(self):
         return self.schema.num_fields()
 
-    def __getitem__(self, i):
-        if i < 0 or i >= len(self):
-            raise IndexError("{0} is out of bounds".format(i))
+    def __getitem__(self, int64_t i):
 
-        cdef Field result = Field()
-        result.init(self.schema.field(i))
+        cdef:
+            Field result = Field()
+            int64_t num_fields = self.schema.num_fields()
+            int64_t index
+
+        if not -num_fields <= i < num_fields:
+            raise IndexError(
+                'Schema field index {:d} is out of range'.format(i)
+            )
+
+        index = i if i >= 0 else num_fields + i
+        assert index >= 0
+
+        result.init(self.schema.field(index))
         result.type = pyarrow_wrap_data_type(result.field.type())
 
         return result
