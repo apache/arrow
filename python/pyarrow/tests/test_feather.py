@@ -61,7 +61,8 @@ class TestFeatherReader(unittest.TestCase):
         return counts
 
     def _check_pandas_roundtrip(self, df, expected=None, path=None,
-                                columns=None, null_counts=None):
+                                columns=None, null_counts=None,
+                                nthreads=1):
         if path is None:
             path = random_path()
 
@@ -70,7 +71,7 @@ class TestFeatherReader(unittest.TestCase):
         if not os.path.exists(path):
             raise Exception('file not written')
 
-        result = read_feather(path, columns)
+        result = read_feather(path, columns, nthreads=nthreads)
         if expected is None:
             expected = df
 
@@ -292,6 +293,12 @@ class TestFeatherReader(unittest.TestCase):
     def test_empty_strings(self):
         df = pd.DataFrame({'strings': [''] * 10})
         self._check_pandas_roundtrip(df)
+
+    def test_multithreaded_read(self):
+        data = {'c{0}'.format(i): [''] * 10
+                for i in range(100)}
+        df = pd.DataFrame(data)
+        self._check_pandas_roundtrip(df, nthreads=4)
 
     def test_nan_as_null(self):
         # Create a nan that is not numpy.nan

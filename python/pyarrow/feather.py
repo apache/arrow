@@ -37,7 +37,7 @@ class FeatherReader(ext.FeatherReader):
         self.source = source
         self.open(source)
 
-    def read(self, columns=None):
+    def read(self, columns=None, nthreads=1):
         if columns is not None:
             column_set = set(columns)
         else:
@@ -53,7 +53,7 @@ class FeatherReader(ext.FeatherReader):
                 names.append(name)
 
         table = Table.from_arrays(columns, names=names)
-        return table.to_pandas()
+        return table.to_pandas(nthreads=nthreads)
 
 
 class FeatherWriter(object):
@@ -118,7 +118,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None):
+def read_feather(source, columns=None, nthreads=1):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -128,10 +128,12 @@ def read_feather(source, columns=None):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
+    nthreads : int, default 1
+        Number of CPU threads to use when reading to pandas.DataFrame
 
     Returns
     -------
     df : pandas.DataFrame
     """
     reader = FeatherReader(source)
-    return reader.read(columns=columns)
+    return reader.read(columns=columns, nthreads=nthreads)
