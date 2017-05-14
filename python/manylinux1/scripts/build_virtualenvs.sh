@@ -28,7 +28,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON)"
 
     echo "=== (${PYTHON}) Installing build dependencies ==="
-    $PIPI_IO "numpy==1.9.0"
+    $PIPI_IO "numpy==1.10.1"
     $PIPI_IO "cython==0.25.2"
     $PIPI_IO "pandas==0.20.1"
     $PIPI_IO "virtualenv==15.1.0"
