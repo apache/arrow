@@ -1023,7 +1023,8 @@ static inline PyObject* NewArray1DFromType(
   }
 
   set_numpy_metadata(type, arrow_type, descr);
-  return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data, 0, nullptr);
+  return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data,
+      NPY_ARRAY_OWNDATA | NPY_ARRAY_CARRAY, nullptr);
 }
 
 class PandasBlock {
@@ -1078,18 +1079,18 @@ class PandasBlock {
     PyObject* block_arr;
     if (ndim == 2) {
       npy_intp block_dims[2] = {num_columns_, num_rows_};
-      block_arr = PyArray_NewFromDescr(
-          &PyArray_Type, descr, 2, block_dims, nullptr, nullptr, 0, nullptr);
+      block_arr = PyArray_SimpleNewFromDescr(2, block_dims, descr);
     } else {
       npy_intp block_dims[1] = {num_rows_};
-      block_arr = PyArray_NewFromDescr(
-          &PyArray_Type, descr, 1, block_dims, nullptr, nullptr, 0, nullptr);
+      block_arr = PyArray_SimpleNewFromDescr(1, block_dims, descr);
     }
 
     if (block_arr == NULL) {
       // TODO(wesm): propagating Python exception
       return Status::OK();
     }
+
+    PyArray_ENABLEFLAGS(reinterpret_cast<PyArrayObject*>(block_arr), NPY_ARRAY_OWNDATA);
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1357,8 +1358,6 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 class ObjectBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-  virtual ~ObjectBlock() {}
-
   Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1416,7 +1415,6 @@ template <int ARROW_TYPE, typename C_TYPE>
 class IntBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override {
     return AllocateNDArray(arrow_traits<ARROW_TYPE>::npy_type);
   }
@@ -1450,7 +1448,6 @@ using Int64Block = IntBlock<Type::INT64, int64_t>;
 class Float32Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT32); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1470,7 +1467,6 @@ class Float32Block : public PandasBlock {
 class Float64Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT64); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1523,7 +1519,6 @@ class Float64Block : public PandasBlock {
 class BoolBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_BOOL); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1544,7 +1539,6 @@ class BoolBlock : public PandasBlock {
 class DatetimeBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status AllocateDatetime(int ndim) {
     RETURN_NOT_OK(AllocateNDArray(NPY_DATETIME, ndim));
 
@@ -1629,7 +1623,6 @@ template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
-
   Status Allocate() override {
     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
 
@@ -1960,6 +1953,9 @@ class DataFrameBlockCreator {
       PyObject* item;
       RETURN_NOT_OK(it.second->GetPyResult(&item));
       if (PyList_Append(list, item) < 0) { RETURN_IF_PYERROR(); }
+
+      // ARROW-1017; PyList_Append increments object refcount
+      Py_DECREF(item);
     }
     return Status::OK();
   }
@@ -2044,6 +2040,9 @@ class ArrowDeserializer {
 
     // Arrow data is immutable.
     PyArray_CLEARFLAGS(arr_, NPY_ARRAY_WRITEABLE);
+
+    // Arrow data is owned by another
+    PyArray_CLEARFLAGS(arr_, NPY_ARRAY_OWNDATA);
 
     return Status::OK();
   }
