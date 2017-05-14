@@ -55,13 +55,13 @@ First, let's create a small record batch:
    batch.num_columns
 
 Now, we can begin writing a stream containing some number of these batches. For
-this we use :class:`~pyarrow.BatchStreamWriter`, which can write to a writeable
+this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a writeable
 ``NativeFile`` object or a writeable Python object:
 
 .. ipython:: python
 
    sink = pa.InMemoryOutputStream()
-   writer = pa.BatchStreamWriter(sink, batch.schema)
+   writer = pa.RecordBatchStreamWriter(sink, batch.schema)
 
 Here we used an in-memory Arrow buffer stream, but this could have been a
 socket or some other IO sink.
@@ -80,11 +80,12 @@ particular stream. Now we can do:
    buf.size
 
 Now ``buf`` contains the complete stream as an in-memory byte buffer. We can
-read such a stream with :class:`~pyarrow.BatchStreamReader`:
+read such a stream with :class:`~pyarrow.RecordBatchStreamReader` or the
+convenience function ``pyarrow.open_stream``:
 
 .. ipython:: python
 
-   reader = pa.BatchStreamReader(buf)
+   reader = pa.open_stream(buf)
    reader.schema
 
    batches = [b for b in reader]
@@ -103,13 +104,13 @@ batches are also zero-copy and do not allocate any new memory on read.
 Writing and Reading Random Access Files
 ---------------------------------------
 
-The :class:`~pyarrow.BatchFileWriter` has the same API as
-:class:`~pyarrow.BatchStreamWriter`:
+The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
+:class:`~pyarrow.RecordBatchStreamWriter`:
 
 .. ipython:: python
 
    sink = pa.InMemoryOutputStream()
-   writer = pa.BatchFileWriter(sink, batch.schema)
+   writer = pa.RecordBatchFileWriter(sink, batch.schema)
 
    for i in range(10):
       writer.write_batch(batch)
@@ -118,14 +119,14 @@ The :class:`~pyarrow.BatchFileWriter` has the same API as
    buf = sink.get_result()
    buf.size
 
-The difference between :class:`~pyarrow.BatchFileReader` and
-:class:`~pyarrow.BatchStreamReader` is that the input source must have a
+The difference between :class:`~pyarrow.RecordBatchFileReader` and
+:class:`~pyarrow.RecordBatchStreamReader` is that the input source must have a
 ``seek`` method for random access. The stream reader only requires read
-operations:
+operations. We can also use the ``pyarrow.open_file`` method to open a file:
 
 .. ipython:: python
 
-   reader = pa.BatchFileReader(buf)
+   reader = pa.open_file(buf)
 
 Because we have access to the entire payload, we know the number of record
 batches in the file, and can read any at random:
