@@ -24,5 +24,5 @@
 
 #include <arrow-glib/stream-reader.h>
 
-GArrowStreamReader *garrow_stream_reader_new_raw(std::shared_ptr<arrow::ipc::StreamReader> *arrow_stream_reader);
-std::shared_ptr<arrow::ipc::StreamReader> garrow_stream_reader_get_raw(GArrowStreamReader *stream_reader);
+GArrowStreamReader *garrow_stream_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_stream_reader);
+std::shared_ptr<arrow::ipc::RecordBatchStreamReader> garrow_stream_reader_get_raw(GArrowStreamReader *stream_reader);

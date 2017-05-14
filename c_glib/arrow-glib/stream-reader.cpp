@@ -43,7 +43,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GArrowStreamReaderPrivate_ {
-  std::shared_ptr<arrow::ipc::StreamReader> stream_reader;
+  std::shared_ptr<arrow::ipc::RecordBatchStreamReader> stream_reader;
 } GArrowStreamReaderPrivate;
 
 enum {
@@ -85,7 +85,7 @@ garrow_stream_reader_set_property(GObject *object,
   switch (prop_id) {
   case PROP_STREAM_READER:
     priv->stream_reader =
-      *static_cast<std::shared_ptr<arrow::ipc::StreamReader> *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -124,8 +124,8 @@ garrow_stream_reader_class_init(GArrowStreamReaderClass *klass)
   gobject_class->get_property = garrow_stream_reader_get_property;
 
   spec = g_param_spec_pointer("stream-reader",
-                              "ipc::StreamReader",
-                              "The raw std::shared<arrow::ipc::StreamReader> *",
+                              "ipc::RecordBatchStreamReader",
+                              "The raw std::shared<arrow::ipc::RecordBatchStreamReader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STREAM_READER, spec);
@@ -143,10 +143,10 @@ GArrowStreamReader *
 garrow_stream_reader_new(GArrowInputStream *stream,
                          GError **error)
 {
-  std::shared_ptr<arrow::ipc::StreamReader> arrow_stream_reader;
+  std::shared_ptr<arrow::ipc::RecordBatchStreamReader> arrow_stream_reader;
   auto status =
-    arrow::ipc::StreamReader::Open(garrow_input_stream_get_raw(stream),
-                                   &arrow_stream_reader);
+    arrow::ipc::RecordBatchStreamReader::Open(garrow_input_stream_get_raw(stream),
+                                              &arrow_stream_reader);
   if (garrow_error_check(error, status, "[ipc][stream-reader][open]")) {
     return garrow_stream_reader_new_raw(&arrow_stream_reader);
   } else {
@@ -179,7 +179,7 @@ garrow_stream_reader_get_schema(GArrowStreamReader *stream_reader)
  */
 GArrowRecordBatch *
 garrow_stream_reader_get_next_record_batch(GArrowStreamReader *stream_reader,
-                                               GError **error)
+                                           GError **error)
 {
   auto arrow_stream_reader =
     garrow_stream_reader_get_raw(stream_reader);
@@ -202,7 +202,7 @@ garrow_stream_reader_get_next_record_batch(GArrowStreamReader *stream_reader,
 G_END_DECLS
 
 GArrowStreamReader *
-garrow_stream_reader_new_raw(std::shared_ptr<arrow::ipc::StreamReader> *arrow_stream_reader)
+garrow_stream_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_stream_reader)
 {
   auto stream_reader =
     GARROW_STREAM_READER(g_object_new(GARROW_TYPE_STREAM_READER,
@@ -211,7 +211,7 @@ garrow_stream_reader_new_raw(std::shared_ptr<arrow::ipc::StreamReader> *arrow_st
   return stream_reader;
 }
 
-std::shared_ptr<arrow::ipc::StreamReader>
+std::shared_ptr<arrow::ipc::RecordBatchStreamReader>
 garrow_stream_reader_get_raw(GArrowStreamReader *stream_reader)
 {
   GArrowStreamReaderPrivate *priv;

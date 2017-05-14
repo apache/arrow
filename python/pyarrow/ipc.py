@@ -20,7 +20,7 @@
 import pyarrow.lib as lib
 
 
-class StreamReader(lib._StreamReader):
+class RecordBatchStreamReader(lib._RecordBatchReader):
     """
     Reader for the Arrow streaming binary format
 
@@ -37,7 +37,7 @@ class StreamReader(lib._StreamReader):
             yield self.get_next_batch()
 
 
-class StreamWriter(lib._StreamWriter):
+class RecordBatchStreamWriter(lib._RecordBatchWriter):
     """
     Writer for the Arrow streaming binary format
 
@@ -52,7 +52,7 @@ class StreamWriter(lib._StreamWriter):
         self._open(sink, schema)
 
 
-class FileReader(lib._FileReader):
+class RecordBatchFileReader(lib._RecordBatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -68,7 +68,7 @@ class FileReader(lib._FileReader):
         self._open(source, footer_offset=footer_offset)
 
 
-class FileWriter(lib._FileWriter):
+class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     """
     Writer to create the Arrow binary file format
 
@@ -81,3 +81,41 @@ class FileWriter(lib._FileWriter):
     """
     def __init__(self, sink, schema):
         self._open(sink, schema)
+
+
+def open_stream(source):
+    """
+    Create reader for Arrow streaming format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchStreamReader
+    """
+    return RecordBatchStreamReader(source)
+
+
+def open_file(source, footer_offset=None):
+    """
+    Create reader for Arrow file format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchFileReader
+    """
+    return RecordBatchFileReader(source, footer_offset=footer_offset)

@@ -70,13 +70,13 @@ class TestFile(MessagingTest, unittest.TestCase):
     # Also tests writing zero-copy NumPy array with additional padding
 
     def _get_writer(self, sink, schema):
-        return pa.FileWriter(sink, schema)
+        return pa.RecordBatchFileWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
 
-        reader = pa.FileReader(file_contents)
+        reader = pa.open_file(file_contents)
 
         assert reader.num_record_batches == len(batches)
 
@@ -89,7 +89,7 @@ class TestFile(MessagingTest, unittest.TestCase):
         batches = self.write_batches()
         file_contents = self._get_source()
 
-        reader = pa.FileReader(file_contents)
+        reader = pa.open_file(file_contents)
 
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
@@ -99,12 +99,12 @@ class TestFile(MessagingTest, unittest.TestCase):
 class TestStream(MessagingTest, unittest.TestCase):
 
     def _get_writer(self, sink, schema):
-        return pa.StreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(file_contents)
+        reader = pa.open_stream(file_contents)
 
         assert reader.schema.equals(batches[0].schema)
 
@@ -121,7 +121,7 @@ class TestStream(MessagingTest, unittest.TestCase):
     def test_read_all(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(file_contents)
+        reader = pa.open_stream(file_contents)
 
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
@@ -147,7 +147,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
             connection, client_address = self._sock.accept()
             try:
                 source = connection.makefile(mode='rb')
-                reader = pa.StreamReader(source)
+                reader = pa.open_stream(source)
                 self._schema = reader.schema
                 if self._do_read_all:
                     self._table = reader.read_all()
@@ -185,7 +185,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
         return self._sock.makefile(mode='wb')
 
     def _get_writer(self, sink, schema):
-        return pa.StreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         self.start_server(do_read_all=False)
@@ -241,12 +241,12 @@ def test_get_record_batch_size():
 
 
 def write_file(batch, sink):
-    writer = pa.FileWriter(sink, batch.schema)
+    writer = pa.RecordBatchFileWriter(sink, batch.schema)
     writer.write_batch(batch)
     writer.close()
 
 
 def read_file(source):
-    reader = pa.FileReader(source)
+    reader = pa.open_file(source)
     return [reader.get_batch(i)
             for i in range(reader.num_record_batches)]

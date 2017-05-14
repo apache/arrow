@@ -88,9 +88,9 @@ static inline bool NeedTruncate(
   return offset != 0 || min_length < buffer->size();
 }
 
-class RecordBatchWriter : public ArrayVisitor {
+class RecordBatchSerializer : public ArrayVisitor {
  public:
-  RecordBatchWriter(MemoryPool* pool, int64_t buffer_start_offset,
+  RecordBatchSerializer(MemoryPool* pool, int64_t buffer_start_offset,
       int max_recursion_depth, bool allow_64bit)
       : pool_(pool),
         max_recursion_depth_(max_recursion_depth),
@@ -99,7 +99,7 @@ class RecordBatchWriter : public ArrayVisitor {
     DCHECK_GT(max_recursion_depth, 0);
   }
 
-  virtual ~RecordBatchWriter() = default;
+  virtual ~RecordBatchSerializer() = default;
 
   Status VisitArray(const Array& arr) {
     if (max_recursion_depth_ <= 0) {
@@ -480,9 +480,9 @@ class RecordBatchWriter : public ArrayVisitor {
   bool allow_64bit_;
 };
 
-class DictionaryWriter : public RecordBatchWriter {
+class DictionaryWriter : public RecordBatchSerializer {
  public:
-  using RecordBatchWriter::RecordBatchWriter;
+  using RecordBatchSerializer::RecordBatchSerializer;
 
   Status WriteMetadataMessage(
       int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
@@ -500,7 +500,7 @@ class DictionaryWriter : public RecordBatchWriter {
     auto schema = std::make_shared<Schema>(fields);
     RecordBatch batch(schema, dictionary->length(), {dictionary});
 
-    return RecordBatchWriter::Write(batch, dst, metadata_length, body_length);
+    return RecordBatchSerializer::Write(batch, dst, metadata_length, body_length);
   }
 
  private:
@@ -521,7 +521,8 @@ Status AlignStreamPosition(io::OutputStream* stream) {
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
     io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
     MemoryPool* pool, int max_recursion_depth, bool allow_64bit) {
-  RecordBatchWriter writer(pool, buffer_start_offset, max_recursion_depth, allow_64bit);
+  RecordBatchSerializer writer(
+      pool, buffer_start_offset, max_recursion_depth, allow_64bit);
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 
@@ -581,17 +582,21 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 }
 
 // ----------------------------------------------------------------------
+
+RecordBatchWriter::~RecordBatchWriter() {}
+
+// ----------------------------------------------------------------------
 // Stream writer implementation
 
-class StreamWriter::StreamWriterImpl {
+class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
  public:
-  StreamWriterImpl()
+  RecordBatchStreamWriterImpl()
       : dictionary_memo_(std::make_shared<DictionaryMemo>()),
         pool_(default_memory_pool()),
         position_(-1),
         started_(false) {}
 
-  virtual ~StreamWriterImpl() = default;
+  virtual ~RecordBatchStreamWriterImpl() = default;
 
   Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
     sink_ = sink;
@@ -721,37 +726,40 @@ class StreamWriter::StreamWriterImpl {
   std::vector<FileBlock> record_batches_;
 };
 
-StreamWriter::StreamWriter() {
-  impl_.reset(new StreamWriterImpl());
+RecordBatchStreamWriter::RecordBatchStreamWriter() {
+  impl_.reset(new RecordBatchStreamWriterImpl());
 }
 
-Status StreamWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+RecordBatchStreamWriter::~RecordBatchStreamWriter() {}
+
+Status RecordBatchStreamWriter::WriteRecordBatch(
+    const RecordBatch& batch, bool allow_64bit) {
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
-StreamWriter::~StreamWriter() {}
-
-void StreamWriter::set_memory_pool(MemoryPool* pool) {
+void RecordBatchStreamWriter::set_memory_pool(MemoryPool* pool) {
   impl_->set_memory_pool(pool);
 }
 
-Status StreamWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    std::shared_ptr<StreamWriter>* out) {
+Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
+    const std::shared_ptr<Schema>& schema,
+    std::shared_ptr<RecordBatchStreamWriter>* out) {
   // ctor is private
-  *out = std::shared_ptr<StreamWriter>(new StreamWriter());
+  *out = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
   return (*out)->impl_->Open(sink, schema);
 }
 
-Status StreamWriter::Close() {
+Status RecordBatchStreamWriter::Close() {
   return impl_->Close();
 }
 
 // ----------------------------------------------------------------------
 // File writer implementation
 
-class FileWriter::FileWriterImpl : public StreamWriter::StreamWriterImpl {
+class RecordBatchFileWriter::RecordBatchFileWriterImpl
+    : public RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
  public:
-  using BASE = StreamWriter::StreamWriterImpl;
+  using BASE = RecordBatchStreamWriter::RecordBatchStreamWriterImpl;
 
   Status Start() override {
     RETURN_NOT_OK(WriteAligned(
@@ -783,23 +791,25 @@ class FileWriter::FileWriterImpl : public StreamWriter::StreamWriterImpl {
   }
 };
 
-FileWriter::FileWriter() {
-  impl_.reset(new FileWriterImpl());
+RecordBatchFileWriter::RecordBatchFileWriter() {
+  impl_.reset(new RecordBatchFileWriterImpl());
 }
 
-FileWriter::~FileWriter() {}
+RecordBatchFileWriter::~RecordBatchFileWriter() {}
 
-Status FileWriter::Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    std::shared_ptr<FileWriter>* out) {
-  *out = std::shared_ptr<FileWriter>(new FileWriter());  // ctor is private
+Status RecordBatchFileWriter::Open(io::OutputStream* sink,
+    const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatchFileWriter>* out) {
+  *out = std::shared_ptr<RecordBatchFileWriter>(
+      new RecordBatchFileWriter());  // ctor is private
   return (*out)->impl_->Open(sink, schema);
 }
 
-Status FileWriter::WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
+Status RecordBatchFileWriter::WriteRecordBatch(
+    const RecordBatch& batch, bool allow_64bit) {
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
-Status FileWriter::Close() {
+Status RecordBatchFileWriter::Close() {
   return impl_->Close();
 }
 

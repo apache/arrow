@@ -56,7 +56,7 @@ typedef struct _GArrowStreamWriterClass    GArrowStreamWriterClass;
 /**
  * GArrowStreamWriter:
  *
- * It wraps `arrow::ipc::StreamWriter`.
+ * It wraps `arrow::ipc::RecordBatchStreamWriter`.
  */
 struct _GArrowStreamWriter
 {

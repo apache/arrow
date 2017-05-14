@@ -916,9 +916,9 @@ cdef class HdfsFile(NativeFile):
 # ----------------------------------------------------------------------
 # File and stream readers and writers
 
-cdef class _StreamWriter:
+cdef class _RecordBatchWriter:
     cdef:
-        shared_ptr[CStreamWriter] writer
+        shared_ptr[CRecordBatchWriter] writer
         shared_ptr[OutputStream] sink
         bint closed
 
@@ -930,12 +930,18 @@ cdef class _StreamWriter:
             self.close()
 
     def _open(self, sink, Schema schema):
+        cdef:
+            shared_ptr[CRecordBatchStreamWriter] writer
+
         get_writer(sink, &self.sink)
 
         with nogil:
-            check_status(CStreamWriter.Open(self.sink.get(), schema.sp_schema,
-                                            &self.writer))
+            check_status(
+                CRecordBatchStreamWriter.Open(self.sink.get(),
+                                              schema.sp_schema,
+                                              &writer))
 
+        self.writer = <shared_ptr[CRecordBatchWriter]> writer
         self.closed = False
 
     def write_batch(self, RecordBatch batch):
@@ -949,9 +955,9 @@ cdef class _StreamWriter:
         self.closed = True
 
 
-cdef class _StreamReader:
+cdef class _RecordBatchReader:
     cdef:
-        shared_ptr[CStreamReader] reader
+        shared_ptr[CRecordBatchReader] reader
 
     cdef readonly:
         Schema schema
@@ -961,15 +967,17 @@ cdef class _StreamReader:
 
     def _open(self, source):
         cdef:
-            shared_ptr[RandomAccessFile] reader
+            shared_ptr[RandomAccessFile] file_handle
             shared_ptr[InputStream] in_stream
+            shared_ptr[CRecordBatchStreamReader] reader
 
-        get_reader(source, &reader)
-        in_stream = <shared_ptr[InputStream]> reader
+        get_reader(source, &file_handle)
+        in_stream = <shared_ptr[InputStream]> file_handle
 
         with nogil:
-            check_status(CStreamReader.Open(in_stream, &self.reader))
+            check_status(CRecordBatchStreamReader.Open(in_stream, &reader))
 
+        self.reader = <shared_ptr[CRecordBatchReader]> reader
         self.schema = Schema()
         self.schema.init_schema(self.reader.get().schema())
 
@@ -1009,24 +1017,25 @@ cdef class _StreamReader:
         return pyarrow_wrap_table(table)
 
 
-cdef class _FileWriter(_StreamWriter):
+cdef class _RecordBatchFileWriter(_RecordBatchWriter):
 
     def _open(self, sink, Schema schema):
-        cdef shared_ptr[CFileWriter] writer
+        cdef shared_ptr[CRecordBatchFileWriter] writer
         get_writer(sink, &self.sink)
 
         with nogil:
-            check_status(CFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                          &writer))
+            check_status(
+                CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
+                                      &writer))
 
         # Cast to base class, because has same interface
-        self.writer = <shared_ptr[CStreamWriter]> writer
+        self.writer = <shared_ptr[CRecordBatchWriter]> writer
         self.closed = False
 
 
-cdef class _FileReader:
+cdef class _RecordBatchFileReader:
     cdef:
-        shared_ptr[CFileReader] reader
+        shared_ptr[CRecordBatchFileReader] reader
 
     def __cinit__(self):
         pass
@@ -1041,9 +1050,10 @@ cdef class _FileReader:
 
         with nogil:
             if offset != 0:
-                check_status(CFileReader.Open2(reader, offset, &self.reader))
+                check_status(CRecordBatchFileReader.Open2(
+                    reader, offset, &self.reader))
             else:
-                check_status(CFileReader.Open(reader, &self.reader))
+                check_status(CRecordBatchFileReader.Open(reader, &self.reader))
 
     property num_record_batches:
 

@@ -47,7 +47,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GArrowStreamWriterPrivate_ {
-  std::shared_ptr<arrow::ipc::StreamWriter> stream_writer;
+  std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> stream_writer;
 } GArrowStreamWriterPrivate;
 
 enum {
@@ -89,7 +89,7 @@ garrow_stream_writer_set_property(GObject *object,
   switch (prop_id) {
   case PROP_STREAM_WRITER:
     priv->stream_writer =
-      *static_cast<std::shared_ptr<arrow::ipc::StreamWriter> *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -128,8 +128,8 @@ garrow_stream_writer_class_init(GArrowStreamWriterClass *klass)
   gobject_class->get_property = garrow_stream_writer_get_property;
 
   spec = g_param_spec_pointer("stream-writer",
-                              "ipc::StreamWriter",
-                              "The raw std::shared<arrow::ipc::StreamWriter> *",
+                              "ipc::RecordBatchStreamWriter",
+                              "The raw std::shared<arrow::ipc::RecordBatchStreamWriter> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STREAM_WRITER, spec);
@@ -149,11 +149,11 @@ garrow_stream_writer_new(GArrowOutputStream *sink,
                          GArrowSchema *schema,
                          GError **error)
 {
-  std::shared_ptr<arrow::ipc::StreamWriter> arrow_stream_writer;
+  std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> arrow_stream_writer;
   auto status =
-    arrow::ipc::StreamWriter::Open(garrow_output_stream_get_raw(sink).get(),
-                                 garrow_schema_get_raw(schema),
-                                 &arrow_stream_writer);
+    arrow::ipc::RecordBatchStreamWriter::Open(garrow_output_stream_get_raw(sink).get(),
+                                              garrow_schema_get_raw(schema),
+                                              &arrow_stream_writer);
   if (garrow_error_check(error, status, "[ipc][stream-writer][open]")) {
     return garrow_stream_writer_new_raw(&arrow_stream_writer);
   } else {

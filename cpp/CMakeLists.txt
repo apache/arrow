@@ -89,6 +89,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow micro benchmarks"
     OFF)
 
+  option(ARROW_NO_DEPRECATED_API
+    "Exclude deprecated APIs from build"
+    OFF)
+
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -153,6 +157,10 @@ include(BuildUtils)
 ############################################################
 
 include(SetupCxxFlags)
+
+if (ARROW_NO_DEPRECATED_API)
+  add_definitions(-DARROW_NO_DEPRECATED_API)
+endif()
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
