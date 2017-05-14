@@ -214,7 +214,12 @@ class build_ext(_build_ext):
             lib_filename = (shared_library_prefix + lib_name +
                             shared_library_suffix)
             # Also copy libraries with ABI/SO version suffix
-            libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
+            if sys.platform == 'darwin':
+                lib_pattern = (shared_library_prefix + lib_name +
+                               ".*" + shared_library_suffix[1:])
+                libs = glob.glob(pjoin(self.build_type, lib_pattern))
+            else:
+                libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
             # Longest suffix library should be copied, all others symlinked
             libs.sort(key=lambda s: -len(s))
             print(libs, libs[0])
