@@ -80,6 +80,19 @@ static inline bool PyObject_is_string(const PyObject* obj) {
 #endif
 }
 
+static inline bool PyObject_is_float(const PyObject* obj) {
+  return PyFloat_Check(obj);
+}
+
+static inline bool PyObject_is_integer(const PyObject* obj) {
+#if PY_MAJOR_VERSION >= 3
+  return (!PyBool_Check(obj)) && (PyLong_Check(obj) || PyArray_IsIntegerScalar(obj));
+#else
+  return (!PyBool_Check(obj)) &&
+         (PyInt_Check(obj) || PyLong_Check(obj) || PyArray_IsIntegerScalar(obj));
+#endif
+}
+
 template <int TYPE>
 static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   typedef npy_traits<TYPE> traits;
@@ -394,9 +407,11 @@ class PandasConverter {
   template <typename ArrowType>
   Status ConvertDates();
 
-  Status ConvertObjectStrings();
-  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertBooleans();
+  Status ConvertObjectStrings();
+  Status ConvertObjectFloats();
+  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
+  Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertObjects();
   Status ConvertDecimals();
@@ -610,6 +625,71 @@ Status PandasConverter::ConvertObjectStrings() {
   return Status::OK();
 }
 
+Status PandasConverter::ConvertObjectFloats() {
+  PyAcquireGIL lock;
+
+  DoubleBuilder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
+
+  PyObject* obj;
+  for (int64_t i = 0; i < objects.size(); ++i) {
+    obj = objects[i];
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyFloat_Check(obj)) {
+      RETURN_NOT_OK(builder.Append(PyFloat_AS_DOUBLE(obj)));
+    } else {
+      return InvalidConversion(obj, "float");
+    }
+  }
+
+  return builder.Finish(&out_);
+}
+
+Status PandasConverter::ConvertObjectIntegers() {
+  PyAcquireGIL lock;
+
+  Int64Builder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
+
+  PyObject* obj;
+  for (int64_t i = 0; i < objects.size(); ++i) {
+    obj = objects[i];
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyObject_is_integer(obj)) {
+      const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
+      if (PyErr_Occurred()) {
+        PyErr_Clear();
+        return InvalidConversion(obj, "integer");
+      }
+      RETURN_NOT_OK(builder.Append(val));
+    } else {
+      return InvalidConversion(obj, "integer");
+    }
+  }
+
+  return builder.Finish(&out_);
+}
+
 Status PandasConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
@@ -804,8 +884,12 @@ Status PandasConverter::ConvertObjects() {
         continue;
       } else if (PyObject_is_string(objects[i])) {
         return ConvertObjectStrings();
+      } else if (PyObject_is_float(objects[i])) {
+        return ConvertObjectFloats();
       } else if (PyBool_Check(objects[i])) {
         return ConvertBooleans();
+      } else if (PyObject_is_integer(objects[i])) {
+        return ConvertObjectIntegers();
       } else if (PyDate_CheckExact(objects[i])) {
         // We could choose Date32 or Date64
         return ConvertDates<Date32Type>();
@@ -813,7 +897,7 @@ Status PandasConverter::ConvertObjects() {
         return ConvertDecimals();
       } else {
         return InvalidConversion(
-            const_cast<PyObject*>(objects[i]), "string, bool, or date");
+            const_cast<PyObject*>(objects[i]), "string, bool, float, int, date, decimal");
       }
     }
   }
