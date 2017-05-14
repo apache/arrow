@@ -85,12 +85,7 @@ static inline bool PyObject_is_float(const PyObject* obj) {
 }
 
 static inline bool PyObject_is_integer(const PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
-  return (!PyBool_Check(obj)) && (PyLong_Check(obj) || PyArray_IsIntegerScalar(obj));
-#else
-  return (!PyBool_Check(obj)) &&
-         (PyInt_Check(obj) || PyLong_Check(obj) || PyArray_IsIntegerScalar(obj));
-#endif
+  return (!PyBool_Check(obj)) && PyArray_IsIntegerScalar(obj);
 }
 
 template <int TYPE>
