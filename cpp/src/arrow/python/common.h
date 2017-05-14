@@ -69,7 +69,7 @@ class ARROW_EXPORT OwnedRef {
 
   ~OwnedRef() {
     PyAcquireGIL lock;
-    Py_XDECREF(obj_);
+    release();
   }
 
   void reset(PyObject* obj) {
@@ -78,6 +78,11 @@ class ARROW_EXPORT OwnedRef {
     /// but callers have probably already acquired it
     Py_XDECREF(obj_);
     obj_ = obj;
+  }
+
+  void release() {
+    Py_XDECREF(obj_);
+    obj_ = nullptr;
   }
 
   PyObject* obj() const { return obj_; }
