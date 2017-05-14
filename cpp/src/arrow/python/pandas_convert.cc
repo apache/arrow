@@ -641,7 +641,9 @@ Status PandasConverter::ConvertObjectFloats() {
     if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else if (PyFloat_Check(obj)) {
-      RETURN_NOT_OK(builder.Append(PyFloat_AS_DOUBLE(obj)));
+      double val = PyFloat_AsDouble(obj);
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(builder.Append(val));
     } else {
       return InvalidConversion(obj, "float");
     }
@@ -672,10 +674,7 @@ Status PandasConverter::ConvertObjectIntegers() {
       RETURN_NOT_OK(builder.AppendNull());
     } else if (PyObject_is_integer(obj)) {
       const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
-      if (PyErr_Occurred()) {
-        PyErr_Clear();
-        return InvalidConversion(obj, "integer");
-      }
+      RETURN_IF_PYERROR();
       RETURN_NOT_OK(builder.Append(val));
     } else {
       return InvalidConversion(obj, "integer");
