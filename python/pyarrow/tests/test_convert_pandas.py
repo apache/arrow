@@ -676,17 +676,17 @@ class TestPandasConversion(unittest.TestCase):
                                      expected_schema=expected_schema)
 
     def test_structarray_to_pandas(self):
-        ints = pa.array([None, 2, 3])
-        strs = pa.array(['a', None, 'c'])
-        bools = pa.array([True, False, None])
+        ints = pa.array([None, 2, 3], type=pa.int64())
+        strs = pa.array(['a', None, 'c'], type=pa.binary())
+        bools = pa.array([True, False, None], type=pa.bool_())
         arr = pa.StructArray.from_arrays(
             ['ints', 'strs', 'bools'],
             [ints, strs, bools])
 
         expected = [
-            {'strs': 'a', 'bools': True},
-            {'ints': 2, 'bools': False},
-            {'ints': 3, 'strs': 'c'},
+            {'ints': None, 'strs': 'a', 'bools': True},
+            {'ints': 2, 'strs': None, 'bools': False},
+            {'ints': 3, 'strs': 'c', 'bools': None},
         ]
 
         # Make sure pandas converts the same

@@ -1003,15 +1003,13 @@ cdef class StructValue(ArrayValue):
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
         ap = <CStructArray*> self.sp_array.get()
         child_arrays = ap.fields()
-        boxed_arrays = (box_array(child) for child in child_arrays)
+        wrapped_arrays = (pyarrow_wrap_array(child) for child in child_arrays)
         child_names = (child.get().name() for child in child_fields)
         # Return the struct as a dict
         return {
-            name: value for name, value in (
-                (name, child_array[self.index].as_py())
-                for name, child_array in
-                izip(child_names, boxed_arrays)
-            ) if value is not None
+            name: child_array[self.index].as_py()
+            for name, child_array in
+            zip(child_names, wrapped_arrays)
         }
 
 cdef dict _scalar_classes = {
@@ -1630,7 +1628,7 @@ cdef class StructArray(Array):
         cdef DataType struct_type = struct([
             field(name, array.type)
             for name, array in
-            izip(field_names, arrays)
+            zip(field_names, arrays)
         ])
 
         c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))

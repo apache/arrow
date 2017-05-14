@@ -1356,12 +1356,21 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
 
 inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
+  OwnedRef dict_item;
   std::vector<OwnedRef> fields_data;
+  if (data.num_chunks() <= 0) {
+    return Status::OK();
+  }
+  // ChunkedArray has at least one chunk
+  auto arr = static_cast<StructArray*>(data.chunk(0).get());
+  // Use it to cache the struct type and number of fields for all chunks
+  auto num_fields = arr->fields().size();
+  auto array_type = arr->type();
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<StructArray*>(data.chunk(c).get());
-    fields_data.resize(arr->fields().size());
+    fields_data.resize(num_fields);
     // Convert the struct arrays first
-    for (size_t i = 0; i < arr->fields().size(); i++) {
+    for (size_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
       RETURN_NOT_OK(ConvertArrayToPandas(arr->field(i), nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
@@ -1374,21 +1383,30 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        PyObject* item = PyDict_New();
+        // Build the new dict object for the row
+        dict_item.reset(PyDict_New());
         RETURN_IF_PYERROR();
-        for (uint field_idx = 0; field_idx < arr->fields().size(); field_idx++) {
+        for (size_t field_idx = 0; field_idx < num_fields; ++field_idx) {
+          OwnedRef field_value;
+          auto name = array_type->child(field_idx)->name();
           if (!arr->field(field_idx)->IsNull(i)) {
-            auto name = arr->type()->child(field_idx)->name();
+            // Value exists in child array, obtain it
             auto array = reinterpret_cast<PyArrayObject*>(fields_data[field_idx].obj());
             auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
-            PyObject* field_value = PyArray_GETITEM(array, ptr);
+            field_value.reset(PyArray_GETITEM(array, ptr));
             RETURN_IF_PYERROR();
-            auto setitem_result = PyDict_SetItemString(item, name.c_str(), field_value);
-            DCHECK_EQ(setitem_result, 0);
-            RETURN_IF_PYERROR();
+          } else {
+            // Translate the Null to a None
+            Py_INCREF(Py_None);
+            field_value.reset(Py_None);
           }
+          auto setitem_result = PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
+          RETURN_IF_PYERROR();
+          DCHECK_EQ(setitem_result, 0);
         }
-        *out_values = item;
+        *out_values = dict_item.obj();
+        // Grant ownership to the resulting array
+        Py_INCREF(*out_values);
       }
       ++out_values;
     }
