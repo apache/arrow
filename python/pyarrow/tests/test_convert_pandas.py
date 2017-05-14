@@ -140,6 +140,24 @@ class TestPandasConversion(unittest.TestCase):
         result = table.to_pandas()
         tm.assert_frame_equal(result, ex_frame)
 
+    def test_float_object_nulls(self):
+        arr = np.array([None, 1.5, np.float64(3.5)] * 5, dtype=object)
+        df = pd.DataFrame({'floats': arr})
+        expected = pd.DataFrame({'floats': pd.to_numeric(arr)})
+        field = pa.field('floats', pa.float64())
+        schema = pa.schema([field])
+        self._check_pandas_roundtrip(df, expected=expected,
+                                     expected_schema=schema)
+
+    def test_int_object_nulls(self):
+        arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
+        df = pd.DataFrame({'ints': arr})
+        expected = pd.DataFrame({'ints': pd.to_numeric(arr)})
+        field = pa.field('ints', pa.int64())
+        schema = pa.schema([field])
+        self._check_pandas_roundtrip(df, expected=expected,
+                                     expected_schema=schema)
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []
