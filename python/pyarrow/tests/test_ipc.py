@@ -209,7 +209,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
 class TestInMemoryFile(TestFile):
 
     def _get_sink(self):
-        return pa.InMemoryOutputStream()
+        return pa.BufferOutputStream()
 
     def _get_source(self):
         return self.sink.get_result()
@@ -219,7 +219,7 @@ def test_ipc_zero_copy_numpy():
     df = pd.DataFrame({'foo': [1.5]})
 
     batch = pa.RecordBatch.from_pandas(df)
-    sink = pa.InMemoryOutputStream()
+    sink = pa.BufferOutputStream()
     write_file(batch, sink)
     buffer = sink.get_result()
     reader = pa.BufferReader(buffer)

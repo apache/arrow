@@ -162,7 +162,7 @@ Input / Output and Shared Memory
 
    Buffer
    BufferReader
-   InMemoryOutputStream
+   BufferOutputStream
    NativeFile
    MemoryMappedFile
    memory_map

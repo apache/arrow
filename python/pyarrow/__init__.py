@@ -70,7 +70,7 @@ from pyarrow.lib import (null, bool_,
                          Date32Value, Date64Value, TimestampValue)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
-                         Buffer, BufferReader, InMemoryOutputStream,
+                         Buffer, BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          frombuffer, read_tensor, write_tensor,
                          memory_map, create_memory_map,
@@ -108,3 +108,9 @@ from pyarrow.ipc import (RecordBatchFileReader, RecordBatchFileWriter,
 
 
 localfs = LocalFilesystem.get_instance()
+
+
+# ----------------------------------------------------------------------
+# 0.4.0 deprecations
+
+InMemoryOutputStream = BufferOutputStream

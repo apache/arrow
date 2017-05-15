@@ -515,7 +515,7 @@ cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     return result
 
 
-cdef class InMemoryOutputStream(NativeFile):
+cdef class BufferOutputStream(NativeFile):
 
     cdef:
         shared_ptr[PoolBuffer] buffer

@@ -104,8 +104,8 @@ There are several kinds of :class:`~pyarrow.NativeFile` options available:
   memory maps
 * :class:`~pyarrow.BufferReader`, for reading :class:`~pyarrow.Buffer` objects
   as a file
-* :class:`~pyarrow.InMemoryOutputStream`, for writing data in-memory, producing
-  a Buffer at the end
+* :class:`~pyarrow.BufferOutputStream`, for writing data in-memory, producing a
+  Buffer at the end
 * :class:`~pyarrow.HdfsFile`, for reading and writing data to the Hadoop Filesystem
 * :class:`~pyarrow.PythonFile`, for interfacing with Python file objects in C++
 
@@ -124,11 +124,11 @@ then precisely track amount of memory that has been allocated:
 
 PyArrow uses a default built-in memory pool, but in the future there may be
 additional memory pools (and subpools) to choose from. Let's consider an
-``InMemoryOutputStream``, which is like a ``BytesIO``:
+``BufferOutputStream``, which is like a ``BytesIO``:
 
 .. ipython:: python
 
-   stream = pa.InMemoryOutputStream()
+   stream = pa.BufferOutputStream()
    stream.write(b'foo')
    pa.total_allocated_bytes()
    for i in range(1024): stream.write(b'foo')
@@ -150,7 +150,7 @@ pass in a custom memory pool:
    my_pool = pa.jemalloc_memory_pool()
    my_pool
    my_pool.bytes_allocated()
-   stream = pa.InMemoryOutputStream(my_pool)
+   stream = pa.BufferOutputStream(my_pool)
    stream.write(b'foo')
    my_pool.bytes_allocated()
 
@@ -215,7 +215,7 @@ file interfaces that can read and write to Arrow Buffers.
 
 .. ipython:: python
 
-   writer = pa.InMemoryOutputStream()
+   writer = pa.BufferOutputStream()
    writer.write(b'hello, friends')
 
    buf = writer.get_result()
