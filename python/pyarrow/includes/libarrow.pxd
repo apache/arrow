@@ -507,8 +507,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
-    cdef cppclass BufferOutputStream(OutputStream):
-        BufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
+    cdef cppclass CBufferOutputStream" arrow::io::BufferOutputStream"\
+        (OutputStream):
+        CBufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
 
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
