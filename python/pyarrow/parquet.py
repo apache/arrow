@@ -639,6 +639,29 @@ def read_table(source, columns=None, nthreads=1, metadata=None):
 
 
 def read_pandas(source, columns=None, nthreads=1, metadata=None):
+    """
+    Read a Table from Parquet format, reconstructing the index values if
+    available.
+
+    Parameters
+    ----------
+    source: str or pyarrow.io.NativeFile
+        Location of Parquet dataset. If a string passed, can be a single file
+        name or directory name. For passing Python file objects or byte
+        buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
+    columns: list
+        If not None, only these columns will be read from the file.
+    nthreads : int, default 1
+        Number of columns to read in parallel. Requires that the underlying
+        file source is threadsafe
+    metadata : FileMetaData
+        If separately computed
+
+    Returns
+    -------
+    pyarrow.Table
+        Content of the file as a table (of columns)
+    """
     if is_string(source):
         fs = LocalFilesystem.get_instance()
         if fs.isdir(source):
