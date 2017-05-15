@@ -24,9 +24,11 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
 #include <iostream>
+#include <sstream>
 
 G_BEGIN_DECLS
 
@@ -393,6 +395,31 @@ garrow_array_slice(GArrowArray *array,
   const auto arrow_array = garrow_array_get_raw(array);
   auto arrow_sub_array = arrow_array->Slice(offset, length);
   return garrow_array_new_raw(&arrow_sub_array);
+}
+
+/**
+ * garrow_array_to_string:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): The formatted array content or %NULL on error.
+ *
+ *   The returned string should be freed when with g_free() when no
+ *   longer needed.
+ *
+ * Since: 0.4.0
+ */
+gchar *
+garrow_array_to_string(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  std::stringstream sink;
+  auto status = arrow::PrettyPrint(*arrow_array, 0, &sink);
+  if (garrow_error_check(error, status, "[array][to-string]")) {
+    return g_strdup(sink.str().c_str());
+  } else {
+    return NULL;
+  }
 }
 
 

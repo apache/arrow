@@ -85,4 +85,7 @@ GArrowRecordBatch *garrow_record_batch_slice     (GArrowRecordBatch *record_batc
                                                   gint64 offset,
                                                   gint64 length);
 
+gchar        *garrow_record_batch_to_string      (GArrowRecordBatch *record_batch,
+                                                  GError **error);
+
 G_END_DECLS

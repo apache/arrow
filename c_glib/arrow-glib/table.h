@@ -86,4 +86,6 @@ GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
                                             GError **error);
 
+gchar          *garrow_table_to_string     (GArrowTable *table);
+
 G_END_DECLS
