@@ -21,6 +21,12 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.Assert.assertEquals;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.common.collect.ImmutableList;
+import com.google.flatbuffers.FlatBufferBuilder;
+
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
@@ -35,9 +41,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
-
-import com.google.common.collect.ImmutableList;
-import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
  * Test conversion between Flatbuf and Pojo field representations
@@ -66,6 +69,18 @@ public class TestConvert {
     childrenBuilder.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
     childrenBuilder.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), ImmutableList.<Field>of()));
     Schema initialSchema = new Schema(childrenBuilder.build());
+    run(initialSchema);
+  }
+
+  @Test
+  public void schemaMetadata() {
+    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    childrenBuilder.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
+    childrenBuilder.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), ImmutableList.<Field>of()));
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key1", "value1");
+    metadata.put("key2", "value2");
+    Schema initialSchema = new Schema(childrenBuilder.build(), metadata);
     run(initialSchema);
   }
 

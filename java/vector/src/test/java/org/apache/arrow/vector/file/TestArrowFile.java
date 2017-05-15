@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -386,7 +387,7 @@ public class TestArrowFile extends BaseFileTest {
   }
 
   @Test
-  public void testWriteReadFieldMetadata() throws IOException {
+  public void testWriteReadMetadata() throws IOException {
     File file = new File("target/mytest_metadata.arrow");
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
@@ -397,7 +398,11 @@ public class TestArrowFile extends BaseFileTest {
     childFields.add(new Field("list-child", new FieldType(true, ArrowType.List.INSTANCE, null, metadata(4)),
                               ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16 ,true)), null))));
     Field field = new Field("meta", new FieldType(true, ArrowType.Struct.INSTANCE, null, metadata(0)), childFields);
-    List<Field> fields = ImmutableList.of(field);
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("s1", "v1");
+    metadata.put("s2", "v2");
+    Schema originalSchema = new Schema(ImmutableList.of(field), metadata);
+    Assert.assertEquals(metadata, originalSchema.getCustomMetadata());
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
@@ -406,7 +411,7 @@ public class TestArrowFile extends BaseFileTest {
       vector.getMutator().setValueCount(0);
 
       List<FieldVector> vectors = ImmutableList.<FieldVector>of(vector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 0);
+      VectorSchemaRoot root = new VectorSchemaRoot(originalSchema, vectors, 0);
 
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
            ArrowFileWriter fileWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel());
@@ -428,7 +433,8 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      Assert.assertEquals(fields, schema.getFields());
+      Assert.assertEquals(originalSchema, schema);
+      Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
       for (int i = 0; i < 4; i ++) {
@@ -443,7 +449,8 @@ public class TestArrowFile extends BaseFileTest {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
-      Assert.assertEquals(fields, schema.getFields());
+      Assert.assertEquals(originalSchema, schema);
+      Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
       for (int i = 0; i < 4; i ++) {

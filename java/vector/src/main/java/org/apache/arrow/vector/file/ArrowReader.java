@@ -150,18 +150,19 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
    * Reads the schema and initializes the vectors
    */
   private void initialize() throws IOException {
-    Schema schema = readSchema(in);
+    Schema originalSchema = readSchema(in);
     List<Field> fields = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
     Map<Long, Dictionary> dictionaries = new HashMap<>();
 
-    for (Field field: schema.getFields()) {
+    for (Field field: originalSchema.getFields()) {
       Field updated = toMemoryFormat(field, dictionaries);
       fields.add(updated);
       vectors.add(updated.createVector(allocator));
     }
+    Schema schema = new Schema(fields, originalSchema.getCustomMetadata());
 
-    this.root = new VectorSchemaRoot(fields, vectors, 0);
+    this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new VectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
   }

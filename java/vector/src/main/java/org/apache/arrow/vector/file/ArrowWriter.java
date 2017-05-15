@@ -78,7 +78,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       fields.add(toMessageFormat(field, provider, dictionaryBatches));
     }
 
-    this.schema = new Schema(fields);
+    this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
     this.dictionaries = Collections.unmodifiableList(new ArrayList<>(dictionaryBatches.values()));
   }
 
