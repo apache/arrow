@@ -53,8 +53,8 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
-    <#if minor.class?starts_with("Decimal") >
-    ${capName}Writer ${lowerName}(String name, int scale, int precision);
+    <#if minor.typeParams?? >
+    ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>);
     </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>

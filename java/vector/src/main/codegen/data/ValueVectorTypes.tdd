@@ -71,12 +71,28 @@
       minor: [
         { class: "BigInt"},
         { class: "UInt8" },
-        { class: "Float8",         javaType: "double", boxedType: "Double",                              fields: [{name: "value", type: "double"}], },
-        { class: "DateMilli",      javaType: "long",                      friendlyType: "LocalDateTime" },
-        { class: "TimeStampSec",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
-        { class: "TimeStampMilli", javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
-        { class: "TimeStampMicro", javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
-        { class: "TimeStampNano",  javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "Float8",           javaType: "double", boxedType: "Double", fields: [{name: "value", type: "double"}] },
+        { class: "DateMilli",        javaType: "long",                      friendlyType: "LocalDateTime" },
+        { class: "TimeStampSec",     javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampMilli",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampMicro",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampNano",    javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
+        { class: "TimeStampSecTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.SECOND", "timezone"] },
+        { class: "TimeStampMilliTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.MILLISECOND", "timezone"] },
+        { class: "TimeStampMicroTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.MICROSECOND", "timezone"] },
+        { class: "TimeStampNanoTZ", javaType: "long",   boxedType: "Long",
+                                     typeParams: [ {name: "timezone", type: "String"} ],
+                                     arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Timestamp",
+                                     arrowTypeConstructorParams: ["org.apache.arrow.vector.types.TimeUnit.NANOSECOND", "timezone"] },
         { class: "TimeMicro" },
         { class: "TimeNano" }
       ]
@@ -97,7 +113,13 @@
       boxedType: "ArrowBuf",
 
       minor: [
-        { class: "Decimal", maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
+        {
+          class: "Decimal",
+          maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal",
+          typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
+          fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}]
+        }
       ]
     },
     {

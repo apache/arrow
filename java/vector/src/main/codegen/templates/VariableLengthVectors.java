@@ -28,6 +28,7 @@ import org.apache.drill.exec.vector.VariableWidthVector;
 <#list type.minor as minor>
 
 <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+<#assign className = "${minor.class}Vector" />
 
 <#if type.major == "VarLen">
 <@pp.changeOutputFile name="/org/apache/arrow/vector/${minor.class}Vector.java" />
@@ -48,8 +49,8 @@ package org.apache.arrow.vector;
  *
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
-public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector{
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
+public final class ${className} extends BaseDataValueVector implements VariableWidthVector{
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = 4096 * DEFAULT_RECORD_BYTE_COUNT;
@@ -66,22 +67,22 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   private int allocationSizeInBytes = INITIAL_BYTE_COUNT;
   private int allocationMonitor = 0;
 
-  <#if minor.class == "Decimal">
+  <#if minor.typeParams??>
+     <#list minor.typeParams as typeParam>
+  private final ${typeParam.type} ${typeParam.name};
+    </#list>
 
-  private final int precision;
-  private final int scale;
-
-  public ${minor.class}Vector(String name, BufferAllocator allocator, int precision, int scale) {
+  public ${className}(String name, BufferAllocator allocator<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     super(name, allocator);
     this.oAccessor = offsetVector.getAccessor();
     this.accessor = new Accessor();
     this.mutator = new Mutator();
-    this.precision = precision;
-    this.scale = scale;
+    <#list minor.typeParams as typeParam>
+    this.${typeParam.name} = ${typeParam.name};
+    </#list>
   }
   <#else>
-
-  public ${minor.class}Vector(String name, BufferAllocator allocator) {
+  public ${className}(String name, BufferAllocator allocator) {
     super(name, allocator);
     this.oAccessor = offsetVector.getAccessor();
     this.accessor = new Accessor();
@@ -188,10 +189,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((${minor.class}Vector) to);
+    return new TransferImpl((${className}) to);
   }
 
-  public void transferTo(${minor.class}Vector target){
+  public void transferTo(${className} target){
     target.clear();
     this.offsetVector.transferTo(target.offsetVector);
     target.data = data.transferOwnership(target.allocator).buffer;
@@ -199,7 +200,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     clear();
   }
 
-  public void splitAndTransferTo(int startIndex, int length, ${minor.class}Vector target) {
+  public void splitAndTransferTo(int startIndex, int length, ${className} target) {
     UInt${type.width}Vector.Accessor offsetVectorAccessor = this.offsetVector.getAccessor();
     final int startPoint = offsetVectorAccessor.get(startIndex);
     final int sliceLength = offsetVectorAccessor.get(startIndex + length) - startPoint;
@@ -214,7 +215,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     target.getMutator().setValueCount(length);
 }
 
-  protected void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  protected void copyFrom(int fromIndex, int thisIndex, ${className} from){
     final UInt4Vector.Accessor fromOffsetVectorAccessor = from.offsetVector.getAccessor();
     final int start = fromOffsetVectorAccessor.get(fromIndex);
     final int end = fromOffsetVectorAccessor.get(fromIndex + 1);
@@ -225,7 +226,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     offsetVector.data.set${(minor.javaType!type.javaType)?cap_first}( (thisIndex+1) * ${type.width}, outputStart + len);
   }
 
-  public boolean copyFromSafe(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public boolean copyFromSafe(int fromIndex, int thisIndex, ${className} from){
     final UInt${type.width}Vector.Accessor fromOffsetVectorAccessor = from.offsetVector.getAccessor();
     final int start = fromOffsetVectorAccessor.get(fromIndex);
     final int end =   fromOffsetVectorAccessor.get(fromIndex + 1);
@@ -242,22 +243,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   }
 
   private class TransferImpl implements TransferPair{
-    ${minor.class}Vector to;
+    ${className} to;
 
     public TransferImpl(String name, BufferAllocator allocator){
-      <#if minor.class == "Decimal">
-      to = new ${minor.class}Vector(name, allocator, precision, scale);
-      <#else>
-      to = new ${minor.class}Vector(name, allocator);
-      </#if>
+      to = new ${className}(name, allocator<#if minor.typeParams??><#list minor.typeParams as typeParam>,  ${className}.this.${typeParam.name}</#list></#if>);
     }
 
-    public TransferImpl(${minor.class}Vector to){
+    public TransferImpl(${className} to){
       this.to = to;
     }
 
     @Override
-    public ${minor.class}Vector getTo(){
+    public ${className} getTo(){
       return to;
     }
 
@@ -273,7 +270,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, ${minor.class}Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, ${className}.this);
     }
   }
 

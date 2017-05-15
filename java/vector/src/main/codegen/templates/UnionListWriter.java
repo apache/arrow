@@ -94,7 +94,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
 
-  <#if !minor.class?starts_with("Decimal")>
+  <#if !minor.typeParams?? >
 
   @Override
   public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>() {

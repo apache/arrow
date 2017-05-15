@@ -56,7 +56,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     </#if>
     this.container = container;
     for (Field child : container.getField().getChildren()) {
-      switch (Types.getMinorTypeForArrowType(child.getType())) {
+      MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
+      switch (minorType) {
       case MAP:
         map(child.getName());
         break;
@@ -71,15 +72,18 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 <#assign lowerName = minor.class?uncap_first />
 <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
 <#assign upperName = minor.class?upper_case />
-      case ${upperName}:
-        <#if lowerName == "decimal" >
-        Decimal decimal = (Decimal)child.getType();
-        decimal(child.getName(), decimal.getScale(), decimal.getPrecision());
+      case ${upperName}: {
+        <#if minor.typeParams?? >
+        ${minor.arrowType} arrowType = (${minor.arrowType})child.getType();
+        ${lowerName}(child.getName()<#list minor.typeParams as typeParam>, arrowType.get${typeParam.name?cap_first}()</#list>);
         <#else>
         ${lowerName}(child.getName());
-       </#if>
+        </#if>
         break;
+      }
 </#list></#list>
+        default:
+          throw new UnsupportedOperationException("Unknown type: " + minorType);
       }
     }
   }
@@ -205,7 +209,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#assign vectName = capName />
   <#assign vectName = "Nullable${capName}" />
 
-  <#if minor.class?starts_with("Decimal") >
+  <#if minor.typeParams?? >
+  @Override
   public ${minor.class}Writer ${lowerName}(String name) {
     // returns existing writer
     final FieldWriter writer = fields.get(handleCase(name));
@@ -213,7 +218,8 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     return writer;
   }
 
-  public ${minor.class}Writer ${lowerName}(String name, int scale, int precision) {
+  @Override
+  public ${minor.class}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
   <#else>
   @Override
   public ${minor.class}Writer ${lowerName}(String name) {
@@ -223,7 +229,21 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
       ${vectName}Vector v = container.addOrGet(name, 
-          FieldType.nullable(<#if minor.class == "Decimal">new Decimal(precision, scale)<#else>MinorType.${upperName}.getType()</#if>),
+          FieldType.nullable(
+          <#if minor.typeParams??>
+            <#if minor.arrowTypeConstructorParams??>
+              <#assign constructorParams = minor.arrowTypeConstructorParams />
+            <#else>
+              <#assign constructorParams = [] />
+              <#list minor.typeParams as typeParam>
+                <#assign constructorParams = constructorParams + [ typeParam.name ] />
+              </#list>
+            </#if>    
+            new ${minor.arrowType}(${constructorParams?join(", ")})
+          <#else>
+            MinorType.${upperName}.getType()
+          </#if>
+          ),
           ${vectName}Vector.class);
       writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;

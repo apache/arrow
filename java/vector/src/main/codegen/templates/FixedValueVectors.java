@@ -25,9 +25,10 @@ import java.util.concurrent.TimeUnit;
 <#list vv.types as type>
 <#list type.minor as minor>
 <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+<#assign className = "${minor.class}Vector" />
 
 <#if type.major == "Fixed">
-<@pp.changeOutputFile name="/org/apache/arrow/vector/${minor.class}Vector.java" />
+<@pp.changeOutputFile name="/org/apache/arrow/vector/${className}.java" />
 <#include "/@includes/license.ftl" />
 
 package org.apache.arrow.vector;
@@ -43,8 +44,8 @@ package org.apache.arrow.vector;
  *
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
-public final class ${minor.class}Vector extends BaseDataValueVector implements FixedWidthVector{
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
+public final class ${className} extends BaseDataValueVector implements FixedWidthVector{
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   public static final int TYPE_WIDTH = ${type.width};
 
@@ -53,23 +54,24 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION * ${type.width};
   private int allocationMonitor = 0;
+  <#if minor.typeParams??>
 
-  <#if minor.class == "Decimal">
+     <#list minor.typeParams as typeParam>
+  private final ${typeParam.type} ${typeParam.name};
+    </#list>
 
-  private int precision;
-  private int scale;
-
-  public ${minor.class}Vector(String name, BufferAllocator allocator, int precision, int scale) {
+  public ${className}(String name, BufferAllocator allocator<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     super(name, allocator);
-    this.precision = precision;
-    this.scale = scale;
+    <#list minor.typeParams as typeParam>
+    this.${typeParam.name} = ${typeParam.name};
+    </#list>
   }
   <#else>
-  public ${minor.class}Vector(String name, BufferAllocator allocator) {
+
+  public ${className}(String name, BufferAllocator allocator) {
     super(name, allocator);
   }
   </#if>
-
 
   @Override
   public MinorType getMinorType() {
@@ -219,17 +221,17 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((${minor.class}Vector) to);
+    return new TransferImpl((${className}) to);
   }
 
-  public void transferTo(${minor.class}Vector target){
+  public void transferTo(${className} target){
     target.clear();
     target.data = data.transferOwnership(target.allocator).buffer;
     target.data.writerIndex(data.writerIndex());
     clear();
   }
 
-  public void splitAndTransferTo(int startIndex, int length, ${minor.class}Vector target) {
+  public void splitAndTransferTo(int startIndex, int length, ${className} target) {
     final int startPoint = startIndex * ${type.width};
     final int sliceLength = length * ${type.width};
     target.clear();
@@ -238,22 +240,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   private class TransferImpl implements TransferPair{
-    private ${minor.class}Vector to;
+    private ${className} to;
 
     public TransferImpl(String name, BufferAllocator allocator){
-      <#if minor.class == "Decimal">
-      to = new ${minor.class}Vector(name, allocator, precision, scale);
-      <#else>
-      to = new ${minor.class}Vector(name, allocator);
-      </#if>
+      to = new ${className}(name, allocator<#if minor.typeParams??><#list minor.typeParams as typeParam>,  ${className}.this.${typeParam.name}</#list></#if>);
     }
 
-    public TransferImpl(${minor.class}Vector to) {
+    public TransferImpl(${className} to) {
       this.to = to;
     }
 
     @Override
-    public ${minor.class}Vector getTo(){
+    public ${className} getTo(){
       return to;
     }
 
@@ -269,11 +267,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, ${minor.class}Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, ${className}.this);
     }
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFrom(int fromIndex, int thisIndex, ${className} from){
     <#if (type.width > 8 || minor.class == "IntervalDay")>
     from.data.getBytes(fromIndex * ${type.width}, data, thisIndex * ${type.width}, ${type.width});
     <#else> <#-- type.width <= 8 -->
@@ -283,7 +281,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     </#if> <#-- type.width -->
   }
 
-  public void copyFromSafe(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFromSafe(int fromIndex, int thisIndex, ${className} from){
     while(thisIndex >= getValueCapacity()) {
         reAlloc();
     }

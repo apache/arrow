@@ -72,31 +72,23 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#if !minor.class?starts_with("Decimal") >
+    <#assign fields = minor.fields!type.fields />
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
   }
 
+    <#if minor.class == "Decimal">
+  public void write${minor.class}(int start, ArrowBuf buffer) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(start, buffer);
+  }
+    <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
-
-  <#else>
-  @Override
-  public void write(DecimalHolder holder) {
-    getWriter(MinorType.DECIMAL).write(holder);
-  }
-
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
-  }
-
-  </#if>
+    </#if>
 
   </#list></#list>
-
   public void writeNull() {
   }
 
@@ -125,10 +117,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if minor.class?starts_with("Decimal") >
-  public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
-    return getWriter(MinorType.MAP).${lowerName}(name, scale, precision);
+
+  <#if minor.typeParams?? >
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    return getWriter(MinorType.MAP).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
+
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {

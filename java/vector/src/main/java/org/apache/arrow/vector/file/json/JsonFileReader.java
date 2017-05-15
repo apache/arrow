@@ -43,9 +43,13 @@ import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
+import org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampNanoTZVector;
 import org.apache.arrow.vector.TimeStampNanoVector;
+import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
@@ -61,14 +65,14 @@ import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Objects;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 
 public class JsonFileReader implements AutoCloseable {
   private final File inputFile;
@@ -277,6 +281,18 @@ public class JsonFileReader implements AutoCloseable {
       break;
     case TIMESTAMPNANO:
       ((TimeStampNanoVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPSECTZ:
+      ((TimeStampSecTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPMILLITZ:
+      ((TimeStampMilliTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPMICROTZ:
+      ((TimeStampMicroTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+      break;
+    case TIMESTAMPNANOTZ:
+      ((TimeStampNanoTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
       break;
     default:
       throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
