@@ -105,10 +105,6 @@ bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
   return are_equal;
 }
 
-Status Array::Validate() const {
-  return Status::OK();
-}
-
 // Last two parameters are in-out parameters
 static inline void ConformSliceParams(
     int64_t array_offset, int64_t array_length, int64_t* offset, int64_t* length) {
@@ -166,58 +162,6 @@ std::shared_ptr<Array> BooleanArray::Slice(int64_t offset, int64_t length) const
 // ----------------------------------------------------------------------
 // ListArray
 
-Status ListArray::Validate() const {
-  if (length_ < 0) { return Status::Invalid("Length was negative"); }
-  if (length_ && !value_offsets_) { return Status::Invalid("value_offsets_ was null"); }
-  if (value_offsets_->size() / static_cast<int>(sizeof(int32_t)) < length_) {
-    std::stringstream ss;
-    ss << "offset buffer size (bytes): " << value_offsets_->size()
-       << " isn't large enough for length: " << length_;
-    return Status::Invalid(ss.str());
-  }
-  const int32_t last_offset = this->value_offset(length_);
-  if (last_offset > 0) {
-    if (!values_) {
-      return Status::Invalid("last offset was non-zero and values was null");
-    }
-    if (values_->length() != last_offset) {
-      std::stringstream ss;
-      ss << "Final offset invariant not equal to values length: " << last_offset
-         << "!=" << values_->length();
-      return Status::Invalid(ss.str());
-    }
-
-    const Status child_valid = values_->Validate();
-    if (!child_valid.ok()) {
-      std::stringstream ss;
-      ss << "Child array invalid: " << child_valid.ToString();
-      return Status::Invalid(ss.str());
-    }
-  }
-
-  int32_t prev_offset = this->value_offset(0);
-  if (prev_offset != 0) { return Status::Invalid("The first offset wasn't zero"); }
-  for (int64_t i = 1; i <= length_; ++i) {
-    int32_t current_offset = this->value_offset(i);
-    if (IsNull(i - 1) && current_offset != prev_offset) {
-      std::stringstream ss;
-      ss << "Offset invariant failure at: " << i
-         << " inconsistent value_offsets for null slot" << current_offset
-         << "!=" << prev_offset;
-      return Status::Invalid(ss.str());
-    }
-    if (current_offset < prev_offset) {
-      std::stringstream ss;
-      ss << "Offset invariant failure: " << i
-         << " inconsistent offset for non-null slot: " << current_offset << "<"
-         << prev_offset;
-      return Status::Invalid(ss.str());
-    }
-    prev_offset = current_offset;
-  }
-  return Status::OK();
-}
-
 std::shared_ptr<Array> ListArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<ListArray>(
@@ -250,11 +194,6 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
   if (data_ != nullptr) { raw_data_ = data_->data(); }
 }
 
-Status BinaryArray::Validate() const {
-  // TODO(wesm): what to do here?
-  return Status::OK();
-}
-
 std::shared_ptr<Array> BinaryArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<BinaryArray>(
@@ -265,11 +204,6 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
     const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
     int64_t null_count, int64_t offset)
     : BinaryArray(kString, length, value_offsets, data, null_bitmap, null_count, offset) {
-}
-
-Status StringArray::Validate() const {
-  // TODO(emkornfield) Validate proper UTF8 code points?
-  return BinaryArray::Validate();
 }
 
 std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const {
@@ -361,42 +295,6 @@ std::shared_ptr<Array> StructArray::field(int pos) const {
   return children_[pos];
 }
 
-Status StructArray::Validate() const {
-  if (length_ < 0) { return Status::Invalid("Length was negative"); }
-
-  if (null_count() > length_) {
-    return Status::Invalid("Null count exceeds the length of this struct");
-  }
-
-  if (children_.size() > 0) {
-    // Validate fields
-    int64_t array_length = children_[0]->length();
-    size_t idx = 0;
-    for (auto it : children_) {
-      if (it->length() != array_length) {
-        std::stringstream ss;
-        ss << "Length is not equal from field " << it->type()->ToString()
-           << " at position {" << idx << "}";
-        return Status::Invalid(ss.str());
-      }
-
-      const Status child_valid = it->Validate();
-      if (!child_valid.ok()) {
-        std::stringstream ss;
-        ss << "Child array invalid: " << child_valid.ToString() << " at position {" << idx
-           << "}";
-        return Status::Invalid(ss.str());
-      }
-      ++idx;
-    }
-
-    if (array_length > 0 && array_length != length_) {
-      return Status::Invalid("Struct's length is not equal to its child arrays");
-    }
-  }
-  return Status::OK();
-}
-
 std::shared_ptr<Array> StructArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<StructArray>(
@@ -427,17 +325,6 @@ std::shared_ptr<Array> UnionArray::child(int pos) const {
   return children_[pos];
 }
 
-Status UnionArray::Validate() const {
-  if (length_ < 0) { return Status::Invalid("Length was negative"); }
-
-  if (null_count() > length_) {
-    return Status::Invalid("Null count exceeds the length of this struct");
-  }
-
-  DCHECK(false) << "Validate not yet implemented";
-  return Status::OK();
-}
-
 std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
   ConformSliceParams(offset_, length_, &offset, &length);
   return std::make_shared<UnionArray>(type_, length, children_, type_ids_, value_offsets_,
@@ -456,14 +343,6 @@ DictionaryArray::DictionaryArray(
   DCHECK_EQ(type->id(), Type::DICTIONARY);
 }
 
-Status DictionaryArray::Validate() const {
-  Type::type index_type_id = indices_->type()->id();
-  if (!is_integer(index_type_id)) {
-    return Status::Invalid("Dictionary indices must be integer type");
-  }
-  return Status::OK();
-}
-
 std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
 }
@@ -476,20 +355,136 @@ std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) co
 // ----------------------------------------------------------------------
 // Implement Array::Accept as inline visitor
 
-struct AcceptVirtualVisitor {
-  explicit AcceptVirtualVisitor(ArrayVisitor* visitor) : visitor(visitor) {}
+Status Array::Accept(ArrayVisitor* visitor) const {
+  return VisitArrayInline(*this, visitor);
+}
 
-  ArrayVisitor* visitor;
+// ----------------------------------------------------------------------
+// Implement Array::Validate as inline visitor
 
-  template <typename T>
-  Status Visit(const T& array) {
-    return visitor->Visit(array);
+struct ValidateVisitor {
+  Status Visit(const NullArray& array) { return Status::OK(); }
+
+  Status Visit(const PrimitiveArray& array) { return Status::OK(); }
+
+  Status Visit(const BinaryArray& array) {
+    // TODO(wesm): what to do here?
+    return Status::OK();
+  }
+
+  Status Visit(const ListArray& array) {
+    if (array.length() < 0) { return Status::Invalid("Length was negative"); }
+
+    auto value_offsets = array.value_offsets();
+    if (array.length() && !value_offsets) {
+      return Status::Invalid("value_offsets_ was null");
+    }
+    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
+      std::stringstream ss;
+      ss << "offset buffer size (bytes): " << value_offsets->size()
+         << " isn't large enough for length: " << array.length();
+      return Status::Invalid(ss.str());
+    }
+    const int32_t last_offset = array.value_offset(array.length());
+    if (last_offset > 0) {
+      if (!array.values()) {
+        return Status::Invalid("last offset was non-zero and values was null");
+      }
+      if (array.values()->length() != last_offset) {
+        std::stringstream ss;
+        ss << "Final offset invariant not equal to values length: " << last_offset
+           << "!=" << array.values()->length();
+        return Status::Invalid(ss.str());
+      }
+
+      const Status child_valid = ValidateArray(*array.values());
+      if (!child_valid.ok()) {
+        std::stringstream ss;
+        ss << "Child array invalid: " << child_valid.ToString();
+        return Status::Invalid(ss.str());
+      }
+    }
+
+    int32_t prev_offset = array.value_offset(0);
+    if (prev_offset != 0) { return Status::Invalid("The first offset wasn't zero"); }
+    for (int64_t i = 1; i <= array.length(); ++i) {
+      int32_t current_offset = array.value_offset(i);
+      if (array.IsNull(i - 1) && current_offset != prev_offset) {
+        std::stringstream ss;
+        ss << "Offset invariant failure at: " << i
+           << " inconsistent value_offsets for null slot" << current_offset
+           << "!=" << prev_offset;
+        return Status::Invalid(ss.str());
+      }
+      if (current_offset < prev_offset) {
+        std::stringstream ss;
+        ss << "Offset invariant failure: " << i
+           << " inconsistent offset for non-null slot: " << current_offset << "<"
+           << prev_offset;
+        return Status::Invalid(ss.str());
+      }
+      prev_offset = current_offset;
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const StructArray& array) {
+    if (array.length() < 0) { return Status::Invalid("Length was negative"); }
+
+    if (array.null_count() > array.length()) {
+      return Status::Invalid("Null count exceeds the length of this struct");
+    }
+
+    if (array.fields().size() > 0) {
+      // Validate fields
+      int64_t array_length = array.fields()[0]->length();
+      size_t idx = 0;
+      for (auto it : array.fields()) {
+        if (it->length() != array_length) {
+          std::stringstream ss;
+          ss << "Length is not equal from field " << it->type()->ToString()
+             << " at position {" << idx << "}";
+          return Status::Invalid(ss.str());
+        }
+
+        const Status child_valid = ValidateArray(*it);
+        if (!child_valid.ok()) {
+          std::stringstream ss;
+          ss << "Child array invalid: " << child_valid.ToString() << " at position {"
+             << idx << "}";
+          return Status::Invalid(ss.str());
+        }
+        ++idx;
+      }
+
+      if (array_length > 0 && array_length != array.length()) {
+        return Status::Invalid("Struct's length is not equal to its child arrays");
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const UnionArray& array) {
+    if (array.length() < 0) { return Status::Invalid("Length was negative"); }
+
+    if (array.null_count() > array.length()) {
+      return Status::Invalid("Null count exceeds the length of this struct");
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryArray& array) {
+    Type::type index_type_id = array.indices()->type()->id();
+    if (!is_integer(index_type_id)) {
+      return Status::Invalid("Dictionary indices must be integer type");
+    }
+    return Status::OK();
   }
 };
 
-Status Array::Accept(ArrayVisitor* visitor) const {
-  AcceptVirtualVisitor inline_visitor(visitor);
-  return VisitArrayInline(*this, visitor);
+Status ValidateArray(const Array& array) {
+  ValidateVisitor validate_visitor;
+  return VisitArrayInline(array, &validate_visitor);
 }
 
 // ----------------------------------------------------------------------

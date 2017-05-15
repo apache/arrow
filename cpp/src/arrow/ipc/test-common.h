@@ -133,7 +133,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   ListBuilder builder(pool, child_array);
   RETURN_NOT_OK(builder.Append(offsets.data(), num_lists, valid_lists.data()));
   RETURN_NOT_OK(builder.Finish(out));
-  return (*out)->Validate();
+  return ValidateArray(**out);
 }
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
