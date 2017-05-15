@@ -101,6 +101,29 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
 
 
 @parquet
+def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tmpdir):
+    df = alltypes_sample(size=10000)
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(
+        df, timestamps_to_ms=True, preserve_index=False
+    )
+    js = json.loads(arrow_table.schema.metadata[b'pandas'])
+    assert not js['index_columns']
+
+    pq.write_table(arrow_table, filename.strpath, version="2.0")
+    table_read = pq.read_pandas(filename.strpath)
+
+    js = json.loads(table_read.schema.metadata[b'pandas'])
+    assert not js['index_columns']
+
+    assert arrow_table.schema.metadata == table_read.schema.metadata
+
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
 def test_pandas_parquet_1_0_rountrip(tmpdir):
     size = 10000
     np.random.seed(0)
