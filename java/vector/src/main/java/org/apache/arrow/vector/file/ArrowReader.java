@@ -160,7 +160,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
       fields.add(updated);
       vectors.add(updated.createVector(allocator));
     }
-    Schema schema = new Schema(fields, originalSchema.getMetadata());
+    Schema schema = new Schema(fields, originalSchema.getCustomMetadata());
 
     this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new VectorLoader(root);

@@ -402,7 +402,7 @@ public class TestArrowFile extends BaseFileTest {
     metadata.put("s1", "v1");
     metadata.put("s2", "v2");
     Schema originalSchema = new Schema(ImmutableList.of(field), metadata);
-    Assert.assertEquals(metadata, originalSchema.getMetadata());
+    Assert.assertEquals(metadata, originalSchema.getCustomMetadata());
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
@@ -434,7 +434,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
       Assert.assertEquals(originalSchema, schema);
-      Assert.assertEquals(originalSchema.getMetadata(), schema.getMetadata());
+      Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
       for (int i = 0; i < 4; i ++) {
@@ -450,7 +450,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
       Assert.assertEquals(originalSchema, schema);
-      Assert.assertEquals(originalSchema.getMetadata(), schema.getMetadata());
+      Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
       for (int i = 0; i < 4; i ++) {

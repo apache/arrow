@@ -117,7 +117,7 @@ public class Schema {
   }
 
   @JsonInclude(Include.NON_EMPTY)
-  public Map<String, String> getMetadata() {
+  public Map<String, String> getCustomMetadata() {
     return metadata;
   }
 
