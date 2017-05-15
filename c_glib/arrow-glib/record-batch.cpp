@@ -22,8 +22,11 @@
 #endif
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
+
+#include <sstream>
 
 G_BEGIN_DECLS
 
@@ -285,6 +288,32 @@ garrow_record_batch_slice(GArrowRecordBatch *record_batch,
   auto arrow_sub_record_batch = arrow_record_batch->Slice(offset, length);
   return garrow_record_batch_new_raw(&arrow_sub_record_batch);
 }
+
+/**
+ * garrow_record_batch_to_string:
+ * @record_batch: A #GArrowRecordBatch.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): The formatted record batch content or %NULL on error.
+ *
+ *   The returned string should be freed when with g_free() when no
+ *   longer needed.
+ *
+ * Since: 0.4.0
+ */
+gchar *
+garrow_record_batch_to_string(GArrowRecordBatch *record_batch, GError **error)
+{
+  const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  std::stringstream sink;
+  auto status = arrow::PrettyPrint(*arrow_record_batch, 0, &sink);
+  if (garrow_error_check(error, status, "[record-batch][to-string]")) {
+    return g_strdup(sink.str().c_str());
+  } else {
+    return NULL;
+  }
+}
+
 
 G_END_DECLS
 

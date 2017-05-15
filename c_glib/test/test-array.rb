@@ -96,4 +96,9 @@ class TestArray < Test::Unit::TestCase
     assert_equal([false, true],
                  sub_array.length.times.collect {|i| sub_array.get_value(i)})
   end
+
+  def test_to_s
+    assert_equal("[true, false, true]",
+                 build_boolean_array([true, false, true]).to_s)
+  end
 end

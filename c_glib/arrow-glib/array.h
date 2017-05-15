@@ -79,6 +79,8 @@ GArrowType     garrow_array_get_value_type(GArrowArray *array);
 GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 offset,
                                          gint64 length);
+gchar         *garrow_array_to_string   (GArrowArray *array,
+                                         GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \
   (garrow_null_array_get_type())

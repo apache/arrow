@@ -91,5 +91,12 @@ class TestTable < Test::Unit::TestCase
       assert_equal([false, true],
                    sub_visible_values)
     end
+
+    def test_to_s
+      assert_equal(<<-PRETTY_PRINT, @record_batch.to_s)
+visible: [true, false, true, false, true, false]
+valid: [false, true, false, true, false]
+      PRETTY_PRINT
+    end
   end
 end
