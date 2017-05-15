@@ -509,7 +509,7 @@ class DictionaryWriter : public RecordBatchSerializer {
 };
 
 // Adds padding bytes if necessary to ensure all memory blocks are written on
-// 8-byte boundaries.
+// 64-byte boundaries.
 Status AlignStreamPosition(io::OutputStream* stream) {
   int64_t position;
   RETURN_NOT_OK(stream->Tell(&position));
@@ -687,9 +687,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
   }
 
   // Adds padding bytes if necessary to ensure all memory blocks are written on
-  // 8-byte boundaries.
-  Status Align() {
-    int64_t remainder = PaddedLength(position_) - position_;
+  // 64-byte (or other alignment) boundaries.
+  Status Align(int64_t alignment = kArrowAlignment) {
+    int64_t remainder = PaddedLength(position_, alignment) - position_;
     if (remainder > 0) { return Write(kPaddingBytes, remainder); }
     return Status::OK();
   }
@@ -699,12 +699,6 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
     RETURN_NOT_OK(sink_->Write(data, nbytes));
     position_ += nbytes;
     return Status::OK();
-  }
-
-  // Write and align
-  Status WriteAligned(const uint8_t* data, int64_t nbytes) {
-    RETURN_NOT_OK(Write(data, nbytes));
-    return Align();
   }
 
   void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
@@ -762,8 +756,10 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
   using BASE = RecordBatchStreamWriter::RecordBatchStreamWriterImpl;
 
   Status Start() override {
-    RETURN_NOT_OK(WriteAligned(
-        reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes)));
+    // It is only necessary to align to 8-byte boundary at the start of the file
+    RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
+            strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Align(8));
 
     // We write the schema at the start of the file (and the end). This also
     // writes all the dictionaries at the beginning of the file
