@@ -79,23 +79,25 @@ def index_level_name(index, i):
     return index.name or '__index_level_{:d}__'.format(i)
 
 
-def construct_metadata(df, index_levels):
+def construct_metadata(df, index_levels, preserve_index):
     return {
         b'pandas': json.dumps(
             {
                 'index_columns': [
                     index_level_name(level, i)
                     for i, level in enumerate(index_levels)
-                ],
+                ] if preserve_index else [],
                 'columns': [
                     get_column_metadata(df[name], name=name)
                     for name in df.columns
-                ] + [
-                    get_column_metadata(
-                        level, name=index_level_name(level, i)
-                    )
-                    for i, level in enumerate(index_levels)
-                ],
+                ] + (
+                    [
+                        get_column_metadata(
+                            level, name=index_level_name(level, i)
+                        )
+                        for i, level in enumerate(index_levels)
+                    ] if preserve_index else []
+                ),
                 'pandas_version': pd.__version__,
             }
         ).encode('utf8')

@@ -345,7 +345,7 @@ cdef tuple _dataframe_to_arrays(
         )
         names.append(pdcompat.index_level_name(level, i))
 
-    metadata = pdcompat.construct_metadata(df, index_levels)
+    metadata = pdcompat.construct_metadata(df, index_levels, preserve_index)
     return names, arrays, metadata
 
 
