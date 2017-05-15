@@ -1356,19 +1356,18 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
 
 inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
-  OwnedRef dict_item;
-  std::vector<OwnedRef> fields_data;
   if (data.num_chunks() <= 0) {
     return Status::OK();
   }
   // ChunkedArray has at least one chunk
-  auto arr = static_cast<StructArray*>(data.chunk(0).get());
+  auto arr = static_cast<const StructArray*>(data.chunk(0).get());
   // Use it to cache the struct type and number of fields for all chunks
   auto num_fields = arr->fields().size();
   auto array_type = arr->type();
+  std::vector<OwnedRef> fields_data(num_fields);
+  OwnedRef dict_item;
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto arr = static_cast<StructArray*>(data.chunk(c).get());
-    fields_data.resize(num_fields);
+    auto arr = static_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (size_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;

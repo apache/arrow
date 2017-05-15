@@ -1613,14 +1613,19 @@ cdef class StructArray(Array):
             shared_ptr[CArray] c_array
             vector[shared_ptr[CArray]] c_arrays
             shared_ptr[CArray] c_result
+            ssize_t num_arrays
+            ssize_t length
+            ssize_t i
 
-        if len(arrays) == 0:
+        num_arrays = len(arrays)
+        if num_arrays == 0:
             raise ValueError("arrays list is empty")
 
         length = len(arrays[0])
 
-        c_arrays.resize(len(arrays))
-        for i, array in enumerate(arrays):
+        c_arrays.resize(num_arrays)
+        for i in range(num_arrays):
+            array = arrays[i]
             if len(array) != length:
                 raise ValueError("All arrays must have the same length")
             c_arrays[i] = array.sp_array
