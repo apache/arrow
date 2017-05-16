@@ -21,13 +21,14 @@
 #  include <config.h>
 #endif
 
-#include <arrow/api.h>
 #include <arrow/io/memory.h>
+#include <arrow/ipc/writer.h>
 
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/output-stream.hpp>
+#include <arrow-glib/tensor.hpp>
 #include <arrow-glib/writeable.hpp>
 
 G_BEGIN_DECLS
@@ -166,6 +167,36 @@ garrow_output_stream_class_init(GArrowOutputStreamClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_OUTPUT_STREAM, spec);
+}
+
+/**
+ * garrow_output_stream_write_tensor:
+ * @stream: A #GArrowWriteable.
+ * @tensor: A #GArrowTensor to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The number of written bytes on success, -1 on error.
+ *
+ * Since: 0.4.0
+ */
+gint64
+garrow_output_stream_write_tensor(GArrowOutputStream *stream,
+                                  GArrowTensor *tensor,
+                                  GError **error)
+{
+  auto arrow_tensor = garrow_tensor_get_raw(tensor);
+  auto arrow_stream = garrow_output_stream_get_raw(stream);
+  int32_t metadata_length;
+  int64_t body_length;
+  auto status = arrow::ipc::WriteTensor(*arrow_tensor,
+                                        arrow_stream.get(),
+                                        &metadata_length,
+                                        &body_length);
+  if (garrow_error_check(error, status, "[output-stream][write-tensor]")) {
+    return metadata_length + body_length;
+  } else {
+    return -1;
+  }
 }
 
 

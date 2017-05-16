@@ -22,6 +22,7 @@
 #include <glib-object.h>
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/tensor.h>
 
 G_BEGIN_DECLS
 
@@ -70,6 +71,10 @@ struct _GArrowOutputStreamClass
 #endif
 
 GType garrow_output_stream_get_type(void) G_GNUC_CONST;
+
+gint64 garrow_output_stream_write_tensor(GArrowOutputStream *stream,
+                                         GArrowTensor *tensor,
+                                         GError **error);
 
 
 #define GARROW_TYPE_FILE_OUTPUT_STREAM          \
