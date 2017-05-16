@@ -213,6 +213,18 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
 
 
 @parquet
+def test_read_pandas_column_subset(tmpdir):
+    df = _test_dataframe(10000)
+    arrow_table = pa.Table.from_pandas(df)
+    imos = pa.BufferOutputStream()
+    pq.write_table(arrow_table, imos, version="2.0")
+    buf = imos.get_result()
+    reader = pa.BufferReader(buf)
+    df_read = pq.read_pandas(reader, columns=['strings', 'uint8']).to_pandas()
+    tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
+
+
+@parquet
 def test_pandas_parquet_pyfile_roundtrip(tmpdir):
     filename = tmpdir.join('pandas_pyfile_roundtrip.parquet').strpath
     size = 5
