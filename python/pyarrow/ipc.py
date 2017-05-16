@@ -149,6 +149,8 @@ def deserialize_pandas(buf, nthreads=1):
     ----------
     buf : buffer
         An object compatible with the buffer protocol
+    nthreads : int, optional
+        The number of threads to use to convert the buffer to a DataFrame.
 
     Returns
     -------
