@@ -100,22 +100,25 @@ main(int argc, char **argv)
   }
 
   {
-    GArrowStreamReader *reader;
+    GArrowRecordBatchReader *reader;
+    GArrowRecordBatchStreamReader *stream_reader;
 
-    reader = garrow_stream_reader_new(GARROW_INPUT_STREAM(input),
-                                      &error);
-    if (!reader) {
+    stream_reader =
+      garrow_record_batch_stream_reader_new(GARROW_INPUT_STREAM(input),
+                                            &error);
+    if (!stream_reader) {
       g_print("failed to open stream reader: %s\n", error->message);
       g_error_free(error);
       g_object_unref(input);
       return EXIT_FAILURE;
     }
 
+    reader = GARROW_RECORD_BATCH_READER(stream_reader);
     while (TRUE) {
       GArrowRecordBatch *record_batch;
 
       record_batch =
-        garrow_stream_reader_get_next_record_batch(reader, &error);
+        garrow_record_batch_reader_get_next_record_batch(reader, &error);
       if (error) {
         g_print("failed to get record batch: %s\n", error->message);
         g_error_free(error);
