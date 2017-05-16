@@ -22,7 +22,7 @@ class TestFileWriter < Test::Unit::TestCase
     begin
       field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
       schema = Arrow::Schema.new([field])
-      file_writer = Arrow::FileWriter.new(output, schema)
+      file_writer = Arrow::RecordBatchFileWriter.new(output, schema)
       begin
         record_batch = Arrow::RecordBatch.new(schema, 0, [])
         file_writer.write_record_batch(record_batch)
