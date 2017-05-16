@@ -22,7 +22,12 @@
 #include <arrow/api.h>
 #include <arrow/ipc/api.h>
 
-#include <arrow-glib/file-reader.h>
+#include <arrow-glib/reader.h>
 
-GArrowFileReader *garrow_file_reader_new_raw(std::shared_ptr<arrow::ipc::FileReader> *arrow_file_reader);
-std::shared_ptr<arrow::ipc::FileReader> garrow_file_reader_get_raw(GArrowFileReader *file_reader);
+GArrowRecordBatchReader *garrow_record_batch_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader);
+std::shared_ptr<arrow::ipc::RecordBatchReader> garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
+
+GArrowRecordBatchStreamReader *garrow_record_batch_stream_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_reader);
+
+GArrowRecordBatchFileReader *garrow_record_batch_file_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileReader> *arrow_reader);
+std::shared_ptr<arrow::ipc::RecordBatchFileReader> garrow_record_batch_file_reader_get_raw(GArrowRecordBatchFileReader *reader);

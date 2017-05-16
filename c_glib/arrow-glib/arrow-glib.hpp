@@ -43,8 +43,6 @@
 #include <arrow-glib/writeable.hpp>
 #include <arrow-glib/writeable-file.hpp>
 
-#include <arrow-glib/file-reader.hpp>
-#include <arrow-glib/file-writer.hpp>
 #include <arrow-glib/metadata-version.hpp>
-#include <arrow-glib/stream-reader.hpp>
-#include <arrow-glib/stream-writer.hpp>
+#include <arrow-glib/reader.hpp>
+#include <arrow-glib/writer.hpp>

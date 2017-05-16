@@ -35,7 +35,7 @@ class TestFileWriter < Test::Unit::TestCase
 
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
-      file_reader = Arrow::FileReader.new(input)
+      file_reader = Arrow::RecordBatchFileReader.new(input)
       assert_equal(["enabled"],
                    file_reader.schema.fields.collect(&:name))
     ensure

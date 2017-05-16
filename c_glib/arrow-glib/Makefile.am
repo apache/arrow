@@ -66,9 +66,8 @@ libarrow_glib_la_headers +=			\
 	writeable-file.h
 
 libarrow_glib_la_headers +=			\
-	file-reader.h				\
-	stream-reader.h				\
 	metadata-version.h			\
+	reader.h				\
 	writer.h
 
 libarrow_glib_la_generated_headers =		\
@@ -105,9 +104,8 @@ libarrow_glib_la_sources +=			\
 	writeable-file.cpp
 
 libarrow_glib_la_sources +=			\
-	file-reader.cpp				\
 	metadata-version.cpp			\
-	stream-reader.cpp			\
+	reader.cpp				\
 	writer.cpp
 
 libarrow_glib_la_cpp_headers =			\
@@ -136,9 +134,8 @@ libarrow_glib_la_cpp_headers +=			\
 	writeable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
-	file-reader.hpp				\
 	metadata-version.hpp			\
-	stream-reader.hpp			\
+	reader.hpp				\
 	writer.hpp
 
 libarrow_glib_la_SOURCES =			\
