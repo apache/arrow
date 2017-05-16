@@ -118,8 +118,8 @@ class ParquetFile(object):
         else:
             index_columns = []
 
-        if column_indices and index_columns:
-            column_indices += index_columns
+        if column_indices is not None and index_columns:
+            column_indices += map(self.reader.column_name_idx, index_columns)
 
         if nthreads is not None:
             self.reader.set_num_threads(nthreads)
