@@ -60,7 +60,7 @@ this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a writ
 
 .. ipython:: python
 
-   sink = pa.InMemoryOutputStream()
+   sink = pa.BufferOutputStream()
    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
 
 Here we used an in-memory Arrow buffer stream, but this could have been a
@@ -109,7 +109,7 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 
 .. ipython:: python
 
-   sink = pa.InMemoryOutputStream()
+   sink = pa.BufferOutputStream()
    writer = pa.RecordBatchFileWriter(sink, batch.schema)
 
    for i in range(10):

@@ -179,7 +179,7 @@ def _test_dataframe(size=10000, seed=0):
 def test_pandas_parquet_native_file_roundtrip(tmpdir):
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
-    imos = pa.InMemoryOutputStream()
+    imos = pa.BufferOutputStream()
     pq.write_table(arrow_table, imos, version="2.0")
     buf = imos.get_result()
     reader = pa.BufferReader(buf)

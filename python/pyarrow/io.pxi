@@ -515,14 +515,14 @@ cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     return result
 
 
-cdef class InMemoryOutputStream(NativeFile):
+cdef class BufferOutputStream(NativeFile):
 
     cdef:
         shared_ptr[PoolBuffer] buffer
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.buffer = allocate_buffer(maybe_unbox_memory_pool(memory_pool))
-        self.wr_file.reset(new BufferOutputStream(
+        self.wr_file.reset(new CBufferOutputStream(
             <shared_ptr[ResizableBuffer]> self.buffer))
         self.is_readable = 0
         self.is_writeable = 1

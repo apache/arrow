@@ -179,7 +179,7 @@ def test_memory_output_stream():
     # 10 bytes
     val = b'dataabcdef'
 
-    f = pa.InMemoryOutputStream()
+    f = pa.BufferOutputStream()
 
     K = 1000
     for i in range(K):
@@ -192,7 +192,7 @@ def test_memory_output_stream():
 
 
 def test_inmemory_write_after_closed():
-    f = pa.InMemoryOutputStream()
+    f = pa.BufferOutputStream()
     f.write(b'ok')
     f.get_result()
 
@@ -212,7 +212,7 @@ def test_buffer_protocol_ref_counting():
 
 
 def test_nativefile_write_memoryview():
-    f = pa.InMemoryOutputStream()
+    f = pa.BufferOutputStream()
     data = b'ok'
 
     arr = np.frombuffer(data, dtype='S1')

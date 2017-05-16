@@ -70,7 +70,7 @@ from pyarrow.lib import (null, bool_,
                          Date32Value, Date64Value, TimestampValue)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
-                         Buffer, BufferReader, InMemoryOutputStream,
+                         Buffer, BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          frombuffer, read_tensor, write_tensor,
                          memory_map, create_memory_map,
@@ -108,3 +108,38 @@ from pyarrow.ipc import (RecordBatchFileReader, RecordBatchFileWriter,
 
 
 localfs = LocalFilesystem.get_instance()
+
+
+# ----------------------------------------------------------------------
+# 0.4.0 deprecations
+
+import warnings
+
+def _deprecate_class(old_name, new_name, klass, next_version='0.5.0'):
+    msg = ('pyarrow.{0} has been renamed to '
+           '{1}, will be removed in {2}'
+           .format(old_name, new_name, next_version))
+    def deprecated_factory(*args, **kwargs):
+        warnings.warn(msg, FutureWarning)
+        return klass(*args)
+    return deprecated_factory
+
+FileReader = _deprecate_class('FileReader',
+                              'RecordBatchFileReader',
+                              RecordBatchFileReader, '0.5.0')
+
+FileWriter = _deprecate_class('FileWriter',
+                              'RecordBatchFileWriter',
+                              RecordBatchFileWriter, '0.5.0')
+
+StreamReader = _deprecate_class('StreamReader',
+                                'RecordBatchStreamReader',
+                                RecordBatchStreamReader, '0.5.0')
+
+StreamWriter = _deprecate_class('StreamWriter',
+                                'RecordBatchStreamWriter',
+                                RecordBatchStreamWriter, '0.5.0')
+
+InMemoryOutputStream = _deprecate_class('InMemoryOutputStream',
+                                        'BufferOutputStream',
+                                        BufferOutputStream, '0.5.0')
