@@ -24,8 +24,9 @@
 
 #include <arrow-glib/writer.h>
 
-GArrowStreamWriter *garrow_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *arrow_stream_writer);
-std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> garrow_stream_writer_get_raw(GArrowStreamWriter *stream_writer);
+GArrowRecordBatchWriter *garrow_record_batch_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);
+std::shared_ptr<arrow::ipc::RecordBatchWriter> garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer);
 
-GArrowFileWriter *garrow_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileWriter> *arrow_file_writer);
-arrow::ipc::RecordBatchFileWriter *garrow_file_writer_get_raw(GArrowFileWriter *file_writer);
+GArrowRecordBatchStreamWriter *garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *arrow_writer);
+
+GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileWriter> *arrow_writer);

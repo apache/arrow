@@ -24,7 +24,7 @@ class TestStreamWriter < Test::Unit::TestCase
     begin
       field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
       schema = Arrow::Schema.new([field])
-      stream_writer = Arrow::StreamWriter.new(output, schema)
+      stream_writer = Arrow::RecordBatchStreamWriter.new(output, schema)
       begin
         columns = [
           build_boolean_array([true]),
