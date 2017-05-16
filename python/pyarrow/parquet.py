@@ -647,8 +647,8 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
     ----------
     source: str or pyarrow.io.NativeFile
         Location of Parquet dataset. If a string passed, can be a single file
-        name or directory name. For passing Python file objects or byte
-        buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
+        name. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
         If not None, only these columns will be read from the file.
     nthreads : int, default 1
@@ -660,14 +660,15 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
     Returns
     -------
     pyarrow.Table
-        Content of the file as a table (of columns)
+        Content of the file as a Table of Columns, including DataFrame indexes
+        as Columns.
     """
     if is_string(source):
         fs = LocalFilesystem.get_instance()
         if fs.isdir(source):
             raise NotImplementedError(
-                'Reading Parquet files with DataFrame index metadata is not '
-                'yet supported'
+                'Reading a directory of Parquet files with DataFrame index '
+                'metadata is not yet supported'
             )
 
     pf = ParquetFile(source, metadata=metadata)
