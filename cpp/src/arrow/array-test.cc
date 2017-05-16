@@ -685,7 +685,7 @@ class TestStringArray : public ::testing::Test {
 TEST_F(TestStringArray, TestArrayBasics) {
   ASSERT_EQ(length_, strings_->length());
   ASSERT_EQ(1, strings_->null_count());
-  ASSERT_OK(strings_->Validate());
+  ASSERT_OK(ValidateArray(*strings_));
 }
 
 TEST_F(TestStringArray, TestType) {
@@ -801,7 +801,7 @@ class TestStringBuilder : public TestBuilder {
     EXPECT_OK(builder_->Finish(&out));
 
     result_ = std::dynamic_pointer_cast<StringArray>(out);
-    result_->Validate();
+    ASSERT_OK(ValidateArray(*result_));
   }
 
  protected:
@@ -899,7 +899,7 @@ class TestBinaryArray : public ::testing::Test {
 TEST_F(TestBinaryArray, TestArrayBasics) {
   ASSERT_EQ(length_, strings_->length());
   ASSERT_EQ(1, strings_->null_count());
-  ASSERT_OK(strings_->Validate());
+  ASSERT_OK(ValidateArray(*strings_));
 }
 
 TEST_F(TestBinaryArray, TestType) {
@@ -969,7 +969,7 @@ class TestBinaryBuilder : public TestBuilder {
     EXPECT_OK(builder_->Finish(&out));
 
     result_ = std::dynamic_pointer_cast<BinaryArray>(out);
-    result_->Validate();
+    ASSERT_OK(ValidateArray(*result_));
   }
 
  protected:
@@ -994,7 +994,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
     }
   }
   Done();
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(ValidateArray(*result_));
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->data()->size());
@@ -1354,7 +1354,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
 
   Done();
 
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(ValidateArray(*result_));
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
 
@@ -1368,7 +1368,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
 
 void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& values,
     const vector<uint8_t>& is_valid) {
-  ASSERT_OK(result->Validate());
+  ASSERT_OK(ValidateArray(*result));
   ASSERT_EQ(1, result->null_count());
   ASSERT_EQ(0, result->values()->null_count());
 
@@ -1446,13 +1446,13 @@ TEST_F(TestListBuilder, BulkAppendInvalid) {
   }
 
   Done();
-  ASSERT_RAISES(Invalid, result_->Validate());
+  ASSERT_RAISES(Invalid, ValidateArray(*result_));
 }
 
 TEST_F(TestListBuilder, TestZeroLength) {
   // All buffers are null
   Done();
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(ValidateArray(*result_));
 }
 
 // ----------------------------------------------------------------------
@@ -1569,9 +1569,9 @@ TEST(TestDictionary, Validate) {
   std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
 
   // Only checking index type for now
-  ASSERT_OK(arr->Validate());
-  ASSERT_RAISES(Invalid, arr2->Validate());
-  ASSERT_OK(arr3->Validate());
+  ASSERT_OK(ValidateArray(*arr));
+  ASSERT_RAISES(Invalid, ValidateArray(*arr2));
+  ASSERT_OK(ValidateArray(*arr3));
 }
 
 // ----------------------------------------------------------------------
@@ -1582,7 +1582,7 @@ void ValidateBasicStructArray(const StructArray* result,
     const vector<uint8_t>& list_is_valid, const vector<int>& list_lengths,
     const vector<int>& list_offsets, const vector<int32_t>& int_values) {
   ASSERT_EQ(4, result->length());
-  ASSERT_OK(result->Validate());
+  ASSERT_OK(ValidateArray(*result));
 
   auto list_char_arr = static_cast<ListArray*>(result->field(0).get());
   auto char_arr = static_cast<Int8Array*>(list_char_arr->values().get());
@@ -1666,7 +1666,7 @@ TEST_F(TestStructBuilder, TestAppendNull) {
 
   Done();
 
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(ValidateArray(*result_));
 
   ASSERT_EQ(2, static_cast<int>(result_->fields().size()));
   ASSERT_EQ(2, result_->length());
@@ -1777,8 +1777,8 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
   }
 
   Done();
-  // Even null bitmap of the parent Struct is not valid, Validate() will ignore it.
-  ASSERT_OK(result_->Validate());
+  // Even null bitmap of the parent Struct is not valid, validate will ignore it.
+  ASSERT_OK(ValidateArray(*result_));
 }
 
 TEST_F(TestStructBuilder, TestEquality) {
@@ -1924,7 +1924,7 @@ TEST_F(TestStructBuilder, TestEquality) {
 TEST_F(TestStructBuilder, TestZeroLength) {
   // All buffers are null
   Done();
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(ValidateArray(*result_));
 }
 
 // ----------------------------------------------------------------------

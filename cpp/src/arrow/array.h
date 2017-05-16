@@ -108,11 +108,6 @@ class ARROW_EXPORT Array {
   bool RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
       int64_t other_start_idx) const;
 
-  /// Determines if the array is internally consistent.
-  ///
-  /// Defaults to always returning Status::OK. This can be an expensive check.
-  virtual Status Validate() const;
-
   Status Accept(ArrayVisitor* visitor) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
@@ -238,8 +233,6 @@ class ARROW_EXPORT ListArray : public Array {
     values_ = values;
   }
 
-  Status Validate() const override;
-
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> values() const { return values_; }
@@ -306,8 +299,6 @@ class ARROW_EXPORT BinaryArray : public Array {
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
   }
 
-  Status Validate() const override;
-
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
  protected:
@@ -341,8 +332,6 @@ class ARROW_EXPORT StringArray : public BinaryArray {
     const uint8_t* str = GetValue(i, &nchars);
     return std::string(reinterpret_cast<const char*>(str), nchars);
   }
-
-  Status Validate() const override;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 };
@@ -406,8 +395,6 @@ class ARROW_EXPORT StructArray : public Array {
       std::shared_ptr<Buffer> null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);
 
-  Status Validate() const override;
-
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> field(int pos) const;
@@ -435,8 +422,6 @@ class ARROW_EXPORT UnionArray : public Array {
       const std::shared_ptr<Buffer>& value_offsets = nullptr,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);
-
-  Status Validate() const override;
 
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> type_ids() const { return type_ids_; }
@@ -490,8 +475,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   DictionaryArray(
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices);
 
-  Status Validate() const override;
-
   std::shared_ptr<Array> indices() const { return indices_; }
   std::shared_ptr<Array> dictionary() const;
 
@@ -524,6 +507,16 @@ ARROW_EXTERN_TEMPLATE NumericArray<Date64Type>;
 ARROW_EXTERN_TEMPLATE NumericArray<Time32Type>;
 ARROW_EXTERN_TEMPLATE NumericArray<Time64Type>;
 ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
+
+
+/// \brief Perform any validation checks to determine obvious inconsistencies
+/// with the array's internal data
+///
+/// This can be an expensive check.
+///
+/// \param array an Array instance
+/// \return Status
+Status ValidateArray(const Array& array);
 
 }  // namespace arrow
 
