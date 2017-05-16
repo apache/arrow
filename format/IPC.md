@@ -83,9 +83,11 @@ as an `int32` or simply closing the stream interface.
 We define a "file format" supporting random access in a very similar format to
 the streaming format. The file starts and ends with a magic string `ARROW1`
 (plus padding). What follows in the file is identical to the stream format. At
-the end of the file, we write a *footer* including offsets and sizes for each
-of the data blocks in the file, so that random access is possible. See
-[format/File.fbs][1] for the precise details of the file footer.
+the end of the file, we write a *footer* containing a redundant copy of the
+schema (which is a part of the streaming format) plus memory offsets and sizes
+for each of the data blocks in the file. This enables random access any record
+batch in the file. See [format/File.fbs][1] for the precise details of the file
+footer.
 
 Schematically we have:
 
