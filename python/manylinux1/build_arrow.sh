@@ -39,9 +39,7 @@ export PYARROW_WITH_JEMALLOC=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
-export PARQUET_HOME="/usr"
 export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
-
 # Ensure the target directory exists
 mkdir -p /io/dist
 

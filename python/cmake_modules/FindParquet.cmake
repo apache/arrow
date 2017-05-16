@@ -20,35 +20,57 @@
 #  PARQUET_SHARED_LIB, path to libparquet's shared library
 #  PARQUET_FOUND, whether parquet has been found
 
-if( NOT "$ENV{PARQUET_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "$ENV{PARQUET_HOME}" _native_path )
-    list( APPEND _parquet_roots ${_native_path} )
-elseif ( Parquet_HOME )
-    list( APPEND _parquet_roots ${Parquet_HOME} )
+include(FindPkgConfig)
+
+if(NOT "$ENV{PARQUET_HOME}" STREQUAL "")
+    set(PARQUET_HOME "$ENV{PARQUET_HOME}")
 endif()
 
-# Try the parameterized roots, if they exist
-if ( _parquet_roots )
-  find_path( PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h
-    PATHS ${_parquet_roots} NO_DEFAULT_PATH
-    PATH_SUFFIXES "include" )
-  find_library( PARQUET_LIBRARIES NAMES parquet
-    PATHS ${_parquet_roots} NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" )
-
-  find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
-    PATHS ${_parquet_roots} NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib")
-else ()
-    find_path(PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
-    find_library(PARQUET_LIBRARIES NAMES parquet)
-    find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow)
-endif ()
-
+if(PARQUET_HOME)
+    set(PARQUET_SEARCH_HEADER_PATHS
+        ${PARQUET_HOME}/include
+        )
+    set(PARQUET_SEARCH_LIB_PATH
+        ${PARQUET_HOME}/lib
+        )
+    find_path(PARQUET_INCLUDE_DIR parquet/api/reader.h PATHS
+        ${PARQUET_SEARCH_HEADER_PATHS}
+        # make sure we don't accidentally pick up a different version
+        NO_DEFAULT_PATH
+        )
+    find_library(PARQUET_LIBRARIES NAMES parquet
+        PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
+        PATH_SUFFIXES "lib")
+    find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
+        PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
+        PATH_SUFFIXES "lib")
+    get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
+else()
+    pkg_check_modules(PARQUET parquet)
+    if (PARQUET_FOUND)
+        pkg_get_variable(PARQUET_ABI_VERSION parquet abi_version)
+        message(STATUS "Parquet C++ ABI version: ${PARQUET_ABI_VERSION}")
+        pkg_get_variable(PARQUET_SO_VERSION parquet so_version)
+        message(STATUS "Parquet C++ SO version: ${PARQUET_SO_VERSION}")
+        set(PARQUET_INCLUDE_DIR ${PARQUET_INCLUDE_DIRS})
+        set(PARQUET_LIBS ${PARQUET_LIBRARY_DIRS})
+        set(PARQUET_SEARCH_LIB_PATH ${PARQUET_LIBRARY_DIRS})
+        message(STATUS "Searching for parquet libs in: ${PARQUET_SEARCH_LIB_PATH}")
+        find_library(PARQUET_LIBRARIES NAMES parquet
+            PATHS ${PARQUET_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
+        find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
+            PATHS ${PARQUET_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
+        message(STATUS "${PARQUET_ARROW_LIBRARIES}")
+    else()
+        find_path(PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
+        find_library(PARQUET_LIBRARIES NAMES parquet)
+        find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow)
+        get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
+    endif()
+endif()
 
 if (PARQUET_INCLUDE_DIR AND PARQUET_LIBRARIES)
   set(PARQUET_FOUND TRUE)
-  get_filename_component( PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
   set(PARQUET_LIB_NAME libparquet)
   set(PARQUET_STATIC_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}.a)
   set(PARQUET_SHARED_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
