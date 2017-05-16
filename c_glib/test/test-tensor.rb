@@ -114,4 +114,13 @@ class TestTensor < Test::Unit::TestCase
       not @tensor.column_major?
     end
   end
+
+  def test_io
+    buffer = Arrow::PoolBuffer.new
+    output = Arrow::BufferOutputStream.new(buffer)
+    output.write_tensor(@tensor)
+    input = Arrow::BufferInputStream.new(buffer)
+    assert_equal(@tensor,
+                 input.read_tensor(0))
+  end
 end

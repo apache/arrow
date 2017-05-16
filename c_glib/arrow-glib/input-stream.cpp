@@ -23,12 +23,14 @@
 
 #include <arrow/io/interfaces.h>
 #include <arrow/io/memory.h>
+#include <arrow/ipc/reader.h>
 
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file.hpp>
 #include <arrow-glib/input-stream.hpp>
 #include <arrow-glib/readable.hpp>
+#include <arrow-glib/tensor.hpp>
 
 G_BEGIN_DECLS
 
@@ -248,6 +250,36 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
                                                  &arrow_buffer);
   if (garrow_error_check(error, status, "[seekable-input-stream][read-at]")) {
     return garrow_buffer_new_raw(&arrow_buffer);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_seekable_input_stream_read_tensor:
+ * @input_stream: A #GArrowSeekableInputStream.
+ * @position: The read start position.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable):
+ *   #GArrowTensor on success, %NULL on error.
+ *
+ * Since: 0.4.0
+ */
+GArrowTensor *
+garrow_seekable_input_stream_read_tensor(GArrowSeekableInputStream *input_stream,
+                                         gint64 position,
+                                         GError **error)
+{
+  auto arrow_random_access_file =
+    garrow_seekable_input_stream_get_raw(input_stream);
+
+  std::shared_ptr<arrow::Tensor> arrow_tensor;
+  auto status = arrow::ipc::ReadTensor(position,
+                                       arrow_random_access_file.get(),
+                                       &arrow_tensor);
+  if (garrow_error_check(error, status, "[seekable-input-stream][read-tensor]")) {
+    return garrow_tensor_new_raw(&arrow_tensor);
   } else {
     return NULL;
   }
