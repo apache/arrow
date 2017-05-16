@@ -240,6 +240,57 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
+def test_pandas_serialize_round_trip():
+    index = pd.Index([1, 2, 3], name='my_index')
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index, columns=columns
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
+def test_pandas_serialize_round_trip_nthreads():
+    index = pd.Index([1, 2, 3], name='my_index')
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index, columns=columns
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf, nthreads=2)
+    assert_frame_equal(result, df)
+
+
+def test_pandas_serialize_round_trip_multi_index():
+    index1 = pd.Index([1, 2, 3], name='level_1')
+    index2 = pd.Index(list('def'), name=None)
+    index = pd.MultiIndex.from_arrays([index1, index2])
+
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index,
+        columns=columns,
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
+@pytest.mark.xfail(
+    raises=TypeError,
+    reason='Non string columns are not supported',
+)
+def test_pandas_serialize_round_trip_not_string_columns():
+    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
 def write_file(batch, sink):
     writer = pa.RecordBatchFileWriter(sink, batch.schema)
     writer.write_batch(batch)

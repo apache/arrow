@@ -265,7 +265,12 @@ bool Schema::Equals(const Schema& other) const {
   return true;
 }
 
-std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
+std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
+  int64_t i = GetFieldIndex(name);
+  return i == -1 ? nullptr : fields_[i];
+}
+
+int64_t Schema::GetFieldIndex(const std::string& name) const {
   if (fields_.size() > 0 && name_to_index_.size() == 0) {
     for (size_t i = 0; i < fields_.size(); ++i) {
       name_to_index_[fields_[i]->name()] = static_cast<int>(i);
@@ -274,9 +279,9 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
 
   auto it = name_to_index_.find(name);
   if (it == name_to_index_.end()) {
-    return nullptr;
+    return -1;
   } else {
-    return fields_[it->second];
+    return it->second;
   }
 }
 

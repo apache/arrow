@@ -40,15 +40,15 @@ cdef class RowGroupMetaData:
     cdef:
         unique_ptr[CRowGroupMetaData] up_metadata
         CRowGroupMetaData* metadata
-        object parent
+        FileMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init_from_file(self, FileMetaData parent, int i):
+    cdef void init_from_file(self, FileMetaData parent, int i):
         if i < 0 or i >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(i))
-        self.up_metadata = parent.metadata.RowGroup(i)
+        self.up_metadata = parent._metadata.RowGroup(i)
         self.metadata = self.up_metadata.get()
         self.parent = parent
 
@@ -80,15 +80,15 @@ cdef class RowGroupMetaData:
 cdef class FileMetaData:
     cdef:
         shared_ptr[CFileMetaData] sp_metadata
-        CFileMetaData* metadata
-        object _schema
+        CFileMetaData* _metadata
+        ParquetSchema _schema
 
     def __cinit__(self):
         pass
 
     cdef init(self, const shared_ptr[CFileMetaData]& metadata):
         self.sp_metadata = metadata
-        self.metadata = metadata.get()
+        self._metadata = metadata.get()
 
     def __repr__(self):
         return """{0}
@@ -116,27 +116,27 @@ cdef class FileMetaData:
     property serialized_size:
 
         def __get__(self):
-            return self.metadata.size()
+            return self._metadata.size()
 
     property num_columns:
 
         def __get__(self):
-            return self.metadata.num_columns()
+            return self._metadata.num_columns()
 
     property num_rows:
 
         def __get__(self):
-            return self.metadata.num_rows()
+            return self._metadata.num_rows()
 
     property num_row_groups:
 
         def __get__(self):
-            return self.metadata.num_row_groups()
+            return self._metadata.num_row_groups()
 
     property format_version:
 
         def __get__(self):
-            cdef ParquetVersion version = self.metadata.version()
+            cdef ParquetVersion version = self._metadata.version()
             if version == ParquetVersion_V1:
                 return '1.0'
             if version == ParquetVersion_V2:
@@ -149,7 +149,7 @@ cdef class FileMetaData:
     property created_by:
 
         def __get__(self):
-            return frombytes(self.metadata.created_by())
+            return frombytes(self._metadata.created_by())
 
     def row_group(self, int i):
         """
@@ -159,14 +159,26 @@ cdef class FileMetaData:
         result.init_from_file(self, i)
         return result
 
+    property metadata:
+
+        def __get__(self):
+            cdef:
+                unordered_map[c_string, c_string] metadata
+                const CKeyValueMetadata* underlying_metadata
+            underlying_metadata = self._metadata.key_value_metadata().get()
+            if underlying_metadata != NULL:
+                underlying_metadata.ToUnorderedMap(&metadata)
+                return metadata
+            else:
+                return None
+
 
 cdef class ParquetSchema:
     cdef:
-        object parent  # the FileMetaData owning the SchemaDescriptor
+        FileMetaData parent  # the FileMetaData owning the SchemaDescriptor
         const SchemaDescriptor* schema
 
     def __cinit__(self):
-        self.parent = None
         self.schema = NULL
 
     def __repr__(self):
@@ -186,7 +198,7 @@ cdef class ParquetSchema:
 
     cdef init_from_filemeta(self, FileMetaData container):
         self.parent = container
-        self.schema = container.metadata.schema()
+        self.schema = container._metadata.schema()
 
     def __len__(self):
         return self.schema.num_columns()
@@ -211,7 +223,9 @@ cdef class ParquetSchema:
             shared_ptr[CSchema] sp_arrow_schema
 
         with nogil:
-            check_status(FromParquetSchema(self.schema, &sp_arrow_schema))
+            check_status(FromParquetSchema(
+                self.schema, self.parent._metadata.key_value_metadata(),
+                &sp_arrow_schema))
 
         return pyarrow_wrap_schema(sp_arrow_schema)
 
@@ -232,7 +246,7 @@ cdef class ParquetSchema:
 
 cdef class ColumnSchema:
     cdef:
-        object parent
+        ParquetSchema parent
         const ColumnDescriptor* descr
 
     def __cinit__(self):
@@ -463,7 +477,7 @@ cdef class ParquetReader:
         """
         cdef:
             FileMetaData container = self.metadata
-            const CFileMetaData* metadata = container.metadata
+            const CFileMetaData* metadata = container._metadata
             int i = 0
 
         if self.column_idx_map is None:
@@ -488,12 +502,13 @@ cdef class ParquetReader:
         return array
 
 
-cdef check_compression_name(name):
+cdef int check_compression_name(name) except -1:
     if name.upper() not in ['NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI']:
         raise ArrowException("Unsupported compression: " + name)
+    return 0
 
 
-cdef ParquetCompression compression_from_name(object name):
+cdef ParquetCompression compression_from_name(str name):
     name = name.upper()
     if name == "SNAPPY":
         return ParquetCompression_SNAPPY
@@ -546,7 +561,7 @@ cdef class ParquetWriter:
                             maybe_unbox_memory_pool(memory_pool),
                             sink, properties, &self.writer))
 
-    cdef _set_version(self, WriterProperties.Builder* props):
+    cdef void _set_version(self, WriterProperties.Builder* props):
         if self.version is not None:
             if self.version == "1.0":
                 props.version(ParquetVersion_V1)
@@ -555,7 +570,7 @@ cdef class ParquetWriter:
             else:
                 raise ArrowException("Unsupported Parquet format version")
 
-    cdef _set_compression_props(self, WriterProperties.Builder* props):
+    cdef void _set_compression_props(self, WriterProperties.Builder* props):
         if isinstance(self.compression, basestring):
             check_compression_name(self.compression)
             props.compression(compression_from_name(self.compression))
@@ -564,7 +579,7 @@ cdef class ParquetWriter:
                 check_compression_name(codec)
                 props.compression(column, compression_from_name(codec))
 
-    cdef _set_dictionary_props(self, WriterProperties.Builder* props):
+    cdef void _set_dictionary_props(self, WriterProperties.Builder* props):
         if isinstance(self.use_dictionary, bool):
             if self.use_dictionary:
                 props.enable_dictionary()

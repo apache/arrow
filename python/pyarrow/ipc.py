@@ -17,6 +17,7 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
+import pyarrow as pa
 import pyarrow.lib as lib
 
 
@@ -119,3 +120,42 @@ def open_file(source, footer_offset=None):
     reader : RecordBatchFileReader
     """
     return RecordBatchFileReader(source, footer_offset=footer_offset)
+
+
+def serialize_pandas(df):
+    """Serialize a pandas DataFrame into a buffer protocol compatible object.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+
+    Returns
+    -------
+    buf : buffer
+        An object compatible with the buffer protocol
+    """
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.InMemoryOutputStream()
+    writer = pa.RecordBatchFileWriter(sink, batch.schema)
+    writer.write_batch(batch)
+    writer.close()
+    return sink.get_result()
+
+
+def deserialize_pandas(buf, nthreads=1):
+    """Deserialize a buffer protocol compatible object into a pandas DataFrame.
+
+    Parameters
+    ----------
+    buf : buffer
+        An object compatible with the buffer protocol
+    nthreads : int, optional
+        The number of threads to use to convert the buffer to a DataFrame.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+    """
+    buffer_reader = pa.BufferReader(buf)
+    reader = pa.RecordBatchFileReader(buffer_reader)
+    return reader.read_all().to_pandas(nthreads=nthreads)

@@ -19,6 +19,7 @@ from os.path import join as pjoin
 import datetime
 import io
 import os
+import json
 import pytest
 
 from pyarrow.compat import guid, u
@@ -31,15 +32,11 @@ import pandas as pd
 
 import pandas.util.testing as tm
 
-try:
-    import pyarrow.parquet as pq
-    HAVE_PARQUET = True
-except ImportError:
-    HAVE_PARQUET = False
+# Skip all parquet tests if we can't import pyarrow.parquet
+pq = pytest.importorskip('pyarrow.parquet')
 
-# XXX: Make Parquet tests opt-in rather than skip-if-not-build
-parquet = pytest.mark.skipif(not HAVE_PARQUET,
-                             reason='Parquet support not built')
+# Ignore these with pytest ... -m 'not parquet'
+parquet = pytest.mark.parquet
 
 
 @parquet
@@ -91,8 +88,55 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    assert b'pandas' in arrow_table.schema.metadata
+
     pq.write_table(arrow_table, filename.strpath, version="2.0")
-    table_read = pq.read_table(filename.strpath)
+    table_read = pq.read_pandas(filename.strpath)
+    assert b'pandas' in table_read.schema.metadata
+
+    assert arrow_table.schema.metadata == table_read.schema.metadata
+
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_pandas_parquet_custom_metadata(tmpdir):
+    df = alltypes_sample(size=10000)
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    assert b'pandas' in arrow_table.schema.metadata
+
+    pq.write_table(arrow_table, filename.strpath, version="2.0")
+    pf = pq.ParquetFile(filename.strpath)
+
+    md = pf.metadata.metadata
+    assert b'pandas' in md
+
+    js = json.loads(md[b'pandas'].decode('utf8'))
+    assert js['index_columns'] == ['__index_level_0__']
+
+
+@parquet
+def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tmpdir):
+    df = alltypes_sample(size=10000)
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(
+        df, timestamps_to_ms=True, preserve_index=False
+    )
+    js = json.loads(arrow_table.schema.metadata[b'pandas'].decode('utf8'))
+    assert not js['index_columns']
+
+    pq.write_table(arrow_table, filename.strpath, version="2.0")
+    table_read = pq.read_pandas(filename.strpath)
+
+    js = json.loads(table_read.schema.metadata[b'pandas'].decode('utf8'))
+    assert not js['index_columns']
+
+    assert arrow_table.schema.metadata == table_read.schema.metadata
+
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
@@ -167,7 +211,6 @@ def _test_dataframe(size=10000, seed=0):
         'int32': _random_integers(size, np.int32),
         'int64': _random_integers(size, np.int64),
         'float32': np.random.randn(size).astype(np.float32),
-        'float64': np.random.randn(size),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
         'strings': [tm.rands(10) for i in range(size)]
@@ -185,6 +228,18 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
     reader = pa.BufferReader(buf)
     df_read = pq.read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_read_pandas_column_subset(tmpdir):
+    df = _test_dataframe(10000)
+    arrow_table = pa.Table.from_pandas(df)
+    imos = pa.BufferOutputStream()
+    pq.write_table(arrow_table, imos, version="2.0")
+    buf = imos.get_result()
+    reader = pa.BufferReader(buf)
+    df_read = pq.read_pandas(reader, columns=['strings', 'uint8']).to_pandas()
+    tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
 
 
 @parquet
@@ -270,7 +325,7 @@ def test_parquet_metadata_api():
     meta = fileh.metadata
     repr(meta)
     assert meta.num_rows == len(df)
-    assert meta.num_columns == ncols
+    assert meta.num_columns == ncols + 1  # +1 for index
     assert meta.num_row_groups == 1
     assert meta.format_version == '2.0'
     assert 'parquet-cpp' in meta.created_by
@@ -278,7 +333,7 @@ def test_parquet_metadata_api():
     # Schema
     schema = fileh.schema
     assert meta.schema is schema
-    assert len(schema) == ncols
+    assert len(schema) == ncols + 1  # +1 for index
     repr(schema)
 
     col = schema[0]
@@ -292,7 +347,7 @@ def test_parquet_metadata_api():
     assert col.logical_type == 'NONE'
 
     with pytest.raises(IndexError):
-        schema[ncols]
+        schema[ncols + 1]  # +1 for index
 
     with pytest.raises(IndexError):
         schema[-1]
@@ -302,7 +357,7 @@ def test_parquet_metadata_api():
     repr(rg_meta)
 
     assert rg_meta.num_rows == len(df)
-    assert rg_meta.num_columns == ncols
+    assert rg_meta.num_columns == ncols + 1  # +1 for index
 
 
 @parquet
@@ -502,9 +557,22 @@ def test_read_single_row_group():
     result = pa.concat_tables(row_groups)
     tm.assert_frame_equal(df, result.to_pandas())
 
+
+@parquet
+def test_read_single_row_group_with_column_subset():
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+
+    buf = io.BytesIO()
+    pq.write_table(a_table, buf, row_group_size=N / K,
+                   compression='snappy', version='2.0')
+
+    buf.seek(0)
+    pf = pq.ParquetFile(buf)
+
     cols = df.columns[:2]
-    row_groups = [pf.read_row_group(i, columns=cols)
-                  for i in range(K)]
+    row_groups = [pf.read_row_group(i, columns=cols) for i in range(K)]
     result = pa.concat_tables(row_groups)
     tm.assert_frame_equal(df[cols], result.to_pandas())
 
@@ -696,6 +764,9 @@ def test_read_multiple_files(tmpdir):
 
     assert result.equals(expected)
 
+    with pytest.raises(NotImplementedError):
+        pq.read_pandas(dirpath)
+
     # Read with provided metadata
     metadata = pq.ParquetFile(paths[0]).metadata
 
@@ -706,10 +777,11 @@ def test_read_multiple_files(tmpdir):
     assert result3.equals(expected)
 
     # Read column subset
-    to_read = [result[0], result[3], result[6]]
+    to_read = [result[0], result[2], result[6], result[result.num_columns - 1]]
+
     result = pa.localfs.read_parquet(
         dirpath, columns=[c.name for c in to_read])
-    expected = pa.Table.from_arrays(to_read)
+    expected = pa.Table.from_arrays(to_read, metadata=result.schema.metadata)
     assert result.equals(expected)
 
     # Read with multiple threads

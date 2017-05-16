@@ -104,7 +104,8 @@ from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 from pyarrow.ipc import (RecordBatchFileReader, RecordBatchFileWriter,
                          RecordBatchStreamReader, RecordBatchStreamWriter,
                          open_stream,
-                         open_file)
+                         open_file,
+                         serialize_pandas, deserialize_pandas)
 
 
 localfs = LocalFilesystem.get_instance()

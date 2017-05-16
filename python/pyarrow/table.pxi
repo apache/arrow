@@ -15,7 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import json
+
 from collections import OrderedDict
+
+try:
+    import pandas as pd
+except ImportError:
+    # The pure-Python based API works without a pandas installation
+    pass
+else:
+    import pyarrow.pandas_compat as pdcompat
 
 
 cdef class ChunkedArray:
@@ -30,14 +40,18 @@ cdef class ChunkedArray:
     def __cinit__(self):
         self.chunked_array = NULL
 
-    cdef init(self, const shared_ptr[CChunkedArray]& chunked_array):
+    cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array):
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
 
-    cdef _check_nullptr(self):
+    cdef int _check_nullptr(self) except -1:
         if self.chunked_array == NULL:
-            raise ReferenceError("ChunkedArray object references a NULL "
-                                 "pointer. Not initialized.")
+            raise ReferenceError(
+                "{} object references a NULL pointer. Not initialized.".format(
+                    type(self).__name__
+                )
+            )
+        return 0
 
     def length(self):
         self._check_nullptr()
@@ -111,7 +125,7 @@ cdef class Column:
     def __cinit__(self):
         self.column = NULL
 
-    cdef init(self, const shared_ptr[CColumn]& column):
+    cdef void init(self, const shared_ptr[CColumn]& column):
         self.sp_column = column
         self.column = column.get()
 
@@ -142,7 +156,7 @@ cdef class Column:
         check_status(libarrow.ConvertColumnToPandas(self.sp_column,
                                                     self, &out))
 
-        return _pandas().Series(wrap_array_output(out), name=self.name)
+        return pd.Series(wrap_array_output(out), name=self.name)
 
     def equals(self, Column other):
         """
@@ -175,14 +189,17 @@ cdef class Column:
         """
         return self.data.to_pylist()
 
-    cdef _check_nullptr(self):
+    cdef int _check_nullptr(self) except -1:
         if self.column == NULL:
-            raise ReferenceError("Column object references a NULL pointer."
-                    "Not initialized.")
+            raise ReferenceError(
+                "{} object references a NULL pointer. Not initialized.".format(
+                    type(self).__name__
+                )
+            )
+        return 0
 
     def __len__(self):
-        self._check_nullptr()
-        return self.column.length()
+        return self.length()
 
     def length(self):
         self._check_nullptr()
@@ -248,8 +265,9 @@ cdef class Column:
         return chunked_array
 
 
-cdef shared_ptr[const CKeyValueMetadata] key_value_metadata_from_dict(
-    dict metadata):
+cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
+    if metadata is None:
+        return <shared_ptr[const CKeyValueMetadata]> nullptr
     cdef:
         unordered_map[c_string, c_string] unordered_metadata = metadata
     return (<shared_ptr[const CKeyValueMetadata]>
@@ -289,27 +307,45 @@ cdef int _schema_from_arrays(
     else:
         raise TypeError(type(arrays[0]))
 
-    schema.reset(new CSchema(fields, key_value_metadata_from_dict(metadata)))
+    schema.reset(new CSchema(fields, unbox_metadata(metadata)))
     return 0
 
 
-cdef tuple _dataframe_to_arrays(df, bint timestamps_to_ms, Schema schema):
+cdef tuple _dataframe_to_arrays(
+    df,
+    bint timestamps_to_ms,
+    Schema schema,
+    bint preserve_index
+):
     cdef:
         list names = []
         list arrays = []
+        list index_levels = []
         DataType type = None
-        dict metadata = {}
+        dict metadata
+
+    if preserve_index:
+        index_levels.extend(getattr(df.index, 'levels', [df.index]))
 
     for name in df.columns:
         col = df[name]
         if schema is not None:
             type = schema.field_by_name(name).type
 
-        arr = Array.from_pandas(col, type=type,
-                                timestamps_to_ms=timestamps_to_ms)
+        arr = arrays.append(
+            Array.from_pandas(
+                col, type=type, timestamps_to_ms=timestamps_to_ms
+            )
+        )
         names.append(name)
-        arrays.append(arr)
 
+    for i, level in enumerate(index_levels):
+        arrays.append(
+            Array.from_pandas(level, timestamps_to_ms=timestamps_to_ms)
+        )
+        names.append(pdcompat.index_level_name(level, i))
+
+    metadata = pdcompat.construct_metadata(df, index_levels, preserve_index)
     return names, arrays, metadata
 
 
@@ -327,13 +363,18 @@ cdef class RecordBatch:
         self.batch = NULL
         self._schema = None
 
-    cdef init(self, const shared_ptr[CRecordBatch]& batch):
+    cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
 
-    cdef _check_nullptr(self):
+    cdef int _check_nullptr(self) except -1:
         if self.batch == NULL:
-            raise ReferenceError("Object not initialized")
+            raise ReferenceError(
+                "{} object references a NULL pointer. Not initialized.".format(
+                    type(self).__name__
+                )
+            )
+        return 0
 
     def __len__(self):
         self._check_nullptr()
@@ -455,22 +496,27 @@ cdef class RecordBatch:
         return Table.from_batches([self]).to_pandas(nthreads=nthreads)
 
     @classmethod
-    def from_pandas(cls, df, schema=None):
+    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
         Parameters
         ----------
         df: pandas.DataFrame
-        schema: pyarrow.Schema (optional)
+        schema: pyarrow.Schema, optional
             The expected schema of the RecordBatch. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+        preserve_index : bool, optional
+            Whether to store the index as an additional column in the resulting
+            ``RecordBatch``.
 
         Returns
         -------
         pyarrow.RecordBatch
         """
-        names, arrays, metadata = _dataframe_to_arrays(df, False, schema)
+        names, arrays, metadata = _dataframe_to_arrays(
+            df, False, schema, preserve_index
+        )
         return cls.from_arrays(arrays, names, metadata)
 
     @staticmethod
@@ -503,7 +549,7 @@ cdef class RecordBatch:
             raise ValueError('Record batch cannot contain no arrays (for now)')
 
         num_rows = len(arrays[0])
-        _schema_from_arrays(arrays, names, metadata or {}, &schema)
+        _schema_from_arrays(arrays, names, metadata, &schema)
 
         c_arrays.reserve(len(arrays))
         for arr in arrays:
@@ -513,19 +559,55 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
-    cdef:
-        PyObject* result_obj
-        CColumn* col
-        int i
-
+cdef table_to_blockmanager(const shared_ptr[CTable]& ctable, int nthreads):
     import pandas.core.internals as _int
     from pandas import RangeIndex, Categorical
     from pyarrow.compat import DatetimeTZDtype
 
+    cdef:
+        Table table = pyarrow_wrap_table(ctable)
+        Table block_table = pyarrow_wrap_table(ctable)
+        Schema schema = table.schema
+
+        size_t row_count = table.num_rows
+        size_t total_columns = table.num_columns
+
+        dict metadata = schema.metadata
+        dict pandas_metadata = None
+
+        list index_columns = []
+        list index_arrays = []
+
+    if metadata is not None and b'pandas' in metadata:
+        pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
+        index_columns = pandas_metadata['index_columns']
+
+    cdef:
+        Column col
+        int64_t i
+
+    for name in index_columns:
+        i = schema.get_field_index(name)
+        if i != -1:
+            col = table.column(i)
+            index_name = None if pdcompat.is_unnamed_index_level(name) else name
+            index_arrays.append(
+                pd.Index(col.to_pandas().values, name=index_name)
+            )
+            block_table = block_table.remove_column(
+                block_table.schema.get_field_index(name)
+            )
+
+    cdef:
+        PyObject* result_obj
+        shared_ptr[CTable] c_block_table = block_table.sp_table
+
     with nogil:
-        check_status(libarrow.ConvertTableToPandas(table, nthreads,
-                                                   &result_obj))
+        check_status(
+            libarrow.ConvertTableToPandas(
+                c_block_table, nthreads, &result_obj
+            )
+        )
 
     result = PyObject_to_object(result_obj)
 
@@ -549,12 +631,13 @@ cdef table_to_blockmanager(const shared_ptr[CTable]& table, int nthreads):
             block = _int.make_block(block_arr, placement=placement)
         blocks.append(block)
 
-    names = []
-    for i in range(table.get().num_columns()):
-        col = table.get().column(i).get()
-        names.append(frombytes(col.name()))
+    cdef list axes = [
+        [column.name for column in block_table.itercolumns()],
+        pd.MultiIndex.from_arrays(
+            index_arrays
+        ) if index_arrays else pd.RangeIndex(row_count),
+    ]
 
-    axes = [names, RangeIndex(table.get().num_rows())]
     return _int.BlockManager(blocks, axes)
 
 
@@ -572,16 +655,18 @@ cdef class Table:
         self.table = NULL
 
     def __repr__(self):
-        return 'pyarrow.Table\n{0}'.format(str(self.schema))
+        return 'pyarrow.{}\n{}'.format(type(self).__name__, str(self.schema))
 
-    cdef init(self, const shared_ptr[CTable]& table):
+    cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
         self.table = table.get()
 
-    cdef _check_nullptr(self):
-        if self.table == NULL:
-            raise ReferenceError("Table object references a NULL pointer."
-                    "Not initialized.")
+    cdef int _check_nullptr(self) except -1:
+        if self.table == nullptr:
+            raise ReferenceError(
+                "Table object references a NULL pointer. Not initialized."
+            )
+        return 0
 
     def equals(self, Table other):
         """
@@ -609,22 +694,29 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(cls, df, timestamps_to_ms=False, schema=None):
+    def from_pandas(
+        cls,
+        df,
+        bint timestamps_to_ms=False,
+        Schema schema=None,
+        bint preserve_index=True
+    ):
         """
         Convert pandas.DataFrame to an Arrow Table
 
         Parameters
         ----------
-        df: pandas.DataFrame
-
-        timestamps_to_ms: bool
+        df : pandas.DataFrame
+        timestamps_to_ms : bool
             Convert datetime columns to ms resolution. This is needed for
             compability with other functionality like Parquet I/O which
             only supports milliseconds.
-
-        schema: pyarrow.Schema (optional)
+        schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+        preserve_index : bool, optional
+            Whether to store the index as an additional column in the resulting
+            ``Table``.
 
         Returns
         -------
@@ -642,9 +734,12 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays, metadata = _dataframe_to_arrays(df,
-                                             timestamps_to_ms=timestamps_to_ms,
-                                             schema=schema)
+        names, arrays, metadata = _dataframe_to_arrays(
+            df,
+            timestamps_to_ms=timestamps_to_ms,
+            schema=schema,
+            preserve_index=preserve_index
+        )
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
@@ -671,7 +766,7 @@ cdef class Table:
             shared_ptr[CTable] table
             size_t K = len(arrays)
 
-        _schema_from_arrays(arrays, names, metadata or {}, &schema)
+        _schema_from_arrays(arrays, names, metadata, &schema)
 
         columns.reserve(K)
 
@@ -734,7 +829,7 @@ cdef class Table:
             nthreads = cpu_count()
 
         mgr = table_to_blockmanager(self.sp_table, nthreads)
-        return _pandas().DataFrame(mgr)
+        return pd.DataFrame(mgr)
 
     def to_pydict(self):
         """
@@ -744,11 +839,16 @@ cdef class Table:
         -------
         OrderedDict
         """
-        entries = []
-        for i in range(self.table.num_columns()):
-            name = self.column(i).name
-            column = self.column(i).to_pylist()
-            entries.append((name, column))
+        cdef:
+            size_t i
+            size_t num_columns = self.table.num_columns()
+            list entries = []
+            Column column
+
+        for i in range(num_columns):
+            column = self.column(i)
+            entries.append((column.name, column.to_pylist()))
+
         return OrderedDict(entries)
 
     @property
@@ -846,8 +946,7 @@ cdef class Table:
         """
         Add column to Table at position. Returns new table
         """
-        cdef:
-            shared_ptr[CTable] c_table
+        cdef shared_ptr[CTable] c_table
 
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))

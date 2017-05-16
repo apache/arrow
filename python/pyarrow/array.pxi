@@ -159,7 +159,7 @@ cdef class Field:
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CField]& field):
+    cdef void init(self, const shared_ptr[CField]& field):
         self.sp_field = field
         self.field = field.get()
         self.type = pyarrow_wrap_data_type(field.get().type())
@@ -264,11 +264,11 @@ cdef class Schema:
 
         return result
 
-    cdef init(self, const vector[shared_ptr[CField]]& fields):
+    cdef void init(self, const vector[shared_ptr[CField]]& fields):
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
 
-    cdef init_schema(self, const shared_ptr[CSchema]& schema):
+    cdef void init_schema(self, const shared_ptr[CSchema]& schema):
         self.schema = schema.get()
         self.sp_schema = schema
 
@@ -309,6 +309,9 @@ cdef class Schema:
         field: pyarrow.Field
         """
         return pyarrow_wrap_field(self.schema.GetFieldByName(tobytes(name)))
+
+    def get_field_index(self, name):
+        return self.schema.GetFieldIndex(tobytes(name))
 
     def add_metadata(self, dict metadata):
         """
@@ -352,9 +355,9 @@ cdef class Schema:
         return self.__str__()
 
 
-cdef box_metadata(const CKeyValueMetadata* metadata):
+cdef dict box_metadata(const CKeyValueMetadata* metadata):
     cdef unordered_map[c_string, c_string] result
-    if metadata != NULL:
+    if metadata != nullptr:
         metadata.ToUnorderedMap(&result)
         return result
     else:
@@ -813,45 +816,60 @@ cdef class Date64Value(ArrayValue):
             ap.Value(self.index) / 1000).date()
 
 
+cdef dict DATETIME_CONVERSION_FUNCTIONS
+
+try:
+    import pandas as pd
+except ImportError:
+    DATETIME_CONVERSION_FUNCTIONS = {
+        TimeUnit_SECOND: lambda x, tzinfo: (
+            datetime.datetime.utcfromtimestamp(x).replace(tzinfo=tzinfo)
+        ),
+        TimeUnit_MILLI: lambda x, tzinfo: (
+            datetime.datetime.utcfromtimestamp(x / 1e3).replace(tzinfo=tzinfo)
+        ),
+        TimeUnit_MICRO: lambda x, tzinfo: (
+            datetime.datetime.utcfromtimestamp(x / 1e6).replace(tzinfo=tzinfo)
+        ),
+    }
+else:
+    DATETIME_CONVERSION_FUNCTIONS = {
+        TimeUnit_SECOND: lambda x, tzinfo: pd.Timestamp(
+            x * 1000000000, tz=tzinfo, unit='ns',
+        ),
+        TimeUnit_MILLI: lambda x, tzinfo: pd.Timestamp(
+            x * 1000000, tz=tzinfo, unit='ns',
+        ),
+        TimeUnit_MICRO: lambda x, tzinfo: pd.Timestamp(
+            x * 1000, tz=tzinfo, unit='ns',
+        ),
+        TimeUnit_NANO: lambda x, tzinfo: pd.Timestamp(
+            x, tz=tzinfo, unit='ns',
+        )
+    }
+
+
 cdef class TimestampValue(ArrayValue):
 
     def as_py(self):
         cdef:
             CTimestampArray* ap = <CTimestampArray*> self.sp_array.get()
-            CTimestampType* dtype = <CTimestampType*>ap.type().get()
-            int64_t val = ap.Value(self.index)
+            CTimestampType* dtype = <CTimestampType*> ap.type().get()
+            int64_t value = ap.Value(self.index)
 
-        timezone = None
-        tzinfo = None
-        if dtype.timezone().size() > 0:
-            timezone = frombytes(dtype.timezone())
+        if not dtype.timezone().empty():
             import pytz
-            tzinfo = pytz.timezone(timezone)
+            tzinfo = pytz.timezone(frombytes(dtype.timezone()))
+        else:
+            tzinfo = None
 
         try:
-            pd = _pandas()
-            if dtype.unit() == TimeUnit_SECOND:
-                val = val * 1000000000
-            elif dtype.unit() == TimeUnit_MILLI:
-                val = val * 1000000
-            elif dtype.unit() == TimeUnit_MICRO:
-                val = val * 1000
-            return pd.Timestamp(val, tz=tzinfo)
-        except ImportError:
-            if dtype.unit() == TimeUnit_SECOND:
-                result = datetime.datetime.utcfromtimestamp(val)
-            elif dtype.unit() == TimeUnit_MILLI:
-                result = datetime.datetime.utcfromtimestamp(float(val) / 1000)
-            elif dtype.unit() == TimeUnit_MICRO:
-                result = datetime.datetime.utcfromtimestamp(
-                    float(val) / 1000000)
-            else:
-                # TimeUnit_NANO
-                raise NotImplementedError("Cannot convert nanosecond "
-                                          "timestamps without pandas")
-            if timezone is not None:
-                result = result.replace(tzinfo=tzinfo)
-            return result
+            converter = DATETIME_CONVERSION_FUNCTIONS[dtype.unit()]
+        except KeyError:
+            raise ValueError(
+                'Cannot convert nanosecond timestamps without pandas'
+            )
+        return converter(value, tzinfo=tzinfo)
 
 
 cdef class FloatValue(ArrayValue):
@@ -1042,7 +1060,7 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
 
 cdef class Array:
 
-    cdef init(self, const shared_ptr[CArray]& sp_array):
+    cdef void init(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
@@ -1251,7 +1269,7 @@ cdef class Array:
 
 cdef class Tensor:
 
-    cdef init(self, const shared_ptr[CTensor]& sp_tensor):
+    cdef void init(self, const shared_ptr[CTensor]& sp_tensor):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())

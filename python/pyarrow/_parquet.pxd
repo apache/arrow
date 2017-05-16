@@ -20,6 +20,7 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CTable, CMemoryPool,
+                                        CKeyValueMetadata,
                                         RandomAccessFile, OutputStream)
 
 
@@ -164,6 +165,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
+        shared_ptr[const CKeyValueMetadata] key_value_metadata() const
 
     cdef cppclass ReaderProperties:
         pass
@@ -229,8 +231,11 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
     CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                              const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
                               shared_ptr[CSchema]* out)
+
     CStatus ToParquetSchema(const CSchema* arrow_schema,
+                            const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
                             shared_ptr[SchemaDescriptor]* out)
 
 
