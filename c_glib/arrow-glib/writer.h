@@ -185,4 +185,64 @@ GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new(
   GArrowSchema *schema,
   GError **error);
 
+
+#define GARROW_TYPE_FEATHER_FILE_WRITER         \
+  (garrow_feather_file_writer_get_type())
+#define GARROW_FEATHER_FILE_WRITER(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_FEATHER_FILE_WRITER,  \
+                              GArrowFeatherFileWriter))
+#define GARROW_FEATHER_FILE_WRITER_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_FEATHER_FILE_WRITER,     \
+                           GArrowFeatherFileWriterClass))
+#define GARROW_IS_FEATHER_FILE_WRITER(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_FEATHER_FILE_WRITER))
+#define GARROW_IS_FEATHER_FILE_WRITER_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_FEATHER_FILE_WRITER))
+#define GARROW_FEATHER_FILE_WRITER_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_FEATHER_FILE_WRITER,   \
+                             GArrowFeatherFileWriterClass))
+
+typedef struct _GArrowFeatherFileWriter      GArrowFeatherFileWriter;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowFeatherFileWriterClass GArrowFeatherFileWriterClass;
+#endif
+
+/**
+ * GArrowFeatherFileWriter:
+ *
+ * It wraps `arrow::ipc::feather::TableWriter`.
+ */
+struct _GArrowFeatherFileWriter
+{
+  /*< private >*/
+  GObject parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowFeatherFileWriterClass
+{
+  GObjectClass parent_class;
+};
+#endif
+
+GType garrow_feather_file_writer_get_type(void) G_GNUC_CONST;
+
+GArrowFeatherFileWriter *garrow_feather_file_writer_new(GArrowOutputStream *sink,
+                                                        GError **error);
+void garrow_feather_file_writer_set_description(GArrowFeatherFileWriter *writer,
+                                                const gchar *description);
+void garrow_feather_file_writer_set_n_rows(GArrowFeatherFileWriter *writer,
+                                           gint64 n_rows);
+gboolean garrow_feather_file_writer_append(GArrowFeatherFileWriter *writer,
+                                           const gchar *name,
+                                           GArrowArray *array,
+                                           GError **error);
+gboolean garrow_feather_file_writer_close(GArrowFeatherFileWriter *writer,
+                                          GError **error);
+
 G_END_DECLS
