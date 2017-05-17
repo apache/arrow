@@ -70,7 +70,7 @@ def get_column_metadata(column, name):
             'integer': str(dtype),
             'floating': str(dtype),
         }.get(inferred_dtype, inferred_dtype),
-        'numpy_dtype': str(dtype),
+        'numpy_type': str(dtype),
         'metadata': extra_metadata,
     }
 
