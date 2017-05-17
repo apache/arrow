@@ -825,6 +825,7 @@ cdef class Table:
         -------
         pandas.DataFrame
         """
+        self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
 
@@ -845,6 +846,7 @@ cdef class Table:
             list entries = []
             Column column
 
+        self._check_nullptr()
         for i in range(num_columns):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
@@ -860,6 +862,7 @@ cdef class Table:
         -------
         pyarrow.Schema
         """
+        self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
     def column(self, int64_t i):
@@ -874,13 +877,12 @@ cdef class Table:
         -------
         pyarrow.Column
         """
-        self._check_nullptr()
-
         cdef:
             Column column = Column()
             int64_t num_columns = self.num_columns
             int64_t index
 
+        self._check_nullptr()
         if not -num_columns <= i < num_columns:
             raise IndexError(
                 'Table column index {:d} is out of range'.format(i)
@@ -947,6 +949,7 @@ cdef class Table:
         Add column to Table at position. Returns new table
         """
         cdef shared_ptr[CTable] c_table
+        self._check_nullptr()
 
         with nogil:
             check_status(self.table.AddColumn(i, column.sp_column, &c_table))
@@ -964,6 +967,7 @@ cdef class Table:
         Create new Table with the indicated column removed
         """
         cdef shared_ptr[CTable] c_table
+        self._check_nullptr()
 
         with nogil:
             check_status(self.table.RemoveColumn(i, &c_table))
