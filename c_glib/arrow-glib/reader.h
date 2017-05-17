@@ -193,4 +193,76 @@ GArrowRecordBatch *garrow_record_batch_file_reader_get_record_batch(
   guint i,
   GError **error);
 
+
+#define GARROW_TYPE_FEATHER_FILE_READER         \
+  (garrow_feather_file_reader_get_type())
+#define GARROW_FEATHER_FILE_READER(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_FEATHER_FILE_READER,  \
+                              GArrowFeatherFileReader))
+#define GARROW_FEATHER_FILE_READER_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_FEATHER_FILE_READER,     \
+                           GArrowFeatherFileReaderClass))
+#define GARROW_IS_FEATHER_FILE_READER(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_FEATHER_FILE_READER))
+#define GARROW_IS_FEATHER_FILE_READER_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_FEATHER_FILE_READER))
+#define GARROW_FEATHER_FILE_READER_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_FEATHER_FILE_READER,   \
+                             GArrowFeatherFileReaderClass))
+
+typedef struct _GArrowFeatherFileReader      GArrowFeatherFileReader;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowFeatherFileReaderClass GArrowFeatherFileReaderClass;
+#endif
+
+/**
+ * GArrowFeatherFileReader:
+ *
+ * It wraps `arrow::ipc::feather::TableReader`.
+ */
+struct _GArrowFeatherFileReader
+{
+  /*< private >*/
+  GObject parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowFeatherFileReaderClass
+{
+  GObjectClass parent_class;
+};
+#endif
+
+GType garrow_feather_file_reader_get_type(void) G_GNUC_CONST;
+
+GArrowFeatherFileReader *garrow_feather_file_reader_new(
+  GArrowSeekableInputStream *file,
+  GError **error);
+
+gchar *garrow_feather_file_reader_get_description(
+  GArrowFeatherFileReader *reader);
+gboolean garrow_feather_file_reader_has_description(
+  GArrowFeatherFileReader *reader);
+gint garrow_feather_file_reader_get_version(
+  GArrowFeatherFileReader *reader);
+gint64 garrow_feather_file_reader_get_n_rows(
+  GArrowFeatherFileReader *reader);
+gint64 garrow_feather_file_reader_get_n_columns(
+  GArrowFeatherFileReader *reader);
+gchar *garrow_feather_file_reader_get_column_name(
+  GArrowFeatherFileReader *reader,
+  gint i);
+GArrowColumn *garrow_feather_file_reader_get_column(
+  GArrowFeatherFileReader *reader,
+  gint i,
+  GError **error);
+GList *garrow_feather_file_reader_get_columns(
+  GArrowFeatherFileReader *reader,
+  GError **error);
+
 G_END_DECLS

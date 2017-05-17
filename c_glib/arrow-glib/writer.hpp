@@ -21,6 +21,7 @@
 
 #include <arrow/api.h>
 #include <arrow/ipc/api.h>
+#include <arrow/ipc/feather.h>
 
 #include <arrow-glib/writer.h>
 
@@ -30,3 +31,6 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> garrow_record_batch_writer_get_ra
 GArrowRecordBatchStreamWriter *garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *arrow_writer);
 
 GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileWriter> *arrow_writer);
+
+GArrowFeatherFileWriter *garrow_feather_file_writer_new_raw(arrow::ipc::feather::TableWriter *arrow_writer);
+arrow::ipc::feather::TableWriter *garrow_feather_file_writer_get_raw(GArrowFeatherFileWriter *writer);
