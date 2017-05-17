@@ -92,6 +92,10 @@ class Filesystem(object):
                                  filesystem=self)
         return dataset.read(columns=columns, nthreads=nthreads)
 
+    @property
+    def pathsep(self):
+        return '/'
+
 
 class LocalFilesystem(Filesystem):
 
@@ -131,6 +135,10 @@ class LocalFilesystem(Filesystem):
         Open file for reading or writing
         """
         return open(path, mode=mode)
+
+    @property
+    def pathsep(self):
+        return os.path.sep
 
 
 class HdfsClient(lib._HdfsClient, Filesystem):

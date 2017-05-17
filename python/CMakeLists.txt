@@ -219,12 +219,6 @@ include_directories(SYSTEM
 # Dependencies
 ############################################################
 
-## Parquet
-find_package(Parquet)
-if(PARQUET_FOUND)
-  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
-endif()
-
 ## Arrow
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
@@ -286,9 +280,14 @@ set(LINK_LIBS
 )
 
 if (PYARROW_BUILD_PARQUET)
+  ## Parquet
+  find_package(Parquet)
+
   if(NOT (PARQUET_FOUND AND PARQUET_ARROW_FOUND))
     message(FATAL_ERROR "Unable to locate Parquet libraries")
   endif()
+  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
   if (PYARROW_BUNDLE_ARROW_CPP)
       get_filename_component(PARQUET_LIBRARY_DIR ${PARQUET_SHARED_LIB} DIRECTORY)
       get_filename_component(PARQUET_LIBRARY_NAME ${PARQUET_SHARED_LIB} NAME_WE)
@@ -333,11 +332,14 @@ if (PYARROW_BUILD_PARQUET)
       #SET(PARQUET_ARROW_SHARED_LIB
       #    ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
+  ADD_THIRDPARTY_LIB(parquet
+    SHARED_LIB ${PARQUET_SHARED_LIB})
   ADD_THIRDPARTY_LIB(parquet_arrow
     SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
   set(LINK_LIBS
     ${LINK_LIBS}
-    parquet_arrow)
+    parquet_shared
+    parquet_arrow_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)
