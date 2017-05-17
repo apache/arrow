@@ -34,6 +34,12 @@ TEST(TestPublicAPI, DoesNotExportDCHECK) {
 #endif
 }
 
+TEST(TestPublicAPI, DoesNotIncludeZlib) {
+#ifdef ZLIB_H
+  FAIL() << "zlib.h should not be transitively included";
+#endif
+}
+
 void ThrowsParquetException() {
   throw parquet::ParquetException("This function throws");
 }

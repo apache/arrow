@@ -371,13 +371,12 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
 }
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices,
-    std::shared_ptr<::arrow::Schema>* out) {
+    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out) {
   return FromParquetSchema(parquet_schema, column_indices, nullptr, out);
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out) {
   return FromParquetSchema(parquet_schema, nullptr, out);
 }
 

@@ -59,12 +59,11 @@ namespace arrow {
 
 // Without metadata
 ::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices,
-    std::shared_ptr<::arrow::Schema>* out);
+    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out);
 
 // Without metadata or indices
-::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    std::shared_ptr<::arrow::Schema>* out);
+::arrow::Status PARQUET_EXPORT FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out);
 
 ::arrow::Status PARQUET_EXPORT FieldToNode(const std::shared_ptr<::arrow::Field>& field,
     const WriterProperties& properties, schema::NodePtr* out);
