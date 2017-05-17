@@ -1,16 +1,19 @@
-# Copyright 2012 Cloudera Inc.
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#   http://www.apache.org/licenses/LICENSE-2.0
 #
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 # - Find PARQUET (parquet/parquet.h, libparquet.a, libparquet.so)
 # This module defines
@@ -71,9 +74,14 @@ endif()
 
 if (PARQUET_INCLUDE_DIR AND PARQUET_LIBRARIES)
   set(PARQUET_FOUND TRUE)
-  set(PARQUET_LIB_NAME libparquet)
-  set(PARQUET_STATIC_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}.a)
-  set(PARQUET_SHARED_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  if (MSVC)
+    set(PARQUET_STATIC_LIB "${PARQUET_LIBRARIES}_static")
+    set(PARQUET_SHARED_LIB "${PARQUET_LIBRARIES}")
+  else()
+    set(PARQUET_LIB_NAME libparquet)
+    set(PARQUET_STATIC_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}.a)
+    set(PARQUET_SHARED_LIB ${PARQUET_LIBS}/${PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  endif()
 else ()
   set(PARQUET_FOUND FALSE)
 endif ()
@@ -81,11 +89,16 @@ endif ()
 if (PARQUET_INCLUDE_DIR AND PARQUET_ARROW_LIBRARIES)
   set(PARQUET_ARROW_FOUND TRUE)
   get_filename_component(PARQUET_ARROW_LIBS ${PARQUET_ARROW_LIBRARIES} PATH)
-  set(PARQUET_ARROW_LIB_NAME libparquet_arrow)
-  set(PARQUET_ARROW_STATIC_LIB
-    ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}.a)
-  set(PARQUET_ARROW_SHARED_LIB
-    ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  if (MSVC)
+    set(PARQUET_ARROW_STATIC_LIB "${PARQUET_ARROW_LIBRARIES}_static")
+    set(PARQUET_ARROW_SHARED_LIB "${PARQUET_ARROW_LIBRARIES}")
+  else()
+    set(PARQUET_ARROW_LIB_NAME libparquet_arrow)
+    set(PARQUET_ARROW_STATIC_LIB
+      ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}.a)
+    set(PARQUET_ARROW_SHARED_LIB
+      ${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  endif()
 else ()
   set(PARQUET_ARROW_FOUND FALSE)
 endif ()

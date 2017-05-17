@@ -174,14 +174,37 @@ You should be able to run the unit tests with:
 Windows
 =======
 
-First, make sure you can `build the C++ library <https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md>`_.
+First, we bootstrap a conda environment similar to the `C++ build instructions
+<https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md>`_. This
+includes all the dependencies for Arrow and the Apache Parquet C++ libraries.
 
-Now, we need to build and install the C++ libraries someplace.
+First, starting from fresh clones of Apache Arrow and parquet-cpp:
+
+.. code-block:: shell
+
+   git clone https://github.com/apache/arrow.git
+   git clone https://github.com/apache/parquet-cpp.git
+
+.. code-block:: shell
+
+   conda create -n arrow-dev cmake git boost-cpp ^
+         flatbuffers snappy zlib brotli thrift-cpp rapidjson
+   activate arrow-dev
+
+As one git housekeeping item, we must run this command in our Arrow clone:
+
+.. code-block:: shell
+
+   cd arrow
+   git config core.symlinks true
+
+Now, we build and install Arrow C++ libraries
 
 .. code-block:: shell
 
    mkdir cpp\build
    cd cpp\build
+   set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
    set ARROW_HOME=C:\thirdparty
    cmake -G "Visual Studio 14 2015 Win64" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
@@ -190,6 +213,22 @@ Now, we need to build and install the C++ libraries someplace.
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
+
+Now, we build parquet-cpp and install the result in the same place:
+
+.. code-block:: shell
+
+   mkdir ..\parquet-cpp\build
+   pushd ..\parquet-cpp\build
+   set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+   set PARQUET_HOME=C:\thirdparty
+   cmake -G "Visual Studio 14 2015 Win64" ^
+         -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
+         -DCMAKE_BUILD_TYPE=Release ^
+         -DPARQUET_ZLIB_VENDORED=off ^
+         -DPARQUET_BUILD_TESTS=off ..
+   cmake --build . --target INSTALL --config Release
+   popd
 
 After that, we must put the install directory's bin path in our ``%PATH%``:
 
@@ -202,7 +241,13 @@ Now, we can build pyarrow:
 .. code-block:: shell
 
    cd python
-   python setup.py build_ext --inplace
+   python setup.py build_ext --inplace --with-parquet
+
+Then run the unit tests with:
+
+.. code-block:: shell
+
+   py.test pyarrow -v
 
 Running C++ unit tests with Python
 ----------------------------------

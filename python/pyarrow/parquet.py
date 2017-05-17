@@ -582,7 +582,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/'):
 
     if is_string(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
-                                   pathsep=pathsep)
+                                   pathsep=fs.pathsep)
         metadata_path = manifest.metadata_path
         pieces = manifest.pieces
         partitions = manifest.partitions

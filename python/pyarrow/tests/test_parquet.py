@@ -192,10 +192,10 @@ def test_pandas_column_selection(tmpdir):
 
 def _random_integers(size, dtype):
     # We do not generate integers outside the int64 range
-    i64_info = np.iinfo('int64')
+    platform_int_info = np.iinfo('int_')
     iinfo = np.iinfo(dtype)
-    return np.random.randint(max(iinfo.min, i64_info.min),
-                             min(iinfo.max, i64_info.max),
+    return np.random.randint(max(iinfo.min, platform_int_info.min),
+                             min(iinfo.max, platform_int_info.max),
                              size=size).astype(dtype)
 
 
