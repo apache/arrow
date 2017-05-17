@@ -259,7 +259,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @SuppressWarnings("unchecked")
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType type) {
     boolean created = false;
-    if (vector instanceof ZeroVector) {
+    if (vector == ZeroVector.INSTANCE) {
       vector = type.createNewSingleVector(DATA_VECTOR_NAME, allocator, null);
       this.reader = new UnionFixedSizeListReader(this);
       created = true;
@@ -278,8 +278,9 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     copyFrom(inIndex, outIndex, from);
   }
 
-  public void copyFrom(int inIndex, int outIndex, FixedSizeListVector from) {
-    throw new UnsupportedOperationException("FixedSizeListVector.copyFrom");
+  public void copyFrom(int fromIndex, int thisIndex, FixedSizeListVector from) {
+    TransferPair pair = from.makeTransferPair(this);
+    pair.copyValueSafe(fromIndex, thisIndex);
   }
 
   @Override
@@ -367,7 +368,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       this.to = to;
       to.addOrGetVector(vector.getField().getFieldType());
       pairs[0] = bits.makeTransferPair(to.bits);
-      pairs[1] = getDataVector().makeTransferPair(to.getDataVector());
+      pairs[1] = vector.makeTransferPair(to.vector);
     }
 
     @Override
@@ -392,7 +393,12 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
     @Override
     public void copyValueSafe(int from, int to) {
-      this.to.copyFrom(from, to, FixedSizeListVector.this);
+      pairs[0].copyValueSafe(from, to);
+      int fromOffset = from * listSize;
+      int toOffset = to * listSize;
+      for (int i = 0; i < listSize; i++) {
+        pairs[1].copyValueSafe(fromOffset + i, toOffset + i);
+      }
     }
   }
 }

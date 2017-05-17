@@ -28,6 +28,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -150,6 +151,71 @@ public class TestFixedSizeListVector {
           Assert.assertFalse(reader.isSet());
           Assert.assertNull(reader.readObject());
         }
+      }
+    }
+  }
+
+  @Test
+  public void testTransferPair() {
+    try (FixedSizeListVector from = new FixedSizeListVector("from", allocator, 2, null, null);
+         FixedSizeListVector to = new FixedSizeListVector("to", allocator, 2, null, null)) {
+      NullableFloat4Vector nested = (NullableFloat4Vector) from.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      NullableFloat4Vector.Mutator mutator = nested.getMutator();
+      from.allocateNew();
+
+      for (int i = 0; i < 10; i++) {
+        if (i % 2 == 0) {
+          from.getMutator().setNotNull(i);
+          mutator.set(i * 2, i + 0.1f);
+          mutator.set(i * 2 + 1, i + 10.1f);
+        }
+      }
+      from.getMutator().setValueCount(10);
+
+      TransferPair pair = from.makeTransferPair(to);
+
+      pair.copyValueSafe(0, 1);
+      pair.copyValueSafe(2, 2);
+      to.copyFromSafe(4, 3, from);
+      to.getMutator().setValueCount(10);
+
+      UnionFixedSizeListReader reader = to.getReader();
+
+      reader.setPosition(0);
+      Assert.assertFalse(reader.isSet());
+      Assert.assertNull(reader.readObject());
+
+      reader.setPosition(1);
+      Assert.assertTrue(reader.isSet());
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(0.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(10.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertFalse(reader.next());
+      Assert.assertEquals(Lists.newArrayList(0.1f, 10.1f), reader.readObject());
+
+      reader.setPosition(2);
+      Assert.assertTrue(reader.isSet());
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(2.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(12.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertFalse(reader.next());
+      Assert.assertEquals(Lists.newArrayList(2.1f, 12.1f), reader.readObject());
+
+      reader.setPosition(3);
+      Assert.assertTrue(reader.isSet());
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(4.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertTrue(reader.next());
+      Assert.assertEquals(14.1f, reader.reader().readFloat(), 0.00001);
+      Assert.assertFalse(reader.next());
+      Assert.assertEquals(Lists.newArrayList(4.1f, 14.1f), reader.readObject());
+
+      for (int i = 4; i < 10; i++) {
+        reader.setPosition(i);
+        Assert.assertFalse(reader.isSet());
+        Assert.assertNull(reader.readObject());
       }
     }
   }
