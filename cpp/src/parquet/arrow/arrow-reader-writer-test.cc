@@ -1159,6 +1159,26 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 0);
 }
 
+TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
+  // PARQUET-995
+  const char* data_dir = std::getenv("PARQUET_TEST_DATA");
+  std::string dir_string(data_dir);
+  std::stringstream ss;
+  ss << dir_string << "/"
+     << "alltypes_plain.parquet";
+  auto path = ss.str();
+
+  auto pool = ::arrow::default_memory_pool();
+
+  std::unique_ptr<FileReader> arrow_reader;
+  ASSERT_NO_THROW(
+      arrow_reader.reset(new FileReader(pool,
+              ParquetFileReader::OpenFile(path, false))));
+  std::shared_ptr<::arrow::Table> table;
+  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+}
+
+
 }  // namespace arrow
 
 }  // namespace parquet

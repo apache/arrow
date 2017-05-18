@@ -516,7 +516,7 @@ NONNULLABLE_BATCH_FAST_PATH(::arrow::Time64Type, Int64Type, int64_t)
 template <>
 Status ColumnReader::Impl::ReadNonNullableBatch<::arrow::TimestampType, Int96Type>(
     TypedColumnReader<Int96Type>* reader, int64_t values_to_read, int64_t* levels_read) {
-  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96Type), false));
+  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96), false));
   auto values = reinterpret_cast<Int96*>(values_buffer_.mutable_data());
   int64_t values_read;
   PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(
@@ -626,7 +626,7 @@ template <>
 Status ColumnReader::Impl::ReadNullableBatch<::arrow::TimestampType, Int96Type>(
     TypedColumnReader<Int96Type>* reader, int16_t* def_levels, int16_t* rep_levels,
     int64_t values_to_read, int64_t* levels_read, int64_t* values_read) {
-  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96Type), false));
+  RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96), false));
   auto values = reinterpret_cast<Int96*>(values_buffer_.mutable_data());
   int64_t null_count;
   PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(values_to_read, def_levels, rep_levels,
