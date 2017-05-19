@@ -102,3 +102,76 @@ def construct_metadata(df, index_levels, preserve_index):
             }
         ).encode('utf8')
     }
+
+
+def table_to_blockmanager(table, nthreads=1):
+    import pandas.core.internals as _int
+    from pyarrow.compat import DatetimeTZDtype
+    import pyarrow.lib as lib
+
+    block_table = table
+
+    index_columns = []
+    index_arrays = []
+    index_names = []
+    schema = table.schema
+    row_count = table.num_rows
+    metadata = schema.metadata
+
+    if metadata is not None and b'pandas' in metadata:
+        pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
+        index_columns = pandas_metadata['index_columns']
+
+    for name in index_columns:
+        i = schema.get_field_index(name)
+        if i != -1:
+            col = table.column(i)
+            index_name = (None if is_unnamed_index_level(name)
+                          else name)
+            values = col.to_pandas().values
+            if not values.flags.writeable:
+                # ARROW-1054: in pandas 0.19.2, factorize will reject
+                # non-writeable arrays when calling MultiIndex.from_arrays
+                values = values.copy()
+
+            index_arrays.append(values)
+            index_names.append(index_name)
+            block_table = block_table.remove_column(
+                block_table.schema.get_field_index(name)
+            )
+
+    result = lib.table_to_blocks(block_table, nthreads)
+
+    blocks = []
+    for item in result:
+        block_arr = item['block']
+        placement = item['placement']
+        if 'dictionary' in item:
+            cat = pd.Categorical(block_arr,
+                                 categories=item['dictionary'],
+                                 ordered=False, fastpath=True)
+            block = _int.make_block(cat, placement=placement,
+                                    klass=_int.CategoricalBlock,
+                                    fastpath=True)
+        elif 'timezone' in item:
+            dtype = DatetimeTZDtype('ns', tz=item['timezone'])
+            block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
+                                    dtype=dtype, fastpath=True)
+        else:
+            block = _int.make_block(block_arr, placement=placement)
+        blocks.append(block)
+
+    if len(index_arrays) > 1:
+        index = pd.MultiIndex.from_arrays(index_arrays, names=index_names)
+    elif len(index_arrays) == 1:
+        index = pd.Index(index_arrays[0], name=index_names[0])
+    else:
+        index = pd.RangeIndex(row_count)
+
+    axes = [
+        [column.name for column in block_table.itercolumns()],
+        index
+    ]
+
+    return _int.BlockManager(blocks, axes)
