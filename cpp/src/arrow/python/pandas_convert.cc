@@ -1102,7 +1102,7 @@ static inline PyObject* NewArray1DFromType(
 
   set_numpy_metadata(type, arrow_type, descr);
   return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data,
-      NPY_ARRAY_OWNDATA | NPY_ARRAY_CARRAY, nullptr);
+      NPY_ARRAY_OWNDATA | NPY_ARRAY_CARRAY | NPY_ARRAY_WRITEABLE, nullptr);
 }
 
 class PandasBlock {
