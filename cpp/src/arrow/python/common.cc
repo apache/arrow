@@ -55,7 +55,6 @@ PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0), obj_(nullptr) {
     size_ = buffer->len;
     capacity_ = buffer->len;
     is_mutable_ = false;
-    Py_INCREF(obj_);
   }
 }
 

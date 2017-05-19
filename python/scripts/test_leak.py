@@ -21,6 +21,7 @@ import pyarrow as pa
 import numpy as np
 import memory_profiler
 import gc
+import io
 
 
 def leak():
@@ -32,4 +33,28 @@ def leak():
         table.to_pandas()
         gc.collect()
 
-leak()
+# leak()
+
+
+def leak2():
+    data = [pa.array(np.concatenate([np.random.randn(100000)] * 10))]
+    table = pa.Table.from_arrays(data, ['foo'])
+    while True:
+        print('calling to_pandas')
+        print('memory_usage: {0}'.format(memory_profiler.memory_usage()))
+        df = table.to_pandas()
+
+        batch = pa.RecordBatch.from_pandas(df)
+
+        sink = io.BytesIO()
+        writer = pa.RecordBatchFileWriter(sink, batch.schema)
+        writer.write_batch(batch)
+        writer.close()
+
+        buf_reader = pa.BufferReader(sink.getvalue())
+        reader = pa.open_file(buf_reader)
+        reader.read_all()
+
+        gc.collect()
+
+leak2()
