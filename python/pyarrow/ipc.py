@@ -158,4 +158,5 @@ def deserialize_pandas(buf, nthreads=1):
     """
     buffer_reader = pa.BufferReader(buf)
     reader = pa.RecordBatchFileReader(buffer_reader)
-    return reader.read_all().to_pandas(nthreads=nthreads)
+    table = reader.read_all()
+    return table.to_pandas(nthreads=nthreads)

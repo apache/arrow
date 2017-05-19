@@ -559,86 +559,20 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-cdef table_to_blockmanager(const shared_ptr[CTable]& ctable, int nthreads):
-    import pandas.core.internals as _int
-    from pandas import RangeIndex, Categorical
-    from pyarrow.compat import DatetimeTZDtype
-
-    cdef:
-        Table table = pyarrow_wrap_table(ctable)
-        Table block_table = pyarrow_wrap_table(ctable)
-        Schema schema = table.schema
-
-        size_t row_count = table.num_rows
-        size_t total_columns = table.num_columns
-
-        dict metadata = schema.metadata
-        dict pandas_metadata = None
-
-        list index_columns = []
-        list index_arrays = []
-
-    if metadata is not None and b'pandas' in metadata:
-        pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
-        index_columns = pandas_metadata['index_columns']
-
-    cdef:
-        Column col
-        int64_t i
-
-    for name in index_columns:
-        i = schema.get_field_index(name)
-        if i != -1:
-            col = table.column(i)
-            index_name = None if pdcompat.is_unnamed_index_level(name) else name
-            index_arrays.append(
-                pd.Index(col.to_pandas().values, name=index_name)
-            )
-            block_table = block_table.remove_column(
-                block_table.schema.get_field_index(name)
-            )
-
+def table_to_blocks(Table table, int nthreads):
     cdef:
         PyObject* result_obj
-        shared_ptr[CTable] c_block_table = block_table.sp_table
+        shared_ptr[CTable] c_table = table.sp_table
 
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                c_block_table, nthreads, &result_obj
+                c_table, nthreads, &result_obj
             )
         )
 
-    result = PyObject_to_object(result_obj)
+    return PyObject_to_object(result_obj)
 
-    blocks = []
-    for item in result:
-        block_arr = item['block']
-        placement = item['placement']
-        if 'dictionary' in item:
-            cat = Categorical(block_arr,
-                              categories=item['dictionary'],
-                              ordered=False, fastpath=True)
-            block = _int.make_block(cat, placement=placement,
-                                    klass=_int.CategoricalBlock,
-                                    fastpath=True)
-        elif 'timezone' in item:
-            dtype = DatetimeTZDtype('ns', tz=item['timezone'])
-            block = _int.make_block(block_arr, placement=placement,
-                                    klass=_int.DatetimeTZBlock,
-                                    dtype=dtype, fastpath=True)
-        else:
-            block = _int.make_block(block_arr, placement=placement)
-        blocks.append(block)
-
-    cdef list axes = [
-        [column.name for column in block_table.itercolumns()],
-        pd.MultiIndex.from_arrays(
-            index_arrays
-        ) if index_arrays else pd.RangeIndex(row_count),
-    ]
-
-    return _int.BlockManager(blocks, axes)
 
 
 cdef class Table:
@@ -829,7 +763,7 @@ cdef class Table:
         if nthreads is None:
             nthreads = cpu_count()
 
-        mgr = table_to_blockmanager(self.sp_table, nthreads)
+        mgr = pdcompat.table_to_blockmanager(self, nthreads)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
