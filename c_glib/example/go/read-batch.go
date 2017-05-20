@@ -82,7 +82,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open path: <%s>: %v", path, err)
 	}
-	reader, err := arrow.NewFileReader(input)
+	reader, err := arrow.NewRecordBatchFileReader(input)
 	if err != nil {
 		log.Fatalf("Failed to parse data: %v", err)
 	}

@@ -18,14 +18,32 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
-    brew install gtk-doc autoconf-archive gobject-introspection
+  brew install gtk-doc autoconf-archive gobject-introspection
 fi
 
 gem install gobject-introspection
 
-pushd $ARROW_C_GLIB_DIR
+git clone \
+  --quiet \
+  --depth 1 \
+  --recursive \
+  https://github.com/torch/distro.git ~/torch
+pushd ~/torch
+./install-deps > /dev/null
+echo "yes" | ./install.sh > /dev/null
+. ~/torch/install/bin/torch-activate
+popd
+luarocks install lgi
 
-: ${ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install}
+go get github.com/linuxdeepin/go-gir-generator || :
+pushd $GOPATH/src/github.com/linuxdeepin/go-gir-generator
+make build copyfile
+mkdir -p $GOPATH/bin/
+cp -a out/gir-generator $GOPATH/bin/
+cp -a out/src/gir/ $GOPATH/src/
+popd
+
+pushd $ARROW_C_GLIB_DIR
 
 ./autogen.sh
 
