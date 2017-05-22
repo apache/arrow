@@ -145,12 +145,13 @@ public class UnionVector implements FieldVector {
     }
     return mapVector;
   }
-
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
-  <#assign lowerCaseName = name?lower_case/>
-  <#if !minor.class?starts_with("Decimal")>
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#assign lowerCaseName = name?lower_case/>
+      <#if !minor.typeParams?? >
 
   private Nullable${name}Vector ${uncappedName}Vector;
 
@@ -167,10 +168,9 @@ public class UnionVector implements FieldVector {
     }
     return ${uncappedName}Vector;
   }
-
-  </#if>
-
-  </#list></#list>
+      </#if>
+    </#list>
+  </#list>
 
   public ListVector getList() {
     if (listVector == null) {
@@ -401,22 +401,23 @@ public class UnionVector implements FieldVector {
 
   public class Accessor extends BaseValueVector.BaseAccessor {
 
-
     @Override
     public Object getObject(int index) {
       int type = typeVector.getAccessor().get(index);
       switch (MinorType.values()[type]) {
       case NULL:
         return null;
-      <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-      <#assign fields = minor.fields!type.fields />
-      <#assign uncappedName = name?uncap_first/>
-      <#if !minor.class?starts_with("Decimal")>
+      <#list vv.types as type>
+        <#list type.minor as minor>
+          <#assign name = minor.class?cap_first />
+          <#assign fields = minor.fields!type.fields />
+          <#assign uncappedName = name?uncap_first/>
+          <#if !minor.typeParams?? >
       case ${name?upper_case}:
         return get${name}Vector().getAccessor().getObject(index);
-      </#if>
-
-      </#list></#list>
+          </#if>
+        </#list>
+      </#list>
       case MAP:
         return getMap().getAccessor().getObject(index);
       case LIST:
@@ -473,17 +474,20 @@ public class UnionVector implements FieldVector {
       writer.setPosition(index);
       MinorType type = reader.getMinorType();
       switch (type) {
-      <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-      <#assign fields = minor.fields!type.fields />
-      <#assign uncappedName = name?uncap_first/>
-      <#if !minor.class?starts_with("Decimal")>
+      <#list vv.types as type>
+        <#list type.minor as minor>
+          <#assign name = minor.class?cap_first />
+          <#assign fields = minor.fields!type.fields />
+          <#assign uncappedName = name?uncap_first/>
+          <#if !minor.typeParams?? >
       case ${name?upper_case}:
         Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
         reader.read(${uncappedName}Holder);
         setSafe(index, ${uncappedName}Holder);
         break;
-      </#if>
-      </#list></#list>
+          </#if>
+        </#list>
+      </#list>
       case MAP: {
         ComplexCopier.copy(reader, writer);
         break;
@@ -496,18 +500,20 @@ public class UnionVector implements FieldVector {
         throw new UnsupportedOperationException();
       }
     }
-
-    <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-    <#assign fields = minor.fields!type.fields />
-    <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#list vv.types as type>
+      <#list type.minor as minor>
+        <#assign name = minor.class?cap_first />
+        <#assign fields = minor.fields!type.fields />
+        <#assign uncappedName = name?uncap_first/>
+        <#if !minor.typeParams?? >
     public void setSafe(int index, Nullable${name}Holder holder) {
       setType(index, MinorType.${name?upper_case});
       get${name}Vector().getMutator().setSafe(index, holder);
     }
 
-    </#if>
-    </#list></#list>
+        </#if>
+      </#list>
+    </#list>
 
     public void setType(int index, MinorType type) {
       typeVector.getMutator().setSafe(index, (byte) type.ordinal());

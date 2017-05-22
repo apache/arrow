@@ -89,27 +89,23 @@ public class UnionListWriter extends AbstractFieldWriter {
   public void setPosition(int index) {
     super.setPosition(index);
   }
-
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
-
+  <#if uncappedName == "int" ><#assign uncappedName = "integer" /></#if>
   <#if !minor.typeParams?? >
 
   @Override
-  public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>() {
+  public ${name}Writer ${uncappedName}() {
     return this;
   }
 
   @Override
-  public ${name}Writer <#if uncappedName == "int">integer<#else>${uncappedName}</#if>(String name) {
-//    assert inMap;
+  public ${name}Writer ${uncappedName}(String name) {
     mapName = name;
-    return writer.<#if uncappedName == "int">integer<#else>${uncappedName}</#if>(name);
+    return writer.${uncappedName}(name);
   }
-
   </#if>
-
   </#list></#list>
 
   @Override
@@ -149,33 +145,28 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-//    assert inMap;
     writer.start();
   }
 
   @Override
   public void end() {
-//    if (inMap) {
     writer.end();
     inMap = false;
-//    }
   }
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
-
-  <#if !minor.class?starts_with("Decimal")>
-
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#if !minor.typeParams?? >
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-//    assert !inMap;
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx()+1);
   }
 
-  </#if>
-
-  </#list></#list>
-
+      </#if>
+    </#list>
+  </#list>
 }

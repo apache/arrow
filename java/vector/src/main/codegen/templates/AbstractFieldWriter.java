@@ -58,15 +58,9 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${name}");
   }
 
-  <#if minor.class == "Decimal">
-  public void write${minor.class}(int start, ArrowBuf buffer) {
-    fail("${name}");
-  }
-  <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     fail("${name}");
   }
-  </#if>
 
   </#list></#list>
 

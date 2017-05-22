@@ -117,26 +117,26 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     case LIST:
       return getListWriter();
     <#list vv.types as type>
-    <#list type.minor as minor>
-      <#assign name = minor.class?cap_first />
-      <#assign fields = minor.fields!type.fields />
-      <#assign uncappedName = name?uncap_first/>
-      <#if !minor.typeParams??>
+      <#list type.minor as minor>
+        <#assign name = minor.class?cap_first />
+        <#assign fields = minor.fields!type.fields />
+        <#assign uncappedName = name?uncap_first/>
+        <#if !minor.typeParams??>
     case ${name?upper_case}:
       return get${name}Writer();
-      </#if>
-    </#list>
+        </#if>
+      </#list>
     </#list>
     default:
       throw new UnsupportedOperationException("Unknown type: " + minorType);
     }
   }
-
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
-
-          <#if !minor.typeParams?? >
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign fields = minor.fields!type.fields />
+      <#assign uncappedName = name?uncap_first/>
+      <#if !minor.typeParams?? >
 
   private ${name}Writer ${name?uncap_first}Writer;
 
@@ -166,9 +166,9 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     get${name}Writer().setPosition(idx());
     get${name}Writer().write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
-  </#if>
-
-  </#list></#list>
+      </#if>
+    </#list>
+  </#list>
 
   public void writeNull() {
   }

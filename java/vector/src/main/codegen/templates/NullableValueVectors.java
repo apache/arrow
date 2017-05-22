@@ -470,11 +470,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void get(int index, Nullable${minor.class}Holder holder){
       vAccessor.get(index, holder);
       holder.isSet = bAccessor.get(index);
-
-      <#if minor.class.startsWith("Decimal")>
-      holder.scale = scale;
-      holder.precision = precision;
-      </#if>
     }
 
     @Override
@@ -486,7 +481,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       }
     }
 
-    <#if minor.class == "Interval" || minor.class == "IntervalDay" || minor.class == "IntervalYear">
+    <#if minor.class == "Interval" || minor.class == "IntervalDay">
     public StringBuilder getAsStringBuilder(int index) {
       if (isNull(index)) {
           return null;
@@ -628,7 +623,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#assign fields = minor.fields!type.fields />
-    public void set(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ){
+    public void set(int index, int isSet<#list fields as field>, ${field.type} ${field.name}Field</#list> ){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {
@@ -644,7 +639,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
-
       bits.getMutator().setSafe(index, isSet);
       values.getMutator().setSafe(index<#list fields as field><#if field.include!true >, ${field.name}Field</#if></#list>);
       setCount++;
@@ -653,7 +647,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
 
     public void setSafe(int index, Nullable${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -664,7 +657,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public void setSafe(int index, ${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -674,18 +666,17 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
-    <#if !(type.major == "VarLen" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense" || minor.class == "Interval" || minor.class == "IntervalDay")>
-      public void setSafe(int index, ${minor.javaType!type.javaType} value) {
-        <#if type.major == "VarLen">
-        fillEmpties(index);
-        </#if>
-        bits.getMutator().setSafeToOne(index);
-        values.getMutator().setSafe(index, value);
-        setCount++;
-      }
+    <#if !(type.major == "VarLen" || minor.class == "IntervalYear" || minor.class == "IntervalDay")>
+    public void setSafe(int index, ${minor.javaType!type.javaType} value) {
+      <#if type.major == "VarLen">
+      fillEmpties(index);
+      </#if>
+      bits.getMutator().setSafeToOne(index);
+      values.getMutator().setSafe(index, value);
+      setCount++;
+    }
 
     </#if>
-
     @Override
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;
