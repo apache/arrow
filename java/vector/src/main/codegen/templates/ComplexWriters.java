@@ -111,17 +111,10 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.getMutator().setValueCount(idx()+1);
   }
 
-  <#if minor.class == "Decimal">
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    mutator.setSafe(idx(), 1, start, buffer);
-    vector.getMutator().setValueCount(idx()+1);
-  }
-  <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     mutator.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
     vector.getMutator().setValueCount(idx()+1);
   }
-  </#if>
 
   <#if mode == "Nullable">
 
@@ -146,11 +139,7 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  <#if minor.class == "Decimal">
-  public void writeDecimal(int start, ArrowBuf buffer);
-  <#else>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
-  </#if>
 }
 
 </#list>

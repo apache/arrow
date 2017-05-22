@@ -421,23 +421,22 @@ public final class ${className} extends BaseDataValueVector implements VariableW
       holder.buffer = data;
     }
 
-
     <#switch minor.class>
-    <#case "VarChar">
+      <#case "VarChar">
     @Override
     public ${friendlyType} getObject(int index) {
       Text text = new Text();
       text.set(get(index));
       return text;
     }
-    <#break>
-    <#case "Decimal">
+      <#break>
+      <#case "Decimal">
     @Override
     public ${friendlyType} getObject(int index) {
       return new BigDecimal(new BigInteger(get(index)), scale);
     }
-    <#break>
-    <#default>
+      <#break>
+      <#default>
     @Override
     public ${friendlyType} getObject(int index) {
       return get(index);
