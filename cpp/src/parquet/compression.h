@@ -55,7 +55,7 @@ class PARQUET_EXPORT SnappyCodec : public Codec {
 
   int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 
-  const char* name() const { return "snappy"; }
+  const char* name() const override { return "snappy"; }
 };
 
 // Brotli codec.
