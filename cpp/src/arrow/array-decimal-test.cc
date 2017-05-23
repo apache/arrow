@@ -75,8 +75,7 @@ class DecimalTest : public DecimalTestBase<T> {
  public:
   std::vector<uint8_t> data(
       const std::vector<T>& input, size_t byte_width) const override {
-    std::vector<uint8_t> result;
-    result.reserve(input.size() * byte_width);
+    std::vector<uint8_t> result(input.size() * byte_width);
     // TODO(phillipc): There's probably a better way to do this
     constexpr static const size_t bytes_per_element = sizeof(T);
     for (size_t i = 0, j = 0; i < input.size(); ++i, j += bytes_per_element) {
