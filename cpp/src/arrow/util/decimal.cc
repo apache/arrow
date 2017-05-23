@@ -29,8 +29,8 @@ ARROW_EXPORT Status FromString(
   }
 
   int8_t sign = 1;
-  auto charp = s.cbegin();
-  auto end = s.cend();
+  auto charp = s.c_str();
+  auto end = charp + s.length();
 
   if (*charp == '+' || *charp == '-') {
     if (*charp == '-') { sign = -1; }

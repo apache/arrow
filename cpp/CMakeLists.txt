@@ -949,9 +949,8 @@ add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
+  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 endif()
-
-set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
 set(ARROW_SRCS
   src/arrow/array.cc
