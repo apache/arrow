@@ -19,6 +19,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -37,6 +38,14 @@ std::vector<uint8_t> RandomData(int64_t size) {
   test::random_bytes(size, 0, buffer.data());
   return buffer;
 }
+
+struct JNIDriver {
+  static HdfsDriver type;
+};
+
+struct PivotalDriver {
+  static HdfsDriver type;
+};
 
 template <typename DRIVER>
 class TestHdfsClient : public ::testing::Test {
@@ -112,6 +121,7 @@ class TestHdfsClient : public ::testing::Test {
     conf_.host = host == nullptr ? "localhost" : host;
     conf_.user = user;
     conf_.port = port == nullptr ? 20500 : atoi(port);
+    conf_.driver = DRIVER::type;
 
     ASSERT_OK(HdfsClient::Connect(&conf_, &client_));
   }
@@ -133,19 +143,18 @@ class TestHdfsClient : public ::testing::Test {
   std::shared_ptr<HdfsClient> client_;
 };
 
+template <>
+std::string TestHdfsClient<PivotalDriver>::HdfsAbsPath(const std::string& relpath) {
+  std::stringstream ss;
+  ss << relpath;
+  return ss.str();
+}
+
 #define SKIP_IF_NO_DRIVER()                                  \
   if (!this->loaded_driver_) {                               \
     std::cout << "Driver not loaded, skipping" << std::endl; \
     return;                                                  \
   }
-
-struct JNIDriver {
-  static HdfsDriver type;
-};
-
-struct PivotalDriver {
-  static HdfsDriver type;
-};
 
 HdfsDriver JNIDriver::type = HdfsDriver::LIBHDFS;
 HdfsDriver PivotalDriver::type = HdfsDriver::LIBHDFS3;
@@ -364,7 +373,6 @@ TYPED_TEST(TestHdfsClient, LargeFile) {
 
 TYPED_TEST(TestHdfsClient, RenameFile) {
   SKIP_IF_NO_DRIVER();
-
   ASSERT_OK(this->MakeScratchDir());
 
   auto src_path = this->ScratchPath("src-file");
@@ -378,6 +386,48 @@ TYPED_TEST(TestHdfsClient, RenameFile) {
 
   ASSERT_FALSE(this->client_->Exists(src_path));
   ASSERT_TRUE(this->client_->Exists(dst_path));
+}
+
+TYPED_TEST(TestHdfsClient, ThreadSafety) {
+  SKIP_IF_NO_DRIVER();
+  ASSERT_OK(this->MakeScratchDir());
+
+  auto src_path = this->ScratchPath("threadsafety");
+
+  std::string data = "foobar";
+  ASSERT_OK(this->WriteDummyFile(src_path, reinterpret_cast<const uint8_t*>(data.c_str()),
+      static_cast<int64_t>(data.size())));
+
+  std::shared_ptr<HdfsReadableFile> file;
+  ASSERT_OK(this->client_->OpenReadable(src_path, &file));
+
+  std::atomic<int> correct_count(0);
+  const int niter = 1000;
+
+  auto ReadData = [&file, &correct_count, &data, niter]() {
+    for (int i = 0; i < niter; ++i) {
+      std::shared_ptr<Buffer> buffer;
+      if (i % 2 == 0) {
+        ASSERT_OK(file->ReadAt(3, 3, &buffer));
+        if (0 == memcmp(data.c_str() + 3, buffer->data(), 3)) { correct_count += 1; }
+      } else {
+        ASSERT_OK(file->ReadAt(0, 4, &buffer));
+        if (0 == memcmp(data.c_str() + 0, buffer->data(), 4)) { correct_count += 1; }
+      }
+    }
+  };
+
+  std::thread thread1(ReadData);
+  std::thread thread2(ReadData);
+  std::thread thread3(ReadData);
+  std::thread thread4(ReadData);
+
+  thread1.join();
+  thread2.join();
+  thread3.join();
+  thread4.join();
+
+  ASSERT_EQ(niter * 4, correct_count);
 }
 
 }  // namespace io
