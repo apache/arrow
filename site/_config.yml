@@ -19,6 +19,10 @@ repository: https://github.com/apache/arrow
 destination: build
 excerpt_separator: ""
 
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
 exclude:
   - Gemfile
   - Gemfile.lock
