@@ -129,13 +129,13 @@ These repositories are managed at
 [red-data-tools/arrow-packages][9]. If you have any feedback, please
 send it to the project instead of Apache Arrow project.
 
-[1]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.4.0
+[1]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/
 [2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.4.0
-[3]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.md5
+[3]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.md5
 [4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.4.0%22
 [5]: http://conda-forge.github.io
-[6]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz
-[7]: https://dist.apache.org/repos/dist/release/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.asc
+[6]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz
+[7]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.asc
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
 [10]: http://arrow.apache.org/release/0.4.0.html
