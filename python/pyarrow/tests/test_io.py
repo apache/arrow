@@ -19,6 +19,7 @@ from io import BytesIO
 import gc
 import os
 import pytest
+import sys
 
 import numpy as np
 
@@ -201,14 +202,20 @@ def test_inmemory_write_after_closed():
 
 
 def test_buffer_protocol_ref_counting():
-    import gc
-
     def make_buffer(bytes_obj):
         return bytearray(pa.frombuffer(bytes_obj))
 
     buf = make_buffer(b'foo')
     gc.collect()
     assert buf == b'foo'
+
+    # ARROW-1053
+    val = b'foo'
+    refcount_before = sys.getrefcount(val)
+    for i in range(10):
+        make_buffer(val)
+    gc.collect()
+    assert refcount_before == sys.getrefcount(val)
 
 
 def test_nativefile_write_memoryview():
