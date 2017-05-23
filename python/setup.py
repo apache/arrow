@@ -29,7 +29,7 @@ import Cython
 
 
 import pkg_resources
-from setuptools import setup, Extension
+from setuptools import setup, Extension, Distribution
 
 from os.path import join as pjoin
 
@@ -210,6 +210,11 @@ class build_ext(_build_ext):
         except OSError:
             pass
 
+        if sys.platform == 'win32':
+            build_prefix = ''
+        else:
+            build_prefix = self.build_type
+
         def move_lib(lib_name):
             lib_filename = (shared_library_prefix + lib_name +
                             shared_library_suffix)
@@ -217,14 +222,14 @@ class build_ext(_build_ext):
             if sys.platform == 'darwin':
                 lib_pattern = (shared_library_prefix + lib_name +
                                ".*" + shared_library_suffix[1:])
-                libs = glob.glob(pjoin(self.build_type, lib_pattern))
+                libs = glob.glob(pjoin(build_prefix, lib_pattern))
             else:
-                libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
+                libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
             # Longest suffix library should be copied, all others symlinked
             libs.sort(key=lambda s: -len(s))
             print(libs, libs[0])
             lib_filename = os.path.basename(libs[0])
-            shutil.move(pjoin(self.build_type, lib_filename),
+            shutil.move(pjoin(build_prefix, lib_filename),
                         pjoin(build_lib, 'pyarrow', lib_filename))
             for lib in libs[1:]:
                 filename = os.path.basename(lib)
@@ -233,10 +238,10 @@ class build_ext(_build_ext):
                     os.symlink(lib_filename, link_name)
 
         if self.bundle_arrow_cpp:
-            print(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
+            print(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
                 shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(self.build_type, 'include'), pjoin(build_lib, 'pyarrow'))
+            shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
             if self.with_jemalloc:
@@ -337,11 +342,17 @@ representations of flat and hierarchical data along with multiple
 language-bindings for structure manipulation. It also provides IPC
 and common algorithm implementations."""
 
+class BinaryDistribution(Distribution):
+    def has_ext_modules(foo):
+        return True
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx']},
+    include_package_data=True,
+    distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
 
