@@ -130,7 +130,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open path: <%s>: %v", output_path, err)
 	}
-	writer, err := arrow.NewFileWriter(output, schema)
+	writer, err := arrow.NewRecordBatchFileWriter(output, schema)
 	if err != nil {
 		log.Fatalf("Failed to create writer: %v", err)
 	}

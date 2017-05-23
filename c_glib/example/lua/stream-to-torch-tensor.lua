@@ -77,7 +77,7 @@ end
 local input_path = arg[1] or "/tmp/stream.arrow";
 
 local input = Arrow.MemoryMappedInputStream.new(input_path)
-local reader = Arrow.StreamReader.open(input)
+local reader = Arrow.RecordBatchStreamReader.new(input)
 
 local i = 0
 while true do

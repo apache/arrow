@@ -21,7 +21,7 @@ local Arrow = lgi.Arrow
 local input_path = arg[1] or "/tmp/stream.arrow";
 
 local input = Arrow.MemoryMappedInputStream.new(input_path)
-local reader = Arrow.StreamReader.new(input)
+local reader = Arrow.RecordBatchStreamReader.new(input)
 
 local i = 0
 while true do

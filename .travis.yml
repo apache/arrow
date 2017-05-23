@@ -17,6 +17,7 @@ addons:
     - gtk-doc-tools
     - autoconf-archive
     - libgirepository1.0-dev
+    - gir1.2-gudev-1.0
 services:
   - docker
 

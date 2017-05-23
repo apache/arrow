@@ -14,11 +14,34 @@
 
 set -e
 
-ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 pushd $ARROW_C_GLIB_DIR
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 NO_MAKE=yes test/run-test.sh
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
+export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_C_GLIB_INSTALL/lib/pkgconfig
+
+pushd example/lua
+. ~/torch/install/bin/torch-activate
+luajit write-batch.lua
+luajit read-batch.lua
+luajit write-stream.lua
+luajit read-stream.lua
+luajit stream-to-torch-tensor.lua
+popd
+
+pushd example/go
+make generate
+make
+./write-batch
+./read-batch
+./write-stream
+./read-stream
+popd
 
 popd
