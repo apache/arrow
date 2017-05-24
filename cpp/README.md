@@ -126,4 +126,4 @@ both of these options would be used rarely.  Current known uses-cases whent hey 
 *  Parameterized tests in google test.
 
 [1]: https://brew.sh/
-[2]: https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md
+[2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md

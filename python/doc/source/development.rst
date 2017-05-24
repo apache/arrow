@@ -175,7 +175,7 @@ Windows
 =======
 
 First, we bootstrap a conda environment similar to the `C++ build instructions
-<https://github.com/apache/arrow/blob/master/cpp/doc/Windows.md>`_. This
+<https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md>`_. This
 includes all the dependencies for Arrow and the Apache Parquet C++ libraries.
 
 First, starting from fresh clones of Apache Arrow and parquet-cpp:
