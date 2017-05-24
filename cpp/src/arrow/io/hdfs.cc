@@ -89,6 +89,9 @@ class HdfsAnyFileImpl {
 
   LibHdfsShim* driver_;
 
+  // For threadsafety
+  std::mutex lock_;
+
   // These are pointers in libhdfs, so OK to copy
   hdfsFS fs_;
   hdfsFile file_;
@@ -116,6 +119,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
       ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
           reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
     } else {
+      std::lock_guard<std::mutex> guard(lock_);
       RETURN_NOT_OK(Seek(position));
       return Read(nbytes, bytes_read, buffer);
     }
@@ -253,6 +257,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
   }
 
   Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
+    std::lock_guard<std::mutex> guard(lock_);
     tSize ret = driver_->Write(
         fs_, file_, reinterpret_cast<const void*>(buffer), static_cast<tSize>(nbytes));
     CHECK_FAILURE(ret, "Write");

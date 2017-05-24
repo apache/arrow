@@ -508,7 +508,6 @@ ARROW_EXTERN_TEMPLATE NumericArray<Time32Type>;
 ARROW_EXTERN_TEMPLATE NumericArray<Time64Type>;
 ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 
-
 /// \brief Perform any validation checks to determine obvious inconsistencies
 /// with the array's internal data
 ///
