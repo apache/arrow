@@ -26,6 +26,11 @@ from pyarrow.lib import FeatherError  # noqa
 from pyarrow.lib import Table
 import pyarrow.lib as ext
 
+try:
+    infer_dtype = pdapi.infer_dtype
+except AttributeError:
+    infer_dtype = pd.lib.infer_dtype
+
 
 if LooseVersion(pd.__version__) < '0.17.0':
     raise ImportError("feather requires pandas >= 0.17.0")
@@ -75,7 +80,7 @@ class FeatherWriter(object):
             col = df.iloc[:, i]
 
             if pdapi.is_object_dtype(col):
-                inferred_type = pd.lib.infer_dtype(col)
+                inferred_type = infer_dtype(col)
                 msg = ("cannot serialize column {n} "
                        "named {name} with dtype {dtype}".format(
                            n=i, name=name, dtype=inferred_type))
@@ -83,7 +88,7 @@ class FeatherWriter(object):
                 if inferred_type in ['mixed']:
 
                     # allow columns with nulls + an inferable type
-                    inferred_type = pd.lib.infer_dtype(col[col.notnull()])
+                    inferred_type = infer_dtype(col[col.notnull()])
                     if inferred_type in ['mixed']:
                         raise ValueError(msg)
 
