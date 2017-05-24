@@ -54,6 +54,29 @@ TYPED_TEST(DecimalTest, TestFromString) {
   ASSERT_EQ(scale, 5);
 }
 
+TEST(DecimalTest, TestStringStartingWithPlus) {
+  std::string plus_value("+234.234");
+  Decimal32 out;
+  int scale;
+  int precision;
+  ASSERT_OK(FromString(plus_value, &out, &precision, &scale));
+  ASSERT_EQ(234234, out.value);
+  ASSERT_EQ(6, precision);
+  ASSERT_EQ(3, scale);
+}
+
+TEST(DecimalTest, TestStringStartingWithPlus128) {
+  std::string plus_value("+2342394230592.232349023094");
+  decimal::int128_t expected_value("2342394230592232349023094");
+  Decimal128 out;
+  int scale;
+  int precision;
+  ASSERT_OK(FromString(plus_value, &out, &precision, &scale));
+  ASSERT_EQ(expected_value, out.value);
+  ASSERT_EQ(25, precision);
+  ASSERT_EQ(12, scale);
+}
+
 TEST(DecimalTest, TestStringToInt32) {
   int32_t value = 0;
   StringToInteger("123", "456", 1, &value);
@@ -158,6 +181,63 @@ TEST(DecimalTest, TestDecimal128StringAndBytesRoundTrip) {
   FromBytes(bytes, is_negative, &result);
 
   ASSERT_EQ(expected.value, result.value);
+}
+
+TEST(DecimalTest, TestInvalidInputMinus) {
+  std::string invalid_value("-");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputDot) {
+  std::string invalid_value("0.0.0");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
+  std::string invalid_value("0-13-32");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputSingleChar) {
+  std::string invalid_value("a");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
+  std::string invalid_value("-23092.235-");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  auto msg = status.message();
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
+  std::string invalid_value("-+23092.235");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
+  std::string invalid_value("+-23092.235");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
+}
+
+TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
+  std::string invalid_value("00a");
+  Decimal32 out;
+  Status status = decimal::FromString(invalid_value, &out);
+  ASSERT_RAISES(Invalid, status);
 }
 
 template <typename T>
