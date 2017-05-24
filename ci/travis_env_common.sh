@@ -26,3 +26,7 @@ export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
 export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 export ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install
+
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  export GOPATH=$TRAVIS_BUILD_DIR/gopath
+fi
