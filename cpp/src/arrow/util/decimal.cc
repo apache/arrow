@@ -29,18 +29,27 @@ ARROW_EXPORT Status FromString(
   }
 
   int8_t sign = 1;
-  auto charp = s.c_str();
-  auto end = charp + s.length();
+  std::string::const_iterator charp = s.cbegin();
+  std::string::const_iterator end = s.cend();
 
-  if (*charp == '+' || *charp == '-') {
-    if (*charp == '-') { sign = -1; }
+  char first_char = *charp;
+  if (first_char == '+' || first_char == '-') {
+    if (first_char == '-') { sign = -1; }
     ++charp;
   }
 
-  auto numeric_string_start = charp;
+  if (charp == end) {
+    std::stringstream ss;
+    ss << "Single character: '" << first_char << "' is not a valid decimal value";
+    return Status::Invalid(ss.str());
+  }
+
+  std::string::const_iterator numeric_string_start = charp;
+
+  DCHECK_LT(charp, end);
 
   // skip leading zeros
-  while (*charp == '0') {
+  while (charp != end && *charp == '0') {
     ++charp;
   }
 
@@ -59,25 +68,59 @@ ARROW_EXPORT Status FromString(
     return Status::OK();
   }
 
-  auto whole_part_start = charp;
-  while (isdigit(*charp)) {
+  std::string::const_iterator whole_part_start = charp;
+
+  while (charp != end && isdigit(*charp)) {
     ++charp;
   }
-  auto whole_part_end = charp;
+
+  std::string::const_iterator whole_part_end = charp;
   std::string whole_part(whole_part_start, whole_part_end);
 
-  if (*charp == '.') {
+  if (charp != end && *charp == '.') {
     ++charp;
+
+    if (charp == end) {
+      return Status::Invalid(
+          "Decimal point must be followed by at least one base ten digit. Reached the "
+          "end of the string.");
+    }
+
+    if (!isdigit(*charp)) {
+      std::stringstream ss;
+      ss << "Decimal point must be followed by a base ten digit. Found '" << *charp
+         << "'";
+      return Status::Invalid(ss.str());
+    }
   } else {
-    // no decimal point
-    DCHECK_EQ(charp, end);
+    if (charp != end) {
+      std::stringstream ss;
+      ss << "Expected base ten digit or decimal point but found '" << *charp
+         << "' instead.";
+      return Status::Invalid(ss.str());
+    }
   }
 
-  auto fractional_part_start = charp;
-  while (isdigit(*charp)) {
-    ++charp;
+  std::string::const_iterator fractional_part_start = charp;
+
+  // The rest must be digits, because if we have a decimal point it must be followed by
+  // digits
+  if (charp != end) {
+    while (charp != end && isdigit(*charp)) {
+      ++charp;
+    }
+
+    // The while loop has ended before the end of the string which means we've hit a
+    // character that isn't a base ten digit
+    if (charp != end) {
+      std::stringstream ss;
+      ss << "Found non base ten digit character '" << *charp
+         << "' before the end of the string";
+      return Status::Invalid(ss.str());
+    }
   }
-  auto fractional_part_end = charp;
+
+  std::string::const_iterator fractional_part_end = charp;
   std::string fractional_part(fractional_part_start, fractional_part_end);
 
   if (precision != nullptr) {
