@@ -1,6 +1,6 @@
 ---
 layout: default
-title: 0.3.0 Release
+title: Releases
 permalink: /release/index.html
 ---
 <!--
@@ -26,6 +26,7 @@ limitations under the License.
 
 Navigate to the release page for downloads and the changelog.
 
+* [0.4.0 (22 May 2017)][4]
 * [0.3.0 (5 May 2017)][1]
 * [0.2.0 (18 February 2017)][2]
 * [0.1.0 (10 October 2016)][3]
@@ -33,3 +34,4 @@ Navigate to the release page for downloads and the changelog.
 [1]: {{ site.baseurl }}/release/0.3.0.html
 [2]: {{ site.baseurl }}/release/0.2.0.html
 [3]: {{ site.baseurl }}/release/0.1.0.html
+[4]: {{ site.baseurl }}/release/0.4.0.html
