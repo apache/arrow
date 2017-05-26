@@ -25,7 +25,7 @@ wget -O miniconda.sh $MINICONDA_URL
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 mkdir -p $CONDA_PKGS_DIRS
 
-bash miniconda.sh -b -p $MINICONDA
+bash miniconda.sh -f -b -p $MINICONDA
 export PATH="$MINICONDA/bin:$PATH"
 conda update -y -q conda
 conda config --set auto_update_conda false

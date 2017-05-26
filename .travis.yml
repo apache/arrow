@@ -27,6 +27,10 @@ cache:
     - $HOME/.conda_packages
     - $HOME/.ccache
 
+cache:
+  directories:
+     - $HOME/miniconda # Add the installation to TRAVIS cache.
+
 matrix:
   fast_finish: true
   allow_failures:
