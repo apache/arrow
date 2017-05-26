@@ -15,11 +15,24 @@
 
 set -ex
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+if [ "$1" == "--only-library" ]; then
+  only_library_mode=yes
+else
+  only_library_mode=no
+fi
 
-# Set up C++ toolchain from conda-forge packages for faster builds
-conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
+if [ $only_library_mode == "no" ]; then
+  # C++ toolchain
+  export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
+  export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
+  export RAPIDJSON_HOME=$CPP_TOOLCHAIN
+
+  # Set up C++ toolchain from conda-forge packages for faster builds
+  source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
+fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew update > /dev/null
@@ -32,18 +45,31 @@ pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
--DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL"
+-DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL
+-DARROW_NO_DEPRECATED_API=ON"
+CMAKE_LINUX_FLAGS=""
+CMAKE_OSX_FLAGS=""
+
+if [ $only_library_mode == "yes" ]; then
+  CMAKE_COMMON_FLAGS="\
+$CMAKE_COMMON_FLAGS \
+-DARROW_BUILD_TESTS=OFF \
+-DARROW_BUILD_UTILITIES=OFF"
+else
+  CMAKE_LINUX_FLAGS="\
+$CMAKE_LINUX_FLAGS \
+-DARROW_TEST_MEMCHECK=ON"
+fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
-    cmake -DARROW_TEST_MEMCHECK=on \
-          $CMAKE_COMMON_FLAGS \
+    cmake $CMAKE_COMMON_FLAGS \
+          $CMAKE_LINUX_FLAGS \
           -DARROW_CXXFLAGS="-Wconversion -Werror" \
-          -DARROW_NO_DEPRECATED_API=on \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
+          $CMAKE_OSX_FLAGS \
           -DARROW_CXXFLAGS=-Werror \
-          -DARROW_NO_DEPRECATED_API=on \
           $ARROW_CPP_DIR
 fi
 

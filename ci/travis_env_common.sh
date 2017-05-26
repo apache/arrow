@@ -16,11 +16,6 @@ export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
-# C++ toolchain
-export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
-export RAPIDJSON_HOME=$CPP_TOOLCHAIN
-
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
 export ARROW_PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 export ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
