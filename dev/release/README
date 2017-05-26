@@ -15,10 +15,11 @@ source dev/release/setup-gpg-agent.sh
 sh dev/release/00-prepare.sh 0.1.0 0.1.1
 # push the tag
 git push apache apache-arrow-0.1.0
-# tag and push to maven repo (repo will have to be finalized separately)
+# tag and stage artifacts to maven repo (repo will have to be finalized separately)
 sh dev/release/01-perform.sh
 # create the source release
 sh dev/release/02-source.sh 0.1.0 0
+# once the vote has passed, publish the staged maven artifacts (see bellow)
 
 useful commands:
 - to set the mvn version in the poms
@@ -30,3 +31,21 @@ eval $(gpg-agent --daemon --allow-preset-passphrase)
 gpg --use-agent -s LICENSE.txt 
 - delete tag localy
 git tag -d apache-arrow-0.1.0
+
+How to stage maven artifacts:
+artifacts get staged during the perform phase of the scripts above.
+If you need to stage the artifacts again follow the instructions bellow:
+# checkout the relese tag
+git checkout apache-arrow-0.1.0
+# setup the gpg agent for signing artifacts
+source dev/release/setup-gpg-agent.sh
+# go in the java subfolder
+cd java
+# stage the artifacts
+mvn -Papache-release deploy
+
+How to publish the staged artifacts:
+Logon to the apache repository: https://repository.apache.org/#stagingRepositories
+Select the arrow staging repository you just just created: orgapachearrow-100x
+Click the "close" button
+Once validation has passed, click the "release" button
