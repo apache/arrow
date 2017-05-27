@@ -83,6 +83,8 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_EQ(8, reader_->metadata()->num_rows());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
+  // Size of the metadata is 730 bytes
+  ASSERT_EQ(730, reader_->metadata()->size());
   // This row group must have 8 rows
   ASSERT_EQ(8, group->metadata()->num_rows());
 

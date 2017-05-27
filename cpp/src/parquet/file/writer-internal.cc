@@ -62,7 +62,6 @@ static format::Statistics ToThrift(const EncodedStatistics& row_group_statistics
 
 void SerializedPageWriter::Close(bool has_dictionary, bool fallback) {
   // index_page_offset = 0 since they are not supported
-  // TODO: Remove default fallback = 'false' when implemented
   metadata_->Finish(num_values_, dictionary_page_offset_, 0, data_page_offset_,
       total_compressed_size_, total_uncompressed_size_, has_dictionary, fallback);
 

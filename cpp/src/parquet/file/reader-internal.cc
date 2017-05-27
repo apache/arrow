@@ -202,6 +202,8 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
 // ----------------------------------------------------------------------
 // SerializedFile: Parquet on-disk layout
 
+// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
+static constexpr int64_t DEFAULT_FOOTER_READ_SIZE = 64 * 1024;
 static constexpr uint32_t FOOTER_SIZE = 8;
 static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 
@@ -255,15 +257,19 @@ void SerializedFile::ParseMetaData() {
     throw ParquetException("Corrupted file, smaller than file footer");
   }
 
-  uint8_t footer_buffer[FOOTER_SIZE];
+  uint8_t footer_buffer[DEFAULT_FOOTER_READ_SIZE];
+  int64_t footer_read_size = std::min(file_size, DEFAULT_FOOTER_READ_SIZE);
   int64_t bytes_read =
-      source_->ReadAt(file_size - FOOTER_SIZE, FOOTER_SIZE, footer_buffer);
+      source_->ReadAt(file_size - footer_read_size, footer_read_size, footer_buffer);
 
-  if (bytes_read != FOOTER_SIZE || memcmp(footer_buffer + 4, PARQUET_MAGIC, 4) != 0) {
+  // Check if all bytes are read. Check if last 4 bytes read have the magic bits
+  if (bytes_read != footer_read_size ||
+      memcmp(footer_buffer + footer_read_size - 4, PARQUET_MAGIC, 4) != 0) {
     throw ParquetException("Invalid parquet file. Corrupt footer.");
   }
 
-  uint32_t metadata_len = *reinterpret_cast<uint32_t*>(footer_buffer);
+  uint32_t metadata_len =
+      *reinterpret_cast<uint32_t*>(footer_buffer + footer_read_size - FOOTER_SIZE);
   int64_t metadata_start = file_size - FOOTER_SIZE - metadata_len;
   if (FOOTER_SIZE + metadata_len > file_size) {
     throw ParquetException(
@@ -273,10 +279,17 @@ void SerializedFile::ParseMetaData() {
 
   std::shared_ptr<PoolBuffer> metadata_buffer =
       AllocateBuffer(properties_.memory_pool(), metadata_len);
-  bytes_read =
-      source_->ReadAt(metadata_start, metadata_len, metadata_buffer->mutable_data());
-  if (bytes_read != metadata_len) {
-    throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
+
+  // Check if the footer_buffer contains the entire metadata
+  if (footer_read_size >= (metadata_len + FOOTER_SIZE)) {
+    memcpy(metadata_buffer->mutable_data(),
+        footer_buffer + (footer_read_size - metadata_len - FOOTER_SIZE), metadata_len);
+  } else {
+    bytes_read =
+        source_->ReadAt(metadata_start, metadata_len, metadata_buffer->mutable_data());
+    if (bytes_read != metadata_len) {
+      throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
+    }
   }
 
   file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &metadata_len);
