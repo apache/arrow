@@ -53,7 +53,7 @@ export abstract class Vector {
     public field: any;
     public name: string;
     public length: number;
-    public null_count: number;
+    public nullCount: number;
 
     constructor(field) {
         this.field = field;
@@ -77,7 +77,7 @@ export abstract class Vector {
      */
     public loadData(bb, node, buffers) {
         this.length = node.length().low;
-        this.null_count = node.nullCount().low;
+        this.nullCount = node.nullCount().low;
         this.loadBuffers(bb, node, buffers);
     }
 
@@ -315,8 +315,8 @@ class ListVector extends Uint32Vector {
         if (offset === null) {
             return null;
         }
-        const next_offset = super.get(i + 1);
-        return this.dataVector.slice(offset, next_offset);
+        const nextOffset = super.get(i + 1);
+        return this.dataVector.slice(offset, nextOffset);
     }
 
     public toString() {

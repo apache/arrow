@@ -258,48 +258,55 @@ function _loadBatch(bb) {
 function _loadRecordBatch(bb, batch) {
     const data = batch.header;
     let i;
-    const nodes_ = [];
     const nodesLength = data.nodesLength();
+    const nodes = new Array(nodesLength);
     let buffer;
-    const buffers_ = [];
     const buffersLength = data.buffersLength();
+    const buffers = new Array(buffersLength);
 
     for (i = 0; i < nodesLength; i += 1) {
-        nodes_.push(data.nodes(i));
+        nodes[i] = data.nodes(i);
     }
+
     for (i = 0; i < buffersLength; i += 1) {
         buffer = data.buffers(i);
-        buffers_.push({ offset: bb.position() + buffer.offset().low, length: buffer.length().low });
+        buffers[i] = {
+            offset: bb.position() + buffer.offset().low,
+            length: buffer.length().low,
+        };
     }
     // position the buffer after the body to read the next message
     bb.setPosition(bb.position() + batch.length);
 
-    return { nodes: nodes_, buffers: buffers_, length: data.length().low, type: MessageHeader.RecordBatch };
+    return { nodes, buffers, length: data.length().low, type: MessageHeader.RecordBatch };
 }
 
 function _loadDictionaryBatch(bb, batch) {
-    const id_ = batch.header.id().toFloat64().toString();
+    const id = batch.header.id().toFloat64().toString();
     const data = batch.header.data();
     let i;
-    const nodes_ = [];
     const nodesLength = data.nodesLength();
+    const nodes = new Array(nodesLength);
     let buffer;
-    const buffers_ = [];
     const buffersLength = data.buffersLength();
+    const buffers = new Array(buffersLength);
 
     for (i = 0; i < nodesLength; i += 1) {
-        nodes_.push(data.nodes(i));
+        nodes[i] = data.nodes(i);
     }
     for (i = 0; i < buffersLength; i += 1) {
         buffer = data.buffers(i);
-        buffers_.push({ offset: bb.position() + buffer.offset().low, length: buffer.length().low });
+        buffers[i] = {
+            offset: bb.position() + buffer.offset().low,
+            length: buffer.length().low,
+        };
     }
     // position the buffer after the body to read the next message
     bb.setPosition(bb.position() + batch.length);
 
-    return {id: id_,
-            nodes: nodes_,
-            buffers: buffers_,
+    return {id,
+            nodes,
+            buffers,
             length: data.length().low,
             type: MessageHeader.DictionaryBatch };
 }
@@ -452,7 +459,7 @@ function parseField(field) {
       name: field.name(),
       nullable: field.nullable(),
       type: TYPEMAP[field.typeType()],
-      children: children,
+      children,
       layout: layouts,
     };
 }
