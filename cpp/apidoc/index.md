@@ -70,7 +70,7 @@ As the fourth entry is null, the value at that position in the buffer is
 undefined.
 
     // Cast the Array to its actual type to access its data
-    std::shared_ptr<Int64Array> int64_array = std::shared_pointer_cast<Int64Array>(array);
+    std::shared_ptr<Int64Array> int64_array = std::static_pointer_cast<Int64Array>(array);
 
     // Get the pointer to the null bitmap.
     const uint8_t* null_bitmap = int64_array->null_bitmap_data();
