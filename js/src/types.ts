@@ -22,9 +22,14 @@ import { TextDecoder } from "text-encoding";
 
 const Type = org.apache.arrow.flatbuf.Type;
 
-interface ArrayView {
-    slice(start: number, end: number): ArrayView;
+interface IArrayView {
+    slice(start: number, end: number): IArrayView;
     toString(): string;
+}
+
+interface IViewConstructor<T extends IArrayView> {
+    BYTES_PER_ELEMENT: number;
+    new(buffer: any, offset: number, length: number): T;
 }
 
 export abstract class Vector {
@@ -84,11 +89,11 @@ export abstract class Vector {
     protected abstract loadBuffers(bb, node, buffers);
 }
 
-class SimpleVector<T extends ArrayView> extends Vector {
+class SimpleVector<T extends IArrayView> extends Vector {
     protected dataView: T;
-    private TypedArray: { BYTES_PER_ELEMENT: number, new(buffer: any, offset: number, length: number): T };
+    private TypedArray: IViewConstructor<T>;
 
-    constructor(field, TypedArray: { BYTES_PER_ELEMENT: number, new(buffer: any, offset: number, length: number): T }) {
+    constructor(field, TypedArray: IViewConstructor<T>) {
         super(field);
         this.TypedArray = TypedArray;
     }
@@ -113,9 +118,9 @@ class SimpleVector<T extends ArrayView> extends Vector {
         this.loadDataBuffer(bb, buffers[0]);
     }
 
-    /**
-      * buffer: org.apache.arrow.flatbuf.Buffer
-      */
+    /*
+     * buffer: org.apache.arrow.flatbuf.Buffer
+     */
     protected loadDataBuffer(bb, buffer) {
         const arrayBuffer = bb.bytes_.buffer;
         const offset  = bb.bytes_.byteOffset + buffer.offset;
@@ -125,8 +130,7 @@ class SimpleVector<T extends ArrayView> extends Vector {
 
 }
 
-class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
-
+class NullableSimpleVector<T extends IArrayView> extends SimpleVector<T> {
     protected validityView: BitArray;
 
     public get(i: number) {
@@ -147,6 +151,7 @@ class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
     }
 }
 
+/* tslint:disable max-line-length */
 class Uint8Vector   extends SimpleVector<Uint8Array>   { constructor(field) { super(field, Uint8Array);   } }
 class Uint16Vector  extends SimpleVector<Uint16Array>  { constructor(field) { super(field, Uint16Array);  } }
 class Uint32Vector  extends SimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  } }
@@ -164,6 +169,7 @@ class NullableInt16Vector   extends NullableSimpleVector<Uint16Array>  { constru
 class NullableInt32Vector   extends NullableSimpleVector<Uint32Array>  { constructor(field) { super(field, Uint32Array);  } }
 class NullableFloat32Vector extends NullableSimpleVector<Float32Array> { constructor(field) { super(field, Float32Array); } }
 class NullableFloat64Vector extends NullableSimpleVector<Float64Array> { constructor(field) { super(field, Float64Array); } }
+/* tslint:enable max-line-length */
 
 class Uint64Vector extends SimpleVector<Uint32Array>  {
     constructor(field) {
