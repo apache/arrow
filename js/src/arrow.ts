@@ -43,8 +43,8 @@ export class ArrowReader {
         this.bb = bb;
         this.schema = schema;
         this.vectors = vectors;
-        for (let i = 0; i < vectors.length; i += 1|0) {
-            this.vectorMap[vectors[i].name] = vectors[i]
+        for (let i = 0; i < vectors.length; i++) {
+            this.vectorMap[vectors[i].name] = vectors[i];
         }
         this.batches = batches;
         this.dictionaries = dictionaries;
@@ -90,7 +90,7 @@ export class ArrowReader {
 
 export function getSchema(buf) { return getReader(buf).getSchema(); }
 
-export function getReader(buf) : ArrowReader {
+export function getReader(buf): ArrowReader {
     if (_checkMagic(buf, 0)) {
         return getFileReader(buf);
     } else {
@@ -98,7 +98,7 @@ export function getReader(buf) : ArrowReader {
     }
 }
 
-export function getStreamReader(buf) : ArrowReader {
+export function getStreamReader(buf): ArrowReader {
     const bb = new ByteBuffer(buf);
 
     const schema = _loadSchema(bb);
@@ -111,7 +111,7 @@ export function getStreamReader(buf) : ArrowReader {
     const dictionaryBatches = [];
     const dictionaries = {};
 
-    for (i = 0, iLen = schema.fieldsLength(); i < iLen; i += 1|0) {
+    for (i = 0, iLen = schema.fieldsLength(); i < iLen; i++) {
         field = schema.fields(i);
         _createDictionaryVectors(field, dictionaries);
         vectors.push(vectorFromField(field, dictionaries));
@@ -124,15 +124,15 @@ export function getStreamReader(buf) : ArrowReader {
       } else if (batch.type == MessageHeader.DictionaryBatch) {
           dictionaryBatches.push(batch);
       } else if (batch.type == MessageHeader.RecordBatch) {
-          recordBatches.push(batch)
+          recordBatches.push(batch);
       } else {
-          console.error("Expected batch type" + MessageHeader.RecordBatch + " or " +
+          throw new Error("Expected batch type" + MessageHeader.RecordBatch + " or " +
               MessageHeader.DictionaryBatch + " but got " + batch.type);
       }
     }
 
     // load dictionary vectors
-    for (i = 0; i < dictionaryBatches.length; i += 1|0) {
+    for (i = 0; i < dictionaryBatches.length; i++) {
       batch = dictionaryBatches[i];
       loadVectors(bb, [dictionaries[batch.id]], batch);
     }
@@ -140,7 +140,7 @@ export function getStreamReader(buf) : ArrowReader {
     return new ArrowReader(bb, parseSchema(schema), vectors, recordBatches, dictionaries);
 }
 
-export function getFileReader (buf) : ArrowReader {
+export function getFileReader(buf): ArrowReader {
     const bb = new ByteBuffer(buf);
 
     const footer = _loadFooter(bb);
@@ -156,44 +156,44 @@ export function getFileReader (buf) : ArrowReader {
     const dictionaryBatchBlocks = [];
     const dictionaries = {};
 
-    for (i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
+    for (i = 0, len = schema.fieldsLength(); i < len; i++) {
         field = schema.fields(i);
         _createDictionaryVectors(field, dictionaries);
         vectors.push(vectorFromField(field, dictionaries));
     }
 
-    for (i = 0; i < footer.dictionariesLength(); i += 1|0) {
+    for (i = 0; i < footer.dictionariesLength(); i++) {
         block = footer.dictionaries(i);
         dictionaryBatchBlocks.push({
             offset: block.offset().low,
             metaDataLength: block.metaDataLength(),
             bodyLength: block.bodyLength().low,
-        })
+        });
     }
 
-    for (i = 0; i < footer.recordBatchesLength(); i += 1|0) {
+    for (i = 0; i < footer.recordBatchesLength(); i++) {
         block = footer.recordBatches(i);
         recordBatchBlocks.push({
             offset: block.offset().low,
             metaDataLength: block.metaDataLength(),
             bodyLength: block.bodyLength().low,
-        })
+        });
     }
 
-    const dictionaryBatches = dictionaryBatchBlocks.map(function (block) {
+    const dictionaryBatches = dictionaryBatchBlocks.map(function(block) {
         bb.setPosition(block.offset);
         // TODO: Make sure this is a dictionary batch
         return _loadBatch(bb);
     });
 
-    const recordBatches = recordBatchBlocks.map(function (block) {
+    const recordBatches = recordBatchBlocks.map(function(block) {
         bb.setPosition(block.offset);
         // TODO: Make sure this is a record batch
         return _loadBatch(bb);
     });
 
     // load dictionary vectors
-    for (i = 0; i < dictionaryBatches.length; i += 1|0) {
+    for (i = 0; i < dictionaryBatches.length; i++) {
         batch = dictionaryBatches[i];
         loadVectors(bb, [dictionaries[batch.id]], batch);
     }
@@ -204,27 +204,24 @@ export function getFileReader (buf) : ArrowReader {
 function _loadFooter(bb) {
     const fileLength: number = bb.bytes_.length;
 
-    if (fileLength < MAGIC.length*2 + 4) {
-      console.error("file too small " + fileLength);
-      return;
+    if (fileLength < MAGIC.length * 2 + 4) {
+      throw new Error("file too small " + fileLength);
     }
 
     if (!_checkMagic(bb.bytes_, 0)) {
-      console.error("missing magic bytes at beginning of file")
-      return;
+      throw new Error("missing magic bytes at beginning of file");
     }
 
     if (!_checkMagic(bb.bytes_, fileLength - MAGIC.length)) {
-      console.error("missing magic bytes at end of file")
-      return;
+      throw new Error("missing magic bytes at end of file");
     }
 
     const footerLengthOffset: number = fileLength - MAGIC.length - 4;
     bb.setPosition(footerLengthOffset);
-    const footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset)
+    const footerLength: number = Int32FromByteBuffer(bb, footerLengthOffset);
 
-    if (footerLength <= 0 || footerLength + MAGIC.length*2 + 4 > fileLength)  {
-      console.log("Invalid footer length: " + footerLength)
+    if (footerLength <= 0 || footerLength + MAGIC.length * 2 + 4 > fileLength)  {
+      throw new Error("Invalid footer length: " + footerLength);
     }
 
     const footerOffset: number = footerLengthOffset - footerLength;
@@ -235,10 +232,9 @@ function _loadFooter(bb) {
 }
 
 function _loadSchema(bb) {
-    const message =_loadMessage(bb);
+    const message = _loadMessage(bb);
     if (message.headerType() != MessageHeader.Schema) {
-        console.error("Expected header type " + MessageHeader.Schema + " but got " + message.headerType());
-        return;
+        throw new Error("Expected header type " + MessageHeader.Schema + " but got " + message.headerType());
     }
     return message.header(new Schema());
 }
@@ -248,15 +244,14 @@ function _loadBatch(bb) {
     if (message == null) {
         return;
     } else if (message.headerType() == MessageHeader.RecordBatch) {
-        const batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low }
+        const batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low };
         return _loadRecordBatch(bb, batch);
     } else if (message.headerType() == MessageHeader.DictionaryBatch) {
-        const batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low }
+        const batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low };
         return _loadDictionaryBatch(bb, batch);
     } else {
-        console.error("Expected header type " + MessageHeader.RecordBatch + " or " + MessageHeader.DictionaryBatch +
+        throw new Error("Expected header type " + MessageHeader.RecordBatch + " or " + MessageHeader.DictionaryBatch +
             " but got " + message.headerType());
-        return;
     }
 }
 
@@ -266,7 +261,7 @@ function _loadRecordBatch(bb, batch) {
     const nodes_ = [];
     const nodesLength = data.nodesLength();
     let buffer;
-    const buffers_ = []
+    const buffers_ = [];
     const buffersLength = data.buffersLength();
 
     for (i = 0; i < nodesLength; i += 1) {
@@ -334,7 +329,7 @@ function _createDictionaryVectors(field, dictionaries) {
     }
 
     // recursively examine child fields
-    for (let i = 0, len = field.childrenLength(); i < len; i += 1|0) {
+    for (let i = 0, len = field.childrenLength(); i < len; i++) {
         _createDictionaryVectors(field.children(i), dictionaries);
     }
 }
@@ -365,16 +360,16 @@ function _createDictionaryField(id, field) {
         org.apache.arrow.flatbuf.Date.addUnit(builder, type.unit());
         typeOffset = org.apache.arrow.flatbuf.Date.endDate(builder);
     } else {
-        throw "Unimplemented dictionary type " + typeType;
+        throw new Error("Unimplemented dictionary type " + typeType);
     }
     if (field.childrenLength() > 0) {
-      throw "Dictionary encoded fields can't have children"
+      throw new Error("Dictionary encoded fields can't have children");
     }
     const childrenOffset = org.apache.arrow.flatbuf.Field.createChildrenVector(builder, []);
 
     let layout;
     const layoutOffsets = [];
-    for (let i = 0, len = field.layoutLength(); i < len; i += 1|0) {
+    for (let i = 0, len = field.layoutLength(); i < len; i++) {
         layout = field.layout(i);
         org.apache.arrow.flatbuf.VectorLayout.startVectorLayout(builder);
         org.apache.arrow.flatbuf.VectorLayout.addBitWidth(builder, layout.bitWidth());
@@ -405,12 +400,12 @@ function Int32FromByteBuffer(bb, offset) {
 
 const MAGIC_STR = "ARROW1";
 const MAGIC = new Uint8Array(MAGIC_STR.length);
-for (let i = 0; i < MAGIC_STR.length; i += 1|0) {
+for (let i = 0; i < MAGIC_STR.length; i++) {
     MAGIC[i] = MAGIC_STR.charCodeAt(i);
 }
 
 function _checkMagic(buf, index) {
-    for (let i = 0; i < MAGIC.length; i += 1|0) {
+    for (let i = 0; i < MAGIC.length; i++) {
         if (MAGIC[i] != buf[index + i]) {
             return false;
         }
@@ -418,7 +413,7 @@ function _checkMagic(buf, index) {
     return true;
 }
 
-const TYPEMAP = {}
+const TYPEMAP = {};
 TYPEMAP[Type.NONE]          = "NONE";
 TYPEMAP[Type.Null]          = "Null";
 TYPEMAP[Type.Int]           = "Int";
@@ -444,12 +439,12 @@ VECTORTYPEMAP[VectorType.TYPE]     = 'TYPE';
 
 function parseField(field) {
     const children = [];
-    for (let i = 0; i < field.childrenLength(); i += 1|0) {
+    for (let i = 0; i < field.childrenLength(); i++) {
         children.push(parseField(field.children(i)));
     }
 
     const layouts = [];
-    for (let i = 0; i < field.layoutLength(); i += 1|0) {
+    for (let i = 0; i < field.layoutLength(); i++) {
         layouts.push(VECTORTYPEMAP[field.layout(i).type()]);
     }
 
@@ -464,7 +459,7 @@ function parseField(field) {
 
 function parseSchema(schema) {
     const result = [];
-    for (let i = 0, len = schema.fieldsLength(); i < len; i += 1|0) {
+    for (let i = 0, len = schema.fieldsLength(); i < len; i++) {
         result.push(parseField(schema.fields(i)));
     }
     return result;
@@ -482,7 +477,7 @@ function loadVectors(bb, vectors: Vector[], recordBatch) {
  *   recordBatch: { nodes: org.apache.arrow.flatbuf.FieldNode[], buffers: { offset: number, length: number }[] }
  */
 function loadVector(bb, vector: Vector, recordBatch, indices) {
-    const node = recordBatch.nodes[indices.nodeIndex]
+    const node = recordBatch.nodes[indices.nodeIndex];
     let ownBuffersLength;
     const ownBuffers = [];
     let i;
