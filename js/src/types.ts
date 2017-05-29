@@ -27,10 +27,10 @@ interface ArrayView {
 }
 
 export abstract class Vector {
-    field: any;
-    name: string;
-    length: number;
-    null_count: number;
+    public field: any;
+    public name: string;
+    public length: number;
+    public null_count: number;
 
     constructor(field) {
         this.field = field;
@@ -38,11 +38,13 @@ export abstract class Vector {
     }
 
     /* Access datum at index i */
-    abstract get(i);
+    public abstract get(i);
     /* Return array representing data in the range [start, end) */
-    abstract slice(start: number, end: number);
+    public abstract slice(start: number, end: number);
     /* Return array of child vectors, for container types */
-    abstract getChildVectors();
+    public getChildVectors() {
+        return [];
+    }
 
     /**
      * Use recordBatch fieldNodes and Buffers to construct this Vector
@@ -63,7 +65,7 @@ export abstract class Vector {
      *   bb: flatbuffers.ByteBuffer
      *   buffer: org.apache.arrow.flatbuf.Buffer
      */
-    static loadValidityBuffer(bb, buffer) : BitArray {
+    public static loadValidityBuffer(bb, buffer) : BitArray {
         const arrayBuffer = bb.bytes_.buffer;
         const offset = bb.bytes_.byteOffset + buffer.offset;
         return new BitArray(arrayBuffer, offset, buffer.length * 8);
@@ -73,7 +75,7 @@ export abstract class Vector {
      * Helper function for loading an OFFSET buffer
      *   buffer: org.apache.arrow.flatbuf.Buffer
      */
-    static loadOffsetBuffer(bb, buffer) : Int32Array {
+    public static loadOffsetBuffer(bb, buffer) : Int32Array {
         const arrayBuffer = bb.bytes_.buffer;
         const offset  = bb.bytes_.byteOffset + buffer.offset;
         const length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
@@ -91,15 +93,11 @@ class SimpleVector<T extends ArrayView> extends Vector {
         this.TypedArray = TypedArray;
     }
 
-    getChildVectors() {
-        return [];
-    }
-
-    get(i) {
+    public get(i) {
         return this.dataView[i];
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.loadDataBuffer(bb, buffers[0]);
     }
 
@@ -113,15 +111,15 @@ class SimpleVector<T extends ArrayView> extends Vector {
         this.dataView = new this.TypedArray(arrayBuffer, offset, length);
     }
 
-    getDataView() {
+    public getDataView() {
         return this.dataView;
     }
 
-    toString() {
+    public toString() {
         return this.dataView.toString();
     }
 
-    slice(start, end) {
+    public slice(start, end) {
         return this.dataView.slice(start, end);
     }
 }
@@ -130,7 +128,7 @@ class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
 
     protected validityView: BitArray;
 
-    get(i: number) {
+    public get(i: number) {
         if (this.validityView.get(i)) {
             return this.dataView[i];
         } else {
@@ -138,12 +136,12 @@ class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
         }
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
@@ -171,7 +169,7 @@ class Uint64Vector extends SimpleVector<Uint32Array>  {
         super(field, Uint32Array);
     }
 
-    get(i: number) {
+    public get(i: number) {
         return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
     }
 }
@@ -181,7 +179,7 @@ class NullableUint64Vector extends NullableSimpleVector<Uint32Array>  {
         super(field, Uint32Array);
     }
 
-    get(i: number) {
+    public get(i: number) {
         if (this.validityView.get(i)) {
             return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
         } else {
@@ -195,7 +193,7 @@ class Int64Vector extends NullableSimpleVector<Uint32Array>  {
         super(field, Uint32Array);
     }
 
-    get(i: number) {
+    public get(i: number) {
         return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
     }
 }
@@ -205,7 +203,7 @@ class NullableInt64Vector extends NullableSimpleVector<Uint32Array>  {
         super(field, Uint32Array);
     }
 
-    get(i: number) {
+    public get(i: number) {
         if (this.validityView.get(i)) {
             return { low: this.dataView[i * 2], high: this.dataView[(i * 2) + 1] };
         } else {
@@ -219,7 +217,7 @@ class DateVector extends SimpleVector<Uint32Array> {
         super(field, Uint32Array);
     }
 
-    get (i) {
+    public get (i) {
         return new Date(super.get(2*i+1)*Math.pow(2,32) + super.get(2*i));
     }
 }
@@ -227,12 +225,12 @@ class DateVector extends SimpleVector<Uint32Array> {
 class NullableDateVector extends DateVector {
     private validityView: BitArray;
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
     }
 
-    get (i) {
+    public get (i) {
         if (this.validityView.get(i)) {
             return super.get(i);
         } else {
@@ -240,29 +238,29 @@ class NullableDateVector extends DateVector {
         }
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
 
 class Utf8Vector extends SimpleVector<Uint8Array> {
     protected offsetView: Int32Array;
-    static decoder: TextDecoder = new TextDecoder('utf8');
+    private static decoder: TextDecoder = new TextDecoder('utf8');
 
     constructor(field) {
         super(field, Uint8Array);
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.offsetView = Vector.loadOffsetBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
     }
 
-    get(i) {
+    public get(i) {
         return Utf8Vector.decoder.decode(this.dataView.slice(this.offsetView[i], this.offsetView[i + 1]));
     }
 
-    slice(start: number, end: number) {
+    public slice(start: number, end: number) {
         const result: string[] = [];
         for (let i: number = start; i < end; i += 1|0) {
             result.push(this.get(i));
@@ -270,7 +268,7 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
         return result;
     }
 
-    getOffsetView() {
+    public getOffsetView() {
         return this.offsetView;
     }
 }
@@ -278,13 +276,13 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
 class NullableUtf8Vector extends Utf8Vector {
     private validityView: BitArray;
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.offsetView = Vector.loadOffsetBuffer(bb, buffers[1]);
         this.loadDataBuffer(bb, buffers[2]);
     }
 
-    get(i) {
+    public get(i) {
         if (this.validityView.get(i)) {
             return super.get(i);
         } else {
@@ -292,7 +290,7 @@ class NullableUtf8Vector extends Utf8Vector {
         }
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
@@ -306,16 +304,16 @@ class ListVector extends Uint32Vector {
         this.dataVector = dataVector;
     }
 
-    getChildVectors() {
+    public getChildVectors() {
         return [this.dataVector];
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         super.loadBuffers(bb, node, buffers);
         this.length -= 1;
     }
 
-    get(i) {
+    public get(i) {
         const offset = super.get(i)
         if (offset === null) {
             return null;
@@ -324,11 +322,11 @@ class ListVector extends Uint32Vector {
         return this.dataVector.slice(offset, next_offset)
     }
 
-    toString() {
+    public toString() {
         return "length: " + (this.length);
     }
 
-    slice(start: number, end: number) {
+    public slice(start: number, end: number) {
         const result = [];
         for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
@@ -340,13 +338,13 @@ class ListVector extends Uint32Vector {
 class NullableListVector extends ListVector {
     private validityView: BitArray;
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
         this.length -= 1;
     }
 
-    get(i) {
+    public get(i) {
         if (this.validityView.get(i)) {
             return super.get(i);
         } else {
@@ -354,13 +352,13 @@ class NullableListVector extends ListVector {
         }
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
 
 class FixedSizeListVector extends Vector {
-    private size: number
+    public size: number
     private dataVector: Vector;
 
     constructor(field, size: number, dataVector: Vector) {
@@ -369,19 +367,19 @@ class FixedSizeListVector extends Vector {
         this.dataVector = dataVector;
     }
 
-    getChildVectors() {
+    public getChildVectors() {
         return [this.dataVector];
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         // no buffers to load
     }
 
-    get(i: number) {
+    public get(i: number) {
         return this.dataVector.slice(i * this.size, (i + 1) * this.size);
     }
 
-    slice(start : number, end : number) {
+    public slice(start : number, end : number) {
         const result = [];
         for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
@@ -389,7 +387,7 @@ class FixedSizeListVector extends Vector {
         return result;
     }
 
-    getListSize() {
+    public getListSize() {
         return this.size;
     }
 }
@@ -397,11 +395,11 @@ class FixedSizeListVector extends Vector {
 class NullableFixedSizeListVector extends FixedSizeListVector {
     private validityView: BitArray;
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 
-    get(i: number) {
+    public get(i: number) {
         if (this.validityView.get(i)) {
             return super.get(i);
         } else {
@@ -409,7 +407,7 @@ class NullableFixedSizeListVector extends FixedSizeListVector {
         }
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
@@ -423,15 +421,15 @@ class StructVector extends Vector {
         this.vectors = vectors;
     }
 
-    getChildVectors() {
+    public getChildVectors() {
         return this.vectors;
     }
 
-    loadBuffers(bb, node, buffers) {
+    public loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 
-    get(i : number) {
+    public get(i : number) {
         if (this.validityView.get(i)) {
           return this.vectors.map((v: Vector) => v.get(i));
         } else {
@@ -439,7 +437,7 @@ class StructVector extends Vector {
         }
     }
 
-    slice(start : number, end : number) {
+    public slice(start : number, end : number) {
         const result = [];
         for (let i = start; i < end; i += 1|0) {
             result.push(this.get(i));
@@ -447,13 +445,12 @@ class StructVector extends Vector {
         return result;
     }
 
-    getValidityVector() {
+    public getValidityVector() {
         return this.validityView;
     }
 }
 
 class DictionaryVector extends Vector {
-
     private indices: Vector;
     private dictionary: Vector;
 
@@ -463,7 +460,7 @@ class DictionaryVector extends Vector {
         this.dictionary = dictionary;
     }
 
-    get(i) {
+    public get(i) {
         const encoded = this.indices.get(i);
         if (encoded == null) {
             return null;
@@ -477,15 +474,15 @@ class DictionaryVector extends Vector {
         return this.indices.get(i);
     }
 
-    slice(start, end) {
+    public slice(start, end) {
         return this.indices.slice(start, end); // TODO decode
     }
 
-    getChildVectors() {
+    public getChildVectors() {
         return this.indices.getChildVectors();
     }
 
-    loadBuffers(bb, node, buffers) {
+    protected loadBuffers(bb, node, buffers) {
         this.indices.loadData(bb, node, buffers);
     }
 
@@ -499,7 +496,7 @@ class DictionaryVector extends Vector {
         return this.dictionary;
     }
 
-    toString() {
+    public toString() {
         return this.indices.toString();
     }
 }

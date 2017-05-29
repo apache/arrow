@@ -50,7 +50,7 @@ export class ArrowReader {
         this.dictionaries = dictionaries;
     }
 
-    loadNextBatch() {
+    public loadNextBatch() {
         if (this.batchIndex < this.batches.length) {
             const batch = this.batches[this.batchIndex];
             this.batchIndex += 1;
@@ -61,29 +61,29 @@ export class ArrowReader {
         }
     }
 
-    getSchema() {
+    public getSchema() {
         return this.schema;
     }
 
-    getVectors() {
+    public getVectors() {
         return this.vectors;
     }
 
-    getVector(name) {
+    public getVector(name) {
         return this.vectorMap[name];
     }
 
-    getBatchCount() {
+    public getBatchCount() {
         return this.batches.length;
     }
 
     // the index of the next batch to be loaded
-    getBatchIndex() {
+    public getBatchIndex() {
         return this.batchIndex;
     }
 
     // set the index of the next batch to be loaded
-    setBatchIndex(i: number) {
+    public setBatchIndex(i: number) {
         this.batchIndex = i;
     }
 }

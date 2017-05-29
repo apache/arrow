@@ -22,19 +22,19 @@ export class BitArray {
         this.view = new Uint8Array(buffer, offset || 0, Math.ceil(length / 8));
     }
 
-    get(i) {
+    public get(i) {
         const index = (i >> 3) | 0; // | 0 converts to an int. Math.floor works too.
         const bit = i % 8;  // i % 8 is just as fast as i & 7
         return (this.view[index] & (1 << bit)) !== 0;
     }
 
-    set(i) {
+    public set(i) {
         const index = (i >> 3) | 0;
         const bit = i % 8;
         this.view[index] |= 1 << bit;
     }
 
-    unset(i) {
+    public unset(i) {
         const index = (i >> 3) | 0;
         const bit = i % 8;
         this.view[index] &= ~(1 << bit);
