@@ -30,7 +30,7 @@
  * This example describes writing and reading Parquet Files in C++ and serves as a
  * reference to the API.
  * The file contains all the physical data types supported by Parquet.
-**/
+ **/
 
 /* Parquet is a structured columnar file format
  * Parquet File = "Parquet data" + "Parquet Metadata"
@@ -42,7 +42,7 @@
  * complex (nested) type (internal nodes)
  * For specific details, please refer the format here:
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
-**/
+ **/
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 constexpr int FIXED_LENGTH = 10;
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
     parquet::FloatWriter* float_writer =
         static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-      float value = i * 1.1;
+      float value = i * 1.1f;
       float_writer->WriteBatch(1, nullptr, nullptr, &value);
     }
 
@@ -367,7 +367,7 @@ int main(int argc, char** argv) {
         // There are no NULL values in the rows written
         assert(values_read == 1);
         // Verify the value written
-        float expected_value = i * 1.1;
+        float expected_value = i * 1.1f;
         assert(value == expected_value);
         i++;
       }
