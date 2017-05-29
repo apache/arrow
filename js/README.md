@@ -18,6 +18,7 @@ From this directory, run:
 
 ``` bash
 $ npm install   # pull dependencies
+$ npm run lint -- <filename>  # run tslint
 $ npm run build # build typescript (run tsc and webpack)
 $ npm run test  # run the unit tests (node.js only)
 ```
