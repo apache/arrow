@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { BitArray } from './bitarray';
-import { TextDecoder } from 'text-encoding';
-import { org } from './Arrow_generated';
+import { BitArray } from "./bitarray";
+import { TextDecoder } from "text-encoding";
+import { org } from "./Arrow_generated";
 
 const Type = org.apache.arrow.flatbuf.Type;
 
@@ -245,7 +245,7 @@ class NullableDateVector extends DateVector {
 
 class Utf8Vector extends SimpleVector<Uint8Array> {
     protected offsetView: Int32Array;
-    private static decoder: TextDecoder = new TextDecoder('utf8');
+    private static decoder: TextDecoder = new TextDecoder("utf8");
 
     constructor(field) {
         super(field, Uint8Array);
@@ -529,9 +529,9 @@ export function vectorFromField(field, dictionaries): Vector {
                 return _createIntVector(field, type.bitWidth(), type.isSigned(), nullable);
             } else if (typeType === Type.FloatingPoint) {
                 const precision = field.type(new org.apache.arrow.flatbuf.FloatingPoint()).precision();
-                if (precision == org.apache.arrow.flatbuf.Precision.SINGLE) {
+                if (precision === org.apache.arrow.flatbuf.Precision.SINGLE) {
                     return nullable ? new NullableFloat32Vector(field) : new Float32Vector(field);
-                } else if (precision == org.apache.arrow.flatbuf.Precision.DOUBLE) {
+                } else if (precision === org.apache.arrow.flatbuf.Precision.DOUBLE) {
                     return nullable ? new NullableFloat64Vector(field) : new Float64Vector(field);
                 } else {
                     throw new Error("Unimplemented FloatingPoint precision " + precision);
@@ -559,25 +559,25 @@ export function vectorFromField(field, dictionaries): Vector {
 }
 
 function _createIntVector(field, bitWidth, signed, nullable) {
-    if (bitWidth == 64) {
+    if (bitWidth === 64) {
         if (signed) {
             return nullable ? new NullableInt64Vector(field) : new Int64Vector(field);
         } else {
             return nullable ? new NullableUint64Vector(field) : new Uint64Vector(field);
         }
-    } else if (bitWidth == 32) {
+    } else if (bitWidth === 32) {
         if (signed) {
             return nullable ? new NullableInt32Vector(field) : new Int32Vector(field);
         } else {
             return nullable ? new NullableUint32Vector(field) : new Uint32Vector(field);
         }
-    } else if (bitWidth == 16) {
+    } else if (bitWidth === 16) {
         if (signed) {
             return nullable ? new NullableInt16Vector(field) : new Int16Vector(field);
         } else {
             return nullable ? new NullableUint16Vector(field) : new Uint16Vector(field);
         }
-    } else if (bitWidth == 8) {
+    } else if (bitWidth === 8) {
         if (signed) {
             return nullable ? new NullableInt8Vector(field) : new Int8Vector(field);
         } else {

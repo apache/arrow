@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { flatbuffers } from 'flatbuffers';
-import { org } from './Arrow_generated';
-import { vectorFromField, Vector } from './types';
+import { flatbuffers } from "flatbuffers";
+import { org } from "./Arrow_generated";
+import { Vector, vectorFromField } from "./types";
 
 import ByteBuffer = flatbuffers.ByteBuffer;
 const Footer = org.apache.arrow.flatbuf.Footer;
@@ -121,9 +121,9 @@ export function getStreamReader(buf): ArrowReader {
       batch = _loadBatch(bb);
       if (batch == null) {
           break;
-      } else if (batch.type == MessageHeader.DictionaryBatch) {
+      } else if (batch.type === MessageHeader.DictionaryBatch) {
           dictionaryBatches.push(batch);
-      } else if (batch.type == MessageHeader.RecordBatch) {
+      } else if (batch.type === MessageHeader.RecordBatch) {
           recordBatches.push(batch);
       } else {
           throw new Error("Expected batch type" + MessageHeader.RecordBatch + " or " +
@@ -180,14 +180,14 @@ export function getFileReader(buf): ArrowReader {
         });
     }
 
-    const dictionaryBatches = dictionaryBatchBlocks.map(function(block) {
-        bb.setPosition(block.offset);
+    const dictionaryBatches = dictionaryBatchBlocks.map((batchBlock) => {
+        bb.setPosition(batchBlock.offset);
         // TODO: Make sure this is a dictionary batch
         return _loadBatch(bb);
     });
 
-    const recordBatches = recordBatchBlocks.map(function(block) {
-        bb.setPosition(block.offset);
+    const recordBatches = recordBatchBlocks.map((batchBlock) => {
+        bb.setPosition(batchBlock.offset);
         // TODO: Make sure this is a record batch
         return _loadBatch(bb);
     });
@@ -233,7 +233,7 @@ function _loadFooter(bb) {
 
 function _loadSchema(bb) {
     const message = _loadMessage(bb);
-    if (message.headerType() != MessageHeader.Schema) {
+    if (message.headerType() !== MessageHeader.Schema) {
         throw new Error("Expected header type " + MessageHeader.Schema + " but got " + message.headerType());
     }
     return message.header(new Schema());
@@ -243,10 +243,10 @@ function _loadBatch(bb) {
     const message = _loadMessage(bb);
     if (message == null) {
         return;
-    } else if (message.headerType() == MessageHeader.RecordBatch) {
+    } else if (message.headerType() === MessageHeader.RecordBatch) {
         const batch = { header: message.header(new RecordBatch()), length: message.bodyLength().low };
         return _loadRecordBatch(bb, batch);
-    } else if (message.headerType() == MessageHeader.DictionaryBatch) {
+    } else if (message.headerType() === MessageHeader.DictionaryBatch) {
         const batch = { header: message.header(new DictionaryBatch()), length: message.bodyLength().low };
         return _loadDictionaryBatch(bb, batch);
     } else {
@@ -306,7 +306,7 @@ function _loadDictionaryBatch(bb, batch) {
 
 function _loadMessage(bb) {
     const messageLength: number = Int32FromByteBuffer(bb, bb.position());
-    if (messageLength == 0) {
+    if (messageLength === 0) {
       return;
     }
     bb.setPosition(bb.position() + 4);
@@ -406,7 +406,7 @@ for (let i = 0; i < MAGIC_STR.length; i++) {
 
 function _checkMagic(buf, index) {
     for (let i = 0; i < MAGIC.length; i++) {
-        if (MAGIC[i] != buf[index + i]) {
+        if (MAGIC[i] !== buf[index + i]) {
             return false;
         }
     }
@@ -432,10 +432,10 @@ TYPEMAP[Type.Struct_]       = "Struct";
 TYPEMAP[Type.Union]         = "Union";
 
 const VECTORTYPEMAP = {};
-VECTORTYPEMAP[VectorType.OFFSET]   = 'OFFSET';
-VECTORTYPEMAP[VectorType.DATA]     = 'DATA';
-VECTORTYPEMAP[VectorType.VALIDITY] = 'VALIDITY';
-VECTORTYPEMAP[VectorType.TYPE]     = 'TYPE';
+VECTORTYPEMAP[VectorType.OFFSET]   = "OFFSET";
+VECTORTYPEMAP[VectorType.DATA]     = "DATA";
+VECTORTYPEMAP[VectorType.VALIDITY] = "VALIDITY";
+VECTORTYPEMAP[VectorType.TYPE]     = "TYPE";
 
 function parseField(field) {
     const children = [];
@@ -453,7 +453,7 @@ function parseField(field) {
       nullable: field.nullable(),
       type: TYPEMAP[field.typeType()],
       children: children,
-      layout: layouts
+      layout: layouts,
     };
 }
 
@@ -467,8 +467,8 @@ function parseSchema(schema) {
 
 function loadVectors(bb, vectors: Vector[], recordBatch) {
     const indices = { bufferIndex: 0, nodeIndex: 0 };
-    for (let i = 0; i < vectors.length; i += 1) {
-        loadVector(bb, vectors[i], recordBatch, indices);
+    for (const vector of vectors) {
+        loadVector(bb, vector, recordBatch, indices);
     }
 }
 
