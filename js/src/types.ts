@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { BitArray } from "./bitarray";
-import { TextDecoder } from "text-encoding";
 import { org } from "./Arrow_generated";
+import { BitArray } from "./bitarray";
+
+import { TextDecoder } from "text-encoding";
 
 const Type = org.apache.arrow.flatbuf.Type;
 
@@ -27,6 +28,28 @@ interface ArrayView {
 }
 
 export abstract class Vector {
+    /**
+     * Helper function for loading a VALIDITY buffer (for Nullable types)
+     *   bb: flatbuffers.ByteBuffer
+     *   buffer: org.apache.arrow.flatbuf.Buffer
+     */
+    public static loadValidityBuffer(bb, buffer): BitArray {
+        const arrayBuffer = bb.bytes_.buffer;
+        const offset = bb.bytes_.byteOffset + buffer.offset;
+        return new BitArray(arrayBuffer, offset, buffer.length * 8);
+    }
+
+    /**
+     * Helper function for loading an OFFSET buffer
+     *   buffer: org.apache.arrow.flatbuf.Buffer
+     */
+    public static loadOffsetBuffer(bb, buffer): Int32Array {
+        const arrayBuffer = bb.bytes_.buffer;
+        const offset  = bb.bytes_.byteOffset + buffer.offset;
+        const length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
+        return new Int32Array(arrayBuffer, offset, length);
+    }
+
     public field: any;
     public name: string;
     public length: number;
@@ -59,42 +82,31 @@ export abstract class Vector {
     }
 
     protected abstract loadBuffers(bb, node, buffers);
-
-    /**
-     * Helper function for loading a VALIDITY buffer (for Nullable types)
-     *   bb: flatbuffers.ByteBuffer
-     *   buffer: org.apache.arrow.flatbuf.Buffer
-     */
-    public static loadValidityBuffer(bb, buffer): BitArray {
-        const arrayBuffer = bb.bytes_.buffer;
-        const offset = bb.bytes_.byteOffset + buffer.offset;
-        return new BitArray(arrayBuffer, offset, buffer.length * 8);
-    }
-
-    /**
-     * Helper function for loading an OFFSET buffer
-     *   buffer: org.apache.arrow.flatbuf.Buffer
-     */
-    public static loadOffsetBuffer(bb, buffer): Int32Array {
-        const arrayBuffer = bb.bytes_.buffer;
-        const offset  = bb.bytes_.byteOffset + buffer.offset;
-        const length = buffer.length / Int32Array.BYTES_PER_ELEMENT;
-        return new Int32Array(arrayBuffer, offset, length);
-    }
-
 }
 
 class SimpleVector<T extends ArrayView> extends Vector {
     protected dataView: T;
-    private TypedArray: { new(buffer: any, offset: number, length: number): T, BYTES_PER_ELEMENT: number };
+    private TypedArray: { BYTES_PER_ELEMENT: number, new(buffer: any, offset: number, length: number): T };
 
-    constructor(field, TypedArray: { new(buffer: any, offset: number, length: number): T, BYTES_PER_ELEMENT: number }) {
+    constructor(field, TypedArray: { BYTES_PER_ELEMENT: number, new(buffer: any, offset: number, length: number): T }) {
         super(field);
         this.TypedArray = TypedArray;
     }
 
     public get(i) {
         return this.dataView[i];
+    }
+
+    public getDataView() {
+        return this.dataView;
+    }
+
+    public toString() {
+        return this.dataView.toString();
+    }
+
+    public slice(start, end) {
+        return this.dataView.slice(start, end);
     }
 
     protected loadBuffers(bb, node, buffers) {
@@ -111,17 +123,6 @@ class SimpleVector<T extends ArrayView> extends Vector {
         this.dataView = new this.TypedArray(arrayBuffer, offset, length);
     }
 
-    public getDataView() {
-        return this.dataView;
-    }
-
-    public toString() {
-        return this.dataView.toString();
-    }
-
-    public slice(start, end) {
-        return this.dataView.slice(start, end);
-    }
 }
 
 class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
@@ -136,13 +137,13 @@ class NullableSimpleVector<T extends ArrayView> extends SimpleVector<T> {
         }
     }
 
+    public getValidityVector() {
+        return this.validityView;
+    }
+
     protected loadBuffers(bb, node, buffers) {
         this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
         this.loadDataBuffer(bb, buffers[1]);
-    }
-
-    public getValidityVector() {
-        return this.validityView;
     }
 }
 
@@ -225,11 +226,6 @@ class DateVector extends SimpleVector<Uint32Array> {
 class NullableDateVector extends DateVector {
     private validityView: BitArray;
 
-    protected loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
-        this.loadDataBuffer(bb, buffers[1]);
-    }
-
     public get(i) {
         if (this.validityView.get(i)) {
             return super.get(i);
@@ -241,19 +237,20 @@ class NullableDateVector extends DateVector {
     public getValidityVector() {
         return this.validityView;
     }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+    }
 }
 
 class Utf8Vector extends SimpleVector<Uint8Array> {
-    protected offsetView: Int32Array;
     private static decoder: TextDecoder = new TextDecoder("utf8");
+
+    protected offsetView: Int32Array;
 
     constructor(field) {
         super(field, Uint8Array);
-    }
-
-    protected loadBuffers(bb, node, buffers) {
-        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[0]);
-        this.loadDataBuffer(bb, buffers[1]);
     }
 
     public get(i) {
@@ -271,16 +268,15 @@ class Utf8Vector extends SimpleVector<Uint8Array> {
     public getOffsetView() {
         return this.offsetView;
     }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+    }
 }
 
 class NullableUtf8Vector extends Utf8Vector {
     private validityView: BitArray;
-
-    protected loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
-        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[1]);
-        this.loadDataBuffer(bb, buffers[2]);
-    }
 
     public get(i) {
         if (this.validityView.get(i)) {
@@ -292,6 +288,12 @@ class NullableUtf8Vector extends Utf8Vector {
 
     public getValidityVector() {
         return this.validityView;
+    }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.offsetView = Vector.loadOffsetBuffer(bb, buffers[1]);
+        this.loadDataBuffer(bb, buffers[2]);
     }
 }
 
@@ -306,11 +308,6 @@ class ListVector extends Uint32Vector {
 
     public getChildVectors() {
         return [this.dataVector];
-    }
-
-    protected loadBuffers(bb, node, buffers) {
-        super.loadBuffers(bb, node, buffers);
-        this.length -= 1;
     }
 
     public get(i) {
@@ -333,16 +330,15 @@ class ListVector extends Uint32Vector {
         }
         return result;
     }
+
+    protected loadBuffers(bb, node, buffers) {
+        super.loadBuffers(bb, node, buffers);
+        this.length -= 1;
+    }
 }
 
 class NullableListVector extends ListVector {
     private validityView: BitArray;
-
-    protected loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
-        this.loadDataBuffer(bb, buffers[1]);
-        this.length -= 1;
-    }
 
     public get(i) {
         if (this.validityView.get(i)) {
@@ -354,6 +350,12 @@ class NullableListVector extends ListVector {
 
     public getValidityVector() {
         return this.validityView;
+    }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
+        this.loadDataBuffer(bb, buffers[1]);
+        this.length -= 1;
     }
 }
 
@@ -371,10 +373,6 @@ class FixedSizeListVector extends Vector {
         return [this.dataVector];
     }
 
-    protected loadBuffers(bb, node, buffers) {
-        // no buffers to load
-    }
-
     public get(i: number) {
         return this.dataVector.slice(i * this.size, (i + 1) * this.size);
     }
@@ -390,14 +388,14 @@ class FixedSizeListVector extends Vector {
     public getListSize() {
         return this.size;
     }
+
+    protected loadBuffers(bb, node, buffers) {
+        // no buffers to load
+    }
 }
 
 class NullableFixedSizeListVector extends FixedSizeListVector {
     private validityView: BitArray;
-
-    protected loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
-    }
 
     public get(i: number) {
         if (this.validityView.get(i)) {
@@ -409,6 +407,10 @@ class NullableFixedSizeListVector extends FixedSizeListVector {
 
     public getValidityVector() {
         return this.validityView;
+    }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 }
 
@@ -423,10 +425,6 @@ class StructVector extends Vector {
 
     public getChildVectors() {
         return this.vectors;
-    }
-
-    public loadBuffers(bb, node, buffers) {
-        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 
     public get(i: number) {
@@ -447,6 +445,10 @@ class StructVector extends Vector {
 
     public getValidityVector() {
         return this.validityView;
+    }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.validityView = Vector.loadValidityBuffer(bb, buffers[0]);
     }
 }
 
@@ -482,10 +484,6 @@ class DictionaryVector extends Vector {
         return this.indices.getChildVectors();
     }
 
-    protected loadBuffers(bb, node, buffers) {
-        this.indices.loadData(bb, node, buffers);
-    }
-
     /** Get the index (encoded) vector */
     public getIndexVector() {
         return this.indices;
@@ -498,6 +496,10 @@ class DictionaryVector extends Vector {
 
     public toString() {
         return this.indices.toString();
+    }
+
+    protected loadBuffers(bb, node, buffers) {
+        this.indices.loadData(bb, node, buffers);
     }
 }
 
