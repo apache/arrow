@@ -385,7 +385,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
   elements.push_back(
       NewPrimitive("item", FieldRepetitionType::OPTIONAL, format::Type::INT64, 4));
 
-  Convert(&elements[0], elements.size());
+  Convert(&elements[0], static_cast<int>(elements.size()));
 
   // Construct the expected schema
   NodeVector fields;

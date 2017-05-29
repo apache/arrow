@@ -152,9 +152,9 @@ class GZipCodec::GZipCodecImpl {
     // from the beginning again.
     while (ret != Z_STREAM_END) {
       stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
-      stream_.avail_in = input_length;
+      stream_.avail_in = static_cast<uInt>(input_length);
       stream_.next_out = reinterpret_cast<Bytef*>(output);
-      stream_.avail_out = output_length;
+      stream_.avail_out = static_cast<uInt>(output_length);
 
       // We know the output size.  In this case, we can use Z_FINISH
       // which is more efficient.
@@ -188,9 +188,9 @@ class GZipCodec::GZipCodecImpl {
       uint8_t* output) {
     if (!compressor_initialized_) { InitCompressor(); }
     stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
-    stream_.avail_in = input_length;
+    stream_.avail_in = static_cast<uInt>(input_length);
     stream_.next_out = reinterpret_cast<Bytef*>(output);
-    stream_.avail_out = output_length;
+    stream_.avail_out = static_cast<uInt>(output_length);
 
     int64_t ret = 0;
     if ((ret = deflate(&stream_, Z_FINISH)) != Z_STREAM_END) {

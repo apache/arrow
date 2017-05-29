@@ -72,7 +72,7 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
 
     TypedStats statistics3(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
-        BitUtil::RoundUpNumBytes(this->values_.size()) + 1, 255);
+        BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     statistics3.UpdateSpaced(
         this->values_ptr_, valid_bits.data(), 0, this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3.EncodeMin();
@@ -145,8 +145,8 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     // simulate the case when data comes from multiple buffers,
     // in which case special care is necessary for FLBA/ByteArray types
     for (int i = 0; i < 2; i++) {
-      int batch_num_values = i ? num_values - num_values / 2 : num_values / 2;
-      int batch_null_count = i ? null_count : 0;
+      int64_t batch_num_values = i ? num_values - num_values / 2 : num_values / 2;
+      int64_t batch_null_count = i ? null_count : 0;
       DCHECK(null_count <= num_values);  // avoid too much headache
       std::vector<int16_t> definition_levels(batch_null_count, 0);
       definition_levels.insert(

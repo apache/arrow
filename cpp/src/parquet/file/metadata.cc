@@ -287,7 +287,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       : row_group_(row_group), schema_(schema), writer_version_(writer_version) {}
   ~RowGroupMetaDataImpl() {}
 
-  inline int num_columns() const { return row_group_->columns.size(); }
+  inline int num_columns() const { return static_cast<int>(row_group_->columns.size()); }
 
   inline int64_t num_rows() const { return row_group_->num_rows; }
 
@@ -371,10 +371,14 @@ class FileMetaData::FileMetaDataImpl {
   inline uint32_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
   inline int64_t num_rows() const { return metadata_->num_rows; }
-  inline int num_row_groups() const { return metadata_->row_groups.size(); }
+  inline int num_row_groups() const {
+    return static_cast<int>(metadata_->row_groups.size());
+  }
   inline int32_t version() const { return metadata_->version; }
   inline const std::string& created_by() const { return metadata_->created_by; }
-  inline int num_schema_elements() const { return metadata_->schema.size(); }
+  inline int num_schema_elements() const {
+    return static_cast<int>(metadata_->schema.size());
+  }
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
@@ -404,7 +408,7 @@ class FileMetaData::FileMetaDataImpl {
   std::unique_ptr<format::FileMetaData> metadata_;
   void InitSchema() {
     schema::FlatSchemaConverter converter(
-        &metadata_->schema[0], metadata_->schema.size());
+        &metadata_->schema[0], static_cast<int>(metadata_->schema.size()));
     schema_.Init(converter.Convert());
   }
   SchemaDescriptor schema_;
@@ -743,7 +747,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     row_group_->__set_total_byte_size(total_byte_size);
   }
 
-  int num_columns() { return row_group_->columns.size(); }
+  int num_columns() { return static_cast<int>(row_group_->columns.size()); }
 
  private:
   void InitializeColumns(int ncols) { row_group_->columns.resize(ncols); }

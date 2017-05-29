@@ -78,8 +78,8 @@ TEST(TypePrinter, StatisticsTypes) {
   ASSERT_STREQ("10240000000000", FormatStatValue(Type::INT64, smin.c_str()).c_str());
   ASSERT_STREQ("20480000000000", FormatStatValue(Type::INT64, smax.c_str()).c_str());
 
-  float float_min = 1.024;
-  float float_max = 2.048;
+  float float_min = 1.024f;
+  float float_max = 2.048f;
   smin = std::string(reinterpret_cast<char*>(&float_min), sizeof(float));
   smax = std::string(reinterpret_cast<char*>(&float_max), sizeof(float));
   ASSERT_STREQ("1.024", FormatStatValue(Type::FLOAT, smin.c_str()).c_str());

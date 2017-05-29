@@ -50,7 +50,7 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 }
 
 inline void BitWriter::Flush(bool align) {
-  int num_bytes = BitUtil::Ceil(bit_offset_, 8);
+  int num_bytes = static_cast<int>(BitUtil::Ceil(bit_offset_, 8));
   DCHECK_LE(byte_offset_ + num_bytes, max_bytes_);
   memcpy(buffer_ + byte_offset_, &buffered_values_, num_bytes);
 
@@ -91,8 +91,15 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 template <typename T>
 inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
-  *v = BitUtil::TrailingBits(*buffered_values, *bit_offset + num_bits) >> *bit_offset;
-
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4800)
+#endif
+  *v = static_cast<T>(
+      BitUtil::TrailingBits(*buffered_values, *bit_offset + num_bits) >> *bit_offset);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   *bit_offset += num_bits;
   if (*bit_offset >= 64) {
     *byte_offset += 8;
@@ -104,10 +111,16 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     } else {
       memcpy(buffered_values, buffer + *byte_offset, bytes_remaining);
     }
-
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4800 4805)
+#endif
     // Read bits of v that crossed into new buffered_values_
     *v |= BitUtil::TrailingBits(*buffered_values, *bit_offset)
           << (num_bits - *bit_offset);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
     DCHECK_LE(*bit_offset, 64);
   }
 }
@@ -132,7 +145,9 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 
   uint64_t needed_bits = num_bits * batch_size;
   uint64_t remaining_bits = (max_bytes - byte_offset) * 8 - bit_offset;
-  if (remaining_bits < needed_bits) { batch_size = remaining_bits / num_bits; }
+  if (remaining_bits < needed_bits) {
+    batch_size = static_cast<int>(remaining_bits) / num_bits;
+  }
 
   int i = 0;
   if (UNLIKELY(bit_offset != 0)) {
@@ -156,7 +171,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
           unpack_buffer, unpack_size, num_bits);
       if (num_unpacked == 0) { break; }
       for (int k = 0; k < num_unpacked; ++k) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4800)
+#endif
         v[i + k] = unpack_buffer[k];
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
       }
       i += num_unpacked;
       byte_offset += num_unpacked * num_bits / 8;
@@ -185,7 +207,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
   DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
-  int bytes_read = BitUtil::Ceil(bit_offset_, 8);
+  int bytes_read = static_cast<int>(BitUtil::Ceil(bit_offset_, 8));
   if (UNLIKELY(byte_offset_ + bytes_read + num_bytes > max_bytes_)) return false;
 
   // Advance byte_offset to next unread byte and read num_bytes
@@ -227,7 +249,7 @@ inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   int32_t u_signed;
   if (!GetVlqInt(&u_signed)) return false;
   uint32_t u = static_cast<uint32_t>(u_signed);
-  *reinterpret_cast<uint32_t*>(v) = (u >> 1) ^ -(u & 1);
+  *reinterpret_cast<uint32_t*>(v) = (u >> 1) ^ -(static_cast<int32_t>(u & 1));
   return true;
 }
 

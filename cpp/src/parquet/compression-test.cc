@@ -34,13 +34,13 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
   T c1;
   T c2;
 
-  int max_compressed_len = c1.MaxCompressedLen(data.size(), &data[0]);
+  int max_compressed_len = static_cast<int>(c1.MaxCompressedLen(data.size(), &data[0]));
   std::vector<uint8_t> compressed(max_compressed_len);
   std::vector<uint8_t> decompressed(data.size());
 
   // compress with c1
-  int actual_size =
-      c1.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]);
+  int actual_size = static_cast<int>(
+      c1.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]));
   compressed.resize(actual_size);
 
   // decompress with c2
@@ -49,8 +49,8 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
   ASSERT_TRUE(test::vector_equal(data, decompressed));
 
   // compress with c2
-  int actual_size2 =
-      c2.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]);
+  int actual_size2 = static_cast<int>(
+      c2.Compress(data.size(), &data[0], max_compressed_len, &compressed[0]));
   ASSERT_EQ(actual_size2, actual_size);
 
   // decompress with c1

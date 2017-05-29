@@ -89,9 +89,9 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      batch = reader->ReadBatch(batch_size, &dresult[0] + batch_actual,
-          &rresult[0] + batch_actual, &vresult[0] + total_values_read, &values_read);
-      total_values_read += values_read;
+      batch = static_cast<int>(reader->ReadBatch(batch_size, &dresult[0] + batch_actual,
+          &rresult[0] + batch_actual, &vresult[0] + total_values_read, &values_read));
+      total_values_read += static_cast<int>(values_read);
       batch_actual += batch;
       batch_size = std::max(batch_size * 2, 4096);
     } while (batch > 0);
@@ -102,7 +102,8 @@ class TestPrimitiveReader : public ::testing::Test {
     if (max_def_level_ > 0) { ASSERT_TRUE(vector_equal(def_levels_, dresult)); }
     if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
     // catch improper writes at EOS
-    batch_actual = reader->ReadBatch(5, nullptr, nullptr, nullptr, &values_read);
+    batch_actual =
+        static_cast<int>(reader->ReadBatch(5, nullptr, nullptr, nullptr, &values_read));
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, values_read);
   }
@@ -126,12 +127,13 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      batch = reader->ReadBatchSpaced(batch_size, dresult.data() + levels_actual,
-          rresult.data() + levels_actual, vresult.data() + batch_actual,
-          valid_bits.data() + batch_actual, 0, &levels_read, &values_read, &null_count);
-      total_values_read += batch - null_count;
+      batch = static_cast<int>(reader->ReadBatchSpaced(batch_size,
+          dresult.data() + levels_actual, rresult.data() + levels_actual,
+          vresult.data() + batch_actual, valid_bits.data() + batch_actual, 0,
+          &levels_read, &values_read, &null_count));
+      total_values_read += batch - static_cast<int>(null_count);
       batch_actual += batch;
-      levels_actual += levels_read;
+      levels_actual += static_cast<int>(levels_read);
       batch_size = std::max(batch_size * 2, 4096);
     } while ((batch > 0) || (levels_read > 0));
 
@@ -146,8 +148,8 @@ class TestPrimitiveReader : public ::testing::Test {
     }
     if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
     // catch improper writes at EOS
-    batch_actual = reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr,
-        valid_bits.data(), 0, &levels_read, &values_read, &null_count);
+    batch_actual = static_cast<int>(reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr,
+        valid_bits.data(), 0, &levels_read, &values_read, &null_count));
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, null_count);
   }
@@ -262,8 +264,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   // Read half a page
   reader->ReadBatch(
       levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
-  vector<int32_t> sub_values(
-      values_.begin() + 2 * levels_per_page, values_.begin() + 2.5 * levels_per_page);
+  vector<int32_t> sub_values(values_.begin() + 2 * levels_per_page,
+      values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   // 2) skip_size == page_size (skip across two pages)
@@ -273,7 +275,8 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   reader->ReadBatch(
       levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
   sub_values.clear();
-  sub_values.insert(sub_values.end(), values_.begin() + 3.5 * levels_per_page,
+  sub_values.insert(sub_values.end(),
+      values_.begin() + static_cast<int>(3.5 * static_cast<double>(levels_per_page)),
       values_.begin() + 4 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
@@ -285,8 +288,9 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   reader->ReadBatch(
       levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
   sub_values.clear();
-  sub_values.insert(
-      sub_values.end(), values_.begin() + 4.5 * levels_per_page, values_.end());
+  sub_values.insert(sub_values.end(),
+      values_.begin() + static_cast<int>(4.5 * static_cast<double>(levels_per_page)),
+      values_.end());
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
   values_.clear();

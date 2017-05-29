@@ -312,7 +312,7 @@ class BitUtil {
   }
 
   static inline bool GetArrayBit(const uint8_t* bits, int i) {
-    return bits[i / 8] & (1 << (i % 8));
+    return (bits[i / 8] & (1 << (i % 8))) != 0;
   }
 
   static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {

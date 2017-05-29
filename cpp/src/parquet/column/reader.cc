@@ -169,7 +169,8 @@ bool TypedColumnReader<DType>::ReadNewPage() {
             throw ParquetException("Unknown encoding type.");
         }
       }
-      current_decoder_->SetData(num_buffered_values_, buffer, data_size);
+      current_decoder_->SetData(
+          num_buffered_values_, buffer, static_cast<int>(data_size));
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
@@ -185,12 +186,12 @@ bool TypedColumnReader<DType>::ReadNewPage() {
 
 int64_t ColumnReader::ReadDefinitionLevels(int64_t batch_size, int16_t* levels) {
   if (descr_->max_definition_level() == 0) { return 0; }
-  return definition_level_decoder_.Decode(batch_size, levels);
+  return definition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
 }
 
 int64_t ColumnReader::ReadRepetitionLevels(int64_t batch_size, int16_t* levels) {
   if (descr_->max_repetition_level() == 0) { return 0; }
-  return repetition_level_decoder_.Decode(batch_size, levels);
+  return repetition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
 }
 
 // ----------------------------------------------------------------------
@@ -225,13 +226,13 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(
 // ----------------------------------------------------------------------
 // Instantiate templated classes
 
-template class TypedColumnReader<BooleanType>;
-template class TypedColumnReader<Int32Type>;
-template class TypedColumnReader<Int64Type>;
-template class TypedColumnReader<Int96Type>;
-template class TypedColumnReader<FloatType>;
-template class TypedColumnReader<DoubleType>;
-template class TypedColumnReader<ByteArrayType>;
-template class TypedColumnReader<FLBAType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<BooleanType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<Int32Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<Int64Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<Int96Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<FloatType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<DoubleType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<ByteArrayType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnReader<FLBAType>;
 
 }  // namespace parquet

@@ -87,19 +87,19 @@ void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, const int16_t* leve
 int64_t ColumnWriter::RleEncodeLevels(
     const Buffer& src_buffer, ResizableBuffer* dest_buffer, int16_t max_level) {
   // TODO: This only works with due to some RLE specifics
-  int64_t rle_size =
-      LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, num_buffered_values_) +
-      sizeof(int32_t);
+  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
+                         static_cast<int>(num_buffered_values_)) +
+                     sizeof(int32_t);
 
   // Use Arrow::Buffer::shrink_to_fit = false
   // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
   PARQUET_THROW_NOT_OK(dest_buffer->Resize(rle_size, false));
 
-  level_encoder_.Init(Encoding::RLE, max_level, num_buffered_values_,
+  level_encoder_.Init(Encoding::RLE, max_level, static_cast<int>(num_buffered_values_),
       dest_buffer->mutable_data() + sizeof(int32_t),
-      dest_buffer->size() - sizeof(int32_t));
-  int encoded = level_encoder_.Encode(
-      num_buffered_values_, reinterpret_cast<const int16_t*>(src_buffer.data()));
+      static_cast<int>(dest_buffer->size()) - sizeof(int32_t));
+  int encoded = level_encoder_.Encode(static_cast<int>(num_buffered_values_),
+      reinterpret_cast<const int16_t*>(src_buffer.data()));
   DCHECK_EQ(encoded, num_buffered_values_);
   reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
   int64_t encoded_size = level_encoder_.len() + sizeof(int32_t);
@@ -154,12 +154,13 @@ void ColumnWriter::AddDataPage() {
     std::shared_ptr<Buffer> compressed_data_copy;
     PARQUET_THROW_NOT_OK(compressed_data->Copy(
         0, compressed_data->size(), allocator_, &compressed_data_copy));
-    CompressedDataPage page(compressed_data_copy, num_buffered_values_, encoding_,
-        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
+    CompressedDataPage page(compressed_data_copy,
+        static_cast<int32_t>(num_buffered_values_), encoding_, Encoding::RLE,
+        Encoding::RLE, uncompressed_size, page_stats);
     data_pages_.push_back(std::move(page));
   } else {  // Eagerly write pages
-    CompressedDataPage page(compressed_data, num_buffered_values_, encoding_,
-        Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
+    CompressedDataPage page(compressed_data, static_cast<int32_t>(num_buffered_values_),
+        encoding_, Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
     WriteDataPage(page);
   }
 
@@ -170,8 +171,7 @@ void ColumnWriter::AddDataPage() {
 }
 
 void ColumnWriter::WriteDataPage(const CompressedDataPage& page) {
-  int64_t bytes_written = pager_->WriteDataPage(page);
-  total_bytes_written_ += bytes_written;
+  total_bytes_written_ += pager_->WriteDataPage(page);
 }
 
 int64_t ColumnWriter::Close() {
@@ -361,7 +361,7 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     WriteRepetitionLevels(num_values, rep_levels);
   } else {
     // Each value is exactly one row
-    num_rows_ += num_values;
+    num_rows_ += static_cast<int>(num_values);
   }
 
   if (num_rows_ > expected_rows_) {
@@ -422,7 +422,7 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values
     WriteRepetitionLevels(num_values, rep_levels);
   } else {
     // Each value is exactly one row
-    num_rows_ += num_values;
+    num_rows_ += static_cast<int>(num_values);
   }
 
   if (num_rows_ > expected_rows_) {
@@ -461,7 +461,7 @@ void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def
   // of values, the chunking will ensure the AddDataPage() is called at a reasonable
   // pagesize limit
   int64_t write_batch_size = properties_->write_batch_size();
-  int num_batches = num_values / write_batch_size;
+  int num_batches = static_cast<int>(num_values / write_batch_size);
   int64_t num_remaining = num_values % write_batch_size;
   int64_t value_offset = 0;
   for (int round = 0; round < num_batches; round++) {
@@ -486,7 +486,7 @@ void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
   // of values, the chunking will ensure the AddDataPage() is called at a reasonable
   // pagesize limit
   int64_t write_batch_size = properties_->write_batch_size();
-  int num_batches = num_values / write_batch_size;
+  int num_batches = static_cast<int>(num_values / write_batch_size);
   int64_t num_remaining = num_values % write_batch_size;
   int64_t num_spaced_written = 0;
   int64_t values_offset = 0;
@@ -506,22 +506,23 @@ void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
 
 template <typename DType>
 void TypedColumnWriter<DType>::WriteValues(int64_t num_values, const T* values) {
-  current_encoder_->Put(values, num_values);
+  current_encoder_->Put(values, static_cast<int>(num_values));
 }
 
 template <typename DType>
 void TypedColumnWriter<DType>::WriteValuesSpaced(int64_t num_values,
     const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values) {
-  current_encoder_->PutSpaced(values, num_values, valid_bits, valid_bits_offset);
+  current_encoder_->PutSpaced(
+      values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
 }
 
-template class TypedColumnWriter<BooleanType>;
-template class TypedColumnWriter<Int32Type>;
-template class TypedColumnWriter<Int64Type>;
-template class TypedColumnWriter<Int96Type>;
-template class TypedColumnWriter<FloatType>;
-template class TypedColumnWriter<DoubleType>;
-template class TypedColumnWriter<ByteArrayType>;
-template class TypedColumnWriter<FLBAType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<BooleanType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<Int32Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<Int64Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<Int96Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<FloatType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<DoubleType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<ByteArrayType>;
+template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet

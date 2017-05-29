@@ -275,7 +275,7 @@ std::string ChunkedAllocator::DebugString() {
   char str[16];
   out << "ChunkedAllocator(#chunks=" << chunks_.size() << " [";
   for (size_t i = 0; i < chunks_.size(); ++i) {
-    sprintf(str, "0x%lx=", reinterpret_cast<size_t>(chunks_[i].data));  // NOLINT
+    sprintf(str, "0x%zx=", reinterpret_cast<size_t>(chunks_[i].data));  // NOLINT
     out << (i > 0 ? " " : "") << str << chunks_[i].size << "/"
         << chunks_[i].allocated_bytes;
   }

@@ -90,7 +90,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
 
   ASSERT_TRUE(col->HasNext());
   int64_t values_read;
-  int levels_read = col->ReadBatch(4, def_levels, rep_levels, values, &values_read);
+  auto levels_read = col->ReadBatch(4, def_levels, rep_levels, values, &values_read);
   ASSERT_EQ(4, levels_read);
   ASSERT_EQ(4, values_read);
 

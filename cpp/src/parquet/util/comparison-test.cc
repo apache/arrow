@@ -34,7 +34,7 @@ using parquet::schema::PrimitiveNode;
 
 static ByteArray ByteArrayFromString(const std::string& s) {
   auto ptr = reinterpret_cast<const uint8_t*>(s.data());
-  return ByteArray(s.size(), ptr);
+  return ByteArray(static_cast<uint32_t>(s.size()), ptr);
 }
 
 static FLBA FLBAFromString(const std::string& s) {
@@ -68,7 +68,7 @@ TEST(Comparison, FLBA) {
   auto arr2 = FLBAFromString(b);
 
   NodePtr node = PrimitiveNode::Make("FLBA", Repetition::REQUIRED,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, a.size());
+      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, static_cast<int>(a.size()));
   ColumnDescriptor descr(node, 0, 0);
   Compare<parquet::FixedLenByteArray> less(&descr);
   ASSERT_TRUE(less(arr1, arr2));

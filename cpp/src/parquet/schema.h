@@ -250,7 +250,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   const NodePtr& field(int i) const { return fields_[i]; }
 
-  int field_count() const { return fields_.size(); }
+  int field_count() const { return static_cast<int>(fields_.size()); }
 
   void ToParquet(void* opaque_element) const override;
   void Visit(Visitor* visitor) override;
@@ -365,7 +365,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   bool Equals(const SchemaDescriptor& other) const;
 
   // The number of physical columns appearing in the file
-  int num_columns() const { return leaves_.size(); }
+  int num_columns() const { return static_cast<int>(leaves_.size()); }
 
   const schema::NodePtr& schema_root() const { return schema_; }
 

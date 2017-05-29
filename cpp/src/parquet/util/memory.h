@@ -46,7 +46,7 @@
 #define PARQUET_IGNORE_NOT_OK(s) \
   try {                          \
     (s);                         \
-  } catch (const ::parquet::ParquetException& e) {}
+  } catch (const ::parquet::ParquetException& e) { UNUSED(e); }
 
 #define PARQUET_THROW_NOT_OK(s)                     \
   do {                                              \
@@ -222,7 +222,7 @@ class PARQUET_EXPORT ChunkedAllocator {
   /// Return offset to unoccpied space in current chunk.
   int GetFreeOffset() const {
     if (current_chunk_idx_ == -1) return 0;
-    return chunks_[current_chunk_idx_].allocated_bytes;
+    return static_cast<int>(chunks_[current_chunk_idx_].allocated_bytes);
   }
 
   template <bool CHECK_LIMIT_FIRST>

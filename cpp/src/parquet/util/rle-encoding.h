@@ -168,9 +168,10 @@ class RleEncoder {
   static int MinBufferSize(int bit_width) {
     /// 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
     int max_literal_run_size =
-        1 + BitUtil::Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8);
+        1 + static_cast<int>(BitUtil::Ceil(MAX_VALUES_PER_LITERAL_RUN * bit_width, 8));
     /// Up to MAX_VLQ_BYTE_LEN indicator and a single 'bit_width' value.
-    int max_repeated_run_size = BitReader::MAX_VLQ_BYTE_LEN + BitUtil::Ceil(bit_width, 8);
+    int max_repeated_run_size =
+        BitReader::MAX_VLQ_BYTE_LEN + static_cast<int>(BitUtil::Ceil(bit_width, 8));
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
@@ -181,14 +182,15 @@ class RleEncoder {
     // 8 values per smallest run, 8 bits per byte
     // int bytes_per_run = BitUtil::Ceil(bit_width * 8, 8);
     int bytes_per_run = bit_width;
-    int num_runs = BitUtil::Ceil(num_values, 8);
+    int num_runs = static_cast<int>(BitUtil::Ceil(num_values, 8));
     int literal_max_size = num_runs + num_runs * bytes_per_run;
 
     // In the very worst case scenario, the data is a concatenation of repeated
     // runs of 8 values. Repeated run has a 1 byte varint followed by the
     // bit-packed repeated value
-    int min_repeated_run_size = 1 + BitUtil::Ceil(bit_width, 8);
-    int repeated_max_size = BitUtil::Ceil(num_values, 8) * min_repeated_run_size;
+    int min_repeated_run_size = 1 + static_cast<int>(BitUtil::Ceil(bit_width, 8));
+    int repeated_max_size =
+        static_cast<int>(BitUtil::Ceil(num_values, 8)) * min_repeated_run_size;
 
     return std::max(literal_max_size, repeated_max_size);
   }
@@ -286,8 +288,8 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
     if (repeat_count_ > 0) {
       int repeat_batch =
           std::min(batch_size - values_read, static_cast<int>(repeat_count_));
-      std::fill(
-          values + values_read, values + values_read + repeat_batch, current_value_);
+      std::fill(values + values_read, values + values_read + repeat_batch,
+          static_cast<T>(current_value_));
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
     } else if (literal_count_ > 0) {
@@ -349,10 +351,10 @@ inline int RleDecoder::GetBatchWithDictSpaced(const Vector<T>& dictionary, T* va
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
-  INIT_BITSET(valid_bits, valid_bits_offset);
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
 
   while (values_read < batch_size) {
-    bool is_valid = (bitset_valid_bits & (1 << bit_offset_valid_bits));
+    bool is_valid = (bitset_valid_bits & (1 << bit_offset_valid_bits)) != 0;
     READ_NEXT_BITSET(valid_bits);
 
     if (is_valid) {
@@ -431,8 +433,9 @@ bool RleDecoder::NextCounts() {
     literal_count_ = (indicator_value >> 1) * 8;
   } else {
     repeat_count_ = indicator_value >> 1;
-    bool result = bit_reader_.GetAligned<T>(
-        BitUtil::Ceil(bit_width_, 8), reinterpret_cast<T*>(&current_value_));
+    bool result =
+        bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::Ceil(bit_width_, 8)),
+            reinterpret_cast<T*>(&current_value_));
     DCHECK(result);
   }
   return true;
@@ -507,7 +510,8 @@ inline void RleEncoder::FlushRepeatedRun() {
   // The lsb of 0 indicates this is a repeated run
   int32_t indicator_value = repeat_count_ << 1 | 0;
   result &= bit_writer_.PutVlqInt(indicator_value);
-  result &= bit_writer_.PutAligned(current_value_, BitUtil::Ceil(bit_width_, 8));
+  result &= bit_writer_.PutAligned(
+      current_value_, static_cast<int>(BitUtil::Ceil(bit_width_, 8)));
   DCHECK(result);
   num_buffered_values_ = 0;
   repeat_count_ = 0;

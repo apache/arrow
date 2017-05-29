@@ -216,7 +216,7 @@ class HashUtil {
       return MurmurHash2_64(data, bytes, seed);
     }
 #else
-    return MurmurHash2_64(data, bytes, seed);
+    return static_cast<uint32_t>(MurmurHash2_64(data, bytes, seed));
 #endif
   }
 

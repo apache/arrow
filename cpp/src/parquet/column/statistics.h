@@ -216,14 +216,14 @@ typedef TypedRowGroupStatistics<FLBAType> FLBAStatistics;
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<BooleanType>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int32Type>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int64Type>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<Int96Type>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<FloatType>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<DoubleType>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<ByteArrayType>;
-extern template class PARQUET_EXPORT TypedRowGroupStatistics<FLBAType>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<BooleanType>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int32Type>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int64Type>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int96Type>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FloatType>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<DoubleType>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<ByteArrayType>;
+PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FLBAType>;
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop

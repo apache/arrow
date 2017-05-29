@@ -42,7 +42,7 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = BitUtil::Ceil(nvalues, 8);
+  int nbytes = static_cast<int>(BitUtil::Ceil(nvalues, 8));
 
   // seed the prng so failure is deterministic
   vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
@@ -58,7 +58,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
-  decoder.SetData(nvalues, encode_buffer->data(), encode_buffer->size());
+  decoder.SetData(
+      nvalues, encode_buffer->data(), static_cast<int>(encode_buffer->size()));
   int values_decoded = decoder.Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
@@ -218,7 +219,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     encoder.Put(draws_, num_values_);
     encode_buffer_ = encoder.FlushValues();
 
-    decoder.SetData(num_values_, encode_buffer_->data(), encode_buffer_->size());
+    decoder.SetData(
+        num_values_, encode_buffer_->data(), static_cast<int>(encode_buffer_->size()));
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
     VerifyResults<T>(decode_buf_, draws_, num_values_);
@@ -263,13 +265,13 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     ASSERT_TRUE(indices_from_spaced->Equals(*indices));
 
     PlainDecoder<Type> dict_decoder(descr_.get());
-    dict_decoder.SetData(
-        encoder.num_entries(), dict_buffer_->data(), dict_buffer_->size());
+    dict_decoder.SetData(encoder.num_entries(), dict_buffer_->data(),
+        static_cast<int>(dict_buffer_->size()));
 
     DictionaryDecoder<Type> decoder(descr_.get());
     decoder.SetDict(&dict_decoder);
 
-    decoder.SetData(num_values_, indices->data(), indices->size());
+    decoder.SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
 
@@ -279,7 +281,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
     VerifyResults<T>(decode_buf_, draws_, num_values_);
 
     // Also test spaced decoding
-    decoder.SetData(num_values_, indices->data(), indices->size());
+    decoder.SetData(num_values_, indices->data(), static_cast<int>(indices->size()));
     values_decoded =
         decoder.DecodeSpaced(decode_buf_, num_values_, 0, valid_bits.data(), 0);
     ASSERT_EQ(num_values_, values_decoded);

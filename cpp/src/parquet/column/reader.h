@@ -205,7 +205,7 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
 
 template <typename DType>
 inline int64_t TypedColumnReader<DType>::ReadValues(int64_t batch_size, T* out) {
-  int64_t num_decoded = current_decoder_->Decode(out, batch_size);
+  int64_t num_decoded = current_decoder_->Decode(out, static_cast<int>(batch_size));
   return num_decoded;
 }
 
@@ -213,7 +213,7 @@ template <typename DType>
 inline int64_t TypedColumnReader<DType>::ReadValuesSpaced(int64_t batch_size, T* out,
     int null_count, uint8_t* valid_bits, int64_t valid_bits_offset) {
   return current_decoder_->DecodeSpaced(
-      out, batch_size, null_count, valid_bits, valid_bits_offset);
+      out, static_cast<int>(batch_size), null_count, valid_bits, valid_bits_offset);
 }
 
 template <typename DType>
@@ -257,7 +257,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
 
   *values_read = ReadValues(values_to_read, values);
   int64_t total_values = std::max(num_def_levels, *values_read);
-  num_decoded_values_ += total_values;
+  num_decoded_values_ += static_cast<int>(total_values);
 
   return total_values;
 }
@@ -265,8 +265,8 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
 inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
     int16_t max_definition_level, int64_t* values_read, int64_t* null_count,
     uint8_t* valid_bits, int64_t valid_bits_offset) {
-  int byte_offset = valid_bits_offset / 8;
-  int bit_offset = valid_bits_offset % 8;
+  int byte_offset = static_cast<int>(valid_bits_offset) / 8;
+  int bit_offset = static_cast<int>(valid_bits_offset) % 8;
   uint8_t bitset = valid_bits[byte_offset];
 
   for (int i = 0; i < num_def_levels; ++i) {
@@ -338,8 +338,8 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
       int16_t max_definition_level = descr_->max_definition_level();
       DefinitionLevelsToBitmap(def_levels, num_def_levels, max_definition_level,
           values_read, &null_count, valid_bits, valid_bits_offset);
-      total_values = ReadValuesSpaced(
-          *values_read, values, null_count, valid_bits, valid_bits_offset);
+      total_values = ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
+          valid_bits, valid_bits_offset);
     }
     *levels_read = num_def_levels;
     *null_count_out = null_count;
@@ -354,7 +354,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
     *levels_read = total_values;
   }
 
-  num_decoded_values_ += *levels_read;
+  num_decoded_values_ += static_cast<int>(*levels_read);
   return total_values;
 }
 
@@ -383,10 +383,10 @@ inline int64_t TypedColumnReader<DType>::Skip(int64_t num_rows_to_skip) {
 
       do {
         batch_size = std::min(batch_size, rows_to_skip);
-        values_read =
-            ReadBatch(batch_size, reinterpret_cast<int16_t*>(def_levels->mutable_data()),
-                reinterpret_cast<int16_t*>(rep_levels->mutable_data()),
-                reinterpret_cast<T*>(vals->mutable_data()), &values_read);
+        values_read = ReadBatch(static_cast<int>(batch_size),
+            reinterpret_cast<int16_t*>(def_levels->mutable_data()),
+            reinterpret_cast<int16_t*>(rep_levels->mutable_data()),
+            reinterpret_cast<T*>(vals->mutable_data()), &values_read);
         rows_to_skip -= values_read;
       } while (values_read > 0 && rows_to_skip > 0);
     }
@@ -403,14 +403,14 @@ typedef TypedColumnReader<DoubleType> DoubleReader;
 typedef TypedColumnReader<ByteArrayType> ByteArrayReader;
 typedef TypedColumnReader<FLBAType> FixedLenByteArrayReader;
 
-extern template class PARQUET_EXPORT TypedColumnReader<BooleanType>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int32Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int64Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<Int96Type>;
-extern template class PARQUET_EXPORT TypedColumnReader<FloatType>;
-extern template class PARQUET_EXPORT TypedColumnReader<DoubleType>;
-extern template class PARQUET_EXPORT TypedColumnReader<ByteArrayType>;
-extern template class PARQUET_EXPORT TypedColumnReader<FLBAType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<BooleanType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int32Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int64Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int96Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<FloatType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<DoubleType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<ByteArrayType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnReader<FLBAType>;
 
 }  // namespace parquet
 

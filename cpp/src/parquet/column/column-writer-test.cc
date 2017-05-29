@@ -93,8 +93,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED) {
     BuildReader(static_cast<int64_t>(this->values_out_.size()), compression);
-    reader_->ReadBatch(this->values_out_.size(), definition_levels_out_.data(),
-        repetition_levels_out_.data(), this->values_out_ptr_, &values_read_);
+    reader_->ReadBatch(static_cast<int>(this->values_out_.size()),
+        definition_levels_out_.data(), repetition_levels_out_.data(),
+        this->values_out_ptr_, &values_read_);
     this->SyncValuesOut();
   }
 
@@ -133,7 +134,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       Compression::type compression, bool enable_dictionary, bool enable_statistics,
       int64_t num_rows) {
     std::vector<uint8_t> valid_bits(
-        BitUtil::RoundUpNumBytes(this->values_.size()) + 1, 255);
+        BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(
         encoding, compression, enable_dictionary, enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
@@ -204,7 +205,8 @@ void TestPrimitiveWriter<TestType>::ReadColumnFully(Compression::type compressio
   values_read_ = 0;
   while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
-    reader_->ReadBatch(this->values_out_.size() - values_read_,
+    reader_->ReadBatch(
+        static_cast<int>(this->values_out_.size()) - static_cast<int>(values_read_),
         definition_levels_out_.data() + values_read_,
         repetition_levels_out_.data() + values_read_,
         this->values_out_ptr_ + values_read_, &values_read_recently);
@@ -222,7 +224,8 @@ void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compressio
   values_read_ = 0;
   while (values_read_ < total_values) {
     int64_t values_read_recently = 0;
-    reader_->ReadBatch(this->values_out_.size() - values_read_,
+    reader_->ReadBatch(
+        static_cast<int>(this->values_out_.size()) - static_cast<int>(values_read_),
         definition_levels_out_.data() + values_read_,
         repetition_levels_out_.data() + values_read_,
         this->values_out_ptr_ + values_read_, &values_read_recently);

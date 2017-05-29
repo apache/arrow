@@ -80,7 +80,7 @@ TEST(BitArray, TestBool) {
     bool val = false;
     bool result = reader.GetValue(1, &val);
     EXPECT_TRUE(result);
-    EXPECT_EQ(val, i % 2);
+    EXPECT_EQ(val, (i % 2) != 0);
   }
 
   for (int i = 0; i < 8; ++i) {
@@ -103,7 +103,7 @@ TEST(BitArray, TestBool) {
 
 // Writes 'num_vals' values with width 'bit_width' and reads them back.
 void TestBitArrayValues(int bit_width, int num_vals) {
-  int len = BitUtil::Ceil(bit_width * num_vals, 8);
+  int len = static_cast<int>(BitUtil::Ceil(bit_width * num_vals, 8));
   EXPECT_TRUE(len > 0);
   const uint64_t mod = bit_width == 64 ? 1 : 1LL << bit_width;
 
@@ -210,7 +210,8 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
   {
     RleDecoder decoder(buffer, len, bit_width);
     vector<int> values_read(values.size());
-    ASSERT_EQ(values.size(), decoder.GetBatch(values_read.data(), values.size()));
+    ASSERT_EQ(values.size(),
+        decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
     EXPECT_EQ(values, values_read);
   }
 }
@@ -241,7 +242,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
     RleDecoder decoder(buffer, len, bit_width);
     vector<int> values_read(values.size());
     if (static_cast<int>(values.size()) !=
-        decoder.GetBatch(values_read.data(), values.size())) {
+        decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
       return false;
     }
     if (values != values_read) { return false; }
@@ -274,14 +275,14 @@ TEST(Rle, SpecificSequences) {
   }
 
   for (int width = 9; width <= MAX_WIDTH; ++width) {
-    ValidateRle(values, width, NULL, 2 * (1 + BitUtil::Ceil(width, 8)));
+    ValidateRle(values, width, NULL, 2 * (1 + static_cast<int>(BitUtil::Ceil(width, 8))));
   }
 
   // Test 100 0's and 1's alternating
   for (int i = 0; i < 100; ++i) {
     values[i] = i % 2;
   }
-  int num_groups = BitUtil::Ceil(100, 8);
+  int num_groups = static_cast<int>(BitUtil::Ceil(100, 8));
   expected_buffer[0] = (num_groups << 1) | 1;
   for (int i = 1; i <= 100 / 8; ++i) {
     expected_buffer[i] = BOOST_BINARY(1 0 1 0 1 0 1 0);
@@ -292,8 +293,9 @@ TEST(Rle, SpecificSequences) {
   // num_groups and expected_buffer only valid for bit width = 1
   ValidateRle(values, 1, expected_buffer, 1 + num_groups);
   for (int width = 2; width <= MAX_WIDTH; ++width) {
-    int num_values = BitUtil::Ceil(100, 8) * 8;
-    ValidateRle(values, width, NULL, 1 + BitUtil::Ceil(width * num_values, 8));
+    int num_values = static_cast<int>(BitUtil::Ceil(100, 8)) * 8;
+    ValidateRle(
+        values, width, NULL, 1 + static_cast<int>(BitUtil::Ceil(width * num_values, 8)));
   }
 }
 
@@ -446,7 +448,7 @@ TEST(BitRle, Overflow) {
     for (int i = 0; i < num_added; ++i) {
       bool result = decoder.Get(&v);
       EXPECT_TRUE(result);
-      EXPECT_EQ(v, parity);
+      EXPECT_EQ(v != 0, parity);
       parity = !parity;
     }
     // Make sure we get false when reading past end a couple times.

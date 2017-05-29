@@ -118,17 +118,17 @@ class PARQUET_EXPORT ColumnWriter {
   // values. For repeated or optional values, there may be fewer data values
   // than levels, and this tells you how many encoded levels there are in that
   // case.
-  int num_buffered_values_;
+  int64_t num_buffered_values_;
 
   // The total number of stored values. For repeated or optional values, this
   // number may be lower than num_buffered_values_.
-  int num_buffered_encoded_values_;
+  int64_t num_buffered_encoded_values_;
 
   // Total number of rows written with this ColumnWriter
   int num_rows_;
 
   // Records the total number of bytes written by the serializer
-  int total_bytes_written_;
+  int64_t total_bytes_written_;
 
   // Flag to check if the Writer has been closed
   bool closed_;
@@ -212,14 +212,14 @@ typedef TypedColumnWriter<DoubleType> DoubleWriter;
 typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
 typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
-extern template class PARQUET_EXPORT TypedColumnWriter<BooleanType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int32Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int64Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<Int96Type>;
-extern template class PARQUET_EXPORT TypedColumnWriter<FloatType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<DoubleType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<ByteArrayType>;
-extern template class PARQUET_EXPORT TypedColumnWriter<FLBAType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<BooleanType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int32Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int64Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int96Type>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FloatType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<DoubleType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<ByteArrayType>;
+PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet
 

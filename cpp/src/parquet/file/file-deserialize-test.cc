@@ -192,7 +192,7 @@ TEST_F(TestPageSerde, Compression) {
     std::vector<uint8_t> buffer;
     for (int i = 0; i < num_pages; ++i) {
       const uint8_t* data = faux_data[i].data();
-      int data_size = faux_data[i].size();
+      int data_size = static_cast<int>(faux_data[i].size());
 
       int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
       buffer.resize(max_compressed_size);
@@ -200,7 +200,7 @@ TEST_F(TestPageSerde, Compression) {
       int64_t actual_size =
           codec->Compress(data_size, data, max_compressed_size, &buffer[0]);
 
-      WriteDataPageHeader(1024, data_size, actual_size);
+      WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size));
       out_stream_->Write(buffer.data(), actual_size);
     }
 
@@ -209,7 +209,7 @@ TEST_F(TestPageSerde, Compression) {
     std::shared_ptr<Page> page;
     const DataPage* data_page;
     for (int i = 0; i < num_pages; ++i) {
-      int data_size = faux_data[i].size();
+      int data_size = static_cast<int>(faux_data[i].size());
       page = page_reader_->NextPage();
       data_page = static_cast<const DataPage*>(page.get());
       ASSERT_EQ(data_size, data_page->size());

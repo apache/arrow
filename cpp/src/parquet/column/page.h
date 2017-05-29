@@ -52,7 +52,7 @@ class Page {
   const uint8_t* data() const { return buffer_->data(); }
 
   // @returns: the total size in bytes of the page's data buffer
-  int32_t size() const { return buffer_->size(); }
+  int32_t size() const { return static_cast<int32_t>(buffer_->size()); }
 
  private:
   std::shared_ptr<Buffer> buffer_;

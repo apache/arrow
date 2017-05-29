@@ -112,7 +112,7 @@ void CpuInfo::Init() {
         // that when impala is running, the core will not be in a lower power state.
         // TODO: is there a more robust way to do this, such as
         // Window's QueryPerformanceFrequency()
-        float mhz = atof(value.c_str());
+        float mhz = static_cast<float>(atof(value.c_str()));
         max_mhz = max(mhz, max_mhz);
       } else if (name.compare("processor") == 0) {
         ++num_cores;
@@ -148,7 +148,7 @@ void CpuInfo::Init() {
 #endif
 
   if (max_mhz != 0) {
-    cycles_per_ms_ = max_mhz * 1000;
+    cycles_per_ms_ = static_cast<int64_t>(max_mhz) * 1000;
   } else {
     cycles_per_ms_ = 1000000;
   }

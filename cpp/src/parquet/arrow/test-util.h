@@ -210,7 +210,7 @@ NullableArray(
     if (!valid_bytes[i]) {
       builder.AppendNull();
     } else {
-      ::arrow::test::random_bytes(kBufferSize, seed + i, buffer);
+      ::arrow::test::random_bytes(kBufferSize, seed + static_cast<uint32_t>(i), buffer);
       builder.Append(buffer, kBufferSize);
     }
   }
@@ -240,7 +240,7 @@ NullableArray(
     if (!valid_bytes[i]) {
       builder.AppendNull();
     } else {
-      ::arrow::test::random_bytes(kBufferSize, seed + i, buffer);
+      ::arrow::test::random_bytes(kBufferSize, seed + static_cast<uint32_t>(i), buffer);
       builder.Append(buffer);
     }
   }
@@ -294,10 +294,10 @@ Status MakeListArary(const std::shared_ptr<Array>& values, int64_t size,
     if (!(((i % 2) == 0) && ((i / 2) < null_count))) {
       // Non-null list (list with index 1 is always empty).
       ::arrow::BitUtil::SetBit(null_bitmap_ptr, i);
-      if (i != 1) { current_offset += length_per_entry; }
+      if (i != 1) { current_offset += static_cast<int32_t>(length_per_entry); }
     }
   }
-  offsets_ptr[size] = values->length();
+  offsets_ptr[size] = static_cast<int32_t>(values->length());
 
   auto value_field =
       std::make_shared<::arrow::Field>("item", values->type(), nullable_values);

@@ -15,6 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifdef _MSC_VER
+#pragma warning(push)
+// Disable forcing value to bool warnings
+#pragma warning(disable : 4800)
+#endif
+
 #include "gtest/gtest.h"
 
 #include <sstream>
@@ -1172,12 +1178,10 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
 
   std::unique_ptr<FileReader> arrow_reader;
   ASSERT_NO_THROW(
-      arrow_reader.reset(new FileReader(pool,
-              ParquetFileReader::OpenFile(path, false))));
+      arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false))));
   std::shared_ptr<::arrow::Table> table;
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
 }
-
 
 }  // namespace arrow
 

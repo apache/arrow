@@ -48,7 +48,7 @@ TEST(Metadata, TestBuildAccess) {
       .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
       .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
   EncodedStatistics stats_float;
-  float float_min = 100.100, float_max = 200.200;
+  float float_min = 100.100f, float_max = 200.200f;
   stats_float.set_null_count(0)
       .set_distinct_count(nrows)
       .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
@@ -84,7 +84,7 @@ TEST(Metadata, TestBuildAccess) {
 
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
-  ASSERT_LE(0, f_accessor->size());
+  ASSERT_LE(0, static_cast<int>(f_accessor->size()));
   ASSERT_EQ(2, f_accessor->num_row_groups());
   ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());

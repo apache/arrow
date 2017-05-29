@@ -63,7 +63,7 @@ class LevelBuilder {
   Status VisitInline(const Array& array);
 
   Status Visit(const ::arrow::PrimitiveArray& array) {
-    array_offsets_.push_back(array.offset());
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
     values_type_ = array.type_id();
@@ -72,7 +72,7 @@ class LevelBuilder {
   }
 
   Status Visit(const ::arrow::BinaryArray& array) {
-    array_offsets_.push_back(array.offset());
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
     values_type_ = array.type_id();
@@ -81,7 +81,7 @@ class LevelBuilder {
   }
 
   Status Visit(const ListArray& array) {
-    array_offsets_.push_back(array.offset());
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
     offsets_.push_back(array.raw_value_offsets());
@@ -111,7 +111,7 @@ class LevelBuilder {
       std::shared_ptr<Buffer>* rep_levels, const Array** values_array) {
     // Work downwards to extract bitmaps and offsets
     min_offset_idx_ = 0;
-    max_offset_idx_ = array.length();
+    max_offset_idx_ = static_cast<int32_t>(array.length());
     RETURN_NOT_OK(VisitInline(array));
     *num_values = max_offset_idx_ - min_offset_idx_;
     *values_offset = min_offset_idx_;
@@ -143,7 +143,7 @@ class LevelBuilder {
           std::fill(def_levels_ptr, def_levels_ptr + array.length(), 1);
         } else {
           const uint8_t* valid_bits = array.null_bitmap_data();
-          INIT_BITSET(valid_bits, array.offset());
+          INIT_BITSET(valid_bits, static_cast<int>(array.offset()));
           for (int i = 0; i < array.length(); i++) {
             if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
               def_levels_ptr[i] = 1;
@@ -396,7 +396,7 @@ Status FileWriter::Impl::WriteNullableBatch(TypedColumnWriter<ParquetType>* writ
 
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(ParquetCType)));
   auto buffer_ptr = reinterpret_cast<ParquetCType*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, valid_bits_offset);
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
   for (int i = 0; i < num_values; i++) {
     if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
       buffer_ptr[i] = static_cast<ParquetCType>(data_ptr[i]);
@@ -417,7 +417,7 @@ Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Date64Type>(
     const int64_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(int32_t)));
   auto buffer_ptr = reinterpret_cast<int32_t*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, valid_bits_offset);
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
   for (int i = 0; i < num_values; i++) {
     if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
       // Convert from milliseconds into days since the epoch
@@ -439,7 +439,7 @@ Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Time32Type>(
     const int32_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(int32_t)));
   auto buffer_ptr = reinterpret_cast<int32_t*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, valid_bits_offset);
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
 
   if (type.unit() == TimeUnit::SECOND) {
     for (int i = 0; i < num_values; i++) {
@@ -497,7 +497,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
   auto writer = reinterpret_cast<TypedColumnWriter<BooleanType>*>(column_writer);
 
   int buffer_idx = 0;
-  int32_t offset = array->offset();
+  int64_t offset = array->offset();
   for (int i = 0; i < data->length(); i++) {
     if (!data->IsNull(i)) {
       buffer_ptr[buffer_idx++] = BitUtil::GetBit(data_ptr, offset + i);

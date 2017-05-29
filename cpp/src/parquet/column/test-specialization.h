@@ -115,7 +115,11 @@ void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
 
 template <>
 void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
-  std::copy(bool_buffer_out_.begin(), bool_buffer_out_.end(), values_out_.begin());
+    std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
+    std::vector<T>::iterator destination_iterator = values_out_.begin();
+    while (source_iterator != bool_buffer_out_.end()) {
+        *destination_iterator++ = *source_iterator++ != 0;
+    }
 }
 
 template <typename TestType>
@@ -143,7 +147,7 @@ void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<T>(num_values, values_, buffer_);
+  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
   values_ptr_ = values_.data();
 
   std::fill(def_levels_.begin(), def_levels_.end(), 1);
@@ -154,7 +158,7 @@ void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
   def_levels_.resize(num_values);
   values_.resize(num_values);
 
-  InitValues<T>(num_values, values_, buffer_);
+  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
   bool_buffer_.resize(num_values);
   std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());

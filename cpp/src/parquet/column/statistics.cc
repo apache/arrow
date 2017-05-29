@@ -120,7 +120,7 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   if (num_not_null == 0) return;
 
   Compare<T> compare(descr_);
-  INIT_BITSET(valid_bits, valid_bits_offset);
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
   // Find first valid entry and use that for min/max
   // As (num_not_null != 0) there must be one
   int64_t length = num_null + num_not_null;
@@ -216,7 +216,8 @@ void TypedRowGroupStatistics<DType>::PlainEncode(const T& src, std::string* dst)
 template <typename DType>
 void TypedRowGroupStatistics<DType>::PlainDecode(const std::string& src, T* dst) {
   PlainDecoder<DType> decoder(descr());
-  decoder.SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()), src.size());
+  decoder.SetData(
+      1, reinterpret_cast<const uint8_t*>(src.c_str()), static_cast<int>(src.size()));
   decoder.Decode(dst, 1);
 }
 
@@ -227,17 +228,17 @@ void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::stri
 
 template <>
 void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst) {
-  dst->len = src.size();
+  dst->len = static_cast<uint32_t>(src.size());
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
 
-template class TypedRowGroupStatistics<BooleanType>;
-template class TypedRowGroupStatistics<Int32Type>;
-template class TypedRowGroupStatistics<Int64Type>;
-template class TypedRowGroupStatistics<Int96Type>;
-template class TypedRowGroupStatistics<FloatType>;
-template class TypedRowGroupStatistics<DoubleType>;
-template class TypedRowGroupStatistics<ByteArrayType>;
-template class TypedRowGroupStatistics<FLBAType>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<BooleanType>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int32Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int64Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int96Type>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<FloatType>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<DoubleType>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<ByteArrayType>;
+template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<FLBAType>;
 
 }  // namespace parquet

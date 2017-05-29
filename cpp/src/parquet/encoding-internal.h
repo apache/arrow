@@ -196,7 +196,8 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
         bits_available_(kInMemoryDefaultCapacity * 8),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         values_sink_(new InMemoryOutputStream(pool)) {
-    bit_writer_.reset(new BitWriter(bits_buffer_->mutable_data(), bits_buffer_->size()));
+    bit_writer_.reset(new BitWriter(
+        bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())));
   }
 
   int64_t EstimatedDataEncodedSize() override {
@@ -208,7 +209,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
       bit_writer_->Flush();
       values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
       bit_writer_->Clear();
-      bits_available_ = bits_buffer_->size() * 8;
+      bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
     }
 
     std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
@@ -236,7 +237,7 @@ class PlainEncoder<BooleanType> : public Encoder<BooleanType> {
                                                                                   \
     int bits_remaining = num_values - bit_offset;                                 \
     while (bit_offset < num_values) {                                             \
-      bits_available_ = bits_buffer_->size() * 8;                                 \
+      bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;               \
                                                                                   \
       int bits_to_write = std::min(bits_available_, bits_remaining);              \
       for (int i = bit_offset; i < bit_offset + bits_to_write; i++) {             \
@@ -463,7 +464,9 @@ class DictEncoder : public Encoder<DType> {
     // reserve
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
     // but not reserving them would cause the encoder to fail.
-    return 1 + RleEncoder::MaxBufferSize(bit_width(), buffered_indices_.size()) +
+    return 1 +
+           RleEncoder::MaxBufferSize(
+               bit_width(), static_cast<int>(buffered_indices_.size())) +
            RleEncoder::MinBufferSize(bit_width());
   }
 
@@ -493,7 +496,8 @@ class DictEncoder : public Encoder<DType> {
   std::shared_ptr<Buffer> FlushValues() override {
     std::shared_ptr<PoolBuffer> buffer =
         AllocateBuffer(this->allocator_, EstimatedDataEncodedSize());
-    int result_size = WriteIndices(buffer->mutable_data(), EstimatedDataEncodedSize());
+    int result_size = WriteIndices(
+        buffer->mutable_data(), static_cast<int>(EstimatedDataEncodedSize()));
     ClearIndices();
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
@@ -507,7 +511,7 @@ class DictEncoder : public Encoder<DType> {
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
       int64_t valid_bits_offset) override {
-    INIT_BITSET(valid_bits, valid_bits_offset);
+    INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
     for (int32_t i = 0; i < num_values; i++) {
       if (bitset_valid_bits & (1 << bit_offset_valid_bits)) { Put(src[i]); }
       READ_NEXT_BITSET(valid_bits);
@@ -521,7 +525,7 @@ class DictEncoder : public Encoder<DType> {
   ChunkedAllocator* mem_pool() { return pool_; }
 
   /// The number of entries in the dictionary.
-  int num_entries() const { return uniques_.size(); }
+  int num_entries() const { return static_cast<int>(uniques_.size()); }
 
  private:
   ::arrow::MemoryPool* allocator_;
@@ -607,7 +611,7 @@ inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
 
   if (index == HASH_SLOT_EMPTY) {
     // Not in the hash table, so we insert it now
-    index = uniques_.size();
+    index = static_cast<hash_slot_t>(uniques_.size());
     hash_slots_[j] = index;
     AddDictKey(v);
 
@@ -808,7 +812,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
       int64_t delta;
       if (!decoder_.GetValue(delta_bit_width_, &delta)) ParquetException::EofException();
       delta += min_delta_;
-      last_value_ += delta;
+      last_value_ += static_cast<int32_t>(delta);
       buffer[i] = last_value_;
       --values_current_mini_block_;
     }

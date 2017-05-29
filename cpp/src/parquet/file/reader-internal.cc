@@ -68,7 +68,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       if (bytes_available == 0) { return std::shared_ptr<Page>(nullptr); }
 
       // This gets used, then set by DeserializeThriftMsg
-      header_size = bytes_available;
+      header_size = static_cast<uint32_t>(bytes_available);
       try {
         DeserializeThriftMsg(buffer, &header_size, &current_page_header_);
         break;

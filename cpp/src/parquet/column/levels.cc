@@ -36,7 +36,8 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
       break;
     }
     case Encoding::BIT_PACKED: {
-      int num_bytes = BitUtil::Ceil(num_buffered_values * bit_width_, 8);
+      int num_bytes =
+          static_cast<int>(BitUtil::Ceil(num_buffered_values * bit_width_, 8));
       bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
       break;
     }
@@ -58,7 +59,7 @@ int LevelEncoder::MaxBufferSize(
       break;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes = BitUtil::Ceil(num_buffered_values * bit_width, 8);
+      num_bytes = static_cast<int>(BitUtil::Ceil(num_buffered_values * bit_width, 8));
       break;
     }
     default:
@@ -112,7 +113,8 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       return sizeof(int32_t) + num_bytes;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes = BitUtil::Ceil(num_buffered_values * bit_width_, 8);
+      num_bytes =
+          static_cast<int32_t>(BitUtil::Ceil(num_buffered_values * bit_width_, 8));
       if (!bit_packed_decoder_) {
         bit_packed_decoder_.reset(new BitReader(data, num_bytes));
       } else {

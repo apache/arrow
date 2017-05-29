@@ -49,7 +49,9 @@ class BitWriter {
 
   /// The number of current bytes written, including the current byte (i.e. may include a
   /// fraction of a byte). Includes buffered values.
-  int bytes_written() const { return byte_offset_ + BitUtil::Ceil(bit_offset_, 8); }
+  int bytes_written() const {
+    return byte_offset_ + static_cast<int>(BitUtil::Ceil(bit_offset_, 8));
+  }
   uint8_t* buffer() const { return buffer_; }
   int buffer_len() const { return max_bytes_; }
 
@@ -144,7 +146,9 @@ class BitReader {
 
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
-  int bytes_left() { return max_bytes_ - (byte_offset_ + BitUtil::Ceil(bit_offset_, 8)); }
+  int bytes_left() {
+    return max_bytes_ - (byte_offset_ + static_cast<int>(BitUtil::Ceil(bit_offset_, 8)));
+  }
 
   /// Maximum byte length of a vlq encoded int
   static const int MAX_VLQ_BYTE_LEN = 5;

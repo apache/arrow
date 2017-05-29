@@ -361,7 +361,7 @@ const format::SchemaElement& FlatSchemaConverter::Next() {
 }
 
 std::shared_ptr<SchemaDescriptor> FromParquet(const std::vector<SchemaElement>& schema) {
-  FlatSchemaConverter converter(&schema[0], schema.size());
+  FlatSchemaConverter converter(&schema[0], static_cast<int>(schema.size()));
   std::unique_ptr<Node> root = converter.Convert();
 
   std::shared_ptr<SchemaDescriptor> descr = std::make_shared<SchemaDescriptor>();
@@ -594,7 +594,7 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
   } else {
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
-    leaf_to_base_.emplace(leaves_.size() - 1, base);
+    leaf_to_base_.emplace(static_cast<int>(leaves_.size()) - 1, base);
   }
 }
 

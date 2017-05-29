@@ -101,8 +101,8 @@ int64_t SerializedPageWriter::WriteDataPage(const CompressedDataPage& page) {
 
   format::PageHeader page_header;
   page_header.__set_type(format::PageType::DATA_PAGE);
-  page_header.__set_uncompressed_page_size(uncompressed_size);
-  page_header.__set_compressed_page_size(compressed_data->size());
+  page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+  page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
   page_header.__set_data_page_header(data_page_header);
   // TODO(PARQUET-594) crc checksum
 
@@ -139,8 +139,8 @@ int64_t SerializedPageWriter::WriteDictionaryPage(const DictionaryPage& page) {
 
   format::PageHeader page_header;
   page_header.__set_type(format::PageType::DICTIONARY_PAGE);
-  page_header.__set_uncompressed_page_size(uncompressed_size);
-  page_header.__set_compressed_page_size(compressed_data->size());
+  page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+  page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
   page_header.__set_dictionary_page_header(dict_page_header);
   // TODO(PARQUET-594) crc checksum
 
@@ -260,12 +260,12 @@ FileSerializer::~FileSerializer() {
 
 void FileSerializer::WriteMetaData() {
   // Write MetaData
-  uint32_t metadata_len = sink_->Tell();
+  uint32_t metadata_len = static_cast<uint32_t>(sink_->Tell());
 
   // Get a FileMetaData
   auto metadata = metadata_->Finish();
   metadata->WriteTo(sink_.get());
-  metadata_len = sink_->Tell() - metadata_len;
+  metadata_len = static_cast<uint32_t>(sink_->Tell()) - metadata_len;
 
   // Write Footer
   sink_->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
