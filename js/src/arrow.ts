@@ -165,18 +165,18 @@ export function getFileReader(buf): ArrowReader {
     for (i = 0; i < footer.dictionariesLength(); i++) {
         block = footer.dictionaries(i);
         dictionaryBatchBlocks.push({
-            offset: block.offset().low,
-            metaDataLength: block.metaDataLength(),
             bodyLength: block.bodyLength().low,
+            metaDataLength: block.metaDataLength(),
+            offset: block.offset().low,
         });
     }
 
     for (i = 0; i < footer.recordBatchesLength(); i++) {
         block = footer.recordBatches(i);
         recordBatchBlocks.push({
-            offset: block.offset().low,
-            metaDataLength: block.metaDataLength(),
             bodyLength: block.bodyLength().low,
+            metaDataLength: block.metaDataLength(),
+            offset: block.offset().low,
         });
     }
 
@@ -271,8 +271,8 @@ function _loadRecordBatch(bb, batch) {
     for (i = 0; i < buffersLength; i += 1) {
         buffer = data.buffers(i);
         buffers[i] = {
-            offset: bb.position() + buffer.offset().low,
             length: buffer.length().low,
+            offset: bb.position() + buffer.offset().low,
         };
     }
     // position the buffer after the body to read the next message
@@ -297,18 +297,20 @@ function _loadDictionaryBatch(bb, batch) {
     for (i = 0; i < buffersLength; i += 1) {
         buffer = data.buffers(i);
         buffers[i] = {
-            offset: bb.position() + buffer.offset().low,
             length: buffer.length().low,
+            offset: bb.position() + buffer.offset().low,
         };
     }
     // position the buffer after the body to read the next message
     bb.setPosition(bb.position() + batch.length);
 
-    return {id,
-            nodes,
-            buffers,
-            length: data.length().low,
-            type: MessageHeader.DictionaryBatch };
+    return {
+        buffers,
+        id,
+        length: data.length().low,
+        nodes,
+        type: MessageHeader.DictionaryBatch,
+    };
 }
 
 function _loadMessage(bb) {
@@ -456,11 +458,11 @@ function parseField(field) {
     }
 
     return {
+      children,
+      layout: layouts,
       name: field.name(),
       nullable: field.nullable(),
       type: TYPEMAP[field.typeType()],
-      children,
-      layout: layouts,
     };
 }
 
