@@ -290,7 +290,7 @@ if (PYARROW_BUILD_PARQUET)
   ## Parquet
   find_package(Parquet)
 
-  if(NOT (PARQUET_FOUND AND PARQUET_ARROW_FOUND))
+  if(NOT PARQUET_FOUND)
     message(FATAL_ERROR "Unable to locate Parquet libraries")
   endif()
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
@@ -298,13 +298,9 @@ if (PYARROW_BUILD_PARQUET)
   if (PYARROW_BUNDLE_ARROW_CPP)
       get_filename_component(PARQUET_LIBRARY_DIR ${PARQUET_SHARED_LIB} DIRECTORY)
       get_filename_component(PARQUET_LIBRARY_NAME ${PARQUET_SHARED_LIB} NAME_WE)
-      get_filename_component(PARQUET_ARROW_LIBRARY_NAME ${PARQUET_ARROW_SHARED_LIB} NAME_WE)
       message(STATUS "Configure start")
       configure_file(${PARQUET_SHARED_LIB}
           ${BUILD_OUTPUT_ROOT_DIRECTORY}/${PARQUET_LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-          COPYONLY)
-      configure_file(${PARQUET_ARROW_SHARED_LIB}
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/${PARQUET_ARROW_LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
           COPYONLY)
       if (APPLE)
           configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
@@ -313,12 +309,6 @@ if (PYARROW_BUILD_PARQUET)
           configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
               ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
               COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet_arrow.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet_arrow.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              COPYONLY)
       elseif (NOT MSVC)
           configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
               ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
@@ -326,34 +316,21 @@ if (PYARROW_BUILD_PARQUET)
           configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
               ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
               COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
-              COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
-              COPYONLY)
       endif()
       message(STATUS "Configure end")
       #SET(PARQUET_SHARED_LIB
       #    ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX})
-      #SET(PARQUET_ARROW_SHARED_LIB
-      #    ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
   if (MSVC)
     ADD_THIRDPARTY_LIB(parquet
       SHARED_LIB ${PARQUET_SHARED_IMP_LIB})
-    ADD_THIRDPARTY_LIB(parquet_arrow
-      SHARED_LIB ${PARQUET_ARROW_SHARED_IMP_LIB})
   else()
     ADD_THIRDPARTY_LIB(parquet
       SHARED_LIB ${PARQUET_SHARED_LIB})
-    ADD_THIRDPARTY_LIB(parquet_arrow
-      SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
   endif()
   set(LINK_LIBS
     ${LINK_LIBS}
-    parquet_shared
-    parquet_arrow_shared)
+    parquet_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)
