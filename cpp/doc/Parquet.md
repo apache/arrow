@@ -24,7 +24,7 @@ export ARROW_HOME=$HOME/local
 
 git clone https://github.com/apache/parquet-cpp.git
 cd parquet-cpp
-cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME -DPARQUET_ARROW=on
+cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME
 make -j4
 make install
 ```

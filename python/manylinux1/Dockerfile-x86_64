@@ -21,5 +21,5 @@ RUN make -j5 install
 WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
 WORKDIR /parquet-cpp
-RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_ARROW=ON -DPARQUET_BOOST_USE_SHARED=OFF .
+RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BOOST_USE_SHARED=OFF .
 RUN make -j5 install
