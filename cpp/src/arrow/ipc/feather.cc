@@ -37,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace ipc {
@@ -467,16 +468,15 @@ fbs::Type ToFlatbufferType(Type::type type) {
     case Type::BINARY:
       return fbs::Type_BINARY;
     case Type::DATE32:
-      return fbs::Type_DATE;
+      return fbs::Type_INT32;
     case Type::TIMESTAMP:
-      return fbs::Type_TIMESTAMP;
+      return fbs::Type_INT64;
     case Type::TIME32:
-      return fbs::Type_TIME;
+      return fbs::Type_INT32;
     case Type::TIME64:
-      return fbs::Type_TIME;
-    case Type::DICTIONARY:
-      return fbs::Type_CATEGORY;
+      return fbs::Type_INT64;
     default:
+      DCHECK(false) << "Cannot reach this code";
       break;
   }
   // prevent compiler warning
