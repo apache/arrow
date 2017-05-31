@@ -114,14 +114,14 @@ static void BM_WriteColumn(::benchmark::State& state) {
   SetBytesProcessed<nullable, ParquetType>(state);
 }
 
-BENCHMARK_TEMPLATE(BM_WriteColumn, false, Int32Type);
-BENCHMARK_TEMPLATE(BM_WriteColumn, true, Int32Type);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, false, Int32Type);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, true, Int32Type);
 
-BENCHMARK_TEMPLATE(BM_WriteColumn, false, Int64Type);
-BENCHMARK_TEMPLATE(BM_WriteColumn, true, Int64Type);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, false, Int64Type);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, true, Int64Type);
 
-BENCHMARK_TEMPLATE(BM_WriteColumn, false, DoubleType);
-BENCHMARK_TEMPLATE(BM_WriteColumn, true, DoubleType);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, false, DoubleType);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 
 template <bool nullable, typename ParquetType>
 static void BM_ReadColumn(::benchmark::State& state) {
@@ -141,14 +141,14 @@ static void BM_ReadColumn(::benchmark::State& state) {
   SetBytesProcessed<nullable, ParquetType>(state);
 }
 
-BENCHMARK_TEMPLATE(BM_ReadColumn, false, Int32Type);
-BENCHMARK_TEMPLATE(BM_ReadColumn, true, Int32Type);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int32Type);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int32Type);
 
-BENCHMARK_TEMPLATE(BM_ReadColumn, false, Int64Type);
-BENCHMARK_TEMPLATE(BM_ReadColumn, true, Int64Type);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int64Type);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int64Type);
 
-BENCHMARK_TEMPLATE(BM_ReadColumn, false, DoubleType);
-BENCHMARK_TEMPLATE(BM_ReadColumn, true, DoubleType);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, DoubleType);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, DoubleType);
 
 }  // namespace benchmark
 

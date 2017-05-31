@@ -39,6 +39,11 @@ if (PARQUET_BUILD_BENCHMARKS)
     target_link_libraries(parquet_benchmark_main
       gbenchmark
     )
+  elseif(WIN32)
+    target_link_libraries(parquet_benchmark_main
+      gbenchmark
+      shlwapi.lib # workaround for bug(?) in gbenchmark: unresolved external symbol __imp_SHGetValueA
+    )
   else()
     target_link_libraries(parquet_benchmark_main
       gbenchmark
