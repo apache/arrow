@@ -41,11 +41,7 @@ if (MSVC)
     PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
     PATH_SUFFIXES "bin" )
 
-  find_library(PARQUET_ARROW_SHARED_LIBRARIES NAMES parquet_arrow
-    PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
-    PATH_SUFFIXES "bin" )
   get_filename_component(PARQUET_SHARED_LIBS ${PARQUET_SHARED_LIBRARIES} PATH )
-  get_filename_component(PARQUET_ARROW_SHARED_LIBS ${PARQUET_ARROW_SHARED_LIBRARIES} PATH )
 endif ()
 
 if(PARQUET_HOME)
@@ -63,9 +59,6 @@ if(PARQUET_HOME)
     find_library(PARQUET_LIBRARIES NAMES parquet
         PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
         PATH_SUFFIXES "lib")
-    find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
-        PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
-        PATH_SUFFIXES "lib")
     get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
 else()
     pkg_check_modules(PARQUET parquet)
@@ -80,13 +73,9 @@ else()
         message(STATUS "Searching for parquet libs in: ${PARQUET_SEARCH_LIB_PATH}")
         find_library(PARQUET_LIBRARIES NAMES parquet
             PATHS ${PARQUET_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
-        find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow
-            PATHS ${PARQUET_SEARCH_LIB_PATH} NO_DEFAULT_PATH)
-        message(STATUS "${PARQUET_ARROW_LIBRARIES}")
     else()
         find_path(PARQUET_INCLUDE_DIR NAMES parquet/api/reader.h )
         find_library(PARQUET_LIBRARIES NAMES parquet)
-        find_library(PARQUET_ARROW_LIBRARIES NAMES parquet_arrow)
         get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
     endif()
 endif()
@@ -106,28 +95,9 @@ else ()
   set(PARQUET_FOUND FALSE)
 endif ()
 
-if (PARQUET_INCLUDE_DIR AND PARQUET_ARROW_LIBRARIES)
-  set(PARQUET_ARROW_FOUND TRUE)
-  get_filename_component(PARQUET_ARROW_LIBS ${PARQUET_ARROW_LIBRARIES} PATH)
-  set(PARQUET_ARROW_LIB_NAME parquet_arrow)
-  if (MSVC)
-    set(PARQUET_ARROW_STATIC_LIB "${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}${PARQUET_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(PARQUET_ARROW_SHARED_LIB "${PARQUET_ARROW_SHARED_LIBS}/${PARQUET_ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(PARQUET_ARROW_SHARED_IMP_LIB "${PARQUET_ARROW_LIBS}/${PARQUET_ARROW_LIB_NAME}.lib")
-  else()
-    set(PARQUET_ARROW_STATIC_LIB
-      ${PARQUET_ARROW_LIBS}/${CMAKE_STATIC_LIBRARY_PREFIX}${PARQUET_ARROW_LIB_NAME}.a)
-    set(PARQUET_ARROW_SHARED_LIB
-      ${PARQUET_ARROW_LIBS}/${CMAKE_SHARED_LIBRARY_PREFIX}${PARQUET_ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
-  endif()
-else ()
-  set(PARQUET_ARROW_FOUND FALSE)
-endif ()
-
-if (PARQUET_FOUND AND PARQUET_ARROW_FOUND)
+if (PARQUET_FOUND)
   if (NOT Parquet_FIND_QUIETLY)
     message(STATUS "Found the Parquet library: ${PARQUET_LIBRARIES}")
-    message(STATUS "Found the Parquet Arrow library: ${PARQUET_ARROW_LIBS}")
   endif ()
 else ()
   if (NOT Parquet_FIND_QUIETLY)
@@ -135,9 +105,6 @@ else ()
       set(PARQUET_ERR_MSG "${PARQUET_ERR_MSG} Could not find the parquet library.")
     endif()
 
-    if (NOT PARQUET_ARROW_FOUND)
-      set(PARQUET_ERR_MSG "${PARQUET_ERR_MSG} Could not find the parquet_arrow library. Did you build with -DPARQUET_ARROW=on?")
-    endif()
     set(PARQUET_ERR_MSG "${PARQUET_ERR_MSG} Looked in ")
     if ( _parquet_roots )
       set(PARQUET_ERR_MSG "${PARQUET_ERR_MSG} in ${_parquet_roots}.")
@@ -159,9 +126,4 @@ mark_as_advanced(
   PARQUET_LIBRARIES
   PARQUET_STATIC_LIB
   PARQUET_SHARED_LIB
-
-  PARQUET_ARROW_FOUND
-  PARQUET_ARROW_LIBS
-  PARQUET_ARROW_STATIC_LIB
-  PARQUET_ARROW_SHARED_LIB
 )

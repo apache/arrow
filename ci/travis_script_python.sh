@@ -49,7 +49,6 @@ build_parquet_cpp() {
   cmake \
       -DCMAKE_BUILD_TYPE=debug \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_ARROW=on \
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_ZLIB_VENDORED=off \

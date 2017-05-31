@@ -248,7 +248,6 @@ class build_ext(_build_ext):
                 move_lib("arrow_jemalloc")
             if self.with_parquet:
                 move_lib("parquet")
-                move_lib("parquet_arrow")
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
