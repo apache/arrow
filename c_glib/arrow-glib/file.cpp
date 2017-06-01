@@ -76,7 +76,7 @@ garrow_file_tell(GArrowFile *file,
 {
   auto arrow_file = garrow_file_get_raw(file);
 
-  gint64 position;
+  int64_t position;
   auto status = arrow_file->Tell(&position);
   if (garrow_error_check(error, status, "[io][file][tell]")) {
     return position;
