@@ -32,6 +32,8 @@ Table of Contents
 
  * Instructions on how to build Arrow C++ on [Windows](Windows.md)
  * How to access [HDFS](HDFS.md)
+ * Tutorials
+   * [Convert a vector of row-wise data into an Arrow table](tutorials/row_wise_conversion.md)
 
 Getting Started
 ---------------
