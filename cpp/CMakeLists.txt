@@ -945,6 +945,7 @@ if(FLATBUFFERS_VENDORED)
   set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
 endif()
 
+add_subdirectory(src/plasma)
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 if (ARROW_IPC)

@@ -1,7 +1,6 @@
 #include "plasma_common.h"
 #include "plasma.h"
 
-#include "io.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>

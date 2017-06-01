@@ -9,10 +9,6 @@
 #include <string.h>
 #include <unistd.h> /* pid_t */
 
-extern "C" {
-#include "sha256.h"
-}
-
 #include <unordered_map>
 #include <unordered_set>
 
@@ -42,7 +38,7 @@ extern "C" {
 #define BLOCK_SIZE 64
 
 // Size of object hash digests.
-constexpr int64_t kDigestSize = SHA256_BLOCK_SIZE;
+constexpr int64_t kDigestSize = sizeof(uint64_t);
 
 struct Client;
 

@@ -30,6 +30,7 @@ namespace arrow {
 
 // Log levels. LOG ignores them, so their values are abitrary.
 
+#define ARROW_DEBUG (-1)
 #define ARROW_INFO 0
 #define ARROW_WARNING 1
 #define ARROW_ERROR 2

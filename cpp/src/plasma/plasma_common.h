@@ -9,8 +9,8 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#include "logging.h"
-#include "status.h"
+#include "arrow/util/logging.h"
+#include "arrow/status.h"
 
 constexpr int64_t kUniqueIDSize = 20;
 

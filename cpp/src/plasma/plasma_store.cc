@@ -31,12 +31,12 @@
 
 #include "plasma_common.h"
 #include "plasma_store.h"
-#include "format/common_generated.h"
 #include "plasma_io.h"
+#include "format/common_generated.h"
+#include "fling.h"
 #include "malloc.h"
 
 extern "C" {
-#include "fling.h"
 void *dlmalloc(size_t);
 void *dlmemalign(size_t alignment, size_t bytes);
 void dlfree(void *);

@@ -26,15 +26,12 @@
 #include <vector>
 #include <thread>
 
-extern "C" {
-#include "sha256.h"
 #include "fling.h"
 
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
-}
 
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
