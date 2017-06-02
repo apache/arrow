@@ -481,7 +481,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       }
     }
 
-    <#if minor.class == "Interval" || minor.class == "IntervalDay">
+    <#if minor.class == "IntervalYear" || minor.class == "IntervalDay">
     public StringBuilder getAsStringBuilder(int index) {
       if (isNull(index)) {
           return null;
