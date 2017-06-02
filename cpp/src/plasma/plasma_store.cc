@@ -43,9 +43,9 @@ void dlfree(void *);
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 }
 
-struct GetRequest {
+class GetRequest {
+ public:
   GetRequest(Client *client, const std::vector<ObjectID> &object_ids);
-
   /// The client that called get.
   Client *client;
   /// The ID of the timer that will time out and cause this wait to return to

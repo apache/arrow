@@ -694,6 +694,7 @@ if (ARROW_IPC)
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
+      "-DCMAKE_CXX_FLAGS=-fPIC"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF")
 

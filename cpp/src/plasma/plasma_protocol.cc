@@ -5,6 +5,8 @@
 #include "plasma_protocol.h"
 #include "plasma_io.h"
 
+using flatbuffers::uoffset_t;
+
 flatbuffers::Offset<
     flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
 to_flatbuffer(flatbuffers::FlatBufferBuilder &fbb,
@@ -207,7 +209,7 @@ Status ReadStatusRequest(uint8_t *data,
                          int64_t num_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaStatusRequest>(data);
-  for (int64_t i = 0; i < num_objects; ++i) {
+  for (uoffset_t i = 0; i < num_objects; ++i) {
     object_ids[i] = ObjectID::from_binary(message->object_ids()->Get(i)->str());
   }
   return Status::OK();
@@ -238,10 +240,10 @@ Status ReadStatusReply(uint8_t *data,
                        int64_t num_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaStatusReply>(data);
-  for (int64_t i = 0; i < num_objects; ++i) {
+  for (uoffset_t i = 0; i < num_objects; ++i) {
     object_ids[i] = ObjectID::from_binary(message->object_ids()->Get(i)->str());
   }
-  for (int64_t i = 0; i < num_objects; ++i) {
+  for (uoffset_t i = 0; i < num_objects; ++i) {
     object_status[i] = message->status()->data()[i];
   }
   return Status::OK();
@@ -362,7 +364,7 @@ Status ReadGetRequest(uint8_t *data,
                       int64_t *timeout_ms) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaGetRequest>(data);
-  for (int64_t i = 0; i < message->object_ids()->size(); ++i) {
+  for (uoffset_t i = 0; i < message->object_ids()->size(); ++i) {
     auto object_id = message->object_ids()->Get(i)->str();
     object_ids.push_back(ObjectID::from_binary(object_id));
   }
@@ -398,10 +400,10 @@ Status ReadGetReply(uint8_t *data,
                     int64_t num_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaGetReply>(data);
-  for (int64_t i = 0; i < num_objects; ++i) {
+  for (uoffset_t i = 0; i < num_objects; ++i) {
     object_ids[i] = ObjectID::from_binary(message->object_ids()->Get(i)->str());
   }
-  for (int64_t i = 0; i < num_objects; ++i) {
+  for (uoffset_t i = 0; i < num_objects; ++i) {
     const PlasmaObjectSpec *object = message->plasma_objects()->Get(i);
     plasma_objects[i].handle.store_fd = object->segment_index();
     plasma_objects[i].handle.mmap_size = object->mmap_size();
@@ -427,7 +429,7 @@ Status SendFetchRequest(int sock, ObjectID object_ids[], int64_t num_objects) {
 Status ReadFetchRequest(uint8_t *data, std::vector<ObjectID> &object_ids) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaFetchRequest>(data);
-  for (int64_t i = 0; i < message->object_ids()->size(); ++i) {
+  for (uoffset_t i = 0; i < message->object_ids()->size(); ++i) {
     object_ids.push_back(
         ObjectID::from_binary(message->object_ids()->Get(i)->str()));
   }
@@ -467,7 +469,7 @@ Status ReadWaitRequest(uint8_t *data,
   *num_ready_objects = message->num_ready_objects();
   *timeout_ms = message->timeout();
 
-  for (size_t i = 0; i < message->object_requests()->size(); i++) {
+  for (uoffset_t i = 0; i < message->object_requests()->size(); i++) {
     ObjectID object_id = ObjectID::from_binary(
         message->object_requests()->Get(i)->object_id()->str());
     ObjectRequest object_request({object_id,

@@ -11,7 +11,7 @@ UniqueID UniqueID::from_random() {
   uint8_t *data = id.mutable_data();
   std::random_device engine;
   for (int i = 0; i < kUniqueIDSize; i++) {
-    data[i] = engine();
+    data[i] = static_cast<uint8_t>(engine());
   }
   return id;
 }

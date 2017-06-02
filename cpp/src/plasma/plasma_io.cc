@@ -152,7 +152,7 @@ int connect_ipc_sock_retry(const std::string &pathname,
                        << pathname;
     }
     /* Sleep for timeout milliseconds. */
-    usleep(timeout * 1000);
+    usleep(static_cast<int>(timeout * 1000));
   }
   /* If we could not connect to the socket, exit. */
   if (fd == -1) {

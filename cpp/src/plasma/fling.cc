@@ -32,7 +32,12 @@ int send_fd(int conn, int fd) {
   *(int *) CMSG_DATA(header) = fd;
 
   /* Send file descriptor. */
-  return sendmsg(conn, &msg, 0);
+  ssize_t r = sendmsg(conn, &msg, 0);
+  if (r >= 0) {
+    return 0;
+  } else {
+    return static_cast<int>(r);
+  }
 }
 
 int recv_fd(int conn) {
@@ -49,7 +54,7 @@ int recv_fd(int conn) {
   for (struct cmsghdr *header = CMSG_FIRSTHDR(&msg); header != NULL;
        header = CMSG_NXTHDR(&msg, header))
     if (header->cmsg_level == SOL_SOCKET && header->cmsg_type == SCM_RIGHTS) {
-      int count =
+      ssize_t count =
           (header->cmsg_len - (CMSG_DATA(header) - (unsigned char *) header)) /
           sizeof(int);
       for (int i = 0; i < count; ++i) {

@@ -92,8 +92,6 @@ add_dependencies(plasma_store gen_plasma_fbs)
 
 target_link_libraries(plasma_store plasma_lib ${FLATBUFFERS_STATIC_LIB})
 
-add_dependencies(plasma protocol_fbs)
-
 add_library(plasma_client SHARED plasma_client.cc)
 target_link_libraries(plasma_client ${FLATBUFFERS_STATIC_LIB})
 
