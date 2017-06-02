@@ -248,8 +248,8 @@ void PlasmaStore::return_from_get(GetRequest *get_req) {
 void PlasmaStore::update_object_get_requests(ObjectID object_id) {
   std::vector<GetRequest *> &get_requests = object_get_requests_[object_id];
   size_t index = 0;
-  int num_requests = get_requests.size();
-  for (int i = 0; i < num_requests; ++i) {
+  size_t num_requests = get_requests.size();
+  for (size_t i = 0; i < num_requests; ++i) {
     GetRequest *get_req = get_requests[index];
     auto entry = get_object_table_entry(&store_info_, object_id);
     ARROW_CHECK(entry != NULL);
@@ -445,9 +445,9 @@ void PlasmaStore::send_notifications(int client_fd) {
     int64_t size = *((int64_t *) notification);
 
     // Attempt to send a notification about this object ID.
-    int nbytes = send(client_fd, notification, sizeof(int64_t) + size, 0);
+    ssize_t nbytes = send(client_fd, notification, sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {
-      ARROW_CHECK(nbytes == static_cast<int64_t>(sizeof(int64_t)) + size);
+      ARROW_CHECK(nbytes == static_cast<ssize_t>(sizeof(int64_t)) + size);
     } else if (nbytes == -1 &&
                (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
       ARROW_LOG(DEBUG)
