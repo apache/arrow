@@ -186,7 +186,7 @@ endif()
 include(san-config)
 
 # For any C code, use the same flags.
-set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+# set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
