@@ -268,6 +268,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       listener.onAllocation(actualRequestSize);
       return buffer;
     } catch (OutOfMemoryError e) {
+      /*
+       * OutOfDirectMemoryError is thrown by Netty when we exceed the direct memory limit defined by -XX:MaxDirectMemorySize.
+       * OutOfMemoryError with "Direct buffer memory" message is thrown by java.nio.Bits when we exceed the direct memory limit.
+       *   This should never be hit in practice as Netty is expected to throw an OutOfDirectMemoryError first.
+       */
       if (e instanceof OutOfDirectMemoryError || "Direct buffer memory".equals(e.getMessage())) {
         throw new OutOfMemoryException(e);
       }
