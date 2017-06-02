@@ -268,7 +268,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       listener.onAllocation(actualRequestSize);
       return buffer;
     } catch (OutOfMemoryError e) {
-      if (e instanceof OutOfDirectMemoryError || "Direct memory buffer".equals(e.getMessage())) {
+      if (e instanceof OutOfDirectMemoryError || "Direct buffer memory".equals(e.getMessage())) {
         throw new OutOfMemoryException(e);
       }
       throw e;
