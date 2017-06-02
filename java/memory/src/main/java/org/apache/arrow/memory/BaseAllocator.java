@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.UnsafeDirectLittleEndian;
+import io.netty.util.internal.OutOfDirectMemoryError;
 
 import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
@@ -266,7 +267,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       success = true;
       listener.onAllocation(actualRequestSize);
       return buffer;
-    } finally {
+    } catch (OutOfMemoryError e) {
+      if (e instanceof OutOfDirectMemoryError || "Direct memory buffer".equals(e.getMessage())) {
+        throw new OutOfMemoryException(e);
+      }
+      throw e;
+    }
+    finally {
       if (!success) {
         releaseBytes(actualRequestSize);
       }
