@@ -1,6 +1,10 @@
 #ifndef PLASMA_EXTENSION_H
 #define PLASMA_EXTENSION_H
 
+#undef _XOPEN_SOURCE
+#include <Python.h>
+#include "bytesobject.h"
+
 static int PyObjectToPlasmaClient(PyObject *object, PlasmaClient **client) {
   if (PyCapsule_IsValid(object, "plasma")) {
     *client = (PlasmaClient *) PyCapsule_GetPointer(object, "plasma");

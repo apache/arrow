@@ -84,7 +84,7 @@ PlasmaStore::PlasmaStore(EventLoop *loop, int64_t system_memory)
 PlasmaStore::~PlasmaStore() {
   for (const auto &element : pending_notifications_) {
     auto object_notifications = element.second.object_notifications;
-    for (int i = 0; i < object_notifications.size(); ++i) {
+    for (size_t i = 0; i < object_notifications.size(); ++i) {
       uint8_t *notification = (uint8_t *) object_notifications.at(i);
       uint8_t *data = notification;
       free(data);
@@ -247,7 +247,7 @@ void PlasmaStore::return_from_get(GetRequest *get_req) {
 
 void PlasmaStore::update_object_get_requests(ObjectID object_id) {
   std::vector<GetRequest *> &get_requests = object_get_requests_[object_id];
-  int index = 0;
+  size_t index = 0;
   int num_requests = get_requests.size();
   for (int i = 0; i < num_requests; ++i) {
     GetRequest *get_req = get_requests[index];
@@ -278,7 +278,7 @@ void PlasmaStore::update_object_get_requests(ObjectID object_id) {
 
 void PlasmaStore::process_get_request(Client *client,
                                       const std::vector<ObjectID> &object_ids,
-                                      uint64_t timeout_ms) {
+                                      int64_t timeout_ms) {
   // Create a get request for this object.
   GetRequest *get_req = new GetRequest(client, object_ids);
 
@@ -439,7 +439,7 @@ void PlasmaStore::send_notifications(int client_fd) {
   bool closed = false;
   // Loop over the array of pending notifications and send as many of them as
   // possible.
-  for (int i = 0; i < it->second.object_notifications.size(); ++i) {
+  for (size_t i = 0; i < it->second.object_notifications.size(); ++i) {
     uint8_t *notification = (uint8_t *) it->second.object_notifications.at(i);
     // Decode the length, which is the first bytes of the message.
     int64_t size = *((int64_t *) notification);
@@ -447,7 +447,7 @@ void PlasmaStore::send_notifications(int client_fd) {
     // Attempt to send a notification about this object ID.
     int nbytes = send(client_fd, notification, sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {
-      ARROW_CHECK(nbytes == sizeof(int64_t) + size);
+      ARROW_CHECK(nbytes == static_cast<int64_t>(sizeof(int64_t)) + size);
     } else if (nbytes == -1 &&
                (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
       ARROW_LOG(DEBUG)
@@ -519,7 +519,8 @@ void PlasmaStore::subscribe_to_updates(Client *client) {
   // Create a new array to buffer notifications that can't be sent to the
   // subscriber yet because the socket send buffer is full. TODO(rkn): the queue
   // never gets freed.
-  NotificationQueue &queue = pending_notifications_[fd];
+  // TODO(pcm): Is the following neccessary?
+  pending_notifications_[fd];
 
   // Push notifications to the new subscriber about existing objects.
   for (const auto &entry : store_info_.objects) {

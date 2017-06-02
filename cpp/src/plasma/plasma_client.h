@@ -32,7 +32,7 @@ struct PlasmaClientConfig {
   /// Number of release calls we wait until the object is actually released.
   /// This allows us to avoid invalidating the cpu cache on workers if objects
   /// are reused accross tasks.
-  int release_delay;
+  size_t release_delay;
 };
 
 struct ClientMmapTableEntry;

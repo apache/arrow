@@ -117,10 +117,10 @@ class EvictionPolicy {
                                   std::vector<ObjectID> &objects_to_evict);
 
  private:
-  /** Pointer to the plasma store info. */
-  PlasmaStoreInfo *store_info_;
   /** The amount of memory (in bytes) currently being used. */
   int64_t memory_used_;
+  /** Pointer to the plasma store info. */
+  PlasmaStoreInfo *store_info_;
   /** Datastructure for the LRU cache. */
   LRUCache cache_;
 };

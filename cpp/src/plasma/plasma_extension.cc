@@ -1,15 +1,12 @@
-#include <Python.h>
-#include "bytesobject.h"
-
 #include "plasma_io.h"
 #include "plasma_common.h"
 #include "plasma_protocol.h"
 #include "plasma_client.h"
 
+#include "plasma_extension.h"
+
 PyObject *PlasmaOutOfMemoryError;
 PyObject *PlasmaObjectExistsError;
-
-#include "plasma_extension.h"
 
 PyObject *PyPlasma_connect(PyObject *self, PyObject *args) {
   const char *store_socket_name;

@@ -37,7 +37,7 @@ std::string UniqueID::binary() const {
 std::string UniqueID::hex() const {
   constexpr char hex[] = "0123456789abcdef";
   std::string result;
-  for (int i = 0; i < sizeof(UniqueID); i++) {
+  for (int i = 0; i < kUniqueIDSize; i++) {
     unsigned int val = id_[i];
     result.push_back(hex[val >> 4]);
     result.push_back(hex[val & 0xf]);
@@ -64,4 +64,5 @@ Status plasma_error_status(int plasma_error) {
   default:
     ARROW_LOG(FATAL) << "unknown plasma error code " << plasma_error;
   }
+  return Status::OK();
 }

@@ -70,7 +70,7 @@ class PlasmaStore {
   /// @return Void.
   void process_get_request(Client *client,
                            const std::vector<ObjectID> &object_ids,
-                           uint64_t timeout_ms);
+                           int64_t timeout_ms);
 
   /// Seal an object. The object is now immutable and can be accessed with get.
   ///

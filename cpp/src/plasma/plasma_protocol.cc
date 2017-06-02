@@ -11,7 +11,7 @@ to_flatbuffer(flatbuffers::FlatBufferBuilder &fbb,
               ObjectID object_ids[],
               int64_t num_objects) {
   std::vector<flatbuffers::Offset<flatbuffers::String>> results;
-  for (size_t i = 0; i < num_objects; i++) {
+  for (int64_t i = 0; i < num_objects; i++) {
     results.push_back(fbb.CreateString(object_ids[i].binary()));
   }
   return fbb.CreateVector(results);
@@ -467,7 +467,7 @@ Status ReadWaitRequest(uint8_t *data,
   *num_ready_objects = message->num_ready_objects();
   *timeout_ms = message->timeout();
 
-  for (int i = 0; i < message->object_requests()->size(); i++) {
+  for (size_t i = 0; i < message->object_requests()->size(); i++) {
     ObjectID object_id = ObjectID::from_binary(
         message->object_requests()->Get(i)->object_id()->str());
     ObjectRequest object_request({object_id,
