@@ -19,28 +19,38 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew install gtk-doc autoconf-archive gobject-introspection
+  brew upgrade git cmake wget libtool
+
+  export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
 fi
 
-gem install gobject-introspection
+gem install test-unit gobject-introspection
 
-git clone \
-  --quiet \
-  --depth 1 \
-  --recursive \
-  https://github.com/torch/distro.git ~/torch
-pushd ~/torch
-./install-deps > /dev/null
-echo "yes" | ./install.sh > /dev/null
-. ~/torch/install/bin/torch-activate
-popd
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  brew install lua
+else
+  git clone \
+    --quiet \
+    --depth 1 \
+    --recursive \
+    https://github.com/torch/distro.git ~/torch
+  pushd ~/torch
+  ./install-deps > /dev/null
+  echo "yes" | ./install.sh > /dev/null
+  . ~/torch/install/bin/torch-activate
+  popd
+fi
 luarocks install lgi
 
 go get github.com/linuxdeepin/go-gir-generator || :
 pushd $GOPATH/src/github.com/linuxdeepin/go-gir-generator
+mv Makefile{,.orig}
+sed -e 's/ gudev-1.0//' Makefile.orig > Makefile
+mkdir -p out/src/gir/gudev-1.0
 make build copyfile
 mkdir -p $GOPATH/bin/
 cp -a out/gir-generator $GOPATH/bin/
-cp -a out/src/gir/ $GOPATH/src/
+cp -a out/src/gir/ $GOPATH/src/gir/
 popd
 
 pushd $ARROW_C_GLIB_DIR
@@ -50,7 +60,11 @@ pushd $ARROW_C_GLIB_DIR
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
-./configure --prefix=${ARROW_C_GLIB_INSTALL} --enable-gtk-doc
+CONFIGURE_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
+if [ $TRAVIS_OS_NAME != "osx" ]; then
+  CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
+fi
+./configure $CONFIGURE_OPTIONS
 
 make -j4
 make install
