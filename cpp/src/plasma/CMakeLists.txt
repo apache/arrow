@@ -78,6 +78,8 @@ add_library(plasma_lib STATIC
 target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} -lpthread)
 add_dependencies(plasma_lib gen_plasma_fbs)
 
+set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion")
+
 add_executable(plasma_store
   plasma_store.cc
   thirdparty/ae/ae.c
