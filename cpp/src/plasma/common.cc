@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "plasma_common.h"
+#include "plasma/common.h"
 
 #include <random>
 

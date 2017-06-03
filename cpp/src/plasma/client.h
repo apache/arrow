@@ -22,8 +22,9 @@
 #include <time.h>
 
 #include <deque>
+#include <string>
 
-#include "plasma.h"
+#include "plasma/plasma.h"
 
 using arrow::Status;
 

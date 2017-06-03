@@ -25,7 +25,7 @@ if(APPLE)
   SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(APPLE)
 
-include_directories("${PYTHON_INCLUDE_DIRS}" thirdparty)
+include_directories("${PYTHON_INCLUDE_DIRS}" thirdparty ..)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L -march=native -mtune=native -O3")
 
@@ -62,9 +62,9 @@ include_directories("${CMAKE_CURRENT_LIST_DIR}/../")
 
 add_library(plasma SHARED
   plasma.cc
-  plasma_extension.cc
-  plasma_protocol.cc
-  plasma_client.cc
+  extension.cc
+  protocol.cc
+  client.cc
   thirdparty/xxhash.cc
   fling.cc)
 
@@ -83,11 +83,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 set_source_files_properties(thirdparty/dlmalloc.c PROPERTIES COMPILE_FLAGS -Wno-all)
 
 add_library(plasma_lib STATIC
-  plasma_client.cc
+  client.cc
   plasma.cc
-  plasma_common.cc
-  plasma_io.cc
-  plasma_protocol.cc
+  common.cc
+  io.cc
+  protocol.cc
   ../arrow/status.cc
   fling.cc
   thirdparty/xxhash.cc)
@@ -98,11 +98,11 @@ add_dependencies(plasma_lib gen_plasma_fbs)
 set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion")
 
 add_executable(plasma_store
-  plasma_store.cc
+  store.cc
   thirdparty/ae/ae.c
   plasma.cc
-  plasma_events.cc
-  plasma_protocol.cc
+  events.cc
+  protocol.cc
   eviction_policy.cc
   fling.cc
   malloc.cc)
@@ -111,7 +111,7 @@ add_dependencies(plasma_store gen_plasma_fbs)
 
 target_link_libraries(plasma_store plasma_lib ${FLATBUFFERS_STATIC_LIB})
 
-add_library(plasma_client SHARED plasma_client.cc)
+add_library(plasma_client SHARED client.cc)
 target_link_libraries(plasma_client ${FLATBUFFERS_STATIC_LIB})
 
 target_link_libraries(plasma_client plasma_lib ${FLATBUFFERS_STATIC_LIB})

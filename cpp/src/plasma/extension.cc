@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "plasma_io.h"
-#include "plasma_common.h"
-#include "plasma_protocol.h"
-#include "plasma_client.h"
+#include "plasma/io.h"
+#include "plasma/common.h"
+#include "plasma/protocol.h"
+#include "plasma/client.h"
 
-#include "plasma_extension.h"
+#include "plasma/extension.h"
 
 PyObject *PlasmaOutOfMemoryError;
 PyObject *PlasmaObjectExistsError;

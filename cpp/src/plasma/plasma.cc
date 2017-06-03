@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "plasma_common.h"
-#include "plasma.h"
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "plasma_protocol.h"
+#include "plasma/common.h"
+#include "plasma/plasma.h"
+#include "plasma/protocol.h"
 
 int warn_if_sigpipe(int status, int client_sock) {
   if (status >= 0) {

@@ -20,7 +20,9 @@
 
 #include "arrow/status.h"
 #include "format/plasma_generated.h"
-#include "plasma.h"
+#include "plasma/plasma.h"
+
+#include <vector>
 
 using arrow::Status;
 

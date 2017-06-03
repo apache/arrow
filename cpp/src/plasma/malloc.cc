@@ -25,7 +25,7 @@
 
 #include <unordered_map>
 
-#include "plasma_common.h"
+#include "plasma/common.h"
 
 extern "C" {
 void *fake_mmap(size_t);

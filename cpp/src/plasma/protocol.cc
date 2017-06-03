@@ -18,9 +18,9 @@
 #include "flatbuffers/flatbuffers.h"
 #include "format/plasma_generated.h"
 
-#include "plasma_common.h"
-#include "plasma_protocol.h"
-#include "plasma_io.h"
+#include "plasma/common.h"
+#include "plasma/protocol.h"
+#include "plasma/io.h"
 
 using flatbuffers::uoffset_t;
 

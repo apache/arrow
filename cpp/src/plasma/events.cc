@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "plasma_events.h"
+#include "plasma/events.h"
 
 #include <errno.h>
 

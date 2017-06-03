@@ -18,11 +18,14 @@
 #ifndef PLASMA_STORE_H
 #define PLASMA_STORE_H
 
-#include "eviction_policy.h"
-#include "plasma.h"
-#include "plasma_common.h"
-#include "plasma_events.h"
-#include "plasma_protocol.h"
+#include <deque>
+#include <vector>
+
+#include "plasma/eviction_policy.h"
+#include "plasma/plasma.h"
+#include "plasma/common.h"
+#include "plasma/events.h"
+#include "plasma/protocol.h"
 
 class GetRequest;
 
@@ -34,7 +37,7 @@ struct NotificationQueue {
 
 /// Contains all information that is associated with a Plasma store client.
 struct Client {
-  Client(int fd);
+  explicit Client(int fd);
 
   /// The file descriptor used to communicate with the client.
   int fd;

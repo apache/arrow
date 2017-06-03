@@ -20,9 +20,11 @@
 
 #include <list>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "plasma_common.h"
-#include "plasma.h"
+#include "plasma/common.h"
+#include "plasma/plasma.h"
 
 /* ==== The eviction policy ====
  *
@@ -42,7 +44,7 @@ class LRUCache {
   std::unordered_map<ObjectID, ItemList::iterator, UniqueIDHasher> item_map_;
 
  public:
-  LRUCache(){};
+  LRUCache() {}
 
   void add(const ObjectID &key, int64_t size);
 
@@ -61,7 +63,7 @@ class EvictionPolicy {
    * @param store_info Information about the Plasma store that is exposed
    *        to the eviction policy.
    */
-  EvictionPolicy(PlasmaStoreInfo *store_info);
+  explicit EvictionPolicy(PlasmaStoreInfo *store_info);
 
   /**
    * This method will be called whenever an object is first created in order to

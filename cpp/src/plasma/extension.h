@@ -24,7 +24,7 @@
 
 static int PyObjectToPlasmaClient(PyObject *object, PlasmaClient **client) {
   if (PyCapsule_IsValid(object, "plasma")) {
-    *client = (PlasmaClient *) PyCapsule_GetPointer(object, "plasma");
+    *client = reinterpret_cast<PlasmaClient *>(PyCapsule_GetPointer(object, "plasma"));
     return 1;
   } else {
     PyErr_SetString(PyExc_TypeError, "must be a 'plasma' capsule");

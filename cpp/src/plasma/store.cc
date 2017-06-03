@@ -46,9 +46,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "plasma_common.h"
-#include "plasma_store.h"
-#include "plasma_io.h"
+#include "plasma/common.h"
+#include "plasma/store.h"
+#include "plasma/io.h"
 #include "format/common_generated.h"
 #include "fling.h"
 #include "malloc.h"

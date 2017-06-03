@@ -34,11 +34,11 @@
 #include <strings.h>
 #include <netinet/in.h>
 
-#include "plasma_common.h"
-#include "plasma.h"
-#include "plasma_io.h"
-#include "plasma_protocol.h"
-#include "plasma_client.h"
+#include "plasma/common.h"
+#include "plasma/plasma.h"
+#include "plasma/io.h"
+#include "plasma/protocol.h"
+#include "plasma/client.h"
 
 #include <vector>
 #include <thread>
