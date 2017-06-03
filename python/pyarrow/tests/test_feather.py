@@ -355,6 +355,7 @@ class TestFeatherReader(unittest.TestCase):
         expected = df.rename(columns=str)
         self._check_pandas_roundtrip(df, expected)
 
+    @pytest.mark.skipif(not os.path.supports_unicode_filenames, reason='unicode filenames not supported')
     def test_unicode_filename(self):
         # GH #209
         name = (b'Besa_Kavaj\xc3\xab.feather').decode('utf-8')
