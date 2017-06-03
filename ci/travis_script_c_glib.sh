@@ -27,12 +27,19 @@ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_C_GLIB_INSTALL/lib/pkgconfig
 
 pushd example/lua
-. ~/torch/install/bin/torch-activate
-luajit write-batch.lua
-luajit read-batch.lua
-luajit write-stream.lua
-luajit read-stream.lua
-luajit stream-to-torch-tensor.lua
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  lua write-batch.lua
+  lua read-batch.lua
+  lua write-stream.lua
+  lua read-stream.lua
+else
+  . ~/torch/install/bin/torch-activate
+  luajit write-batch.lua
+  luajit read-batch.lua
+  luajit write-stream.lua
+  luajit read-stream.lua
+  luajit stream-to-torch-tensor.lua
+fi
 popd
 
 pushd example/go

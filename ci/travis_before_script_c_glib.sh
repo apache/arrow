@@ -26,16 +26,20 @@ fi
 
 gem install test-unit gobject-introspection
 
-git clone \
-  --quiet \
-  --depth 1 \
-  --recursive \
-  https://github.com/torch/distro.git ~/torch
-pushd ~/torch
-./install-deps > /dev/null
-echo "yes" | ./install.sh > /dev/null
-. ~/torch/install/bin/torch-activate
-popd
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  brew install lua
+else
+  git clone \
+    --quiet \
+    --depth 1 \
+    --recursive \
+    https://github.com/torch/distro.git ~/torch
+  pushd ~/torch
+  ./install-deps > /dev/null
+  echo "yes" | ./install.sh > /dev/null
+  . ~/torch/install/bin/torch-activate
+  popd
+fi
 luarocks install lgi
 
 go get github.com/linuxdeepin/go-gir-generator || :
