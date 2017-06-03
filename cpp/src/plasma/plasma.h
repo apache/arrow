@@ -30,8 +30,8 @@
 #include <unordered_set>
 
 #include "format/common_generated.h"
-#include "logging.h"
-#include "status.h"
+#include "arrow/util/logging.h"
+#include "arrow/status.h"
 
 #include <inttypes.h>
 

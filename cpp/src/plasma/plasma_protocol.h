@@ -18,7 +18,7 @@
 #ifndef PLASMA_PROTOCOL_H
 #define PLASMA_PROTOCOL_H
 
-#include "status.h"
+#include "arrow/status.h"
 #include "format/plasma_generated.h"
 #include "plasma.h"
 
