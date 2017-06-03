@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "eviction_policy.h"
+#include "plasma/eviction_policy.h"
+
+#include <algorithm>
 
 void LRUCache::add(const ObjectID &key, int64_t size) {
   auto it = item_map_.find(key);

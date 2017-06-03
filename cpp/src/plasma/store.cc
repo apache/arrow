@@ -50,8 +50,8 @@
 #include "plasma/store.h"
 #include "plasma/io.h"
 #include "format/common_generated.h"
-#include "fling.h"
-#include "malloc.h"
+#include "plasma/fling.h"
+#include "plasma/malloc.h"
 
 extern "C" {
 void *dlmalloc(size_t);

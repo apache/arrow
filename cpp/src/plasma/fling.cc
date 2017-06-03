@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "fling.h"
+#include "plasma/fling.h"
 
 #include <string.h>
 
@@ -46,7 +46,7 @@ int send_fd(int conn, int fd) {
   header->cmsg_level = SOL_SOCKET;
   header->cmsg_type = SCM_RIGHTS;
   header->cmsg_len = CMSG_LEN(sizeof(int));
-  *(int *) CMSG_DATA(header) = fd;
+  *reinterpret_cast<int *>(CMSG_DATA(header)) = fd;
 
   /* Send file descriptor. */
   ssize_t r = sendmsg(conn, &msg, 0);
@@ -75,7 +75,7 @@ int recv_fd(int conn) {
           (header->cmsg_len - (CMSG_DATA(header) - (unsigned char *) header)) /
           sizeof(int);
       for (int i = 0; i < count; ++i) {
-        int fd = ((int *) CMSG_DATA(header))[i];
+        int fd = (reinterpret_cast<int *>(CMSG_DATA(header)))[i];
         if (found_fd == -1) {
           found_fd = fd;
         } else {

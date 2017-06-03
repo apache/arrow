@@ -40,13 +40,14 @@
 #include "plasma/protocol.h"
 #include "plasma/client.h"
 
+#include <algorithm>
 #include <vector>
 #include <thread>
 
-#include "fling.h"
+#include "plasma/fling.h"
 
 #define XXH_STATIC_LINKING_ONLY
-#include "xxhash.h"
+#include "thirdparty/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
 
@@ -91,8 +92,7 @@ uint8_t *lookup_or_mmap(PlasmaClient *conn,
     close(fd);
     return entry->second->pointer;
   } else {
-    uint8_t *result = (uint8_t *) mmap(NULL, map_size, PROT_READ | PROT_WRITE,
-                                       MAP_SHARED, fd, 0);
+    uint8_t *result = reinterpret_cast<uint8_t *>(mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     if (result == MAP_FAILED) {
       ARROW_LOG(FATAL) << "mmap failed";
     }
@@ -254,7 +254,7 @@ Status PlasmaClient::Get(ObjectID object_ids[],
     if (object_buffers[i].data_size != -1) {
       // If the object was already in use by the client, then the store should
       // have returned it.
-      DCHECK(object->data_size != -1);
+      DCHECK_NE(object->data_size, -1);
       // We won't use this file descriptor, but the store sent us one, so we
       // need to receive it and then close it right away so we don't leak file
       // descriptors.
@@ -288,7 +288,7 @@ Status PlasmaClient::Get(ObjectID object_ids[],
       // The object was not retrieved. Make sure we already put a -1 here to
       // indicate that the object was not retrieved. The caller is not
       // responsible for releasing this object.
-      DCHECK(object_buffers[i].data_size == -1);
+      DCHECK_EQ(object_buffers[i].data_size, -1);
       object_buffers[i].data_size = -1;
     }
   }
@@ -335,7 +335,7 @@ Status PlasmaClient::PerformRelease(ObjectID object_id) {
     // Update the in_use_object_bytes.
     in_use_object_bytes -= (object_entry->second->object.data_size +
                             object_entry->second->object.metadata_size);
-    DCHECK(in_use_object_bytes >= 0);
+    DCHECK_GE(in_use_object_bytes, 0);
     // Remove the entry from the hash table of objects currently in use.
     delete object_entry->second;
     objects_in_use.erase(object_id);

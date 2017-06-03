@@ -116,7 +116,7 @@ int bind_ipc_sock(const std::string &pathname, bool shall_listen) {
   }
   /* Tell the system to allow the port to be reused. */
   int on = 1;
-  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &on,
+  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on),
                  sizeof(on)) < 0) {
     ARROW_LOG(ERROR) << "setsockopt failed for pathname " << pathname;
     close(socket_fd);
@@ -216,7 +216,7 @@ int AcceptClient(int socket_fd) {
 
 uint8_t *read_message_async(int sock) {
   int64_t size;
-  Status s = ReadBytes(sock, (uint8_t *) &size, sizeof(int64_t));
+  Status s = ReadBytes(sock, reinterpret_cast<uint8_t *>(&size), sizeof(int64_t));
   if (!s.ok()) {
     /* The other side has closed the socket. */
     ARROW_LOG(DEBUG)
@@ -224,7 +224,7 @@ uint8_t *read_message_async(int sock) {
     close(sock);
     return NULL;
   }
-  uint8_t *message = (uint8_t *) malloc(size);
+  uint8_t *message = reinterpret_cast<uint8_t *>(malloc(size));
   s = ReadBytes(sock, message, size);
   if (!s.ok()) {
     /* The other side has closed the socket. */

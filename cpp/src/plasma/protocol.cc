@@ -107,7 +107,7 @@ Status ReadCreateReply(uint8_t *data,
 
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char *digest) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto digest_string = fbb.CreateString((char *) digest, kDigestSize);
+  auto digest_string = fbb.CreateString(reinterpret_cast<char *>(digest), kDigestSize);
   auto message = CreatePlasmaSealRequest(
       fbb, fbb.CreateString(object_id.binary()), digest_string);
   fbb.Finish(message);
@@ -550,7 +550,7 @@ Status SendDataRequest(int sock,
                        const char *address,
                        int port) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto addr = fbb.CreateString((char *) address, strlen(address));
+  auto addr = fbb.CreateString(address, strlen(address));
   auto message = CreatePlasmaDataRequest(
       fbb, fbb.CreateString(object_id.binary()), addr, port);
   fbb.Finish(message);

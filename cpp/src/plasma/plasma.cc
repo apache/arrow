@@ -53,8 +53,8 @@ uint8_t *create_object_info_buffer(ObjectInfoT *object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  uint8_t *notification = (uint8_t *) malloc(sizeof(int64_t) + fbb.GetSize());
-  *((int64_t *) notification) = fbb.GetSize();
+  uint8_t *notification = reinterpret_cast<uint8_t *>(malloc(sizeof(int64_t) + fbb.GetSize()));
+  *(reinterpret_cast<int64_t *>(notification)) = fbb.GetSize();
   memcpy(notification + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
   return notification;
 }
