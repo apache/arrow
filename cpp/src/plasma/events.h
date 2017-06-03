@@ -35,6 +35,8 @@ constexpr int kEventLoopRead = AE_READABLE;
 /// Write event on the file descriptor.
 constexpr int kEventLoopWrite = AE_WRITABLE;
 
+typedef long long TimerID; // NOLINT
+
 class EventLoop {
  public:
   // Signature of the handler that will be called when there is a new event
@@ -91,7 +93,7 @@ class EventLoop {
                                   int events);
 
   static int timer_event_callback(aeEventLoop *loop,
-                                  long long timer_id,
+                                  TimerID timer_id,
                                   void *context);
 
   aeEventLoop *loop_;

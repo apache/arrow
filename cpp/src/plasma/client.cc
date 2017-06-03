@@ -92,7 +92,8 @@ uint8_t *lookup_or_mmap(PlasmaClient *conn,
     close(fd);
     return entry->second->pointer;
   } else {
-    uint8_t *result = reinterpret_cast<uint8_t *>(mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    uint8_t *result = reinterpret_cast<uint8_t *>(
+          mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     if (result == MAP_FAILED) {
       ARROW_LOG(FATAL) << "mmap failed";
     }
@@ -589,10 +590,10 @@ Status PlasmaClient::Info(ObjectID object_id, int *object_status) {
   return ReadStatusReply(buffer.data(), &object_id, object_status, 1);
 }
 
-Status PlasmaClient::Wait(int num_object_requests,
+Status PlasmaClient::Wait(int64_t num_object_requests,
                           ObjectRequest object_requests[],
                           int num_ready_objects,
-                          uint64_t timeout_ms,
+                          int64_t timeout_ms,
                           int &num_objects_ready) {
   ARROW_CHECK(manager_conn >= 0);
   ARROW_CHECK(num_object_requests > 0);

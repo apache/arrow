@@ -28,7 +28,7 @@ void EventLoop::file_event_callback(aeEventLoop *loop,
 }
 
 int EventLoop::timer_event_callback(aeEventLoop *loop,
-                                    long long timer_id,
+                                    TimerID timer_id,
                                     void *context) {
   TimerCallback *callback = reinterpret_cast<TimerCallback *>(context);
   return (*callback)(timer_id);

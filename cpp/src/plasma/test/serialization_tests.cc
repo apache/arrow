@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "greatest.h"
+#include "thirdparty/greatest.h"
 
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "plasma_common.h"
-#include "plasma.h"
-#include "plasma_io.h"
-#include "plasma_protocol.h"
+#include "plasma/common.h"
+#include "plasma/plasma.h"
+#include "plasma/io.h"
+#include "plasma/protocol.h"
 
 SUITE(plasma_serialization_tests);
 
@@ -59,7 +59,8 @@ std::vector<uint8_t> read_message_from_file(int fd, int message_type) {
 }
 
 PlasmaObject random_plasma_object(void) {
-  int random = rand();
+  unsigned int seed = time(NULL);
+  int random = rand_r(&seed);
   PlasmaObject object;
   memset(&object, 0, sizeof(object));
   object.handle.store_fd = random + 7;

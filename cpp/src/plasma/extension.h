@@ -19,8 +19,9 @@
 #define PLASMA_EXTENSION_H
 
 #undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
 #include <Python.h>
-#include "bytesobject.h"
+#include "bytesobject.h" // NOLINT
 
 static int PyObjectToPlasmaClient(PyObject *object, PlasmaClient **client) {
   if (PyCapsule_IsValid(object, "plasma")) {

@@ -238,10 +238,10 @@ class PlasmaClient {
   ///        the object_requests list. If the returned number is less than
   ///        min_num_ready_objects this means that timeout expired.
   /// @return The return status.
-  Status Wait(int num_object_requests,
+  Status Wait(int64_t num_object_requests,
               ObjectRequest object_requests[],
               int num_ready_objects,
-              uint64_t timeout_ms,
+              int64_t timeout_ms,
               int &num_objects_ready);
 
   /// Transfer local object to a different plasma manager.

@@ -19,8 +19,10 @@
 #include "plasma/common.h"
 #include "plasma/protocol.h"
 #include "plasma/client.h"
-
 #include "plasma/extension.h"
+
+#include <algorithm>
+#include <vector>
 
 PyObject *PlasmaOutOfMemoryError;
 PyObject *PlasmaObjectExistsError;
@@ -52,16 +54,16 @@ PyObject *PyPlasma_disconnect(PyObject *self, PyObject *args) {
    * is still active (if the context is NULL) or if it is closed (if the context
    * is (void*) 0x1). This is neccessary because the primary pointer of the
    * capsule cannot be NULL. */
-  PyCapsule_SetContext(client_capsule, (void *) 0x1);
+  PyCapsule_SetContext(client_capsule, reinterpret_cast<void *>(0x1));
   Py_RETURN_NONE;
 }
 
 PyObject *PyPlasma_create(PyObject *self, PyObject *args) {
   PlasmaClient *client;
   ObjectID object_id;
-  long long size;
+  Py_ssize_t size;
   PyObject *metadata;
-  if (!PyArg_ParseTuple(args, "O&O&LO", PyObjectToPlasmaClient, &client,
+  if (!PyArg_ParseTuple(args, "O&O&nO", PyObjectToPlasmaClient, &client,
                         PyStringToUniqueID, &object_id, &size, &metadata)) {
     return NULL;
   }
@@ -71,7 +73,7 @@ PyObject *PyPlasma_create(PyObject *self, PyObject *args) {
   }
   uint8_t *data;
   Status s = client->Create(object_id, size,
-                            (uint8_t *) PyByteArray_AsString(metadata),
+                            reinterpret_cast<uint8_t *>(PyByteArray_AsString(metadata)),
                             PyByteArray_Size(metadata), &data);
   if (s.IsPlasmaObjectExists()) {
     PyErr_SetString(PlasmaObjectExistsError,
@@ -88,9 +90,9 @@ PyObject *PyPlasma_create(PyObject *self, PyObject *args) {
   ARROW_CHECK(s.ok());
 
 #if PY_MAJOR_VERSION >= 3
-  return PyMemoryView_FromMemory((char *) data, (Py_ssize_t) size, PyBUF_WRITE);
+  return PyMemoryView_FromMemory(reinterpret_cast<char *>(data), size, PyBUF_WRITE);
 #else
-  return PyBuffer_FromReadWriteMemory((void *) data, (Py_ssize_t) size);
+  return PyBuffer_FromReadWriteMemory(reinterpret_cast<void *>(data), size);
 #endif
 }
 
@@ -105,7 +107,7 @@ PyObject *PyPlasma_hash(PyObject *self, PyObject *args) {
   bool success = plasma_compute_object_hash(client, object_id, digest);
   if (success) {
     PyObject *digest_string =
-        PyBytes_FromStringAndSize((char *) digest, kDigestSize);
+        PyBytes_FromStringAndSize(reinterpret_cast<char *>(digest), kDigestSize);
     return digest_string;
   } else {
     Py_RETURN_NONE;
@@ -137,16 +139,15 @@ PyObject *PyPlasma_release(PyObject *self, PyObject *args) {
 PyObject *PyPlasma_get(PyObject *self, PyObject *args) {
   PlasmaClient *client;
   PyObject *object_id_list;
-  long long timeout_ms;
-  if (!PyArg_ParseTuple(args, "O&OL", PyObjectToPlasmaClient, &client,
+  Py_ssize_t timeout_ms;
+  if (!PyArg_ParseTuple(args, "O&On", PyObjectToPlasmaClient, &client,
                         &object_id_list, &timeout_ms)) {
     return NULL;
   }
 
   Py_ssize_t num_object_ids = PyList_Size(object_id_list);
-  ObjectID *object_ids = (ObjectID *) malloc(sizeof(ObjectID) * num_object_ids);
-  ObjectBuffer *object_buffers =
-      (ObjectBuffer *) malloc(sizeof(ObjectBuffer) * num_object_ids);
+  ObjectID *object_ids = new ObjectID[num_object_ids];
+  ObjectBuffer *object_buffers = new ObjectBuffer[num_object_ids];
 
   for (int i = 0; i < num_object_ids; ++i) {
     PyStringToUniqueID(PyList_GetItem(object_id_list, i), &object_ids[i]);
@@ -156,39 +157,35 @@ PyObject *PyPlasma_get(PyObject *self, PyObject *args) {
   ARROW_CHECK_OK(
       client->Get(object_ids, num_object_ids, timeout_ms, object_buffers));
   Py_END_ALLOW_THREADS;
-  free(object_ids);
+  delete[] object_ids;
 
   PyObject *returns = PyList_New(num_object_ids);
   for (int i = 0; i < num_object_ids; ++i) {
     if (object_buffers[i].data_size != -1) {
       /* The object was retrieved, so return the object. */
       PyObject *t = PyTuple_New(2);
+      Py_ssize_t data_size = static_cast<Py_ssize_t>(object_buffers[i].data_size);
+      Py_ssize_t metadata_size = static_cast<Py_ssize_t>(object_buffers[i].metadata_size);
 #if PY_MAJOR_VERSION >= 3
-      PyTuple_SetItem(
-          t, 0, PyMemoryView_FromMemory(
-                    (char *) object_buffers[i].data,
-                    (Py_ssize_t) object_buffers[i].data_size, PyBUF_READ));
-      PyTuple_SetItem(
-          t, 1, PyMemoryView_FromMemory(
-                    (char *) object_buffers[i].metadata,
-                    (Py_ssize_t) object_buffers[i].metadata_size, PyBUF_READ));
+      char *data = reinterpret_cast<char *>(object_buffers[i].data);
+      char *metadata = reinterpret_cast<char *>(object_buffers[i].metadata);
+      PyTuple_SetItem(t, 0, PyMemoryView_FromMemory(data, data_size, PyBUF_READ));
+      PyTuple_SetItem(t, 1, PyMemoryView_FromMemory(metadata, metadata_size, PyBUF_READ));
 #else
-      PyTuple_SetItem(
-          t, 0, PyBuffer_FromMemory((void *) object_buffers[i].data,
-                                    (Py_ssize_t) object_buffers[i].data_size));
-      PyTuple_SetItem(t, 1, PyBuffer_FromMemory(
-                                (void *) object_buffers[i].metadata,
-                                (Py_ssize_t) object_buffers[i].metadata_size));
+      void *data = reinterpret_cast<void *>(object_buffers[i].data);
+      void *metadata = reinterpret_cast<void *>(object_buffers[i].metadata);
+      PyTuple_SetItem(t, 0, PyBuffer_FromMemory(data, data_size));
+      PyTuple_SetItem(t, 1, PyBuffer_FromMemory(metadata, metadata_size));
 #endif
       PyList_SetItem(returns, i, t);
     } else {
       /* The object was not retrieved, so just add None to the list of return
        * values. */
-      Py_XINCREF(Py_None);
+      Py_INCREF(Py_None);
       PyList_SetItem(returns, i, Py_None);
     }
   }
-  free(object_buffers);
+  delete[] object_buffers;
   return returns;
 }
 
@@ -220,21 +217,21 @@ PyObject *PyPlasma_fetch(PyObject *self, PyObject *args) {
     return NULL;
   }
   Py_ssize_t n = PyList_Size(object_id_list);
-  ObjectID *object_ids = (ObjectID *) malloc(sizeof(ObjectID) * n);
+  ObjectID *object_ids = new ObjectID[n];
   for (int i = 0; i < n; ++i) {
     PyStringToUniqueID(PyList_GetItem(object_id_list, i), &object_ids[i]);
   }
-  ARROW_CHECK_OK(client->Fetch((int) n, object_ids));
-  free(object_ids);
+  ARROW_CHECK_OK(client->Fetch(static_cast<int>(n), object_ids));
+  delete[] object_ids;
   Py_RETURN_NONE;
 }
 
 PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
   PlasmaClient *client;
   PyObject *object_id_list;
-  long long timeout;
+  Py_ssize_t timeout;
   int num_returns;
-  if (!PyArg_ParseTuple(args, "O&OLi", PyObjectToPlasmaClient, &client,
+  if (!PyArg_ParseTuple(args, "O&Oni", PyObjectToPlasmaClient, &client,
                         &object_id_list, &timeout, &num_returns)) {
     return NULL;
   }
@@ -262,8 +259,7 @@ PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  ObjectRequest *object_requests =
-      (ObjectRequest *) malloc(sizeof(ObjectRequest) * n);
+  std::vector<ObjectRequest> object_requests(n);
   for (int i = 0; i < n; ++i) {
     ARROW_CHECK(PyStringToUniqueID(PyList_GetItem(object_id_list, i),
                                    &object_requests[i].object_id) == 1);
@@ -273,8 +269,8 @@ PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
    * run. */
   int num_return_objects;
   Py_BEGIN_ALLOW_THREADS;
-  ARROW_CHECK_OK(client->Wait((int) n, object_requests, num_returns,
-                              (uint64_t) timeout, num_return_objects));
+  ARROW_CHECK_OK(client->Wait(n, object_requests.data(), num_returns,
+                              timeout, num_return_objects));
   Py_END_ALLOW_THREADS;
 
   int num_to_return = std::min(num_return_objects, num_returns);
@@ -287,9 +283,9 @@ PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
     }
     if (object_requests[i].status == ObjectStatus_Local ||
         object_requests[i].status == ObjectStatus_Remote) {
-      PyObject *ready =
-          PyBytes_FromStringAndSize((char *) &object_requests[i].object_id,
-                                    sizeof(object_requests[i].object_id));
+      PyObject *ready = PyBytes_FromStringAndSize(
+          reinterpret_cast<char *>(&object_requests[i].object_id),
+          sizeof(object_requests[i].object_id));
       PyList_SetItem(ready_ids, num_returned, ready);
       PySet_Discard(waiting_ids, ready);
       num_returned += 1;
@@ -307,14 +303,14 @@ PyObject *PyPlasma_wait(PyObject *self, PyObject *args) {
 
 PyObject *PyPlasma_evict(PyObject *self, PyObject *args) {
   PlasmaClient *client;
-  long long num_bytes;
-  if (!PyArg_ParseTuple(args, "O&L", PyObjectToPlasmaClient, &client,
+  Py_ssize_t num_bytes;
+  if (!PyArg_ParseTuple(args, "O&n", PyObjectToPlasmaClient, &client,
                         &num_bytes)) {
     return NULL;
   }
   int64_t evicted_bytes;
-  ARROW_CHECK_OK(client->Evict((int64_t) num_bytes, evicted_bytes));
-  return PyLong_FromLong((long) evicted_bytes);
+  ARROW_CHECK_OK(client->Evict(static_cast<int64_t>(num_bytes), evicted_bytes));
+  return PyLong_FromSsize_t(static_cast<Py_ssize_t>(evicted_bytes));
 }
 
 PyObject *PyPlasma_delete(PyObject *self, PyObject *args) {
@@ -388,7 +384,7 @@ PyObject *PyPlasma_receive_notification(PyObject *self, PyObject *args) {
     PyTuple_SetItem(t, 2, PyLong_FromLong(object_info->metadata_size()));
   }
 
-  free(notification);
+  delete[] notification;
   return t;
 }
 

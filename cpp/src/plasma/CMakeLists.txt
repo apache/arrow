@@ -81,6 +81,7 @@ include_directories("${FLATBUFFERS_INCLUDE_DIR}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 set_source_files_properties(thirdparty/dlmalloc.c PROPERTIES COMPILE_FLAGS -Wno-all)
+set_source_files_properties(extension.cc PROPERTIES COMPILE_FLAGS -Wno-strict-aliasing)
 
 add_library(plasma_lib STATIC
   client.cc

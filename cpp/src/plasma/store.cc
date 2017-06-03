@@ -42,6 +42,7 @@
 #include <limits.h>
 
 #include <deque>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -54,9 +55,9 @@
 #include "plasma/malloc.h"
 
 extern "C" {
-void *dlmalloc(size_t);
+void *dlmalloc(size_t bytes);
 void *dlmemalign(size_t alignment, size_t bytes);
-void dlfree(void *);
+void dlfree(void * mem);
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 }
 
@@ -102,9 +103,9 @@ PlasmaStore::~PlasmaStore() {
   for (const auto &element : pending_notifications_) {
     auto object_notifications = element.second.object_notifications;
     for (size_t i = 0; i < object_notifications.size(); ++i) {
-      uint8_t *notification = (uint8_t *) object_notifications.at(i);
+      uint8_t *notification = reinterpret_cast<uint8_t *>(object_notifications.at(i));
       uint8_t *data = notification;
-      free(data);
+      delete[] data;
     }
   }
 }
@@ -151,7 +152,8 @@ int PlasmaStore::create_object(ObjectID object_id,
     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
-    pointer = (uint8_t *) dlmemalign(BLOCK_SIZE, data_size + metadata_size);
+    pointer = reinterpret_cast<uint8_t *>(
+        dlmemalign(BLOCK_SIZE, data_size + metadata_size));
     if (pointer == NULL) {
       // Tell the eviction policy how much space we need to create this object.
       std::vector<ObjectID> objects_to_evict;
@@ -380,7 +382,7 @@ void PlasmaStore::seal_object(ObjectID object_id, unsigned char digest[]) {
   // Set the state of object to SEALED.
   entry->state = PLASMA_SEALED;
   // Set the object digest.
-  entry->info.digest = std::string((char *) &digest[0], kDigestSize);
+  entry->info.digest = std::string(reinterpret_cast<char *>(&digest[0]), kDigestSize);
   // Inform all subscribers that a new object has been sealed.
   push_notification(&entry->info);
 
@@ -457,9 +459,10 @@ void PlasmaStore::send_notifications(int client_fd) {
   // Loop over the array of pending notifications and send as many of them as
   // possible.
   for (size_t i = 0; i < it->second.object_notifications.size(); ++i) {
-    uint8_t *notification = (uint8_t *) it->second.object_notifications.at(i);
+    uint8_t *notification =
+        reinterpret_cast<uint8_t *>(it->second.object_notifications.at(i));
     // Decode the length, which is the first bytes of the message.
-    int64_t size = *((int64_t *) notification);
+    int64_t size = *(reinterpret_cast<int64_t *>(notification));
 
     // Attempt to send a notification about this object ID.
     ssize_t nbytes = send(client_fd, notification, sizeof(int64_t) + size, 0);
@@ -491,7 +494,7 @@ void PlasmaStore::send_notifications(int client_fd) {
     num_processed += 1;
     // The corresponding malloc happened in create_object_info_buffer
     // within push_notification.
-    free(notification);
+    delete[] notification;
   }
   // Remove the sent notifications from the array.
   it->second.object_notifications.erase(
@@ -661,7 +664,7 @@ int main(int argc, char *argv[]) {
       int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
       ARROW_CHECK(scanned == 1);
       ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
-                      << ((double) system_memory) / 1000000000
+                      << static_cast<double>(system_memory) / 1000000000
                       << "GB of memory.";
       break;
     }

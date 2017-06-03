@@ -864,7 +864,10 @@ if (UNIX)
     IF(NOT ((item MATCHES "_generated.h") OR
             (item MATCHES "pyarrow_api.h") OR
             (item MATCHES "xxhash.h") OR
-            (item MATCHES "xxhash.cc")))
+            (item MATCHES "xxhash.cc") OR
+            (item MATCHES "config.h") OR
+            (item MATCHES "zmalloc.h") OR
+            (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
   ENDFOREACH(item ${LINT_FILES})

@@ -47,13 +47,13 @@ int warn_if_sigpipe(int status, int client_sock) {
  *
  * @param object_info The object info to be serialized
  * @return The object info buffer. It is the caller's responsibility to free
- *         this buffer with "free" after it has been used.
+ *         this buffer with "delete" after it has been used.
  */
 uint8_t *create_object_info_buffer(ObjectInfoT *object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  uint8_t *notification = reinterpret_cast<uint8_t *>(malloc(sizeof(int64_t) + fbb.GetSize()));
+  uint8_t *notification = new uint8_t[sizeof(int64_t) + fbb.GetSize()];
   *(reinterpret_cast<int64_t *>(notification)) = fbb.GetSize();
   memcpy(notification + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
   return notification;

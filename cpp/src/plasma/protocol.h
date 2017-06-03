@@ -167,7 +167,7 @@ Status ReadFetchRequest(uint8_t *data, std::vector<ObjectID> &object_ids);
 
 Status SendWaitRequest(int sock,
                        ObjectRequest object_requests[],
-                       int num_requests,
+                       int64_t num_requests,
                        int num_ready_objects,
                        int64_t timeout_ms);
 

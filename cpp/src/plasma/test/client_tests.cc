@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "greatest.h"
+#include "thirdparty/greatest.h"
 
 #include <assert.h>
 #include <unistd.h>
 #include <sys/time.h>
 
-#include "plasma_common.h"
-#include "plasma.h"
-#include "plasma_protocol.h"
-#include "plasma_client.h"
+#include "plasma/common.h"
+#include "plasma/plasma.h"
+#include "plasma/protocol.h"
+#include "plasma/client.h"
 
 SUITE(plasma_client_tests);
 
@@ -135,7 +135,7 @@ bool is_equal_data_123(uint8_t *data1, uint8_t *data2, uint64_t size) {
   for (int i = 0; i < size; i++) {
     if (data1[i] != data2[i]) {
       return false;
-    };
+    }
   }
   return true;
 }
