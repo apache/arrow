@@ -61,6 +61,7 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 cmake -G "%GENERATOR%" ^
      -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
      -DCMAKE_BUILD_TYPE=Release ^
+     -DPARQUET_BOOST_USE_SHARED=OFF ^
      -DPARQUET_ZLIB_VENDORED=off ^
      -DPARQUET_BUILD_TESTS=off .. || exit /B
 cmake --build . --target INSTALL --config Release || exit /B
@@ -69,7 +70,6 @@ popd
 @rem Build and import pyarrow
 @rem parquet-cpp has some additional runtime dependencies that we need to figure out
 @rem see PARQUET-1018
-set PATH=%CONDA_PREFIX%\Library\bin;%PATH%
 
 pushd python
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
