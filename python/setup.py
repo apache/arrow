@@ -349,7 +349,7 @@ setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx']},
+    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
     include_package_data=True,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
