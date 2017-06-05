@@ -593,7 +593,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().set(index, holder);
     }
 
-
     public void set(int index, Nullable${minor.class}Holder holder){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
@@ -666,11 +665,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
-    <#if !(type.major == "VarLen" || minor.class == "IntervalYear" || minor.class == "IntervalDay")>
+    <#if !(type.major == "VarLen" || minor.class == "IntervalDay")>
     public void setSafe(int index, ${minor.javaType!type.javaType} value) {
-      <#if type.major == "VarLen">
-      fillEmpties(index);
-      </#if>
       bits.getMutator().setSafeToOne(index);
       values.getMutator().setSafe(index, value);
       setCount++;

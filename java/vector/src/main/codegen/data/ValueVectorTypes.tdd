@@ -116,7 +116,7 @@
         {
           class: "Decimal",
           maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal",
-          typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
+          typeParams: [ {name: "precision", type: "int"}, { name: "scale", type: "int"}],
           arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
           fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}]
         }

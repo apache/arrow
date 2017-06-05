@@ -45,6 +45,9 @@ public class TestDecimalVector {
   public void test() {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);
+    try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, 10, scale);) {
+      assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
+    }
     decimalVector.allocateNew();
     BigDecimal[] values = new BigDecimal[intValues.length];
     for (int i = 0; i < intValues.length; i++) {
