@@ -17,6 +17,8 @@
 
 @echo on
 
+conda update --yes --quiet conda
+
 conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
 conda install -n arrow -q -y -c conda-forge ^
@@ -43,7 +45,7 @@ cmake -G "%GENERATOR%" ^
 cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
+set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 
 ctest -VV  || exit /B
 popd
@@ -59,15 +61,17 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 cmake -G "%GENERATOR%" ^
      -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
      -DCMAKE_BUILD_TYPE=Release ^
+     -DPARQUET_BOOST_USE_SHARED=OFF ^
      -DPARQUET_ZLIB_VENDORED=off ^
      -DPARQUET_BUILD_TESTS=off .. || exit /B
 cmake --build . --target INSTALL --config Release || exit /B
 popd
 
 @rem Build and import pyarrow
-set PYTHONPATH=
+@rem parquet-cpp has some additional runtime dependencies that we need to figure out
+@rem see PARQUET-1018
 
 pushd python
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
-py.test pyarrow -v -s || exit /B
+py.test pyarrow -v -s --parquet || exit /B
 popd

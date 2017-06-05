@@ -111,7 +111,7 @@ python_version_tests() {
   python -c "import pyarrow.parquet"
   python -c "import pyarrow._jemalloc"
 
-  python -m pytest -vv -r sxX pyarrow
+  python -m pytest -vv -r sxX pyarrow --parquet
 
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
