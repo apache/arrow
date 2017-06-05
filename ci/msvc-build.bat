@@ -67,6 +67,7 @@ popd
 @rem Build and import pyarrow
 @rem parquet-cpp has some additional runtime dependencies that we need to figure out
 @rem see PARQUET-1018
+set PATH=%CONDA_PREFIX%\Library\bin;%PATH%
 
 pushd python
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
