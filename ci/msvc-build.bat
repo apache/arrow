@@ -43,7 +43,7 @@ cmake -G "%GENERATOR%" ^
 cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%
+set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 
 ctest -VV  || exit /B
 popd
@@ -53,9 +53,6 @@ popd
 git clone https://github.com/apache/parquet-cpp.git || exit /B
 mkdir parquet-cpp\build
 pushd parquet-cpp\build
-
-git rev-parse HEAD > git-version.txt
-set /p PARQUET_ARROW_VERSION=<git-version.txt
 
 set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
@@ -68,7 +65,8 @@ cmake --build . --target INSTALL --config Release || exit /B
 popd
 
 @rem Build and import pyarrow
-set PYTHONPATH=
+@rem parquet-cpp has some additional runtime dependencies that we need to figure out
+@rem see PARQUET-1018
 
 pushd python
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
