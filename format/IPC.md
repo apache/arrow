@@ -157,9 +157,24 @@ Some notes about this
 
 ### Dictionary Batches
 
-Dictionary batches have not yet been implemented, while they are provided for
-in the metadata. For the time being, the `DICTIONARY` segments shown above in
-the file do not appear in any of the file implementations.
+Dictionaries are written in the stream and file formats as a sequence of record
+batches, each having a single field. The complete semantic schema for a
+sequence of record batches, therefore, consists of the schema along with all of
+the dictionaries. The dictionary types are found in the schema, so it is
+necessary to read the schema to first determine the dictionary types so that
+the dictionaries can be properly interpreted.
+
+```
+table DictionaryBatch {
+  id: long;
+  data: RecordBatch;
+}
+```
+
+The dictionary `id` in the message metadata can be referenced one or more times
+in the schema, so that dictionaries can even be used for multiple fields. See
+the [Physical Layout][4] document for more about the semantics of
+dictionary-encoded data.
 
 ### Tensor (Multi-dimensional Array) Message Format
 
@@ -182,3 +197,4 @@ shared memory region) to be a multiple of 8:
 [1]: https://github.com/apache/arrow/blob/master/format/File.fbs
 [2]: https://github.com/apache/arrow/blob/master/format/Message.fbs
 [3]: https://github.com/google]/flatbuffers
+[4]: https://github.com/apache/arrow/blob/master/format/Layout.md
