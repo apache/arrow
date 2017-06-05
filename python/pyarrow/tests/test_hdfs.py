@@ -167,7 +167,7 @@ class HdfsTestCases(object):
 
             path = pjoin(tmpdir, '{0}.parquet'.format(i))
 
-            table = pa.Table.from_pandas(df)
+            table = pa.Table.from_pandas(df, preserve_index=False)
             with self.hdfs.open(path, 'wb') as f:
                 pq.write_table(table, f)
 
