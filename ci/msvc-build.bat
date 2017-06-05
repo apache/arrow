@@ -17,6 +17,8 @@
 
 @echo on
 
+conda update --yes --quiet conda
+
 conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
 conda install -n arrow -q -y -c conda-forge ^
