@@ -515,7 +515,7 @@ ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 ///
 /// \param array an Array instance
 /// \return Status
-Status ValidateArray(const Array& array);
+Status ARROW_EXPORT ValidateArray(const Array& array);
 
 }  // namespace arrow
 
