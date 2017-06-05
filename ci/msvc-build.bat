@@ -54,6 +54,9 @@ git clone https://github.com/apache/parquet-cpp.git || exit /B
 mkdir parquet-cpp\build
 pushd parquet-cpp\build
 
+git rev-parse HEAD > git-version.txt
+set /p PARQUET_ARROW_VERSION=<git-version.txt
+
 set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 cmake -G "%GENERATOR%" ^
