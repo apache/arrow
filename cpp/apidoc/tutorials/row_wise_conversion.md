@@ -156,9 +156,9 @@ border would be inside a byte.
 auto ids = std::static_pointer_cast<arrow::Int64Array>(
     table->column(0)->data()->chunk(0));
 auto costs = std::static_pointer_cast<arrow::DoubleArray(
-    table->column(1)->data()->chunk(1));
+    table->column(1)->data()->chunk(0));
 auto cost_components = std::static_pointer_cast<arrow::ListArray(
-    table->column(2)->data()->chunk(2));
+    table->column(2)->data()->chunk(0));
 auto cost_components_values = std::static_pointer_cast<arrow::DoubleArray>(
     cost_components->values());
 // To enable zero-copy slices, the native values pointer might need to account
