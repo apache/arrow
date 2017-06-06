@@ -143,6 +143,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1,
         values.offsetVector.getBufferSizeFor(
         fieldNode.getLength() == 0? 0 : fieldNode.getLength() + 1));
+    mutator.lastSet = fieldNode.getLength() - 1;
     <#else>
     // fixed width values truncate value vector to size (#1)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, values.getBufferSizeFor(fieldNode.getLength()));
