@@ -148,6 +148,11 @@ class build_ext(_build_ext):
 
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
+            # ARROW-1090: work around CMake rough edges
+            if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
+                os.environ['PKG_CONFIG_PATH'] = pjoin(os.environ['ARROW_HOME'], 'lib', 'pkgconfig')
+                del os.environ['ARROW_HOME']
+
 
         cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                              .format(self.build_type.lower()))

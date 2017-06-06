@@ -171,6 +171,14 @@ You should be able to run the unit tests with:
 
    ====================== 181 passed, 17 skipped in 0.98 seconds ===========
 
+You can build a wheel by running:
+
+.. code-block:: shell
+   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
+          --with-parquet --with-jemalloc --bundle-arrow-cpp bdist_wheel
+
+Again, if you did not build parquet-cpp, you should omit ``--with-parquet``.
+
 Windows
 =======
 
