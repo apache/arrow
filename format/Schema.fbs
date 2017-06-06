@@ -113,7 +113,12 @@ table Time {
   bitWidth: int = 32;
 }
 
-/// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
+/// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, excluding
+/// leap seconds, as a 64-bit integer. Note that UNIX time does not include
+/// leap seconds.
+///
+/// The Timestamp metadata supports both "time zone naive" and "time zone
+/// aware" timestamps. Read about the timezone attribute for more detail
 table Timestamp {
   unit: TimeUnit;
 
