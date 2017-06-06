@@ -412,10 +412,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-
-    // XXX: heuristic
-    if (bytes_read < nbytes / 2) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
-
+    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
     *out = buffer;
     return Status::OK();
   }
