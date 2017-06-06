@@ -251,6 +251,15 @@ TEST_F(TestReadableFile, Read) {
   ASSERT_OK(file_->Read(10, &bytes_read, buffer));
   ASSERT_EQ(4, bytes_read);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
+
+  // Test incomplete read, ARROW-1094
+  std::shared_ptr<Buffer> buf;
+  int64_t size;
+  ASSERT_OK(file_->GetSize(&size));
+
+  ASSERT_OK(file_->Seek(1));
+  ASSERT_OK(file_->Read(size, &buf));
+  ASSERT_EQ(size - 1, buf->size());
 }
 
 TEST_F(TestReadableFile, ReadAt) {

@@ -757,8 +757,8 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
 
   Status Start() override {
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
-            strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(
+        reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes)));
     RETURN_NOT_OK(Align(8));
 
     // We write the schema at the start of the file (and the end). This also
