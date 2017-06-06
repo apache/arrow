@@ -29,7 +29,7 @@
 <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
 <#assign safeType=friendlyType />
 <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-<#assign fields = minor.fields!type.fields + minor.typeParams![]/>
+<#assign fields = (minor.fields!type.fields) + minor.typeParams![]/>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${holderMode}${name}HolderReaderImpl.java" />
 <#include "/@includes/license.ftl" />

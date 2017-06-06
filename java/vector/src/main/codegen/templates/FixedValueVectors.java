@@ -56,13 +56,14 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
   private int allocationMonitor = 0;
   <#if minor.typeParams??>
 
-    <#list minor.typeParams as typeParam>
+    <#assign typeParams = minor.typeParams?reverse />
+    <#list typeParams as typeParam>
   private final ${typeParam.type} ${typeParam.name};
     </#list>
 
-  public ${className}(String name, BufferAllocator allocator<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+  public ${className}(String name, BufferAllocator allocator<#list typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     super(name, allocator);
-    <#list minor.typeParams as typeParam>
+    <#list typeParams as typeParam>
     this.${typeParam.name} = ${typeParam.name};
     </#list>
   }
@@ -242,7 +243,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
     private ${className} to;
 
     public TransferImpl(String name, BufferAllocator allocator){
-      to = new ${className}(name, allocator<#if minor.typeParams??><#list minor.typeParams as typeParam>,  ${className}.this.${typeParam.name}</#list></#if>);
+      to = new ${className}(name, allocator<#if minor.typeParams??><#list typeParams as typeParam>,  ${className}.this.${typeParam.name}</#list></#if>);
     }
 
     public TransferImpl(${className} to) {

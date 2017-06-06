@@ -235,7 +235,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
               <#assign constructorParams = minor.arrowTypeConstructorParams />
             <#else>
               <#assign constructorParams = [] />
-              <#list minor.typeParams as typeParam>
+              <#list minor.typeParams?reverse as typeParam>
                 <#assign constructorParams = constructorParams + [ typeParam.name ] />
               </#list>
             </#if>    
