@@ -29,9 +29,17 @@ import org.apache.arrow.vector.schema.ArrowVectorType;
 public class VectorUnloader {
 
   private final VectorSchemaRoot root;
+  private final boolean includeNullCount;
+  private final boolean alignBuffers;
 
   public VectorUnloader(VectorSchemaRoot root) {
+    this(root, true, true);
+  }
+
+  public VectorUnloader(VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
     this.root = root;
+    this.includeNullCount = includeNullCount;
+    this.alignBuffers = alignBuffers;
   }
 
   public ArrowRecordBatch getRecordBatch() {
@@ -40,12 +48,12 @@ public class VectorUnloader {
     for (FieldVector vector : root.getFieldVectors()) {
       appendNodes(vector, nodes, buffers);
     }
-    return new ArrowRecordBatch(root.getRowCount(), nodes, buffers);
+    return new ArrowRecordBatch(root.getRowCount(), nodes, buffers, alignBuffers);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     Accessor accessor = vector.getAccessor();
-    nodes.add(new ArrowFieldNode(accessor.getValueCount(), accessor.getNullCount()));
+    nodes.add(new ArrowFieldNode(accessor.getValueCount(), includeNullCount ? accessor.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
     if (fieldBuffers.size() != expectedBuffers.size()) {
