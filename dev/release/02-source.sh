@@ -74,7 +74,7 @@ cd ${extract_dir}/c_glib
 ./configure \
   PKG_CONFIG_PATH=$cpp_install_dir/lib/pkgconfig \
   --enable-gtk-doc
-LD_LIBRARY_PATH=$cpp_install_dir/lib make -j8
+LD_LIBRARY_PATH=$cpp_install_dir/lib:$LD_LIBRARY_PATH make -j8
 make dist
 tar xzf *.tar.gz
 rm *.tar.gz
@@ -114,4 +114,3 @@ echo "Success! The release candidate is available here:"
 echo "  https://dist.apache.org/repos/dist/dev/arrow/${tagrc}"
 echo ""
 echo "Commit SHA1: ${release_hash}"
-
