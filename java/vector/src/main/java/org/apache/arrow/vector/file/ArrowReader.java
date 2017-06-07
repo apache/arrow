@@ -42,6 +42,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 
 public abstract class ArrowReader<T extends ReadChannel> implements DictionaryProvider, AutoCloseable {
 
@@ -155,8 +156,9 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     List<FieldVector> vectors = new ArrayList<>();
     Map<Long, Dictionary> dictionaries = new HashMap<>();
 
+    // Convert fields with dictionaries to have the index type
     for (Field field: originalSchema.getFields()) {
-      Field updated = toMemoryFormat(field, dictionaries);
+      Field updated = DictionaryUtility.toMemoryFormat(field, allocator, dictionaries);
       fields.add(updated);
       vectors.add(updated.createVector(allocator));
     }
@@ -169,7 +171,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
 
   // in the message format, fields have the dictionary type
   // in the memory format, they have the index type
-  private Field toMemoryFormat(Field field, Map<Long, Dictionary> dictionaries) {
+  /*private Field toMemoryFormat(Field field, Map<Long, Dictionary> dictionaries) {
     DictionaryEncoding encoding = field.getDictionary();
     List<Field> children = field.getChildren();
 
@@ -201,7 +203,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     }
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
-  }
+  }*/
 
   private void load(ArrowDictionaryBatch dictionaryBatch) {
     long id = dictionaryBatch.getDictionaryId();

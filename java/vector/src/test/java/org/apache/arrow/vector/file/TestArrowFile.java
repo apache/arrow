@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -472,31 +473,9 @@ public class TestArrowFile extends BaseFileTest {
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          NullableVarCharVector vector = newNullableVarCharVector("varchar", originalVectorAllocator);
          NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", originalVectorAllocator)) {
-      vector.allocateNewSafe();
-      NullableVarCharVector.Mutator mutator = vector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(6);
 
-      dictionaryVector.allocateNewSafe();
-      mutator = dictionaryVector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(3);
-
-      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       MapDictionaryProvider provider = new MapDictionaryProvider();
-      provider.put(dictionary);
-
-      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
-
-      List<Field> fields = ImmutableList.of(encodedVector.getField());
-      List<FieldVector> vectors = ImmutableList.of(encodedVector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
+      VectorSchemaRoot root = writeFlatDictionaryData(vector, dictionaryVector, provider);
 
       try (FileOutputStream fileOutputStream = new FileOutputStream(file);
            ArrowFileWriter fileWriter = new ArrowFileWriter(root, provider, fileOutputStream.getChannel());
@@ -511,7 +490,7 @@ public class TestArrowFile extends BaseFileTest {
       }
 
       dictionaryVector.close();
-      encodedVector.close();
+      root.close();
     }
 
     // read from file
@@ -535,31 +514,6 @@ public class TestArrowFile extends BaseFileTest {
       Assert.assertTrue(arrowReader.loadNextBatch());
       validateFlatDictionary(root.getFieldVectors().get(0), arrowReader);
     }
-  }
-
-  private void validateFlatDictionary(FieldVector vector, DictionaryProvider provider) {
-    Assert.assertNotNull(vector);
-
-    DictionaryEncoding encoding = vector.getField().getDictionary();
-    Assert.assertNotNull(encoding);
-    Assert.assertEquals(1L, encoding.getId());
-
-    FieldVector.Accessor accessor = vector.getAccessor();
-    Assert.assertEquals(6, accessor.getValueCount());
-    Assert.assertEquals(0, accessor.getObject(0));
-    Assert.assertEquals(1, accessor.getObject(1));
-    Assert.assertEquals(null, accessor.getObject(2));
-    Assert.assertEquals(2, accessor.getObject(3));
-    Assert.assertEquals(1, accessor.getObject(4));
-    Assert.assertEquals(2, accessor.getObject(5));
-
-    Dictionary dictionary = provider.lookup(1L);
-    Assert.assertNotNull(dictionary);
-    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
-    Assert.assertEquals(3, dictionaryAccessor.getValueCount());
-    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
-    Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
   }
 
   @Test

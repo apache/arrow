@@ -17,11 +17,12 @@
  */
 package org.apache.arrow.vector.complex.writer;
 
+import org.apache.arrow.vector.complex.writer.BaseWriter.DictionaryWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ScalarWriter;
 
-public interface FieldWriter extends MapWriter, ListWriter, ScalarWriter {
+public interface FieldWriter extends MapWriter, ListWriter, DictionaryWriter, ScalarWriter {
   void allocate();
   void clear();
 }

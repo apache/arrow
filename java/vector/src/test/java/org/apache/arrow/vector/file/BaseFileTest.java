@@ -17,20 +17,26 @@
  */
 package org.apache.arrow.vector.file;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableDateMilliVector;
 import org.apache.arrow.vector.NullableTimeMilliVector;
+import org.apache.arrow.vector.NullableVarCharVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.DictionaryWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
@@ -39,8 +45,14 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.DateUtility;
+import org.apache.arrow.vector.util.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import org.junit.After;
@@ -50,6 +62,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
+import sun.awt.SunHints;
+
+import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 
 /**
  * Helps testing the file formats
@@ -191,6 +206,66 @@ public class BaseFileTest {
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getAccessor().getObject(i);
       Assert.assertEquals(DateUtility.toMillis(dt), timestampMilliTZVal);
     }
+  }
+
+  /*
+  protected void writeFlatDictionaryData(NullableMapVector parent, DictionaryProvider.MapDictionaryProvider provider) {
+    NullableVarCharVector vector = newNullableVarCharVector("varchar", vectorAllocator);
+    NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", vectorAllocator);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    DictionaryWriter dictWriter = rootWriter.dict(provider);
+
+    vector.allocateNewSafe();
+    NullableVarCharVector.Mutator mutator = vector.getMutator();
+    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(6);
+
+    dictionaryVector.allocateNewSafe();
+    mutator = dictionaryVector.getMutator();
+    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(3);
+
+    Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+    provider.put(dictionary);
+
+    FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
+
+    List<Field> fields = ImmutableList.of(encodedVector.getField());
+    List<FieldVector> vectors = ImmutableList.of(encodedVector);
+    VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
+
+  }*/
+
+  protected void validateFlatDictionary(FieldVector vector, DictionaryProvider provider) {
+    Assert.assertNotNull(vector);
+
+    DictionaryEncoding encoding = vector.getField().getDictionary();
+    Assert.assertNotNull(encoding);
+    Assert.assertEquals(1L, encoding.getId());
+
+    FieldVector.Accessor accessor = vector.getAccessor();
+    Assert.assertEquals(6, accessor.getValueCount());
+    Assert.assertEquals(0, accessor.getObject(0));
+    Assert.assertEquals(1, accessor.getObject(1));
+    Assert.assertEquals(null, accessor.getObject(2));
+    Assert.assertEquals(2, accessor.getObject(3));
+    Assert.assertEquals(1, accessor.getObject(4));
+    Assert.assertEquals(2, accessor.getObject(5));
+
+    Dictionary dictionary = provider.lookup(1L);
+    Assert.assertNotNull(dictionary);
+    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
+    Assert.assertEquals(3, dictionaryAccessor.getValueCount());
+    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
+    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+    Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
   }
 
   protected void writeData(int count, MapVector parent) {

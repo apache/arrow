@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.DictionaryWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapOrListWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.BitWriter;
@@ -56,6 +57,10 @@ public class MapOrListWriterImpl implements MapOrListWriter {
     } else {
       list.endList();
     }
+  }
+
+  public DictionaryWriter dict() {
+    return new DictionaryWriterImpl();
   }
 
   public MapOrListWriter map(final String name) {

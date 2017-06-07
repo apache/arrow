@@ -103,6 +103,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     return null;
   }
 
+  @Override
+  public DictionaryWriter dict(DictionaryProvider provider) {
+    fail("Dictionary");
+    return null;
+  }
+
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

@@ -19,8 +19,12 @@ package org.apache.arrow.vector.file.json;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.DateDayVector;
@@ -38,6 +42,8 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -47,6 +53,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.commons.codec.binary.Hex;
 
 public class JsonFileWriter implements AutoCloseable {
@@ -85,22 +92,61 @@ public class JsonFileWriter implements AutoCloseable {
     }
   }
 
-  public void start(Schema schema) throws IOException {
-    this.schema = schema;
+  public void start(Schema schema, DictionaryProvider provider) throws IOException {
+    List<Field> fields = new ArrayList<>(schema.getFields().size());
+    Set<Long> dictionaryIdsUsed = new HashSet<>();
+    this.schema = schema;  // Store original Schema to ensure batches written match
+
+    // Convert fields with dictionaries to have dictionary type
+    for (Field field: schema.getFields()) {
+      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
+    }
+    Schema updatedSchema = new Schema(fields, schema.getCustomMetadata());
+
     generator.writeStartObject();
-    generator.writeObjectField("schema", schema);
+    generator.writeObjectField("schema", updatedSchema);
+
+    // Write all dictionaries that were used
+    if (!dictionaryIdsUsed.isEmpty()) {
+      writeDictionaryBatches(generator, dictionaryIdsUsed, provider);
+    }
+
+    // Start writing of record batches
     generator.writeArrayFieldStart("batches");
+  }
+
+  private void writeDictionaryBatches(JsonGenerator generator, Set<Long> dictionaryIdsUsed, DictionaryProvider provider) throws IOException {
+    generator.writeArrayFieldStart("dictionaries");
+    for (Long id: dictionaryIdsUsed) {
+      generator.writeStartObject();
+      generator.writeObjectField("id", id);
+
+      generator.writeFieldName("data");
+      Dictionary dictionary = provider.lookup(id);
+      FieldVector vector = dictionary.getVector();
+      List<Field> fields = ImmutableList.of(vector.getField());
+      List<FieldVector> vectors = ImmutableList.of(vector);
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getAccessor().getValueCount());
+      writeBatch(root);
+
+      generator.writeEndObject();
+    }
+    generator.writeEndArray();
   }
 
   public void write(VectorSchemaRoot recordBatch) throws IOException {
     if (!recordBatch.getSchema().equals(schema)) {
       throw new IllegalArgumentException("record batches must have the same schema: " + schema);
     }
+    writeBatch(recordBatch);
+  }
+
+  private void writeBatch(VectorSchemaRoot recordBatch) throws IOException {
     generator.writeStartObject();
     {
       generator.writeObjectField("count", recordBatch.getRowCount());
       generator.writeArrayFieldStart("columns");
-      for (Field field : schema.getFields()) {
+      for (Field field : recordBatch.getSchema().getFields()) {
         FieldVector vector = recordBatch.getVector(field.getName());
         writeVector(field, vector);
       }

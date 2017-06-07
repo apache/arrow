@@ -19,18 +19,32 @@ package org.apache.arrow.vector.file.json;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.file.BaseFileTest;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 
 public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);
@@ -45,7 +59,7 @@ public class TestJSONFile extends BaseFileTest {
         BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
-      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")));
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
 
     // read
@@ -74,13 +88,13 @@ public class TestJSONFile extends BaseFileTest {
       writeComplexData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateComplexContent(root.getRowCount(), root);
-      writeJSON(file, root);
+      writeJSON(file, root, null);
     }
   }
 
-  public void writeJSON(File file, VectorSchemaRoot root) throws IOException {
+  public void writeJSON(File file, VectorSchemaRoot root, DictionaryProvider provider) throws IOException {
     JsonFileWriter writer = new JsonFileWriter(file, JsonFileWriter.config().pretty(true));
-    writer.start(root.getSchema());
+    writer.start(root.getSchema(), provider);
     writer.write(root);
     writer.close();
   }
@@ -101,7 +115,7 @@ public class TestJSONFile extends BaseFileTest {
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateUnionData(count, root);
 
-      writeJSON(file, root);
+      writeJSON(file, root, null);
     }
     // read
     try (
@@ -136,7 +150,7 @@ public class TestJSONFile extends BaseFileTest {
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateDateTimeContent(count, root);
 
-      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")));
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
 
     // read
@@ -150,6 +164,78 @@ public class TestJSONFile extends BaseFileTest {
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
         validateDateTimeContent(count, root);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
+  public void testWriteReadDictionaryJSON() throws IOException {
+    File file = new File("target/mytest_dictionary.json");
+    int count = COUNT;
+    long dictId = 1L;
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableVarCharVector vector = newNullableVarCharVector("varchar", vectorAllocator);
+        NullableVarCharVector dictionaryVector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(dictId), vectorAllocator);
+        /*NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)*/) {
+
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+
+      ////////////////
+
+      vector.allocateNewSafe();
+      NullableVarCharVector.Mutator mutator = vector.getMutator();
+      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
+      mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
+      mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
+      mutator.setValueCount(6);
+
+      dictionaryVector.allocateNewSafe();
+      mutator = dictionaryVector.getMutator();
+      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+      mutator.setValueCount(3);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(dictId, false, null));
+      provider.put(dictionary);
+
+      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
+
+      List<Field> fields = ImmutableList.of(encodedVector.getField());
+      List<FieldVector> vectors = ImmutableList.of(encodedVector);
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
+      ////////////////
+
+      //writeFlatDictionaryData(parent, provider);
+
+      printVectors(vectors);//parent.getChildrenFromFields());
+
+      validateFlatDictionary(encodedVector/*parent.getChild("root")*/, provider);
+
+      writeJSON(file, root/*new VectorSchemaRoot(parent.getChild("root"))*/, provider);
+
+      vector.close();
+      dictionaryVector.close();
+      encodedVector.close();
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateFlatDictionary(root.getFieldVectors().get(0), reader);
       }
       reader.close();
     }

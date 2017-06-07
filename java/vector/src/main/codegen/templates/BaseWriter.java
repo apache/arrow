@@ -26,6 +26,8 @@ package org.apache.arrow.vector.complex.writer;
 
 <#include "/@includes/vv_imports.ftl" />
 
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+
 /*
  * File generated from ${.template_name} using FreeMarker.
  */
@@ -58,6 +60,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>
+    DictionaryWriter dict(DictionaryProvider provider);
 
     void copyReaderToField(String name, FieldReader reader);
     MapWriter map(String name);
@@ -79,6 +82,18 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
     ${capName}Writer ${lowerName}();
+    </#list></#list>
+    DictionaryWriter dict(DictionaryProvider provider);
+  }
+
+  public interface DictionaryWriter extends BaseWriter {
+    <#list vv.types as type><#list type.minor as minor>
+    <#assign lowerName = minor.class?uncap_first />
+    <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
+    <#assign upperName = minor.class?upper_case />
+    <#assign capName = minor.class?cap_first />
+    ${capName}Writer ${lowerName}();
+    //${capName}Writer ${lowerName}(<#if minor.typeParams?? ><#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#if typeParam_has_next>, <#else></#if></#list></#if>);
     </#list></#list>
   }
 

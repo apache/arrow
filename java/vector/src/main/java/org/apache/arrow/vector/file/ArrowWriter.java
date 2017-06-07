@@ -22,8 +22,10 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -38,6 +40,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,19 +75,31 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.out = new WriteChannel(out);
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
-    Map<Long, ArrowDictionaryBatch> dictionaryBatches = new HashMap<>();
+    Set<Long> dictionaryIdsUsed = new HashSet<>();
 
+    // Convert fields with dictionaries to have dictionary type
     for (Field field: root.getSchema().getFields()) {
-      fields.add(toMessageFormat(field, provider, dictionaryBatches));
+      fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
+    }
+
+    // Create a record batch for each dictionary
+    this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
+    for (long id: dictionaryIdsUsed) {
+      Dictionary dictionary = provider.lookup(id);
+      FieldVector vector = dictionary.getVector();
+      int count = vector.getAccessor().getValueCount();
+      VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), count);
+      VectorUnloader unloader = new VectorUnloader(dictRoot);
+      ArrowRecordBatch batch = unloader.getRecordBatch();
+      this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
     }
 
     this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
-    this.dictionaries = Collections.unmodifiableList(new ArrayList<>(dictionaryBatches.values()));
   }
 
   // in the message format, fields have the dictionary type
   // in the memory format, they have the index type
-  private Field toMessageFormat(Field field, DictionaryProvider provider, Map<Long, ArrowDictionaryBatch> batches) {
+  /*private Field toMessageFormat(Field field, DictionaryProvider provider, Map<Long, ArrowDictionaryBatch> batches) {
     DictionaryEncoding encoding = field.getDictionary();
     List<Field> children = field.getChildren();
 
@@ -119,7 +134,7 @@ public abstract class ArrowWriter implements AutoCloseable {
     }
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
-  }
+  }*/
 
   public void start() throws IOException {
     ensureStarted();
