@@ -142,7 +142,7 @@ public class MessageSerializer {
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
   }
 
-  private static long writeBatchBuffers(WriteChannel out, ArrowRecordBatch batch) throws IOException {
+  public static long writeBatchBuffers(WriteChannel out, ArrowRecordBatch batch) throws IOException {
     long bufferStart = out.getCurrentPosition();
     List<ArrowBuf> buffers = batch.getBuffers();
     List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -171,7 +171,7 @@ public class MessageSerializer {
    * @return the deserialized object
    * @throws IOException if something went wrong
    */
-  private static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
+  public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, Message message, BufferAllocator alloc)
       throws IOException {
     RecordBatch recordBatchFB = (RecordBatch) message.header(new RecordBatch());
 
@@ -222,7 +222,7 @@ public class MessageSerializer {
   }
 
   // Deserializes a record batch given the Flatbuffer metadata and in-memory body
-  private static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB,
+  public static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB,
       ArrowBuf body) throws IOException {
     // Now read the body
     int nodesLength = recordBatchFB.nodesLength();
@@ -296,7 +296,7 @@ public class MessageSerializer {
    * @return the corresponding dictionary batch
    * @throws IOException if something went wrong
    */
-  private static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
                                                                  Message message,
                                                                  BufferAllocator alloc) throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
@@ -373,7 +373,7 @@ public class MessageSerializer {
    * @param bodyLength body length field
    * @return the corresponding ByteBuffer
    */
-  private static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
+  public static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
       int headerOffset, int bodyLength) {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
