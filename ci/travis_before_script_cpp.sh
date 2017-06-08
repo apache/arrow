@@ -72,7 +72,7 @@ else
           $ARROW_CPP_DIR
 fi
 
-make -j4
+make VERBOSE=1 -j4
 make install
 
 popd

@@ -20,12 +20,15 @@ cmake_minimum_required(VERSION 2.8)
 project(plasma)
 
 find_package(PythonLibsNew REQUIRED)
+find_package(Threads)
+
 
 if(APPLE)
   SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(APPLE)
 
-include_directories("${PYTHON_INCLUDE_DIRS}" thirdparty ..)
+include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
+include_directories(thirdparty ..)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L -march=native -mtune=native -O3")
 
@@ -71,9 +74,9 @@ add_library(plasma SHARED
 add_dependencies(plasma gen_plasma_fbs)
 
 if(APPLE)
-  target_link_libraries(plasma plasma_lib "-undefined dynamic_lookup" -Wl,-force_load,${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} -lpthread)
+  target_link_libraries(plasma plasma_lib "-undefined dynamic_lookup" ${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
 else(APPLE)
-  target_link_libraries(plasma plasma_lib -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} -lpthread)
+  target_link_libraries(plasma plasma_lib -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
 endif(APPLE)
 
 include_directories("${FLATBUFFERS_INCLUDE_DIR}")
@@ -93,7 +96,7 @@ add_library(plasma_lib STATIC
   fling.cc
   thirdparty/xxhash.cc)
 
-target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} -lpthread)
+target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
 add_dependencies(plasma_lib gen_plasma_fbs)
 
 set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion")
