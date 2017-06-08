@@ -119,9 +119,9 @@ bool TypedColumnReader<DType>::ReadNewPage() {
       // Levels are encoded as rle or bit-packed.
       // Init repetition levels
       if (descr_->max_repetition_level() > 0) {
-        int64_t rep_levels_bytes =
-            repetition_level_decoder_.SetData(page->repetition_level_encoding(),
-                descr_->max_repetition_level(), num_buffered_values_, buffer);
+        int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
+            page->repetition_level_encoding(), descr_->max_repetition_level(),
+            static_cast<int>(num_buffered_values_), buffer);
         buffer += rep_levels_bytes;
         data_size -= rep_levels_bytes;
       }
@@ -130,9 +130,9 @@ bool TypedColumnReader<DType>::ReadNewPage() {
 
       // Init definition levels
       if (descr_->max_definition_level() > 0) {
-        int64_t def_levels_bytes =
-            definition_level_decoder_.SetData(page->definition_level_encoding(),
-                descr_->max_definition_level(), num_buffered_values_, buffer);
+        int64_t def_levels_bytes = definition_level_decoder_.SetData(
+            page->definition_level_encoding(), descr_->max_definition_level(),
+            static_cast<int>(num_buffered_values_), buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
       }
@@ -170,7 +170,7 @@ bool TypedColumnReader<DType>::ReadNewPage() {
         }
       }
       current_decoder_->SetData(
-          num_buffered_values_, buffer, static_cast<int>(data_size));
+          static_cast<int>(num_buffered_values_), buffer, static_cast<int>(data_size));
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data

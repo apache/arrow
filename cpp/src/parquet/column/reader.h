@@ -91,11 +91,11 @@ class PARQUET_EXPORT ColumnReader {
   // values. For repeated or optional values, there may be fewer data values
   // than levels, and this tells you how many encoded levels there are in that
   // case.
-  int num_buffered_values_;
+  int64_t num_buffered_values_;
 
   // The number of values from the current data page that have been decoded
   // into memory
-  int num_decoded_values_;
+  int64_t num_decoded_values_;
 
   ::arrow::MemoryPool* pool_;
 };
@@ -128,8 +128,8 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   // This API is the same for both V1 and V2 of the DataPage
   //
   // @returns: actual number of levels read (see values_read for number of values read)
-  int64_t ReadBatch(int batch_size, int16_t* def_levels, int16_t* rep_levels, T* values,
-      int64_t* values_read);
+  int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+      T* values, int64_t* values_read);
 
   /// Read a batch of repetition levels, definition levels, and values from the
   /// column and leave spaces for null entries on the lowest level in the values
@@ -165,7 +165,7 @@ class PARQUET_EXPORT TypedColumnReader : public ColumnReader {
   ///   (i.e. definition_level == max_definition_level - 1)
   /// @param[out] null_count The number of nulls on the lowest levels.
   ///   (i.e. (values_read - null_count) is total number of non-null entries)
-  int64_t ReadBatchSpaced(int batch_size, int16_t* def_levels, int16_t* rep_levels,
+  int64_t ReadBatchSpaced(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
       T* values, uint8_t* valid_bits, int64_t valid_bits_offset, int64_t* levels_read,
       int64_t* values_read, int64_t* null_count);
 
@@ -217,8 +217,8 @@ inline int64_t TypedColumnReader<DType>::ReadValuesSpaced(int64_t batch_size, T*
 }
 
 template <typename DType>
-inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_levels,
-    int16_t* rep_levels, T* values, int64_t* values_read) {
+inline int64_t TypedColumnReader<DType>::ReadBatch(int64_t batch_size,
+    int16_t* def_levels, int16_t* rep_levels, T* values, int64_t* values_read) {
   // HasNext invokes ReadNewPage
   if (!HasNext()) {
     *values_read = 0;
@@ -257,7 +257,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int batch_size, int16_t* def_
 
   *values_read = ReadValues(values_to_read, values);
   int64_t total_values = std::max(num_def_levels, *values_read);
-  num_decoded_values_ += static_cast<int>(total_values);
+  num_decoded_values_ += total_values;
 
   return total_values;
 }
@@ -293,7 +293,7 @@ inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_
 }
 
 template <typename DType>
-inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
+inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int64_t batch_size,
     int16_t* def_levels, int16_t* rep_levels, T* values, uint8_t* valid_bits,
     int64_t valid_bits_offset, int64_t* levels_read, int64_t* values_read,
     int64_t* null_count_out) {
@@ -354,7 +354,7 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int batch_size,
     *levels_read = total_values;
   }
 
-  num_decoded_values_ += static_cast<int>(*levels_read);
+  num_decoded_values_ += *levels_read;
   return total_values;
 }
 
