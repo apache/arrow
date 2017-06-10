@@ -39,18 +39,19 @@
 
 namespace arrow {
 namespace ipc {
+namespace json {
 
 void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  ASSERT_OK(WriteJsonSchema(schema, &writer));
+  ASSERT_OK(internal::WriteSchema(schema, &writer));
 
   rj::Document d;
   d.Parse(sb.GetString());
 
   std::shared_ptr<Schema> out;
-  ASSERT_OK(ReadJsonSchema(d, &out));
+  ASSERT_OK(internal::ReadSchema(d, default_memory_pool(), &out));
 
   if (!schema.Equals(*out)) {
     FAIL() << "In schema: " << schema.ToString() << "\nOut schema: " << out->ToString();
@@ -63,7 +64,7 @@ void TestArrayRoundTrip(const Array& array) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  ASSERT_OK(WriteJsonArray(name, array, &writer));
+  ASSERT_OK(internal::WriteArray(name, array, &writer));
 
   std::string array_as_json = sb.GetString();
 
@@ -73,7 +74,7 @@ void TestArrayRoundTrip(const Array& array) {
   if (d.HasParseError()) { FAIL() << "JSON parsing failed"; }
 
   std::shared_ptr<Array> out;
-  ASSERT_OK(ReadJsonArray(default_memory_pool(), d, array.type(), &out));
+  ASSERT_OK(internal::ReadArray(default_memory_pool(), d, array.type(), &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -355,7 +356,8 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
       &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, &MakeStringTypesRecordBatch,   \
-      &MakeStruct, &MakeUnion, &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary);
+      &MakeStruct, &MakeUnion, &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,  \
+      &MakeDictionary);
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
@@ -392,5 +394,6 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
 
 INSTANTIATE_TEST_CASE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
+}  // namespace json
 }  // namespace ipc
 }  // namespace arrow

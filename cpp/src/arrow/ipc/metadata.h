@@ -88,6 +88,8 @@ class ARROW_EXPORT DictionaryMemo {
 
   const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
 
+  int size() const { return static_cast<int>(id_to_dictionary_.size()); }
+
  private:
   // Dictionary memory addresses, to track whether a dictionary has been seen
   // before
