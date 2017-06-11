@@ -39,7 +39,7 @@ using RjArray = rj::Value::ConstArray;
 using RjObject = rj::Value::ConstObject;
 
 #define RETURN_NOT_FOUND(TOK, NAME, PARENT) \
-  if (NAME == PARENT.MemberEnd()) {         \
+  if (NAME == (PARENT).MemberEnd()) {       \
     std::stringstream ss;                   \
     ss << "field " << TOK << " not found";  \
     return Status::Invalid(ss.str());       \

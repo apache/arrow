@@ -387,6 +387,10 @@ class ArrayWriter {
 
   Status Write() { return VisitArray(name_, array_); }
 
+  Status VisitArrayValues(const Array& arr) {
+    return VisitArrayInline(arr, this);
+  }
+
   Status VisitArray(const std::string& name, const Array& arr) {
     writer_->StartObject();
     writer_->Key("name");
@@ -395,7 +399,7 @@ class ArrayWriter {
     writer_->Key("count");
     writer_->Int(static_cast<int32_t>(arr.length()));
 
-    RETURN_NOT_OK(VisitArrayInline(arr, this));
+    RETURN_NOT_OK(VisitArrayValues(arr));
 
     writer_->EndObject();
     return Status::OK();
@@ -534,30 +538,32 @@ class ArrayWriter {
 
   Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
-  Status Visit(const DictionaryArray& array) { return Status::NotImplemented("decimal"); }
+  Status Visit(const DictionaryArray& array) {
+    return VisitArrayValues(*array.indices());
+  }
 
   Status Visit(const ListArray& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
-    auto type = static_cast<const ListType*>(array.type().get());
-    return WriteChildren(type->children(), {array.values()});
+    const auto& type = static_cast<const ListType&>(*array.type());
+    return WriteChildren(type.children(), {array.values()});
   }
 
   Status Visit(const StructArray& array) {
     WriteValidityField(array);
-    auto type = static_cast<const StructType*>(array.type().get());
-    return WriteChildren(type->children(), array.fields());
+    const auto& type = static_cast<const StructType&>(*array.type());
+    return WriteChildren(type.children(), array.fields());
   }
 
   Status Visit(const UnionArray& array) {
     WriteValidityField(array);
-    auto type = static_cast<const UnionType*>(array.type().get());
+    const auto& type = static_cast<const UnionType&>(*array.type());
 
     WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
-    if (type->mode() == UnionMode::DENSE) {
+    if (type.mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
-    return WriteChildren(type->children(), array.children());
+    return WriteChildren(type.children(), array.children());
   }
 
  private:
@@ -837,8 +843,7 @@ static Status GetField(const rj::Value& obj, const DictionaryMemo* dictionary_me
   std::shared_ptr<DataType> type;
 
   const auto& it_dictionary = json_field.FindMember("dictionary");
-  if (it_dictionary != json_field.MemberEnd()) {
-    DCHECK(dictionary_memo) << "dictionary_memo was null";
+  if (dictionary_memo != nullptr && it_dictionary != json_field.MemberEnd()) {
     // Field is dictionary encoded. We must have already
     RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
     int64_t dictionary_id;
@@ -852,6 +857,9 @@ static Status GetField(const rj::Value& obj, const DictionaryMemo* dictionary_me
 
     type = std::make_shared<DictionaryType>(index_type, dictionary, is_ordered);
   } else {
+    // If the dictionary_memo was not passed, or if the field is not dictionary
+    // encoded, we are interested in the complete type including all children
+
     const auto& it_type = json_field.FindMember("type");
     RETURN_NOT_OBJECT("type", it_type, json_field);
 
@@ -897,7 +905,9 @@ UnboxValue(const rj::Value& val) {
 
 class ArrayReader {
  public:
-  explicit ArrayReader(MemoryPool* pool) : pool_(pool) {}
+  explicit ArrayReader(const rj::Value& json_array, const std::shared_ptr<DataType>& type,
+      MemoryPool* pool)
+      : json_array_(json_array), type_(type), pool_(pool) {}
 
   Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
       std::shared_ptr<Buffer>* validity_buffer) {
@@ -926,18 +936,17 @@ class ArrayReader {
           std::is_base_of<TimestampType, T>::value ||
           std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value,
       Status>::type
-  ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    typename TypeTraits<T>::BuilderType builder(pool_, type);
+  Visit(const T& type) {
+    typename TypeTraits<T>::BuilderType builder(pool_, type_);
 
-    const auto& json_data = json_array.FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, json_array);
+    const auto& json_data = obj_->FindMember("DATA");
+    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
-    for (int i = 0; i < length; ++i) {
-      if (!is_valid[i]) {
+    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
+    for (int i = 0; i < length_; ++i) {
+      if (!is_valid_[i]) {
         builder.AppendNull();
         continue;
       }
@@ -946,25 +955,24 @@ class ArrayReader {
       builder.Append(UnboxValue<T>(val));
     }
 
-    return builder.Finish(array);
+    return builder.Finish(&result_);
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type ReadArray(
-      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
+      const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
 
-    const auto& json_data = json_array.FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, json_array);
+    const auto& json_data = obj_->FindMember("DATA");
+    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
+    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
 
     auto byte_buffer = std::make_shared<PoolBuffer>(pool_);
-    for (int i = 0; i < length; ++i) {
-      if (!is_valid[i]) {
+    for (int i = 0; i < length_; ++i) {
+      if (!is_valid_[i]) {
         builder.AppendNull();
         continue;
       }
@@ -990,31 +998,29 @@ class ArrayReader {
       }
     }
 
-    return builder.Finish(array);
+    return builder.Finish(&result_);
   }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, Status>::type
-  ReadArray(const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    FixedSizeBinaryBuilder builder(pool_, type);
+  Visit(const T& type) {
+    FixedSizeBinaryBuilder builder(pool_, type_);
 
-    const auto& json_data = json_array.FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, json_array);
+    const auto& json_data = obj_->FindMember("DATA");
+    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length);
-
-    int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
+    int32_t byte_width = type.byte_width();
 
     // Allocate space for parsed values
     std::shared_ptr<MutableBuffer> byte_buffer;
     RETURN_NOT_OK(AllocateBuffer(pool_, byte_width, &byte_buffer));
     uint8_t* byte_buffer_data = byte_buffer->mutable_data();
 
-    for (int i = 0; i < length; ++i) {
-      if (!is_valid[i]) {
+    for (int i = 0; i < length_; ++i) {
+      if (!is_valid_[i]) {
         builder.AppendNull();
         continue;
       }
@@ -1031,7 +1037,7 @@ class ArrayReader {
       }
       RETURN_NOT_OK(builder.Append(byte_buffer_data));
     }
-    return builder.Finish(array);
+    return builder.Finish(&result_);
   }
 
   template <typename T>
@@ -1051,99 +1057,89 @@ class ArrayReader {
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<ListType, T>::value, Status>::type ReadArray(
-      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+  Status Visit(const ListType& type) {
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
-    RETURN_NOT_OK(GetValidityBuffer(is_valid, &null_count, &validity_buffer));
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_offsets = json_array.FindMember("OFFSET");
-    RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
+    const auto& json_offsets = obj_->FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
     std::shared_ptr<Buffer> offsets_buffer;
     RETURN_NOT_OK(GetIntArray<int32_t>(
-        json_offsets->value.GetArray(), length + 1, &offsets_buffer));
+        json_offsets->value.GetArray(), length_ + 1, &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(json_array, type, &children));
+    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
     DCHECK_EQ(children.size(), 1);
 
-    *array = std::make_shared<ListArray>(
-        type, length, offsets_buffer, children[0], validity_buffer, null_count);
+    result_ = std::make_shared<ListArray>(
+        type_, length_, offsets_buffer, children[0], validity_buffer, null_count);
 
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<StructType, T>::value, Status>::type ReadArray(
-      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+  Status Visit(const StructType& type) {
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
-    RETURN_NOT_OK(GetValidityBuffer(is_valid, &null_count, &validity_buffer));
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
     std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(GetChildren(json_array, type, &fields));
+    RETURN_NOT_OK(GetChildren(*obj_, type, &fields));
 
-    *array =
-        std::make_shared<StructArray>(type, length, fields, validity_buffer, null_count);
+    result_ = std::make_shared<StructArray>(
+        type_, length_, fields, validity_buffer, null_count);
 
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<UnionType, T>::value, Status>::type ReadArray(
-      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
+  Status Visit(const UnionType& type) {
     int32_t null_count = 0;
-
-    const auto& union_type = static_cast<const UnionType&>(*type);
 
     std::shared_ptr<Buffer> validity_buffer;
     std::shared_ptr<Buffer> type_id_buffer;
     std::shared_ptr<Buffer> offsets_buffer;
 
-    RETURN_NOT_OK(GetValidityBuffer(is_valid, &null_count, &validity_buffer));
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_type_ids = json_array.FindMember("TYPE_ID");
-    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, json_array);
+    const auto& json_type_ids = obj_->FindMember("TYPE_ID");
+    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, *obj_);
     RETURN_NOT_OK(
-        GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length, &type_id_buffer));
+        GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
 
-    if (union_type.mode() == UnionMode::DENSE) {
-      const auto& json_offsets = json_array.FindMember("OFFSET");
-      RETURN_NOT_ARRAY("OFFSET", json_offsets, json_array);
+    if (type.mode() == UnionMode::DENSE) {
+      const auto& json_offsets = obj_->FindMember("OFFSET");
+      RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
       RETURN_NOT_OK(
-          GetIntArray<int32_t>(json_offsets->value.GetArray(), length, &offsets_buffer));
+          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
     }
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(json_array, type, &children));
+    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
 
-    *array = std::make_shared<UnionArray>(type, length, children, type_id_buffer,
+    result_ = std::make_shared<UnionArray>(type_, length_, children, type_id_buffer,
         offsets_buffer, validity_buffer, null_count);
 
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<NullType, T>::value, Status>::type ReadArray(
-      const RjObject& json_array, int32_t length, const std::vector<bool>& is_valid,
-      const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-    *array = std::make_shared<NullArray>(length);
+  Status Visit(const NullType& type) {
+    result_ = std::make_shared<NullArray>(length_);
     return Status::OK();
   }
 
-  Status GetChildren(const RjObject& json_array, const std::shared_ptr<DataType>& type,
+  Status Visit(const DictionaryType& type) {
+    return Status::NotImplemented("dictionary");
+  }
+
+  Status GetChildren(const RjObject& obj, const DataType& type,
       std::vector<std::shared_ptr<Array>>* array) {
-    const auto& json_children = json_array.FindMember("children");
-    RETURN_NOT_ARRAY("children", json_children, json_array);
+    const auto& json_children = obj.FindMember("children");
+    RETURN_NOT_ARRAY("children", json_children, obj);
     const auto& json_children_arr = json_children->value.GetArray();
 
-    if (type->num_children() != static_cast<int>(json_children_arr.Size())) {
+    if (type.num_children() != static_cast<int>(json_children_arr.Size())) {
       std::stringstream ss;
-      ss << "Expected " << type->num_children() << " children, but got "
+      ss << "Expected " << type.num_children() << " children, but got "
          << json_children_arr.Size();
       return Status::Invalid(ss.str());
     }
@@ -1152,86 +1148,55 @@ class ArrayReader {
       const rj::Value& json_child = json_children_arr[i];
       DCHECK(json_child.IsObject());
 
-      std::shared_ptr<Field> child_field = type->child(i);
+      std::shared_ptr<Field> child_field = type.child(i);
 
       auto it = json_child.FindMember("name");
       RETURN_NOT_STRING("name", it, json_child);
 
       DCHECK_EQ(it->value.GetString(), child_field->name());
       std::shared_ptr<Array> child;
-      RETURN_NOT_OK(GetArray(json_children_arr[i], child_field->type(), &child));
+      RETURN_NOT_OK(ReadArray(pool_, json_children_arr[i], child_field->type(), &child));
       array->emplace_back(child);
     }
 
     return Status::OK();
   }
 
-  Status GetArray(const rj::Value& obj, const std::shared_ptr<DataType>& type,
-      std::shared_ptr<Array>* array) {
-    if (!obj.IsObject()) {
+  Status GetArray(std::shared_ptr<Array>* out) {
+    if (!json_array_.IsObject()) {
       return Status::Invalid("Array element was not a JSON object");
     }
-    const auto& json_array = obj.GetObject();
 
-    const auto& json_length = json_array.FindMember("count");
-    RETURN_NOT_INT("count", json_length, json_array);
-    int32_t length = json_length->value.GetInt();
+    auto obj = json_array_.GetObject();
+    obj_ = &obj;
 
-    const auto& json_valid_iter = json_array.FindMember("VALIDITY");
-    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, json_array);
+    RETURN_NOT_OK(GetObjectInt(obj, "count", &length_));
+
+    const auto& json_valid_iter = obj.FindMember("VALIDITY");
+    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj);
 
     const auto& json_validity = json_valid_iter->value.GetArray();
-
-    DCHECK_EQ(static_cast<int>(json_validity.Size()), length);
-
-    std::vector<bool> is_valid;
+    DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
-      is_valid.push_back(val.GetInt() != 0);
+      is_valid_.push_back(val.GetInt() != 0);
     }
 
-#define TYPE_CASE(TYPE) \
-  case TYPE::type_id:   \
-    return ReadArray<TYPE>(json_array, length, is_valid, type, array);
-
-    switch (type->id()) {
-      TYPE_CASE(NullType);
-      TYPE_CASE(BooleanType);
-      TYPE_CASE(UInt8Type);
-      TYPE_CASE(Int8Type);
-      TYPE_CASE(UInt16Type);
-      TYPE_CASE(Int16Type);
-      TYPE_CASE(UInt32Type);
-      TYPE_CASE(Int32Type);
-      TYPE_CASE(UInt64Type);
-      TYPE_CASE(Int64Type);
-      TYPE_CASE(HalfFloatType);
-      TYPE_CASE(FloatType);
-      TYPE_CASE(DoubleType);
-      TYPE_CASE(StringType);
-      TYPE_CASE(BinaryType);
-      TYPE_CASE(FixedSizeBinaryType);
-      TYPE_CASE(Date32Type);
-      TYPE_CASE(Date64Type);
-      TYPE_CASE(TimestampType);
-      TYPE_CASE(Time32Type);
-      TYPE_CASE(Time64Type);
-      TYPE_CASE(ListType);
-      TYPE_CASE(StructType);
-      TYPE_CASE(UnionType);
-      default:
-        std::stringstream ss;
-        ss << type->ToString();
-        return Status::NotImplemented(ss.str());
-    }
-
-#undef TYPE_CASE
-
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    *out = result_;
     return Status::OK();
   }
 
  private:
+  const rj::Value& json_array_;
+  const RjObject* obj_;
+  std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
+
+  // Parsed common attributes
+  std::vector<bool> is_valid_;
+  int32_t length_;
+  std::shared_ptr<Array> result_;
 };
 
 Status WriteSchema(const Schema& schema, RjWriter* json_writer) {
@@ -1297,9 +1262,8 @@ static Status ReadDictionary(const RjObject& obj, const DictionaryTypeMap& id_to
   return Status::OK();
 }
 
-static Status ReadDictionaries(const rj::Value& doc,
-    const DictionaryTypeMap& id_to_field, MemoryPool* pool,
-    DictionaryMemo* dictionary_memo) {
+static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id_to_field,
+    MemoryPool* pool, DictionaryMemo* dictionary_memo) {
   auto it = doc.FindMember("dictionaries");
   if (it == doc.MemberEnd()) {
     // No dictionaries
@@ -1394,8 +1358,8 @@ Status WriteArray(const std::string& name, const Array& array, RjWriter* json_wr
 
 Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
-  ArrayReader converter(pool);
-  return converter.GetArray(json_array, type, array);
+  ArrayReader converter(json_array, type, pool);
+  return converter.GetArray(array);
 }
 
 Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
