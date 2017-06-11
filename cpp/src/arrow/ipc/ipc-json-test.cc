@@ -47,11 +47,15 @@ void TestSchemaRoundTrip(const Schema& schema) {
 
   ASSERT_OK(internal::WriteSchema(schema, &writer));
 
+  std::string json_schema = sb.GetString();
+
   rj::Document d;
-  d.Parse(sb.GetString());
+  d.Parse(json_schema);
 
   std::shared_ptr<Schema> out;
-  ASSERT_OK(internal::ReadSchema(d, default_memory_pool(), &out));
+  if (!internal::ReadSchema(d, default_memory_pool(), &out).ok()) {
+    FAIL() << "Unable to read JSON schema: " << json_schema;
+  }
 
   if (!schema.Equals(*out)) {
     FAIL() << "In schema: " << schema.ToString() << "\nOut schema: " << out->ToString();
@@ -366,6 +370,8 @@ class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
 };
 
 void CheckRoundtrip(const RecordBatch& batch) {
+  TestSchemaRoundTrip(*batch.schema());
+
   std::unique_ptr<JsonWriter> writer;
   ASSERT_OK(JsonWriter::Open(batch.schema(), &writer));
   ASSERT_OK(writer->WriteRecordBatch(batch));

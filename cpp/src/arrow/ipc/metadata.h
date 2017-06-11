@@ -77,6 +77,7 @@ class ARROW_EXPORT DictionaryMemo {
   // Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
+  /// Return id for dictionary, computing new id if necessary
   int64_t GetId(const std::shared_ptr<Array>& dictionary);
 
   bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;

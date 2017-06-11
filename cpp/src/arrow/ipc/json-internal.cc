@@ -100,15 +100,13 @@ class SchemaWriter {
       : schema_(schema), writer_(writer) {}
 
   Status Write() {
-    writer_->Key("schema");
     writer_->StartObject();
     writer_->Key("fields");
     writer_->StartArray();
     for (const std::shared_ptr<Field>& field : schema_.fields()) {
-      RETURN_NOT_OK(VisitField(*field.get()));
+      RETURN_NOT_OK(VisitField(*field));
     }
     writer_->EndArray();
-    writer_->EndObject();
 
     // Write dictionaries, if any
     if (dictionary_memo_.size() > 0) {
@@ -119,6 +117,7 @@ class SchemaWriter {
       }
       writer_->EndArray();
     }
+    writer_->EndObject();
     return Status::OK();
   }
 
@@ -304,16 +303,14 @@ class SchemaWriter {
     writer_->Key("children");
     writer_->StartArray();
     for (const std::shared_ptr<Field>& field : children) {
-      RETURN_NOT_OK(VisitField(*field.get()));
+      RETURN_NOT_OK(VisitField(*field));
     }
     writer_->EndArray();
     return Status::OK();
   }
 
   Status Visit(const NullType& type) { return WritePrimitive("null", type); }
-
   Status Visit(const BooleanType& type) { return WritePrimitive("bool", type); }
-
   Status Visit(const Integer& type) { return WritePrimitive("int", type); }
 
   Status Visit(const FloatingPoint& type) {
@@ -321,19 +318,14 @@ class SchemaWriter {
   }
 
   Status Visit(const DateType& type) { return WritePrimitive("date", type); }
-
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
-
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
-
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
-
   Status Visit(const FixedSizeBinaryType& type) {
     return WritePrimitive("fixedsizebinary", type);
   }
 
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
-
   Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
 
   Status Visit(const ListType& type) {
@@ -370,14 +362,15 @@ class SchemaWriter {
     writer_->Int(static_cast<int32_t>(dictionary_id));
     writer_->Key("indexType");
 
-    // TODO(wesm) possibly overkill
+    writer_->StartObject();
     RETURN_NOT_OK(VisitType(*type.index_type()));
+    writer_->EndObject();
 
     writer_->Key("isOrdered");
     writer_->Bool(type.ordered());
     writer_->EndObject();
 
-    return Status::NotImplemented("dictionary");
+    return Status::OK();
   }
 
  private:
@@ -509,7 +502,7 @@ class ArrayWriter {
     writer_->Key("children");
     writer_->StartArray();
     for (size_t i = 0; i < fields.size(); ++i) {
-      RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i].get()));
+      RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i]));
     }
     writer_->EndArray();
     return Status::OK();
@@ -1105,7 +1098,7 @@ class ArrayReader {
       const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array) {
     int32_t null_count = 0;
 
-    const auto& union_type = static_cast<const UnionType&>(*type.get());
+    const auto& union_type = static_cast<const UnionType&>(*type);
 
     std::shared_ptr<Buffer> validity_buffer;
     std::shared_ptr<Buffer> type_id_buffer;
@@ -1304,10 +1297,15 @@ static Status ReadDictionary(const RjObject& obj, const DictionaryTypeMap& id_to
   return Status::OK();
 }
 
-static Status ReadDictionaries(const rj::Document& doc,
+static Status ReadDictionaries(const rj::Value& doc,
     const DictionaryTypeMap& id_to_field, MemoryPool* pool,
     DictionaryMemo* dictionary_memo) {
   auto it = doc.FindMember("dictionaries");
+  if (it == doc.MemberEnd()) {
+    // No dictionaries
+    return Status::OK();
+  }
+
   RETURN_NOT_ARRAY("dictionaries", it, doc);
   const auto& dictionary_array = it->value.GetArray();
 
@@ -1323,11 +1321,7 @@ static Status ReadDictionaries(const rj::Document& doc,
 }
 
 Status ReadSchema(
-    const rj::Document& doc, MemoryPool* pool, std::shared_ptr<Schema>* schema) {
-  auto it = doc.FindMember("schema");
-  RETURN_NOT_OBJECT("schema", it, doc);
-
-  const auto& json_schema = it->value;
+    const rj::Value& json_schema, MemoryPool* pool, std::shared_ptr<Schema>* schema) {
   const auto& obj_schema = json_schema.GetObject();
 
   const auto& it_fields = obj_schema.FindMember("fields");
@@ -1339,7 +1333,7 @@ Status ReadSchema(
 
   // Read the dictionaries and cache in the memo
   DictionaryMemo dictionary_memo;
-  RETURN_NOT_OK(ReadDictionaries(doc, dictionary_types, pool, &dictionary_memo));
+  RETURN_NOT_OK(ReadDictionaries(json_schema, dictionary_types, pool, &dictionary_memo));
 
   std::vector<std::shared_ptr<Field>> fields;
   RETURN_NOT_OK(GetFieldsFromArray(it_fields->value, &dictionary_memo, &fields));

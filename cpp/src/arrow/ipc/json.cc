@@ -45,8 +45,8 @@ class JsonWriter::JsonWriterImpl {
 
   Status Start() {
     writer_->StartObject();
-
-    RETURN_NOT_OK(json::internal::WriteSchema(*schema_.get(), writer_.get()));
+    writer_->Key("schema");
+    RETURN_NOT_OK(json::internal::WriteSchema(*schema_, writer_.get()));
 
     // Record batches
     writer_->Key("batches");
@@ -107,9 +107,11 @@ class JsonReader::JsonReaderImpl {
         static_cast<size_t>(data_->size()));
     if (doc_.HasParseError()) { return Status::IOError("JSON parsing failed"); }
 
-    RETURN_NOT_OK(json::internal::ReadSchema(doc_, pool_, &schema_));
+    auto it = doc_.FindMember("schema");
+    RETURN_NOT_OBJECT("schema", it, doc_);
+    RETURN_NOT_OK(json::internal::ReadSchema(it->value, pool_, &schema_));
 
-    const auto& it = doc_.FindMember("batches");
+    it = doc_.FindMember("batches");
     RETURN_NOT_ARRAY("batches", it, doc_);
     record_batches_ = &it->value;
 
