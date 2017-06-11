@@ -22,13 +22,16 @@ project(plasma)
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
+option(PLASMA_PYTHON
+  "Build the Plasma Python extensions"
+  OFF)
 
 if(APPLE)
   SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(APPLE)
 
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
-include_directories(thirdparty ..)
+include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L -march=native -mtune=native -O3")
 
@@ -60,26 +63,23 @@ if(UNIX AND NOT APPLE)
   link_libraries(rt)
 endif()
 
-include_directories("${CMAKE_CURRENT_LIST_DIR}/")
-include_directories("${CMAKE_CURRENT_LIST_DIR}/../")
+if(PLASMA_PYTHON)
+  add_library(plasma SHARED
+    plasma.cc
+    extension.cc
+    protocol.cc
+    client.cc
+    thirdparty/xxhash.cc
+    fling.cc)
 
-add_library(plasma SHARED
-  plasma.cc
-  extension.cc
-  protocol.cc
-  client.cc
-  thirdparty/xxhash.cc
-  fling.cc)
+  add_dependencies(plasma gen_plasma_fbs)
 
-add_dependencies(plasma gen_plasma_fbs)
-
-if(APPLE)
-  target_link_libraries(plasma plasma_lib "-undefined dynamic_lookup" ${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
-else(APPLE)
-  target_link_libraries(plasma plasma_lib -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
-endif(APPLE)
-
-include_directories("${FLATBUFFERS_INCLUDE_DIR}")
+  if(APPLE)
+    target_link_libraries(plasma plasma_lib "-undefined dynamic_lookup" ${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
+  else(APPLE)
+    target_link_libraries(plasma plasma_lib -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
+  endif(APPLE)
+endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
