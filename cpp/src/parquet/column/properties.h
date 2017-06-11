@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include "parquet/exception.h"
+#include "parquet/parquet_version.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
@@ -85,7 +86,7 @@ static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
-static const char DEFAULT_CREATED_BY[] = "parquet-cpp version 1.0.0";
+static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 
 class PARQUET_EXPORT ColumnProperties {
