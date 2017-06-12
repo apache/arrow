@@ -136,6 +136,27 @@ class SchemaWriter {
     return Status::OK();
   }
 
+  Status WriteDictionaryMetadata(const DictionaryType& type) {
+    int64_t dictionary_id = dictionary_memo_.GetId(type.dictionary());
+    writer_->Key("dictionary");
+
+    // Emulate DictionaryEncoding from Schema.fbs
+    writer_->StartObject();
+    writer_->Key("id");
+    writer_->Int(static_cast<int32_t>(dictionary_id));
+    writer_->Key("indexType");
+
+    writer_->StartObject();
+    RETURN_NOT_OK(VisitType(*type.index_type()));
+    writer_->EndObject();
+
+    writer_->Key("isOrdered");
+    writer_->Bool(type.ordered());
+    writer_->EndObject();
+
+    return Status::OK();
+  }
+
   Status VisitField(const Field& field) {
     writer_->StartObject();
 
@@ -145,20 +166,33 @@ class SchemaWriter {
     writer_->Key("nullable");
     writer_->Bool(field.nullable());
 
+    const DataType& type = *field.type();
+
     // Visit the type
-    RETURN_NOT_OK(VisitType(*field.type()));
+    writer_->Key("type");
+    writer_->StartObject();
+    RETURN_NOT_OK(VisitType(type));
+    writer_->EndObject();
+
+    if (type.id() == Type::DICTIONARY) {
+      const auto& dict_type = static_cast<const DictionaryType&>(type);
+      RETURN_NOT_OK(WriteDictionaryMetadata(dict_type));
+
+      const DataType& dictionary_type = *dict_type.dictionary()->type();
+      const DataType& index_type = *dict_type.index_type();
+      RETURN_NOT_OK(WriteChildren(dictionary_type.children()));
+      WriteBufferLayout(index_type.GetBufferLayout());
+    } else {
+      RETURN_NOT_OK(WriteChildren(type.children()));
+      WriteBufferLayout(type.GetBufferLayout());
+    }
+
     writer_->EndObject();
 
     return Status::OK();
   }
 
-  Status VisitType(const DataType& type) { return VisitTypeInline(type, this); }
-
-  void SetNoChildren() {
-    writer_->Key("children");
-    writer_->StartArray();
-    writer_->EndArray();
-  }
+  Status VisitType(const DataType& type);
 
   template <typename T>
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
@@ -255,27 +289,20 @@ class SchemaWriter {
 
   template <typename T>
   void WriteName(const std::string& typeclass, const T& type) {
-    writer_->Key("type");
-    writer_->StartObject();
     writer_->Key("name");
     writer_->String(typeclass);
     WriteTypeMetadata(type);
-    writer_->EndObject();
   }
 
   template <typename T>
   Status WritePrimitive(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
-    SetNoChildren();
-    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   template <typename T>
   Status WriteVarBytes(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
-    SetNoChildren();
-    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
@@ -330,47 +357,23 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
-    RETURN_NOT_OK(WriteChildren(type.children()));
-    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     WriteName("struct", type);
-    WriteChildren(type.children());
-    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   Status Visit(const UnionType& type) {
     WriteName("union", type);
-    WriteChildren(type.children());
-    WriteBufferLayout(type.GetBufferLayout());
     return Status::OK();
   }
 
   Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
 
   Status Visit(const DictionaryType& type) {
-    RETURN_NOT_OK(VisitType(*type.dictionary()->type()));
-    int64_t dictionary_id = dictionary_memo_.GetId(type.dictionary());
-    writer_->Key("dictionary");
-
-    // Emulate DictionaryEncoding from Schema.fbs
-    writer_->StartObject();
-    writer_->Key("id");
-    writer_->Int(static_cast<int32_t>(dictionary_id));
-    writer_->Key("indexType");
-
-    writer_->StartObject();
-    RETURN_NOT_OK(VisitType(*type.index_type()));
-    writer_->EndObject();
-
-    writer_->Key("isOrdered");
-    writer_->Bool(type.ordered());
-    writer_->EndObject();
-
-    return Status::OK();
+    return VisitType(*type.dictionary()->type());
   }
 
  private:
@@ -379,6 +382,10 @@ class SchemaWriter {
   const Schema& schema_;
   RjWriter* writer_;
 };
+
+Status SchemaWriter::VisitType(const DataType& type) {
+  return VisitTypeInline(type, this);
+}
 
 class ArrayWriter {
  public:
@@ -802,6 +809,9 @@ static Status GetType(const RjObject& json_type,
   } else if (type_name == "timestamp") {
     return GetTimestamp(json_type, type);
   } else if (type_name == "list") {
+    if (children.size() != 1) {
+      return Status::Invalid("List must have exactly one child");
+    }
     *type = list(children[0]);
   } else if (type_name == "struct") {
     *type = struct_(children);
@@ -827,7 +837,23 @@ static Status GetFieldsFromArray(const rj::Value& obj,
 
 static Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
     std::shared_ptr<DataType>* index_type) {
-  return Status::OK();
+  int32_t int32_id;
+  RETURN_NOT_OK(GetObjectInt(obj, "id", &int32_id));
+  *id = int32_id;
+
+  RETURN_NOT_OK(GetObjectBool(obj, "isOrdered", is_ordered));
+
+  const auto& it_index_type = obj.FindMember("indexType");
+  RETURN_NOT_OBJECT("indexType", it_index_type, obj);
+
+  const auto& json_index_type = it_index_type->value.GetObject();
+
+  std::string type_name;
+  RETURN_NOT_OK(GetObjectString(json_index_type, "name", &type_name));
+  if (type_name != "int") {
+    return Status::Invalid("Dictionary indices can only be integers");
+  }
+  return GetInteger(json_index_type, index_type);
 }
 
 static Status GetField(const rj::Value& obj, const DictionaryMemo* dictionary_memo,
@@ -908,6 +934,8 @@ class ArrayReader {
   explicit ArrayReader(const rj::Value& json_array, const std::shared_ptr<DataType>& type,
       MemoryPool* pool)
       : json_array_(json_array), type_(type), pool_(pool) {}
+
+  Status ParseTypeValues(const DataType& type);
 
   Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
       std::shared_ptr<Buffer>* validity_buffer) {
@@ -1128,7 +1156,10 @@ class ArrayReader {
   }
 
   Status Visit(const DictionaryType& type) {
-    return Status::NotImplemented("dictionary");
+    // This stores the indices in result_
+    RETURN_NOT_OK(ParseTypeValues(*type.index_type()));
+    result_ = std::make_shared<DictionaryArray>(type_, result_);
+    return Status::OK();
   }
 
   Status GetChildren(const RjObject& obj, const DataType& type,
@@ -1182,7 +1213,7 @@ class ArrayReader {
       is_valid_.push_back(val.GetInt() != 0);
     }
 
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    RETURN_NOT_OK(ParseTypeValues(*type_));
     *out = result_;
     return Status::OK();
   }
@@ -1198,6 +1229,10 @@ class ArrayReader {
   int32_t length_;
   std::shared_ptr<Array> result_;
 };
+
+Status ArrayReader::ParseTypeValues(const DataType& type) {
+  return VisitTypeInline(type, this);
+}
 
 Status WriteSchema(const Schema& schema, RjWriter* json_writer) {
   SchemaWriter converter(schema, json_writer);
