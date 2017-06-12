@@ -18,20 +18,20 @@
 #ifndef PLASMA_H
 #define PLASMA_H
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h> /* pid_t */
 
 #include <unordered_map>
 #include <unordered_set>
 
-#include "format/common_generated.h"
-#include "arrow/util/logging.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
+#include "format/common_generated.h"
 
 #include <inttypes.h>
 
@@ -83,8 +83,7 @@ typedef struct {
 } ObjectRequest;
 
 /** Mapping from object IDs to type and status of the request. */
-typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher>
-    ObjectRequestMap;
+typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher> ObjectRequestMap;
 
 /* Handle to access memory mapped file and map it into client address space. */
 typedef struct {
@@ -144,9 +143,9 @@ struct ObjectTableEntry {
   /** Offset from the base of the mmap. */
   ptrdiff_t offset;
   /** Pointer to the object data. Needed to free the object. */
-  uint8_t *pointer;
+  uint8_t* pointer;
   /** Set of clients currently using this object. */
-  std::unordered_set<Client *> clients;
+  std::unordered_set<Client*> clients;
   /** The state of the object, e.g., whether it is open or sealed. */
   object_state state;
   /** The digest of the object. Used to see if two objects are the same. */
@@ -156,10 +155,7 @@ struct ObjectTableEntry {
 /** The plasma store information that is exposed to the eviction policy. */
 struct PlasmaStoreInfo {
   /** Objects that are in the Plasma store. */
-  std::unordered_map<ObjectID,
-                     std::unique_ptr<ObjectTableEntry>,
-                     UniqueIDHasher>
-      objects;
+  std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>, UniqueIDHasher> objects;
   /** The amount of memory (in bytes) that we allow to be allocated in the
    *  store. */
   int64_t memory_capacity;
@@ -174,8 +170,7 @@ struct PlasmaStoreInfo {
  * @return The entry associated with the object_id or NULL if the object_id
  *         is not present.
  */
-ObjectTableEntry *get_object_table_entry(PlasmaStoreInfo *store_info,
-                                         ObjectID object_id);
+ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info, ObjectID object_id);
 
 /**
  * Print a warning if the status is less than zero. This should be used to check
@@ -195,6 +190,6 @@ ObjectTableEntry *get_object_table_entry(PlasmaStoreInfo *store_info,
  */
 int warn_if_sigpipe(int status, int client_sock);
 
-uint8_t *create_object_info_buffer(ObjectInfoT *object_info);
+uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
 
 #endif /* PLASMA_H */

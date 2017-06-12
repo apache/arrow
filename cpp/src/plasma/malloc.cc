@@ -16,9 +16,9 @@
 // under the License.
 
 #include <assert.h>
-#include <stdlib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -29,8 +29,8 @@
 #include "plasma/malloc.h"
 
 extern "C" {
-void *fake_mmap(size_t);
-int fake_munmap(void *, int64_t);
+void* fake_mmap(size_t);
+int fake_munmap(void*, int64_t);
 
 #define MMAP(s) fake_mmap(s)
 #define MUNMAP(a, s) fake_munmap(a, s)
@@ -39,7 +39,7 @@ int fake_munmap(void *, int64_t);
 #define USE_DL_PREFIX
 #define HAVE_MORECORE 0
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
-#define DEFAULT_GRANULARITY ((size_t) 128U * 1024U)
+#define DEFAULT_GRANULARITY ((size_t)128U * 1024U)
 
 #include "thirdparty/dlmalloc.c"
 
@@ -62,22 +62,22 @@ namespace {
 /** Hashtable that contains one entry per segment that we got from the OS
  *  via mmap. Associates the address of that segment with its file descriptor
  *  and size. */
-std::unordered_map<void *, mmap_record> mmap_records;
+std::unordered_map<void*, mmap_record> mmap_records;
 
 } /* namespace */
 
 constexpr int GRANULARITY_MULTIPLIER = 2;
 
-static void *pointer_advance(void *p, ptrdiff_t n) {
-  return (unsigned char *) p + n;
+static void* pointer_advance(void* p, ptrdiff_t n) {
+  return (unsigned char*)p + n;
 }
 
-static void *pointer_retreat(void *p, ptrdiff_t n) {
-  return (unsigned char *) p - n;
+static void* pointer_retreat(void* p, ptrdiff_t n) {
+  return (unsigned char*)p - n;
 }
 
-static ptrdiff_t pointer_distance(void const *pfrom, void const *pto) {
-  return (unsigned char const *) pto - (unsigned char const *) pfrom;
+static ptrdiff_t pointer_distance(void const* pfrom, void const* pto) {
+  return (unsigned char const*)pto - (unsigned char const*)pfrom;
 }
 
 /* Create a buffer. This is creating a temporary file and then
@@ -86,8 +86,8 @@ int create_buffer(int64_t size) {
   int fd;
 #ifdef _WIN32
   if (!CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                         (DWORD)((uint64_t) size >> (CHAR_BIT * sizeof(DWORD))),
-                         (DWORD)(uint64_t) size, NULL)) {
+          (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))), (DWORD)(uint64_t)size,
+          NULL)) {
     fd = -1;
   }
 #else
@@ -99,9 +99,8 @@ int create_buffer(int64_t size) {
   char file_name[32];
   strncpy(file_name, file_template, 32);
   fd = mkstemp(file_name);
-  if (fd < 0)
-    return -1;
-  FILE *file = fdopen(fd, "a+");
+  if (fd < 0) return -1;
+  FILE* file = fdopen(fd, "a+");
   if (!file) {
     close(fd);
     return -1;
@@ -110,7 +109,7 @@ int create_buffer(int64_t size) {
     ARROW_LOG(FATAL) << "unlink error";
     return -1;
   }
-  if (ftruncate(fd, (off_t) size) != 0) {
+  if (ftruncate(fd, (off_t)size) != 0) {
     ARROW_LOG(FATAL) << "ftruncate error";
     return -1;
   }
@@ -118,7 +117,7 @@ int create_buffer(int64_t size) {
   return fd;
 }
 
-void *fake_mmap(size_t size) {
+void* fake_mmap(size_t size) {
   /* Add sizeof(size_t) so that the returned pointer is deliberately not
    * page-aligned. This ensures that the segments of memory returned by
    * fake_mmap are never contiguous. */
@@ -126,15 +125,13 @@ void *fake_mmap(size_t size) {
 
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
-  void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  if (pointer == MAP_FAILED) {
-    return pointer;
-  }
+  void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  if (pointer == MAP_FAILED) { return pointer; }
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;
 
-  mmap_record &record = mmap_records[pointer];
+  mmap_record& record = mmap_records[pointer];
   record.fd = fd;
   record.size = size;
 
@@ -144,7 +141,7 @@ void *fake_mmap(size_t size) {
   return pointer;
 }
 
-int fake_munmap(void *addr, int64_t size) {
+int fake_munmap(void* addr, int64_t size) {
   ARROW_LOG(DEBUG) << "fake_munmap(" << addr << ", " << size << ")";
   addr = pointer_retreat(addr, sizeof(size_t));
   size += sizeof(size_t);
@@ -158,22 +155,16 @@ int fake_munmap(void *addr, int64_t size) {
   }
 
   int r = munmap(addr, size);
-  if (r == 0) {
-    close(entry->second.fd);
-  }
+  if (r == 0) { close(entry->second.fd); }
 
   mmap_records.erase(entry);
   return r;
 }
 
-void get_malloc_mapinfo(void *addr,
-                        int *fd,
-                        int64_t *map_size,
-                        ptrdiff_t *offset) {
+void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offset) {
   /* TODO(rshin): Implement a more efficient search through mmap_records. */
-  for (const auto &entry : mmap_records) {
-    if (addr >= entry.first &&
-        addr < pointer_advance(entry.first, entry.second.size)) {
+  for (const auto& entry : mmap_records) {
+    if (addr >= entry.first && addr < pointer_advance(entry.first, entry.second.size)) {
       *fd = entry.second.fd;
       *map_size = entry.second.size;
       *offset = pointer_distance(entry.first, addr);

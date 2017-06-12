@@ -20,12 +20,12 @@
 
 #undef _XOPEN_SOURCE
 #undef _POSIX_C_SOURCE
+#include "bytesobject.h"  // NOLINT
 #include <Python.h>
-#include "bytesobject.h" // NOLINT
 
-static int PyObjectToPlasmaClient(PyObject *object, PlasmaClient **client) {
+static int PyObjectToPlasmaClient(PyObject* object, PlasmaClient** client) {
   if (PyCapsule_IsValid(object, "plasma")) {
-    *client = reinterpret_cast<PlasmaClient *>(PyCapsule_GetPointer(object, "plasma"));
+    *client = reinterpret_cast<PlasmaClient*>(PyCapsule_GetPointer(object, "plasma"));
     return 1;
   } else {
     PyErr_SetString(PyExc_TypeError, "must be a 'plasma' capsule");
@@ -33,7 +33,7 @@ static int PyObjectToPlasmaClient(PyObject *object, PlasmaClient **client) {
   }
 }
 
-int PyStringToUniqueID(PyObject *object, ObjectID *object_id) {
+int PyStringToUniqueID(PyObject* object, ObjectID* object_id) {
   if (PyBytes_Check(object)) {
     memcpy(object_id, PyBytes_AsString(object), sizeof(ObjectID));
     return 1;

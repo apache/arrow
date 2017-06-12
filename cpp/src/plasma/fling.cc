@@ -19,10 +19,7 @@
 
 #include <string.h>
 
-void init_msg(struct msghdr *msg,
-              struct iovec *iov,
-              char *buf,
-              size_t buf_len) {
+void init_msg(struct msghdr* msg, struct iovec* iov, char* buf, size_t buf_len) {
   iov->iov_base = buf;
   iov->iov_len = 1;
 
@@ -42,11 +39,11 @@ int send_fd(int conn, int fd) {
 
   init_msg(&msg, &iov, buf, sizeof(buf));
 
-  struct cmsghdr *header = CMSG_FIRSTHDR(&msg);
+  struct cmsghdr* header = CMSG_FIRSTHDR(&msg);
   header->cmsg_level = SOL_SOCKET;
   header->cmsg_type = SCM_RIGHTS;
   header->cmsg_len = CMSG_LEN(sizeof(int));
-  *reinterpret_cast<int *>(CMSG_DATA(header)) = fd;
+  *reinterpret_cast<int*>(CMSG_DATA(header)) = fd;
 
   /* Send file descriptor. */
   ssize_t r = sendmsg(conn, &msg, 0);
@@ -63,19 +60,17 @@ int recv_fd(int conn) {
   char buf[CMSG_SPACE(sizeof(int))];
   init_msg(&msg, &iov, buf, sizeof(buf));
 
-  if (recvmsg(conn, &msg, 0) == -1)
-    return -1;
+  if (recvmsg(conn, &msg, 0) == -1) return -1;
 
   int found_fd = -1;
   int oh_noes = 0;
-  for (struct cmsghdr *header = CMSG_FIRSTHDR(&msg); header != NULL;
+  for (struct cmsghdr* header = CMSG_FIRSTHDR(&msg); header != NULL;
        header = CMSG_NXTHDR(&msg, header))
     if (header->cmsg_level == SOL_SOCKET && header->cmsg_type == SCM_RIGHTS) {
       ssize_t count =
-          (header->cmsg_len - (CMSG_DATA(header) - (unsigned char *) header)) /
-          sizeof(int);
+          (header->cmsg_len - (CMSG_DATA(header) - (unsigned char*)header)) / sizeof(int);
       for (int i = 0; i < count; ++i) {
-        int fd = (reinterpret_cast<int *>(CMSG_DATA(header)))[i];
+        int fd = (reinterpret_cast<int*>(CMSG_DATA(header)))[i];
         if (found_fd == -1) {
           found_fd = fd;
         } else {

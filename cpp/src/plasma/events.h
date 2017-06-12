@@ -35,7 +35,7 @@ constexpr int kEventLoopRead = AE_READABLE;
 /// Write event on the file descriptor.
 constexpr int kEventLoopWrite = AE_WRITABLE;
 
-typedef long long TimerID; // NOLINT
+typedef long long TimerID;  // NOLINT
 
 class EventLoop {
  public:
@@ -87,16 +87,11 @@ class EventLoop {
   void run();
 
  private:
-  static void file_event_callback(aeEventLoop *loop,
-                                  int fd,
-                                  void *context,
-                                  int events);
+  static void file_event_callback(aeEventLoop* loop, int fd, void* context, int events);
 
-  static int timer_event_callback(aeEventLoop *loop,
-                                  TimerID timer_id,
-                                  void *context);
+  static int timer_event_callback(aeEventLoop* loop, TimerID timer_id, void* context);
 
-  aeEventLoop *loop_;
+  aeEventLoop* loop_;
   std::unordered_map<int, std::unique_ptr<FileCallback>> file_callbacks_;
   std::unordered_map<int64_t, std::unique_ptr<TimerCallback>> timer_callbacks_;
 };

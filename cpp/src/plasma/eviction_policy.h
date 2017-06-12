@@ -46,12 +46,12 @@ class LRUCache {
  public:
   LRUCache() {}
 
-  void add(const ObjectID &key, int64_t size);
+  void add(const ObjectID& key, int64_t size);
 
-  void remove(const ObjectID &key);
+  void remove(const ObjectID& key);
 
-  int64_t choose_objects_to_evict(int64_t num_bytes_required,
-                                  std::vector<ObjectID> &objects_to_evict);
+  int64_t choose_objects_to_evict(
+      int64_t num_bytes_required, std::vector<ObjectID>& objects_to_evict);
 };
 
 /** The eviction policy. */
@@ -63,7 +63,7 @@ class EvictionPolicy {
    * @param store_info Information about the Plasma store that is exposed
    *        to the eviction policy.
    */
-  explicit EvictionPolicy(PlasmaStoreInfo *store_info);
+  explicit EvictionPolicy(PlasmaStoreInfo* store_info);
 
   /**
    * This method will be called whenever an object is first created in order to
@@ -89,7 +89,7 @@ class EvictionPolicy {
    *        be stored into this vector.
    * @return True if enough space can be freed and false otherwise.
    */
-  bool require_space(int64_t size, std::vector<ObjectID> &objects_to_evict);
+  bool require_space(int64_t size, std::vector<ObjectID>& objects_to_evict);
 
   /**
    * This method will be called whenever an unused object in the Plasma store
@@ -102,8 +102,7 @@ class EvictionPolicy {
    *        be stored into this vector.
    * @return Void.
    */
-  void begin_object_access(ObjectID object_id,
-                           std::vector<ObjectID> &objects_to_evict);
+  void begin_object_access(ObjectID object_id, std::vector<ObjectID>& objects_to_evict);
 
   /**
    * This method will be called whenever an object in the Plasma store that was
@@ -116,8 +115,7 @@ class EvictionPolicy {
    *        be stored into this vector.
    * @return Void.
    */
-  void end_object_access(ObjectID object_id,
-                         std::vector<ObjectID> &objects_to_evict);
+  void end_object_access(ObjectID object_id, std::vector<ObjectID>& objects_to_evict);
 
   /**
   * Choose some objects to evict from the Plasma store. When this method is
@@ -132,14 +130,14 @@ class EvictionPolicy {
   *        be stored into this vector.
   * @return The total number of bytes of space chosen to be evicted.
   */
-  int64_t choose_objects_to_evict(int64_t num_bytes_required,
-                                  std::vector<ObjectID> &objects_to_evict);
+  int64_t choose_objects_to_evict(
+      int64_t num_bytes_required, std::vector<ObjectID>& objects_to_evict);
 
  private:
   /** The amount of memory (in bytes) currently being used. */
   int64_t memory_used_;
   /** Pointer to the plasma store info. */
-  PlasmaStoreInfo *store_info_;
+  PlasmaStoreInfo* store_info_;
   /** Datastructure for the LRU cache. */
   LRUCache cache_;
 };

@@ -26,18 +26,18 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#include "arrow/util/logging.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 constexpr int64_t kUniqueIDSize = 20;
 
 class UniqueID {
  public:
   static UniqueID from_random();
-  static UniqueID from_binary(const std::string &binary);
-  bool operator==(const UniqueID &rhs) const;
-  const uint8_t *data() const;
-  uint8_t *mutable_data();
+  static UniqueID from_binary(const std::string& binary);
+  bool operator==(const UniqueID& rhs) const;
+  const uint8_t* data() const;
+  uint8_t* mutable_data();
   std::string binary() const;
   std::string hex() const;
 
@@ -49,7 +49,7 @@ static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
 
 struct UniqueIDHasher {
   /* ObjectID hashing function. */
-  size_t operator()(const UniqueID &id) const {
+  size_t operator()(const UniqueID& id) const {
     size_t result;
     std::memcpy(&result, id.data(), sizeof(size_t));
     return result;

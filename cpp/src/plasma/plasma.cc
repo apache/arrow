@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "plasma/common.h"
@@ -24,20 +24,16 @@
 #include "plasma/protocol.h"
 
 int warn_if_sigpipe(int status, int client_sock) {
-  if (status >= 0) {
-    return 0;
-  }
+  if (status >= 0) { return 0; }
   if (errno == EPIPE || errno == EBADF || errno == ECONNRESET) {
-    ARROW_LOG(WARNING)
-        << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when "
-           "sending a message to client on fd "
-        << client_sock << ". The client on the other end may "
-                          "have hung up.";
+    ARROW_LOG(WARNING) << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when "
+                          "sending a message to client on fd "
+                       << client_sock << ". The client on the other end may "
+                                         "have hung up.";
     return errno;
   }
-  ARROW_LOG(FATAL) << "Failed to write message to client on fd " << client_sock
-                   << ".";
-  return -1; // This is never reached.
+  ARROW_LOG(FATAL) << "Failed to write message to client on fd " << client_sock << ".";
+  return -1;  // This is never reached.
 }
 
 /**
@@ -49,21 +45,19 @@ int warn_if_sigpipe(int status, int client_sock) {
  * @return The object info buffer. It is the caller's responsibility to free
  *         this buffer with "delete" after it has been used.
  */
-uint8_t *create_object_info_buffer(ObjectInfoT *object_info) {
+uint8_t* create_object_info_buffer(ObjectInfoT* object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  uint8_t *notification = new uint8_t[sizeof(int64_t) + fbb.GetSize()];
-  *(reinterpret_cast<int64_t *>(notification)) = fbb.GetSize();
+  uint8_t* notification = new uint8_t[sizeof(int64_t) + fbb.GetSize()];
+  *(reinterpret_cast<int64_t*>(notification)) = fbb.GetSize();
   memcpy(notification + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
   return notification;
 }
 
-ObjectTableEntry *get_object_table_entry(PlasmaStoreInfo *store_info,
-                                         ObjectID object_id) {
+ObjectTableEntry* get_object_table_entry(
+    PlasmaStoreInfo* store_info, ObjectID object_id) {
   auto it = store_info->objects.find(object_id);
-  if (it == store_info->objects.end()) {
-    return NULL;
-  }
+  if (it == store_info->objects.end()) { return NULL; }
   return it->second.get();
 }

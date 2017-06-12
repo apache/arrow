@@ -38,11 +38,11 @@ struct ObjectBuffer {
   /// The size in bytes of the data object.
   int64_t data_size;
   /// The address of the data object.
-  uint8_t *data;
+  uint8_t* data;
   /// The metadata size in bytes.
   int64_t metadata_size;
   /// The address of the metadata.
-  uint8_t *metadata;
+  uint8_t* metadata;
 };
 
 /// Configuration options for the plasma client.
@@ -69,9 +69,8 @@ class PlasmaClient {
   /// @param release_delay Number of released objects that are kept around
   ///        and not evicted to avoid too many munmaps.
   /// @return The return status.
-  Status Connect(const std::string &store_socket_name,
-                 const std::string &manager_socket_name,
-                 int release_delay);
+  Status Connect(const std::string& store_socket_name,
+      const std::string& manager_socket_name, int release_delay);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
@@ -87,11 +86,8 @@ class PlasmaClient {
   ///        metadata, this should be 0.
   /// @param data The address of the newly created object will be written here.
   /// @return The return status.
-  Status Create(ObjectID object_id,
-                int64_t data_size,
-                uint8_t *metadata,
-                int64_t metadata_size,
-                uint8_t **data);
+  Status Create(ObjectID object_id, int64_t data_size, uint8_t* metadata,
+      int64_t metadata_size, uint8_t** data);
 
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
@@ -108,10 +104,8 @@ class PlasmaClient {
   /// data
   ///        size field is -1, then the object was not retrieved.
   /// @return The return status.
-  Status Get(ObjectID object_ids[],
-             int64_t num_objects,
-             int64_t timeout_ms,
-             ObjectBuffer object_buffers[]);
+  Status Get(ObjectID object_ids[], int64_t num_objects, int64_t timeout_ms,
+      ObjectBuffer object_buffers[]);
 
   /// Tell Plasma that the client no longer needs the object. This should be
   /// called
@@ -134,7 +128,7 @@ class PlasmaClient {
   /// is
   ///        present and 0 if it is not present.
   /// @return The return status.
-  Status Contains(ObjectID object_id, int *has_object);
+  Status Contains(ObjectID object_id, int* has_object);
 
   /// Seal an object in the object store. The object will be immutable after
   /// this
@@ -161,7 +155,7 @@ class PlasmaClient {
   /// @param num_bytes_evicted Out parameter for total number of bytes of space
   /// retrieved.
   /// @return The return status.
-  Status Evict(int64_t num_bytes, int64_t &num_bytes_evicted);
+  Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
   /// Subscribe to notifications when objects are sealed in the object store.
   /// Whenever an object is sealed, a message will be written to the client
@@ -172,7 +166,7 @@ class PlasmaClient {
   /// read notifications
   ///         from the object store about sealed objects.
   /// @return The return status.
-  Status Subscribe(int &fd);
+  Status Subscribe(int& fd);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
@@ -238,11 +232,8 @@ class PlasmaClient {
   ///        the object_requests list. If the returned number is less than
   ///        min_num_ready_objects this means that timeout expired.
   /// @return The return status.
-  Status Wait(int64_t num_object_requests,
-              ObjectRequest object_requests[],
-              int num_ready_objects,
-              int64_t timeout_ms,
-              int &num_objects_ready);
+  Status Wait(int64_t num_object_requests, ObjectRequest object_requests[],
+      int num_ready_objects, int64_t timeout_ms, int& num_objects_ready);
 
   /// Transfer local object to a different plasma manager.
   ///
@@ -251,7 +242,7 @@ class PlasmaClient {
   /// @param port Port of the plasma manager we are transfering to.
   /// @object_id ObjectID of the object we are transfering.
   /// @return The return status.
-  Status Transfer(const char *addr, int port, ObjectID object_id);
+  Status Transfer(const char* addr, int port, ObjectID object_id);
 
   /// Return the status of a given object. This method may query the object
   /// table.
@@ -270,7 +261,7 @@ class PlasmaClient {
   ///         - PLASMA_CLIENT_DOES_NOT_EXIST, if the object doesn’t exist in the
   ///           system.
   /// @return The return status.
-  Status Info(ObjectID object_id, int *object_status);
+  Status Info(ObjectID object_id, int* object_status);
 
   //  private:
 
@@ -287,11 +278,10 @@ class PlasmaClient {
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
   /// is a hash table mapping a file descriptor to a struct containing the
   /// address of the corresponding memory-mapped file.
-  std::unordered_map<int, ClientMmapTableEntry *> mmap_table;
+  std::unordered_map<int, ClientMmapTableEntry*> mmap_table;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
-  std::unordered_map<ObjectID, ObjectInUseEntry *, UniqueIDHasher>
-      objects_in_use;
+  std::unordered_map<ObjectID, ObjectInUseEntry*, UniqueIDHasher> objects_in_use;
   /// Object IDs of the last few release calls. This is a deque and
   /// is used to delay releasing objects to see if they can be reused by
   /// subsequent tasks so we do not unneccessarily invalidate cpu caches.
@@ -314,7 +304,7 @@ class PlasmaClient {
 ///
 /// @param conn The connection to the local plasma store and plasma manager.
 /// @return True if the plasma manager is connected and false otherwise.
-bool plasma_manager_is_connected(PlasmaClient *conn);
+bool plasma_manager_is_connected(PlasmaClient* conn);
 
 /// Compute the hash of an object in the object store.
 ///
@@ -323,9 +313,8 @@ bool plasma_manager_is_connected(PlasmaClient *conn);
 /// @param digest A pointer at which to return the hash digest of the object.
 ///        The pointer must have at least DIGEST_SIZE bytes allocated.
 /// @return A boolean representing whether the hash operation succeeded.
-bool plasma_compute_object_hash(PlasmaClient *conn,
-                                ObjectID object_id,
-                                unsigned char *digest);
+bool plasma_compute_object_hash(
+    PlasmaClient* conn, ObjectID object_id, unsigned char* digest);
 
 /**
  * Get the file descriptor for the socket connection to the plasma manager.
@@ -334,7 +323,7 @@ bool plasma_compute_object_hash(PlasmaClient *conn,
  * @return The file descriptor for the manager connection. If there is no
  *         connection to the manager, this is -1.
  */
-int get_manager_fd(PlasmaClient *conn);
+int get_manager_fd(PlasmaClient* conn);
 
 /**
  * Return the information associated to a given object.

@@ -21,10 +21,10 @@
 #include <deque>
 #include <vector>
 
-#include "plasma/eviction_policy.h"
-#include "plasma/plasma.h"
 #include "plasma/common.h"
 #include "plasma/events.h"
+#include "plasma/eviction_policy.h"
+#include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
 class GetRequest;
@@ -32,7 +32,7 @@ class GetRequest;
 struct NotificationQueue {
   /// The object notifications for clients. We notify the client about the
   /// objects in the order that the objects were sealed or deleted.
-  std::deque<uint8_t *> object_notifications;
+  std::deque<uint8_t*> object_notifications;
 };
 
 /// Contains all information that is associated with a Plasma store client.
@@ -45,7 +45,7 @@ struct Client {
 
 class PlasmaStore {
  public:
-  PlasmaStore(EventLoop *loop, int64_t system_memory);
+  PlasmaStore(EventLoop* loop, int64_t system_memory);
 
   ~PlasmaStore();
 
@@ -63,18 +63,15 @@ class PlasmaStore {
   ///  - PlasmaError_OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  int create_object(ObjectID object_id,
-                    int64_t data_size,
-                    int64_t metadata_size,
-                    Client *client,
-                    PlasmaObject *result);
+  int create_object(ObjectID object_id, int64_t data_size, int64_t metadata_size,
+      Client* client, PlasmaObject* result);
 
   /// Delete objects that have been created in the hash table. This should only
   /// be called on objects that are returned by the eviction policy to evict.
   ///
   /// @param object_ids Object IDs of the objects to be deleted.
   /// @return Void.
-  void delete_objects(const std::vector<ObjectID> &object_ids);
+  void delete_objects(const std::vector<ObjectID>& object_ids);
 
   /// Process a get request from a client. This method assumes that we will
   /// eventually have these objects sealed. If one of the objects has not yet
@@ -88,9 +85,8 @@ class PlasmaStore {
   /// @param object_ids Object IDs of the objects to be gotten.
   /// @param timeout_ms The timeout for the get request in milliseconds.
   /// @return Void.
-  void process_get_request(Client *client,
-                           const std::vector<ObjectID> &object_ids,
-                           int64_t timeout_ms);
+  void process_get_request(
+      Client* client, const std::vector<ObjectID>& object_ids, int64_t timeout_ms);
 
   /// Seal an object. The object is now immutable and can be accessed with get.
   ///
@@ -113,13 +109,13 @@ class PlasmaStore {
   /// @param object_id The object ID of the object that is being released.
   /// @param client The client making this request.
   /// @param Void.
-  void release_object(ObjectID object_id, Client *client);
+  void release_object(ObjectID object_id, Client* client);
 
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
   /// @param client The client making this request.
   /// @return Void.
-  void subscribe_to_updates(Client *client);
+  void subscribe_to_updates(Client* client);
 
   /// Connect a new client to the PlasmaStore.
   ///
@@ -131,26 +127,25 @@ class PlasmaStore {
   ///
   /// @param client The client that is disconnected.
   /// @return Void.
-  void disconnect_client(Client *client);
+  void disconnect_client(Client* client);
 
   void send_notifications(int client_fd);
 
-  Status process_message(Client *client);
+  Status process_message(Client* client);
 
  private:
-  void push_notification(ObjectInfoT *object_notification);
+  void push_notification(ObjectInfoT* object_notification);
 
-  void add_client_to_object_clients(ObjectTableEntry *entry, Client *client);
+  void add_client_to_object_clients(ObjectTableEntry* entry, Client* client);
 
-  void return_from_get(GetRequest *get_req);
+  void return_from_get(GetRequest* get_req);
 
   void update_object_get_requests(ObjectID object_id);
 
-  int remove_client_from_object_clients(ObjectTableEntry *entry,
-                                        Client *client);
+  int remove_client_from_object_clients(ObjectTableEntry* entry, Client* client);
 
   /// Event loop of the plasma store.
-  EventLoop *loop_;
+  EventLoop* loop_;
   /// The plasma store information, including the object tables, that is exposed
   /// to the eviction policy.
   PlasmaStoreInfo store_info_;
@@ -161,7 +156,7 @@ class PlasmaStore {
   std::vector<uint8_t> input_buffer_;
   /// A hash table mapping object IDs to a vector of the get requests that are
   /// waiting for the object to arrive.
-  std::unordered_map<ObjectID, std::vector<GetRequest *>, UniqueIDHasher>
+  std::unordered_map<ObjectID, std::vector<GetRequest*>, UniqueIDHasher>
       object_get_requests_;
   /// The pending notifications that have not been sent to subscribers because
   /// the socket send buffers were full. This is a hash table from client file
