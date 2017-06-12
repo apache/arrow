@@ -117,6 +117,10 @@ namespace io {
 
 // ----------------------------------------------------------------------
 // Cross-platform file compatability layer
+#if defined(_MSC_VER)
+constexpr const char* kRangeExceptionError =
+    "Range exception during wide-char string conversion";
+#endif
 
 static inline Status CheckOpenResult(
     int ret, int errno_actual, const char* filename, size_t filename_length) {
@@ -131,8 +135,10 @@ static inline Status CheckOpenResult(
     std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
     std::wstring wide_string(
         reinterpret_cast<const wchar_t*>(filename), filename_length / sizeof(wchar_t));
-    std::string byte_string = converter.to_bytes(wide_string);
-    ss << byte_string;
+    try {
+      std::string byte_string = converter.to_bytes(wide_string);
+      ss << byte_string;
+    } catch (const std::range_error&) { ss << kRangeExceptionError; }
 #else
     ss << filename;
 #endif
@@ -162,7 +168,9 @@ static inline Status ConvertToUtf16(const std::string& input, std::wstring* resu
   }
 
   std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
-  *result = utf16_converter.from_bytes(input);
+  try {
+    *result = utf16_converter.from_bytes(input);
+  } catch (const std::range_error&) { return Status::Invalid(kRangeExceptionError); }
   return Status::OK();
 }
 #endif
