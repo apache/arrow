@@ -895,7 +895,10 @@ if (${CLANG_FORMAT_FOUND})
     sed -e '/windows_compatibility.h/g' |
     sed -e '/pyarrow_api.h/g' |
     sed -e '/config.h/g' |   # python/config.h
-    sed -e '/platform.h/g'`  # python/platform.h
+    sed -e '/platform.h/g' |  # python/platform.h
+    sed -e '/ae.h/g' |
+    sed -e '/xxhash.cc/g' |
+    sed -e '/xxhash.h/g'`
     )
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
