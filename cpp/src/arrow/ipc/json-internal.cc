@@ -394,9 +394,7 @@ class ArrayWriter {
 
   Status Write() { return VisitArray(name_, array_); }
 
-  Status VisitArrayValues(const Array& arr) {
-    return VisitArrayInline(arr, this);
-  }
+  Status VisitArrayValues(const Array& arr) { return VisitArrayInline(arr, this); }
 
   Status VisitArray(const std::string& name, const Array& arr) {
     writer_->StartObject();
@@ -1157,7 +1155,12 @@ class ArrayReader {
 
   Status Visit(const DictionaryType& type) {
     // This stores the indices in result_
-    RETURN_NOT_OK(ParseTypeValues(*type.index_type()));
+    //
+    // XXX(wesm): slight hack
+    auto dict_type = type_;
+    type_ = type.index_type();
+    RETURN_NOT_OK(ParseTypeValues(*type_));
+    type_ = dict_type;
     result_ = std::make_shared<DictionaryArray>(type_, result_);
     return Status::OK();
   }
@@ -1314,6 +1317,7 @@ static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id
     std::shared_ptr<Array> dictionary;
     RETURN_NOT_OK(
         ReadDictionary(val.GetObject(), id_to_field, pool, &dictionary_id, &dictionary));
+
     RETURN_NOT_OK(dictionary_memo->AddDictionary(dictionary_id, dictionary));
   }
   return Status::OK();

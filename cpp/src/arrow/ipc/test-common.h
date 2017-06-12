@@ -55,10 +55,17 @@ static inline void CompareBatch(const RecordBatch& left, const RecordBatch& righ
   }
   ASSERT_EQ(left.num_columns(), right.num_columns())
       << left.schema()->ToString() << " result: " << right.schema()->ToString();
-  EXPECT_EQ(left.num_rows(), right.num_rows());
+  ASSERT_EQ(left.num_rows(), right.num_rows());
   for (int i = 0; i < left.num_columns(); ++i) {
-    EXPECT_TRUE(left.column(i)->Equals(right.column(i)))
-        << "Idx: " << i << " Name: " << left.column_name(i);
+    if (!left.column(i)->Equals(right.column(i))) {
+      std::stringstream ss;
+      ss << "Idx: " << i << " Name: " << left.column_name(i);
+      ss << std::endl << "Left: ";
+      ASSERT_OK(PrettyPrint(*left.column(i), 0, &ss));
+      ss << std::endl << "Right: ";
+      ASSERT_OK(PrettyPrint(*right.column(i), 0, &ss));
+      FAIL() << ss.str();
+    }
   }
 }
 
