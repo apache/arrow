@@ -19,24 +19,15 @@ package org.apache.arrow.vector.file.json;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
-import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
-import org.apache.arrow.vector.complex.writer.BaseWriter;
-import org.apache.arrow.vector.dictionary.Dictionary;
-import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.file.BaseFileTest;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.Assert;
@@ -172,7 +163,6 @@ public class TestJSONFile extends BaseFileTest {
   @Test
   public void testWriteReadDictionaryJSON() throws IOException {
     File file = new File("target/mytest_dictionary.json");
-    int count = COUNT;
     long dictId = 1L;
 
     // write

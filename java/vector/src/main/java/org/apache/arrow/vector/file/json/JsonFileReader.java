@@ -139,7 +139,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
       // Lookup what dictionary for the batch about to be read
       long id = readNextField("id", Long.class);
-      //parser.nextToken();
       Dictionary dict = dictionaries.get(id);
       if (dict == null) {
         throw new IllegalArgumentException("Dictionary with id: " + id + " missing encoding from schema Field");

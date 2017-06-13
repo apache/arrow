@@ -35,12 +35,20 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 
 public class DictionaryUtility {
 
+  /**
+   * Get a common name for a dictionary field from the given id
+   */
   public static String getDictionaryName(long id) {
     return "DICT" + id;
   }
 
-  // in the message format, fields have the dictionary type
-  // in the memory format, they have the index type
+  /**
+   * Convert field and child fields that have a dictionary encoding to message format, so fields
+   * have the dictionary type
+   *
+   * NOTE: in the message format, fields have the dictionary type
+   *       in the memory format, they have the index type
+   */
   public static Field toMessageFormat(Field field, DictionaryProvider provider, Set<Long> dictionaryIdsUsed) {
     DictionaryEncoding encoding = field.getDictionary();
     List<Field> children = field.getChildren();
@@ -71,8 +79,10 @@ public class DictionaryUtility {
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
   }
 
-  // in the message format, fields have the dictionary type
-  // in the memory format, they have the index type
+  /**
+   * Convert field and child fields that have a dictionary encoding to message format, so fields
+   * have the index type
+   */
   public static Field toMemoryFormat(Field field, BufferAllocator allocator, Map<Long, Dictionary> dictionaries) {
     DictionaryEncoding encoding = field.getDictionary();
     List<Field> children = field.getChildren();

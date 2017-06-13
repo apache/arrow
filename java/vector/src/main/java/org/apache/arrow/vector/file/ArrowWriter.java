@@ -20,11 +20,8 @@ package org.apache.arrow.vector.file;
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.arrow.vector.FieldVector;
@@ -35,10 +32,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.stream.MessageSerializer;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.slf4j.Logger;
@@ -96,45 +90,6 @@ public abstract class ArrowWriter implements AutoCloseable {
 
     this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
   }
-
-  // in the message format, fields have the dictionary type
-  // in the memory format, they have the index type
-  /*private Field toMessageFormat(Field field, DictionaryProvider provider, Map<Long, ArrowDictionaryBatch> batches) {
-    DictionaryEncoding encoding = field.getDictionary();
-    List<Field> children = field.getChildren();
-
-    if (encoding == null && children.isEmpty()) {
-      return field;
-    }
-
-    List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child: children) {
-      updatedChildren.add(toMessageFormat(child, provider, batches));
-    }
-
-    ArrowType type;
-    if (encoding == null) {
-      type = field.getType();
-    } else {
-      long id = encoding.getId();
-      Dictionary dictionary = provider.lookup(id);
-      if (dictionary == null) {
-        throw new IllegalArgumentException("Could not find dictionary with ID " + id);
-      }
-      type = dictionary.getVectorType();
-
-      if (!batches.containsKey(id)) {
-        FieldVector vector = dictionary.getVector();
-        int count = vector.getAccessor().getValueCount();
-        VectorSchemaRoot root = new VectorSchemaRoot(ImmutableList.of(field), ImmutableList.of(vector), count);
-        VectorUnloader unloader = new VectorUnloader(root);
-        ArrowRecordBatch batch = unloader.getRecordBatch();
-        batches.put(id, new ArrowDictionaryBatch(id, batch));
-      }
-    }
-
-    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
-  }*/
 
   public void start() throws IOException {
     ensureStarted();

@@ -27,14 +27,12 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableDateMilliVector;
 import org.apache.arrow.vector.NullableTimeMilliVector;
 import org.apache.arrow.vector.NullableVarCharVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
@@ -61,9 +59,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
-import sun.awt.SunHints;
-
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 
 /**
  * Helps testing the file formats
