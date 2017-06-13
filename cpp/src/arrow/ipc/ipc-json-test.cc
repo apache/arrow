@@ -45,7 +45,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
+  writer.StartObject();
   ASSERT_OK(internal::WriteSchema(schema, &writer));
+  writer.EndObject();
 
   std::string json_schema = sb.GetString();
 

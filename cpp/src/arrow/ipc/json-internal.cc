@@ -100,6 +100,7 @@ class SchemaWriter {
       : schema_(schema), writer_(writer) {}
 
   Status Write() {
+    writer_->Key("schema");
     writer_->StartObject();
     writer_->Key("fields");
     writer_->StartArray();
@@ -107,6 +108,7 @@ class SchemaWriter {
       RETURN_NOT_OK(VisitField(*field));
     }
     writer_->EndArray();
+    writer_->EndObject();
 
     // Write dictionaries, if any
     if (dictionary_memo_.size() > 0) {
@@ -117,7 +119,6 @@ class SchemaWriter {
       }
       writer_->EndArray();
     }
-    writer_->EndObject();
     return Status::OK();
   }
 
@@ -1325,7 +1326,9 @@ static Status ReadDictionaries(const rj::Value& doc, const DictionaryTypeMap& id
 
 Status ReadSchema(
     const rj::Value& json_schema, MemoryPool* pool, std::shared_ptr<Schema>* schema) {
-  const auto& obj_schema = json_schema.GetObject();
+  auto it = json_schema.FindMember("schema");
+  RETURN_NOT_OBJECT("schema", it, json_schema);
+  const auto& obj_schema = it->value.GetObject();
 
   const auto& it_fields = obj_schema.FindMember("fields");
   RETURN_NOT_ARRAY("fields", it_fields, obj_schema);
@@ -1334,7 +1337,7 @@ Status ReadSchema(
   DictionaryTypeMap dictionary_types;
   RETURN_NOT_OK(GetDictionaryTypes(it_fields->value.GetArray(), &dictionary_types));
 
-  // Read the dictionaries and cache in the memo
+  // Read the dictionaries (if any) and cache in the memo
   DictionaryMemo dictionary_memo;
   RETURN_NOT_OK(ReadDictionaries(json_schema, dictionary_types, pool, &dictionary_memo));
 
