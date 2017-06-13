@@ -36,7 +36,6 @@ import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.DictionaryWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
@@ -208,13 +207,7 @@ public class BaseFileTest {
     }
   }
 
-  /*
-  protected void writeFlatDictionaryData(NullableMapVector parent, DictionaryProvider.MapDictionaryProvider provider) {
-    NullableVarCharVector vector = newNullableVarCharVector("varchar", vectorAllocator);
-    NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", vectorAllocator);
-    ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
-    DictionaryWriter dictWriter = rootWriter.dict(provider);
+  protected VectorSchemaRoot writeFlatDictionaryData(NullableVarCharVector vector, NullableVarCharVector dictionaryVector, DictionaryProvider.MapDictionaryProvider provider) {
 
     vector.allocateNewSafe();
     NullableVarCharVector.Mutator mutator = vector.getMutator();
@@ -239,9 +232,9 @@ public class BaseFileTest {
 
     List<Field> fields = ImmutableList.of(encodedVector.getField());
     List<FieldVector> vectors = ImmutableList.of(encodedVector);
-    VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
 
-  }*/
+    return new VectorSchemaRoot(fields, vectors, 6);
+  }
 
   protected void validateFlatDictionary(FieldVector vector, DictionaryProvider provider) {
     Assert.assertNotNull(vector);

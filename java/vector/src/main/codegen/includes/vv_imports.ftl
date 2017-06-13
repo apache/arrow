@@ -31,7 +31,6 @@ import org.apache.arrow.vector.types.pojo.*;
 import org.apache.arrow.vector.types.pojo.ArrowType.*;
 import org.apache.arrow.vector.types.*;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.holders.*;
 import org.apache.arrow.vector.util.*;
 import org.apache.arrow.vector.complex.*;

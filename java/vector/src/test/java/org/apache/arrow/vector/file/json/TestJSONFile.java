@@ -180,49 +180,20 @@ public class TestJSONFile extends BaseFileTest {
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NullableVarCharVector vector = newNullableVarCharVector("varchar", vectorAllocator);
         NullableVarCharVector dictionaryVector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(dictId), vectorAllocator);
-        /*NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)*/) {
+        ) {
 
       DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      VectorSchemaRoot root = writeFlatDictionaryData(vector, dictionaryVector, provider);
 
-      ////////////////
+      printVectors(root.getFieldVectors());
 
-      vector.allocateNewSafe();
-      NullableVarCharVector.Mutator mutator = vector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(6);
+      validateFlatDictionary(root.getFieldVectors().get(0), provider);
 
-      dictionaryVector.allocateNewSafe();
-      mutator = dictionaryVector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(3);
-
-      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(dictId, false, null));
-      provider.put(dictionary);
-
-      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
-
-      List<Field> fields = ImmutableList.of(encodedVector.getField());
-      List<FieldVector> vectors = ImmutableList.of(encodedVector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
-      ////////////////
-
-      //writeFlatDictionaryData(parent, provider);
-
-      printVectors(vectors);//parent.getChildrenFromFields());
-
-      validateFlatDictionary(encodedVector/*parent.getChild("root")*/, provider);
-
-      writeJSON(file, root/*new VectorSchemaRoot(parent.getChild("root"))*/, provider);
+      writeJSON(file, root, provider);
 
       vector.close();
       dictionaryVector.close();
-      encodedVector.close();
+      root.close();
     }
 
     // read
