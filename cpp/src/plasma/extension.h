@@ -20,8 +20,12 @@
 
 #undef _XOPEN_SOURCE
 #undef _POSIX_C_SOURCE
-#include "bytesobject.h"  // NOLINT
 #include <Python.h>
+
+#include "bytesobject.h"  // NOLINT
+
+#include "plasma/client.h"
+#include "plasma/common.h"
 
 static int PyObjectToPlasmaClient(PyObject* object, PlasmaClient** client) {
   if (PyCapsule_IsValid(object, "plasma")) {

@@ -32,6 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "format/common_generated.h"
+#include "plasma/common.h"
 
 #include <inttypes.h>
 
