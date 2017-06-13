@@ -44,10 +44,7 @@ class ARROW_EXPORT JsonWriter {
   static Status Open(
       const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
 
-  // TODO(wesm): Write dictionaries
-
   Status WriteRecordBatch(const RecordBatch& batch);
-
   Status Finish(std::string* result);
 
  private:

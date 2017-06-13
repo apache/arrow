@@ -591,10 +591,7 @@ RecordBatchWriter::~RecordBatchWriter() {}
 class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
  public:
   RecordBatchStreamWriterImpl()
-      : dictionary_memo_(std::make_shared<DictionaryMemo>()),
-        pool_(default_memory_pool()),
-        position_(-1),
-        started_(false) {}
+      : pool_(default_memory_pool()), position_(-1), started_(false) {}
 
   virtual ~RecordBatchStreamWriterImpl() = default;
 
@@ -606,7 +603,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
 
   virtual Status Start() {
     std::shared_ptr<Buffer> schema_fb;
-    RETURN_NOT_OK(WriteSchemaMessage(*schema_, dictionary_memo_.get(), &schema_fb));
+    RETURN_NOT_OK(WriteSchemaMessage(*schema_, &dictionary_memo_, &schema_fb));
 
     int32_t flatbuffer_size = static_cast<int32_t>(schema_fb->size());
     RETURN_NOT_OK(
@@ -640,7 +637,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
   Status UpdatePosition() { return sink_->Tell(&position_); }
 
   Status WriteDictionaries() {
-    const DictionaryMap& id_to_dictionary = dictionary_memo_->id_to_dictionary();
+    const DictionaryMap& id_to_dictionary = dictionary_memo_.id_to_dictionary();
 
     dictionaries_.resize(id_to_dictionary.size());
 
@@ -709,7 +706,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
 
   // When writing out the schema, we keep track of all the dictionaries we
   // encounter, as they must be written out first in the stream
-  std::shared_ptr<DictionaryMemo> dictionary_memo_;
+  DictionaryMemo dictionary_memo_;
 
   MemoryPool* pool_;
 
@@ -770,7 +767,7 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
     // Write metadata
     int64_t initial_position = position_;
     RETURN_NOT_OK(WriteFileFooter(
-        *schema_, dictionaries_, record_batches_, dictionary_memo_.get(), sink_));
+        *schema_, dictionaries_, record_batches_, &dictionary_memo_, sink_));
     RETURN_NOT_OK(UpdatePosition());
 
     // Write footer length
