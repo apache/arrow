@@ -96,6 +96,18 @@ class TestFileOutputStream : public FileTestFixture {
   std::shared_ptr<FileOutputStream> file_;
 };
 
+#if defined(_MSC_VER)
+TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
+  std::shared_ptr<FileOutputStream> file;
+  // Form literal string with non-ASCII symbol(127 + 1)
+  std::string file_name = "\x80";
+  ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &file));
+
+  std::shared_ptr<ReadableFile> rd_file;
+  ASSERT_RAISES(Invalid, ReadableFile::Open(file_name, &rd_file));
+}
+#endif
+
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
   int fd;
   {
