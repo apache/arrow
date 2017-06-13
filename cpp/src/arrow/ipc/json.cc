@@ -45,9 +45,7 @@ class JsonWriter::JsonWriterImpl {
 
   Status Start() {
     writer_->StartObject();
-
-    writer_->Key("schema");
-    RETURN_NOT_OK(WriteJsonSchema(*schema_.get(), writer_.get()));
+    RETURN_NOT_OK(json::internal::WriteSchema(*schema_, writer_.get()));
 
     // Record batches
     writer_->Key("batches");
@@ -65,26 +63,7 @@ class JsonWriter::JsonWriterImpl {
 
   Status WriteRecordBatch(const RecordBatch& batch) {
     DCHECK_EQ(batch.num_columns(), schema_->num_fields());
-
-    writer_->StartObject();
-    writer_->Key("count");
-    writer_->Int(static_cast<int32_t>(batch.num_rows()));
-
-    writer_->Key("columns");
-    writer_->StartArray();
-
-    for (int i = 0; i < schema_->num_fields(); ++i) {
-      const std::shared_ptr<Array>& column = batch.column(i);
-
-      DCHECK_EQ(batch.num_rows(), column->length())
-          << "Array length did not match record batch length";
-
-      RETURN_NOT_OK(WriteJsonArray(schema_->field(i)->name(), *column, writer_.get()));
-    }
-
-    writer_->EndArray();
-    writer_->EndObject();
-    return Status::OK();
+    return json::internal::WriteRecordBatch(batch, writer_.get());
   }
 
  private:
@@ -127,11 +106,9 @@ class JsonReader::JsonReaderImpl {
         static_cast<size_t>(data_->size()));
     if (doc_.HasParseError()) { return Status::IOError("JSON parsing failed"); }
 
-    auto it = doc_.FindMember("schema");
-    RETURN_NOT_OBJECT("schema", it, doc_);
-    RETURN_NOT_OK(ReadJsonSchema(it->value, &schema_));
+    RETURN_NOT_OK(json::internal::ReadSchema(doc_, pool_, &schema_));
 
-    it = doc_.FindMember("batches");
+    auto it = doc_.FindMember("batches");
     RETURN_NOT_ARRAY("batches", it, doc_);
     record_batches_ = &it->value;
 
@@ -143,27 +120,8 @@ class JsonReader::JsonReaderImpl {
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
 
-    const auto& batch_val = record_batches_->GetArray()[i];
-    DCHECK(batch_val.IsObject());
-
-    const auto& batch_obj = batch_val.GetObject();
-
-    auto it = batch_obj.FindMember("count");
-    RETURN_NOT_INT("count", it, batch_obj);
-    int32_t num_rows = static_cast<int32_t>(it->value.GetInt());
-
-    it = batch_obj.FindMember("columns");
-    RETURN_NOT_ARRAY("columns", it, batch_obj);
-    const auto& json_columns = it->value.GetArray();
-
-    std::vector<std::shared_ptr<Array>> columns(json_columns.Size());
-    for (int i = 0; i < static_cast<int>(columns.size()); ++i) {
-      const std::shared_ptr<DataType>& type = schema_->field(i)->type();
-      RETURN_NOT_OK(ReadJsonArray(pool_, json_columns[i], type, &columns[i]));
-    }
-
-    *batch = std::make_shared<RecordBatch>(schema_, num_rows, columns);
-    return Status::OK();
+    return json::internal::ReadRecordBatch(
+        record_batches_->GetArray()[i], schema_, pool_, batch);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -178,7 +136,6 @@ class JsonReader::JsonReaderImpl {
   rj::Document doc_;
 
   const rj::Value* record_batches_;
-
   std::shared_ptr<Schema> schema_;
 };
 

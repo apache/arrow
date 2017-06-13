@@ -35,9 +35,11 @@
 
 namespace rj = rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
+using RjArray = rj::Value::ConstArray;
+using RjObject = rj::Value::ConstObject;
 
 #define RETURN_NOT_FOUND(TOK, NAME, PARENT) \
-  if (NAME == PARENT.MemberEnd()) {         \
+  if (NAME == (PARENT).MemberEnd()) {       \
     std::stringstream ss;                   \
     ss << "field " << TOK << " not found";  \
     return Status::Invalid(ss.str());       \
@@ -90,21 +92,27 @@ using RjWriter = rj::Writer<rj::StringBuffer>;
 
 namespace arrow {
 namespace ipc {
+namespace json {
+namespace internal {
 
-// TODO(wesm): Only exporting these because arrow_ipc does not have a static
-// library at the moment. Better to not export
-Status ARROW_EXPORT WriteJsonSchema(const Schema& schema, RjWriter* json_writer);
-Status ARROW_EXPORT WriteJsonArray(
-    const std::string& name, const Array& array, RjWriter* json_writer);
+Status WriteSchema(const Schema& schema, RjWriter* writer);
+Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
+Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
 
-Status ARROW_EXPORT ReadJsonSchema(
-    const rj::Value& json_obj, std::shared_ptr<Schema>* schema);
-Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
+Status ReadSchema(
+    const rj::Value& json_obj, MemoryPool* pool, std::shared_ptr<Schema>* schema);
+
+Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
+    MemoryPool* pool, std::shared_ptr<RecordBatch>* batch);
+
+Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* array);
 
-Status ARROW_EXPORT ReadJsonArray(MemoryPool* pool, const rj::Value& json_obj,
-    const Schema& schema, std::shared_ptr<Array>* array);
+Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
+    std::shared_ptr<Array>* array);
 
+}  // namespace internal
+}  // namespace json
 }  // namespace ipc
 }  // namespace arrow
 
