@@ -212,14 +212,14 @@ typedef TypedColumnWriter<DoubleType> DoubleWriter;
 typedef TypedColumnWriter<ByteArrayType> ByteArrayWriter;
 typedef TypedColumnWriter<FLBAType> FixedLenByteArrayWriter;
 
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<BooleanType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int32Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int64Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<Int96Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FloatType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<DoubleType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<ByteArrayType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnWriter<FLBAType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<BooleanType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int32Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int64Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<Int96Type>;
+extern template class PARQUET_EXPORT TypedColumnWriter<FloatType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<DoubleType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<ByteArrayType>;
+extern template class PARQUET_EXPORT TypedColumnWriter<FLBAType>;
 
 }  // namespace parquet
 

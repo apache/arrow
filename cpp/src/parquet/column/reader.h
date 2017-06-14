@@ -403,14 +403,14 @@ typedef TypedColumnReader<DoubleType> DoubleReader;
 typedef TypedColumnReader<ByteArrayType> ByteArrayReader;
 typedef TypedColumnReader<FLBAType> FixedLenByteArrayReader;
 
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<BooleanType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int32Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int64Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<Int96Type>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<FloatType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<DoubleType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<ByteArrayType>;
-PARQUET_EXTERN_TEMPLATE TypedColumnReader<FLBAType>;
+extern template class PARQUET_EXPORT TypedColumnReader<BooleanType>;
+extern template class PARQUET_EXPORT TypedColumnReader<Int32Type>;
+extern template class PARQUET_EXPORT TypedColumnReader<Int64Type>;
+extern template class PARQUET_EXPORT TypedColumnReader<Int96Type>;
+extern template class PARQUET_EXPORT TypedColumnReader<FloatType>;
+extern template class PARQUET_EXPORT TypedColumnReader<DoubleType>;
+extern template class PARQUET_EXPORT TypedColumnReader<ByteArrayType>;
+extern template class PARQUET_EXPORT TypedColumnReader<FLBAType>;
 
 }  // namespace parquet
 
