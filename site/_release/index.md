@@ -26,6 +26,7 @@ limitations under the License.
 
 Navigate to the release page for downloads and the changelog.
 
+* [0.4.1 (9 June 2017)][5]
 * [0.4.0 (22 May 2017)][4]
 * [0.3.0 (5 May 2017)][1]
 * [0.2.0 (18 February 2017)][2]
@@ -35,3 +36,4 @@ Navigate to the release page for downloads and the changelog.
 [2]: {{ site.baseurl }}/release/0.2.0.html
 [3]: {{ site.baseurl }}/release/0.1.0.html
 [4]: {{ site.baseurl }}/release/0.4.0.html
+[5]: {{ site.baseurl }}/release/0.4.1.html
