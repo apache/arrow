@@ -64,7 +64,7 @@ class PlasmaClient {
   /// @param store_socket_name The name of the UNIX domain socket to use to
   ///        connect to the Plasma store.
   /// @param manager_socket_name The name of the UNIX domain socket to use to
-  ///        connect to the local Plasma manager. If this is NULL, then this
+  ///        connect to the local Plasma manager. If this is "", then this
   ///        function will not connect to a manager.
   /// @param release_delay Number of released objects that are kept around
   ///        and not evicted to avoid too many munmaps.
