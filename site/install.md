@@ -20,17 +20,17 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Current Version: 0.4.0
+## Current Version: 0.4.1
 
-### Released: 22 May 2017
+### Released: 9 June 2017
 
 See the [release notes][10] and [blog post][11] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.4.0.tar.gz][6]
+* **Source Release**: [apache-arrow-0.4.1.tar.gz][6]
 * **Verification**: [md5][3], [asc][7]
-* [Git tag a8f8ba0][2]
+* [Git tag 46315431][2]
 
 ### Java Packages
 
@@ -54,7 +54,7 @@ conda install pyarrow -c conda-forge
 
 ### Python Wheels on PyPI (Unofficial)
 
-We have provided Linux binary wheels on PyPI, which can be installed with pip.
+We have provided binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
 pip install pyarrow
@@ -129,14 +129,14 @@ These repositories are managed at
 [red-data-tools/arrow-packages][9]. If you have any feedback, please
 send it to the project instead of Apache Arrow project.
 
-[1]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/
-[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.4.0
-[3]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.md5
-[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.4.0%22
+[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/
+[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.4.1
+[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz.md5
+[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.4.1%22
 [5]: http://conda-forge.github.io
-[6]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz
-[7]: https://www-us.apache.org/dist/arrow/arrow-0.4.0/apache-arrow-0.4.0.tar.gz.asc
+[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz
+[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz.asc
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
-[10]: http://arrow.apache.org/release/0.4.0.html
-[11]: http://arrow.apache.org/blog/2017/05/23/0.4.0-release/
+[10]: http://arrow.apache.org/release/0.4.1.html
+[11]: http://arrow.apache.org/blog/2017/06/14/0.4.1-release/
