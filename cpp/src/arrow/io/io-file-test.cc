@@ -462,6 +462,41 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   rommap->Close();
 }
 
+TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
+  // ARROW-1096
+  const int64_t buffer_size = 1000 * 1000;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  const int64_t reps = 5000;
+
+  std::string path = "ipc-read-over-4gb-file-test";
+  std::shared_ptr<MemoryMappedFile> rwmmap;
+  ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &rwmmap));
+  AppendFile(path);
+
+  int64_t position = 0;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rwmmap->Close();
+
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
+
+  position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rommap->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rommap->Close();
+}
+
 TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
   // ARROW-494
 
