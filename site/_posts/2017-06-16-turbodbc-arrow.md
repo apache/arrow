@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Connecting Relational Databases to the Apache Arrow World with turbodbc"
-date: "2017-06-16 00:00:00 +0200"
+date: "2017-06-16 04:00:00 -0400"
 author: MathMagique
 categories: [application]
 ---
