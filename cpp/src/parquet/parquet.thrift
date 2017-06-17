@@ -23,13 +23,24 @@ cpp_include "parquet/util/windows_compatibility.h"
  * File format description for the parquet file format
  */
 namespace cpp parquet.format
-namespace java parquet.format
+namespace java org.apache.parquet.format
 
 /**
  * Types supported by Parquet.  These types are intended to be used in combination
  * with the encodings to control the on disk storage format.
  * For example INT16 is not included as a type since a good encoding of INT32
  * would handle this.
+ *
+ * When a logical type is not present, the type-defined sort order of these
+ * physical types are:
+ * * BOOLEAN - false, true
+ * * INT32 - signed comparison
+ * * INT64 - signed comparison
+ * * INT96 - signed comparison
+ * * FLOAT - signed comparison
+ * * DOUBLE - signed comparison
+ * * BYTE_ARRAY - unsigned byte-wise comparison
+ * * FIXED_LEN_BYTE_ARRAY - unsigned byte-wise comparison
  */
 enum Type {
   BOOLEAN = 0;
@@ -177,6 +188,13 @@ enum ConvertedType {
    */
   INTERVAL = 21;
 
+  /**
+   * Annotates a column that is always null
+   * Sometimes when discovering the schema of existing data
+   * values are always null
+   * This is NULL in parquet-format
+   */
+  NA = 25;
 }
 
 /**
@@ -198,13 +216,33 @@ enum FieldRepetitionType {
  * All fields are optional.
  */
 struct Statistics {
-   /** min and max value of the column, encoded in PLAIN encoding */
+   /**
+    * DEPRECATED: min and max value of the column. Use min_value and max_value.
+    *
+    * Values are encoded using PLAIN encoding, except that variable-length byte
+    * arrays do not include a length prefix.
+    *
+    * These fields encode min and max values determined by SIGNED comparison
+    * only. New files should use the correct order for a column's logical type
+    * and store the values in the min_value and max_value fields.
+    *
+    * To support older readers, these may be set when the column order is
+    * SIGNED.
+    */
    1: optional binary max;
    2: optional binary min;
    /** count of null value in the column */
    3: optional i64 null_count;
    /** count of distinct values occurring */
    4: optional i64 distinct_count;
+   /**
+    * Min and max values for the column, determined by its ColumnOrder.
+    *
+    * Values are encoded using PLAIN encoding, except that variable-length byte
+    * arrays do not include a length prefix.
+    */
+   5: optional binary max_value;
+   6: optional binary min_value;
 }
 
 /**
@@ -543,6 +581,23 @@ struct RowGroup {
   4: optional list<SortingColumn> sorting_columns
 }
 
+/** Empty struct to signal the order defined by the physical or logical type */
+struct TypeDefinedOrder {}
+
+/**
+ * Union to specify the order used for min, max, and sorting values in a column.
+ *
+ * Possible values are:
+ * * TypeDefinedOrder - the column uses the order defined by its logical or
+ *                      physical type (if there is no logical type).
+ *
+ * If the reader does not support the value of this union, min and max stats
+ * for this column should be ignored.
+ */
+union ColumnOrder {
+  1: TypeDefinedOrder TYPE_ORDER;
+}
+
 /**
  * Description for file metadata
  */
@@ -572,5 +627,14 @@ struct FileMetaData {
    * e.g. impala version 1.0 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)
    **/
   6: optional string created_by
+
+  /**
+   * Sort order used for each column in this file.
+   *
+   * If this list is not present, then the order for each column is assumed to
+   * be Signed. In addition, min and max values for INTERVAL or DECIMAL stored
+   * as fixed or bytes should be ignored.
+   */
+  7: optional list<ColumnOrder> column_orders;
 }
 
