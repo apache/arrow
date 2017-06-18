@@ -23,7 +23,7 @@ conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
 conda install -n arrow -q -y -c conda-forge ^
       flatbuffers rapidjson ^
-      cmake git boost-cpp thrift-cpp snappy zlib brotli
+      cmake git boost-cpp thrift-cpp snappy zlib brotli gflags
 
 call activate arrow
 
