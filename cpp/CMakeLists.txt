@@ -412,6 +412,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -430,6 +431,10 @@ endif()
 
 if (DEFINED ENV{JEMALLOC_HOME})
   set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
+endif()
+
+if (DEFINED ENV{GFLAGS_HOME})
+  set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -560,7 +565,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   # gflags (formerly Googleflags) command line parsing
-  if("$ENV{GFLAGS_HOME}" STREQUAL "")
+  if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
