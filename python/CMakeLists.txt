@@ -51,9 +51,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
-  option(PYARROW_BUILD_JEMALLOC
-    "Build the PyArrow jemalloc integration"
-    OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
@@ -334,20 +331,6 @@ if (PYARROW_BUILD_PARQUET)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)
-endif()
-
-if (PYARROW_BUILD_JEMALLOC)
-  if (PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(ARROW_JEMALLOC_SHARED_LIB)
-  endif()
-  ADD_THIRDPARTY_LIB(arrow_jemalloc
-    SHARED_LIB ${ARROW_JEMALLOC_SHARED_LIB})
-  set(LINK_LIBS
-    ${LINK_LIBS}
-    arrow_jemalloc_shared)
-  set(CYTHON_EXTENSIONS
-    ${CYTHON_EXTENSIONS}
-    _jemalloc)
 endif()
 
 ############################################################
