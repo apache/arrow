@@ -33,7 +33,7 @@ endif(APPLE)
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L -march=native -mtune=native -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
@@ -94,11 +94,10 @@ add_library(plasma_lib STATIC
   common.cc
   io.cc
   protocol.cc
-  ../arrow/status.cc
   fling.cc
   thirdparty/xxhash.cc)
 
-target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static)
 add_dependencies(plasma_lib gen_plasma_fbs)
 
 set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion")
