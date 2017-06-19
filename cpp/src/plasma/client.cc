@@ -56,16 +56,6 @@ constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 static std::vector<std::thread> threadpool_(kThreadPoolSize);
 
-struct ClientMmapTableEntry {
-  /// The result of mmap for this file descriptor.
-  uint8_t* pointer;
-  /// The length of the memory-mapped file.
-  size_t length;
-  /// The number of objects in this memory-mapped file that are currently being
-  /// used by the client. When this count reaches zeros, we unmap the file.
-  int count;
-};
-
 struct ObjectInUseEntry {
   /// A count of the number of times this client has called PlasmaClient::Create
   /// or
@@ -87,17 +77,16 @@ uint8_t* lookup_or_mmap(PlasmaClient* conn, int fd, int store_fd_val, int64_t ma
   auto entry = conn->mmap_table.find(store_fd_val);
   if (entry != conn->mmap_table.end()) {
     close(fd);
-    return entry->second->pointer;
+    return entry->second.pointer;
   } else {
     uint8_t* result = reinterpret_cast<uint8_t*>(
         mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     if (result == MAP_FAILED) { ARROW_LOG(FATAL) << "mmap failed"; }
     close(fd);
-    ClientMmapTableEntry* entry = new ClientMmapTableEntry();
-    entry->pointer = result;
-    entry->length = map_size;
-    entry->count = 0;
-    conn->mmap_table[store_fd_val] = entry;
+    ClientMmapTableEntry& entry = conn->mmap_table[store_fd_val];
+    entry.pointer = result;
+    entry.length = map_size;
+    entry.count = 0;
     return result;
   }
 }
@@ -107,7 +96,7 @@ uint8_t* lookup_or_mmap(PlasmaClient* conn, int fd, int store_fd_val, int64_t ma
 uint8_t* lookup_mmapped_file(PlasmaClient* conn, int store_fd_val) {
   auto entry = conn->mmap_table.find(store_fd_val);
   ARROW_CHECK(entry != conn->mmap_table.end());
-  return entry->second->pointer;
+  return entry->second.pointer;
 }
 
 void increment_object_count(
@@ -129,11 +118,11 @@ void increment_object_count(
     // PlasmaClient::Release.
     auto entry = conn->mmap_table.find(object->handle.store_fd);
     ARROW_CHECK(entry != conn->mmap_table.end());
-    ARROW_CHECK(entry->second->count >= 0);
+    ARROW_CHECK(entry->second.count >= 0);
     // Update the in_use_object_bytes.
     conn->in_use_object_bytes +=
         (object_entry->object.data_size + object_entry->object.metadata_size);
-    entry->second->count += 1;
+    entry->second.count += 1;
   } else {
     object_entry = elem->second;
     ARROW_CHECK(object_entry->count > 0);
@@ -302,13 +291,12 @@ Status PlasmaClient::PerformRelease(ObjectID object_id) {
     int fd = object_entry->second->object.handle.store_fd;
     auto entry = mmap_table.find(fd);
     ARROW_CHECK(entry != mmap_table.end());
-    entry->second->count -= 1;
-    ARROW_CHECK(entry->second->count >= 0);
+    entry->second.count -= 1;
+    ARROW_CHECK(entry->second.count >= 0);
     // If none are being used then unmap the file.
-    if (entry->second->count == 0) {
-      munmap(entry->second->pointer, entry->second->length);
+    if (entry->second.count == 0) {
+      munmap(entry->second.pointer, entry->second.length);
       // Remove the corresponding entry from the hash table.
-      delete entry->second;
       mmap_table.erase(fd);
     }
     // Tell the store that the client no longer needs the object.
@@ -512,9 +500,6 @@ Status PlasmaClient::Disconnect() {
   // a
   // SIGTERM, for example).
   for (auto& entry : objects_in_use) {
-    delete entry.second;
-  }
-  for (auto& entry : mmap_table) {
     delete entry.second;
   }
   // Close the connections to Plasma. The Plasma store will release the objects

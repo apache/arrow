@@ -53,7 +53,16 @@ struct PlasmaClientConfig {
   size_t release_delay;
 };
 
-struct ClientMmapTableEntry;
+struct ClientMmapTableEntry {
+  /// The result of mmap for this file descriptor.
+  uint8_t* pointer;
+  /// The length of the memory-mapped file.
+  size_t length;
+  /// The number of objects in this memory-mapped file that are currently being
+  /// used by the client. When this count reaches zeros, we unmap the file.
+  int count;
+};
+
 struct ObjectInUseEntry;
 
 class PlasmaClient {
@@ -278,7 +287,7 @@ class PlasmaClient {
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
   /// is a hash table mapping a file descriptor to a struct containing the
   /// address of the corresponding memory-mapped file.
-  std::unordered_map<int, ClientMmapTableEntry*> mmap_table;
+  std::unordered_map<int, ClientMmapTableEntry> mmap_table;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
   std::unordered_map<ObjectID, ObjectInUseEntry*, UniqueIDHasher> objects_in_use;
