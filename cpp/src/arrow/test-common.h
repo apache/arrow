@@ -52,7 +52,12 @@ class TestBase : public ::testing::Test {
     test::random_bytes(data_nbytes, random_seed_++, data->mutable_data());
 
     auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
-    EXPECT_OK(null_bitmap->Resize(BitUtil::BytesForBits(length)));
+    const int64_t null_nbytes = BitUtil::BytesForBits(length);
+    EXPECT_OK(null_bitmap->Resize(null_nbytes));
+    memset(null_bitmap->mutable_data(), 255, null_nbytes);
+    for (int64_t i = 0; i < null_count; i++) {
+      BitUtil::ClearBit(null_bitmap->mutable_data(), i * (length / null_count));
+    }
     return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
   }
 
