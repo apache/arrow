@@ -16,13 +16,14 @@
 // under the License.
 
 #include "plasma/extension.h"
+
+#include <algorithm>
+#include <vector>
+
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/io.h"
 #include "plasma/protocol.h"
-
-#include <algorithm>
-#include <vector>
 
 PyObject* PlasmaOutOfMemoryError;
 PyObject* PlasmaObjectExistsError;

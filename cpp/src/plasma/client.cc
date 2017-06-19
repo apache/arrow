@@ -17,6 +17,8 @@
 
 // PLASMA CLIENT: Client library for using the plasma store and manager
 
+#include "plasma/client.h"
+
 #ifdef _WIN32
 #include <Win32_Interop/win32_types.h>
 #endif
@@ -34,17 +36,15 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "plasma/client.h"
-#include "plasma/common.h"
-#include "plasma/io.h"
-#include "plasma/plasma.h"
-#include "plasma/protocol.h"
-
 #include <algorithm>
 #include <thread>
 #include <vector>
 
+#include "plasma/common.h"
 #include "plasma/fling.h"
+#include "plasma/io.h"
+#include "plasma/plasma.h"
+#include "plasma/protocol.h"
 
 #define XXH_STATIC_LINKING_ONLY
 #include "thirdparty/xxhash.h"

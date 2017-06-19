@@ -18,11 +18,11 @@
 #ifndef PLASMA_PROTOCOL_H
 #define PLASMA_PROTOCOL_H
 
+#include <vector>
+
 #include "arrow/status.h"
 #include "format/plasma_generated.h"
 #include "plasma/plasma.h"
-
-#include <vector>
 
 using arrow::Status;
 

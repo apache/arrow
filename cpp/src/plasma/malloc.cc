@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "plasma/malloc.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -26,7 +28,6 @@
 #include <unordered_map>
 
 #include "plasma/common.h"
-#include "plasma/malloc.h"
 
 extern "C" {
 void* fake_mmap(size_t);

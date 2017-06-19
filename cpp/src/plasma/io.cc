@@ -16,6 +16,7 @@
 // under the License.
 
 #include "plasma/io.h"
+
 #include "plasma/common.h"
 
 using arrow::Status;

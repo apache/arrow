@@ -18,6 +18,7 @@
 #ifndef PLASMA_H
 #define PLASMA_H
 
+#include <inttypes.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -33,8 +34,6 @@
 #include "arrow/util/logging.h"
 #include "format/common_generated.h"
 #include "plasma/common.h"
-
-#include <inttypes.h>
 
 #define HANDLE_SIGPIPE(s, fd_)                                              \
   do {                                                                      \

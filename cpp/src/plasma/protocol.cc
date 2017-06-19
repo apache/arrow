@@ -15,12 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "plasma/protocol.h"
+
 #include "flatbuffers/flatbuffers.h"
 #include "format/plasma_generated.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
-#include "plasma/protocol.h"
 
 using flatbuffers::uoffset_t;
 

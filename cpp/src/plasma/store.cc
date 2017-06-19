@@ -26,6 +26,8 @@
 // It keeps a hash table that maps object_ids (which are 20 byte long,
 // just enough to store and SHA1 hash) to memory mapped files.
 
+#include "plasma/store.h"
+
 #include <assert.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -52,7 +54,6 @@
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
-#include "plasma/store.h"
 
 extern "C" {
 void* dlmalloc(size_t bytes);
