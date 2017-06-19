@@ -92,7 +92,7 @@ class Decoder {
   // the decoder would decode put to 'max_values', storing the result in 'buffer'.
   // The function returns the number of values decoded, which should be max_values
   // except for end of the current data page.
-  virtual int Decode(T* buffer, int max_values) {
+  virtual int Decode(T* /* buffer */, int /* max_values */) {
     throw ParquetException("Decoder does not implement this type.");
   }
 
