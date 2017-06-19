@@ -27,7 +27,7 @@ using flatbuffers::uoffset_t;
 
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
 to_flatbuffer(
-    flatbuffers::FlatBufferBuilder& fbb, ObjectID object_ids[], int64_t num_objects) {
+    flatbuffers::FlatBufferBuilder& fbb, const ObjectID* object_ids, int64_t num_objects) {
   std::vector<flatbuffers::Offset<flatbuffers::String>> results;
   for (int64_t i = 0; i < num_objects; i++) {
     results.push_back(fbb.CreateString(object_ids[i].binary()));
@@ -196,7 +196,7 @@ Status ReadDeleteReply(uint8_t* data, ObjectID* object_id) {
 
 /* Satus messages. */
 
-Status SendStatusRequest(int sock, ObjectID object_ids[], int64_t num_objects) {
+Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objects) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message =
       CreatePlasmaStatusRequest(fbb, to_flatbuffer(fbb, object_ids, num_objects));

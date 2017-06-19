@@ -170,7 +170,7 @@ struct PlasmaStoreInfo {
  * @return The entry associated with the object_id or NULL if the object_id
  *         is not present.
  */
-ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info, ObjectID object_id);
+ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info, const ObjectID& object_id);
 
 /**
  * Print a warning if the status is less than zero. This should be used to check

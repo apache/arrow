@@ -89,7 +89,7 @@ Status ReadDeleteReply(uint8_t* data, ObjectID* object_id);
 
 /* Satus messages. */
 
-Status SendStatusRequest(int sock, ObjectID object_ids[], int64_t num_objects);
+Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
 
 Status ReadStatusRequest(uint8_t* data, ObjectID object_ids[], int64_t num_objects);
 

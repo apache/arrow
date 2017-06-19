@@ -129,7 +129,7 @@ void PlasmaStore::add_client_to_object_clients(ObjectTableEntry* entry, Client* 
 }
 
 // Create a new object buffer in the hash table.
-int PlasmaStore::create_object(ObjectID object_id, int64_t data_size,
+int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     int64_t metadata_size, Client* client, PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
   if (store_info_.objects.count(object_id) != 0) {
@@ -253,7 +253,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   delete get_req;
 }
 
-void PlasmaStore::update_object_get_requests(ObjectID object_id) {
+void PlasmaStore::update_object_get_requests(const ObjectID& object_id) {
   std::vector<GetRequest*>& get_requests = object_get_requests_[object_id];
   size_t index = 0;
   size_t num_requests = get_requests.size();
@@ -345,7 +345,7 @@ int PlasmaStore::remove_client_from_object_clients(
   }
 }
 
-void PlasmaStore::release_object(ObjectID object_id, Client* client) {
+void PlasmaStore::release_object(const ObjectID& object_id, Client* client) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL);
   // Remove the client from the object's array of clients.
@@ -353,13 +353,13 @@ void PlasmaStore::release_object(ObjectID object_id, Client* client) {
 }
 
 // Check if an object is present.
-int PlasmaStore::contains_object(ObjectID object_id) {
+int PlasmaStore::contains_object(const ObjectID& object_id) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   return entry && (entry->state == PLASMA_SEALED) ? OBJECT_FOUND : OBJECT_NOT_FOUND;
 }
 
 // Seal an object that has been created in the hash table.
-void PlasmaStore::seal_object(ObjectID object_id, unsigned char digest[]) {
+void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[]) {
   ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL);

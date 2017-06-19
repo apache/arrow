@@ -107,7 +107,7 @@ class PlasmaClient {
   ///        metadata, this should be 0.
   /// @param data The address of the newly created object will be written here.
   /// @return The return status.
-  Status Create(ObjectID object_id, int64_t data_size, uint8_t* metadata,
+  Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
       int64_t metadata_size, uint8_t** data);
 
   /// Get some objects from the Plasma Store. This function will block until the
@@ -136,7 +136,7 @@ class PlasmaClient {
   ///
   /// @param object_id The ID of the object that is no longer needed.
   /// @return The return status.
-  Status Release(ObjectID object_id);
+  Status Release(const ObjectID& object_id);
 
   /// Check if the object store contains a particular object and the object has
   /// been sealed. The result will be stored in has_object.
@@ -149,7 +149,7 @@ class PlasmaClient {
   /// is
   ///        present and 0 if it is not present.
   /// @return The return status.
-  Status Contains(ObjectID object_id, int* has_object);
+  Status Contains(const ObjectID& object_id, int* has_object);
 
   /// Seal an object in the object store. The object will be immutable after
   /// this
@@ -157,7 +157,7 @@ class PlasmaClient {
   ///
   /// @param object_id The ID of the object to seal.
   /// @return The return status.
-  Status Seal(ObjectID object_id);
+  Status Seal(const ObjectID& object_id);
 
   /// Delete an object from the object store. This currently assumes that the
   /// object is present and has been sealed.
@@ -167,7 +167,7 @@ class PlasmaClient {
   ///
   /// @param object_id The ID of the object to delete.
   /// @return The return status.
-  Status Delete(ObjectID object_id);
+  Status Delete(const ObjectID& object_id);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more
   /// released objects that can be deleted.
@@ -263,7 +263,7 @@ class PlasmaClient {
   /// @param port Port of the plasma manager we are transfering to.
   /// @object_id ObjectID of the object we are transfering.
   /// @return The return status.
-  Status Transfer(const char* addr, int port, ObjectID object_id);
+  Status Transfer(const char* addr, int port, const ObjectID& object_id);
 
   /// Return the status of a given object. This method may query the object
   /// table.
@@ -282,11 +282,11 @@ class PlasmaClient {
   ///         - PLASMA_CLIENT_DOES_NOT_EXIST, if the object doesn’t exist in the
   ///           system.
   /// @return The return status.
-  Status Info(ObjectID object_id, int* object_status);
+  Status Info(const ObjectID& object_id, int* object_status);
 
   //  private:
 
-  Status PerformRelease(ObjectID object_id);
+  Status PerformRelease(const ObjectID& object_id);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn;

@@ -62,7 +62,7 @@ int64_t EvictionPolicy::choose_objects_to_evict(
   return bytes_evicted;
 }
 
-void EvictionPolicy::object_created(ObjectID object_id) {
+void EvictionPolicy::object_created(const ObjectID& object_id) {
   auto entry = store_info_->objects[object_id].get();
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);
 }
@@ -94,13 +94,13 @@ bool EvictionPolicy::require_space(
 }
 
 void EvictionPolicy::begin_object_access(
-    ObjectID object_id, std::vector<ObjectID>& objects_to_evict) {
+    const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict) {
   /* If the object is in the LRU cache, remove it. */
   cache_.remove(object_id);
 }
 
 void EvictionPolicy::end_object_access(
-    ObjectID object_id, std::vector<ObjectID>& objects_to_evict) {
+    const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict) {
   auto entry = store_info_->objects[object_id].get();
   /* Add the object to the LRU cache.*/
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);

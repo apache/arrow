@@ -57,7 +57,7 @@ uint8_t* create_object_info_buffer(ObjectInfoT* object_info) {
 }
 
 ObjectTableEntry* get_object_table_entry(
-    PlasmaStoreInfo* store_info, ObjectID object_id) {
+    PlasmaStoreInfo* store_info, const ObjectID& object_id) {
   auto it = store_info->objects.find(object_id);
   if (it == store_info->objects.end()) { return NULL; }
   return it->second.get();

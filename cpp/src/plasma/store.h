@@ -63,7 +63,7 @@ class PlasmaStore {
   ///  - PlasmaError_OutOfMemory, if the store is out of memory and
   ///    cannot create the object. In this case, the client should not call
   ///    plasma_release.
-  int create_object(ObjectID object_id, int64_t data_size, int64_t metadata_size,
+  int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
       Client* client, PlasmaObject* result);
 
   /// Delete objects that have been created in the hash table. This should only
@@ -95,21 +95,21 @@ class PlasmaStore {
   /// objects
   ///        with the same object ID are the same.
   /// @return Void.
-  void seal_object(ObjectID object_id, unsigned char digest[]);
+  void seal_object(const ObjectID& object_id, unsigned char digest[]);
 
   /// Check if the plasma store contains an object:
   ///
   /// @param object_id Object ID that will be checked.
   /// @return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
-  int contains_object(ObjectID object_id);
+  int contains_object(const ObjectID& object_id);
 
   /// Record the fact that a particular client is no longer using an object.
   ///
   /// @param object_id The object ID of the object that is being released.
   /// @param client The client making this request.
   /// @param Void.
-  void release_object(ObjectID object_id, Client* client);
+  void release_object(const ObjectID& object_id, Client* client);
 
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
@@ -140,7 +140,7 @@ class PlasmaStore {
 
   void return_from_get(GetRequest* get_req);
 
-  void update_object_get_requests(ObjectID object_id);
+  void update_object_get_requests(const ObjectID& object_id);
 
   int remove_client_from_object_clients(ObjectTableEntry* entry, Client* client);
 
