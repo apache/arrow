@@ -441,8 +441,8 @@ endif()
 # Find pthreads
 
 if (NOT MSVC)
-  set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-  find_package(Threads REQUIRED)
+  find_library(PTHREAD_LIBRARY pthread)
+  message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -765,7 +765,7 @@ if (ARROW_JEMALLOC)
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
     SHARED_LIB ${JEMALLOC_SHARED_LIB}
-    DEPS Threads::Threads)
+    DEPS ${PTHREAD_LIBRARY})
 endif()
 
 ## Google PerfTools
@@ -963,7 +963,7 @@ if (ARROW_JEMALLOC)
   endif()
 
   if (NOT APPLE)
-    set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} Threads::Threads)
+      set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} ${PTHREAD_LIBRARY})
   endif()
 
   if (ARROW_JEMALLOC_USE_SHARED)
@@ -996,7 +996,7 @@ elseif (NOT MSVC)
   # linking order.
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
-    Threads::Threads)
+    ${PTHREAD_LIBRARY})
 endif()
 
 if(RAPIDJSON_VENDORED)
