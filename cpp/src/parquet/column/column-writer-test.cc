@@ -347,6 +347,36 @@ TYPED_TEST(TestPrimitiveWriter, Optional) {
   ASSERT_EQ(this->values_, this->values_out_);
 }
 
+TYPED_TEST(TestPrimitiveWriter, OptionalSpaced) {
+  // Optional and non-repeated, with definition levels
+  // but no repetition levels
+  this->SetUpSchema(Repetition::OPTIONAL);
+
+  this->GenerateData(SMALL_SIZE);
+  std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
+  std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(SMALL_SIZE), 255);
+
+  definition_levels[SMALL_SIZE - 1] = 0;
+  ::arrow::BitUtil::ClearBit(valid_bits.data(), SMALL_SIZE - 1);
+  definition_levels[1] = 0;
+  ::arrow::BitUtil::ClearBit(valid_bits.data(), 1);
+
+  auto writer = this->BuildWriter();
+  writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(), nullptr,
+      valid_bits.data(), 0, this->values_ptr_);
+  writer->Close();
+
+  // PARQUET-703
+  ASSERT_EQ(100, this->metadata_num_values());
+
+  this->ReadColumn();
+  ASSERT_EQ(98, this->values_read_);
+  this->values_out_.resize(98);
+  this->values_.resize(99);
+  this->values_.erase(this->values_.cbegin() + 1);
+  ASSERT_EQ(this->values_, this->values_out_);
+}
+
 TYPED_TEST(TestPrimitiveWriter, Repeated) {
   // Optional and repeated, so definition and repetition levels
   this->SetUpSchema(Repetition::REPEATED);

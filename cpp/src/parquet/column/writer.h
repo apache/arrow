@@ -166,8 +166,32 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   void WriteBatch(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const T* values);
 
-  // Write a batch of repetition levels, definition levels, and values to the
-  // column.
+  /// Write a batch of repetition levels, definition levels, and values to the
+  /// column.
+  ///
+  /// In comparision to WriteBatch the length of repetition and definition levels
+  /// is the same as of the number of values read for max_definition_level == 1.
+  /// In the case of max_definition_level > 1, the repetition and definition
+  /// levels are larger than the values but the values include the null entries
+  /// with definition_level == (max_definition_level - 1). Thus we have to differentiate
+  /// in the parameters of this function if the input has the length of num_values or the
+  /// _number of rows in the lowest nesting level_.
+  ///
+  /// In the case that the most inner node in the Parquet is required, the _number of rows
+  /// in the lowest nesting level_ is equal to the number of non-null values. If the
+  /// inner-most schema node is optional, the _number of rows in the lowest nesting level_
+  /// also includes all values with definition_level == (max_definition_level - 1).
+  ///
+  /// @param num_values number of levels to write.
+  /// @param def_levels The Parquet definiton levels, length is num_values
+  /// @param rep_levels The Parquet repetition levels, length is num_values
+  /// @param valid_bits Bitmap that indicates if the row is null on the lowest nesting
+  ///   level. The length is number of rows in the lowest nesting level.
+  /// @param valid_bits_offset The offset in bits of the valid_bits where the
+  ///   first relevant bit resides.
+  /// @param values The values in the lowest nested level including
+  ///   spacing for nulls on the lowest levels; input has the length
+  ///   of the number of rows on the lowest nesting level.
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
       const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
       const T* values);
