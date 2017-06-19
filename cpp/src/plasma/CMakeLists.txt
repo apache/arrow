@@ -65,65 +65,46 @@ if(UNIX AND NOT APPLE)
   link_libraries(rt)
 endif()
 
-if(PLASMA_PYTHON)
-  add_library(plasma SHARED
-    plasma.cc
-    extension.cc
-    protocol.cc
-    client.cc
-    thirdparty/xxhash.cc
-    fling.cc)
-
-  add_dependencies(plasma gen_plasma_fbs)
-
-  if(APPLE)
-    target_link_libraries(plasma plasma_lib "-undefined dynamic_lookup" ${FLATBUFFERS_STATIC_LIB} ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
-  else(APPLE)
-    target_link_libraries(plasma plasma_lib -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT})
-  endif(APPLE)
-endif()
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 set_source_files_properties(thirdparty/dlmalloc.c PROPERTIES COMPILE_FLAGS -Wno-all)
 set_source_files_properties(extension.cc PROPERTIES COMPILE_FLAGS -Wno-strict-aliasing)
 
-add_library(plasma_lib STATIC
+set(PLASMA_SRCS
   client.cc
-  plasma.cc
   common.cc
-  io.cc
-  protocol.cc
+  eviction_policy.cc
+  events.cc
   fling.cc
+  io.cc
+  malloc.cc
+  plasma.cc
+  protocol.cc
+  thirdparty/ae/ae.c
   thirdparty/xxhash.cc)
 
-target_link_libraries(plasma_lib ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static)
-add_dependencies(plasma_lib gen_plasma_fbs)
+ADD_ARROW_LIB(plasma
+  SOURCES ${PLASMA_SRCS}
+  DEPENDENCIES gen_plasma_fbs
+  SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static
+  STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static)
 
 set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion")
 
-add_executable(plasma_store
-  store.cc
-  thirdparty/ae/ae.c
-  plasma.cc
-  events.cc
-  protocol.cc
-  eviction_policy.cc
-  fling.cc
-  malloc.cc)
+add_executable(plasma_store store.cc)
+target_link_libraries(plasma_store plasma_static)
 
-add_dependencies(plasma_store gen_plasma_fbs)
-
-target_link_libraries(plasma_store plasma_lib ${FLATBUFFERS_STATIC_LIB})
-
-add_library(plasma_client SHARED client.cc)
-target_link_libraries(plasma_client ${FLATBUFFERS_STATIC_LIB})
-
-target_link_libraries(plasma_client plasma_lib ${FLATBUFFERS_STATIC_LIB})
-
-# define_test(client_tests plasma_lib)
-# define_test(manager_tests plasma_lib plasma_manager.cc)
 ADD_ARROW_TEST(test/serialization_tests)
-ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_lib)
+ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
 ADD_ARROW_TEST(test/client_tests)
-ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_lib)
+ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
+
+if(PLASMA_PYTHON)
+  add_library(plasma_extension SHARED extension.cc)
+
+  if(APPLE)
+    target_link_libraries(plasma plasma_static "-undefined dynamic_lookup")
+  else(APPLE)
+    target_link_libraries(plasma plasma_static -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive)
+  endif(APPLE)
+endif()
