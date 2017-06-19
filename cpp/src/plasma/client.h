@@ -63,7 +63,19 @@ struct ClientMmapTableEntry {
   int count;
 };
 
-struct ObjectInUseEntry;
+struct ObjectInUseEntry {
+  /// A count of the number of times this client has called PlasmaClient::Create
+  /// or
+  /// PlasmaClient::Get on this object ID minus the number of calls to
+  /// PlasmaClient::Release.
+  /// When this count reaches zero, we remove the entry from the ObjectsInUse
+  /// and decrement a count in the relevant ClientMmapTableEntry.
+  int count;
+  /// Cached information to read the object.
+  PlasmaObject object;
+  /// A flag representing whether the object has been sealed.
+  bool is_sealed;
+};
 
 class PlasmaClient {
  public:
@@ -290,7 +302,7 @@ class PlasmaClient {
   std::unordered_map<int, ClientMmapTableEntry> mmap_table;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
-  std::unordered_map<ObjectID, ObjectInUseEntry*, UniqueIDHasher> objects_in_use;
+  std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>, UniqueIDHasher> objects_in_use;
   /// Object IDs of the last few release calls. This is a deque and
   /// is used to delay releasing objects to see if they can be reused by
   /// subsequent tasks so we do not unneccessarily invalidate cpu caches.

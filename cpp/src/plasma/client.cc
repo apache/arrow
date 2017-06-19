@@ -56,20 +56,6 @@ constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 static std::vector<std::thread> threadpool_(kThreadPoolSize);
 
-struct ObjectInUseEntry {
-  /// A count of the number of times this client has called PlasmaClient::Create
-  /// or
-  /// PlasmaClient::Get on this object ID minus the number of calls to
-  /// PlasmaClient::Release.
-  /// When this count reaches zero, we remove the entry from the ObjectsInUse
-  /// and decrement a count in the relevant ClientMmapTableEntry.
-  int count;
-  /// Cached information to read the object.
-  PlasmaObject object;
-  /// A flag representing whether the object has been sealed.
-  bool is_sealed;
-};
-
 // If the file descriptor fd has been mmapped in this client process before,
 // return the pointer that was returned by mmap, otherwise mmap it and store the
 // pointer in a hash table.
@@ -108,11 +94,11 @@ void increment_object_count(
   if (elem == conn->objects_in_use.end()) {
     // Add this object ID to the hash table of object IDs in use. The
     // corresponding call to free happens in PlasmaClient::Release.
-    object_entry = new ObjectInUseEntry();
-    object_entry->object = *object;
-    object_entry->count = 0;
-    object_entry->is_sealed = is_sealed;
-    conn->objects_in_use[object_id] = object_entry;
+    conn->objects_in_use[object_id] = std::unique_ptr<ObjectInUseEntry>(new ObjectInUseEntry());
+    conn->objects_in_use[object_id]->object = *object;
+    conn->objects_in_use[object_id]->count = 0;
+    conn->objects_in_use[object_id]->is_sealed = is_sealed;
+    object_entry = conn->objects_in_use[object_id].get();
     // Increment the count of the number of objects in the memory-mapped file
     // that are being used. The corresponding decrement should happen in
     // PlasmaClient::Release.
@@ -124,7 +110,7 @@ void increment_object_count(
         (object_entry->object.data_size + object_entry->object.metadata_size);
     entry->second.count += 1;
   } else {
-    object_entry = elem->second;
+    object_entry = elem->second.get();
     ARROW_CHECK(object_entry->count > 0);
   }
   // Increment the count of the number of instances of this object that are
@@ -306,7 +292,6 @@ Status PlasmaClient::PerformRelease(ObjectID object_id) {
                             object_entry->second->object.metadata_size);
     DCHECK_GE(in_use_object_bytes, 0);
     // Remove the entry from the hash table of objects currently in use.
-    delete object_entry->second;
     objects_in_use.erase(object_id);
   }
   return Status::OK();
@@ -497,11 +482,8 @@ Status PlasmaClient::Connect(const std::string& store_socket_name,
 Status PlasmaClient::Disconnect() {
   // NOTE: We purposefully do not finish sending release calls for objects in
   // use, so that we don't duplicate PlasmaClient::Release calls (when handling
-  // a
-  // SIGTERM, for example).
-  for (auto& entry : objects_in_use) {
-    delete entry.second;
-  }
+  // a SIGTERM, for example).
+
   // Close the connections to Plasma. The Plasma store will release the objects
   // that were in use by us when handling the SIGPIPE.
   close(store_conn);
