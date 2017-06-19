@@ -174,6 +174,7 @@ You should be able to run the unit tests with:
 You can build a wheel by running:
 
 .. code-block:: shell
+
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
           --with-parquet --with-jemalloc --bundle-arrow-cpp bdist_wheel
 
