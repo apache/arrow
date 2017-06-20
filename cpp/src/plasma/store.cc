@@ -62,8 +62,7 @@ void dlfree(void* mem);
 size_t dlmalloc_set_footprint_limit(size_t bytes);
 }
 
-class GetRequest {
- public:
+struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
   /// The client that called get.
   Client* client;
@@ -100,12 +99,14 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory)
   store_info_.memory_capacity = system_memory;
 }
 
+// TODO(pcm): Get rid of this destructor by using RAII to clean up data.
 PlasmaStore::~PlasmaStore() {
   for (const auto& element : pending_notifications_) {
     auto object_notifications = element.second.object_notifications;
     for (size_t i = 0; i < object_notifications.size(); ++i) {
       uint8_t* notification = reinterpret_cast<uint8_t*>(object_notifications.at(i));
       uint8_t* data = notification;
+      // TODO(pcm): Get rid of this delete.
       delete[] data;
     }
   }

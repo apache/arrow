@@ -93,6 +93,7 @@ typedef struct {
   int64_t mmap_size;
 } object_handle;
 
+// TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 typedef struct {
   /// Handle for memory mapped file the object is stored in.
   object_handle handle;
