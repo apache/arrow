@@ -126,7 +126,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
   std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, buffer));
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaCreateReply, &buffer));
   ObjectID id;
   PlasmaObject object;
   RETURN_NOT_OK(ReadCreateReply(buffer.data(), &id, &object));
@@ -198,7 +198,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   // client, so we need to send a request to the plasma store.
   RETURN_NOT_OK(SendGetRequest(store_conn_, object_ids, num_objects, timeout_ms));
   std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaGetReply, buffer));
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaGetReply, &buffer));
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
@@ -325,7 +325,7 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
     // to see if we have the object.
     RETURN_NOT_OK(SendContainsRequest(store_conn_, object_id));
     std::vector<uint8_t> buffer;
-    RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaContainsReply, buffer));
+    RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaContainsReply, &buffer));
     ObjectID object_id2;
     RETURN_NOT_OK(ReadContainsReply(buffer.data(), &object_id2, has_object));
   }
@@ -434,7 +434,7 @@ Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
   // Wait for a response with the number of bytes actually evicted.
   std::vector<uint8_t> buffer;
   int64_t type;
-  RETURN_NOT_OK(ReadMessage(store_conn_, &type, buffer));
+  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
   return ReadEvictReply(buffer.data(), num_bytes_evicted);
 }
 
@@ -471,7 +471,7 @@ Status PlasmaClient::Connect(const std::string& store_socket_name,
   // Send a ConnectRequest to the store to get its memory capacity.
   RETURN_NOT_OK(SendConnectRequest(store_conn_));
   std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaConnectReply, buffer));
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaConnectReply, &buffer));
   RETURN_NOT_OK(ReadConnectReply(buffer.data(), &store_capacity_));
   return Status::OK();
 }
@@ -508,7 +508,7 @@ Status PlasmaClient::Info(const ObjectID& object_id, int* object_status) {
 
   RETURN_NOT_OK(SendStatusRequest(manager_conn_, &object_id, 1));
   std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaStatusReply, buffer));
+  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaStatusReply, &buffer));
   ObjectID id;
   RETURN_NOT_OK(ReadStatusReply(buffer.data(), &id, object_status, 1));
   ARROW_CHECK(object_id == id);
@@ -530,7 +530,7 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
   RETURN_NOT_OK(SendWaitRequest(manager_conn_, object_requests, num_object_requests,
       num_ready_objects, timeout_ms));
   std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaWaitReply, buffer));
+  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaWaitReply, &buffer));
   RETURN_NOT_OK(ReadWaitReply(buffer.data(), object_requests, &num_ready_objects));
 
   *num_objects_ready = 0;

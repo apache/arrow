@@ -47,4 +47,4 @@ int PyStringToUniqueID(PyObject* object, ObjectID* object_id) {
   }
 }
 
-#endif /* PLASMA_EXTENSION_H */
+#endif // PLASMA_EXTENSION_H

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef EVICTION_POLICY_H
-#define EVICTION_POLICY_H
+#ifndef PLASMA_EVICTION_POLICY_H
+#define PLASMA_EVICTION_POLICY_H
 
 #include <list>
 #include <unordered_map>
@@ -131,4 +131,4 @@ class EvictionPolicy {
   LRUCache cache_;
 };
 
-#endif  // EVICTION_POLICY_H
+#endif  // PLASMA_EVICTION_POLICY_H

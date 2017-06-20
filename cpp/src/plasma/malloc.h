@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MALLOC_H
-#define MALLOC_H
+#ifndef PLASMA_MALLOC_H
+#define PLASMA_MALLOC_H
 
 #include <inttypes.h>
 #include <stddef.h>
 
 void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_length, ptrdiff_t* offset);
 
-#endif /* MALLOC_H */
+#endif // MALLOC_H

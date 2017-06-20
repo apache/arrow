@@ -35,7 +35,7 @@ to_flatbuffer(flatbuffers::FlatBufferBuilder& fbb, const ObjectID* object_ids,
   return fbb.CreateVector(results);
 }
 
-Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>& buffer) {
+Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>* buffer) {
   int64_t type;
   RETURN_NOT_OK(ReadMessage(sock, &type, buffer));
   ARROW_CHECK(type == message_type) << "type = " << type

@@ -48,7 +48,7 @@ class UniqueID {
 static_assert(std::is_pod<UniqueID>::value, "UniqueID must be plain old data");
 
 struct UniqueIDHasher {
-  /* ObjectID hashing function. */
+  // ObjectID hashing function.
   size_t operator()(const UniqueID& id) const {
     size_t result;
     std::memcpy(&result, id.data(), sizeof(size_t));

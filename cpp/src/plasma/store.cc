@@ -528,7 +528,7 @@ void PlasmaStore::subscribe_to_updates(Client* client) {
 
 Status PlasmaStore::process_message(Client* client) {
   int64_t type;
-  Status s = ReadMessage(client->fd, &type, input_buffer_);
+  Status s = ReadMessage(client->fd, &type, &input_buffer_);
   ARROW_CHECK(s.ok() || s.IsIOError());
 
   uint8_t* input = input_buffer_.data();

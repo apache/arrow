@@ -80,7 +80,7 @@ Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
   return Status::OK();
 }
 
-Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>& buffer) {
+Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
   int64_t version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
       *type = DISCONNECT_CLIENT);
@@ -90,8 +90,8 @@ Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>& buffer) {
       *type = DISCONNECT_CLIENT);
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&length), sizeof(length)),
       *type = DISCONNECT_CLIENT);
-  if (length > buffer.size()) { buffer.resize(length); }
-  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer.data(), length), *type = DISCONNECT_CLIENT);
+  if (length > buffer->size()) { buffer->resize(length); }
+  RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = DISCONNECT_CLIENT);
   return Status::OK();
 }
 

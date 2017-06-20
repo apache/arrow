@@ -51,7 +51,7 @@ std::vector<uint8_t> read_message_from_file(int fd, int message_type) {
   lseek(fd, 0, SEEK_SET);
   int64_t type;
   std::vector<uint8_t> data;
-  ARROW_CHECK_OK(ReadMessage(fd, &type, data));
+  ARROW_CHECK_OK(ReadMessage(fd, &type, &data));
   ARROW_CHECK(type == message_type);
   return data;
 }

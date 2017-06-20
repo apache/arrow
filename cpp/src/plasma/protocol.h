@@ -28,7 +28,7 @@ using arrow::Status;
 
 /* Plasma receive message. */
 
-Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>& buffer);
+Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>* buffer);
 
 /* Plasma Create message functions. */
 

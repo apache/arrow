@@ -340,4 +340,4 @@ class PlasmaClient {
 bool plasma_compute_object_hash(
     PlasmaClient* conn, ObjectID object_id, unsigned char* digest);
 
-#endif /* PLASMA_CLIENT_H */
+#endif // PLASMA_CLIENT_H
