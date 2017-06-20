@@ -152,7 +152,8 @@ PyObject* PyPlasma_get(PyObject* self, PyObject* args) {
   }
 
   Py_BEGIN_ALLOW_THREADS;
-  ARROW_CHECK_OK(client->Get(object_ids.data(), num_object_ids, timeout_ms, object_buffers.data()));
+  ARROW_CHECK_OK(
+      client->Get(object_ids.data(), num_object_ids, timeout_ms, object_buffers.data()));
   Py_END_ALLOW_THREADS;
 
   PyObject* returns = PyList_New(num_object_ids);
@@ -166,7 +167,8 @@ PyObject* PyPlasma_get(PyObject* self, PyObject* args) {
       char* data = reinterpret_cast<char*>(object_buffers[i].data);
       char* metadata = reinterpret_cast<char*>(object_buffers[i].metadata);
       PyTuple_SET_ITEM(t, 0, PyMemoryView_FromMemory(data, data_size, PyBUF_READ));
-      PyTuple_SET_ITEM(t, 1, PyMemoryView_FromMemory(metadata, metadata_size, PyBUF_READ));
+      PyTuple_SET_ITEM(
+          t, 1, PyMemoryView_FromMemory(metadata, metadata_size, PyBUF_READ));
 #else
       void* data = reinterpret_cast<void*>(object_buffers[i].data);
       void* metadata = reinterpret_cast<void*>(object_buffers[i].metadata);

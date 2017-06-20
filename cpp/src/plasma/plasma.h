@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h> // pid_t
+#include <unistd.h>  // pid_t
 
 #include <unordered_map>
 #include <unordered_set>
@@ -58,7 +58,6 @@
 constexpr int64_t kDigestSize = sizeof(uint64_t);
 
 struct Client;
-
 
 /// Object request data structure. Used in the plasma_wait_for_objects()
 /// argument.
@@ -188,4 +187,4 @@ int warn_if_sigpipe(int status, int client_sock);
 
 uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
 
-#endif // PLASMA_PLASMA_H
+#endif  // PLASMA_PLASMA_H

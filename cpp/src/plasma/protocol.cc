@@ -43,10 +43,12 @@ Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>* buffe
   return Status::OK();
 }
 
-template<typename Message>
-Status PlasmaSend(int sock, int64_t message_type, flatbuffers::FlatBufferBuilder* fbb, const Message& message) {
+template <typename Message>
+Status PlasmaSend(int sock, int64_t message_type, flatbuffers::FlatBufferBuilder* fbb,
+    const Message& message) {
   fbb->Finish(message);
-  return WriteMessage(sock, MessageType_PlasmaCreateRequest, fbb->GetSize(), fbb->GetBufferPointer());
+  return WriteMessage(
+      sock, MessageType_PlasmaCreateRequest, fbb->GetSize(), fbb->GetBufferPointer());
 }
 
 // Create messages.
@@ -205,8 +207,9 @@ Status ReadStatusRequest(uint8_t* data, ObjectID object_ids[], int64_t num_objec
 Status SendStatusReply(
     int sock, ObjectID object_ids[], int object_status[], int64_t num_objects) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = CreatePlasmaStatusReply(fbb, to_flatbuffer(&fbb, object_ids, num_objects),
-      fbb.CreateVector(object_status, num_objects));
+  auto message =
+      CreatePlasmaStatusReply(fbb, to_flatbuffer(&fbb, object_ids, num_objects),
+          fbb.CreateVector(object_status, num_objects));
   return PlasmaSend(sock, MessageType_PlasmaStatusReply, &fbb, message);
 }
 

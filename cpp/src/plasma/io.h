@@ -52,4 +52,4 @@ int AcceptClient(int socket_fd);
 
 uint8_t* read_message_async(int sock);
 
-#endif // PLASMA_IO_H
+#endif  // PLASMA_IO_H
