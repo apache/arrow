@@ -27,6 +27,14 @@ the usage of the C++ API for Arrow and the leaf libraries that add additional
 functionality such as using [jemalloc](http://jemalloc.net/) as an allocator
 for Arrow structures.
 
+Table of Contents
+-----------------
+
+ * Instructions on how to build Arrow C++ on [Windows](Windows.md)
+ * How to access [HDFS](HDFS.md)
+ * Tutorials
+   * [Convert a vector of row-wise data into an Arrow table](tutorials/row_wise_conversion.md)
+
 Getting Started
 ---------------
 
@@ -64,7 +72,7 @@ As the fourth entry is null, the value at that position in the buffer is
 undefined.
 
     // Cast the Array to its actual type to access its data
-    std::shared_ptr<Int64Array> int64_array = std::shared_pointer_cast<Int64Array>(array);
+    std::shared_ptr<Int64Array> int64_array = std::static_pointer_cast<Int64Array>(array);
 
     // Get the pointer to the null bitmap.
     const uint8_t* null_bitmap = int64_array->null_bitmap_data();

@@ -23,7 +23,7 @@ export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 build_parquet_cpp() {
   export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
-  conda create -y -q -p $PARQUET_HOME python=3.6
+  conda create -y -q -p $PARQUET_HOME python=3.6 cmake curl
   source activate $PARQUET_HOME
 
   # In case some package wants to download the MKL
@@ -49,7 +49,6 @@ build_parquet_cpp() {
   cmake \
       -DCMAKE_BUILD_TYPE=debug \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_ARROW=on \
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_ZLIB_VENDORED=off \
@@ -89,7 +88,7 @@ python_version_tests() {
   export ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
   export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib
 
-  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION
+  conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
   source activate $CONDA_ENV_DIR
 
   python --version
@@ -112,12 +111,12 @@ python_version_tests() {
   python -c "import pyarrow.parquet"
   python -c "import pyarrow._jemalloc"
 
-  python -m pytest -vv -r sxX pyarrow
+  python -m pytest -vv -r sxX pyarrow --parquet
 
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
-      pip install -r doc/requirements.txt
+      conda install -y -q --file=doc/requirements.txt
       python setup.py build_sphinx -s doc/source
   fi
 }

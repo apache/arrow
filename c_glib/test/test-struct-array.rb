@@ -16,6 +16,39 @@
 # under the License.
 
 class TestStructArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    fields = [
+      Arrow::Field.new("score", Arrow::Int8DataType.new),
+      Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
+    ]
+    structs = [
+      {
+        "score" => -29,
+        "enabled" => true,
+      },
+      {
+        "score" => 2,
+        "enabled" => false,
+      },
+      nil,
+    ]
+    struct_array1 = build_struct_array(fields, structs)
+
+    data_type = Arrow::StructDataType.new(fields)
+    children = [
+      Arrow::Int8Array.new(2, Arrow::Buffer.new([-29, 2].pack("C*")), nil, 0),
+      Arrow::BooleanArray.new(2, Arrow::Buffer.new([0b01].pack("C*")), nil, 0),
+    ]
+    assert_equal(struct_array1,
+                 Arrow::StructArray.new(data_type,
+                                        3,
+                                        children,
+                                        Arrow::Buffer.new([0b011].pack("C*")),
+                                        -1))
+  end
+
   def test_fields
     fields = [
       Arrow::Field.new("score", Arrow::Int8DataType.new),

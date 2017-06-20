@@ -23,9 +23,6 @@ project(pyarrow)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
 
-# Use common cmake modules from Arrow C++ if available
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
-
 include(CMakeParseArguments)
 
 # Compatibility with CMake 3.1
@@ -33,8 +30,6 @@ if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
-
-set(BUILD_SUPPORT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp/build-support")
 
 # Allow "make install" to not depend on all targets.
 #
@@ -224,41 +219,55 @@ include_directories(SYSTEM
 # Dependencies
 ############################################################
 
-## Parquet
-find_package(Parquet)
-if(PARQUET_FOUND)
-  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
-endif()
-
 ## Arrow
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
 function(bundle_arrow_lib library_path)
+  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
   configure_file(${${library_path}}
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
       COPYONLY)
-  configure_file(${${library_path}}.${ARROW_ABI_VERSION}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_ABI_VERSION}
-      COPYONLY)
-  configure_file(${${library_path}}.${ARROW_SO_VERSION}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_SO_VERSION}
-      COPYONLY)
+
+  if (APPLE)
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        COPYONLY)
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        COPYONLY)
+  else(NOT MSVC)
+    configure_file(${${library_path}}.${ARROW_ABI_VERSION}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_ABI_VERSION}
+        COPYONLY)
+    configure_file(${${library_path}}.${ARROW_SO_VERSION}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_SO_VERSION}
+        COPYONLY)
+  endif()
+
   SET(ARROW_SHARED_LIB
       ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 endfunction(bundle_arrow_lib)
 
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow
+  file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
 endif()
 
-ADD_THIRDPARTY_LIB(arrow
-  SHARED_LIB ${ARROW_SHARED_LIB})
-ADD_THIRDPARTY_LIB(arrow_python
-  SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
+if (MSVC)
+  ADD_THIRDPARTY_LIB(arrow
+    SHARED_LIB ${ARROW_SHARED_IMP_LIB})
+  ADD_THIRDPARTY_LIB(arrow_python
+    SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
+else()
+  ADD_THIRDPARTY_LIB(arrow
+    SHARED_LIB ${ARROW_SHARED_LIB})
+  ADD_THIRDPARTY_LIB(arrow_python
+    SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
+endif()
 
 ############################################################
 # Subdirectories
@@ -269,12 +278,7 @@ if (UNIX)
 endif()
 
 set(CYTHON_EXTENSIONS
-  _array
-  _config
-  _error
-  _io
-  _memory
-  _table
+  lib
 )
 
 set(LINK_LIBS
@@ -283,26 +287,50 @@ set(LINK_LIBS
 )
 
 if (PYARROW_BUILD_PARQUET)
-  if(NOT (PARQUET_FOUND AND PARQUET_ARROW_FOUND))
+  ## Parquet
+  find_package(Parquet)
+
+  if(NOT PARQUET_FOUND)
     message(FATAL_ERROR "Unable to locate Parquet libraries")
   endif()
+  include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
+
   if (PYARROW_BUNDLE_ARROW_CPP)
+      get_filename_component(PARQUET_LIBRARY_DIR ${PARQUET_SHARED_LIB} DIRECTORY)
+      get_filename_component(PARQUET_LIBRARY_NAME ${PARQUET_SHARED_LIB} NAME_WE)
+      message(STATUS "Configure start")
       configure_file(${PARQUET_SHARED_LIB}
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}
+          ${BUILD_OUTPUT_ROOT_DIRECTORY}/${PARQUET_LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
           COPYONLY)
-      SET(PARQUET_SHARED_LIB
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX})
-      configure_file(${PARQUET_ARROW_SHARED_LIB}
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX}
-          COPYONLY)
-      SET(PARQUET_ARROW_SHARED_LIB
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet_arrow${CMAKE_SHARED_LIBRARY_SUFFIX})
+      if (APPLE)
+          configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+              COPYONLY)
+          configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+              COPYONLY)
+      elseif (NOT MSVC)
+          configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
+              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
+              COPYONLY)
+          configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
+              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
+              COPYONLY)
+      endif()
+      message(STATUS "Configure end")
+      #SET(PARQUET_SHARED_LIB
+      #    ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
-  ADD_THIRDPARTY_LIB(parquet_arrow
-    SHARED_LIB ${PARQUET_ARROW_SHARED_LIB})
+  if (MSVC)
+    ADD_THIRDPARTY_LIB(parquet
+      SHARED_LIB ${PARQUET_SHARED_IMP_LIB})
+  else()
+    ADD_THIRDPARTY_LIB(parquet
+      SHARED_LIB ${PARQUET_SHARED_LIB})
+  endif()
   set(LINK_LIBS
     ${LINK_LIBS}
-    parquet_arrow)
+    parquet_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)

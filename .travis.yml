@@ -4,13 +4,11 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
-    - kalakris-cmake
     packages:
     - gcc-4.9   # Needed for C++11
     - g++-4.9   # Needed for C++11
     - gdb
     - ccache
-    - cmake
     - valgrind
     - libboost-dev
     - libboost-filesystem-dev
@@ -19,6 +17,8 @@ addons:
     - gtk-doc-tools
     - autoconf-archive
     - libgirepository1.0-dev
+services:
+  - docker
 
 cache:
   ccache: true
@@ -39,11 +39,9 @@ matrix:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
   - compiler: clang
     osx_image: xcode6.4
     os: osx
@@ -54,6 +52,11 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+  - language: cpp
+    before_script:
+    - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh
   - language: java
     os: linux
     jdk: oraclejdk7
@@ -69,6 +72,35 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
+  - language: node_js
+    os: linux
+    node_js: node
+    before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
+  - compiler: gcc
+    language: cpp
+    os: linux
+    group: deprecated
+    before_script:
+    - export CC="gcc-4.9"
+    - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+  - compiler: clang
+    osx_image: xcode6.4
+    os: osx
+    cache:
+    addons:
+    rvm: 2.2
+    before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
 
 before_install:
 - ulimit -c unlimited -S

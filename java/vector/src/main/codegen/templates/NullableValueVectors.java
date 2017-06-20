@@ -61,26 +61,44 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
   private final List<BufferBacked> innerVectors;
 
-  <#if minor.class == "Decimal">
-  private final int precision;
-  private final int scale;
+  <#if minor.typeParams??>
+    <#assign typeParams = minor.typeParams?reverse>
+    <#list typeParams as typeParam>
+  private final ${typeParam.type} ${typeParam.name};
+    </#list>
 
-  public ${className}(String name, BufferAllocator allocator, int precision, int scale) {
-    this(name, new FieldType(true, new Decimal(precision, scale), null), allocator);
+  /**
+   * Assumes the type is nullable and not dictionary encoded
+   * @param name name of the field
+   * @param allocator allocator to use to resize the vector<#list typeParams as typeParam>
+   * @param ${typeParam.name} type parameter ${typeParam.name}</#list>
+   */
+  public ${className}(String name, BufferAllocator allocator<#list typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    <#if minor.arrowTypeConstructorParams??>
+       <#assign constructorParams = minor.arrowTypeConstructorParams />
+    <#else>
+       <#assign constructorParams = [] />
+       <#list typeParams as typeParam>
+         <#assign constructorParams = constructorParams + [ typeParam.name ] />
+      </#list>
+    </#if>
+    this(name, FieldType.nullable(new ${minor.arrowType}(${constructorParams?join(", ")})), allocator);
   }
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
-    this(name, new FieldType(true, org.apache.arrow.vector.types.Types.MinorType.${minor.class?upper_case}.getType(), null), allocator);
+    this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.${minor.class?upper_case}.getType()), allocator);
   }
   </#if>
 
   public ${className}(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator);
-    <#if minor.class == "Decimal">
-    Decimal decimal = (Decimal)fieldType.getType();
-    this.precision = decimal.getPrecision();
-    this.scale = decimal.getScale();
-    this.values = new ${valuesName}(valuesField, allocator, precision, scale);
+    <#if minor.typeParams??>
+    <#assign typeParams = minor.typeParams?reverse>
+    ${minor.arrowType} arrowType = (${minor.arrowType})fieldType.getType();
+    <#list typeParams as typeParam>
+    this.${typeParam.name} = arrowType.get${typeParam.name?cap_first}();
+    </#list>
+    this.values = new ${valuesName}(valuesField, allocator<#list typeParams as typeParam>, ${typeParam.name}</#list>);
     <#else>
     this.values = new ${valuesName}(valuesField, allocator);
     </#if>
@@ -125,6 +143,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1,
         values.offsetVector.getBufferSizeFor(
         fieldNode.getLength() == 0? 0 : fieldNode.getLength() + 1));
+    mutator.lastSet = fieldNode.getLength() - 1;
     <#else>
     // fixed width values truncate value vector to size (#1)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, values.getBufferSizeFor(fieldNode.getLength()));
@@ -421,9 +440,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     /**
      * Get the element at the specified position.
      *
-     * @param   index   position of the value
-     * @return  value of the element, if not null
-     * @throws  NullValueException if the value is null
+     * @param  index   position of the value
+     * @return value of the element, if not null
      */
     public <#if type.major == "VarLen">byte[]<#else>${minor.javaType!type.javaType}</#if> get(int index) {
       if (isNull(index)) {
@@ -455,11 +473,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void get(int index, Nullable${minor.class}Holder holder){
       vAccessor.get(index, holder);
       holder.isSet = bAccessor.get(index);
-
-      <#if minor.class.startsWith("Decimal")>
-      holder.scale = scale;
-      holder.precision = precision;
-      </#if>
     }
 
     @Override
@@ -471,7 +484,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       }
     }
 
-    <#if minor.class == "Interval" || minor.class == "IntervalDay" || minor.class == "IntervalYear">
+    <#if minor.class == "IntervalYear" || minor.class == "IntervalDay">
     public StringBuilder getAsStringBuilder(int index) {
       if (isNull(index)) {
           return null;
@@ -509,7 +522,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
      * Set the variable length element at the specified index to the supplied byte array.
      *
      * @param index   position of the bit to set
-     * @param bytes   array of bytes to write
+     * @param value   array of bytes (or int if smaller than 4 bytes) to write
      */
     public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setCount++;
@@ -583,7 +596,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().set(index, holder);
     }
 
-
     public void set(int index, Nullable${minor.class}Holder holder){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
@@ -613,7 +625,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#assign fields = minor.fields!type.fields />
-    public void set(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ){
+    public void set(int index, int isSet<#list fields as field>, ${field.type} ${field.name}Field</#list> ){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {
@@ -629,7 +641,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
-
       bits.getMutator().setSafe(index, isSet);
       values.getMutator().setSafe(index<#list fields as field><#if field.include!true >, ${field.name}Field</#if></#list>);
       setCount++;
@@ -638,7 +649,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
 
     public void setSafe(int index, Nullable${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -649,7 +659,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public void setSafe(int index, ${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -659,18 +668,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
-    <#if !(type.major == "VarLen" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense" || minor.class == "Interval" || minor.class == "IntervalDay")>
-      public void setSafe(int index, ${minor.javaType!type.javaType} value) {
-        <#if type.major == "VarLen">
-        fillEmpties(index);
-        </#if>
-        bits.getMutator().setSafeToOne(index);
-        values.getMutator().setSafe(index, value);
-        setCount++;
-      }
+    <#if !(type.major == "VarLen" || minor.class == "IntervalDay")>
+    public void setSafe(int index, ${minor.javaType!type.javaType} value) {
+      bits.getMutator().setSafeToOne(index);
+      values.getMutator().setSafe(index, value);
+      setCount++;
+    }
 
     </#if>
-
     @Override
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;

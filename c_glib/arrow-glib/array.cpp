@@ -24,9 +24,11 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
 
 #include <iostream>
+#include <sstream>
 
 G_BEGIN_DECLS
 
@@ -39,73 +41,89 @@ G_BEGIN_DECLS
  * #GArrowArray is a base class for all array classes such as
  * #GArrowBooleanArray.
  *
- * All array classes are immutable. You need to use array builder
- * class such as #GArrowBooleanArrayBuilder to create a new array
- * except #GArrowNullArray.
+ * All array classes are immutable. You need to use binary data or
+ * array builder to create a new array except #GArrowNullArray. If you
+ * have binary data that uses Arrow format data, you can create a new
+ * array with the binary data as #GArrowBuffer object. If you don't
+ * have binary data, you can use array builder class such as
+ * #GArrowBooleanArrayBuilder that creates Arrow format data
+ * internally and a new array from the data.
  *
  * #GArrowNullArray is a class for null array. It can store zero or
  * more null values. You need to specify an array length to create a
  * new array.
  *
  * #GArrowBooleanArray is a class for binary array. It can store zero
- * or more boolean data. You need to use #GArrowBooleanArrayBuilder to
- * create a new array.
+ * or more boolean data. If you don't have Arrow format data, you need
+ * to use #GArrowBooleanArrayBuilder to create a new array.
  *
  * #GArrowInt8Array is a class for 8-bit integer array. It can store
- * zero or more 8-bit integer data. You need to use
- * #GArrowInt8ArrayBuilder to create a new array.
+ * zero or more 8-bit integer data. If you don't have Arrow format
+ * data, you need to use #GArrowInt8ArrayBuilder to create a new
+ * array.
  *
  * #GArrowUInt8Array is a class for 8-bit unsigned integer array. It
- * can store zero or more 8-bit unsigned integer data. You need to use
- * #GArrowUInt8ArrayBuilder to create a new array.
- *
- * #GArrowInt16Array is a class for 16-bit integer array. It can store
- * zero or more 16-bit integer data. You need to use
- * #GArrowInt16ArrayBuilder to create a new array.
- *
- * #GArrowUInt16Array is a class for 16-bit unsigned integer array. It
- * can store zero or more 16-bit unsigned integer data. You need to use
- * #GArrowUInt16ArrayBuilder to create a new array.
- *
- * #GArrowInt32Array is a class for 32-bit integer array. It can store
- * zero or more 32-bit integer data. You need to use
- * #GArrowInt32ArrayBuilder to create a new array.
- *
- * #GArrowUInt32Array is a class for 32-bit unsigned integer array. It
- * can store zero or more 32-bit unsigned integer data. You need to use
- * #GArrowUInt32ArrayBuilder to create a new array.
- *
- * #GArrowInt64Array is a class for 64-bit integer array. It can store
- * zero or more 64-bit integer data. You need to use
- * #GArrowInt64ArrayBuilder to create a new array.
- *
- * #GArrowUInt64Array is a class for 64-bit unsigned integer array. It
- * can store zero or more 64-bit unsigned integer data. You need to
- * use #GArrowUInt64ArrayBuilder to create a new array.
- *
- * #GArrowFloatArray is a class for 32-bit floating point array. It
- * can store zero or more 32-bit floating data. You need to use
- * #GArrowFloatArrayBuilder to create a new array.
- *
- * #GArrowDoubleArray is a class for 64-bit floating point array. It
- * can store zero or more 64-bit floating data. You need to use
- * #GArrowDoubleArrayBuilder to create a new array.
- *
- * #GArrowBinaryArray is a class for binary array. It can store zero
- * or more binary data. You need to use #GArrowBinaryArrayBuilder to
+ * can store zero or more 8-bit unsigned integer data. If you don't
+ * have Arrow format data, you need to use #GArrowUInt8ArrayBuilder to
  * create a new array.
  *
+ * #GArrowInt16Array is a class for 16-bit integer array. It can store
+ * zero or more 16-bit integer data. If you don't have Arrow format
+ * data, you need to use #GArrowInt16ArrayBuilder to create a new
+ * array.
+ *
+ * #GArrowUInt16Array is a class for 16-bit unsigned integer array. It
+ * can store zero or more 16-bit unsigned integer data. If you don't
+ * have Arrow format data, you need to use #GArrowUInt16ArrayBuilder
+ * to create a new array.
+ *
+ * #GArrowInt32Array is a class for 32-bit integer array. It can store
+ * zero or more 32-bit integer data. If you don't have Arrow format
+ * data, you need to use #GArrowInt32ArrayBuilder to create a new
+ * array.
+ *
+ * #GArrowUInt32Array is a class for 32-bit unsigned integer array. It
+ * can store zero or more 32-bit unsigned integer data. If you don't
+ * have Arrow format data, you need to use #GArrowUInt32ArrayBuilder
+ * to create a new array.
+ *
+ * #GArrowInt64Array is a class for 64-bit integer array. It can store
+ * zero or more 64-bit integer data. If you don't have Arrow format
+ * data, you need to use #GArrowInt64ArrayBuilder to create a new
+ * array.
+ *
+ * #GArrowUInt64Array is a class for 64-bit unsigned integer array. It
+ * can store zero or more 64-bit unsigned integer data. If you don't
+ * have Arrow format data, you need to use #GArrowUInt64ArrayBuilder
+ * to create a new array.
+ *
+ * #GArrowFloatArray is a class for 32-bit floating point array. It
+ * can store zero or more 32-bit floating data. If you don't have
+ * Arrow format data, you need to use #GArrowFloatArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowDoubleArray is a class for 64-bit floating point array. It
+ * can store zero or more 64-bit floating data. If you don't have
+ * Arrow format data, you need to use #GArrowDoubleArrayBuilder to
+ * create a new array.
+ *
+ * #GArrowBinaryArray is a class for binary array. It can store zero
+ * or more binary data. If you don't have Arrow format data, you need
+ * to use #GArrowBinaryArrayBuilder to create a new array.
+ *
  * #GArrowStringArray is a class for UTF-8 encoded string array. It
- * can store zero or more UTF-8 encoded string data. You need to use
- * #GArrowStringArrayBuilder to create a new array.
+ * can store zero or more UTF-8 encoded string data. If you don't have
+ * Arrow format data, you need to use #GArrowStringArrayBuilder to
+ * create a new array.
  *
  * #GArrowListArray is a class for list array. It can store zero or
- * more list data. You need to use #GArrowListArrayBuilder to create a
- * new array.
+ * more list data. If you don't have Arrow format data, you need to
+ * use #GArrowListArrayBuilder to create a new array.
  *
  * #GArrowStructArray is a class for struct array. It can store zero
- * or more structs. One struct has zero or more fields. You need to
- * use #GArrowStructArrayBuilder to create a new array.
+ * or more structs. One struct has zero or more fields. If you don't
+ * have Arrow format data, you need to use #GArrowStructArrayBuilder
+ * to create a new array.
  */
 
 typedef struct GArrowArrayPrivate_ {
@@ -186,6 +204,72 @@ garrow_array_class_init(GArrowArrayClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARRAY, spec);
+}
+
+/**
+ * garrow_array_equal:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->Equals(arrow_other_array);
+}
+
+/**
+ * garrow_array_equal_approx:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: %TRUE if both of them have the approx same data, %FALSE
+ *   otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal_approx(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->ApproxEquals(arrow_other_array);
+}
+
+/**
+ * garrow_array_equal_range:
+ * @array: A #GArrowArray.
+ * @start_index: The start index of @array to be used.
+ * @other_array: A #GArrowArray to be compared.
+ * @other_start_index: The start index of @other_array to be used.
+ * @end_index: The end index of @array to be used. The end index of
+ *   @other_array is "@other_start_index + (@end_index -
+ *   @start_index)".
+ *
+ * Returns: %TRUE if both of them have the same data in the range,
+ *   %FALSE otherwise.
+ *
+ * Since: 0.4.0
+ */
+gboolean
+garrow_array_equal_range(GArrowArray *array,
+                         gint64 start_index,
+                         GArrowArray *other_array,
+                         gint64 other_start_index,
+                         gint64 end_index)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  return arrow_array->RangeEquals(*arrow_other_array,
+                                  start_index,
+                                  end_index,
+                                  other_start_index);
 }
 
 /**
@@ -313,6 +397,31 @@ garrow_array_slice(GArrowArray *array,
   return garrow_array_new_raw(&arrow_sub_array);
 }
 
+/**
+ * garrow_array_to_string:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): The formatted array content or %NULL on error.
+ *
+ *   The returned string should be freed when with g_free() when no
+ *   longer needed.
+ *
+ * Since: 0.4.0
+ */
+gchar *
+garrow_array_to_string(GArrowArray *array, GError **error)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  std::stringstream sink;
+  auto status = arrow::PrettyPrint(*arrow_array, 0, &sink);
+  if (garrow_error_check(error, status, "[array][to-string]")) {
+    return g_strdup(sink.str().c_str());
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,               \
               garrow_null_array,             \
@@ -390,6 +499,39 @@ garrow_boolean_array_class_init(GArrowBooleanArrayClass *klass)
 }
 
 /**
+ * garrow_boolean_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowBooleanArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowBooleanArray *
+garrow_boolean_array_new(gint64 length,
+                         GArrowBuffer *data,
+                         GArrowBuffer *null_bitmap,
+                         gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_boolean_array =
+    std::make_shared<arrow::BooleanArray>(length,
+                                          arrow_data,
+                                          arrow_bitmap,
+                                          n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_boolean_array);
+  return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_boolean_array_get_value:
  * @array: A #GArrowBooleanArray.
  * @i: The index of the target value.
@@ -417,6 +559,39 @@ garrow_int8_array_init(GArrowInt8Array *object)
 static void
 garrow_int8_array_class_init(GArrowInt8ArrayClass *klass)
 {
+}
+
+/**
+ * garrow_int8_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowInt8Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowInt8Array *
+garrow_int8_array_new(gint64 length,
+                      GArrowBuffer *data,
+                      GArrowBuffer *null_bitmap,
+                      gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_int8_array =
+    std::make_shared<arrow::Int8Array>(length,
+                                       arrow_data,
+                                       arrow_bitmap,
+                                       n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_int8_array);
+  return GARROW_INT8_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -450,6 +625,39 @@ garrow_uint8_array_class_init(GArrowUInt8ArrayClass *klass)
 }
 
 /**
+ * garrow_uint8_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowUInt8Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowUInt8Array *
+garrow_uint8_array_new(gint64 length,
+                       GArrowBuffer *data,
+                       GArrowBuffer *null_bitmap,
+                       gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_uint8_array =
+    std::make_shared<arrow::UInt8Array>(length,
+                                        arrow_data,
+                                        arrow_bitmap,
+                                        n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_uint8_array);
+  return GARROW_UINT8_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_uint8_array_get_value:
  * @array: A #GArrowUInt8Array.
  * @i: The index of the target value.
@@ -477,6 +685,39 @@ garrow_int16_array_init(GArrowInt16Array *object)
 static void
 garrow_int16_array_class_init(GArrowInt16ArrayClass *klass)
 {
+}
+
+/**
+ * garrow_int16_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowInt16Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowInt16Array *
+garrow_int16_array_new(gint64 length,
+                       GArrowBuffer *data,
+                       GArrowBuffer *null_bitmap,
+                       gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_int16_array =
+    std::make_shared<arrow::Int16Array>(length,
+                                        arrow_data,
+                                        arrow_bitmap,
+                                        n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_int16_array);
+  return GARROW_INT16_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -510,6 +751,39 @@ garrow_uint16_array_class_init(GArrowUInt16ArrayClass *klass)
 }
 
 /**
+ * garrow_uint16_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowUInt16Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowUInt16Array *
+garrow_uint16_array_new(gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_uint16_array =
+    std::make_shared<arrow::UInt16Array>(length,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_uint16_array);
+  return GARROW_UINT16_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_uint16_array_get_value:
  * @array: A #GArrowUInt16Array.
  * @i: The index of the target value.
@@ -537,6 +811,39 @@ garrow_int32_array_init(GArrowInt32Array *object)
 static void
 garrow_int32_array_class_init(GArrowInt32ArrayClass *klass)
 {
+}
+
+/**
+ * garrow_int32_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowInt32Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowInt32Array *
+garrow_int32_array_new(gint64 length,
+                       GArrowBuffer *data,
+                       GArrowBuffer *null_bitmap,
+                       gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_int32_array =
+    std::make_shared<arrow::Int32Array>(length,
+                                        arrow_data,
+                                        arrow_bitmap,
+                                        n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_int32_array);
+  return GARROW_INT32_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -570,6 +877,39 @@ garrow_uint32_array_class_init(GArrowUInt32ArrayClass *klass)
 }
 
 /**
+ * garrow_uint32_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowUInt32Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowUInt32Array *
+garrow_uint32_array_new(gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_uint32_array =
+    std::make_shared<arrow::UInt32Array>(length,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_uint32_array);
+  return GARROW_UINT32_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_uint32_array_get_value:
  * @array: A #GArrowUInt32Array.
  * @i: The index of the target value.
@@ -597,6 +937,39 @@ garrow_int64_array_init(GArrowInt64Array *object)
 static void
 garrow_int64_array_class_init(GArrowInt64ArrayClass *klass)
 {
+}
+
+/**
+ * garrow_int64_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowInt64Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowInt64Array *
+garrow_int64_array_new(gint64 length,
+                       GArrowBuffer *data,
+                       GArrowBuffer *null_bitmap,
+                       gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_int64_array =
+    std::make_shared<arrow::Int64Array>(length,
+                                        arrow_data,
+                                        arrow_bitmap,
+                                        n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_int64_array);
+  return GARROW_INT64_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -630,6 +1003,39 @@ garrow_uint64_array_class_init(GArrowUInt64ArrayClass *klass)
 }
 
 /**
+ * garrow_uint64_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowUInt64Array.
+ *
+ * Since: 0.4.0
+ */
+GArrowUInt64Array *
+garrow_uint64_array_new(gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_uint64_array =
+    std::make_shared<arrow::UInt64Array>(length,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_uint64_array);
+  return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_uint64_array_get_value:
  * @array: A #GArrowUInt64Array.
  * @i: The index of the target value.
@@ -656,6 +1062,39 @@ garrow_float_array_init(GArrowFloatArray *object)
 static void
 garrow_float_array_class_init(GArrowFloatArrayClass *klass)
 {
+}
+
+/**
+ * garrow_float_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowFloatArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowFloatArray *
+garrow_float_array_new(gint64 length,
+                       GArrowBuffer *data,
+                       GArrowBuffer *null_bitmap,
+                       gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_float_array =
+    std::make_shared<arrow::FloatArray>(length,
+                                        arrow_data,
+                                        arrow_bitmap,
+                                        n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_float_array);
+  return GARROW_FLOAT_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -689,6 +1128,39 @@ garrow_double_array_class_init(GArrowDoubleArrayClass *klass)
 }
 
 /**
+ * garrow_double_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowDoubleArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowDoubleArray *
+garrow_double_array_new(gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_double_array =
+    std::make_shared<arrow::DoubleArray>(length,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_double_array);
+  return GARROW_DOUBLE_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_double_array_get_value:
  * @array: A #GArrowDoubleArray.
  * @i: The index of the target value.
@@ -716,6 +1188,43 @@ garrow_binary_array_init(GArrowBinaryArray *object)
 static void
 garrow_binary_array_class_init(GArrowBinaryArrayClass *klass)
 {
+}
+
+/**
+ * garrow_binary_array_new:
+ * @length: The number of elements.
+ * @value_offsets: The value offsets of @data in Arrow format.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowBinaryArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowBinaryArray *
+garrow_binary_array_new(gint64 length,
+                        GArrowBuffer *value_offsets,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_binary_array =
+    std::make_shared<arrow::BinaryArray>(length,
+                                         arrow_value_offsets,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_binary_array);
+  return GARROW_BINARY_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -770,6 +1279,43 @@ garrow_string_array_class_init(GArrowStringArrayClass *klass)
 }
 
 /**
+ * garrow_string_array_new:
+ * @length: The number of elements.
+ * @value_offsets: The value offsets of @data in Arrow format.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowStringArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowStringArray *
+garrow_string_array_new(gint64 length,
+                        GArrowBuffer *value_offsets,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_string_array =
+    std::make_shared<arrow::StringArray>(length,
+                                         arrow_value_offsets,
+                                         arrow_data,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_string_array);
+  return GARROW_STRING_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
  * garrow_string_array_get_string:
  * @array: A #GArrowStringArray.
  * @i: The index of the target value.
@@ -802,6 +1348,45 @@ garrow_list_array_init(GArrowListArray *object)
 static void
 garrow_list_array_class_init(GArrowListArrayClass *klass)
 {
+}
+
+/**
+ * garrow_list_array_new:
+ * @length: The number of elements.
+ * @value_offsets: The offsets of @values in Arrow format.
+ * @values: The values as #GArrowArray.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowListArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowListArray *
+garrow_list_array_new(gint64 length,
+                      GArrowBuffer *value_offsets,
+                      GArrowArray *values,
+                      GArrowBuffer *null_bitmap,
+                      gint64 n_nulls)
+{
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_values = garrow_array_get_raw(values);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_data_type = arrow::list(arrow_values->type());
+  auto arrow_list_array =
+    std::make_shared<arrow::ListArray>(arrow_data_type,
+                                       length,
+                                       arrow_value_offsets,
+                                       arrow_values,
+                                       arrow_bitmap,
+                                       n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_list_array);
+  return GARROW_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**
@@ -853,6 +1438,48 @@ garrow_struct_array_init(GArrowStructArray *object)
 static void
 garrow_struct_array_class_init(GArrowStructArrayClass *klass)
 {
+}
+
+/**
+ * garrow_struct_array_new:
+ * @data_type: The data type of the struct.
+ * @length: The number of elements.
+ * @children: (element-type GArrowArray): The arrays for each field
+ *   as #GList of #GArrowArray.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowStructArray.
+ *
+ * Since: 0.4.0
+ */
+GArrowStructArray *
+garrow_struct_array_new(GArrowDataType *data_type,
+                        gint64 length,
+                        GList *children,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  std::vector<std::shared_ptr<arrow::Array>> arrow_children;
+  for (GList *node = children; node; node = node->next) {
+    GArrowArray *child = GARROW_ARRAY(node->data);
+    arrow_children.push_back(garrow_array_get_raw(child));
+  }
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_struct_array =
+    std::make_shared<arrow::StructArray>(arrow_data_type,
+                                         length,
+                                         arrow_children,
+                                         arrow_bitmap,
+                                         n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_struct_array);
+  return GARROW_STRUCT_ARRAY(garrow_array_new_raw(&arrow_array));
 }
 
 /**

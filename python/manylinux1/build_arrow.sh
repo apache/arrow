@@ -27,19 +27,19 @@ MANYLINUX_URL=https://nipy.bic.berkeley.edu/manylinux
 
 source /multibuild/manylinux_utils.sh
 
+# Quit on failure
+set -e
+
 cd /arrow/python
 
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
-export PYARROW_CMAKE_OPTIONS='-DPYARROW_BUILD_TESTS=ON'
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_JEMALLOC=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
-export PARQUET_HOME="/usr"
 export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
-
 # Ensure the target directory exists
 mkdir -p /io/dist
 
@@ -48,11 +48,6 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     PIP="$(cpython_path $PYTHON)/bin/pip"
     PIPI_IO="$PIP install -f $MANYLINUX_URL"
     PATH="$PATH:$(cpython_path $PYTHON)"
-
-    echo "=== (${PYTHON}) Installing build dependencies ==="
-    $PIPI_IO "numpy==1.9.0"
-    $PIPI_IO "cython==0.24"
-    $PIPI_IO "pandas==0.19.2"
 
     echo "=== (${PYTHON}) Building Arrow C++ libraries ==="
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}
@@ -78,14 +73,9 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
-    # Fix version to keep build reproducible"
-    $PIPI_IO "virtualenv==15.1.0"
-    rm -rf venv
-    "$(cpython_path $PYTHON)/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download venv
-    source ./venv/bin/activate
+    source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
-    pip install pytest pandas
-    py.test venv/lib/*/site-packages/pyarrow
+    py.test /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist

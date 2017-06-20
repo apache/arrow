@@ -26,8 +26,9 @@ package org.apache.arrow.vector.complex.reader;
 
 <#include "/@includes/vv_imports.ftl" />
 
-
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public interface BaseReader extends Positionable{
   Field getField();

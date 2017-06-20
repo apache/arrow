@@ -17,10 +17,11 @@
 
 # Arrow file and stream reader/writer classes, and other messaging tools
 
-import pyarrow._io as _io
+import pyarrow as pa
+import pyarrow.lib as lib
 
 
-class StreamReader(_io._StreamReader):
+class RecordBatchStreamReader(lib._RecordBatchReader):
     """
     Reader for the Arrow streaming binary format
 
@@ -37,7 +38,7 @@ class StreamReader(_io._StreamReader):
             yield self.get_next_batch()
 
 
-class StreamWriter(_io._StreamWriter):
+class RecordBatchStreamWriter(lib._RecordBatchWriter):
     """
     Writer for the Arrow streaming binary format
 
@@ -52,7 +53,7 @@ class StreamWriter(_io._StreamWriter):
         self._open(sink, schema)
 
 
-class FileReader(_io._FileReader):
+class RecordBatchFileReader(lib._RecordBatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -68,7 +69,7 @@ class FileReader(_io._FileReader):
         self._open(source, footer_offset=footer_offset)
 
 
-class FileWriter(_io._FileWriter):
+class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     """
     Writer to create the Arrow binary file format
 
@@ -81,3 +82,81 @@ class FileWriter(_io._FileWriter):
     """
     def __init__(self, sink, schema):
         self._open(sink, schema)
+
+
+def open_stream(source):
+    """
+    Create reader for Arrow streaming format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchStreamReader
+    """
+    return RecordBatchStreamReader(source)
+
+
+def open_file(source, footer_offset=None):
+    """
+    Create reader for Arrow file format
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like Python object
+        Either a file path, or a readable file object
+    footer_offset : int, default None
+        If the file is embedded in some larger file, this is the byte offset to
+        the very end of the file data
+
+    Returns
+    -------
+    reader : RecordBatchFileReader
+    """
+    return RecordBatchFileReader(source, footer_offset=footer_offset)
+
+
+def serialize_pandas(df):
+    """Serialize a pandas DataFrame into a buffer protocol compatible object.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+
+    Returns
+    -------
+    buf : buffer
+        An object compatible with the buffer protocol
+    """
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.InMemoryOutputStream()
+    writer = pa.RecordBatchFileWriter(sink, batch.schema)
+    writer.write_batch(batch)
+    writer.close()
+    return sink.get_result()
+
+
+def deserialize_pandas(buf, nthreads=1):
+    """Deserialize a buffer protocol compatible object into a pandas DataFrame.
+
+    Parameters
+    ----------
+    buf : buffer
+        An object compatible with the buffer protocol
+    nthreads : int, optional
+        The number of threads to use to convert the buffer to a DataFrame.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+    """
+    buffer_reader = pa.BufferReader(buf)
+    reader = pa.RecordBatchFileReader(buffer_reader)
+    table = reader.read_all()
+    return table.to_pandas(nthreads=nthreads)

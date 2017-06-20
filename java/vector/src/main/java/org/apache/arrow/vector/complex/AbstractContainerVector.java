@@ -58,6 +58,8 @@ public abstract class AbstractContainerVector implements ValueVector {
 
   /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given field name if exists or null.
+   * @param name the name of the child to return
+   * @return the corresponding FieldVector
    */
   public FieldVector getChild(String name) {
     return getChild(name, FieldVector.class);

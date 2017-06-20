@@ -29,7 +29,7 @@ import Cython
 
 
 import pkg_resources
-from setuptools import setup, Extension
+from setuptools import setup, Extension, Distribution
 
 from os.path import join as pjoin
 
@@ -106,14 +106,9 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
-        '_array',
-        '_config',
-        '_error',
-        '_io',
+        'lib',
         '_jemalloc',
-        '_memory',
-        '_parquet',
-        '_table']
+        '_parquet']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -153,6 +148,11 @@ class build_ext(_build_ext):
 
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
+            # ARROW-1090: work around CMake rough edges
+            if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
+                os.environ['PKG_CONFIG_PATH'] = pjoin(os.environ['ARROW_HOME'], 'lib', 'pkgconfig')
+                del os.environ['ARROW_HOME']
+
 
         cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                              .format(self.build_type.lower()))
@@ -161,14 +161,18 @@ class build_ext(_build_ext):
             cmake_command = (['cmake', self.extra_cmake_args] +
                              cmake_options + [source])
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             args = ['make']
             if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                 args.append('VERBOSE=1')
 
             if 'PYARROW_PARALLEL' in os.environ:
                 args.append('-j{0}'.format(os.environ['PYARROW_PARALLEL']))
+            print("-- Running cmake --build for pyarrow")
             self.spawn(args)
+            print("-- Finished cmake --build for pyarrow")
         else:
             import shlex
             cmake_generator = 'Visual Studio 14 2015 Win64'
@@ -183,9 +187,13 @@ class build_ext(_build_ext):
             if "-G" in self.extra_cmake_args:
                 cmake_command = cmake_command[:-2]
 
+            print("-- Runnning cmake for pyarrow")
             self.spawn(cmake_command)
+            print("-- Finished cmake for pyarrow")
             # Do the build
+            print("-- Running cmake --build for pyarrow")
             self.spawn(['cmake', '--build', '.', '--config', self.build_type])
+            print("-- Finished cmake --build for pyarrow")
 
         if self.inplace:
             # a bit hacky
@@ -207,16 +215,26 @@ class build_ext(_build_ext):
         except OSError:
             pass
 
+        if sys.platform == 'win32':
+            build_prefix = ''
+        else:
+            build_prefix = self.build_type
+
         def move_lib(lib_name):
             lib_filename = (shared_library_prefix + lib_name +
                             shared_library_suffix)
             # Also copy libraries with ABI/SO version suffix
-            libs = glob.glob(pjoin(self.build_type, lib_filename) + '*')
+            if sys.platform == 'darwin':
+                lib_pattern = (shared_library_prefix + lib_name +
+                               ".*" + shared_library_suffix[1:])
+                libs = glob.glob(pjoin(build_prefix, lib_pattern))
+            else:
+                libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
             # Longest suffix library should be copied, all others symlinked
             libs.sort(key=lambda s: -len(s))
             print(libs, libs[0])
             lib_filename = os.path.basename(libs[0])
-            shutil.move(pjoin(self.build_type, lib_filename),
+            shutil.move(pjoin(build_prefix, lib_filename),
                         pjoin(build_lib, 'pyarrow', lib_filename))
             for lib in libs[1:]:
                 filename = os.path.basename(lib)
@@ -225,13 +243,16 @@ class build_ext(_build_ext):
                     os.symlink(lib_filename, link_name)
 
         if self.bundle_arrow_cpp:
+            print(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
+            if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
+                shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+            shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
             if self.with_jemalloc:
                 move_lib("arrow_jemalloc")
             if self.with_parquet:
                 move_lib("parquet")
-                move_lib("parquet_arrow")
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
@@ -325,11 +346,17 @@ representations of flat and hierarchical data along with multiple
 language-bindings for structure manipulation. It also provides IPC
 and common algorithm implementations."""
 
+class BinaryDistribution(Distribution):
+    def has_ext_modules(foo):
+        return True
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
     zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx']},
+    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
+    include_package_data=True,
+    distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
 
@@ -339,7 +366,7 @@ setup(
     },
     use_scm_version={"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
-    install_requires=['numpy >= 1.9', 'six >= 1.0.0'],
+    install_requires=['numpy >= 1.10', 'six >= 1.0.0'],
     tests_require=['pytest'],
     description="Python library for Apache Arrow",
     long_description=long_description,

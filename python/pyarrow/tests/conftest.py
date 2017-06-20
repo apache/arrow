@@ -18,7 +18,7 @@
 from pytest import skip
 
 
-groups = ['hdfs']
+groups = ['hdfs', 'parquet']
 
 
 def pytest_configure(config):

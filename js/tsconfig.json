@@ -1,14 +1,14 @@
 {
   "compilerOptions": {
-    "outDir": "./dist/",
-    "allowJs": true,
-    "target": "es5",
     "module": "commonjs",
-    "moduleResolution": "node"
+    "target": "es5",
+    "lib": ["es2015", "dom"],
+    "outDir": "lib",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "declaration": true
   },
   "include": [
-    "typings/index.d.ts",
-    "lib/*.js",
-    "lib/*.ts"
+    "src/*.ts"
   ]
 }

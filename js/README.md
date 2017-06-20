@@ -18,8 +18,9 @@ From this directory, run:
 
 ``` bash
 $ npm install   # pull dependencies
-$ tsc           # build typescript
-$ webpack       # bundle for the browser
+$ npm run lint -- <filename>  # run tslint
+$ npm run build # build typescript (run tsc and webpack)
+$ npm run test  # run the unit tests (node.js only)
 ```
 
 ### Usage
@@ -29,22 +30,32 @@ The library is designed to be used with node.js or in the browser, this reposito
 Import the arrow module:
 
 ``` js
-var arrow = require("arrow.js");
+var arrow = require("arrow");
 ```
 
 See [bin/arrow_schema.js](bin/arrow_schema.js) and [bin/arrow2csv.js](bin/arrow2csv.js) for usage examples.
 
 #### Browser
-Include `dist/arrow-bundle.js` in a `<script />` tag:
+Include `_bundles/arrow.js` in a `<script />` tag:
 ``` html
-<script src="arrow-bundle.js"/>
+<script src="_bundles/arrow.js"/>
 ```
-See [examples/read_file.html](examples/read_file.html) for a usage example - or try it out now at [theneuralbit.github.io/arrow](http://theneuralbit.github.io/arrow)
+See [examples/read_file.html](examples/read_file.html) for a usage example.
 
 ### API
-##### `arrow.loadSchema(buffer)`
+##### `arrow.getReader(buffer)`
+Returns an `ArrowReader` object representing the Arrow file or stream contained in
+the `buffer`.
+
+##### `ArrowReader.loadNextBatch()`
+Loads the next record batch and returns it's length.
+
+##### `ArrowReader.getSchema()`
 Returns a JSON representation of the file's Arrow schema.
 
-##### `arrow.loadVectors(buffer)`
-Returns a dictionary of `Vector` objects, one for each column, indexed by the column's name.
+##### `ArrowReader.getVectors()`
+Returns a list of `Vector` objects, one for each column.
 Vector objects have, at minimum, a `get(i)` method and a `length` attribute.
+
+##### `ArrowReader.getVector(name: String)`
+Return a Vector object for column `name`

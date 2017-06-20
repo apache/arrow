@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+SUBDIRS	=					\
+	lua
+
 AM_CPPFLAGS =					\
 	-I$(top_builddir)			\
 	-I$(top_srcdir)
@@ -41,7 +44,8 @@ read_batch_SOURCES =				\
 read_stream_SOURCES =				\
 	read-stream.c
 
-example_DATA =					\
+dist_example_DATA =				\
+	README.md				\
 	$(build_SOURCES)			\
 	$(read_batch_SOURCES)			\
 	$(read_stream_SOURCES)

@@ -204,9 +204,10 @@ garrow_field_is_nullable(GArrowField *field)
 /**
  * garrow_field_equal:
  * @field: A #GArrowField.
- * @other_field: A #GArrowField.
+ * @other_field: A #GArrowField to be compared.
  *
- * Returns: Whether they are equal or not.
+ * Returns: %TRUE if both of them have the same data, %FALSE
+ *   otherwise.
  */
 gboolean
 garrow_field_equal(GArrowField *field,

@@ -76,7 +76,7 @@ public class TestIntegration {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       MapWriter rootWriter = writer.rootAsMap();
       Float8Writer floatWriter = rootWriter.float8("float");
@@ -95,7 +95,7 @@ public class TestIntegration {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
             Integer.MAX_VALUE);
-        MapVector parent = new MapVector("parent", vectorAllocator, null)) {
+        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       MapWriter rootWriter = writer.rootAsMap();

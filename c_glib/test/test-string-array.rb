@@ -16,6 +16,19 @@
 # under the License.
 
 class TestStringArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_new
+    value_offsets = Arrow::Buffer.new([0, 5, 11, 11].pack("l*"))
+    data = Arrow::Buffer.new("HelloWorld!")
+    assert_equal(build_string_array(["Hello", "World!", nil]),
+                 Arrow::StringArray.new(3,
+                                        value_offsets,
+                                        data,
+                                        Arrow::Buffer.new([0b011].pack("C*")),
+                                        -1))
+  end
+
   def test_value
     builder = Arrow::StringArrayBuilder.new
     builder.append("Hello")

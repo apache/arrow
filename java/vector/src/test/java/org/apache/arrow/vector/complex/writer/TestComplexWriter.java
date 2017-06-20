@@ -17,16 +17,13 @@
  */
 package org.apache.arrow.vector.complex.writer;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.SchemaChangeCallBack;
@@ -45,23 +42,26 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
+import org.apache.arrow.vector.holders.IntHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestComplexWriter {
 
@@ -102,7 +102,7 @@ public class TestComplexWriter {
   }
 
   private MapVector populateMapVector(CallBack callBack) {
-    MapVector parent = new MapVector("parent", allocator, callBack);
+    MapVector parent = new MapVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     IntWriter intWriter = rootWriter.integer("int");
@@ -119,7 +119,7 @@ public class TestComplexWriter {
 
   @Test
   public void nullableMap() {
-    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       for (int i = 0; i < COUNT; i++) {
@@ -143,7 +143,7 @@ public class TestComplexWriter {
    */
   @Test
   public void nullableMap2() {
-    try (MapVector mapVector = new MapVector("parent", allocator, null)) {
+    try (MapVector mapVector = MapVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", mapVector);
       MapWriter rootWriter = writer.rootAsMap();
       MapWriter mapWriter = rootWriter.map("map");
@@ -182,7 +182,7 @@ public class TestComplexWriter {
 
   @Test
   public void testList() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
@@ -211,13 +211,19 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarType() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
-        listWriter.writeInt(j);
+        if (j%2 == 0) {
+          listWriter.writeInt(j);
+        } else {
+          IntHolder holder = new IntHolder();
+          holder.value = j;
+          listWriter.write(holder);
+        }
       }
       listWriter.endList();
     }
@@ -234,7 +240,7 @@ public class TestComplexWriter {
 
   @Test
   public void listScalarTypeNullable() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     for (int i = 0; i < COUNT; i++) {
@@ -263,7 +269,7 @@ public class TestComplexWriter {
 
   @Test
   public void listMapType() {
-    ListVector listVector = new ListVector("list", allocator, null, null);
+    ListVector listVector = ListVector.empty("list", allocator);
     listVector.allocateNew();
     UnionListWriter listWriter = new UnionListWriter(listVector);
     MapWriter mapWriter = listWriter.map();
@@ -291,7 +297,7 @@ public class TestComplexWriter {
 
   @Test
   public void listListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -316,7 +322,7 @@ public class TestComplexWriter {
    */
   @Test
   public void listListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();
@@ -354,7 +360,7 @@ public class TestComplexWriter {
 
   @Test
   public void unionListListType() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       for (int i = 0; i < COUNT; i++) {
@@ -383,7 +389,7 @@ public class TestComplexWriter {
    */
   @Test
   public void unionListListType2() {
-    try (ListVector listVector = new ListVector("list", allocator, null, null)) {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
       ListWriter innerListWriter = listWriter.list();
@@ -455,7 +461,7 @@ public class TestComplexWriter {
 
   @Test
   public void promotableWriter() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     for (int i = 0; i < 100; i++) {
@@ -504,7 +510,7 @@ public class TestComplexWriter {
    */
   @Test
   public void promotableWriterSchema() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     rootWriter.bigInt("a");
@@ -537,7 +543,7 @@ public class TestComplexWriter {
   @Test
   public void mapWriterMixedCaseFieldNames() {
     // test case-sensitive MapWriter
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("rootCaseSensitive", parent, false, true);
     MapWriter rootWriterCaseSensitive = writer.rootAsMap();
     rootWriterCaseSensitive.bigInt("int_field");
@@ -596,90 +602,203 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void timeStampWriters() throws Exception {
+  public void timeStampSecWriter() throws Exception {
     // test values
-    final long expectedNanos = 981173106123456789L;
-    final long expectedMicros = 981173106123456L;
-    final long expectedMillis = 981173106123L;
     final long expectedSecs = 981173106L;
-    final DateTime expectedSecDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 0).withZoneRetainFields(DateTimeZone.getDefault());
-    final DateTime expectedMilliDateTime = new DateTime(2001, 2, 3, 4, 5, 6, 123).withZoneRetainFields(DateTimeZone.getDefault());
-    final DateTime expectedMicroDateTime = expectedMilliDateTime;
-    final DateTime expectedNanoDateTime = expectedMilliDateTime;
+    final LocalDateTime expectedSecDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 0);
 
     // write
     MapVector parent = new MapVector("parent", allocator, null);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
 
-    TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
-    timeStampSecWriter.setPosition(0);
-    timeStampSecWriter.writeTimeStampSec(expectedSecs);
-
-    TimeStampMilliWriter timeStampWriter = rootWriter.timeStampMilli("milli");
-    timeStampWriter.setPosition(1);
-    timeStampWriter.writeTimeStampMilli(expectedMillis);
-
-    TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
-    timeStampMicroWriter.setPosition(2);
-    timeStampMicroWriter.writeTimeStampMicro(expectedMicros);
-
-    TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
-    timeStampNanoWriter.setPosition(3);
-    timeStampNanoWriter.writeTimeStampNano(expectedNanos);
-
+    {
+      TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
+      timeStampSecWriter.setPosition(0);
+      timeStampSecWriter.writeTimeStampSec(expectedSecs);
+    }
+    {
+      TimeStampSecTZWriter timeStampSecTZWriter = rootWriter.timeStampSecTZ("secTZ", "UTC");
+      timeStampSecTZWriter.setPosition(1);
+      timeStampSecTZWriter.writeTimeStampSecTZ(expectedSecs);
+    }
     // schema
-    Field secField = parent.getField().getChildren().get(0).getChildren().get(0);
-    Assert.assertEquals("sec", secField.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, secField.getType().getTypeID());
+    List<Field> children = parent.getField().getChildren().get(0).getChildren();
+    checkTimestampField(children.get(0), "sec");
+    checkTimestampTZField(children.get(1), "secTZ", "UTC");
 
-    Field milliField = parent.getField().getChildren().get(0).getChildren().get(1);
-    Assert.assertEquals("milli", milliField.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, milliField.getType().getTypeID());
+    // read
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    {
+      FieldReader secReader = rootReader.reader("sec");
+      secReader.setPosition(0);
+      LocalDateTime secDateTime = secReader.readLocalDateTime();
+      Assert.assertEquals(expectedSecDateTime, secDateTime);
+      long secLong = secReader.readLong();
+      Assert.assertEquals(expectedSecs, secLong);
+    }
+    {
+      FieldReader secTZReader = rootReader.reader("secTZ");
+      secTZReader.setPosition(1);
+      long secTZLong = secTZReader.readLong();
+      Assert.assertEquals(expectedSecs, secTZLong);
+    }
+  }
 
-    Field microField = parent.getField().getChildren().get(0).getChildren().get(2);
-    Assert.assertEquals("micro", microField.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, microField.getType().getTypeID());
+  @Test
+  public void timeStampMilliWriters() throws Exception {
+    // test values
+    final long expectedMillis = 981173106123L;
+    final LocalDateTime expectedMilliDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
 
-    Field nanoField = parent.getField().getChildren().get(0).getChildren().get(3);
-    Assert.assertEquals("nano", nanoField.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, nanoField.getType().getTypeID());
+    // write
+    MapVector parent = MapVector.empty("parent", allocator);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    {
+      TimeStampMilliWriter timeStampWriter = rootWriter.timeStampMilli("milli");
+      timeStampWriter.setPosition(0);
+      timeStampWriter.writeTimeStampMilli(expectedMillis);
+    }
+    String tz = DateUtility.getTimeZone(10);
+    {
+      TimeStampMilliTZWriter timeStampTZWriter = rootWriter.timeStampMilliTZ("milliTZ", tz);
+      timeStampTZWriter.setPosition(0);
+      timeStampTZWriter.writeTimeStampMilliTZ(expectedMillis);
+    }
+    // schema
+    List<Field> children = parent.getField().getChildren().get(0).getChildren();
+    checkTimestampField(children.get(0), "milli");
+    checkTimestampTZField(children.get(1), "milliTZ", tz);
 
     // read
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
 
-    FieldReader secReader = rootReader.reader("sec");
-    secReader.setPosition(0);
-    DateTime secDateTime = secReader.readDateTime();
-    Assert.assertEquals(expectedSecDateTime, secDateTime);
-    long secLong = secReader.readLong();
-    Assert.assertEquals(expectedSecs, secLong);
+    {
+      FieldReader milliReader = rootReader.reader("milli");
+      milliReader.setPosition(0);
+      LocalDateTime milliDateTime = milliReader.readLocalDateTime();
+      Assert.assertEquals(expectedMilliDateTime, milliDateTime);
+      long milliLong = milliReader.readLong();
+      Assert.assertEquals(expectedMillis, milliLong);
+    }
+    {
+      FieldReader milliTZReader = rootReader.reader("milliTZ");
+      milliTZReader.setPosition(0);
+      long milliTZLong = milliTZReader.readLong();
+      Assert.assertEquals(expectedMillis, milliTZLong);
+    }
 
-    FieldReader milliReader = rootReader.reader("milli");
-    milliReader.setPosition(1);
-    DateTime milliDateTime = milliReader.readDateTime();
-    Assert.assertEquals(expectedMilliDateTime, milliDateTime);
-    long milliLong = milliReader.readLong();
-    Assert.assertEquals(expectedMillis, milliLong);
+  }
 
-    FieldReader microReader = rootReader.reader("micro");
-    microReader.setPosition(2);
-    DateTime microDateTime = microReader.readDateTime();
-    Assert.assertEquals(expectedMicroDateTime, microDateTime);
-    long microLong = microReader.readLong();
-    Assert.assertEquals(expectedMicros, microLong);
+  private void checkTimestampField(Field field, String name) {
+    Assert.assertEquals(name, field.getName());
+    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, field.getType().getTypeID());
+  }
 
-    FieldReader nanoReader = rootReader.reader("nano");
-    nanoReader.setPosition(3);
-    DateTime nanoDateTime = nanoReader.readDateTime();
-    Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
-    long nanoLong = nanoReader.readLong();
-    Assert.assertEquals(expectedNanos, nanoLong);
+  private void checkTimestampTZField(Field field, String name, String tz) {
+    checkTimestampField(field, name);
+    Assert.assertEquals(tz, ((Timestamp)field.getType()).getTimezone());
+  }
+
+  @Test
+  public void timeStampMicroWriters() throws Exception {
+    // test values
+    final long expectedMicros = 981173106123456L;
+    final LocalDateTime expectedMicroDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+
+    // write
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    {
+      TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
+      timeStampMicroWriter.setPosition(0);
+      timeStampMicroWriter.writeTimeStampMicro(expectedMicros);
+    }
+    String tz = DateUtility.getTimeZone(5);
+    {
+      TimeStampMicroTZWriter timeStampMicroWriter = rootWriter.timeStampMicroTZ("microTZ", tz);
+      timeStampMicroWriter.setPosition(1);
+      timeStampMicroWriter.writeTimeStampMicroTZ(expectedMicros);
+    }
+
+    // schema
+    List<Field> children = parent.getField().getChildren().get(0).getChildren();
+    checkTimestampField(children.get(0), "micro");
+    checkTimestampTZField(children.get(1), "microTZ", tz);
+
+    // read
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+    {
+      FieldReader microReader = rootReader.reader("micro");
+      microReader.setPosition(0);
+      LocalDateTime microDateTime = microReader.readLocalDateTime();
+      Assert.assertEquals(expectedMicroDateTime, microDateTime);
+      long microLong = microReader.readLong();
+      Assert.assertEquals(expectedMicros, microLong);
+    }
+    {
+      FieldReader microReader = rootReader.reader("microTZ");
+      microReader.setPosition(1);
+      long microLong = microReader.readLong();
+      Assert.assertEquals(expectedMicros, microLong);
+    }
+
+  }
+
+  @Test
+  public void timeStampNanoWriters() throws Exception {
+    // test values
+    final long expectedNanos = 981173106123456789L;
+    final LocalDateTime expectedNanoDateTime = new LocalDateTime(2001, 2, 3, 4, 5, 6, 123);
+
+    // write
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    {
+      TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
+      timeStampNanoWriter.setPosition(0);
+      timeStampNanoWriter.writeTimeStampNano(expectedNanos);
+    }
+    String tz = DateUtility.getTimeZone(3);
+    {
+      TimeStampNanoTZWriter timeStampNanoWriter = rootWriter.timeStampNanoTZ("nanoTZ", tz);
+      timeStampNanoWriter.setPosition(0);
+      timeStampNanoWriter.writeTimeStampNanoTZ(expectedNanos);
+    }
+    // schema
+    List<Field> children = parent.getField().getChildren().get(0).getChildren();
+    checkTimestampField(children.get(0), "nano");
+    checkTimestampTZField(children.get(1), "nanoTZ", tz);
+    // read
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+
+    {
+      FieldReader nanoReader = rootReader.reader("nano");
+      nanoReader.setPosition(0);
+      LocalDateTime nanoDateTime = nanoReader.readLocalDateTime();
+      Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
+      long nanoLong = nanoReader.readLong();
+      Assert.assertEquals(expectedNanos, nanoLong);
+    }
+    {
+      FieldReader nanoReader = rootReader.reader("nanoTZ");
+      nanoReader.setPosition(0);
+      long nanoLong = nanoReader.readLong();
+      Assert.assertEquals(expectedNanos, nanoLong);
+      NullableTimeStampNanoTZHolder h = new NullableTimeStampNanoTZHolder();
+      nanoReader.read(h);
+      Assert.assertEquals(expectedNanos, h.value);
+    }
   }
 
   @Test
   public void complexCopierWithList() {
-    MapVector parent = new MapVector("parent", allocator, null);
+    MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     ListWriter listWriter = rootWriter.list("list");

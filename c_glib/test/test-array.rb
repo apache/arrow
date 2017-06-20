@@ -16,6 +16,29 @@
 # under the License.
 
 class TestArray < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def test_equal
+    assert_equal(build_boolean_array([true, false]),
+                 build_boolean_array([true, false]))
+  end
+
+  def test_equal_approx
+    array1 = build_double_array([1.1, 2.2 + Float::EPSILON * 10])
+    array2 = build_double_array([1.1, 2.2])
+    assert do
+      array1.equal_approx(array2)
+    end
+  end
+
+  def test_equal_range
+    array1 = build_int32_array([1, 2, 3, 4, 5])
+    array2 = build_int32_array([-2, -1, 0, 1, 2, 3, 4, 999])
+    assert do
+      array1.equal_range(1, array2, 4, 3)
+    end
+  end
+
   def test_is_null
     builder = Arrow::BooleanArrayBuilder.new
     builder.append_null
@@ -72,5 +95,10 @@ class TestArray < Test::Unit::TestCase
     sub_array = array.slice(1, 2)
     assert_equal([false, true],
                  sub_array.length.times.collect {|i| sub_array.get_value(i)})
+  end
+
+  def test_to_s
+    assert_equal("[true, false, true]",
+                 build_boolean_array([true, false, true]).to_s)
   end
 end

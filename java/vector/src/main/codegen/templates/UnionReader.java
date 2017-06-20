@@ -28,7 +28,9 @@ import org.apache.arrow.vector.types.Types.MinorType;
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
@@ -77,13 +79,16 @@ public class UnionReader extends AbstractFieldReader {
       return (FieldReader) getMap();
     case LIST:
       return (FieldReader) getList();
-    <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-    <#assign uncappedName = name?uncap_first/>
-    <#if !minor.class?starts_with("Decimal")>
+    <#list vv.types as type>
+      <#list type.minor as minor>
+        <#assign name = minor.class?cap_first />
+        <#assign uncappedName = name?uncap_first/>
+        <#if !minor.typeParams?? >
     case ${name?upper_case}:
       return (FieldReader) get${name}();
-    </#if>
-    </#list></#list>
+        </#if>
+      </#list>
+    </#list>
     default:
       throw new UnsupportedOperationException("Unsupported type: " + MinorType.values()[typeValue]);
     }
@@ -122,7 +127,7 @@ public class UnionReader extends AbstractFieldReader {
   }
 
   <#list ["Object", "Integer", "Long", "Boolean",
-          "Character", "DateTime", "Double", "Float",
+          "Character", "LocalDateTime", "Double", "Float",
           "Text", "Byte", "Short", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
@@ -138,14 +143,16 @@ public class UnionReader extends AbstractFieldReader {
     return getReaderForIndex(idx()).size();
   }
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-          <#assign uncappedName = name?uncap_first/>
-  <#assign boxedType = (minor.boxedType!type.boxedType) />
-  <#assign javaType = (minor.javaType!type.javaType) />
-  <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
-  <#assign safeType=friendlyType />
-  <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-  <#if !minor.class?starts_with("Decimal")>
+  <#list vv.types as type>
+    <#list type.minor as minor>
+      <#assign name = minor.class?cap_first />
+      <#assign uncappedName = name?uncap_first/>
+      <#assign boxedType = (minor.boxedType!type.boxedType) />
+      <#assign javaType = (minor.javaType!type.javaType) />
+      <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+      <#assign safeType=friendlyType />
+      <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
+      <#if !minor.typeParams?? >
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 
@@ -165,8 +172,9 @@ public class UnionReader extends AbstractFieldReader {
   public void copyAsValue(${name}Writer writer){
     getReaderForIndex(idx()).copyAsValue(writer);
   }
-  </#if>
-  </#list></#list>
+      </#if>
+    </#list>
+  </#list>
 
   @Override
   public void copyAsValue(ListWriter writer) {
@@ -182,7 +190,7 @@ public class UnionReader extends AbstractFieldReader {
       }
     }
   }
-  
+
   public FieldReader reader(String name){
     return getMap().reader(name);
   }
@@ -195,6 +203,3 @@ public class UnionReader extends AbstractFieldReader {
     return getReaderForIndex(idx()).next();
   }
 }
-
-
-

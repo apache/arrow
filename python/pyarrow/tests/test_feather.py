@@ -27,7 +27,7 @@ import pyarrow as pa
 from pyarrow.compat import guid
 from pyarrow.feather import (read_feather, write_feather,
                              FeatherReader)
-from pyarrow._io import FeatherWriter
+from pyarrow.lib import FeatherWriter
 
 
 def random_path():
@@ -61,7 +61,8 @@ class TestFeatherReader(unittest.TestCase):
         return counts
 
     def _check_pandas_roundtrip(self, df, expected=None, path=None,
-                                columns=None, null_counts=None):
+                                columns=None, null_counts=None,
+                                nthreads=1):
         if path is None:
             path = random_path()
 
@@ -70,7 +71,7 @@ class TestFeatherReader(unittest.TestCase):
         if not os.path.exists(path):
             raise Exception('file not written')
 
-        result = read_feather(path, columns)
+        result = read_feather(path, columns, nthreads=nthreads)
         if expected is None:
             expected = df
 
@@ -293,6 +294,12 @@ class TestFeatherReader(unittest.TestCase):
         df = pd.DataFrame({'strings': [''] * 10})
         self._check_pandas_roundtrip(df)
 
+    def test_multithreaded_read(self):
+        data = {'c{0}'.format(i): [''] * 10
+                for i in range(100)}
+        df = pd.DataFrame(data)
+        self._check_pandas_roundtrip(df, nthreads=4)
+
     def test_nan_as_null(self):
         # Create a nan that is not numpy.nan
         values = np.array(['foo', np.nan, np.nan * 2, 'bar'] * 10)
@@ -348,6 +355,7 @@ class TestFeatherReader(unittest.TestCase):
         expected = df.rename(columns=str)
         self._check_pandas_roundtrip(df, expected)
 
+    @pytest.mark.skipif(not os.path.supports_unicode_filenames, reason='unicode filenames not supported')
     def test_unicode_filename(self):
         # GH #209
         name = (b'Besa_Kavaj\xc3\xab.feather').decode('utf-8')

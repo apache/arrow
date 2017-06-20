@@ -46,6 +46,21 @@ class TestTable < Test::Unit::TestCase
       @record_batch = Arrow::RecordBatch.new(schema, 5, columns)
     end
 
+    def test_equal
+      fields = [
+        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+      ]
+      schema = Arrow::Schema.new(fields)
+      columns = [
+        build_boolean_array([true, false, true, false, true, false]),
+        build_boolean_array([false, true, false, true, false]),
+      ]
+      other_record_batch = Arrow::RecordBatch.new(schema, 5, columns)
+      assert_equal(@record_batch,
+                   other_record_batch)
+    end
+
     def test_schema
       assert_equal(["visible", "valid"],
                    @record_batch.schema.fields.collect(&:name))
@@ -75,6 +90,13 @@ class TestTable < Test::Unit::TestCase
       end
       assert_equal([false, true],
                    sub_visible_values)
+    end
+
+    def test_to_s
+      assert_equal(<<-PRETTY_PRINT, @record_batch.to_s)
+visible: [true, false, true, false, true, false]
+valid: [false, true, false, true, false]
+      PRETTY_PRINT
     end
   end
 end

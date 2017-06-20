@@ -29,7 +29,9 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
-
+/**
+ * Source code generated using FreeMarker template ${.template_name}
+ */
 @SuppressWarnings("unused")
 public class NullReader extends AbstractBaseReader implements FieldReader{
   
@@ -53,10 +55,9 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     return type;
   }
 
-
   @Override
   public Field getField() {
-    return new Field("", true, new Null(), null);
+    return new Field("", FieldType.nullable(new Null()), null);
   }
 
   public void copyAsValue(MapWriter writer) {}
@@ -127,7 +128,7 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
   }
   
   <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean", 
-          "Character", "DateTime", "Period", "Double", "Float",
+          "Character", "LocalDateTime", "Period", "Double", "Float",
           "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>

@@ -46,6 +46,84 @@ class OutputStream;
 
 namespace ipc {
 
+/// \class RecordBatchWriter
+/// \brief Abstract interface for writing a stream of record batches
+class ARROW_EXPORT RecordBatchWriter {
+ public:
+  virtual ~RecordBatchWriter();
+
+  /// Write a record batch to the stream
+  ///
+  /// \param allow_64bit boolean permitting field lengths exceeding INT32_MAX
+  /// \return Status indicate success or failure
+  virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
+
+  /// Perform any logic necessary to finish the stream
+  ///
+  /// \return Status indicate success or failure
+  virtual Status Close() = 0;
+
+  /// In some cases, writing may require memory allocation. We use the default
+  /// memory pool, but provide the option to override
+  ///
+  /// \param pool the memory pool to use for required allocations
+  virtual void set_memory_pool(MemoryPool* pool) = 0;
+};
+
+/// \class RecordBatchStreamWriter
+/// \brief Synchronous batch stream writer that writes the Arrow streaming
+/// format
+class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
+ public:
+  virtual ~RecordBatchStreamWriter();
+
+  /// Create a new writer from stream sink and schema. User is responsible for
+  /// closing the actual OutputStream.
+  ///
+  /// \param(in) sink output stream to write to
+  /// \param(in) schema the schema of the record batches to be written
+  /// \param(out) out the created stream writer
+  /// \return Status indicating success or failure
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      std::shared_ptr<RecordBatchStreamWriter>* out);
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status Close() override;
+  void set_memory_pool(MemoryPool* pool) override;
+
+ protected:
+  RecordBatchStreamWriter();
+  class ARROW_NO_EXPORT RecordBatchStreamWriterImpl;
+  std::unique_ptr<RecordBatchStreamWriterImpl> impl_;
+};
+
+/// \brief Creates the Arrow record batch file format
+///
+/// Implements the random access file format, which structurally is a record
+/// batch stream followed by a metadata footer at the end of the file. Magic
+/// numbers are written at the start and end of the file
+class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
+ public:
+  virtual ~RecordBatchFileWriter();
+
+  /// Create a new writer from stream sink and schema
+  ///
+  /// \param(in) sink output stream to write to
+  /// \param(in) schema the schema of the record batches to be written
+  /// \param(out) out the created stream writer
+  /// \return Status indicating success or failure
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      std::shared_ptr<RecordBatchFileWriter>* out);
+
+  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status Close() override;
+
+ private:
+  RecordBatchFileWriter();
+  class ARROW_NO_EXPORT RecordBatchFileWriterImpl;
+  std::unique_ptr<RecordBatchFileWriterImpl> impl_;
+};
+
 /// Write the RecordBatch (collection of equal-length Arrow arrays) to the
 /// output stream in a contiguous block. The record batch metadata is written as
 /// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
@@ -58,13 +136,13 @@ namespace ipc {
 /// to the end of the body and end of the metadata / data header (suffixed by
 /// the header size) is returned in out-variables
 ///
-/// @param(in) buffer_start_offset the start offset to use in the buffer metadata,
+/// \param(in) buffer_start_offset the start offset to use in the buffer metadata,
 /// default should be 0
-/// @param(in) allow_64bit permit field lengths exceeding INT32_MAX. May not be
+/// \param(in) allow_64bit permit field lengths exceeding INT32_MAX. May not be
 /// readable by other Arrow implementations
-/// @param(out) metadata_length: the size of the length-prefixed flatbuffer
+/// \param(out) metadata_length: the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
-/// @param(out) body_length: the size of the contiguous buffer block plus
+/// \param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
 Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
     int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
@@ -85,45 +163,6 @@ Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 // write the tensor including metadata, padding, and data
 Status ARROW_EXPORT GetTensorSize(const Tensor& tensor, int64_t* size);
 
-class ARROW_EXPORT StreamWriter {
- public:
-  virtual ~StreamWriter();
-
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<StreamWriter>* out);
-
-  virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false);
-
-  /// Perform any logic necessary to finish the stream. User is responsible for
-  /// closing the actual OutputStream
-  virtual Status Close();
-
-  // In some cases, writing may require memory allocation. We use the default
-  // memory pool, but provide the option to override
-  void set_memory_pool(MemoryPool* pool);
-
- protected:
-  StreamWriter();
-  class ARROW_NO_EXPORT StreamWriterImpl;
-  std::unique_ptr<StreamWriterImpl> impl_;
-};
-
-class ARROW_EXPORT FileWriter : public StreamWriter {
- public:
-  virtual ~FileWriter();
-
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<FileWriter>* out);
-
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
-  Status Close() override;
-
- private:
-  FileWriter();
-  class ARROW_NO_EXPORT FileWriterImpl;
-  std::unique_ptr<FileWriterImpl> impl_;
-};
-
 /// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
 /// may not be readable by all Arrow implementations
 Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
@@ -134,6 +173,13 @@ Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
 /// <metadata size><metadata><tensor data>
 Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
     int32_t* metadata_length, int64_t* body_length);
+
+/// Backwards-compatibility for Arrow < 0.4.0
+///
+#ifndef ARROW_NO_DEPRECATED_API
+using FileWriter = RecordBatchFileWriter;
+using StreamWriter = RecordBatchStreamWriter;
+#endif
 
 }  // namespace ipc
 }  // namespace arrow

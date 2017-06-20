@@ -15,17 +15,17 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Pandas Interface
-================
+Using PyArrow with pandas
+=========================
 
-To interface with Pandas, PyArrow provides various conversion routines to
-consume Pandas structures and convert back to them.
+To interface with pandas, PyArrow provides various conversion routines to
+consume pandas structures and convert back to them.
 
 DataFrames
 ----------
 
-The equivalent to a Pandas DataFrame in Arrow is a :class:`pyarrow.table.Table`.
-Both consist of a set of named columns of equal length. While Pandas only
+The equivalent to a pandas DataFrame in Arrow is a :class:`pyarrow.table.Table`.
+Both consist of a set of named columns of equal length. While pandas only
 supports flat columns, the Table also provides nested columns, thus it can
 represent more data than a DataFrame, so a full conversion is not always possible.
 
@@ -33,9 +33,9 @@ Conversion from a Table to a DataFrame is done by calling
 :meth:`pyarrow.table.Table.to_pandas`. The inverse is then achieved by using
 :meth:`pyarrow.Table.from_pandas`. This conversion routine provides the
 convience parameter ``timestamps_to_ms``. Although Arrow supports timestamps of
-different resolutions, Pandas only supports nanosecond timestamps and most
+different resolutions, pandas only supports nanosecond timestamps and most
 other systems (e.g. Parquet) only work on millisecond timestamps. This parameter
-can be used to already do the time conversion during the Pandas to Arrow
+can be used to already do the time conversion during the pandas to Arrow
 conversion.
 
 .. code-block:: python
@@ -44,35 +44,35 @@ conversion.
     import pandas as pd
 
     df = pd.DataFrame({"a": [1, 2, 3]})
-    # Convert from Pandas to Arrow
+    # Convert from pandas to Arrow
     table = pa.Table.from_pandas(df)
-    # Convert back to Pandas
+    # Convert back to pandas
     df_new = table.to_pandas()
 
 
 Series
 ------
 
-In Arrow, the most similar structure to a Pandas Series is an Array.
+In Arrow, the most similar structure to a pandas Series is an Array.
 It is a vector that contains data of the same type as linear memory. You can
-convert a Pandas Series to an Arrow Array using :meth:`pyarrow.array.from_pandas_series`.
+convert a pandas Series to an Arrow Array using :meth:`pyarrow.array.from_pandas_series`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
 
 Type differences
 ----------------
 
-With the current design of Pandas and Arrow, it is not possible to convert all
-column types unmodified. One of the main issues here is that Pandas has no
+With the current design of pandas and Arrow, it is not possible to convert all
+column types unmodified. One of the main issues here is that pandas has no
 support for nullable columns of arbitrary type. Also ``datetime64`` is currently
 fixed to nanosecond resolution. On the other side, Arrow might be still missing
 support for some types.
 
-Pandas -> Arrow Conversion
+pandas -> Arrow Conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 +------------------------+--------------------------+
-| Source Type (Pandas)   | Destination Type (Arrow) |
+| Source Type (pandas)   | Destination Type (Arrow) |
 +========================+==========================+
 | ``bool``               | ``BOOL``                 |
 +------------------------+--------------------------+
@@ -91,11 +91,11 @@ Pandas -> Arrow Conversion
 | ``datetime.date``      | ``DATE``                 |
 +------------------------+--------------------------+
 
-Arrow -> Pandas Conversion
+Arrow -> pandas Conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 +-------------------------------------+--------------------------------------------------------+
-| Source Type (Arrow)                 | Destination Type (Pandas)                              |
+| Source Type (Arrow)                 | Destination Type (pandas)                              |
 +=====================================+========================================================+
 | ``BOOL``                            | ``bool``                                               |
 +-------------------------------------+--------------------------------------------------------+

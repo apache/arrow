@@ -70,6 +70,9 @@ GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
                                            GList *columns);
 
+gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
+                                   GArrowRecordBatch *other_record_batch);
+
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
 GArrowArray  *garrow_record_batch_get_column     (GArrowRecordBatch *record_batch,
                                                   guint i);
@@ -81,5 +84,8 @@ gint64        garrow_record_batch_get_n_rows     (GArrowRecordBatch *record_batc
 GArrowRecordBatch *garrow_record_batch_slice     (GArrowRecordBatch *record_batch,
                                                   gint64 offset,
                                                   gint64 length);
+
+gchar        *garrow_record_batch_to_string      (GArrowRecordBatch *record_batch,
+                                                  GError **error);
 
 G_END_DECLS

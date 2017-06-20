@@ -37,10 +37,12 @@ import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.DateMilliWriter;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
+import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
-import org.joda.time.DateTime;
+import org.apache.arrow.vector.util.DateUtility;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -144,8 +146,8 @@ public class BaseFileTest {
     }
   }
 
-  private DateTime makeDateTimeFromCount(int i) {
-    return new DateTime(2000 + i, 1 + i, 1 + i, i, i, i, i, DateTimeZone.UTC);
+  private LocalDateTime makeDateTimeFromCount(int i) {
+    return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
   protected void writeDateTimeData(int count, NullableMapVector parent) {
@@ -155,18 +157,21 @@ public class BaseFileTest {
     DateMilliWriter dateWriter = rootWriter.dateMilli("date");
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
     TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
+    TimeStampMilliTZWriter timeStampMilliTZWriter = rootWriter.timeStampMilliTZ("timestamp-milliTZ", "Europe/Paris");
     for (int i = 0; i < count; i++) {
-      DateTime dt = makeDateTimeFromCount(i);
+      LocalDateTime dt = makeDateTimeFromCount(i);
       // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
       dateWriter.setPosition(i);
-      long dateLong = dt.minusMillis(dt.getMillisOfDay()).getMillis();
+      long dateLong = DateUtility.toMillis(dt.minusMillis(dt.getMillisOfDay()));
       dateWriter.writeDateMilli(dateLong);
       // Time is a value in milliseconds since midnight, stored as 32-bit integer
       timeWriter.setPosition(i);
       timeWriter.writeTimeMilli(dt.getMillisOfDay());
       // Timestamp is milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
-      timeStampMilliWriter.writeTimeStampMilli(dt.getMillis());
+      timeStampMilliWriter.writeTimeStampMilli(DateUtility.toMillis(dt));
+      timeStampMilliTZWriter.setPosition(i);
+      timeStampMilliTZWriter.writeTimeStampMilliTZ(DateUtility.toMillis(dt));
     }
     writer.setValueCount(count);
   }
@@ -176,13 +181,15 @@ public class BaseFileTest {
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
       long dateVal = ((NullableDateMilliVector)root.getVector("date")).getAccessor().get(i);
-      DateTime dt = makeDateTimeFromCount(i);
-      DateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
-      Assert.assertEquals(dateExpected.getMillis(), dateVal);
+      LocalDateTime dt = makeDateTimeFromCount(i);
+      LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
+      Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
       long timeVal = ((NullableTimeMilliVector)root.getVector("time")).getAccessor().get(i);
       Assert.assertEquals(dt.getMillisOfDay(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getAccessor().getObject(i);
-      Assert.assertTrue(dt.withZoneRetainFields(DateTimeZone.getDefault()).equals(timestampMilliVal));
+      Assert.assertEquals(dt, timestampMilliVal);
+      Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getAccessor().getObject(i);
+      Assert.assertEquals(DateUtility.toMillis(dt), timestampMilliTZVal);
     }
   }
 

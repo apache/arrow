@@ -17,41 +17,61 @@
 
 @echo on
 
-set CONDA_ENV=C:\arrow-conda-env
-set ARROW_HOME=C:\arrow-install
+conda update --yes --quiet conda
 
-conda create -p %CONDA_ENV% -q -y python=%PYTHON% ^
+conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
-call activate %CONDA_ENV%
+conda install -n arrow -q -y -c conda-forge ^
+      flatbuffers rapidjson ^
+      cmake git boost-cpp thrift-cpp snappy zlib brotli gflags
+
+call activate arrow
+
+set ARROW_HOME=%CONDA_PREFIX%\Library
+set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 
 @rem Build and test Arrow C++ libraries
 
-cd cpp
-mkdir build
-cd build
+mkdir cpp\build
+pushd cpp\build
+
 cmake -G "%GENERATOR%" ^
-      -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
-      -DARROW_CXXFLAGS="/WX" ^
-      -DARROW_PYTHON=on ^
+      -DARROW_CXXFLAGS="/WX /MP" ^
+      -DARROW_PYTHON=ON ^
       ..  || exit /B
 cmake --build . --target INSTALL --config Release  || exit /B
 
 @rem Needed so python-test.exe works
-set PYTHONPATH=%CONDA_ENV%\Lib;%CONDA_ENV%\Lib\site-packages;%CONDA_ENV%\python35.zip;%CONDA_ENV%\DLLs;%CONDA_ENV%
+set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\python35.zip;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
 
 ctest -VV  || exit /B
+popd
 
-set PYTHONPATH=
+@rem Build parquet-cpp
+
+git clone https://github.com/apache/parquet-cpp.git || exit /B
+mkdir parquet-cpp\build
+pushd parquet-cpp\build
+
+set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+set PARQUET_HOME=%CONDA_PREFIX%\Library
+cmake -G "%GENERATOR%" ^
+     -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
+     -DCMAKE_BUILD_TYPE=Release ^
+     -DPARQUET_BOOST_USE_SHARED=OFF ^
+     -DPARQUET_ZLIB_VENDORED=off ^
+     -DPARQUET_BUILD_TESTS=off .. || exit /B
+cmake --build . --target INSTALL --config Release || exit /B
+popd
 
 @rem Build and import pyarrow
+@rem parquet-cpp has some additional runtime dependencies that we need to figure out
+@rem see PARQUET-1018
 
-set PATH=%ARROW_HOME%\bin;%PATH%
-
-cd ..\..\python
-python setup.py build_ext --inplace  || exit /B
-python -c "import pyarrow"  || exit /B
-
-@rem TODO: re-enable when last tests are fixed
-@rem py.test pyarrow -v -s || exit /B
+pushd python
+python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
+py.test pyarrow -v -s --parquet || exit /B
+popd

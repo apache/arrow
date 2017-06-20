@@ -70,13 +70,13 @@ class TestFile(MessagingTest, unittest.TestCase):
     # Also tests writing zero-copy NumPy array with additional padding
 
     def _get_writer(self, sink, schema):
-        return pa.FileWriter(sink, schema)
+        return pa.RecordBatchFileWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
 
-        reader = pa.FileReader(file_contents)
+        reader = pa.open_file(file_contents)
 
         assert reader.num_record_batches == len(batches)
 
@@ -89,7 +89,7 @@ class TestFile(MessagingTest, unittest.TestCase):
         batches = self.write_batches()
         file_contents = self._get_source()
 
-        reader = pa.FileReader(file_contents)
+        reader = pa.open_file(file_contents)
 
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
@@ -99,12 +99,12 @@ class TestFile(MessagingTest, unittest.TestCase):
 class TestStream(MessagingTest, unittest.TestCase):
 
     def _get_writer(self, sink, schema):
-        return pa.StreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(file_contents)
+        reader = pa.open_stream(file_contents)
 
         assert reader.schema.equals(batches[0].schema)
 
@@ -121,7 +121,7 @@ class TestStream(MessagingTest, unittest.TestCase):
     def test_read_all(self):
         batches = self.write_batches()
         file_contents = self._get_source()
-        reader = pa.StreamReader(file_contents)
+        reader = pa.open_stream(file_contents)
 
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
@@ -147,7 +147,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
             connection, client_address = self._sock.accept()
             try:
                 source = connection.makefile(mode='rb')
-                reader = pa.StreamReader(source)
+                reader = pa.open_stream(source)
                 self._schema = reader.schema
                 if self._do_read_all:
                     self._table = reader.read_all()
@@ -185,7 +185,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
         return self._sock.makefile(mode='wb')
 
     def _get_writer(self, sink, schema):
-        return pa.StreamWriter(sink, schema)
+        return pa.RecordBatchStreamWriter(sink, schema)
 
     def test_simple_roundtrip(self):
         self.start_server(do_read_all=False)
@@ -209,7 +209,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
 class TestInMemoryFile(TestFile):
 
     def _get_sink(self):
-        return pa.InMemoryOutputStream()
+        return pa.BufferOutputStream()
 
     def _get_source(self):
         return self.sink.get_result()
@@ -219,7 +219,7 @@ def test_ipc_zero_copy_numpy():
     df = pd.DataFrame({'foo': [1.5]})
 
     batch = pa.RecordBatch.from_pandas(df)
-    sink = pa.InMemoryOutputStream()
+    sink = pa.BufferOutputStream()
     write_file(batch, sink)
     buffer = sink.get_result()
     reader = pa.BufferReader(buffer)
@@ -240,13 +240,64 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
+def test_pandas_serialize_round_trip():
+    index = pd.Index([1, 2, 3], name='my_index')
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index, columns=columns
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
+def test_pandas_serialize_round_trip_nthreads():
+    index = pd.Index([1, 2, 3], name='my_index')
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index, columns=columns
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf, nthreads=2)
+    assert_frame_equal(result, df)
+
+
+def test_pandas_serialize_round_trip_multi_index():
+    index1 = pd.Index([1, 2, 3], name='level_1')
+    index2 = pd.Index(list('def'), name=None)
+    index = pd.MultiIndex.from_arrays([index1, index2])
+
+    columns = ['foo', 'bar']
+    df = pd.DataFrame(
+        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        index=index,
+        columns=columns,
+    )
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
+@pytest.mark.xfail(
+    raises=TypeError,
+    reason='Non string columns are not supported',
+)
+def test_pandas_serialize_round_trip_not_string_columns():
+    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
 def write_file(batch, sink):
-    writer = pa.FileWriter(sink, batch.schema)
+    writer = pa.RecordBatchFileWriter(sink, batch.schema)
     writer.write_batch(batch)
     writer.close()
 
 
 def read_file(source):
-    reader = pa.FileReader(source)
+    reader = pa.open_file(source)
     return [reader.get_batch(i)
             for i in range(reader.num_record_batches)]

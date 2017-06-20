@@ -152,6 +152,22 @@ TEST_F(TestSchema, GetFieldByName) {
   ASSERT_TRUE(result == nullptr);
 }
 
+TEST_F(TestSchema, GetFieldIndex) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f3", list(int16()));
+
+  vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
+  auto schema = std::make_shared<Schema>(fields);
+
+  ASSERT_EQ(0, schema->GetFieldIndex(fields[0]->name()));
+  ASSERT_EQ(1, schema->GetFieldIndex(fields[1]->name()));
+  ASSERT_EQ(2, schema->GetFieldIndex(fields[2]->name()));
+  ASSERT_EQ(3, schema->GetFieldIndex(fields[3]->name()));
+  ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
+}
+
 TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);

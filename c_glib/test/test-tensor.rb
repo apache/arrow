@@ -40,6 +40,19 @@ class TestTensor < Test::Unit::TestCase
                                 names)
   end
 
+  def test_equal
+    data = Arrow::Buffer.new(@raw_data.pack("c*"))
+    strides = []
+    names = ["a", "b", "c"]
+    other_tensor = Arrow::Tensor.new(Arrow::Int8DataType.new,
+                                     data,
+                                     @shape,
+                                     strides,
+                                     names)
+    assert_equal(@tensor,
+                 other_tensor)
+  end
+
   def test_value_data_type
     assert_equal(Arrow::Int8DataType, @tensor.value_data_type.class)
   end
@@ -100,5 +113,14 @@ class TestTensor < Test::Unit::TestCase
     assert do
       not @tensor.column_major?
     end
+  end
+
+  def test_io
+    buffer = Arrow::PoolBuffer.new
+    output = Arrow::BufferOutputStream.new(buffer)
+    output.write_tensor(@tensor)
+    input = Arrow::BufferInputStream.new(buffer)
+    assert_equal(@tensor,
+                 input.read_tensor(0))
   end
 end

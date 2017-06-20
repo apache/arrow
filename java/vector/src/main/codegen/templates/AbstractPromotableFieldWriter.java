@@ -39,14 +39,13 @@ package org.apache.arrow.vector.complex.impl;
 abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   /**
    * Retrieve the FieldWriter, promoting if it is not a FieldWriter of the specified type
-   * @param type
-   * @return
+   * @param type the type of the values we want to write
+   * @return the corresponding field writer
    */
   abstract protected FieldWriter getWriter(MinorType type);
 
   /**
-   * Return the current FieldWriter
-   * @return
+   * @return the current FieldWriter
    */
   abstract protected FieldWriter getWriter();
 
@@ -73,8 +72,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#if !minor.class?starts_with("Decimal") >
+    <#assign fields = minor.fields!type.fields />
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
@@ -84,20 +82,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
-  <#else>
-  @Override
-  public void write(DecimalHolder holder) {
-    getWriter(MinorType.DECIMAL).write(holder);
-  }
-
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    getWriter(MinorType.DECIMAL).writeDecimal(start, buffer);
-  }
-
-  </#if>
-
   </#list></#list>
-
   public void writeNull() {
   }
 
@@ -126,10 +111,13 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if minor.class?starts_with("Decimal") >
-  public ${capName}Writer ${lowerName}(String name, int scale, int precision) {
-    return getWriter(MinorType.MAP).${lowerName}(name, scale, precision);
+
+  <#if minor.typeParams?? >
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    return getWriter(MinorType.MAP).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
+
   </#if>
   @Override
   public ${capName}Writer ${lowerName}(String name) {

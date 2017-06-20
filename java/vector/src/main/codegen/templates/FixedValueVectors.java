@@ -25,9 +25,10 @@ import java.util.concurrent.TimeUnit;
 <#list vv.types as type>
 <#list type.minor as minor>
 <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+<#assign className = "${minor.class}Vector" />
 
 <#if type.major == "Fixed">
-<@pp.changeOutputFile name="/org/apache/arrow/vector/${minor.class}Vector.java" />
+<@pp.changeOutputFile name="/org/apache/arrow/vector/${className}.java" />
 <#include "/@includes/license.ftl" />
 
 package org.apache.arrow.vector;
@@ -43,8 +44,8 @@ package org.apache.arrow.vector;
  *
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
-public final class ${minor.class}Vector extends BaseDataValueVector implements FixedWidthVector{
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
+public final class ${className} extends BaseDataValueVector implements FixedWidthVector{
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   public static final int TYPE_WIDTH = ${type.width};
 
@@ -53,23 +54,24 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION * ${type.width};
   private int allocationMonitor = 0;
+  <#if minor.typeParams??>
 
-  <#if minor.class == "Decimal">
+    <#assign typeParams = minor.typeParams?reverse />
+    <#list typeParams as typeParam>
+  private final ${typeParam.type} ${typeParam.name};
+    </#list>
 
-  private int precision;
-  private int scale;
-
-  public ${minor.class}Vector(String name, BufferAllocator allocator, int precision, int scale) {
+  public ${className}(String name, BufferAllocator allocator<#list typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     super(name, allocator);
-    this.precision = precision;
-    this.scale = scale;
+    <#list typeParams as typeParam>
+    this.${typeParam.name} = ${typeParam.name};
+    </#list>
   }
   <#else>
-  public ${minor.class}Vector(String name, BufferAllocator allocator) {
+  public ${className}(String name, BufferAllocator allocator) {
     super(name, allocator);
   }
   </#if>
-
 
   @Override
   public MinorType getMinorType() {
@@ -150,7 +152,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    *
    * Note that the maximum number of values a vector can allocate is Integer.MAX_VALUE / value width.
    *
-   * @param valueCount
+   * @param valueCount the number of values to allocate for
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the new buffer
    */
   @Override
@@ -164,7 +166,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     allocationMonitor = 0;
     zeroVector();
     super.reset();
-    }
+  }
 
   private void allocateBytes(final long size) {
     if (size > MAX_ALLOCATION_SIZE) {
@@ -178,11 +180,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     allocationSizeInBytes = curSize;
   }
 
-/**
- * Allocate new buffer with double capacity, and copy data into the new buffer. Replace vector's buffer with new buffer, and release old one
- *
- * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the new buffer
- */
+  /**
+   * Allocate new buffer with double capacity, and copy data into the new buffer. Replace vector's buffer with new buffer, and release old one
+   *
+   * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the new buffer
+   */
   public void reAlloc() {
     final long newAllocationSize = allocationSizeInBytes * 2L;
     if (newAllocationSize > MAX_ALLOCATION_SIZE)  {
@@ -219,17 +221,17 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((${minor.class}Vector) to);
+    return new TransferImpl((${className}) to);
   }
 
-  public void transferTo(${minor.class}Vector target){
+  public void transferTo(${className} target){
     target.clear();
     target.data = data.transferOwnership(target.allocator).buffer;
     target.data.writerIndex(data.writerIndex());
     clear();
   }
 
-  public void splitAndTransferTo(int startIndex, int length, ${minor.class}Vector target) {
+  public void splitAndTransferTo(int startIndex, int length, ${className} target) {
     final int startPoint = startIndex * ${type.width};
     final int sliceLength = length * ${type.width};
     target.clear();
@@ -238,22 +240,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   private class TransferImpl implements TransferPair{
-    private ${minor.class}Vector to;
+    private ${className} to;
 
     public TransferImpl(String name, BufferAllocator allocator){
-      <#if minor.class == "Decimal">
-      to = new ${minor.class}Vector(name, allocator, precision, scale);
-      <#else>
-      to = new ${minor.class}Vector(name, allocator);
-      </#if>
+      to = new ${className}(name, allocator<#if minor.typeParams??><#list typeParams as typeParam>,  ${className}.this.${typeParam.name}</#list></#if>);
     }
 
-    public TransferImpl(${minor.class}Vector to) {
+    public TransferImpl(${className} to) {
       this.to = to;
     }
 
     @Override
-    public ${minor.class}Vector getTo(){
+    public ${className} getTo(){
       return to;
     }
 
@@ -269,11 +267,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, ${minor.class}Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, ${className}.this);
     }
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFrom(int fromIndex, int thisIndex, ${className} from){
     <#if (type.width > 8 || minor.class == "IntervalDay")>
     from.data.getBytes(fromIndex * ${type.width}, data, thisIndex * ${type.width}, ${type.width});
     <#else> <#-- type.width <= 8 -->
@@ -283,7 +281,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     </#if> <#-- type.width -->
   }
 
-  public void copyFromSafe(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFromSafe(int fromIndex, int thisIndex, ${className} from){
     while(thisIndex >= getValueCapacity()) {
         reAlloc();
     }
@@ -313,76 +311,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     <#if (type.width > 8 || minor.class == "IntervalDay")>
-
     public ${minor.javaType!type.javaType} get(int index) {
       return data.slice(index * ${type.width}, ${type.width});
     }
 
-    <#if (minor.class == "Interval")>
+      <#if (minor.class == "IntervalDay")>
     public void get(int index, ${minor.class}Holder holder){
-
-      final int offsetIndex = index * ${type.width};
-      holder.months = data.getInt(offsetIndex);
-      holder.days = data.getInt(offsetIndex + ${minor.daysOffset});
-      holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-    }
-
-    public void get(int index, Nullable${minor.class}Holder holder){
-      final int offsetIndex = index * ${type.width};
-      holder.isSet = 1;
-      holder.months = data.getInt(offsetIndex);
-      holder.days = data.getInt(offsetIndex + ${minor.daysOffset});
-      holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-    }
-
-    @Override
-    public ${friendlyType} getObject(int index) {
-      final int offsetIndex = index * ${type.width};
-      final int months  = data.getInt(offsetIndex);
-      final int days    = data.getInt(offsetIndex + ${minor.daysOffset});
-      final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      final Period p = new Period();
-      return p.plusMonths(months).plusDays(days).plusMillis(millis);
-    }
-
-    public StringBuilder getAsStringBuilder(int index) {
-
-      final int offsetIndex = index * ${type.width};
-
-      int months  = data.getInt(offsetIndex);
-      final int days    = data.getInt(offsetIndex + ${minor.daysOffset});
-      int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-
-      final int years  = (months / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-      months = (months % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-
-      final int hours  = millis / (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-      millis     = millis % (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-
-      final int minutes = millis / (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-      millis      = millis % (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-
-      final long seconds = millis / (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-      millis      = millis % (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-
-      final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
-      final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
-      final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
-
-
-      return(new StringBuilder().
-             append(years).append(yearString).
-             append(months).append(monthString).
-             append(days).append(dayString).
-             append(hours).append(":").
-             append(minutes).append(":").
-             append(seconds).append(".").
-             append(millis));
-    }
-
-    <#elseif (minor.class == "IntervalDay")>
-    public void get(int index, ${minor.class}Holder holder){
-
       final int offsetIndex = index * ${type.width};
       holder.days = data.getInt(offsetIndex);
       holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
@@ -403,7 +337,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final Period p = new Period();
       return p.plusDays(days).plusMillis(millis);
     }
-
 
     public StringBuilder getAsStringBuilder(int index) {
       final int offsetIndex = index * ${type.width};
@@ -430,8 +363,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
               append(millis));
     }
 
-    <#elseif minor.class == "Decimal">
-
+      <#elseif minor.class == "Decimal">
     public void get(int index, ${minor.class}Holder holder) {
         holder.start = index * ${type.width};
         holder.buffer = data;
@@ -452,7 +384,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(data, ${type.width} * index, scale);
     }
 
-    <#else>
+      <#else>
     public void get(int index, ${minor.class}Holder holder){
       holder.buffer = data;
       holder.start = index * ${type.width};
@@ -469,83 +401,61 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return data.slice(index * ${type.width}, ${type.width})
     }
 
-    </#if>
+      </#if>
     <#else> <#-- type.width <= 8 -->
 
     public ${minor.javaType!type.javaType} get(int index) {
       return data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
     }
-
-    <#if type.width == 4>
+      <#if type.width == 4>
     public long getTwoAsLong(int index) {
       return data.getLong(index * ${type.width});
     }
 
-    </#if>
-
-    <#if minor.class == "DateDay" ||
-         minor.class == "TimeSec" ||
-         minor.class == "TimeMicro" ||
-         minor.class == "TimeNano">
+      </#if>
+      <#if minor.class == "DateDay" ||
+           minor.class == "TimeSec" ||
+           minor.class == "TimeMicro" ||
+           minor.class == "TimeNano">
     @Override
     public ${friendlyType} getObject(int index) {
       return get(index);
     }
 
-    <#elseif minor.class == "DateMilli">
+      <#elseif minor.class == "DateMilli" || minor.class == "TimeMilli" || minor.class == "TimeStampMilli">
     @Override
     public ${friendlyType} getObject(int index) {
-      org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-      return date;
+      org.joda.time.LocalDateTime ldt = new org.joda.time.LocalDateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      return ldt;
     }
 
-    <#elseif minor.class == "TimeMilli">
-    @Override
-    public ${friendlyType} getObject(int index) {
-      org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-      return time;
-    }
-
-    <#elseif minor.class == "TimeStampSec">
+      <#elseif minor.class == "TimeStampSec">
     @Override
     public ${friendlyType} getObject(int index) {
       long secs = java.util.concurrent.TimeUnit.SECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(secs, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(secs, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
-    <#elseif minor.class == "TimeStampMilli">
-    @Override
-    public ${friendlyType} getObject(int index) {
-        org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return date;
-    }
-
-    <#elseif minor.class == "TimeStampMicro">
+      <#elseif minor.class == "TimeStampMicro">
     @Override
     public ${friendlyType} getObject(int index) {
       // value is truncated when converting microseconds to milliseconds in order to use DateTime type
       long micros = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(micros, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(micros, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
-    <#elseif minor.class == "TimeStampNano">
+      <#elseif minor.class == "TimeStampNano">
     @Override
     public ${friendlyType} getObject(int index) {
       // value is truncated when converting nanoseconds to milliseconds in order to use DateTime type
       long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(get(index));
-      org.joda.time.DateTime date = new org.joda.time.DateTime(millis, org.joda.time.DateTimeZone.UTC);
-      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      org.joda.time.LocalDateTime date = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
       return date;
     }
 
-    <#elseif minor.class == "IntervalYear">
+      <#elseif minor.class == "IntervalYear">
     @Override
     public ${friendlyType} getObject(int index) {
 
@@ -558,7 +468,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     public StringBuilder getAsStringBuilder(int index) {
-
       int months  = data.getInt(index);
 
       final int years  = (months / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
@@ -572,15 +481,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
              append(months).append(monthString));
     }
 
-    <#elseif minor.class == "Decimal9" || minor.class == "Decimal18">
-    @Override
-    public ${friendlyType} getObject(int index) {
-
-        final BigInteger value = BigInteger.valueOf(((${type.boxedType})get(index)).${type.javaType}Value());
-        return new BigDecimal(value, getField().getScale());
-    }
-
-    <#else>
+      <#else>
     @Override
     public ${friendlyType} getObject(int index) {
       return get(index);
@@ -588,14 +489,9 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${minor.javaType!type.javaType} getPrimitiveObject(int index) {
       return get(index);
     }
-    </#if>
 
-    public void get(int index, ${minor.class}Holder holder){
-      <#if minor.class.startsWith("Decimal")>
-      holder.scale = getField().getScale();
-      holder.precision = getField().getPrecision();
       </#if>
-
+    public void get(int index, ${minor.class}Holder holder){
       holder.value = data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
     }
 
@@ -604,22 +500,22 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       holder.value = data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
     }
 
+    </#if> <#-- type.width -->
+  }
 
-   </#if> <#-- type.width -->
- }
-
- /**
-  * ${minor.class}.Mutator implements a mutable vector of fixed width values.  Elements in the
-  * vector are accessed by position from the logical start of the vector.  Values should be pushed
-  * onto the vector sequentially, but may be randomly accessed.
-  *   The width of each element is ${type.width} byte(s)
-  *   The equivalent Java primitive is '${minor.javaType!type.javaType}'
-  *
-  * NB: this class is automatically generated from ValueVectorTypes.tdd using FreeMarker.
-  */
+  /**
+   * ${minor.class}.Mutator implements a mutable vector of fixed width values.  Elements in the
+   * vector are accessed by position from the logical start of the vector.  Values should be pushed
+   * onto the vector sequentially, but may be randomly accessed.
+   *   The width of each element is ${type.width} byte(s)
+   *   The equivalent Java primitive is '${minor.javaType!type.javaType}'
+   *
+   * NB: this class is automatically generated from FixedValueVectorTypes.tdd using FreeMarker.
+   */
   public final class Mutator extends BaseDataValueVector.BaseMutator {
 
     private Mutator(){};
+
    /**
     * Set the element at the given index to the given value.  Note that widths smaller than
     * 32 bits are handled by the ArrowBuf interface.
@@ -627,7 +523,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     * @param index   position of the bit to set
     * @param value   value to set
     */
-  <#if (type.width > 8) || minor.class == "IntervalDay">
+    <#if (type.width > 8) || minor.class == "IntervalDay">
    public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
      data.setBytes(index * ${type.width}, value, 0, ${type.width});
    }
@@ -639,38 +535,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      data.setBytes(index * ${type.width}, value, 0, ${type.width});
    }
 
-  <#if (minor.class == "Interval")>
-   public void set(int index, int months, int days, int milliseconds){
-     final int offsetIndex = index * ${type.width};
-     data.setInt(offsetIndex, months);
-     data.setInt((offsetIndex + ${minor.daysOffset}), days);
-     data.setInt((offsetIndex + ${minor.millisecondsOffset}), milliseconds);
-   }
-
-   protected void set(int index, ${minor.class}Holder holder){
-     set(index, holder.months, holder.days, holder.milliseconds);
-   }
-
-   protected void set(int index, Nullable${minor.class}Holder holder){
-     set(index, holder.months, holder.days, holder.milliseconds);
-   }
-
-   public void setSafe(int index, int months, int days, int milliseconds){
-     while(index >= getValueCapacity()) {
-       reAlloc();
-     }
-     set(index, months, days, milliseconds);
-   }
-
-   public void setSafe(int index, Nullable${minor.class}Holder holder){
-     setSafe(index, holder.months, holder.days, holder.milliseconds);
-   }
-
-   public void setSafe(int index, ${minor.class}Holder holder){
-     setSafe(index, holder.months, holder.days, holder.milliseconds);
-   }
-
-   <#elseif (minor.class == "IntervalDay")>
+      <#if (minor.class == "IntervalDay")>
    public void set(int index, int days, int milliseconds){
      final int offsetIndex = index * ${type.width};
      data.setInt(offsetIndex, days);
@@ -680,6 +545,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    protected void set(int index, ${minor.class}Holder holder){
      set(index, holder.days, holder.milliseconds);
    }
+
    protected void set(int index, Nullable${minor.class}Holder holder){
      set(index, holder.days, holder.milliseconds);
    }
@@ -699,8 +565,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      setSafe(index, holder.days, holder.milliseconds);
    }
 
-   <#elseif minor.class == "Decimal">
-
+       <#elseif minor.class == "Decimal">
    public void set(int index, ${minor.class}Holder holder){
      set(index, holder.start, holder.buffer);
    }
@@ -727,8 +592,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      data.setBytes(index * ${type.width}, buffer, start, ${type.width});
    }
 
-   <#else>
-
+       <#else>
    protected void set(int index, ${minor.class}Holder holder){
      set(index, holder.start, holder.buffer);
    }
@@ -744,6 +608,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    public void setSafe(int index, ${minor.class}Holder holder){
      setSafe(index, holder.start, holder.buffer);
    }
+
    public void setSafe(int index, Nullable${minor.class}Holder holder){
      setSafe(index, holder.start, holder.buffer);
    }
@@ -758,7 +623,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    public void set(int index, Nullable${minor.class}Holder holder){
      data.setBytes(index * ${type.width}, holder.buffer, holder.start, ${type.width});
    }
-   </#if>
+       </#if>
 
    @Override
    public void generateTestData(int count) {
@@ -773,7 +638,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      }
    }
 
-   <#else> <#-- type.width <= 8 -->
+     <#else> <#-- type.width <= 8 -->
    public void set(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
      data.set${(minor.javaType!type.javaType)?cap_first}(index * ${type.width}, value);
    }
@@ -834,7 +699,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      }
    }
 
-  </#if> <#-- type.width -->
+    </#if> <#-- type.width -->
 
    @Override
    public void setValueCount(int valueCount) {
@@ -854,6 +719,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
  }
 }
 
-</#if> <#-- type.major -->
+  </#if> <#-- type.major -->
 </#list>
 </#list>

@@ -29,6 +29,7 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.List;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.file.ArrowBlock;
@@ -40,12 +41,11 @@ import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
-import io.netty.buffer.ArrowBuf;
 
 public class MessageSerializerTest {
 
@@ -79,7 +79,7 @@ public class MessageSerializerTest {
   @Test
   public void testSchemaDictionaryMessageSerialization() throws IOException {
     DictionaryEncoding dictionary = new DictionaryEncoding(9L, false, new ArrowType.Int(8, true));
-    Field field = new Field("test", true, ArrowType.Utf8.INSTANCE, dictionary, null);
+    Field field = new Field("test", new FieldType(true, ArrowType.Utf8.INSTANCE, dictionary, null), null);
     Schema schema = new Schema(Collections.singletonList(field));
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     long size = MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);
@@ -130,7 +130,7 @@ public class MessageSerializerTest {
 
   public static Schema testSchema() {
     return new Schema(asList(new Field(
-        "testField", true, new ArrowType.Int(8, true), Collections.<Field>emptyList())));
+        "testField", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())));
   }
 
   // Verifies batch contents matching test schema.

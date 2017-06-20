@@ -67,6 +67,8 @@ GType            garrow_schema_get_type         (void) G_GNUC_CONST;
 
 GArrowSchema    *garrow_schema_new              (GList *fields);
 
+gboolean         garrow_schema_equal            (GArrowSchema *schema,
+                                                 GArrowSchema *other_schema);
 GArrowField     *garrow_schema_get_field        (GArrowSchema *schema,
                                                  guint i);
 GArrowField     *garrow_schema_get_field_by_name(GArrowSchema *schema,

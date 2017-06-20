@@ -55,7 +55,6 @@ PyBuffer::PyBuffer(PyObject* obj) : Buffer(nullptr, 0), obj_(nullptr) {
     size_ = buffer->len;
     capacity_ = buffer->len;
     is_mutable_ = false;
-    Py_INCREF(obj_);
   }
 }
 
@@ -68,20 +67,16 @@ Status CheckPyError(StatusCode code) {
   if (PyErr_Occurred()) {
     PyObject *exc_type, *exc_value, *traceback;
     PyErr_Fetch(&exc_type, &exc_value, &traceback);
-    PyObjectStringify stringified(exc_value);
+    PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
+    PyObject* exc_value_str = PyObject_Str(exc_value);
+    PyObjectStringify stringified(exc_value_str);
+    std::string message(stringified.bytes);
     Py_XDECREF(exc_type);
     Py_XDECREF(exc_value);
+    Py_XDECREF(exc_value_str);
     Py_XDECREF(traceback);
     PyErr_Clear();
-
-    // ARROW-866: in some esoteric cases, formatting exc_value can fail. This
-    // was encountered when calling tell() on a socket file
-    if (stringified.bytes != nullptr) {
-      std::string message(stringified.bytes);
-      return Status(code, message);
-    } else {
-      return Status(code, "Error message was null");
-    }
+    return Status(code, message);
   }
   return Status::OK();
 }

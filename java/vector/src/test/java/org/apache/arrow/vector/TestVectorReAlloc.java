@@ -123,7 +123,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testListType() {
-    try (final ListVector vector = new ListVector("", allocator, null)) {
+    try (final ListVector vector = ListVector.empty("", allocator)) {
       vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
       vector.setInitialCapacity(512);
@@ -146,7 +146,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testMapType() {
-    try (final NullableMapVector vector = new NullableMapVector("", allocator, null)) {
+    try (final NullableMapVector vector = NullableMapVector.empty("", allocator)) {
       vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), NullableIntVector.class);
 
       vector.setInitialCapacity(512);

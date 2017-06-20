@@ -205,7 +205,7 @@ class ARROW_EXPORT Field {
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
       bool nullable = true,
       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
-    : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
+      : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
@@ -699,7 +699,10 @@ class ARROW_EXPORT Schema {
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }
 
   // Returns nullptr if name not found
-  std::shared_ptr<Field> GetFieldByName(const std::string& name);
+  std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
+
+  // Returns -1 if name not found
+  int64_t GetFieldIndex(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
@@ -720,7 +723,7 @@ class ARROW_EXPORT Schema {
 
  private:
   std::vector<std::shared_ptr<Field>> fields_;
-  std::unordered_map<std::string, int> name_to_index_;
+  mutable std::unordered_map<std::string, int> name_to_index_;
 
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
@@ -753,8 +756,8 @@ std::shared_ptr<DataType> ARROW_EXPORT union_(
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
-std::shared_ptr<Field> ARROW_EXPORT field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
+std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
+    const std::shared_ptr<DataType>& type, bool nullable = true,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------

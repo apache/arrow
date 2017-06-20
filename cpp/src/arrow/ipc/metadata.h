@@ -77,6 +77,7 @@ class ARROW_EXPORT DictionaryMemo {
   // Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
+  /// Return id for dictionary, computing new id if necessary
   int64_t GetId(const std::shared_ptr<Array>& dictionary);
 
   bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
@@ -87,6 +88,8 @@ class ARROW_EXPORT DictionaryMemo {
   Status AddDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
 
   const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
+
+  int size() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:
   // Dictionary memory addresses, to track whether a dictionary has been seen

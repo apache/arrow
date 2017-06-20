@@ -25,8 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableList;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -38,9 +36,12 @@ import org.apache.arrow.vector.stream.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
 
 public abstract class ArrowWriter implements AutoCloseable {
 
@@ -62,9 +63,9 @@ public abstract class ArrowWriter implements AutoCloseable {
   /**
    * Note: fields are not closed when the writer is closed
    *
-   * @param root
-   * @param provider
-   * @param out
+   * @param root the vectors to write to the output
+   * @param provider where to find the dictionaries
+   * @param out the output where to write
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     this.unloader = new VectorUnloader(root);
@@ -77,7 +78,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       fields.add(toMessageFormat(field, provider, dictionaryBatches));
     }
 
-    this.schema = new Schema(fields);
+    this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
     this.dictionaries = Collections.unmodifiableList(new ArrayList<>(dictionaryBatches.values()));
   }
 
@@ -117,7 +118,7 @@ public abstract class ArrowWriter implements AutoCloseable {
       }
     }
 
-    return new Field(field.getName(), field.isNullable(), type, encoding, updatedChildren);
+    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
   }
 
   public void start() throws IOException {

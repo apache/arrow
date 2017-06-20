@@ -16,16 +16,17 @@ export MINICONDA=$HOME/miniconda
 export PATH="$MINICONDA/bin:$PATH"
 export CONDA_PKGS_DIRS=$HOME/.conda_packages
 
-# C++ toolchain
-export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
-export RAPIDJSON_HOME=$CPP_TOOLCHAIN
-
 export ARROW_CPP_DIR=$TRAVIS_BUILD_DIR/cpp
 export ARROW_PYTHON_DIR=$TRAVIS_BUILD_DIR/python
 export ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 export ARROW_JAVA_DIR=${TRAVIS_BUILD_DIR}/java
+export ARROW_JS_DIR=${TRAVIS_BUILD_DIR}/js
 export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
 
 export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
+export ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install
+
+if [ $TRAVIS_OS_NAME == "osx" ]; then
+  export GOPATH=$TRAVIS_BUILD_DIR/gopath
+fi

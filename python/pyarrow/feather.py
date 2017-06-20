@@ -22,9 +22,14 @@ import six
 import pandas as pd
 
 from pyarrow.compat import pdapi
-from pyarrow._io import FeatherError  # noqa
-from pyarrow._table import Table
-import pyarrow._io as ext
+from pyarrow.lib import FeatherError  # noqa
+from pyarrow.lib import Table
+import pyarrow.lib as ext
+
+try:
+    infer_dtype = pdapi.infer_dtype
+except AttributeError:
+    infer_dtype = pd.lib.infer_dtype
 
 
 if LooseVersion(pd.__version__) < '0.17.0':
@@ -37,7 +42,7 @@ class FeatherReader(ext.FeatherReader):
         self.source = source
         self.open(source)
 
-    def read(self, columns=None):
+    def read(self, columns=None, nthreads=1):
         if columns is not None:
             column_set = set(columns)
         else:
@@ -53,7 +58,7 @@ class FeatherReader(ext.FeatherReader):
                 names.append(name)
 
         table = Table.from_arrays(columns, names=names)
-        return table.to_pandas()
+        return table.to_pandas(nthreads=nthreads)
 
 
 class FeatherWriter(object):
@@ -75,7 +80,7 @@ class FeatherWriter(object):
             col = df.iloc[:, i]
 
             if pdapi.is_object_dtype(col):
-                inferred_type = pd.lib.infer_dtype(col)
+                inferred_type = infer_dtype(col)
                 msg = ("cannot serialize column {n} "
                        "named {name} with dtype {dtype}".format(
                            n=i, name=name, dtype=inferred_type))
@@ -83,7 +88,7 @@ class FeatherWriter(object):
                 if inferred_type in ['mixed']:
 
                     # allow columns with nulls + an inferable type
-                    inferred_type = pd.lib.infer_dtype(col[col.notnull()])
+                    inferred_type = infer_dtype(col[col.notnull()])
                     if inferred_type in ['mixed']:
                         raise ValueError(msg)
 
@@ -118,7 +123,7 @@ def write_feather(df, dest):
         raise
 
 
-def read_feather(source, columns=None):
+def read_feather(source, columns=None, nthreads=1):
     """
     Read a pandas.DataFrame from Feather format
 
@@ -128,10 +133,12 @@ def read_feather(source, columns=None):
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read
+    nthreads : int, default 1
+        Number of CPU threads to use when reading to pandas.DataFrame
 
     Returns
     -------
     df : pandas.DataFrame
     """
     reader = FeatherReader(source)
-    return reader.read(columns=columns)
+    return reader.read(columns=columns, nthreads=nthreads)

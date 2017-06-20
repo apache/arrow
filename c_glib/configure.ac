@@ -97,6 +97,7 @@ AC_CONFIG_FILES([
   doc/Makefile
   doc/reference/Makefile
   example/Makefile
+  example/lua/Makefile
 ])
 
 AC_OUTPUT

@@ -23,7 +23,7 @@ import pandas as pd
 import pyarrow as pa
 
 
-def dataframe_with_arrays():
+def dataframe_with_arrays(include_index=False):
     """
     Dataframe with numpy arrays columns of every possible primtive type.
 
@@ -72,13 +72,15 @@ def dataframe_with_arrays():
                  dtype='datetime64[ms]'),
     ]
 
+    if include_index:
+        fields.append(pa.field('__index_level_0__', pa.int64()))
     df = pd.DataFrame(arrays)
     schema = pa.schema(fields)
 
     return df, schema
 
 
-def dataframe_with_lists():
+def dataframe_with_lists(include_index=False):
     """
     Dataframe with list columns of every possible primtive type.
 
@@ -113,6 +115,8 @@ def dataframe_with_lists():
         [u"1", u"2", u"3"]
     ]
 
+    if include_index:
+        fields.append(pa.field('__index_level_0__', pa.int64()))
     df = pd.DataFrame(arrays)
     schema = pa.schema(fields)
 

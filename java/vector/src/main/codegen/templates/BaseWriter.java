@@ -30,7 +30,7 @@ package org.apache.arrow.vector.complex.writer;
  * File generated from ${.template_name} using FreeMarker.
  */
 @SuppressWarnings("unused")
-  public interface BaseWriter extends AutoCloseable, Positionable {
+public interface BaseWriter extends AutoCloseable, Positionable {
   int getValueCapacity();
 
   public interface MapWriter extends BaseWriter {
@@ -39,12 +39,12 @@ package org.apache.arrow.vector.complex.writer;
 
     /**
      * Whether this writer is a map writer and is empty (has no children).
-     * 
+     *
      * <p>
      *   Intended only for use in determining whether to add dummy vector to
      *   avoid empty (zero-column) schema, as in JsonReader.
      * </p>
-     * 
+     * @return whether the map is empty
      */
     boolean isEmptyMap();
 
@@ -53,8 +53,8 @@ package org.apache.arrow.vector.complex.writer;
     <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
-    <#if minor.class?starts_with("Decimal") >
-    ${capName}Writer ${lowerName}(String name, int scale, int precision);
+    <#if minor.typeParams?? >
+    ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>);
     </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>

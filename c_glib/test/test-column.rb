@@ -38,6 +38,19 @@ class TestColumn < Test::Unit::TestCase
     end
   end
 
+  def test_equal
+    field1 = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    array1 = build_boolean_array([true, false])
+    field2 = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    chunks = [
+      build_boolean_array([true]),
+      build_boolean_array([false]),
+    ]
+    array2 = Arrow::ChunkedArray.new(chunks)
+    assert_equal(Arrow::Column.new(field1, array1),
+                 Arrow::Column.new(field2, array2))
+  end
+
   def test_length
     field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
     array = build_boolean_array([true, false])

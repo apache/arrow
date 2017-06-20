@@ -38,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 /**
  * Arrow types
+ * Source code generated using FreeMarker template ${.template_name}
  **/
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,
@@ -100,7 +101,7 @@ public abstract class ArrowType {
   /**
    * to visit the ArrowTypes
    * <code>
-   *   type.accept(new ArrowTypeVisitor<Type>() {
+   *   type.accept(new ArrowTypeVisitor&lt;Type&gt;() {
    *   ...
    *   });
    * </code>

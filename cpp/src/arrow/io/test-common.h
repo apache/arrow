@@ -80,6 +80,8 @@ class MemoryMapFixture {
     return Status::OK();
   }
 
+  void AppendFile(const std::string& path) { tmp_files_.push_back(path); }
+
  private:
   std::vector<std::string> tmp_files_;
 };

@@ -50,77 +50,15 @@ released in the future.
 
 ### Package
 
-There are supported platforms:
-
-  * Debian GNU/Linux Jessie
-  * Ubuntu 16.04 LTS
-  * Ubuntu 16.10
-  * CentOS 7
-
-You can feedback to https://github.com/kou/arrow-packages about
-packages things.
-
-#### Debian GNU/Linux jessie
-
-You need to add the following apt-lines to
-`/etc/apt/sources.list.d/groonga.list`:
-
-```text
-deb https://packages.groonga.org/debian/ jessie main
-deb-src https://packages.groonga.org/debian/ jessie main
-```
-
-Then you need to run the following command lines:
-
-```text
-% sudo apt update
-% sudo apt install -y --allow-unauthenticated groonga-keyring
-% sudo apt update
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo apt install -y libarrow-glib-dev
-```
-
-#### Ubuntu 16.04 LTS and Ubuntu 16.10
-
-You need to add an APT repository:
-
-```text
-% sudo apt install -y software-properties-common
-% sudo add-apt-repository -y ppa:groonga/ppa
-% sudo apt update
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo apt install -y libarrow-glib-dev
-```
-
-#### CentOS 7
-
-You need to add a Yum repository:
-
-```text
-% sudo yum install -y https://packages.groonga.org/centos/groonga-release-1.3.0-1.noarch.rpm
-```
-
-Now you can install Arrow GLib packages:
-
-```text
-% sudo yum install -y --enablerepo=epel arrow-glib-devel
-```
+See [install document](../site/install.md) for details.
 
 ### How to build by users
 
 Arrow GLib users should use released source archive to build Arrow
-GLib:
+GLib (replace the version number in the following commands with the one you use):
 
 ```text
-% wget https://dist.apache.org/repos/dist/release/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
+% wget https://archive.apache.org/dist/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
 % tar xf apache-arrow-0.3.0.tar.gz
 % cd apache-arrow-0.3.0
 ```
@@ -143,7 +81,7 @@ You need to install Arrow C++ before you install Arrow GLib. See Arrow
 C++ document about how to install Arrow C++.
 
 You need [GTK-Doc](https://www.gtk.org/gtk-doc/) and
-[GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection)
+[GObject Introspection](https://wiki.gnome.org/Projects/GObjectIntrospection)
 to build Arrow GLib. You can install them by the followings:
 
 On Debian GNU/Linux or Ubuntu:
@@ -194,13 +132,63 @@ You can use Arrow GLib with non C languages with GObject Introspection
 based bindings. Here are languages that support GObject Introspection:
 
   * Ruby: [red-arrow gem](https://rubygems.org/gems/red-arrow) should be used.
+    * Examples: https://github.com/red-data-tools/red-arrow/tree/master/example
 
   * Python: [PyGObject](https://wiki.gnome.org/Projects/PyGObject) should be used. (Note that you should use PyArrow than Arrow GLib.)
 
   * Lua: [LGI](https://github.com/pavouk/lgi) should be used.
+    * Examples: `example/lua/` directory.
 
   * Go: [Go-gir-generator](https://github.com/linuxdeepin/go-gir-generator) should be used.
 
 See also
 [Projects/GObjectIntrospection/Users - GNOME Wiki!](https://wiki.gnome.org/Projects/GObjectIntrospection/Users)
 for other languages.
+
+## How to run test
+
+Arrow GLib has unit tests. You can confirm that you install Apache
+GLib correctly by running unit tests.
+
+You need to install the followings to run unit tests:
+
+  * [Ruby](https://www.ruby-lang.org/)
+  * [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection)
+  * [test-unit gem](https://rubygems.org/gems/test-unit)
+
+You can install them by the followings:
+
+On Debian GNU/Linux or Ubuntu:
+
+```text
+% sudo apt install -y -V ruby-dev
+% sudo gem install gobject-introspection test-unit
+```
+
+On CentOS 7 or later:
+
+```text
+% sudo yum install -y git
+% git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
+% git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
+% echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+% echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+% exec ${SHELL} --login
+% sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
+% rbenv install 2.4.1
+% rbenv global 2.4.1
+% gem install gobject-introspection test-unit
+```
+
+On macOS with [Homebrew](https://brew.sh/):
+
+```text
+% gem install gobject-introspection test-unit
+```
+
+Now, you can run unit tests by the followings:
+
+```text
+% cd c_glib
+% test/run-test.sh
+```

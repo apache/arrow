@@ -66,6 +66,8 @@ GArrowTensor   *garrow_tensor_new                (GArrowDataType *data_type,
                                                   gsize n_strides,
                                                   gchar **dimention_names,
                                                   gsize n_dimention_names);
+gboolean        garrow_tensor_equal              (GArrowTensor *tensor,
+                                                  GArrowTensor *other_tensor);
 GArrowDataType *garrow_tensor_get_value_data_type(GArrowTensor *tensor);
 GArrowType      garrow_tensor_get_value_type     (GArrowTensor *tensor);
 GArrowBuffer   *garrow_tensor_get_buffer         (GArrowTensor *tensor);

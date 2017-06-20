@@ -74,18 +74,22 @@ public class Text {
 
   /**
    * Construct from a string.
+   * @param string initialize from that string
    */
   public Text(String string) {
     set(string);
   }
 
-  /** Construct from another text. */
+  /** Construct from another text.
+   * @param utf8 initialize from that Text
+   */
   public Text(Text utf8) {
     set(utf8);
   }
 
   /**
    * Construct from a byte array.
+   * @param utf8 initialize from that byte array
    */
   public Text(byte[] utf8) {
     set(utf8);
@@ -94,6 +98,7 @@ public class Text {
   /**
    * Get a copy of the bytes that is exactly the length of the data. See {@link #getBytes()} for faster access to the
    * underlying array.
+   * @return a copy of the underlying array
    */
   public byte[] copyBytes() {
     byte[] result = new byte[length];
@@ -104,12 +109,13 @@ public class Text {
   /**
    * Returns the raw bytes; however, only data up to {@link #getLength()} is valid. Please use {@link #copyBytes()} if
    * you need the returned array to be precisely the length of the data.
+   * @return the underlying array
    */
   public byte[] getBytes() {
     return bytes;
   }
 
-  /** Returns the number of bytes in the byte array */
+  /** @return the number of bytes in the byte array */
   public int getLength() {
     return length;
   }
@@ -118,6 +124,7 @@ public class Text {
    * Returns the Unicode Scalar Value (32-bit integer value) for the character at <code>position</code>. Note that this
    * method avoids using the converter or doing String instantiation
    *
+   * @param position the index of the char we want to retrieve
    * @return the Unicode scalar value at position or -1 if the position is invalid or points to a trailing byte
    */
   public int charAt(int position) {
@@ -143,6 +150,8 @@ public class Text {
    * starting position is measured in bytes and the return value is in terms of byte position in the buffer. The backing
    * buffer is not converted to a string for this operation.
    *
+   * @param what the string to search for
+   * @param start where to start from
    * @return byte position of the first occurence of the search string in the UTF-8 buffer or -1 if not found
    */
   public int find(String what, int start) {
@@ -187,6 +196,7 @@ public class Text {
 
   /**
    * Set to contain the contents of a string.
+   * @param string the string to initialize from
    */
   public void set(String string) {
     try {
@@ -200,12 +210,14 @@ public class Text {
 
   /**
    * Set to a utf8 byte array
+   * @param utf8 the byte array to initialize from
    */
   public void set(byte[] utf8) {
     set(utf8, 0, utf8.length);
   }
 
-  /** copy a text. */
+  /** copy a text.
+   * @param other the text to initialize from */
   public void set(Text other) {
     set(other.getBytes(), 0, other.getLength());
   }
@@ -253,13 +265,12 @@ public class Text {
     length = 0;
   }
 
-  /*
+  /**
    * Sets the capacity of this Text object to <em>at least</em> <code>len</code> bytes. If the current buffer is longer,
    * then the capacity and existing content of the buffer are unchanged. If <code>len</code> is larger than the current
    * capacity, the Text object's capacity is increased to match.
    *
    * @param len the number of bytes we need
-   *
    * @param keepData should the old data be kept
    */
   private void setCapacity(int len, boolean keepData) {
@@ -272,11 +283,6 @@ public class Text {
     }
   }
 
-  /**
-   * Convert text back to string
-   *
-   * @see java.lang.Object#toString()
-   */
   @Override
   public String toString() {
     try {
@@ -289,6 +295,9 @@ public class Text {
   /**
    * Read a Text object whose length is already known. This allows creating Text from a stream which uses a different
    * serialization format.
+   * @param in the input to initialize from
+   * @param len how many bytes to read from in
+   * @throws IOException if something bad happens
    */
   public void readWithKnownLength(DataInput in, int len) throws IOException {
     setCapacity(len, false);
@@ -296,7 +305,6 @@ public class Text {
     length = len;
   }
 
-  /** Returns true iff <code>o</code> is a Text with the same contents. */
   @Override
   public boolean equals(Object o) {
     if (o == this) {
@@ -326,7 +334,7 @@ public class Text {
   /**
    * Copied from Arrays.hashCode so we don't have to copy the byte array
    *
-   * @return
+   * @return hashCode
    */
   @Override
   public int hashCode() {
@@ -346,6 +354,9 @@ public class Text {
   /**
    * Converts the provided byte array to a String using the UTF-8 encoding. If the input is malformed, replace by a
    * default value.
+   * @param utf8 bytes to decode
+   * @return the decoded string
+   * @throws CharacterCodingException if this is not valid UTF-8
    */
   public static String decode(byte[] utf8) throws CharacterCodingException {
     return decode(ByteBuffer.wrap(utf8), true);
@@ -360,6 +371,12 @@ public class Text {
    * Converts the provided byte array to a String using the UTF-8 encoding. If <code>replace</code> is true, then
    * malformed input is replaced with the substitution character, which is U+FFFD. Otherwise the method throws a
    * MalformedInputException.
+   * @param utf8 the bytes to decode
+   * @param start where to start from
+   * @param length length of the bytes to decode
+   * @param replace whether to replace malformed characters with U+FFFD
+   * @return the decoded string
+   * @throws CharacterCodingException if the input could not be decoded
    */
   public static String decode(byte[] utf8, int start, int length, boolean replace)
       throws CharacterCodingException {
@@ -387,9 +404,10 @@ public class Text {
    * Converts the provided String to bytes using the UTF-8 encoding. If the input is malformed, invalid chars are
    * replaced by a default value.
    *
+   * @param string the string to encode
    * @return ByteBuffer: bytes stores at ByteBuffer.array() and length is ByteBuffer.limit()
+   * @throws CharacterCodingException if the string could not be encoded
    */
-
   public static ByteBuffer encode(String string)
       throws CharacterCodingException {
     return encode(string, true);
@@ -400,7 +418,11 @@ public class Text {
    * input is replaced with the substitution character, which is U+FFFD. Otherwise the method throws a
    * MalformedInputException.
    *
+
+   * @param string the string to encode
+   * @param replace whether to replace malformed characters with U+FFFD
    * @return ByteBuffer: bytes stores at ByteBuffer.array() and length is ByteBuffer.limit()
+   * @throws CharacterCodingException if the string could not be encoded
    */
   public static ByteBuffer encode(String string, boolean replace)
       throws CharacterCodingException {
@@ -553,6 +575,8 @@ public class Text {
   /**
    * Returns the next code point at the current position in the buffer. The buffer's position will be incremented. Any
    * mark set on this buffer will be changed by this method!
+   * @param bytes the incoming bytes
+   * @return the corresponding unicode codepoint
    */
   public static int bytesToCodePoint(ByteBuffer bytes) {
     bytes.mark();

@@ -51,7 +51,7 @@ Base requirements
 
 * A physical memory layout enabling zero-deserialization data interchange
   amongst a variety of systems handling flat and nested columnar data, including
-  such systems as Spark, Drill, Impala, Kudu, Ibis, Spark, ODBC protocols, and
+  such systems as Spark, Drill, Impala, Kudu, Ibis, ODBC protocols, and
   proprietary systems that utilize the open source components.
 * All array slots are accessible in constant time, with complexity growing
   linearly in the nesting level
@@ -114,7 +114,7 @@ data-structures over 64 bytes (which will be a common case for Arrow Arrays).
 
 Requiring padding to a multiple of 64 bytes allows for using [SIMD][4] instructions
 consistently in loops without additional conditional checks.
-This should allow for simpler and more efficient code.  
+This should allow for simpler and more efficient code.
 The specific padding length was chosen because it matches the largest known
 SIMD instruction registers available as of April 2016 (Intel AVX-512).
 Guaranteed padding can also allow certain compilers
@@ -146,7 +146,7 @@ signed integer, as it may be as large as the array length.
 Any relative type can have null value slots, whether primitive or nested type.
 
 An array with nulls must have a contiguous memory buffer, known as the null (or
-validity) bitmap, whose length is a multiple of 64 bytes (as discussed above)  
+validity) bitmap, whose length is a multiple of 64 bytes (as discussed above)
 and large enough to have at least 1 bit for each array
 slot.
 
@@ -205,7 +205,7 @@ Would look like:
 
   |Byte 0 (validity bitmap) | Bytes 1-63            |
   |-------------------------|-----------------------|
-  |00011011                 | 0 (padding)           |
+  | 00011011                | 0 (padding)           |
 
 * Value Buffer:
 
@@ -378,16 +378,16 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 * Length: 4, Null count: 1
 * Null bitmap buffer:
 
-  | Byte 0 (validity bitmap) | Bytes 1-7   | Bytes 8-63  |
-  |--------------------------|-------------|-------------|
-  | 00001011                 | 0 (padding) | unspecified |
+  |Byte 0 (validity bitmap) | Bytes 1-63            |
+  |-------------------------|-----------------------|
+  | 00001011                | 0 (padding)           |
 
 * Children arrays:
   * field-0 array (`List<char>`):
     * Length: 4, Null count: 1
     * Null bitmap buffer:
 
-      | Byte 0 (validity bitmap) | Bytes 1-7             |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
       | 00001101                 | 0 (padding)           |
 
@@ -447,7 +447,7 @@ of overhead for each value. Its physical layout is as follows:
 * One child array for each relative type
 * Types buffer: A buffer of 8-bit signed integers, enumerated from 0 corresponding
   to each type.  A union with more then 127 possible types can be modeled as a
-  union of unions. 
+  union of unions.
 * Offsets buffer: A buffer of signed int32 values indicating the relative offset
   into the respective child array for the type in a given slot. The respective
   offsets for each child value array must be in order / increasing.
@@ -555,7 +555,7 @@ will have the following layout:
 
       |Byte 0 (validity bitmap) | Bytes 1-63            |
       |-------------------------|-----------------------|
-      |00001010                 | 0 (padding)           |
+      | 00001010                | 0 (padding)           |
 
     * Value buffer:
 
@@ -636,7 +636,7 @@ type: List<String>
 
 ## References
 
-Apache Drill Documentation - [Value Vectors][6] 
+Apache Drill Documentation - [Value Vectors][6]
 
 [1]: https://en.wikipedia.org/wiki/Bit_numbering
 [2]: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors

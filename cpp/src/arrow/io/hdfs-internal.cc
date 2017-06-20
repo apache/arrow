@@ -69,7 +69,7 @@ static std::vector<fs::path> get_potential_libhdfs_paths() {
   std::string file_name;
 
 // OS-specific file name
-#ifdef __WIN32
+#ifdef _WIN32
   file_name = "hdfs.dll";
 #elif __APPLE__
   file_name = "libhdfs.dylib";
@@ -103,7 +103,7 @@ static std::vector<fs::path> get_potential_libhdfs3_paths() {
   std::string file_name;
 
 // OS-specific file name
-#ifdef __WIN32
+#ifdef _WIN32
   file_name = "hdfs3.dll";
 #elif __APPLE__
   file_name = "libhdfs3.dylib";

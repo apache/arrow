@@ -20,22 +20,13 @@
 #pragma once
 
 #include <arrow/io/file.h>
+#include <arrow/io/memory.h>
 
 #include <arrow-glib/output-stream.h>
 
-/**
- * GArrowOutputStreamInterface:
- *
- * It wraps `arrow::io::OutputStream`.
- */
-struct _GArrowOutputStreamInterface
-{
-  GTypeInterface parent_iface;
-
-  std::shared_ptr<arrow::io::OutputStream> (*get_raw)(GArrowOutputStream *file);
-};
-
+GArrowOutputStream *garrow_output_stream_new_raw(std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream);
 std::shared_ptr<arrow::io::OutputStream> garrow_output_stream_get_raw(GArrowOutputStream *output_stream);
 
+
 GArrowFileOutputStream *garrow_file_output_stream_new_raw(std::shared_ptr<arrow::io::FileOutputStream> *arrow_file_output_stream);
-std::shared_ptr<arrow::io::FileOutputStream> garrow_file_output_stream_get_raw(GArrowFileOutputStream *file_output_stream);
+GArrowBufferOutputStream *garrow_buffer_output_stream_new_raw(std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream);

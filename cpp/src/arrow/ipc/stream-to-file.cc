@@ -24,18 +24,19 @@
 #include "arrow/util/io-util.h"
 
 namespace arrow {
+namespace ipc {
 
 // Converts a stream from stdin to a file written to standard out.
 // A typical usage would be:
 // $ <program that produces streaming output> | stream-to-file > file.arrow
 Status ConvertToFile() {
   std::shared_ptr<io::InputStream> input(new io::StdinStream);
-  std::shared_ptr<ipc::StreamReader> reader;
-  RETURN_NOT_OK(ipc::StreamReader::Open(input, &reader));
+  std::shared_ptr<RecordBatchStreamReader> reader;
+  RETURN_NOT_OK(RecordBatchStreamReader::Open(input, &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<ipc::FileWriter> writer;
-  RETURN_NOT_OK(ipc::FileWriter::Open(&sink, reader->schema(), &writer));
+  std::shared_ptr<RecordBatchFileWriter> writer;
+  RETURN_NOT_OK(RecordBatchFileWriter::Open(&sink, reader->schema(), &writer));
 
   std::shared_ptr<RecordBatch> batch;
   while (true) {
@@ -46,10 +47,11 @@ Status ConvertToFile() {
   return writer->Close();
 }
 
+}  // namespace ipc
 }  // namespace arrow
 
 int main(int argc, char** argv) {
-  arrow::Status status = arrow::ConvertToFile();
+  arrow::Status status = arrow::ipc::ConvertToFile();
   if (!status.ok()) {
     std::cerr << "Could not convert to file: " << status.ToString() << std::endl;
     return 1;

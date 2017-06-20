@@ -42,9 +42,7 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
 }
 
 bool Field::Equals(const Field& other) const {
-  if (this == &other) {
-    return true;
-  }
+  if (this == &other) { return true; }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
     if (metadata_ == nullptr && other.metadata_ == nullptr) {
@@ -267,7 +265,12 @@ bool Schema::Equals(const Schema& other) const {
   return true;
 }
 
-std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
+std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
+  int64_t i = GetFieldIndex(name);
+  return i == -1 ? nullptr : fields_[i];
+}
+
+int64_t Schema::GetFieldIndex(const std::string& name) const {
   if (fields_.size() > 0 && name_to_index_.size() == 0) {
     for (size_t i = 0; i < fields_.size(); ++i) {
       name_to_index_[fields_[i]->name()] = static_cast<int>(i);
@@ -276,9 +279,9 @@ std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) {
 
   auto it = name_to_index_.find(name);
   if (it == name_to_index_.end()) {
-    return nullptr;
+    return -1;
   } else {
-    return fields_[it->second];
+    return it->second;
   }
 }
 
@@ -322,8 +325,7 @@ std::string Schema::ToString() const {
   if (metadata_) {
     buffer << "\n-- metadata --";
     for (int64_t i = 0; i < metadata_->size(); ++i) {
-      buffer << "\n" << metadata_->key(i) << ": "
-             << metadata_->value(i);
+      buffer << "\n" << metadata_->key(i) << ": " << metadata_->value(i);
     }
   }
 
@@ -419,8 +421,8 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
   return std::make_shared<DictionaryType>(index_type, dict_values);
 }
 
-std::shared_ptr<Field> field(
-    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable,
+std::shared_ptr<Field> field(const std::string& name,
+    const std::shared_ptr<DataType>& type, bool nullable,
     const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Field>(name, type, nullable, metadata);
 }

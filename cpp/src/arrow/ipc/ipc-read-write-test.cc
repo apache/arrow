@@ -140,16 +140,16 @@ class IpcTestFixture : public io::MemoryMapFixture {
     if (zero_data) { RETURN_NOT_OK(ZeroMemoryMap(mmap_.get())); }
     RETURN_NOT_OK(mmap_->Seek(0));
 
-    std::shared_ptr<FileWriter> file_writer;
-    RETURN_NOT_OK(FileWriter::Open(mmap_.get(), batch.schema(), &file_writer));
+    std::shared_ptr<RecordBatchFileWriter> file_writer;
+    RETURN_NOT_OK(RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), &file_writer));
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch, true));
     RETURN_NOT_OK(file_writer->Close());
 
     int64_t offset;
     RETURN_NOT_OK(mmap_->Tell(&offset));
 
-    std::shared_ptr<FileReader> file_reader;
-    RETURN_NOT_OK(FileReader::Open(mmap_, offset, &file_reader));
+    std::shared_ptr<RecordBatchFileReader> file_reader;
+    RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_, offset, &file_reader));
 
     return file_reader->GetRecordBatch(0, result);
   }
@@ -487,8 +487,9 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
   Status RoundTripHelper(const BatchVector& in_batches, BatchVector* out_batches) {
     // Write the file
-    std::shared_ptr<FileWriter> writer;
-    RETURN_NOT_OK(FileWriter::Open(sink_.get(), in_batches[0]->schema(), &writer));
+    std::shared_ptr<RecordBatchFileWriter> writer;
+    RETURN_NOT_OK(
+        RecordBatchFileWriter::Open(sink_.get(), in_batches[0]->schema(), &writer));
 
     const int num_batches = static_cast<int>(in_batches.size());
 
@@ -504,8 +505,8 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
     // Open the file
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    std::shared_ptr<FileReader> reader;
-    RETURN_NOT_OK(FileReader::Open(buf_reader, footer_offset, &reader));
+    std::shared_ptr<RecordBatchFileReader> reader;
+    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader, footer_offset, &reader));
 
     EXPECT_EQ(num_batches, reader->num_record_batches());
     for (int i = 0; i < num_batches; ++i) {
@@ -553,8 +554,8 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   Status RoundTripHelper(
       const RecordBatch& batch, std::vector<std::shared_ptr<RecordBatch>>* out_batches) {
     // Write the file
-    std::shared_ptr<StreamWriter> writer;
-    RETURN_NOT_OK(StreamWriter::Open(sink_.get(), batch.schema(), &writer));
+    std::shared_ptr<RecordBatchStreamWriter> writer;
+    RETURN_NOT_OK(RecordBatchStreamWriter::Open(sink_.get(), batch.schema(), &writer));
     int num_batches = 5;
     for (int i = 0; i < num_batches; ++i) {
       RETURN_NOT_OK(writer->WriteRecordBatch(batch));
@@ -565,8 +566,8 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
     // Open the file
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
 
-    std::shared_ptr<StreamReader> reader;
-    RETURN_NOT_OK(StreamReader::Open(buf_reader, &reader));
+    std::shared_ptr<RecordBatchStreamReader> reader;
+    RETURN_NOT_OK(RecordBatchStreamReader::Open(buf_reader, &reader));
 
     std::shared_ptr<RecordBatch> chunk;
     while (true) {

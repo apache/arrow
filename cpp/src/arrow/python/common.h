@@ -34,9 +34,7 @@ namespace py {
 
 class ARROW_EXPORT PyAcquireGIL {
  public:
-  PyAcquireGIL() : acquired_gil_(false) {
-    acquire();
-  }
+  PyAcquireGIL() : acquired_gil_(false) { acquire(); }
 
   ~PyAcquireGIL() { release(); }
 
@@ -71,7 +69,7 @@ class ARROW_EXPORT OwnedRef {
 
   ~OwnedRef() {
     PyAcquireGIL lock;
-    Py_XDECREF(obj_);
+    release();
   }
 
   void reset(PyObject* obj) {
@@ -80,6 +78,11 @@ class ARROW_EXPORT OwnedRef {
     /// but callers have probably already acquired it
     Py_XDECREF(obj_);
     obj_ = obj;
+  }
+
+  void release() {
+    Py_XDECREF(obj_);
+    obj_ = nullptr;
   }
 
   PyObject* obj() const { return obj_; }
@@ -113,11 +116,9 @@ struct ARROW_EXPORT PyObjectStringify {
 Status CheckPyError(StatusCode code = StatusCode::UnknownError);
 
 // TODO(wesm): We can just let errors pass through. To be explored later
-#define RETURN_IF_PYERROR()                     \
-  RETURN_NOT_OK(CheckPyError());
+#define RETURN_IF_PYERROR() RETURN_NOT_OK(CheckPyError());
 
-#define PY_RETURN_IF_ERROR(CODE)                \
-  RETURN_NOT_OK(CheckPyError(CODE));
+#define PY_RETURN_IF_ERROR(CODE) RETURN_NOT_OK(CheckPyError(CODE));
 
 // Return the common PyArrow memory pool
 ARROW_EXPORT void set_default_memory_pool(MemoryPool* pool);

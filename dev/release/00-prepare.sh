@@ -17,30 +17,29 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ -z "$1" ]; then
+if [ "$#" -eq 2 ]; then
+  version=$1
+  nextVersion=$2
+  nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
+  tag=apache-arrow-${version}
+
+  echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}" 
+
+  cd "${SOURCE_DIR}/../../java"
+
+  mvn release:clean
+  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${nextVersionSNAPSHOT}
+
+  cd -
+
+  echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
+
+else  
   echo "Usage: $0 <version> <nextVersion>"
   exit
 fi
 
-if [ -z "$2" ]; then
-  echo "Usage: $0 <version> <nextVersion>"
-  exit
-fi
-
-version=$1
-
-tag=apache-arrow-${version}
-
-nextVersion=$2
-
-cd "${SOURCE_DIR}/../../java"
-
-mvn release:clean
-mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${nextVersion}-SNAPSHOT
-
-cd -
-
-echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"

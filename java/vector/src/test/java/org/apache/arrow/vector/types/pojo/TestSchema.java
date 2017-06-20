@@ -47,7 +47,7 @@ import org.junit.Test;
 public class TestSchema {
 
   private static Field field(String name, boolean nullable, ArrowType type, Field... children) {
-    return new Field(name, nullable, type, asList(children));
+    return new Field(name, new FieldType(nullable, type, null, null), asList(children));
   }
 
   private static Field field(String name, ArrowType type, Field... children) {

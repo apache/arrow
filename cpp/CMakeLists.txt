@@ -57,8 +57,8 @@ endif()
 
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
 endif(CCACHE_FOUND)
 
 # ----------------------------------------------------------------------
@@ -89,6 +89,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow micro benchmarks"
     OFF)
 
+  option(ARROW_NO_DEPRECATED_API
+    "Exclude deprecated APIs from build"
+    OFF)
+
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -99,6 +103,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_JEMALLOC_USE_SHARED
     "Rely on jemalloc shared libraries where relevant"
+    ON)
+
+  option(ARROW_HDFS
+    "Build the Arrow HDFS bridge"
     ON)
 
   option(ARROW_BOOST_USE_SHARED
@@ -136,6 +144,12 @@ if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 endif()
 
+if(ARROW_HDFS)
+  set(ARROW_BOOST_HEADER_ONLY 0)
+else()
+  set(ARROW_BOOST_HEADER_ONLY 1)
+endif()
+
 include(BuildUtils)
 
 ############################################################
@@ -143,6 +157,10 @@ include(BuildUtils)
 ############################################################
 
 include(SetupCxxFlags)
+
+if (ARROW_NO_DEPRECATED_API)
+  add_definitions(-DARROW_NO_DEPRECATED_API)
+endif()
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
@@ -394,6 +412,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -412,6 +431,10 @@ endif()
 
 if (DEFINED ENV{JEMALLOC_HOME})
   set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
+endif()
+
+if (DEFINED ENV{GFLAGS_HOME})
+  set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -437,44 +460,54 @@ if (ARROW_BOOST_USE_SHARED)
     add_definitions(-DBOOST_ALL_DYN_LINK)
   endif()
 
-  find_package(Boost COMPONENTS system filesystem REQUIRED)
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-    set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+  if (ARROW_BOOST_HEADER_ONLY)
+    find_package(Boost)
   else()
-    set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-    set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    find_package(Boost COMPONENTS system filesystem REQUIRED)
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    else()
+      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_shared)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
   endif()
-  set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
 else()
   # Find static boost headers and libs
   # TODO Differentiate here between release and debug builds
   set(Boost_USE_STATIC_LIBS ON)
-  find_package(Boost COMPONENTS system filesystem regex REQUIRED)
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+  if (ARROW_BOOST_HEADER_ONLY)
+    find_package(Boost)
   else()
-    set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    else()
+      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
   endif()
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
 
-ADD_THIRDPARTY_LIB(boost_system
-    STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  ADD_THIRDPARTY_LIB(boost_system
+      STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
+      SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
 
-ADD_THIRDPARTY_LIB(boost_filesystem
-    STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-    SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
+  ADD_THIRDPARTY_LIB(boost_filesystem
+      STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
+      SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
 
-SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+  SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
+endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -532,7 +565,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   # gflags (formerly Googleflags) command line parsing
-  if("$ENV{GFLAGS_HOME}" STREQUAL "")
+  if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
@@ -692,6 +725,7 @@ if (ARROW_JEMALLOC)
   find_package(jemalloc)
 
   if(NOT JEMALLOC_FOUND)
+    set(ARROW_JEMALLOC_USE_SHARED OFF)
     set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
     set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
     set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
@@ -831,7 +865,8 @@ if (UNIX)
     )
 
   FOREACH(item ${LINT_FILES})
-    IF(NOT (item MATCHES "_generated.h"))
+    IF(NOT ((item MATCHES "_generated.h") OR
+            (item MATCHES "pyarrow_api.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
   ENDFOREACH(item ${LINT_FILES})
@@ -857,6 +892,7 @@ if (${CLANG_FORMAT_FOUND})
     `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc -or -name \\*.h |
     sed -e '/_generated/g' |
     sed -e '/windows_compatibility.h/g' |
+    sed -e '/pyarrow_api.h/g' |
     sed -e '/config.h/g' |   # python/config.h
     sed -e '/platform.h/g'`  # python/platform.h
     )
@@ -918,9 +954,8 @@ add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
+  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 endif()
-
-set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
 
 set(ARROW_SRCS
   src/arrow/array.cc
@@ -937,8 +972,6 @@ set(ARROW_SRCS
   src/arrow/visitor.cc
 
   src/arrow/io/file.cc
-  src/arrow/io/hdfs.cc
-  src/arrow/io/hdfs-internal.cc
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
 
@@ -946,6 +979,13 @@ set(ARROW_SRCS
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
+
+if (NOT ARROW_BOOST_HEADER_ONLY)
+  set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/io/hdfs.cc
+    src/arrow/io/hdfs-internal.cc
+  )
+endif()
 
 if (ARROW_IPC)
   set(ARROW_SRCS ${ARROW_SRCS}

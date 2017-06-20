@@ -96,6 +96,18 @@ class TestFileOutputStream : public FileTestFixture {
   std::shared_ptr<FileOutputStream> file_;
 };
 
+#if defined(_MSC_VER)
+TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
+  std::shared_ptr<FileOutputStream> file;
+  // Form literal string with non-ASCII symbol(127 + 1)
+  std::string file_name = "\x80";
+  ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &file));
+
+  std::shared_ptr<ReadableFile> rd_file;
+  ASSERT_RAISES(Invalid, ReadableFile::Open(file_name, &rd_file));
+}
+#endif
+
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
   int fd;
   {
@@ -251,6 +263,15 @@ TEST_F(TestReadableFile, Read) {
   ASSERT_OK(file_->Read(10, &bytes_read, buffer));
   ASSERT_EQ(4, bytes_read);
   ASSERT_EQ(0, std::memcmp(buffer, "data", 4));
+
+  // Test incomplete read, ARROW-1094
+  std::shared_ptr<Buffer> buf;
+  int64_t size;
+  ASSERT_OK(file_->GetSize(&size));
+
+  ASSERT_OK(file_->Seek(1));
+  ASSERT_OK(file_->Read(size, &buf));
+  ASSERT_EQ(size - 1, buf->size());
 }
 
 TEST_F(TestReadableFile, ReadAt) {
@@ -419,6 +440,41 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
   std::string path = "ipc-read-only-test";
   std::shared_ptr<MemoryMappedFile> rwmmap;
   ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &rwmmap));
+
+  int64_t position = 0;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rwmmap->Close();
+
+  std::shared_ptr<MemoryMappedFile> rommap;
+  ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
+
+  position = 0;
+  std::shared_ptr<Buffer> out_buffer;
+  for (int i = 0; i < reps; ++i) {
+    ASSERT_OK(rommap->ReadAt(position, buffer_size, &out_buffer));
+
+    ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
+    position += buffer_size;
+  }
+  rommap->Close();
+}
+
+TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
+  // ARROW-1096
+  const int64_t buffer_size = 1000 * 1000;
+  std::vector<uint8_t> buffer(buffer_size);
+
+  test::random_bytes(buffer_size, 0, buffer.data());
+
+  const int64_t reps = 5000;
+
+  std::string path = "ipc-read-over-4gb-file-test";
+  std::shared_ptr<MemoryMappedFile> rwmmap;
+  ASSERT_OK(InitMemoryMap(reps * buffer_size, path, &rwmmap));
+  AppendFile(path);
 
   int64_t position = 0;
   for (int i = 0; i < reps; ++i) {

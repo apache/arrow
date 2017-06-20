@@ -80,6 +80,14 @@ static inline bool PyObject_is_string(const PyObject* obj) {
 #endif
 }
 
+static inline bool PyObject_is_float(const PyObject* obj) {
+  return PyFloat_Check(obj);
+}
+
+static inline bool PyObject_is_integer(const PyObject* obj) {
+  return (!PyBool_Check(obj)) && PyArray_IsIntegerScalar(obj);
+}
+
 template <int TYPE>
 static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   typedef npy_traits<TYPE> traits;
@@ -394,9 +402,11 @@ class PandasConverter {
   template <typename ArrowType>
   Status ConvertDates();
 
-  Status ConvertObjectStrings();
-  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertBooleans();
+  Status ConvertObjectStrings();
+  Status ConvertObjectFloats();
+  Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
+  Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertObjects();
   Status ConvertDecimals();
@@ -610,6 +620,70 @@ Status PandasConverter::ConvertObjectStrings() {
   return Status::OK();
 }
 
+Status PandasConverter::ConvertObjectFloats() {
+  PyAcquireGIL lock;
+
+  DoubleBuilder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
+
+  PyObject* obj;
+  for (int64_t i = 0; i < objects.size(); ++i) {
+    obj = objects[i];
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyFloat_Check(obj)) {
+      double val = PyFloat_AsDouble(obj);
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(builder.Append(val));
+    } else {
+      return InvalidConversion(obj, "float");
+    }
+  }
+
+  return builder.Finish(&out_);
+}
+
+Status PandasConverter::ConvertObjectIntegers() {
+  PyAcquireGIL lock;
+
+  Int64Builder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
+
+  Ndarray1DIndexer<PyObject*> objects(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
+
+  PyObject* obj;
+  for (int64_t i = 0; i < objects.size(); ++i) {
+    obj = objects[i];
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyObject_is_integer(obj)) {
+      const int64_t val = static_cast<int64_t>(PyLong_AsLong(obj));
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(builder.Append(val));
+    } else {
+      return InvalidConversion(obj, "integer");
+    }
+  }
+
+  return builder.Finish(&out_);
+}
+
 Status PandasConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
@@ -804,8 +878,12 @@ Status PandasConverter::ConvertObjects() {
         continue;
       } else if (PyObject_is_string(objects[i])) {
         return ConvertObjectStrings();
+      } else if (PyObject_is_float(objects[i])) {
+        return ConvertObjectFloats();
       } else if (PyBool_Check(objects[i])) {
         return ConvertBooleans();
+      } else if (PyObject_is_integer(objects[i])) {
+        return ConvertObjectIntegers();
       } else if (PyDate_CheckExact(objects[i])) {
         // We could choose Date32 or Date64
         return ConvertDates<Date32Type>();
@@ -813,7 +891,7 @@ Status PandasConverter::ConvertObjects() {
         return ConvertDecimals();
       } else {
         return InvalidConversion(
-            const_cast<PyObject*>(objects[i]), "string, bool, or date");
+            const_cast<PyObject*>(objects[i]), "string, bool, float, int, date, decimal");
       }
     }
   }
@@ -977,6 +1055,56 @@ Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 // ----------------------------------------------------------------------
 // pandas 0.x DataFrame conversion internals
 
+inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out) {
+  if (type == NPY_DATETIME) {
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+    if (datatype->id() == Type::TIMESTAMP) {
+      auto timestamp_type = static_cast<TimestampType*>(datatype);
+
+      switch (timestamp_type->unit()) {
+        case TimestampType::Unit::SECOND:
+          date_dtype->meta.base = NPY_FR_s;
+          break;
+        case TimestampType::Unit::MILLI:
+          date_dtype->meta.base = NPY_FR_ms;
+          break;
+        case TimestampType::Unit::MICRO:
+          date_dtype->meta.base = NPY_FR_us;
+          break;
+        case TimestampType::Unit::NANO:
+          date_dtype->meta.base = NPY_FR_ns;
+          break;
+      }
+    } else {
+      // datatype->type == Type::DATE64
+      date_dtype->meta.base = NPY_FR_D;
+    }
+  }
+}
+
+static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
+  if (type == NPY_DATETIME) {
+    // It is not safe to mutate the result of DescrFromType
+    return PyArray_DescrNewFromType(type);
+  } else {
+    return PyArray_DescrFromType(type);
+  }
+}
+static inline PyObject* NewArray1DFromType(
+    DataType* arrow_type, int type, int64_t length, void* data) {
+  npy_intp dims[1] = {length};
+
+  PyArray_Descr* descr = GetSafeNumPyDtype(type);
+  if (descr == nullptr) {
+    // Error occurred, trust error state is set
+    return nullptr;
+  }
+
+  set_numpy_metadata(type, arrow_type, descr);
+  return PyArray_NewFromDescr(&PyArray_Type, descr, 1, dims, nullptr, data,
+      NPY_ARRAY_OWNDATA | NPY_ARRAY_CARRAY | NPY_ARRAY_WRITEABLE, nullptr);
+}
+
 class PandasBlock {
  public:
   enum type {
@@ -1024,19 +1152,23 @@ class PandasBlock {
   Status AllocateNDArray(int npy_type, int ndim = 2) {
     PyAcquireGIL lock;
 
+    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+
     PyObject* block_arr;
     if (ndim == 2) {
       npy_intp block_dims[2] = {num_columns_, num_rows_};
-      block_arr = PyArray_SimpleNew(2, block_dims, npy_type);
+      block_arr = PyArray_SimpleNewFromDescr(2, block_dims, descr);
     } else {
       npy_intp block_dims[1] = {num_rows_};
-      block_arr = PyArray_SimpleNew(1, block_dims, npy_type);
+      block_arr = PyArray_SimpleNewFromDescr(1, block_dims, descr);
     }
 
     if (block_arr == NULL) {
       // TODO(wesm): propagating Python exception
       return Status::OK();
     }
+
+    PyArray_ENABLEFLAGS(reinterpret_cast<PyArrayObject*>(block_arr), NPY_ARRAY_OWNDATA);
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1304,8 +1436,6 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 class ObjectBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-  virtual ~ObjectBlock() {}
-
   Status Allocate() override { return AllocateNDArray(NPY_OBJECT); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1363,7 +1493,6 @@ template <int ARROW_TYPE, typename C_TYPE>
 class IntBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override {
     return AllocateNDArray(arrow_traits<ARROW_TYPE>::npy_type);
   }
@@ -1397,7 +1526,6 @@ using Int64Block = IntBlock<Type::INT64, int64_t>;
 class Float32Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT32); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1417,7 +1545,6 @@ class Float32Block : public PandasBlock {
 class Float64Block : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_FLOAT64); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1470,7 +1597,6 @@ class Float64Block : public PandasBlock {
 class BoolBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status Allocate() override { return AllocateNDArray(NPY_BOOL); }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -1491,7 +1617,6 @@ class BoolBlock : public PandasBlock {
 class DatetimeBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
-
   Status AllocateDatetime(int ndim) {
     RETURN_NOT_OK(AllocateNDArray(NPY_DATETIME, ndim));
 
@@ -1576,7 +1701,6 @@ template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
-
   Status Allocate() override {
     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
 
@@ -1907,6 +2031,9 @@ class DataFrameBlockCreator {
       PyObject* item;
       RETURN_NOT_OK(it.second->GetPyResult(&item));
       if (PyList_Append(list, item) < 0) { RETURN_IF_PYERROR(); }
+
+      // ARROW-1017; PyList_Append increments object refcount
+      Py_DECREF(item);
     }
     return Status::OK();
   }
@@ -1947,34 +2074,6 @@ class DataFrameBlockCreator {
   BlockMap datetimetz_blocks_;
 };
 
-inline void set_numpy_metadata(int type, DataType* datatype, PyArrayObject* out) {
-  if (type == NPY_DATETIME) {
-    PyArray_Descr* descr = PyArray_DESCR(out);
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-    if (datatype->id() == Type::TIMESTAMP) {
-      auto timestamp_type = static_cast<TimestampType*>(datatype);
-
-      switch (timestamp_type->unit()) {
-        case TimestampType::Unit::SECOND:
-          date_dtype->meta.base = NPY_FR_s;
-          break;
-        case TimestampType::Unit::MILLI:
-          date_dtype->meta.base = NPY_FR_ms;
-          break;
-        case TimestampType::Unit::MICRO:
-          date_dtype->meta.base = NPY_FR_us;
-          break;
-        case TimestampType::Unit::NANO:
-          date_dtype->meta.base = NPY_FR_ns;
-          break;
-      }
-    } else {
-      // datatype->type == Type::DATE64
-      date_dtype->meta.base = NPY_FR_D;
-    }
-  }
-}
-
 class ArrowDeserializer {
  public:
   ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref)
@@ -1983,17 +2082,8 @@ class ArrowDeserializer {
   Status AllocateOutput(int type) {
     PyAcquireGIL lock;
 
-    npy_intp dims[1] = {col_->length()};
-    result_ = PyArray_SimpleNew(1, dims, type);
+    result_ = NewArray1DFromType(col_->type().get(), type, col_->length(), nullptr);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
-
-    if (arr_ == NULL) {
-      // Error occurred, trust that SimpleNew set the error state
-      return Status::OK();
-    }
-
-    set_numpy_metadata(type, col_->type().get(), arr_);
-
     return Status::OK();
   }
 
@@ -2010,16 +2100,13 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
-    npy_intp dims[1] = {col_->length()};
-    result_ = PyArray_SimpleNewFromData(1, dims, npy_type, data);
+    result_ = NewArray1DFromType(col_->type().get(), npy_type, col_->length(), data);
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
 
     if (arr_ == NULL) {
-      // Error occurred, trust that SimpleNew set the error state
+      // Error occurred, trust that error set
       return Status::OK();
     }
-
-    set_numpy_metadata(npy_type, col_->type().get(), arr_);
 
     if (PyArray_SetBaseObject(arr_, py_ref_) == -1) {
       // Error occurred, trust that SetBaseObject set the error state
@@ -2031,6 +2118,9 @@ class ArrowDeserializer {
 
     // Arrow data is immutable.
     PyArray_CLEARFLAGS(arr_, NPY_ARRAY_WRITEABLE);
+
+    // Arrow data is owned by another
+    PyArray_CLEARFLAGS(arr_, NPY_ARRAY_OWNDATA);
 
     return Status::OK();
   }
