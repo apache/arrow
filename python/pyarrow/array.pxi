@@ -1038,7 +1038,11 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
         If not passed, will allocate memory from the currently-set default
         memory pool
     size : int64, optional
-        Size of the elements. If the imput is larger than size bail at this length.
+        Size of the elements. If the imput is larger than size bail at this
+        length. For iterators, if size is larger than the input iterator this
+        will be treated as a "max size", but will involve an initial allocation
+        of size followed by a resize to the actual size (so if you know the
+        exact size specifying it correctly will give you better performance).
 
     Returns
     -------
