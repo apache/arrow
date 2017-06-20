@@ -953,23 +953,17 @@ if (ARROW_JEMALLOC)
   # most cases to use the system provided version of jemalloc to better align with
   # other potential users of jemalloc.
   if (JEMALLOC_STATIC_LIB)
-    set(ARROW_JEMALLOC_STATIC_LINK_LIBS
-      jemalloc_static
-      )
+    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_static)
   else()
-    set(ARROW_JEMALLOC_STATIC_LINK_LIBS
-      jemalloc_shared
-      )
+    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_shared)
   endif()
 
   if (NOT APPLE)
-      set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} ${PTHREAD_LIBRARY})
+      set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} ${PTHREAD_LIBRARY} rt)
   endif()
 
   if (ARROW_JEMALLOC_USE_SHARED)
-    set(ARROW_JEMALLOC_SHARED_LINK_LIBS
-      jemalloc_shared
-      )
+    set(ARROW_JEMALLOC_SHARED_LINK_LIBS jemalloc_shared)
   else()
     if (CMAKE_COMPILER_IS_GNUCXX)
       set(ARROW_JEMALLOC_SHARED_LINK_LIBS
