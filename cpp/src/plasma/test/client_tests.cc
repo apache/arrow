@@ -38,12 +38,14 @@ class TestPlasmaStore : public ::testing::Test {
       ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
       return;
     }
-    execlp("./plasma_store", "./plasma_store", "-m", "10000000", "-s", "/tmp/store", NULL);
+    execlp(
+        "./plasma_store", "./plasma_store", "-m", "10000000", "-s", "/tmp/store", NULL);
   }
   virtual void Finish() {
     ARROW_CHECK_OK(client_.Disconnect());
     kill(pid_, SIGKILL);
   }
+
  protected:
   pid_t pid_;
   PlasmaClient client_;
