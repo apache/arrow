@@ -1037,7 +1037,8 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool
-    size : Size of the elements.
+    size : int64, optional
+        Size of the elements. If the imput is larger than size bail at this length.
 
     Returns
     -------
