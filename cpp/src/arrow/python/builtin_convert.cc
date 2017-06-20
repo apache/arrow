@@ -346,7 +346,7 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 
   Status AppendItem(const OwnedRef& item) {
     return Status::NotImplemented;
-  };
+  }
 };
 
 class BoolConverter : public TypedConverterVisitor<
@@ -392,7 +392,7 @@ class DateConverter : public TypedConverterVisitor<
     }
   }
 };
-  
+
 class TimestampConverter : public TypedConverterVisitor<
   Date64Builder, TimestampConverter> {
  public:
@@ -487,7 +487,7 @@ class UTF8Converter : public TypedConverterVisitor<
     Py_ssize_t length;
 
     if (item.obj() == Py_None) {
-      return typed_builder_->AppendNull() ;
+      return typed_builder_->AppendNull();
     } else if (!PyUnicode_Check(item.obj())) {
       return Status::Invalid("Non-unicode value encountered");
     }
