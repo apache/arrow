@@ -341,6 +341,9 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 	RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
 	++i;
       }
+      if (size != i) {
+	RETURN_NOT_OK(this->typed_builder_->Resize(i));
+      }
     } else {
       return Status::TypeError("Object is not a sequence or iterable");
     }

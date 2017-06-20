@@ -56,6 +56,11 @@ class TestLimitedConvertIterator(unittest.TestCase):
         arr2 = pa.array((0, 1))
         assert arr1.equals(arr2)
 
+    def test_iterator_size_underflow(self):
+        arr1 = pa.array(iter(range(3)), type=pa.int64(), size=10)
+        arr2 = pa.array((0, 1, 2))
+        assert arr1.equals(arr2)
+
 class TestConvertSequence(unittest.TestCase):
 
     def test_sequence_types(self):
