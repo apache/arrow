@@ -53,7 +53,7 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
     return Status::OutOfMemory(ss.str());
   }
 #elif defined(ARROW_JEMALLOC)
-  *out = reinterpret_cast<uint8_t*>(mallocx(size, MALLOCX_ALIGN(kAlignment)));
+  *out = reinterpret_cast<uint8_t*>(mallocx(std::max(static_cast<size_t>(size), kAlignment), MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
