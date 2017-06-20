@@ -145,6 +145,7 @@ class ScalarVisitor {
 
 static constexpr int MAX_NESTING_LEVELS = 32;
 
+// SeqVisitor is used to infer the type.
 class SeqVisitor {
  public:
   SeqVisitor() : max_nesting_level_(0) {
@@ -177,13 +178,17 @@ class SeqVisitor {
   }
 
   std::shared_ptr<DataType> GetType() {
+    // If all the non-list inputs were null (or there were no inputs)
     if (scalars_.total_count() == 0) {
       if (max_nesting_level_ == 0) {
+	// If its just a single empty list or list of nulls, return null.
         return null();
       } else {
+	// Error, if we have nesting but no concrete base type.
         return nullptr;
       }
     } else {
+      // Lists of Lists of [X]
       std::shared_ptr<DataType> result = scalars_.GetType();
       for (int i = 0; i < max_nesting_level_; ++i) {
         result = std::make_shared<ListType>(result);
@@ -196,6 +201,7 @@ class SeqVisitor {
     if (scalars_.total_count() > 0) {
       if (num_nesting_levels() > 1) {
         return Status::Invalid("Mixed nesting levels not supported");
+      // If the nesting goes deeper than the deepest scalar
       } else if (max_observed_level() < max_nesting_level_) {
         return Status::Invalid("Mixed nesting levels not supported");
       }
@@ -203,6 +209,7 @@ class SeqVisitor {
     return Status::OK();
   }
 
+  // Returns the deepest level which has scalar elements.
   int max_observed_level() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
@@ -211,6 +218,7 @@ class SeqVisitor {
     return result;
   }
 
+  // Returns the number of nesting levels which have scalar elements.
   int num_nesting_levels() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
@@ -223,10 +231,13 @@ class SeqVisitor {
   ScalarVisitor scalars_;
 
   // Track observed
+  // Deapest nesting level (irregardless of scalars)
   int max_nesting_level_;
+  // Number of scalar elements at each nesting level.
+  // (TOOD: We really only need to know if a scalar is present, not the count).
   int nesting_histogram_[MAX_NESTING_LEVELS];
 
-  // Visits a specific element (inner part of the loop)
+  // Visits a specific element (inner part of the loop).
   Status VisitElem(const OwnedRef &item_ref, int level) {
     if (PyList_Check(item_ref.obj())) {
       RETURN_NOT_OK(Visit(item_ref.obj(), level + 1));
