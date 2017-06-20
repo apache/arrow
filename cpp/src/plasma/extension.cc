@@ -144,17 +144,16 @@ PyObject* PyPlasma_get(PyObject* self, PyObject* args) {
   }
 
   Py_ssize_t num_object_ids = PyList_Size(object_id_list);
-  ObjectID* object_ids = new ObjectID[num_object_ids];
-  ObjectBuffer* object_buffers = new ObjectBuffer[num_object_ids];
+  std::vector<ObjectID> object_ids(num_object_ids);
+  std::vector<ObjectBuffer> object_buffers(num_object_ids);
 
   for (int i = 0; i < num_object_ids; ++i) {
     PyStringToUniqueID(PyList_GetItem(object_id_list, i), &object_ids[i]);
   }
 
   Py_BEGIN_ALLOW_THREADS;
-  ARROW_CHECK_OK(client->Get(object_ids, num_object_ids, timeout_ms, object_buffers));
+  ARROW_CHECK_OK(client->Get(object_ids.data(), num_object_ids, timeout_ms, object_buffers.data()));
   Py_END_ALLOW_THREADS;
-  delete[] object_ids;
 
   PyObject* returns = PyList_New(num_object_ids);
   for (int i = 0; i < num_object_ids; ++i) {
@@ -166,23 +165,22 @@ PyObject* PyPlasma_get(PyObject* self, PyObject* args) {
 #if PY_MAJOR_VERSION >= 3
       char* data = reinterpret_cast<char*>(object_buffers[i].data);
       char* metadata = reinterpret_cast<char*>(object_buffers[i].metadata);
-      PyTuple_SetItem(t, 0, PyMemoryView_FromMemory(data, data_size, PyBUF_READ));
-      PyTuple_SetItem(t, 1, PyMemoryView_FromMemory(metadata, metadata_size, PyBUF_READ));
+      PyTuple_SET_ITEM(t, 0, PyMemoryView_FromMemory(data, data_size, PyBUF_READ));
+      PyTuple_SET_ITEM(t, 1, PyMemoryView_FromMemory(metadata, metadata_size, PyBUF_READ));
 #else
       void* data = reinterpret_cast<void*>(object_buffers[i].data);
       void* metadata = reinterpret_cast<void*>(object_buffers[i].metadata);
-      PyTuple_SetItem(t, 0, PyBuffer_FromMemory(data, data_size));
-      PyTuple_SetItem(t, 1, PyBuffer_FromMemory(metadata, metadata_size));
+      PyTuple_SET_ITEM(t, 0, PyBuffer_FromMemory(data, data_size));
+      PyTuple_SET_ITEM(t, 1, PyBuffer_FromMemory(metadata, metadata_size));
 #endif
-      PyList_SetItem(returns, i, t);
+      ARROW_CHECK(PyList_SetItem(returns, i, t) == 0);
     } else {
       /* The object was not retrieved, so just add None to the list of return
        * values. */
       Py_INCREF(Py_None);
-      PyList_SetItem(returns, i, Py_None);
+      ARROW_CHECK(PyList_SetItem(returns, i, Py_None) == 0);
     }
   }
-  delete[] object_buffers;
   return returns;
 }
 
@@ -196,10 +194,11 @@ PyObject* PyPlasma_contains(PyObject* self, PyObject* args) {
   bool has_object;
   ARROW_CHECK_OK(client->Contains(object_id, &has_object));
 
-  if (has_object)
+  if (has_object) {
     Py_RETURN_TRUE;
-  else
+  } else {
     Py_RETURN_FALSE;
+  }
 }
 
 PyObject* PyPlasma_fetch(PyObject* self, PyObject* args) {
