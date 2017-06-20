@@ -26,8 +26,8 @@
 using flatbuffers::uoffset_t;
 
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
-to_flatbuffer(
-    flatbuffers::FlatBufferBuilder& fbb, const ObjectID* object_ids, int64_t num_objects) {
+to_flatbuffer(flatbuffers::FlatBufferBuilder& fbb, const ObjectID* object_ids,
+    int64_t num_objects) {
   std::vector<flatbuffers::Offset<flatbuffers::String>> results;
   for (int64_t i = 0; i < num_objects; i++) {
     results.push_back(fbb.CreateString(object_ids[i].binary()));

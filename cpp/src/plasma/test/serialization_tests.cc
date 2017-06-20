@@ -165,9 +165,11 @@ TEST(PlasmaSerialization, GetReply) {
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
-             sizeof(PlasmaObject)), 0);
+                sizeof(PlasmaObject)),
+      0);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
-             sizeof(PlasmaObject)), 0);
+                sizeof(PlasmaObject)),
+      0);
   close(fd);
 }
 

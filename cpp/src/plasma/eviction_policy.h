@@ -102,7 +102,8 @@ class EvictionPolicy {
    *        be stored into this vector.
    * @return Void.
    */
-  void begin_object_access(const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict);
+  void begin_object_access(
+      const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict);
 
   /**
    * This method will be called whenever an object in the Plasma store that was
@@ -115,7 +116,8 @@ class EvictionPolicy {
    *        be stored into this vector.
    * @return Void.
    */
-  void end_object_access(const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict);
+  void end_object_access(
+      const ObjectID& object_id, std::vector<ObjectID>& objects_to_evict);
 
   /**
   * Choose some objects to evict from the Plasma store. When this method is

@@ -302,7 +302,8 @@ class PlasmaClient {
   std::unordered_map<int, ClientMmapTableEntry> mmap_table;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
-  std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>, UniqueIDHasher> objects_in_use;
+  std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>, UniqueIDHasher>
+      objects_in_use;
   /// Object IDs of the last few release calls. This is a deque and
   /// is used to delay releasing objects to see if they can be reused by
   /// subsequent tasks so we do not unneccessarily invalidate cpu caches.

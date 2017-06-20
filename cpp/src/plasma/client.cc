@@ -94,7 +94,8 @@ void increment_object_count(
   if (elem == conn->objects_in_use.end()) {
     // Add this object ID to the hash table of object IDs in use. The
     // corresponding call to free happens in PlasmaClient::Release.
-    conn->objects_in_use[object_id] = std::unique_ptr<ObjectInUseEntry>(new ObjectInUseEntry());
+    conn->objects_in_use[object_id] =
+        std::unique_ptr<ObjectInUseEntry>(new ObjectInUseEntry());
     conn->objects_in_use[object_id]->object = *object;
     conn->objects_in_use[object_id]->count = 0;
     conn->objects_in_use[object_id]->is_sealed = is_sealed;
@@ -119,8 +120,8 @@ void increment_object_count(
   object_entry->count += 1;
 }
 
-Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
-    int64_t metadata_size, uint8_t** data) {
+Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
+    uint8_t* metadata, int64_t metadata_size, uint8_t** data) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn << " with size "
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn, object_id, data_size, metadata_size));

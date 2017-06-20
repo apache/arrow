@@ -18,10 +18,10 @@
 #include "gtest/gtest.h"
 
 #include <assert.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include "plasma/client.h"
 #include "plasma/common.h"
@@ -32,9 +32,7 @@
 // stdout of the object store. Consider changing that.
 pid_t start_store() {
   pid_t pid = fork();
-  if (pid != 0) {
-    return pid;
-  }
+  if (pid != 0) { return pid; }
   execlp("./plasma_store", "./plasma_store", "-m", "10000000", "-s", "/tmp/store", NULL);
   return 0;
 }
