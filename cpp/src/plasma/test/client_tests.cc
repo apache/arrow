@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -33,21 +34,16 @@ class TestPlasmaStore : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() {
-    pid_ = fork();
-    if (pid_ != 0) {
-      ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
-      return;
-    }
-    execlp(
-        "./plasma_store", "./plasma_store", "-m", "10000000", "-s", "/tmp/store", NULL);
+    system("./plasma_store -m 1000000000 -s /tmp/store &");
+    ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
   virtual void Finish() {
     ARROW_CHECK_OK(client_.Disconnect());
-    kill(pid_, SIGKILL);
+    system("killall plasma_store");
+    usleep(1000000);
   }
 
  protected:
-  pid_t pid_;
   PlasmaClient client_;
 };
 

@@ -27,7 +27,7 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-class GetRequest;
+struct GetRequest;
 
 struct NotificationQueue {
   /// The object notifications for clients. We notify the client about the
