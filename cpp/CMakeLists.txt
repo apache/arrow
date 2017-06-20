@@ -971,11 +971,13 @@ if (ARROW_JEMALLOC)
         # For glibc <2.17 we need to link to librt.
         # As we compile with --as-needed by default, the linker will omit this
         # dependency if not required.
+        ${PTHREAD_LIBRARY}
         rt
         )
     else()
       set(ARROW_JEMALLOC_SHARED_LINK_LIBS
         jemalloc_static
+        ${PTHREAD_LIBRARY}
         )
     endif()
   endif()
