@@ -193,7 +193,7 @@ PyObject* PyPlasma_contains(PyObject* self, PyObject* args) {
           &object_id)) {
     return NULL;
   }
-  int has_object;
+  bool has_object;
   ARROW_CHECK_OK(client->Contains(object_id, &has_object));
 
   if (has_object)
@@ -208,7 +208,7 @@ PyObject* PyPlasma_fetch(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O&O", PyObjectToPlasmaClient, &client, &object_id_list)) {
     return NULL;
   }
-  if (!plasma_manager_is_connected(client)) {
+  if (client->get_manager_fd() == -1) {
     PyErr_SetString(PyExc_RuntimeError, "Not connected to the plasma manager");
     return NULL;
   }
@@ -233,7 +233,7 @@ PyObject* PyPlasma_wait(PyObject* self, PyObject* args) {
   }
   Py_ssize_t n = PyList_Size(object_id_list);
 
-  if (!plasma_manager_is_connected(client)) {
+  if (client->get_manager_fd() == -1) {
     PyErr_SetString(PyExc_RuntimeError, "Not connected to the plasma manager");
     return NULL;
   }
@@ -265,7 +265,7 @@ PyObject* PyPlasma_wait(PyObject* self, PyObject* args) {
   int num_return_objects;
   Py_BEGIN_ALLOW_THREADS;
   ARROW_CHECK_OK(
-      client->Wait(n, object_requests.data(), num_returns, timeout, num_return_objects));
+      client->Wait(n, object_requests.data(), num_returns, timeout, &num_return_objects));
   Py_END_ALLOW_THREADS;
 
   int num_to_return = std::min(num_return_objects, num_returns);
@@ -326,7 +326,7 @@ PyObject* PyPlasma_transfer(PyObject* self, PyObject* args) {
     return NULL;
   }
 
-  if (!plasma_manager_is_connected(client)) {
+  if (client->get_manager_fd() == -1) {
     PyErr_SetString(PyExc_RuntimeError, "Not connected to the plasma manager");
     return NULL;
   }
@@ -340,7 +340,7 @@ PyObject* PyPlasma_subscribe(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O&", PyObjectToPlasmaClient, &client)) { return NULL; }
 
   int sock;
-  ARROW_CHECK_OK(client->Subscribe(sock));
+  ARROW_CHECK_OK(client->Subscribe(&sock));
   return PyLong_FromLong(sock);
 }
 
