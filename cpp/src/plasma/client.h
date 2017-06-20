@@ -298,7 +298,7 @@ class PlasmaClient {
   uint8_t* lookup_mmapped_file(int store_fd_val);
 
   void increment_object_count(
-    const ObjectID& object_id, PlasmaObject* object, bool is_sealed);
+      const ObjectID& object_id, PlasmaObject* object, bool is_sealed);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;

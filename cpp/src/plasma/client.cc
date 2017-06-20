@@ -161,8 +161,8 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   return Status::OK();
 }
 
-Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
-    ObjectBuffer* object_buffers) {
+Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
+    int64_t timeout_ms, ObjectBuffer* object_buffers) {
   // Fill out the info for the objects that are already in use locally.
   bool all_present = true;
   for (int i = 0; i < num_objects; ++i) {
@@ -290,7 +290,7 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
     RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
     // Update the in_use_object_bytes_.
     in_use_object_bytes_ -= (object_entry->second->object.data_size +
-                            object_entry->second->object.metadata_size);
+                             object_entry->second->object.metadata_size);
     DCHECK_GE(in_use_object_bytes_, 0);
     // Remove the entry from the hash table of objects currently in use.
     objects_in_use_.erase(object_id);
@@ -332,8 +332,7 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
   return Status::OK();
 }
 
-static void ComputeBlockHash(
-    const unsigned char* data, int64_t nbytes, uint64_t* hash) {
+static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   XXH64_update(&hash_state, data, nbytes);
@@ -528,8 +527,8 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
                 object_requests[i].type == PLASMA_QUERY_ANYWHERE);
   }
 
-  RETURN_NOT_OK(SendWaitRequest(
-      manager_conn_, object_requests, num_object_requests, num_ready_objects, timeout_ms));
+  RETURN_NOT_OK(SendWaitRequest(manager_conn_, object_requests, num_object_requests,
+      num_ready_objects, timeout_ms));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaWaitReply, buffer));
   RETURN_NOT_OK(ReadWaitReply(buffer.data(), object_requests, &num_ready_objects));
