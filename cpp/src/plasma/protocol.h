@@ -55,7 +55,7 @@ Status ReadSealReply(uint8_t* data, ObjectID* object_id);
 /* Plasma Get message functions. */
 
 Status SendGetRequest(
-    int sock, ObjectID object_ids[], int64_t num_objects, int64_t timeout_ms);
+    int sock, const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms);
 
 Status ReadGetRequest(
     uint8_t* data, std::vector<ObjectID>& object_ids, int64_t* timeout_ms);
@@ -107,9 +107,9 @@ Status SendContainsRequest(int sock, ObjectID object_id);
 
 Status ReadContainsRequest(uint8_t* data, ObjectID* object_id);
 
-Status SendContainsReply(int sock, ObjectID object_id, int has_object);
+Status SendContainsReply(int sock, ObjectID object_id, bool has_object);
 
-Status ReadContainsReply(uint8_t* data, ObjectID* object_id, int* has_object);
+Status ReadContainsReply(uint8_t* data, ObjectID* object_id, bool* has_object);
 
 /* Plasma Connect message functions. */
 
@@ -133,7 +133,7 @@ Status ReadEvictReply(uint8_t* data, int64_t& num_bytes);
 
 /* Plasma Fetch Remote message functions. */
 
-Status SendFetchRequest(int sock, ObjectID object_ids[], int64_t num_objects);
+Status SendFetchRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
 
 Status ReadFetchRequest(uint8_t* data, std::vector<ObjectID>& object_ids);
 

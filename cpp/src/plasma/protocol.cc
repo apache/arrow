@@ -260,7 +260,7 @@ Status ReadContainsRequest(uint8_t* data, ObjectID* object_id) {
   return Status::OK();
 }
 
-Status SendContainsReply(int sock, ObjectID object_id, int has_object) {
+Status SendContainsReply(int sock, ObjectID object_id, bool has_object) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message =
       CreatePlasmaContainsReply(fbb, fbb.CreateString(object_id.binary()), has_object);
@@ -269,7 +269,7 @@ Status SendContainsReply(int sock, ObjectID object_id, int has_object) {
       sock, MessageType_PlasmaContainsReply, fbb.GetSize(), fbb.GetBufferPointer());
 }
 
-Status ReadContainsReply(uint8_t* data, ObjectID* object_id, int* has_object) {
+Status ReadContainsReply(uint8_t* data, ObjectID* object_id, bool* has_object) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaContainsReply>(data);
   *object_id = ObjectID::from_binary(message->object_id()->str());
@@ -341,7 +341,7 @@ Status ReadEvictReply(uint8_t* data, int64_t& num_bytes) {
 /* Get messages. */
 
 Status SendGetRequest(
-    int sock, ObjectID object_ids[], int64_t num_objects, int64_t timeout_ms) {
+    int sock, const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaGetRequest(
       fbb, to_flatbuffer(fbb, object_ids, num_objects), timeout_ms);
@@ -402,7 +402,7 @@ Status ReadGetReply(uint8_t* data, ObjectID object_ids[], PlasmaObject plasma_ob
 
 /* Fetch messages. */
 
-Status SendFetchRequest(int sock, ObjectID object_ids[], int64_t num_objects) {
+Status SendFetchRequest(int sock, const ObjectID* object_ids, int64_t num_objects) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message =
       CreatePlasmaFetchRequest(fbb, to_flatbuffer(fbb, object_ids, num_objects));

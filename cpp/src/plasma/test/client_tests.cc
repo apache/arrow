@@ -45,7 +45,7 @@ TEST(PlasmaClient, ContainsTest) {
   ObjectID object_id = ObjectID::from_random();
 
   // Test for object non-existence.
-  int has_object;
+  bool has_object;
   ARROW_CHECK_OK(client.Contains(object_id, &has_object));
   ASSERT_EQ(has_object, false);
 
