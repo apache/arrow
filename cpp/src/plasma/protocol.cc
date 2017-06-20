@@ -47,8 +47,7 @@ template <typename Message>
 Status PlasmaSend(int sock, int64_t message_type, flatbuffers::FlatBufferBuilder* fbb,
     const Message& message) {
   fbb->Finish(message);
-  return WriteMessage(
-      sock, MessageType_PlasmaCreateRequest, fbb->GetSize(), fbb->GetBufferPointer());
+  return WriteMessage(sock, message_type, fbb->GetSize(), fbb->GetBufferPointer());
 }
 
 // Create messages.
