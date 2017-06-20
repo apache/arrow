@@ -121,7 +121,7 @@ void PlasmaStore::add_client_to_object_clients(ObjectTableEntry* entry, Client* 
   if (entry->clients.size() == 0) {
     // Tell the eviction policy that this object is being used.
     std::vector<ObjectID> objects_to_evict;
-    eviction_policy_.begin_object_access(entry->object_id, objects_to_evict);
+    eviction_policy_.begin_object_access(entry->object_id, &objects_to_evict);
     delete_objects(objects_to_evict);
   }
   // Add the client pointer to the list of clients using this object.
@@ -153,7 +153,7 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
       // Tell the eviction policy how much space we need to create this object.
       std::vector<ObjectID> objects_to_evict;
       bool success =
-          eviction_policy_.require_space(data_size + metadata_size, objects_to_evict);
+          eviction_policy_.require_space(data_size + metadata_size, &objects_to_evict);
       delete_objects(objects_to_evict);
       // Return an error to the client if not enough space could be freed to
       // create the object.
@@ -334,7 +334,7 @@ int PlasmaStore::remove_client_from_object_clients(
     if (entry->clients.size() == 0) {
       // Tell the eviction policy that this object is no longer being used.
       std::vector<ObjectID> objects_to_evict;
-      eviction_policy_.end_object_access(entry->object_id, objects_to_evict);
+      eviction_policy_.end_object_access(entry->object_id, &objects_to_evict);
       delete_objects(objects_to_evict);
     }
     // Return 1 to indicate that the client was removed.
@@ -580,7 +580,7 @@ Status PlasmaStore::process_message(Client* client) {
       RETURN_NOT_OK(ReadEvictRequest(input, &num_bytes));
       std::vector<ObjectID> objects_to_evict;
       int64_t num_bytes_evicted =
-          eviction_policy_.choose_objects_to_evict(num_bytes, objects_to_evict);
+          eviction_policy_.choose_objects_to_evict(num_bytes, &objects_to_evict);
       delete_objects(objects_to_evict);
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
     } break;

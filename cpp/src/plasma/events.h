@@ -43,7 +43,7 @@ class EventLoop {
   // on the file descriptor that this handler has been registered for.
   //
   // The arguments are the event flags (read or write).
-  typedef std::function<void(int)> FileCallback;
+  using FileCallback = std::function<void(int)>;
 
   // This handler will be called when a timer times out. The timer id is
   // passed as an argument. The return is the number of milliseconds the timer
@@ -59,7 +59,7 @@ class EventLoop {
   /// @param events The flags for events we are listening to (read or write).
   /// @param callback The callback that will be called when the event happens.
   /// @return Returns true if the event handler was added successfully.
-  bool add_file_event(int fd, int events, FileCallback callback);
+  bool add_file_event(int fd, int events, const FileCallback& callback);
 
   /// Remove a file event handler from the event loop.
   ///

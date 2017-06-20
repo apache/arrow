@@ -36,7 +36,7 @@ EventLoop::EventLoop() {
   loop_ = aeCreateEventLoop(kInitialEventLoopSize);
 }
 
-bool EventLoop::add_file_event(int fd, int events, FileCallback callback) {
+bool EventLoop::add_file_event(int fd, int events, const FileCallback& callback) {
   if (file_callbacks_.find(fd) != file_callbacks_.end()) { return false; }
   auto data = std::unique_ptr<FileCallback>(new FileCallback(callback));
   void* context = reinterpret_cast<void*>(data.get());
