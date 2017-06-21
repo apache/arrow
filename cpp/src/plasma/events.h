@@ -49,7 +49,7 @@ class EventLoop {
   // passed as an argument. The return is the number of milliseconds the timer
   // shall be reset to or kEventLoopTimerDone if the timer shall not be
   // triggered again.
-  typedef std::function<int(int64_t)> TimerCallback;
+  using TimerCallback = std::function<int(int64_t)>;
 
   EventLoop();
 
@@ -73,7 +73,7 @@ class EventLoop {
   ///  @param timeout The timeout in milliseconds.
   ///  @param callback The callback for the timeout.
   ///  @return The ID of the newly created timer.
-  int64_t add_timer(int64_t timeout, TimerCallback callback);
+  int64_t add_timer(int64_t timeout, const TimerCallback& callback);
 
   /// Remove a timer handler from the event loop.
   ///
