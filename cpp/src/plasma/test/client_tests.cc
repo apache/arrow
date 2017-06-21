@@ -29,12 +29,16 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
+std::string g_test_executable;
+
 class TestPlasmaStore : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() {
-    system("./plasma_store -m 1000000000 -s /tmp/store &");
+    std::string plasma_directory = g_test_executable.substr(0, g_test_executable.find_last_of("/"));
+    std::string plasma_command = plasma_directory + "/plasma_store -m 1000000000 -s /tmp/store &";
+    system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
   virtual void Finish() {
@@ -117,4 +121,10 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ARROW_CHECK_OK(client_.Get(object_ids, 2, -1, object_buffer));
   ASSERT_EQ(object_buffer[0].data[0], 1);
   ASSERT_EQ(object_buffer[1].data[0], 2);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  g_test_executable = std::string(argv[0]);
+  return RUN_ALL_TESTS();
 }
