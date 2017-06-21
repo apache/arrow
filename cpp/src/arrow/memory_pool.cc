@@ -33,7 +33,6 @@
 #include <jemalloc/jemalloc.h>
 #endif
 
-
 namespace arrow {
 
 constexpr size_t kAlignment = 64;
@@ -42,7 +41,7 @@ namespace {
 // Allocate memory according to the alignment requirements for Arrow
 // (as of May 2016 64 bytes)
 Status AllocateAligned(int64_t size, uint8_t** out) {
-  // TODO(emkornfield) find something compatible with windows
+// TODO(emkornfield) find something compatible with windows
 #ifdef _MSC_VER
   // Special code path for MSVC
   *out =
@@ -53,7 +52,8 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
     return Status::OutOfMemory(ss.str());
   }
 #elif defined(ARROW_JEMALLOC)
-  *out = reinterpret_cast<uint8_t*>(mallocx(std::max(static_cast<size_t>(size), kAlignment), MALLOCX_ALIGN(kAlignment)));
+  *out = reinterpret_cast<uint8_t*>(mallocx(
+      std::max(static_cast<size_t>(size), kAlignment), MALLOCX_ALIGN(kAlignment)));
   if (*out == NULL) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
@@ -121,9 +121,9 @@ Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t
   _aligned_free(*ptr);
 #else
   std::free(*ptr);
-#endif // defined(_MSC_VER)
+#endif  // defined(_MSC_VER)
   *ptr = out;
-#endif // defined(ARROW_JEMALLOC)
+#endif  // defined(ARROW_JEMALLOC)
 
   bytes_allocated_ += new_size - old_size;
   {
