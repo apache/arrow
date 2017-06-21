@@ -45,8 +45,7 @@ class TestPlasmaStore : public ::testing::Test {
   }
   virtual void Finish() {
     ARROW_CHECK_OK(client_.Disconnect());
-    system("killall plasma_store");
-    usleep(1000000);
+    system("killall plasma_store &");
   }
 
  protected:
