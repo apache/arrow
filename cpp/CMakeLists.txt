@@ -952,7 +952,7 @@ if (ARROW_JEMALLOC)
   # link it in the static requirements. In contrast to other libraries we try in
   # most cases to use the system provided version of jemalloc to better align with
   # other potential users of jemalloc.
-  if (JEMALLOC_STATIC_LIB)
+  if (JEMALLOC_STATIC_LIB AND NOT ARROW_JEMALLOC_USE_SHARED)
     set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_static)
   else()
     set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_shared)
