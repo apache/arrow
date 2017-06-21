@@ -39,7 +39,8 @@ class TestPlasmaStore : public ::testing::Test {
     std::string plasma_directory =
         g_test_executable.substr(0, g_test_executable.find_last_of("/"));
     std::string plasma_command =
-        plasma_directory + "/plasma_store -m 1000000000 -s /tmp/store &";
+        plasma_directory +
+        "/plasma_store -m 1000000000 -s /tmp/store 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
