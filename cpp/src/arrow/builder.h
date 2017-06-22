@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -247,6 +248,193 @@ using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
 
+class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
+ public:
+  explicit AdaptiveIntBuilderBase(MemoryPool* pool);
+
+  /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  Status AppendNulls(const uint8_t* valid_bytes, int64_t length) {
+    RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(valid_bytes, length);
+    return Status::OK();
+  }
+
+  Status AppendNull() {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Buffer> data() const { return data_; }
+
+  Status Init(int64_t capacity) override;
+
+  /// Increase the capacity of the builder to accommodate at least the indicated
+  /// number of elements
+  Status Resize(int64_t capacity) override;
+
+ protected:
+  std::shared_ptr<PoolBuffer> data_;
+  uint8_t* raw_data_;
+
+  uint8_t int_size_;
+};
+
+// Check if we would need to expand the underlying storage type
+inline uint8_t expanded_uint_size(uint64_t val, uint8_t current_int_size) {
+  if (current_int_size == 8 ||
+      (current_int_size < 8 &&
+          (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
+    return 8;
+  } else if (current_int_size == 4 ||
+             (current_int_size < 4 &&
+                 (val > static_cast<uint64_t>(std::numeric_limits<uint16_t>::max())))) {
+    return 4;
+  } else if (current_int_size == 2 ||
+             (current_int_size == 1 &&
+                 (val > static_cast<uint64_t>(std::numeric_limits<uint8_t>::max())))) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+
+class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
+ public:
+  explicit AdaptiveUIntBuilder(MemoryPool* pool);
+
+  using ArrayBuilder::Advance;
+
+  /// Scalar append
+  Status Append(uint64_t val) {
+    RETURN_NOT_OK(Reserve(1));
+    BitUtil::SetBit(null_bitmap_data_, length_);
+
+    uint8_t new_int_size = expanded_uint_size(val, int_size_);
+    if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+
+    switch (int_size_) {
+      case 1:
+        reinterpret_cast<uint8_t*>(raw_data_)[length_++] = static_cast<uint8_t>(val);
+        break;
+      case 2:
+        reinterpret_cast<uint16_t*>(raw_data_)[length_++] = static_cast<uint16_t>(val);
+        break;
+      case 4:
+        reinterpret_cast<uint32_t*>(raw_data_)[length_++] = static_cast<uint32_t>(val);
+        break;
+      case 8:
+        reinterpret_cast<uint64_t*>(raw_data_)[length_++] = val;
+        break;
+      default:
+        return Status::NotImplemented("This code shall never be reached");
+    }
+    return Status::OK();
+  }
+
+  /// Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status Append(
+      const uint64_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status ExpandIntSize(uint8_t new_int_size);
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ protected:
+  template <typename new_type, typename old_type>
+  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+  ExpandIntSizeInternal();
+#define __LESS(a, b) (a) < (b)
+  template <typename new_type, typename old_type>
+  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  ExpandIntSizeInternal();
+#undef __LESS
+
+  template <typename new_type>
+  Status ExpandIntSizeN();
+};
+
+// Check if we would need to expand the underlying storage type
+inline uint8_t expanded_int_size(int64_t val, uint8_t current_int_size) {
+  if (current_int_size == 8 ||
+      (current_int_size < 8 &&
+          (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
+              val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
+    return 8;
+  } else if (current_int_size == 4 ||
+             (current_int_size < 4 &&
+                 (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
+                     val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
+    return 4;
+  } else if (current_int_size == 2 ||
+             (current_int_size == 1 &&
+                 (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
+                     val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+
+class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
+ public:
+  explicit AdaptiveIntBuilder(MemoryPool* pool);
+
+  using ArrayBuilder::Advance;
+
+  /// Scalar append
+  Status Append(int64_t val) {
+    RETURN_NOT_OK(Reserve(1));
+    BitUtil::SetBit(null_bitmap_data_, length_);
+
+    uint8_t new_int_size = expanded_int_size(val, int_size_);
+    if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+
+    switch (int_size_) {
+      case 1:
+        reinterpret_cast<int8_t*>(raw_data_)[length_++] = static_cast<int8_t>(val);
+        break;
+      case 2:
+        reinterpret_cast<int16_t*>(raw_data_)[length_++] = static_cast<int16_t>(val);
+        break;
+      case 4:
+        reinterpret_cast<int32_t*>(raw_data_)[length_++] = static_cast<int32_t>(val);
+        break;
+      case 8:
+        reinterpret_cast<int64_t*>(raw_data_)[length_++] = val;
+        break;
+      default:
+        return Status::NotImplemented("This code shall never be reached");
+    }
+    return Status::OK();
+  }
+
+  /// Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status Append(
+      const int64_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+
+  Status ExpandIntSize(uint8_t new_int_size);
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ protected:
+  template <typename new_type, typename old_type>
+  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+  ExpandIntSizeInternal();
+#define __LESS(a, b) (a) < (b)
+  template <typename new_type, typename old_type>
+  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  ExpandIntSizeInternal();
+#undef __LESS
+
+  template <typename new_type>
+  Status ExpandIntSizeN();
+};
+
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
   explicit BooleanBuilder(MemoryPool* pool);
@@ -271,7 +459,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   /// Scalar append
   Status Append(bool val) {
-    Reserve(1);
+    RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
       BitUtil::SetBit(raw_data_, length_);

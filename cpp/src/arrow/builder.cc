@@ -17,6 +17,7 @@
 
 #include "arrow/builder.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -247,6 +248,336 @@ template class PrimitiveBuilder<TimestampType>;
 template class PrimitiveBuilder<HalfFloatType>;
 template class PrimitiveBuilder<FloatType>;
 template class PrimitiveBuilder<DoubleType>;
+
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool)
+    : ArrayBuilder(pool, int64()), data_(nullptr), raw_data_(nullptr), int_size_(1) {}
+
+Status AdaptiveIntBuilderBase::Init(int64_t capacity) {
+  RETURN_NOT_OK(ArrayBuilder::Init(capacity));
+  data_ = std::make_shared<PoolBuffer>(pool_);
+
+  int64_t nbytes = capacity * int_size_;
+  RETURN_NOT_OK(data_->Resize(nbytes));
+  // TODO(emkornfield) valgrind complains without this
+  memset(data_->mutable_data(), 0, static_cast<size_t>(nbytes));
+
+  raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
+  return Status::OK();
+}
+
+Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
+  // XXX: Set floor size for now
+  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+
+  if (capacity_ == 0) {
+    RETURN_NOT_OK(Init(capacity));
+  } else {
+    RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
+    const int64_t old_bytes = data_->size();
+    const int64_t new_bytes = capacity * int_size_;
+    RETURN_NOT_OK(data_->Resize(new_bytes));
+    raw_data_ = data_->mutable_data();
+    // TODO(emkornfield) valgrind complains without this
+    memset(
+        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
+  }
+  return Status::OK();
+}
+
+AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
+
+Status AdaptiveIntBuilder::Finish(std::shared_ptr<Array>* out) {
+  const int64_t bytes_required = length_ * int_size_;
+  if (bytes_required > 0 && bytes_required < data_->size()) {
+    // Trim buffers
+    RETURN_NOT_OK(data_->Resize(bytes_required));
+  }
+  switch (int_size_) {
+    case 1:
+      *out =
+          std::make_shared<Int8Array>(int8(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 2:
+      *out = std::make_shared<Int16Array>(
+          int16(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 4:
+      *out = std::make_shared<Int32Array>(
+          int32(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 8:
+      *out = std::make_shared<Int64Array>(
+          int64(), length_, data_, null_bitmap_, null_count_);
+      break;
+    default:
+      DCHECK(false);
+      return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
+  }
+
+  data_ = null_bitmap_ = nullptr;
+  capacity_ = length_ = null_count_ = 0;
+  return Status::OK();
+}
+
+Status AdaptiveIntBuilder::Append(
+    const int64_t* values, int64_t length, const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+
+  if (length > 0) {
+    if (int_size_ < 8) {
+      uint8_t new_int_size = int_size_;
+      for (int64_t i = 0; i < length; i++) {
+        if (valid_bytes == nullptr || valid_bytes[i]) {
+          new_int_size = expanded_int_size(values[i], new_int_size);
+        }
+      }
+      if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+    }
+  }
+
+  if (int_size_ == 8) {
+    std::memcpy(reinterpret_cast<int64_t*>(raw_data_) + length_, values,
+        sizeof(int64_t) * length);
+  } else {
+    // int_size_ may have changed, so we need to recheck
+    switch (int_size_) {
+      case 1: {
+        int8_t* data_ptr = reinterpret_cast<int8_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](int64_t x) { return static_cast<int8_t>(x); });
+      } break;
+      case 2: {
+        int16_t* data_ptr = reinterpret_cast<int16_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](int64_t x) { return static_cast<int16_t>(x); });
+      } break;
+      case 4: {
+        int32_t* data_ptr = reinterpret_cast<int32_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](int64_t x) { return static_cast<int32_t>(x); });
+      } break;
+      default:
+        DCHECK(false);
+    }
+  }
+
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+
+  return Status::OK();
+}
+
+template <typename new_type, typename old_type>
+typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+AdaptiveIntBuilder::ExpandIntSizeInternal() {
+  return Status::OK();
+}
+
+#define __LESS(a, b) (a) < (b)
+template <typename new_type, typename old_type>
+typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+AdaptiveIntBuilder::ExpandIntSizeInternal() {
+  int_size_ = sizeof(new_type);
+  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
+
+  old_type* src = reinterpret_cast<old_type*>(raw_data_);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  // By doing the backward copy, we ensure that no element is overriden during
+  // the copy process and the copy stays in-place.
+  std::copy_backward(src, src + length_, dst + length_);
+
+  return Status::OK();
+}
+#undef __LESS
+
+template <typename new_type>
+Status AdaptiveIntBuilder::ExpandIntSizeN() {
+  switch (int_size_) {
+    case 1:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int8_t>()));
+      break;
+    case 2:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int16_t>()));
+      break;
+    case 4:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int32_t>()));
+      break;
+    case 8:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, int64_t>()));
+      break;
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
+
+Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
+  switch (new_int_size) {
+    case 1:
+      RETURN_NOT_OK((ExpandIntSizeN<int8_t>()));
+      break;
+    case 2:
+      RETURN_NOT_OK((ExpandIntSizeN<int16_t>()));
+      break;
+    case 4:
+      RETURN_NOT_OK((ExpandIntSizeN<int32_t>()));
+      break;
+    case 8:
+      RETURN_NOT_OK((ExpandIntSizeN<int64_t>()));
+      break;
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
+
+AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
+    : AdaptiveIntBuilderBase(pool) {}
+
+Status AdaptiveUIntBuilder::Finish(std::shared_ptr<Array>* out) {
+  const int64_t bytes_required = length_ * int_size_;
+  if (bytes_required > 0 && bytes_required < data_->size()) {
+    // Trim buffers
+    RETURN_NOT_OK(data_->Resize(bytes_required));
+  }
+  switch (int_size_) {
+    case 1:
+      *out = std::make_shared<UInt8Array>(
+          uint8(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 2:
+      *out = std::make_shared<UInt16Array>(
+          uint16(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 4:
+      *out = std::make_shared<UInt32Array>(
+          uint32(), length_, data_, null_bitmap_, null_count_);
+      break;
+    case 8:
+      *out = std::make_shared<UInt64Array>(
+          uint64(), length_, data_, null_bitmap_, null_count_);
+      break;
+    default:
+      DCHECK(false);
+      return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
+  }
+
+  data_ = null_bitmap_ = nullptr;
+  capacity_ = length_ = null_count_ = 0;
+  return Status::OK();
+}
+
+Status AdaptiveUIntBuilder::Append(
+    const uint64_t* values, int64_t length, const uint8_t* valid_bytes) {
+  RETURN_NOT_OK(Reserve(length));
+
+  if (length > 0) {
+    if (int_size_ < 8) {
+      uint8_t new_int_size = int_size_;
+      for (int64_t i = 0; i < length; i++) {
+        if (valid_bytes == nullptr || valid_bytes[i]) {
+          new_int_size = expanded_uint_size(values[i], new_int_size);
+        }
+      }
+      if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+    }
+  }
+
+  if (int_size_ == 8) {
+    std::memcpy(reinterpret_cast<uint64_t*>(raw_data_) + length_, values,
+        sizeof(uint64_t) * length);
+  } else {
+    // int_size_ may have changed, so we need to recheck
+    switch (int_size_) {
+      case 1: {
+        uint8_t* data_ptr = reinterpret_cast<uint8_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](uint64_t x) { return static_cast<uint8_t>(x); });
+      } break;
+      case 2: {
+        uint16_t* data_ptr = reinterpret_cast<uint16_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](uint64_t x) { return static_cast<uint16_t>(x); });
+      } break;
+      case 4: {
+        uint32_t* data_ptr = reinterpret_cast<uint32_t*>(raw_data_) + length_;
+        std::transform(values, values + length, data_ptr,
+            [](uint64_t x) { return static_cast<uint32_t>(x); });
+      } break;
+      default:
+        DCHECK(false);
+    }
+  }
+
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+
+  return Status::OK();
+}
+
+template <typename new_type, typename old_type>
+typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
+AdaptiveUIntBuilder::ExpandIntSizeInternal() {
+  return Status::OK();
+}
+
+#define __LESS(a, b) (a) < (b)
+template <typename new_type, typename old_type>
+typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+AdaptiveUIntBuilder::ExpandIntSizeInternal() {
+  int_size_ = sizeof(new_type);
+  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
+
+  old_type* src = reinterpret_cast<old_type*>(raw_data_);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  // By doing the backward copy, we ensure that no element is overriden during
+  // the copy process and the copy stays in-place.
+  std::copy_backward(src, src + length_, dst + length_);
+
+  return Status::OK();
+}
+#undef __LESS
+
+template <typename new_type>
+Status AdaptiveUIntBuilder::ExpandIntSizeN() {
+  switch (int_size_) {
+    case 1:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint8_t>()));
+      break;
+    case 2:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint16_t>()));
+      break;
+    case 4:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint32_t>()));
+      break;
+    case 8:
+      RETURN_NOT_OK((ExpandIntSizeInternal<new_type, uint64_t>()));
+      break;
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
+
+Status AdaptiveUIntBuilder::ExpandIntSize(uint8_t new_int_size) {
+  switch (new_int_size) {
+    case 1:
+      RETURN_NOT_OK((ExpandIntSizeN<uint8_t>()));
+      break;
+    case 2:
+      RETURN_NOT_OK((ExpandIntSizeN<uint16_t>()));
+      break;
+    case 4:
+      RETURN_NOT_OK((ExpandIntSizeN<uint32_t>()));
+      break;
+    case 8:
+      RETURN_NOT_OK((ExpandIntSizeN<uint64_t>()));
+      break;
+    default:
+      DCHECK(false);
+  }
+  return Status::OK();
+}
 
 BooleanBuilder::BooleanBuilder(MemoryPool* pool)
     : ArrayBuilder(pool, boolean()), data_(nullptr), raw_data_(nullptr) {}
