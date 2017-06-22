@@ -141,7 +141,7 @@ Now, build pyarrow:
 
    cd arrow/python
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --with-jemalloc --inplace
+          --with-parquet --inplace
 
 If you did not build parquet-cpp, you can omit ``--with-parquet``.
 
@@ -162,7 +162,6 @@ You should be able to run the unit tests with:
    pyarrow/tests/test_hdfs.py sssssssssssssss
    pyarrow/tests/test_io.py ..................
    pyarrow/tests/test_ipc.py ........
-   pyarrow/tests/test_jemalloc.py ss
    pyarrow/tests/test_parquet.py ....................
    pyarrow/tests/test_scalars.py ..........
    pyarrow/tests/test_schema.py .........
@@ -176,7 +175,7 @@ You can build a wheel by running:
 .. code-block:: shell
 
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --with-jemalloc --bundle-arrow-cpp bdist_wheel
+          --with-parquet --bundle-arrow-cpp bdist_wheel
 
 Again, if you did not build parquet-cpp, you should omit ``--with-parquet``.
 

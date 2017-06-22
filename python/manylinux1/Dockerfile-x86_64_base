@@ -25,8 +25,9 @@ RUN /build_jemalloc.sh
 
 WORKDIR /
 # Install cmake manylinux1 package
-RUN /opt/python/cp35-cp35m/bin/pip install cmake
+RUN /opt/python/cp35-cp35m/bin/pip install cmake ninja
 RUN ln -s /opt/python/cp35-cp35m/bin/cmake /usr/bin/cmake
+RUN ln -s /opt/python/cp35-cp35m/bin/ninja /usr/bin/ninja
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
