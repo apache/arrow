@@ -1258,6 +1258,226 @@ TEST_F(TestFWBinaryArray, Slice) {
 }
 
 // ----------------------------------------------------------------------
+// AdaptiveInt tests
+
+class TestAdaptiveIntBuilder : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+    builder_ = std::make_shared<AdaptiveIntBuilder>(pool_);
+  }
+
+  void Done() { EXPECT_OK(builder_->Finish(&result_)); }
+
+ protected:
+  std::shared_ptr<AdaptiveIntBuilder> builder_;
+
+  std::shared_ptr<Array> expected_;
+  std::shared_ptr<Array> result_;
+};
+
+TEST_F(TestAdaptiveIntBuilder, TestInt8) {
+  builder_->Append(0);
+  builder_->Append(127);
+  builder_->Append(-128);
+
+  Done();
+
+  std::vector<int8_t> expected_values({0, 127, -128});
+  ArrayFromVector<Int8Type, int8_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveIntBuilder, TestInt16) {
+  builder_->Append(0);
+  builder_->Append(128);
+  Done();
+
+  std::vector<int16_t> expected_values({0, 128});
+  ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(-129);
+  expected_values = {-129};
+  Done();
+
+  ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<int16_t>::max());
+  builder_->Append(std::numeric_limits<int16_t>::min());
+  expected_values = {
+      std::numeric_limits<int16_t>::max(), std::numeric_limits<int16_t>::min()};
+  Done();
+
+  ArrayFromVector<Int16Type, int16_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveIntBuilder, TestInt32) {
+  builder_->Append(0);
+  builder_->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::max()) + 1);
+  Done();
+
+  std::vector<int32_t> expected_values(
+      {0, static_cast<int32_t>(std::numeric_limits<int16_t>::max()) + 1});
+  ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::min()) - 1);
+  expected_values = {static_cast<int32_t>(std::numeric_limits<int16_t>::min()) - 1};
+  Done();
+
+  ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<int32_t>::max());
+  builder_->Append(std::numeric_limits<int32_t>::min());
+  expected_values = {
+      std::numeric_limits<int32_t>::max(), std::numeric_limits<int32_t>::min()};
+  Done();
+
+  ArrayFromVector<Int32Type, int32_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveIntBuilder, TestInt64) {
+  builder_->Append(0);
+  builder_->Append(static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1);
+  Done();
+
+  std::vector<int64_t> expected_values(
+      {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
+  ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(static_cast<int64_t>(std::numeric_limits<int32_t>::min()) - 1);
+  expected_values = {static_cast<int64_t>(std::numeric_limits<int32_t>::min()) - 1};
+  Done();
+
+  ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<int64_t>::max());
+  builder_->Append(std::numeric_limits<int64_t>::min());
+  expected_values = {
+      std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min()};
+  Done();
+
+  ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveIntBuilder, TestAppendVector) {
+  std::vector<int64_t> expected_values(
+      {0, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1});
+  builder_->Append(expected_values.data(), expected_values.size());
+  Done();
+
+  ArrayFromVector<Int64Type, int64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+class TestAdaptiveUIntBuilder : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+    builder_ = std::make_shared<AdaptiveUIntBuilder>(pool_);
+  }
+
+  void Done() { EXPECT_OK(builder_->Finish(&result_)); }
+
+ protected:
+  std::shared_ptr<AdaptiveUIntBuilder> builder_;
+
+  std::shared_ptr<Array> expected_;
+  std::shared_ptr<Array> result_;
+};
+
+TEST_F(TestAdaptiveUIntBuilder, TestUInt8) {
+  builder_->Append(0);
+  builder_->Append(255);
+
+  Done();
+
+  std::vector<uint8_t> expected_values({0, 255});
+  ArrayFromVector<UInt8Type, uint8_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
+  builder_->Append(0);
+  builder_->Append(256);
+  Done();
+
+  std::vector<uint16_t> expected_values({0, 256});
+  ArrayFromVector<UInt16Type, uint16_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<uint16_t>::max());
+  expected_values = {std::numeric_limits<uint16_t>::max()};
+  Done();
+
+  ArrayFromVector<UInt16Type, uint16_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {
+  builder_->Append(0);
+  builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1);
+  Done();
+
+  std::vector<uint32_t> expected_values(
+      {0, static_cast<uint32_t>(std::numeric_limits<uint16_t>::max()) + 1});
+  ArrayFromVector<UInt32Type, uint32_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<uint32_t>::max());
+  expected_values = {std::numeric_limits<uint32_t>::max()};
+  Done();
+
+  ArrayFromVector<UInt32Type, uint32_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestUInt64) {
+  builder_->Append(0);
+  builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1);
+  Done();
+
+  std::vector<uint64_t> expected_values(
+      {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
+  ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+
+  SetUp();
+  builder_->Append(std::numeric_limits<uint64_t>::max());
+  expected_values = {std::numeric_limits<uint64_t>::max()};
+  Done();
+
+  ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendVector) {
+  std::vector<uint64_t> expected_values(
+      {0, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1});
+  builder_->Append(expected_values.data(), expected_values.size());
+  Done();
+
+  ArrayFromVector<UInt64Type, uint64_t>(expected_values, &expected_);
+  ASSERT_TRUE(expected_->Equals(result_));
+}
+
+// ----------------------------------------------------------------------
 // List tests
 
 class TestListBuilder : public TestBuilder {
