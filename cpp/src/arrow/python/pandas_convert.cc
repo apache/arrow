@@ -1310,8 +1310,6 @@ inline Status ConvertNulls(const ChunkedArray& data, PyObject** out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     std::shared_ptr<Array> arr = data.chunk(c);
 
-    const uint8_t* data_ptr;
-    int32_t length;
     const bool has_nulls = data.null_count() > 0;
     for (int64_t i = 0; i < arr->length(); ++i) {
       // All values are null
