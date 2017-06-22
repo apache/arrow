@@ -98,6 +98,11 @@ class TestPandasConversion(unittest.TestCase):
             tm.assert_series_equal(pd.Series(result), expected,
                                    check_names=False)
 
+    def test_all_none_objects(self):
+        df = pd.DataFrame({'a': [None, None, None]})
+        self._check_pandas_roundtrip(df)
+
+
     def test_float_no_nulls(self):
         data = {}
         fields = []
