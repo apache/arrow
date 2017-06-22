@@ -132,6 +132,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_RPATH_ORIGIN
     "Build Arrow libraries with RATH set to \$ORIGIN"
     OFF)
+
+  option(ARROW_PLASMA
+    "Build the plasma object store along with Arrow"
+    OFF)
 endif()
 
 if(ARROW_BUILD_TESTS)
@@ -1013,11 +1017,13 @@ if(FLATBUFFERS_VENDORED)
   set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
 endif()
 
-if(NOT WIN32)
+if(NOT WIN32 AND ARROW_PLASMA)
   add_subdirectory(src/plasma)
 endif()
+
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
+
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
   set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
