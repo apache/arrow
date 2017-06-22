@@ -59,6 +59,17 @@ $RAT $1 \
   -e arrow-glib-sections.txt \
   -e arrow-glib-overrides.txt \
   -e gtk-doc.make \
+  -e ae.c \
+  -e ae.h \
+  -e ae_epoll.c \
+  -e ae_evport.c \
+  -e ae_kqueue.c \
+  -e ae_select.c \
+  -e config.h \
+  -e zmalloc.h \
+  -e dlmalloc.c \
+  -e xxhash.cc \
+  -e xxhash.h \
   -e "*.html" \
   -e "*.sgml" \
   -e "*.css" \

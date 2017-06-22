@@ -26,12 +26,11 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 if [ $only_library_mode == "no" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-  export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
   export RAPIDJSON_HOME=$CPP_TOOLCHAIN
 
   # Set up C++ toolchain from conda-forge packages for faster builds
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
+  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 rapidjson
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
@@ -73,7 +72,7 @@ else
           $ARROW_CPP_DIR
 fi
 
-make -j4
+make VERBOSE=1 -j4
 make install
 
 popd
