@@ -438,6 +438,14 @@ if (DEFINED ENV{GFLAGS_HOME})
 endif()
 
 # ----------------------------------------------------------------------
+# Find pthreads
+
+if (NOT MSVC)
+  find_library(PTHREAD_LIBRARY pthread)
+  message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
+endif()
+
+# ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu (incubating))
 
 set(Boost_DEBUG TRUE)
@@ -756,7 +764,8 @@ if (ARROW_JEMALLOC)
   include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(jemalloc
     STATIC_LIB ${JEMALLOC_STATIC_LIB}
-    SHARED_LIB ${JEMALLOC_SHARED_LIB})
+    SHARED_LIB ${JEMALLOC_SHARED_LIB}
+    DEPS ${PTHREAD_LIBRARY})
 endif()
 
 ## Google PerfTools
@@ -803,19 +812,15 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 # Linker setup
 ############################################################
 set(ARROW_MIN_TEST_LIBS
+  ${ARROW_STATIC_LINK_LIBS}
   arrow_static
   gtest
   gtest_main
   ${ARROW_BASE_LIBS})
 
-if (APPLE)
+if(NOT MSVC)
   set(ARROW_MIN_TEST_LIBS
     ${ARROW_MIN_TEST_LIBS}
-    ${CMAKE_DL_LIBS})
-elseif(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
-    pthread
     ${CMAKE_DL_LIBS})
 endif()
 
@@ -938,8 +943,55 @@ set(ARROW_STATIC_PRIVATE_LINK_LIBS
 if (NOT MSVC)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
-    ${CMAKE_DL_LIBS}
-    pthread)
+    ${CMAKE_DL_LIBS})
+endif()
+
+if (ARROW_JEMALLOC)
+  add_definitions(-DARROW_JEMALLOC)
+  # In the case that jemalloc is only available as a shared library also use it to
+  # link it in the static requirements. In contrast to other libraries we try in
+  # most cases to use the system provided version of jemalloc to better align with
+  # other potential users of jemalloc.
+  if (JEMALLOC_STATIC_LIB AND NOT ARROW_JEMALLOC_USE_SHARED)
+    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_static)
+  else()
+    set(ARROW_JEMALLOC_STATIC_LINK_LIBS jemalloc_shared)
+  endif()
+
+  if (NOT APPLE)
+      set(ARROW_JEMALLOC_STATIC_LINK_LIBS ${ARROW_JEMALLOC_STATIC_LINK_LIBS} ${PTHREAD_LIBRARY} rt)
+  endif()
+
+  if (ARROW_JEMALLOC_USE_SHARED)
+    set(ARROW_JEMALLOC_SHARED_LINK_LIBS jemalloc_shared)
+  else()
+    if (CMAKE_COMPILER_IS_GNUCXX)
+      set(ARROW_JEMALLOC_SHARED_LINK_LIBS
+        jemalloc_static
+        # For glibc <2.17 we need to link to librt.
+        # As we compile with --as-needed by default, the linker will omit this
+        # dependency if not required.
+        ${PTHREAD_LIBRARY}
+        rt
+        )
+    else()
+      set(ARROW_JEMALLOC_SHARED_LINK_LIBS
+        jemalloc_static
+        )
+    endif()
+  endif()
+  set(ARROW_SHARED_PRIVATE_LINK_LIBS
+    ${ARROW_SHARED_PRIVATE_LINK_LIBS}
+    ${ARROW_JEMALLOC_SHARED_LINK_LIBS})
+  set(ARROW_STATIC_LINK_LIBS
+    ${ARROW_STATIC_LINK_LIBS}
+    ${ARROW_JEMALLOC_STATIC_LINK_LIBS})
+elseif (NOT MSVC)
+  # We need to separate this as otherwise CMake would mess with the library
+  # linking order.
+  set(ARROW_LINK_LIBS
+    ${ARROW_LINK_LIBS}
+    ${PTHREAD_LIBRARY})
 endif()
 
 if(RAPIDJSON_VENDORED)
@@ -1020,10 +1072,6 @@ ADD_ARROW_LIB(arrow
 )
 
 add_subdirectory(src/arrow/util)
-
-if(ARROW_JEMALLOC)
-  add_subdirectory(src/arrow/jemalloc)
-endif()
 
 if(ARROW_PYTHON)
   find_package(PythonLibsNew REQUIRED)

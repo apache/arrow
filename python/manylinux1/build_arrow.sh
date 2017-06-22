@@ -35,7 +35,6 @@ cd /arrow/python
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_JEMALLOC=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 # Need as otherwise arrow_io is sometimes not linked
 export LDFLAGS="-Wl,--no-as-needed"
@@ -60,13 +59,12 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-jemalloc --bundle-arrow-cpp
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
     $PIPI_IO -r requirements.txt
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow.parquet"
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER -c "import pyarrow._jemalloc"
 
     echo "=== (${PYTHON}) Tag the wheel with manylinux1 ==="
     mkdir -p repaired_wheels/
@@ -75,7 +73,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
-    py.test /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
+    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist

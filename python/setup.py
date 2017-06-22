@@ -82,7 +82,6 @@ class build_ext(_build_ext):
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
-                     ('with-jemalloc', None, 'build the jemalloc extension'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -100,14 +99,11 @@ class build_ext(_build_ext):
 
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_jemalloc = strtobool(
-            os.environ.get('PYARROW_WITH_JEMALLOC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        '_jemalloc',
         '_parquet']
 
     def _run_cmake(self):
@@ -142,9 +138,6 @@ class build_ext(_build_ext):
 
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
-
-        if self.with_jemalloc:
-            cmake_options.append('-DPYARROW_BUILD_JEMALLOC=on')
 
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
@@ -249,8 +242,6 @@ class build_ext(_build_ext):
             shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
-            if self.with_jemalloc:
-                move_lib("arrow_jemalloc")
             if self.with_parquet:
                 move_lib("parquet")
 
@@ -283,8 +274,6 @@ class build_ext(_build_ext):
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
-            return True
-        if name == '_jemalloc' and not self.with_jemalloc:
             return True
         return False
 

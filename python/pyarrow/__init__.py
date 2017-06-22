@@ -90,15 +90,6 @@ from pyarrow.lib import (ArrowException,
                          ArrowTypeError)
 
 
-def jemalloc_memory_pool():
-    """
-    Returns a jemalloc-based memory allocator, which can be passed to
-    pyarrow.set_memory_pool
-    """
-    from pyarrow._jemalloc import default_pool
-    return default_pool()
-
-
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 
 from pyarrow.ipc import (RecordBatchFileReader, RecordBatchFileWriter,
