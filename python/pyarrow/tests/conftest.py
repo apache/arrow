@@ -20,6 +20,17 @@ from pytest import skip
 
 groups = ['hdfs', 'parquet']
 
+defaults = {
+    'hdfs': False,
+    'parquet': False
+}
+
+try:
+    import pyarrow.parquet
+    defaults['parquet'] = True
+except ImportError:
+    pass
+
 
 def pytest_configure(config):
     pass
@@ -28,7 +39,7 @@ def pytest_configure(config):
 def pytest_addoption(parser):
     for group in groups:
         parser.addoption('--{0}'.format(group), action='store_true',
-                         default=False,
+                         default=defaults[group],
                          help=('Enable the {0} test group'.format(group)))
 
     for group in groups:
