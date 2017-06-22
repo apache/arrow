@@ -17,6 +17,9 @@ addons:
     - gtk-doc-tools
     - autoconf-archive
     - libgirepository1.0-dev
+    - openjdk-7-jdk
+    - openjdk-7-jre
+
 services:
   - docker
 
