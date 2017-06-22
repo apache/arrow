@@ -38,6 +38,8 @@ class SchemaDescriptor;
 
 namespace schema {
 
+class Node;
+
 // List encodings: using the terminology from Impala to define different styles
 // of representing logical lists (a.k.a. ARRAY types) in Parquet schemas. Since
 // the converted type named in the Parquet metadata is ConvertedType::LIST we
@@ -87,6 +89,7 @@ class PARQUET_EXPORT ColumnPath {
   explicit ColumnPath(std::vector<std::string>&& path) : path_(path) {}
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
+  static std::shared_ptr<ColumnPath> FromNode(const Node& node);
 
   std::shared_ptr<ColumnPath> extend(const std::string& node_name) const;
   std::string ToDotString() const;
@@ -138,6 +141,8 @@ class PARQUET_EXPORT Node {
   int id() const { return id_; }
 
   const Node* parent() const { return parent_; }
+
+  const std::shared_ptr<ColumnPath> path() const;
 
   // ToParquet returns an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API
@@ -249,6 +254,8 @@ class PARQUET_EXPORT GroupNode : public Node {
   bool Equals(const Node* other) const override;
 
   const NodePtr& field(int i) const { return fields_[i]; }
+  int FieldIndex(const std::string& name) const;
+  int FieldIndex(const Node& node) const;
 
   int field_count() const { return static_cast<int>(fields_.size()); }
 
@@ -261,16 +268,23 @@ class PARQUET_EXPORT GroupNode : public Node {
       const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
       int id = -1)
       : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
+    field_name_to_idx_.clear();
+    auto field_idx = 0;
     for (NodePtr& field : fields_) {
       field->SetParent(this);
+      field_name_to_idx_[field->name()] = field_idx++;
     }
   }
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
 
+  // Mapping between field name to the field index
+  std::unordered_map<std::string, int> field_name_to_idx_;
+
   FRIEND_TEST(TestGroupNode, Attrs);
   FRIEND_TEST(TestGroupNode, Equals);
+  FRIEND_TEST(TestGroupNode, FieldIndex);
 };
 
 // ----------------------------------------------------------------------
@@ -362,6 +376,11 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   const ColumnDescriptor* Column(int i) const;
 
+  // Get the index of a column by its dotstring path, or negative value if not found
+  int ColumnIndex(const std::string& node_path) const;
+  // Get the index of a column by its node, or negative value if not found
+  int ColumnIndex(const schema::Node& node) const;
+
   bool Equals(const SchemaDescriptor& other) const;
 
   // The number of physical columns appearing in the file
@@ -398,6 +417,9 @@ class PARQUET_EXPORT SchemaDescriptor {
   // -- -- -- c  |
   // -- -- -- -- d
   std::unordered_map<int, const schema::NodePtr> leaf_to_base_;
+
+  // Mapping between ColumnPath DotString to the leaf index
+  std::unordered_map<std::string, int> leaf_to_idx_;
 };
 
 }  // namespace parquet

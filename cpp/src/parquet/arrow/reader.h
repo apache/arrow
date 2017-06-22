@@ -99,10 +99,44 @@ class PARQUET_EXPORT FileReader {
   // Read column as a whole into an Array.
   ::arrow::Status ReadColumn(int i, std::shared_ptr<::arrow::Array>* out);
 
-  // Read a table of flat columns into a Table.
+  // NOTE: Experimental API
+  // Reads a specific top level schema field into an Array
+  // The index i refers the index of the top level schema field, which may
+  // be nested or flat - e.g.
+  //
+  // 0 foo.bar
+  //   foo.bar.baz
+  //   foo.qux
+  // 1 foo2
+  // 2 foo3
+  //
+  // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
+  ::arrow::Status ReadSchemaField(int i, std::shared_ptr<::arrow::Array>* out);
+
+  // NOTE: Experimental API
+  // Reads a specific top level schema field into an Array, while keeping only chosen
+  // leaf columns.
+  // The index i refers the index of the top level schema field, which may
+  // be nested or flat, and indices vector refers to the leaf column indices - e.g.
+  //
+  // i  indices
+  // 0  0        foo.bar
+  // 0  1        foo.bar.baz
+  // 0  2        foo.qux
+  // 1  3        foo2
+  // 2  4        foo3
+  //
+  // i=0 indices={0,2} will read a partial struct with foo.bar and foo.quox columns
+  // i=1 indices={3} will read foo2 column
+  // i=1 indices={2} will result in out=nullptr
+  // leaf indices which are unrelated to the schema field are ignored
+  ::arrow::Status ReadSchemaField(int i, const std::vector<int>& indices,
+      std::shared_ptr<::arrow::Array>* out);
+
+  // Read a table of columns into a Table
   ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
 
-  // Read a table of flat columns into a Table. Read only the indicated column
+  // Read a table of columns into a Table. Read only the indicated column
   // indices (relative to the schema)
   ::arrow::Status ReadTable(
       const std::vector<int>& column_indices, std::shared_ptr<::arrow::Table>* out);
@@ -154,6 +188,8 @@ class PARQUET_EXPORT ColumnReader {
   explicit ColumnReader(std::unique_ptr<Impl> impl);
 
   friend class FileReader;
+  friend class PrimitiveImpl;
+  friend class StructImpl;
 };
 
 // Helper function to create a file reader from an implementation of an Arrow

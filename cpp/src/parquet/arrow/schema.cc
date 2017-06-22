@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "parquet/api/schema.h"
+#include "parquet/util/schema-util.h"
 
 #include "arrow/api.h"
 
@@ -224,11 +225,6 @@ Status StructFromGroup(const GroupNode* group,
   return Status::OK();
 }
 
-bool str_endswith_tuple(const std::string& str) {
-  if (str.size() >= 6) { return str.substr(str.size() - 6, 6) == "_tuple"; }
-  return false;
-}
-
 Status NodeToList(const GroupNode* group,
     const std::unordered_set<NodePtr>* included_leaf_nodes, TypePtr* out) {
   *out = nullptr;
@@ -240,8 +236,7 @@ Status NodeToList(const GroupNode* group,
       // Special case mentioned in the format spec:
       //   If the name is array or ends in _tuple, this should be a list of struct
       //   even for single child elements.
-      if (list_group->field_count() == 1 && list_node->name() != "array" &&
-          !str_endswith_tuple(list_node->name())) {
+      if (list_group->field_count() == 1 && !HasStructListName(*list_group)) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
         RETURN_NOT_OK(

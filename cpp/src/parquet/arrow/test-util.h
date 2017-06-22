@@ -271,7 +271,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
 /// Wrap an Array into a ListArray by splitting it up into size lists.
 ///
 /// This helper function only supports (size/2) nulls.
-Status MakeListArary(const std::shared_ptr<Array>& values, int64_t size,
+Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
     int64_t null_count, bool nullable_values, std::shared_ptr<::arrow::ListArray>* out) {
   // We always include an empty list
   int64_t non_null_entries = size - null_count - 1;

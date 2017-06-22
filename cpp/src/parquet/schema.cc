@@ -44,6 +44,21 @@ std::shared_ptr<ColumnPath> ColumnPath::FromDotString(const std::string& dotstri
   return std::shared_ptr<ColumnPath>(new ColumnPath(std::move(path)));
 }
 
+std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node) {
+  // Build the path in reverse order as we traverse the nodes to the top
+  std::vector<std::string> rpath_;
+  const Node* cursor = &node;
+  // The schema node is not part of the ColumnPath
+  while (cursor->parent()) {
+    rpath_.push_back(cursor->name());
+    cursor = cursor->parent();
+  }
+
+  // Build ColumnPath in correct order
+  std::vector<std::string> path(rpath_.crbegin(), rpath_.crend());
+  return std::make_shared<ColumnPath>(std::move(path));
+}
+
 std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) const {
   std::vector<std::string> path;
   path.reserve(path_.size() + 1);
@@ -69,6 +84,12 @@ const std::vector<std::string>& ColumnPath::ToDotVector() const {
 
 // ----------------------------------------------------------------------
 // Base node
+
+const std::shared_ptr<ColumnPath> Node::path() const {
+  // TODO(itaiin): Cache the result, or more precisely, cache ->ToDotString()
+  //    since it is being used to access the leaf nodes
+  return ColumnPath::FromNode(*this);
+}
 
 bool Node::EqualsInternal(const Node* other) const {
   return type_ == other->type_ && name_ == other->name_ &&
@@ -227,6 +248,28 @@ bool GroupNode::EqualsInternal(const GroupNode* other) const {
 bool GroupNode::Equals(const Node* other) const {
   if (!Node::EqualsInternal(other)) { return false; }
   return EqualsInternal(static_cast<const GroupNode*>(other));
+}
+
+int GroupNode::FieldIndex(const std::string& name) const {
+  auto search = field_name_to_idx_.find(name);
+  if (search == field_name_to_idx_.end()) {
+    // Not found
+    return -1;
+  }
+  return search->second;
+}
+
+int GroupNode::FieldIndex(const Node& node) const {
+  int result = FieldIndex(node.name());
+  if (result < 0) {
+    return -1;
+  }
+  DCHECK(result < field_count());
+  if (!node.Equals(field(result).get())) {
+    // Same name but not the same node
+    return -1;
+  }
+  return result;
 }
 
 void GroupNode::Visit(Node::Visitor* visitor) {
@@ -595,6 +638,8 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
     leaf_to_base_.emplace(static_cast<int>(leaves_.size()) - 1, base);
+    leaf_to_idx_.emplace(
+        node->path()->ToDotString(), static_cast<int>(leaves_.size()) - 1);
   }
 }
 
@@ -620,6 +665,28 @@ const ColumnDescriptor* SchemaDescriptor::Column(int i) const {
   return &leaves_[i];
 }
 
+int SchemaDescriptor::ColumnIndex(const std::string& node_path) const {
+  auto search = leaf_to_idx_.find(node_path);
+  if (search == leaf_to_idx_.end()) {
+    // Not found
+    return -1;
+  }
+  return search->second;
+}
+
+int SchemaDescriptor::ColumnIndex(const Node& node) const {
+  int result = ColumnIndex(node.path()->ToDotString());
+  if (result < 0) {
+    return -1;
+  }
+  DCHECK(result < num_columns());
+  if (!node.Equals(Column(result)->schema_node().get())) {
+    // Same path but not the same node
+    return -1;
+  }
+  return result;
+}
+
 const schema::NodePtr& SchemaDescriptor::GetColumnRoot(int i) const {
   DCHECK(i >= 0 && i < static_cast<int>(leaves_.size()));
   return leaf_to_base_.find(i)->second;
@@ -638,18 +705,7 @@ int ColumnDescriptor::type_length() const {
 }
 
 const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
-  // Build the path in reverse order as we traverse the nodes to the top
-  std::vector<std::string> rpath_;
-  const Node* node = primitive_node_;
-  // The schema node is not part of the ColumnPath
-  while (node->parent()) {
-    rpath_.push_back(node->name());
-    node = node->parent();
-  }
-
-  // Build ColumnPath in correct order
-  std::vector<std::string> path_(rpath_.crbegin(), rpath_.crend());
-  return std::make_shared<ColumnPath>(std::move(path_));
+  return primitive_node_->path();
 }
 
 }  // namespace parquet

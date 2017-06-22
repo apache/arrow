@@ -24,6 +24,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 #include <arrow/util/bit-util.h>
 
@@ -263,20 +264,35 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int64_t batch_size,
 }
 
 inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-    int16_t max_definition_level, int64_t* values_read, int64_t* null_count,
+    int16_t max_definition_level,  int16_t max_repetition_level,
+    int64_t* values_read, int64_t* null_count,
     uint8_t* valid_bits, int64_t valid_bits_offset) {
   int byte_offset = static_cast<int>(valid_bits_offset) / 8;
   int bit_offset = static_cast<int>(valid_bits_offset) % 8;
   uint8_t bitset = valid_bits[byte_offset];
 
+  // TODO(itaiin): As an interim solution we are splitting the code path here
+  // between repeated+flat column reads, and non-repeated+nested reads.
+  // Those paths need to be merged in the future
   for (int i = 0; i < num_def_levels; ++i) {
     if (def_levels[i] == max_definition_level) {
       bitset |= (1 << bit_offset);
-    } else if (def_levels[i] == (max_definition_level - 1)) {
-      bitset &= ~(1 << bit_offset);
-      *null_count += 1;
+    } else if (max_repetition_level > 0) {
+      // repetition+flat case
+      if (def_levels[i] == (max_definition_level - 1)) {
+        bitset &= ~(1 << bit_offset);
+        *null_count += 1;
+      } else {
+        continue;
+      }
     } else {
-      continue;
+      // non-repeated+nested case
+      if (def_levels[i] < max_definition_level) {
+        bitset &= ~(1 << bit_offset);
+        *null_count += 1;
+      } else {
+        throw ParquetException("definition level exceeds maximum");
+      }
     }
 
     bit_offset++;
@@ -322,9 +338,28 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int64_t batch_size,
       }
     }
 
+    // TODO(itaiin): another code path split to merge when the general case is done
+    bool has_spaced_values;
+    if (descr_->max_repetition_level() > 0) {
+      // repeated+flat case
+      has_spaced_values = !descr_->schema_node()->is_required();
+    } else {
+      // non-repeated+nested case
+      // Find if a node forces nulls in the lowest level along the hierarchy
+      const schema::Node* node = descr_->schema_node().get();
+      has_spaced_values = false;
+      while (node) {
+        auto parent = node->parent();
+        if (node->is_optional()) {
+          has_spaced_values = true;
+          break;
+        }
+        node = parent;
+      }
+    }
+
     int64_t null_count = 0;
-    if (descr_->schema_node()->is_required()) {
-      // Node is required so there are no null entries on the lowest nesting level.
+    if (!has_spaced_values) {
       int values_to_read = 0;
       for (int64_t i = 0; i < num_def_levels; ++i) {
         if (def_levels[i] == descr_->max_definition_level()) { ++values_to_read; }
@@ -336,8 +371,9 @@ inline int64_t TypedColumnReader<DType>::ReadBatchSpaced(int64_t batch_size,
       *values_read = total_values;
     } else {
       int16_t max_definition_level = descr_->max_definition_level();
+      int16_t max_repetition_level = descr_->max_repetition_level();
       DefinitionLevelsToBitmap(def_levels, num_def_levels, max_definition_level,
-          values_read, &null_count, valid_bits, valid_bits_offset);
+          max_repetition_level, values_read, &null_count, valid_bits, valid_bits_offset);
       total_values = ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
           valid_bits, valid_bits_offset);
     }
