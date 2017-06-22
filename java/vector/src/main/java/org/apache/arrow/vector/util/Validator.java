@@ -18,8 +18,6 @@
 package org.apache.arrow.vector.util;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import org.apache.arrow.vector.FieldVector;
@@ -60,17 +58,6 @@ public class Validator {
       throw new IllegalArgumentException("Different dictionary encoding count:\n" + encodings1.size() + "\n" + encodings2.size());
     }
 
-    Comparator<DictionaryEncoding> comp = new Comparator<DictionaryEncoding>() {
-      @Override
-      public int compare(DictionaryEncoding enc1, DictionaryEncoding enc2) {
-        return enc1.getId() < enc2.getId() ? -1 : 1;
-      }
-    };
-
-    // Order of encodings not important
-    Collections.sort(encodings1, comp);
-    Collections.sort(encodings2, comp);
-
     for (int i = 0; i < encodings1.size(); i++) {
       if (!encodings1.get(i).equals(encodings2.get(i))) {
         throw new IllegalArgumentException("Different dictionary encodings:\n" + encodings1.get(i) + "\n" + encodings2.get(i));
@@ -102,25 +89,25 @@ public class Validator {
     if (root1.getRowCount() != root2.getRowCount()) {
       throw new IllegalArgumentException("Different row count:\n" + root1.getRowCount() + "\n" + root2.getRowCount());
     }
-    List<FieldVector> arrowVectors = root1.getFieldVectors();
-    List<FieldVector> jsonVectors = root2.getFieldVectors();
-    if (arrowVectors.size() != jsonVectors.size()) {
-      throw new IllegalArgumentException("Different column count:\n" + arrowVectors.size() + "\n" + jsonVectors.size());
+    List<FieldVector> vectors1 = root1.getFieldVectors();
+    List<FieldVector> vectors2 = root2.getFieldVectors();
+    if (vectors1.size() != vectors2.size()) {
+      throw new IllegalArgumentException("Different column count:\n" + vectors1.size() + "\n" + vectors2.size());
     }
-    for (int i = 0; i < arrowVectors.size(); i++) {
+    for (int i = 0; i < vectors1.size(); i++) {
       Field field = root1.getSchema().getFields().get(i);
-      FieldVector arrowVector = arrowVectors.get(i);
-      FieldVector jsonVector = jsonVectors.get(i);
-      int valueCount = arrowVector.getAccessor().getValueCount();
-      if (valueCount != jsonVector.getAccessor().getValueCount()) {
-        throw new IllegalArgumentException("Different value count for field " + field + " : " + valueCount + " != " + jsonVector.getAccessor().getValueCount());
+      FieldVector vector1 = vectors1.get(i);
+      FieldVector vector2 = vectors2.get(i);
+      int valueCount = vector1.getAccessor().getValueCount();
+      if (valueCount != vector2.getAccessor().getValueCount()) {
+        throw new IllegalArgumentException("Different value count for field " + field + " : " + valueCount + " != " + vector2.getAccessor().getValueCount());
       }
       for (int j = 0; j < valueCount; j++) {
-        Object arrow = arrowVector.getAccessor().getObject(j);
-        Object json = jsonVector.getAccessor().getObject(j);
-        if (!equals(field.getType(), arrow, json)) {
+        Object obj1 = vector1.getAccessor().getObject(j);
+        Object obj2 = vector2.getAccessor().getObject(j);
+        if (!equals(field.getType(), obj1, obj2)) {
           throw new IllegalArgumentException(
-              "Different values in column:\n" + field + " at index " + j + ": " + arrow + " != " + json);
+              "Different values in column:\n" + field + " at index " + j + ": " + obj1 + " != " + obj2);
         }
       }
     }

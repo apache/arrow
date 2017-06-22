@@ -108,7 +108,6 @@ public class Integration {
     CommandLineParser parser = new PosixParser();
     CommandLine cmd = parser.parse(options, args, false);
 
-
     Command command = toCommand(cmd.getOptionValue("command"));
     File arrowFile = validateFile("arrow", cmd.getOptionValue("arrow"), command.arrowExists);
     File jsonFile = validateFile("json", cmd.getOptionValue("json"), command.jsonExists);
