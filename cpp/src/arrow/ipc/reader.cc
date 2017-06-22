@@ -215,6 +215,11 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, &message));
 
+    if (!message) {
+      return Status::Invalid(
+          "Expected DICTIONARY message in stream, was null or length 0");
+    }
+
     std::shared_ptr<Buffer> batch_body;
     RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
     io::BufferReader reader(batch_body);
@@ -228,6 +233,10 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
   Status ReadSchema() {
     std::shared_ptr<Message> message;
     RETURN_NOT_OK(ReadNextMessage(Message::SCHEMA, &message));
+
+    if (!message) {
+      return Status::Invalid("Expected SCHEMA message in stream, was null or length 0");
+    }
 
     RETURN_NOT_OK(GetDictionaryTypes(message->header(), &dictionary_types_));
 
