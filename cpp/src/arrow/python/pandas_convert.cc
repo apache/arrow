@@ -1356,9 +1356,7 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
 
 inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
-  if (data.num_chunks() <= 0) {
-    return Status::OK();
-  }
+  if (data.num_chunks() <= 0) { return Status::OK(); }
   // ChunkedArray has at least one chunk
   auto arr = static_cast<const StructArray*>(data.chunk(0).get());
   // Use it to cache the struct type and number of fields for all chunks
@@ -1399,7 +1397,8 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
             Py_INCREF(Py_None);
             field_value.reset(Py_None);
           }
-          auto setitem_result = PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
+          auto setitem_result =
+              PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
           RETURN_IF_PYERROR();
           DCHECK_EQ(setitem_result, 0);
         }
