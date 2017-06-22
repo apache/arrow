@@ -83,6 +83,9 @@ enum class StatusCode : char {
   IOError = 5,
   UnknownError = 9,
   NotImplemented = 10,
+  PlasmaObjectExists = 20,
+  PlasmaObjectNonexistent = 21,
+  PlasmaStoreFull = 22
 };
 
 class ARROW_EXPORT Status {
@@ -129,6 +132,18 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::IOError, msg, -1);
   }
 
+  static Status PlasmaObjectExists(const std::string& msg) {
+    return Status(StatusCode::PlasmaObjectExists, msg, -1);
+  }
+
+  static Status PlasmaObjectNonexistent(const std::string& msg) {
+    return Status(StatusCode::PlasmaObjectNonexistent, msg, -1);
+  }
+
+  static Status PlasmaStoreFull(const std::string& msg) {
+    return Status(StatusCode::PlasmaStoreFull, msg, -1);
+  }
+
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
@@ -139,6 +154,14 @@ class ARROW_EXPORT Status {
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
+  // An object with this object ID already exists in the plasma store.
+  bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
+  // An object was requested that doesn't exist in the plasma store.
+  bool IsPlasmaObjectNonexistent() const {
+    return code() == StatusCode::PlasmaObjectNonexistent;
+  }
+  // An object is too large to fit into the plasma store.
+  bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

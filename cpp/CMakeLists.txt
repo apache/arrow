@@ -187,6 +187,8 @@ include(san-config)
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
+# Remove --std=c++11 to avoid errors from C compilers
+string(REPLACE "-std=c++11" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
 # Code coverage
 if ("${ARROW_GENERATE_COVERAGE}")
@@ -362,7 +364,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
       APPEND_STRING PROPERTY
       COMPILE_FLAGS " -DARROW_VALGRIND")
     add_test(${TEST_NAME}
-      valgrind --tool=memcheck --leak-check=full --error-exitcode=1 ${TEST_PATH})
+      bash -c "cd ${EXECUTABLE_OUTPUT_PATH}; valgrind --tool=memcheck --leak-check=full --leak-check-heuristics=stdstring --error-exitcode=1 ${TEST_PATH}")
   elseif(MSVC)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()
@@ -707,6 +709,7 @@ if (ARROW_IPC)
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
+      "-DCMAKE_CXX_FLAGS=-fPIC"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF")
 
@@ -871,7 +874,12 @@ if (UNIX)
 
   FOREACH(item ${LINT_FILES})
     IF(NOT ((item MATCHES "_generated.h") OR
-            (item MATCHES "pyarrow_api.h")))
+            (item MATCHES "pyarrow_api.h") OR
+            (item MATCHES "xxhash.h") OR
+            (item MATCHES "xxhash.cc") OR
+            (item MATCHES "config.h") OR
+            (item MATCHES "zmalloc.h") OR
+            (item MATCHES "ae.h")))
       LIST(APPEND FILTERED_LINT_FILES ${item})
     ENDIF()
   ENDFOREACH(item ${LINT_FILES})
@@ -899,7 +907,10 @@ if (${CLANG_FORMAT_FOUND})
     sed -e '/windows_compatibility.h/g' |
     sed -e '/pyarrow_api.h/g' |
     sed -e '/config.h/g' |   # python/config.h
-    sed -e '/platform.h/g'`  # python/platform.h
+    sed -e '/platform.h/g' |  # python/platform.h
+    sed -e '/ae.h/g' |
+    sed -e '/xxhash.cc/g' |
+    sed -e '/xxhash.h/g'`
     )
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
@@ -1002,6 +1013,9 @@ if(FLATBUFFERS_VENDORED)
   set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
 endif()
 
+if(NOT WIN32)
+  add_subdirectory(src/plasma)
+endif()
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 if (ARROW_IPC)
