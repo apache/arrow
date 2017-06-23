@@ -46,6 +46,10 @@ set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
   "${OUTPUT_DIR}/plasma_generated.h")
 
+if(FLATBUFFERS_VENDORED)
+  add_dependencies(gen_plasma_fbs flatbuffers_ep)
+endif()
+
 add_custom_command(
   OUTPUT ${PLASMA_FBS_OUTPUT_FILES}
   # The --gen-object-api flag generates a C++ class MessageT for each
@@ -58,8 +62,6 @@ add_custom_command(
   VERBATIM)
 
 add_custom_target(gen_plasma_fbs DEPENDS ${PLASMA_FBS_OUTPUT_FILES})
-
-add_dependencies(gen_plasma_fbs flatbuffers_ep)
 
 if(UNIX AND NOT APPLE)
   link_libraries(rt)
