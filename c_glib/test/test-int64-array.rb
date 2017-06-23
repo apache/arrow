@@ -41,4 +41,13 @@ class TestInt64Array < Test::Unit::TestCase
     array = builder.finish
     assert_equal(-1, array.get_value(0))
   end
+
+  def test_values
+    builder = Arrow::Int64ArrayBuilder.new
+    builder.append(-1)
+    builder.append(2)
+    builder.append(-4)
+    array = builder.finish
+    assert_equal([-1, 2, -4], array.values)
+  end
 end
