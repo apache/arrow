@@ -85,8 +85,9 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk7
     before_script:
-    - export CC="gcc-4.9"
-    - export CXX="g++-4.9"
+    - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - export CC="clang-4.0"
+    - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
@@ -122,11 +123,6 @@ matrix:
 
 before_install:
 - ulimit -c unlimited -S
-- export CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
-- export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
-
-after_script:
-- rm -rf $CPP_BUILD_DIR
 
 after_failure:
 - COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
