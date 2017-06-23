@@ -377,6 +377,9 @@ class TestParquetIO : public ::testing::Test {
   void ReadTableFromFile(
       std::unique_ptr<FileReader> reader, std::shared_ptr<Table>* out) {
     ASSERT_OK_NO_THROW(reader->ReadTable(out));
+    auto key_value_metadata =
+        reader->parquet_reader()->metadata()->key_value_metadata().get();
+    ASSERT_EQ(nullptr, key_value_metadata);
     ASSERT_NE(nullptr, out->get());
   }
 

@@ -415,8 +415,9 @@ class FileMetaData::FileMetaDataImpl {
   ApplicationVersion writer_version_;
 
   void InitKeyValueMetadata() {
-    auto metadata = std::make_shared<KeyValueMetadata>();
+    std::shared_ptr<KeyValueMetadata> metadata = nullptr;
     if (metadata_->__isset.key_value_metadata) {
+      metadata = std::make_shared<KeyValueMetadata>();
       for (const auto& it : metadata_->key_value_metadata) {
         metadata->Append(it.key, it.value);
       }

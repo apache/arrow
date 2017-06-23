@@ -184,6 +184,21 @@ TEST_F(TestConvertParquetSchema, ParquetKeyValueMetadata) {
   ASSERT_EQ("baz", arrow_metadata->value(1));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetEmptyKeyValueMetadata) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  parquet_fields.push_back(
+      PrimitiveNode::Make("int32", Repetition::REQUIRED, ParquetType::INT32));
+  arrow_fields.push_back(std::make_shared<Field>("int32", INT32, false));
+
+  std::shared_ptr<KeyValueMetadata> key_value_metadata = nullptr;
+  ASSERT_OK(ConvertSchema(parquet_fields, key_value_metadata));
+
+  auto arrow_metadata = result_schema_->metadata();
+  ASSERT_EQ(arrow_metadata, nullptr);
+}
+
 TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
