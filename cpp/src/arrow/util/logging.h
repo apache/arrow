@@ -39,9 +39,10 @@ namespace arrow {
 #define ARROW_LOG_INTERNAL(level) ::arrow::internal::CerrLog(level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
 
-#define ARROW_CHECK(condition)                               \
-  (condition) ? 0 : ::arrow::internal::FatalLog(ARROW_FATAL) \
-                        << __FILE__ << __LINE__ << " Check failed: " #condition " "
+#define ARROW_CHECK(condition)                           \
+  (condition) ? 0                                        \
+              : ::arrow::internal::FatalLog(ARROW_FATAL) \
+                    << __FILE__ << __LINE__ << " Check failed: " #condition " "
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ARROW_WARNING

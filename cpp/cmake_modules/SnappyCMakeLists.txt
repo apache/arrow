@@ -1,0 +1,85 @@
+# Copyright 2008 Google Inc. All Rights Reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#     * Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above
+# copyright notice, this list of conditions and the following disclaimer
+# in the documentation and/or other materials provided with the
+# distribution.
+#     * Neither the name of Google Inc. nor the names of its
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+PROJECT(snappy)
+
+INCLUDE(CheckIncludeFiles)
+INCLUDE(CMakePackageConfigHelpers)
+
+CHECK_INCLUDE_FILES("stdint.h" HAVE_STDINT_H)
+CHECK_INCLUDE_FILES("stddef.h" HAVE_STDDEF_H)
+CHECK_INCLUDE_FILES("sys/uio.h" HAVE_SYS_UIO_H)
+
+if (NOT HAVE_SYS_UIO_H)
+  set(HAVE_SYS_UIO_H 0)
+endif()
+
+if (NOT HAVE_STDINT_H)
+  set(HAVE_STDINT_H 0)
+endif()
+
+if (NOT HAVE_STDDEF_H)
+  set(HAVE_STDDEF_H 0)
+endif()
+
+set(ac_cv_have_stdint_h ${HAVE_STDINT_H})
+set(ac_cv_have_stddef_h ${HAVE_STDDEF_H})
+set(ac_cv_have_sys_uio_h ${HAVE_SYS_UIO_H})
+CONFIGURE_FILE(${snappy_SOURCE_DIR}/snappy-stubs-public.h.in
+               snappy-stubs-public.h)
+
+if (WIN32)
+  ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
+endif()
+
+set(SNAPPY_SRCS snappy.cc
+  snappy-c.cc
+  snappy-stubs-internal.cc
+  snappy-sinksource.cc
+  snappy.h
+  snappy-c.h
+  snappy-sinksource.h
+  snappy-stubs-public.h)
+
+add_library(snappy SHARED ${SNAPPY_SRCS})
+add_library(snappystatic STATIC ${SNAPPY_SRCS})
+
+TARGET_COMPILE_DEFINITIONS(snappy PRIVATE -DHAVE_CONFIG_H)
+TARGET_COMPILE_DEFINITIONS(snappystatic PRIVATE -DHAVE_CONFIG_H)
+
+install(FILES snappy.h
+  snappy-c.h
+  snappy-sinksource.h
+  ${snappy_BINARY_DIR}/snappy-stubs-public.h
+  DESTINATION include)
+
+install(TARGETS snappy snappystatic
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
