@@ -67,7 +67,6 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set_source_files_properties(thirdparty/dlmalloc.c PROPERTIES COMPILE_FLAGS -Wno-all)
 set_source_files_properties(extension.cc PROPERTIES COMPILE_FLAGS -Wno-strict-aliasing)
 
 set(PLASMA_SRCS
@@ -91,7 +90,7 @@ ADD_ARROW_LIB(plasma
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
-set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error=conversion -O3")
+set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error -O3")
 
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static)
