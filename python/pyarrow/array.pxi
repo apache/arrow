@@ -432,6 +432,7 @@ cdef set PRIMITIVE_TYPES = set([
     _Type_UINT32, _Type_INT32,
     _Type_UINT64, _Type_INT64,
     _Type_TIMESTAMP, _Type_DATE32,
+    _Type_TIME32, _Type_TIME64,
     _Type_DATE64,
     _Type_HALF_FLOAT,
     _Type_FLOAT,
@@ -816,6 +817,32 @@ cdef class Date64Value(ArrayValue):
             ap.Value(self.index) / 1000).date()
 
 
+cdef class Time32Value(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CTime32Array* ap = <CTime32Array*> self.sp_array.get()
+            CTime32Type* dtype = <CTime32Type*> ap.type().get()
+
+        if dtype.unit() == TimeUnit_SECOND:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=ap.Value(self.index))).time()
+        else:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=ap.Value(self.index))).time()
+
+
+cdef class Time64Value(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CTime64Array* ap = <CTime64Array*> self.sp_array.get()
+            CTime64Type* dtype = <CTime64Type*> ap.type().get()
+
+        if dtype.unit() == TimeUnit_MICRO:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=ap.Value(self.index))).time()
+        else:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=ap.Value(self.index) / 1000)).time()
+
+
 cdef dict DATETIME_CONVERSION_FUNCTIONS
 
 try:
@@ -975,6 +1002,8 @@ cdef dict _scalar_classes = {
     _Type_INT64: Int64Value,
     _Type_DATE32: Date32Value,
     _Type_DATE64: Date64Value,
+    _Type_TIME32: Time32Value,
+    _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
