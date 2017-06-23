@@ -31,7 +31,7 @@ python $RELEASE_DIR/check-rat-report.py $RELEASE_DIR/rat_exclude_files.txt rat.t
 cat filtered_rat.txt
 UNAPPROVED=`cat filtered_rat.txt  | grep "NOT APPROVED" | wc -l`
 
-if [ "${UNAPPROVED}" = "0" ]; then
+if [ "0" -eq "${UNAPPROVED}" ]; then
   echo "No unapproved licenses"
 else
   echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
