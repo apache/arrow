@@ -22,6 +22,7 @@
 # Headers: top level
 install(FILES
   bit-util.h
+  compression.h
   key_value_metadata.h
   logging.h
   macros.h
