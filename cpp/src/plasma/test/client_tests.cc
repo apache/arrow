@@ -29,7 +29,7 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-std::string g_test_executable;
+std::string g_test_executable;  // NOLINT
 
 class TestPlasmaStore : public ::testing::Test {
  public:

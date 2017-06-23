@@ -22,11 +22,13 @@
 # Headers: top level
 install(FILES
   bit-util.h
+  compression.h
+  key_value_metadata.h
   logging.h
   macros.h
   random.h
+  stl.h
   visibility.h
-  key_value_metadata.h
   DESTINATION include/arrow/util)
 
 #######################################
@@ -51,6 +53,7 @@ if (ARROW_BUILD_BENCHMARKS)
 endif()
 
 ADD_ARROW_TEST(bit-util-test)
-ADD_ARROW_TEST(stl-util-test)
+ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
+ADD_ARROW_TEST(stl-util-test)

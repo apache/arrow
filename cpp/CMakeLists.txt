@@ -136,6 +136,18 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_PLASMA
     "Build the plasma object store along with Arrow"
     OFF)
+
+  option(ARROW_ZLIB_VENDORED
+    "Build our own zlib (some libz.a aren't configured for static linking)"
+    ON)
+  if (MSVC)
+    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Brotli static lib suffix used on Windows with MSVC (default _static)")
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING
+      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
+    set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
+      "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
+  endif()
 endif()
 
 if(ARROW_BUILD_TESTS)
@@ -166,9 +178,14 @@ if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()
 
+############################################################
+# Dependencies
+############################################################
+
+include(ThirdpartyToolchain)
+
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
-set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
@@ -401,444 +418,6 @@ endfunction()
 enable_testing()
 
 ############################################################
-# Dependencies
-############################################################
-
-# ----------------------------------------------------------------------
-# Thirdparty toolchain
-
-set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
-set(GFLAGS_VERSION "2.1.2")
-set(GTEST_VERSION "1.8.0")
-set(GBENCHMARK_VERSION "1.1.0")
-set(FLATBUFFERS_VERSION "1.6.0")
-set(JEMALLOC_VERSION "4.4.0")
-
-if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
-  set(FLATBUFFERS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(RAPIDJSON_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(JEMALLOC_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  set(GFLAGS_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
-
-  if (NOT DEFINED ENV{BOOST_ROOT})
-    # Since we have to set this in the environment, we check whether
-    # $BOOST_ROOT is defined inside here
-    set(ENV{BOOST_ROOT} "$ENV{ARROW_BUILD_TOOLCHAIN}")
-  endif()
-endif()
-
-if (DEFINED ENV{FLATBUFFERS_HOME})
-  set(FLATBUFFERS_HOME "$ENV{FLATBUFFERS_HOME}")
-endif()
-
-if (DEFINED ENV{RAPIDJSON_HOME})
-  set(RAPIDJSON_HOME "$ENV{RAPIDJSON_HOME}")
-endif()
-
-if (DEFINED ENV{JEMALLOC_HOME})
-  set(JEMALLOC_HOME "$ENV{JEMALLOC_HOME}")
-endif()
-
-if (DEFINED ENV{GFLAGS_HOME})
-  set(GFLAGS_HOME "$ENV{GFLAGS_HOME}")
-endif()
-
-# ----------------------------------------------------------------------
-# Find pthreads
-
-if (NOT MSVC)
-  find_library(PTHREAD_LIBRARY pthread)
-  message(STATUS "Found pthread: ${PTHREAD_LIBRARY}")
-endif()
-
-# ----------------------------------------------------------------------
-# Add Boost dependencies (code adapted from Apache Kudu (incubating))
-
-set(Boost_DEBUG TRUE)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_ADDITIONAL_VERSIONS
-  "1.63.0" "1.63"
-  "1.62.0" "1.61"
-  "1.61.0" "1.62"
-  "1.60.0" "1.60")
-
-if (ARROW_BOOST_USE_SHARED)
-  # Find shared Boost libraries.
-  set(Boost_USE_STATIC_LIBS OFF)
-
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-
-    # force all boost libraries to dynamic link
-    add_definitions(-DBOOST_ALL_DYN_LINK)
-  endif()
-
-  if (ARROW_BOOST_HEADER_ONLY)
-    find_package(Boost)
-  else()
-    find_package(Boost COMPONENTS system filesystem REQUIRED)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-    else()
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-    endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
-  endif()
-else()
-  # Find static boost headers and libs
-  # TODO Differentiate here between release and debug builds
-  set(Boost_USE_STATIC_LIBS ON)
-  if (ARROW_BOOST_HEADER_ONLY)
-    find_package(Boost)
-  else()
-    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-    else()
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
-    endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  endif()
-endif()
-
-message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
-message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
-
-if (NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_THIRDPARTY_LIB(boost_system
-      STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}"
-      SHARED_LIB "${BOOST_SHARED_SYSTEM_LIBRARY}")
-
-  ADD_THIRDPARTY_LIB(boost_filesystem
-      STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-      SHARED_LIB "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
-
-  SET(ARROW_BOOST_LIBS boost_system boost_filesystem)
-endif()
-
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  add_custom_target(unittest ctest -L unittest)
-
-  if("$ENV{GTEST_HOME}" STREQUAL "")
-    if(APPLE)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC -DGTEST_USE_OWN_TR1_TUPLE=1 -Wno-unused-value -Wno-ignored-attributes")
-    elseif(NOT MSVC)
-      set(GTEST_CMAKE_CXX_FLAGS "-fPIC")
-    endif()
-    string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
-    set(GTEST_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}} ${GTEST_CMAKE_CXX_FLAGS}")
-
-    set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
-    set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-    set(GTEST_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_MAIN_STATIC_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GTEST_VENDORED 1)
-    set(GTEST_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                         -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-                         -Dgtest_force_shared_crt=ON
-                         -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
-
-    if (CMAKE_VERSION VERSION_GREATER "3.2")
-      # BUILD_BYPRODUCTS is a 3.2+ feature
-      ExternalProject_Add(googletest_ep
-        URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
-        CMAKE_ARGS ${GTEST_CMAKE_ARGS})
-    else()
-      ExternalProject_Add(googletest_ep
-        URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-        CMAKE_ARGS ${GTEST_CMAKE_ARGS})
-    endif()
-  else()
-    find_package(GTest REQUIRED)
-    set(GTEST_VENDORED 0)
-  endif()
-
-  message(STATUS "GTest include dir: ${GTEST_INCLUDE_DIR}")
-  message(STATUS "GTest static library: ${GTEST_STATIC_LIB}")
-  include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gtest
-    STATIC_LIB ${GTEST_STATIC_LIB})
-  ADD_THIRDPARTY_LIB(gtest_main
-    STATIC_LIB ${GTEST_MAIN_STATIC_LIB})
-
-  if(GTEST_VENDORED)
-    add_dependencies(gtest googletest_ep)
-    add_dependencies(gtest_main googletest_ep)
-  endif()
-
-  # gflags (formerly Googleflags) command line parsing
-  if("${GFLAGS_HOME}" STREQUAL "")
-    set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-
-    set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
-    set(GFLAGS_HOME "${GFLAGS_PREFIX}")
-    set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
-    if(MSVC)
-      set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/gflags_static.lib")
-    else()
-      set(GFLAGS_STATIC_LIB "${GFLAGS_PREFIX}/lib/libgflags.a")
-    endif()
-    set(GFLAGS_VENDORED 1)
-    set(GFLAGS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                          -DCMAKE_INSTALL_PREFIX=${GFLAGS_PREFIX}
-                          -DBUILD_SHARED_LIBS=OFF
-                          -DBUILD_STATIC_LIBS=ON
-                          -DBUILD_PACKAGING=OFF
-                          -DBUILD_TESTING=OFF
-                          -BUILD_CONFIG_TESTS=OFF
-                          -DINSTALL_HEADERS=ON
-                          -DCMAKE_CXX_FLAGS=${GFLAGS_CMAKE_CXX_FLAGS})
-    if (CMAKE_VERSION VERSION_GREATER "3.2")
-      # BUILD_BYPRODUCTS is a 3.2+ feature
-      ExternalProject_Add(gflags_ep
-        GIT_REPOSITORY https://github.com/gflags/gflags.git
-        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
-        BUILD_IN_SOURCE 1
-        BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
-        CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
-    else()
-      ExternalProject_Add(gflags_ep
-        GIT_REPOSITORY https://github.com/gflags/gflags.git
-        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
-        BUILD_IN_SOURCE 1
-        CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
-    endif()
-  else()
-    set(GFLAGS_VENDORED 0)
-    find_package(GFlags REQUIRED)
-  endif()
-
-  message(STATUS "GFlags include dir: ${GFLAGS_INCLUDE_DIR}")
-  message(STATUS "GFlags static library: ${GFLAGS_STATIC_LIB}")
-  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(gflags
-    STATIC_LIB ${GFLAGS_STATIC_LIB})
-  if(MSVC)
-    set_target_properties(gflags
-      PROPERTIES
-      IMPORTED_LINK_INTERFACE_LIBRARIES "shlwapi.lib")
-  endif()
-
-  if(GFLAGS_VENDORED)
-    add_dependencies(gflags gflags_ep)
-  endif()
-endif()
-
-if(ARROW_BUILD_BENCHMARKS)
-  add_custom_target(runbenchmark ctest -L benchmark)
-
-  if("$ENV{GBENCHMARK_HOME}" STREQUAL "")
-    if(APPLE)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC -std=c++11 -stdlib=libc++")
-    elseif(NOT MSVC)
-      set(GBENCHMARK_CMAKE_CXX_FLAGS "-fPIC --std=c++11")
-    endif()
-
-    set(GBENCHMARK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gbenchmark_ep/src/gbenchmark_ep-install")
-    set(GBENCHMARK_INCLUDE_DIR "${GBENCHMARK_PREFIX}/include")
-    set(GBENCHMARK_STATIC_LIB "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(GBENCHMARK_VENDORED 1)
-    set(GBENCHMARK_CMAKE_ARGS
-          "-DCMAKE_BUILD_TYPE=Release"
-          "-DCMAKE_INSTALL_PREFIX:PATH=${GBENCHMARK_PREFIX}"
-          "-DBENCHMARK_ENABLE_TESTING=OFF"
-          "-DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS}")
-    if (APPLE)
-      set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
-    endif()
-    if (CMAKE_VERSION VERSION_GREATER "3.2")
-      # BUILD_BYPRODUCTS is a 3.2+ feature
-      ExternalProject_Add(gbenchmark_ep
-        URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
-        BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
-        CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS})
-    else()
-      ExternalProject_Add(gbenchmark_ep
-        URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
-        CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS})
-    endif()
-  else()
-    find_package(GBenchmark REQUIRED)
-    set(GBENCHMARK_VENDORED 0)
-  endif()
-
-  message(STATUS "GBenchmark include dir: ${GBENCHMARK_INCLUDE_DIR}")
-  message(STATUS "GBenchmark static library: ${GBENCHMARK_STATIC_LIB}")
-  include_directories(SYSTEM ${GBENCHMARK_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(benchmark
-    STATIC_LIB ${GBENCHMARK_STATIC_LIB})
-
-  if(GBENCHMARK_VENDORED)
-    add_dependencies(benchmark gbenchmark_ep)
-  endif()
-endif()
-
-if (ARROW_IPC)
-  # RapidJSON, header only dependency
-  if("${RAPIDJSON_HOME}" STREQUAL "")
-    ExternalProject_Add(rapidjson_ep
-      PREFIX "${CMAKE_BINARY_DIR}"
-      URL "https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz"
-      URL_MD5 "badd12c511e081fec6c89c43a7027bce"
-      CONFIGURE_COMMAND ""
-      BUILD_COMMAND ""
-      BUILD_IN_SOURCE 1
-      INSTALL_COMMAND "")
-
-    ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
-    set(RAPIDJSON_INCLUDE_DIR "${SOURCE_DIR}/include")
-    set(RAPIDJSON_VENDORED 1)
-  else()
-    set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_HOME}/include")
-    set(RAPIDJSON_VENDORED 0)
-  endif()
-  message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
-  include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-
-  ## Flatbuffers
-  if("${FLATBUFFERS_HOME}" STREQUAL "")
-    set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-    ExternalProject_Add(flatbuffers_ep
-      URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
-      CMAKE_ARGS
-      "-DCMAKE_CXX_FLAGS=-fPIC"
-      "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-      "-DFLATBUFFERS_BUILD_TESTS=OFF")
-
-    set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
-    set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-    set(FLATBUFFERS_VENDORED 1)
-  else()
-    find_package(Flatbuffers REQUIRED)
-    set(FLATBUFFERS_VENDORED 0)
-  endif()
-
-  message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
-  message(STATUS "Flatbuffers compiler: ${FLATBUFFERS_COMPILER}")
-  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
-endif()
-#----------------------------------------------------------------------
-
-if (MSVC)
-  # jemalloc is not supported on Windows
-  set(ARROW_JEMALLOC off)
-endif()
-
-if (ARROW_JEMALLOC)
-  find_package(jemalloc)
-
-  if(NOT JEMALLOC_FOUND)
-    set(ARROW_JEMALLOC_USE_SHARED OFF)
-    set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
-    set(JEMALLOC_HOME "${JEMALLOC_PREFIX}")
-    set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
-    set(JEMALLOC_SHARED_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(JEMALLOC_VENDORED 1)
-    if (CMAKE_VERSION VERSION_GREATER "3.2")
-      # BUILD_BYPRODUCTS is a 3.2+ feature
-      ExternalProject_Add(jemalloc_ep
-        URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
-        CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
-        BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
-        BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
-    else()
-      ExternalProject_Add(jemalloc_ep
-        URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
-        CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
-        BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
-        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
-    endif()
-  else()
-    set(JEMALLOC_VENDORED 0)
-  endif()
-
-  include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIR})
-  ADD_THIRDPARTY_LIB(jemalloc
-    STATIC_LIB ${JEMALLOC_STATIC_LIB}
-    SHARED_LIB ${JEMALLOC_SHARED_LIB}
-    DEPS ${PTHREAD_LIBRARY})
-endif()
-
-## Google PerfTools
-##
-## Disabled with TSAN/ASAN as well as with gold+dynamic linking (see comment
-## near definition of ARROW_USING_GOLD).
-# find_package(GPerf REQUIRED)
-# if (NOT "${ARROW_USE_ASAN}" AND
-#     NOT "${ARROW_USE_TSAN}" AND
-#     NOT ("${ARROW_USING_GOLD}" AND "${ARROW_LINK}" STREQUAL "d"))
-#   ADD_THIRDPARTY_LIB(tcmalloc
-#     STATIC_LIB "${TCMALLOC_STATIC_LIB}"
-#     SHARED_LIB "${TCMALLOC_SHARED_LIB}")
-#   ADD_THIRDPARTY_LIB(profiler
-#     STATIC_LIB "${PROFILER_STATIC_LIB}"
-#     SHARED_LIB "${PROFILER_SHARED_LIB}")
-#   list(APPEND ARROW_BASE_LIBS tcmalloc profiler)
-#   add_definitions("-DTCMALLOC_ENABLED")
-#   set(ARROW_TCMALLOC_AVAILABLE 1)
-# endif()
-
-########################################################################
-# HDFS thirdparty setup
-
-if (DEFINED ENV{HADOOP_HOME})
-  set(HADOOP_HOME $ENV{HADOOP_HOME})
-  if (NOT EXISTS "${HADOOP_HOME}/include/hdfs.h")
-    message(STATUS "Did not find hdfs.h in expected location, using vendored one")
-    set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-  endif()
-else()
-  set(HADOOP_HOME "${THIRDPARTY_DIR}/hadoop")
-endif()
-
-set(HDFS_H_PATH "${HADOOP_HOME}/include/hdfs.h")
-if (NOT EXISTS ${HDFS_H_PATH})
-  message(FATAL_ERROR "Did not find hdfs.h at ${HDFS_H_PATH}")
-endif()
-message(STATUS "Found hdfs.h at: " ${HDFS_H_PATH})
-
-include_directories(SYSTEM "${HADOOP_HOME}/include")
-
-############################################################
-# Linker setup
-############################################################
-set(ARROW_MIN_TEST_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
-  arrow_static
-  gtest
-  gtest_main
-  ${ARROW_BASE_LIBS})
-
-if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
-    ${CMAKE_DL_LIBS})
-endif()
-
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
-set(ARROW_BENCHMARK_LINK_LIBS
-  arrow_static
-  arrow_benchmark_main
-  ${ARROW_BASE_LIBS})
-
-############################################################
 # "make ctags" target
 ############################################################
 if (UNIX)
@@ -936,16 +515,41 @@ if (${CLANG_TIDY_FOUND})
 
 endif()
 
-
-
 ############################################################
-# Subdirectories
+# Linker and Dependencies
 ############################################################
+
+set(ARROW_STATIC_LINK_LIBS
+  brotli_dec
+  brotli_enc
+  brotli_common
+  snappy
+  zlib)
+
+set(ARROW_DEPENDENCIES
+  ${ARROW_STATIC_LINK_LIBS})
+
+set(ARROW_MIN_TEST_LIBS
+  arrow_static
+  ${ARROW_STATIC_LINK_LIBS}
+  gtest
+  gtest_main)
+
+if(NOT MSVC)
+  set(ARROW_MIN_TEST_LIBS
+    ${ARROW_MIN_TEST_LIBS}
+    ${CMAKE_DL_LIBS})
+endif()
+
+set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
+
+set(ARROW_BENCHMARK_LINK_LIBS
+  arrow_static
+  arrow_benchmark_main
+  ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_LINK_LIBS
-    )
-
-set(ARROW_STATIC_LINK_LIBS)
+  ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
@@ -1009,13 +613,9 @@ elseif (NOT MSVC)
     ${PTHREAD_LIBRARY})
 endif()
 
-if(RAPIDJSON_VENDORED)
-  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} rapidjson_ep)
-endif()
-
-if(FLATBUFFERS_VENDORED)
-  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
-endif()
+############################################################
+# Subdirectories
+############################################################
 
 if(NOT WIN32 AND ARROW_PLASMA)
   add_subdirectory(src/plasma)
@@ -1048,6 +648,7 @@ set(ARROW_SRCS
   src/arrow/io/memory.cc
 
   src/arrow/util/bit-util.cc
+  src/arrow/util/compression.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )

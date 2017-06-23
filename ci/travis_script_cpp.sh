@@ -17,7 +17,7 @@ set -e
 : ${CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build}
 
 # Check licenses according to Apache policy
-git archive HEAD -o arrow-src.tar.gz
+git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar.gz
 ./dev/release/run-rat.sh arrow-src.tar.gz
 
 pushd $CPP_BUILD_DIR
