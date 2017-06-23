@@ -97,6 +97,7 @@ endif()
 set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_ADDITIONAL_VERSIONS
+  "1.64.0" "1.64"
   "1.63.0" "1.63"
   "1.62.0" "1.61"
   "1.61.0" "1.62"
@@ -135,7 +136,7 @@ else()
   if (ARROW_BOOST_HEADER_ONLY)
     find_package(Boost)
   else()
-    find_package(Boost COMPONENTS system filesystem regex REQUIRED)
+    find_package(Boost COMPONENTS system filesystem REQUIRED)
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
       set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
