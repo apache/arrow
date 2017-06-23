@@ -103,6 +103,12 @@ class TestPandasConversion(unittest.TestCase):
         self._check_pandas_roundtrip(df)
 
 
+    def test_all_none_category(self):
+        df = pd.DataFrame({'a': [None, None, None]})
+        df['a'] = df['a'].astype('category')
+        self._check_pandas_roundtrip(df)
+
+
     def test_float_no_nulls(self):
         data = {}
         fields = []

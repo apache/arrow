@@ -322,7 +322,10 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
   explicit ArrayEqualsVisitor(const Array& right)
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
-  Status Visit(const NullArray& left) { return Status::OK(); }
+  Status Visit(const NullArray& left) {
+      result_ = true;
+      return Status::OK();
+  }
 
   Status Visit(const BooleanArray& left) {
     const auto& right = static_cast<const BooleanArray&>(right_);
@@ -529,7 +532,7 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
       left.type_id() != right.type_id()) {
     return false;
   }
-  if (left.null_count() > 0) {
+  if (left.null_count() > 0 && left.null_count() < left.length()) {
     return BitmapEquals(left.null_bitmap()->data(), left.offset(),
         right.null_bitmap()->data(), right.offset(), left.length());
   }

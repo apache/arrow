@@ -95,6 +95,16 @@ TEST_F(TestArray, TestEquality) {
   EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
 }
 
+TEST_F(TestArray, TestNullArrayEquality) {
+  auto array_1 = std::make_shared<NullArray>(10);
+  auto array_2 = std::make_shared<NullArray>(10);
+  auto array_3 = std::make_shared<NullArray>(20);
+
+  EXPECT_TRUE(array_1->Equals(array_1));
+  EXPECT_TRUE(array_1->Equals(array_2));
+  EXPECT_FALSE(array_1->Equals(array_3));
+}
+
 TEST_F(TestArray, SliceRecomputeNullCount) {
   vector<uint8_t> valid_bytes = {1, 0, 1, 1, 0, 1, 0, 0, 0};
 
