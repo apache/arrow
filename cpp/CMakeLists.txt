@@ -178,6 +178,12 @@ if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()
 
+############################################################
+# Dependencies
+############################################################
+
+include(ThirdpartyToolchain)
+
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
@@ -412,12 +418,6 @@ endfunction()
 enable_testing()
 
 ############################################################
-# Dependencies
-############################################################
-
-include(ThirdpartyToolchain)
-
-############################################################
 # "make ctags" target
 ############################################################
 if (UNIX)
@@ -526,12 +526,14 @@ set(ARROW_STATIC_LINK_LIBS
   snappy
   zlib)
 
+set(ARROW_DEPENDENCIES
+  ${ARROW_STATIC_LINK_LIBS})
+
 set(ARROW_MIN_TEST_LIBS
-  ${ARROW_STATIC_LINK_LIBS}
   arrow_static
+  ${ARROW_STATIC_LINK_LIBS}
   gtest
-  gtest_main
-  ${ARROW_BASE_LIBS})
+  gtest_main)
 
 if(NOT MSVC)
   set(ARROW_MIN_TEST_LIBS
@@ -544,10 +546,10 @@ set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
-  ${ARROW_BASE_LIBS})
+  ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_LINK_LIBS
-    )
+  ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_SHARED_PRIVATE_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
@@ -609,14 +611,6 @@ elseif (NOT MSVC)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
     ${PTHREAD_LIBRARY})
-endif()
-
-if(RAPIDJSON_VENDORED)
-  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} rapidjson_ep)
-endif()
-
-if(FLATBUFFERS_VENDORED)
-  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
 endif()
 
 ############################################################

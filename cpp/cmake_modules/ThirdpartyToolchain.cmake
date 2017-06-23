@@ -325,6 +325,7 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
+
 if (ARROW_IPC)
   # RapidJSON, header only dependency
   if("${RAPIDJSON_HOME}" STREQUAL "")
@@ -363,6 +364,14 @@ if (ARROW_IPC)
   else()
     find_package(Flatbuffers REQUIRED)
     set(FLATBUFFERS_VENDORED 0)
+  endif()
+
+  if(RAPIDJSON_VENDORED)
+    set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} rapidjson_ep)
+  endif()
+
+  if(FLATBUFFERS_VENDORED)
+    set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
