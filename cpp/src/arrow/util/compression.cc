@@ -324,4 +324,4 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
-}  // namespace parquet
+}  // namespace arrow
