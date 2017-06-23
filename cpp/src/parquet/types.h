@@ -81,7 +81,8 @@ struct LogicalType {
     INT_64,
     JSON,
     BSON,
-    INTERVAL
+    INTERVAL,
+    NA = 25
   };
 };
 

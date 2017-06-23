@@ -76,6 +76,7 @@ SortOrder get_sort_order(LogicalType::type converted, Type::type primitive) {
     case LogicalType::BSON:
     case LogicalType::JSON:
       return SortOrder::UNSIGNED;
+    case LogicalType::NA:
     case LogicalType::DECIMAL:
     case LogicalType::LIST:
     case LogicalType::MAP:

@@ -62,6 +62,15 @@ class LevelBuilder {
 
   Status VisitInline(const Array& array);
 
+  Status Visit(const ::arrow::NullArray& array) {
+    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
+    valid_bitmaps_.push_back(array.null_bitmap_data());
+    null_counts_.push_back(array.length());
+    values_type_ = array.type_id();
+    values_array_ = &array;
+    return Status::OK();
+  }
+
   Status Visit(const ::arrow::PrimitiveArray& array) {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
@@ -98,7 +107,6 @@ class LevelBuilder {
         "Level generation for ArrowTypePrefix not supported yet"); \
   }
 
-  NOT_IMPLEMENTED_VISIT(Null)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(Decimal)
@@ -141,6 +149,8 @@ class LevelBuilder {
             reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
         if (array.null_count() == 0) {
           std::fill(def_levels_ptr, def_levels_ptr + array.length(), 1);
+        } else if (array.null_count() == array.length()) {
+          std::fill(def_levels_ptr, def_levels_ptr + array.length(), 0);
         } else {
           const uint8_t* valid_bits = array.null_bitmap_data();
           INIT_BITSET(valid_bits, static_cast<int>(array.offset()));
@@ -510,6 +520,18 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
 }
 
 template <>
+Status FileWriter::Impl::TypedWriteBatch<Int32Type, ::arrow::NullType>(
+    ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
+    const int16_t* def_levels, const int16_t* rep_levels) {
+  auto writer = reinterpret_cast<TypedColumnWriter<Int32Type>*>(column_writer);
+
+  PARQUET_CATCH_NOT_OK(
+      writer->WriteBatch(num_levels, def_levels, rep_levels, nullptr));
+  PARQUET_CATCH_NOT_OK(writer->Close());
+  return Status::OK();
+}
+
+template <>
 Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
     ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels) {
@@ -639,6 +661,7 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
             column_writer, values_array, num_levels, def_levels, rep_levels);
       }
     }
+      WRITE_BATCH_CASE(NA, NullType, Int32Type)
       WRITE_BATCH_CASE(BOOL, BooleanType, BooleanType)
       WRITE_BATCH_CASE(INT8, Int8Type, Int32Type)
       WRITE_BATCH_CASE(UINT8, UInt8Type, Int32Type)

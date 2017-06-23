@@ -495,10 +495,6 @@ Status FileReader::Impl::ReadTable(
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
-  int num_fields = static_cast<int>(schema->num_fields());
-  int nthreads = std::min<int>(num_threads_, num_fields);
-  std::vector<std::shared_ptr<Column>> columns(num_fields);
-
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
@@ -507,6 +503,7 @@ Status FileReader::Impl::ReadTable(
     return Status::Invalid("Invalid column index");
   }
 
+  std::vector<std::shared_ptr<Column>> columns(field_indices.size());
   auto ReadColumnFunc = [&indices, &field_indices, &schema, &columns, this](int i) {
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(ReadSchemaField(field_indices[i], indices, &array));
@@ -514,6 +511,8 @@ Status FileReader::Impl::ReadTable(
     return Status::OK();
   };
 
+  int num_fields = static_cast<int>(field_indices.size());
+  int nthreads = std::min<int>(num_threads_, num_fields);
   if (nthreads == 1) {
     for (int i = 0; i < num_fields; i++) {
       RETURN_NOT_OK(ReadColumnFunc(i));
@@ -1262,6 +1261,10 @@ Status PrimitiveImpl::NextBatch(
   }
 
   switch (field_->type()->id()) {
+    case ::arrow::Type::NA:
+      *out = std::make_shared<::arrow::NullArray>(batch_size);
+      return Status::OK();
+      break;
     TYPED_BATCH_CASE(BOOL, ::arrow::BooleanType, BooleanType)
     TYPED_BATCH_CASE(UINT8, ::arrow::UInt8Type, Int32Type)
     TYPED_BATCH_CASE(INT8, ::arrow::Int8Type, Int32Type)

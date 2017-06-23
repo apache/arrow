@@ -190,6 +190,9 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         throw ParquetException(ss.str());
       }
       break;
+    case LogicalType::NA:
+      // NA can annotate any type
+      break;
     default:
       ss << LogicalTypeToString(logical_type);
       ss << " can not be applied to a primitive type";

@@ -802,6 +802,27 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   ASSERT_TRUE(values->Equals(chunked_array->chunk(0)));
 }
 
+using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
+
+TEST_F(TestNullParquetIO, NullColumn) {
+  std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(SMALL_SIZE);
+  std::shared_ptr<Table> table = MakeSimpleTable(values, true);
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+      values->length(), default_writer_properties()));
+
+  std::shared_ptr<Table> out;
+  std::unique_ptr<FileReader> reader;
+  this->ReaderFromSink(&reader);
+  this->ReadTableFromFile(std::move(reader), &out);
+  ASSERT_EQ(1, out->num_columns());
+  ASSERT_EQ(100, out->num_rows());
+
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  ASSERT_EQ(1, chunked_array->num_chunks());
+  ASSERT_TRUE(values->Equals(chunked_array->chunk(0)));
+}
+
 template <typename T>
 using ParquetCDataType = typename ParquetDataType<T>::c_type;
 

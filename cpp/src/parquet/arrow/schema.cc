@@ -166,6 +166,11 @@ static Status FromInt64(const PrimitiveNode* node, TypePtr* out) {
 }
 
 Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
+  if (primitive->logical_type() == LogicalType::NA) {
+    *out = ::arrow::null();
+    return Status::OK();
+  }
+
   switch (primitive->physical_type()) {
     case ParquetType::BOOLEAN:
       *out = ::arrow::boolean();
@@ -410,9 +415,10 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
   int length = -1;
 
   switch (field->type()->id()) {
-    // TODO:
-    // case ArrowType::NA:
-    // break;
+    case ArrowType::NA:
+      type = ParquetType::INT32;
+      logical_type = LogicalType::NA;
+      break;
     case ArrowType::BOOL:
       type = ParquetType::BOOLEAN;
       break;
