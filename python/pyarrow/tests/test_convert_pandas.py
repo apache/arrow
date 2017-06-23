@@ -640,3 +640,17 @@ class TestPandasConversion(unittest.TestCase):
         _check_series(pd.Series([None] * 3, dtype=object))
         _check_series(pd.Series([np.nan] * 3, dtype=object))
         _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
+
+    def test_multiindex_duplicate_values(self):
+        num_rows = 3
+        numbers = list(range(num_rows))
+        index = pd.MultiIndex.from_arrays(
+            [['foo', 'foo', 'bar'], numbers],
+            names=['foobar', 'some_numbers'],
+        )
+
+        df = pd.DataFrame({'numbers': numbers}, index=index)
+
+        table = pa.Table.from_pandas(df)
+        result_df = table.to_pandas()
+        tm.assert_frame_equal(result_df, df)

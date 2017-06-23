@@ -847,3 +847,24 @@ def test_read_multiple_files(tmpdir):
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
+
+
+def test_multiindex_duplicate_values(tmpdir):
+    num_rows = 3
+    numbers = list(range(num_rows))
+    index = pd.MultiIndex.from_arrays(
+        [['foo', 'foo', 'bar'], numbers],
+        names=['foobar', 'some_numbers'],
+    )
+
+    df = pd.DataFrame({'numbers': numbers}, index=index)
+    table = pa.Table.from_pandas(df)
+
+    filename = tmpdir.join('dup_multi_index_levels.parquet').strpath
+
+    _write_table(table, filename)
+    result_table = _read_table(filename)
+    assert table.equals(result_table)
+
+    result_df = result_table.to_pandas()
+    tm.assert_frame_equal(result_df, df)
