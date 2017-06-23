@@ -373,7 +373,7 @@ TYPED_TEST(TestPrimitiveWriter, OptionalSpaced) {
   ASSERT_EQ(98, this->values_read_);
   this->values_out_.resize(98);
   this->values_.resize(99);
-  this->values_.erase(this->values_.cbegin() + 1);
+  this->values_.erase(this->values_.begin() + 1);
   ASSERT_EQ(this->values_, this->values_out_);
 }
 
