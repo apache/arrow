@@ -19,7 +19,7 @@ JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 pushd $JAVA_DIR
 
 mvn -B test
-mvn install
-mvn site
+mvn -B install
+mvn -B site
 
 popd
