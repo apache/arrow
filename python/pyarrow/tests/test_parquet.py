@@ -225,8 +225,12 @@ def _test_dataframe(size=10000, seed=0):
         'float32': np.random.randn(size).astype(np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        'strings': [tm.rands(10) for i in range(size)]
+        'strings': [tm.rands(10) for i in range(size)],
+        'all_none': [None] * size,
+        'all_none_category': [None] * size
     })
+    # TODO(PARQUET-1015)
+    # df['all_none_category'] = df['all_none_category'].astype('category')
     return df
 
 
