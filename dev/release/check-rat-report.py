@@ -48,7 +48,7 @@ for r in resources:
             excluded = True
             break
     if not excluded:
-        sys.stderr.write("NOT APPROVED: %s (%s): %s\n" % (
+        sys.stdout.write("NOT APPROVED: %s (%s): %s\n" % (
             clean_name, r.attrib['name'], approvals[0].attrib['name']))
         all_ok = False
 

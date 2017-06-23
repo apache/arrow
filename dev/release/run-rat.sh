@@ -28,9 +28,10 @@ RELEASE_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
 # generate the rat report
 $RAT $1 > rat.txt
 python $RELEASE_DIR/check-rat-report.py $RELEASE_DIR/rat_exclude_files.txt rat.txt > filtered_rat.txt
-UNAPPROVED=`cat filtered_rat.txt  | grep "Unknown Licenses" | head -n 1 | cut -d " " -f 1`
+cat filtered_rat.txt
+UNAPPROVED=`cat filtered_rat.txt  | grep "NOT APPROVED" | wc -l`
 
-if [ "0" -eq "${UNAPPROVED}" ]; then
+if [ "${UNAPPROVED}" = "0" ]; then
   echo "No unapproved licenses"
 else
   echo "${UNAPPROVED} unapproved licences. Check rat report: rat.txt"
