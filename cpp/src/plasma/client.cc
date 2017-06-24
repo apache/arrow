@@ -56,6 +56,8 @@ constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 static std::vector<std::thread> threadpool_(kThreadPoolSize);
 
+PlasmaClient::PlasmaClient() {}
+
 // If the file descriptor fd has been mmapped in this client process before,
 // return the pointer that was returned by mmap, otherwise mmap it and store the
 // pointer in a hash table.

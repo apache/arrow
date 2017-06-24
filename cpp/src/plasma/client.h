@@ -24,6 +24,7 @@
 #include <deque>
 #include <string>
 
+#include "arrow/util/visibility.h"
 #include "plasma/plasma.h"
 
 using arrow::Status;
@@ -77,8 +78,10 @@ struct ObjectInUseEntry {
   bool is_sealed;
 };
 
-class PlasmaClient {
+class ARROW_EXPORT PlasmaClient {
  public:
+  PlasmaClient();
+
   /// Connect to the local plasma store and plasma manager. Return
   /// the resulting connection.
   ///
