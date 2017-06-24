@@ -20,7 +20,7 @@
 # Thirdparty toolchain
 
 set(THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
-set(GFLAGS_VERSION "2.1.2")
+set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.7.1")
@@ -223,6 +223,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   if("${GFLAGS_HOME}" STREQUAL "")
     set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
+    set(GFLAGS_URL "https://github.com/gflags/gflags/archive/v${GFLAGS_VERSION}.tar.gz")
     set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
     set(GFLAGS_HOME "${GFLAGS_PREFIX}")
     set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
@@ -244,15 +245,13 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     if (CMAKE_VERSION VERSION_GREATER "3.2")
       # BUILD_BYPRODUCTS is a 3.2+ feature
       ExternalProject_Add(gflags_ep
-        GIT_REPOSITORY https://github.com/gflags/gflags.git
-        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+        URL ${GFLAGS_URL}
         BUILD_IN_SOURCE 1
         BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
         CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
     else()
       ExternalProject_Add(gflags_ep
-        GIT_REPOSITORY https://github.com/gflags/gflags.git
-        GIT_TAG cce68f0c9c5d054017425e6e6fd54f696d36e8ee
+        URL ${GFLAGS_URL}
         BUILD_IN_SOURCE 1
         CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
     endif()
