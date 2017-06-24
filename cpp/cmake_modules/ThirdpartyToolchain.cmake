@@ -326,7 +326,6 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 endif()
 
-
 if (ARROW_IPC)
   # RapidJSON, header only dependency
   if("${RAPIDJSON_HOME}" STREQUAL "")
@@ -349,6 +348,10 @@ if (ARROW_IPC)
   message(STATUS "RapidJSON include dir: ${RAPIDJSON_INCLUDE_DIR}")
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
 
+  if(RAPIDJSON_VENDORED)
+    add_dependencies(arrow_dependencies rapidjson_ep)
+  endif()
+
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
@@ -367,12 +370,8 @@ if (ARROW_IPC)
     set(FLATBUFFERS_VENDORED 0)
   endif()
 
-  if(RAPIDJSON_VENDORED)
-    set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} rapidjson_ep)
-  endif()
-
   if(FLATBUFFERS_VENDORED)
-    set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} flatbuffers_ep)
+    add_dependencies(arrow_dependencies flatbuffers_ep)
   endif()
 
   message(STATUS "Flatbuffers include dir: ${FLATBUFFERS_INCLUDE_DIR}")
