@@ -272,6 +272,8 @@ GArrowInt8Array *garrow_int8_array_new(gint64 length,
 
 gint8 garrow_int8_array_get_value(GArrowInt8Array *array,
                                   gint64 i);
+const gint8 *garrow_int8_array_get_values(GArrowInt8Array *array,
+                                          gint64 *length);
 
 
 #define GARROW_TYPE_UINT8_ARRAY                 \
@@ -323,6 +325,8 @@ GArrowUInt8Array *garrow_uint8_array_new(gint64 length,
 
 guint8 garrow_uint8_array_get_value(GArrowUInt8Array *array,
                                     gint64 i);
+const guint8 *garrow_uint8_array_get_values(GArrowUInt8Array *array,
+                                            gint64 *length);
 
 
 #define GARROW_TYPE_INT16_ARRAY                  \
@@ -374,6 +378,8 @@ GArrowInt16Array *garrow_int16_array_new(gint64 length,
 
 gint16 garrow_int16_array_get_value(GArrowInt16Array *array,
                                     gint64 i);
+const gint16 *garrow_int16_array_get_values(GArrowInt16Array *array,
+                                            gint64 *length);
 
 
 #define GARROW_TYPE_UINT16_ARRAY                 \
@@ -425,6 +431,8 @@ GArrowUInt16Array *garrow_uint16_array_new(gint64 length,
 
 guint16 garrow_uint16_array_get_value(GArrowUInt16Array *array,
                                       gint64 i);
+const guint16 *garrow_uint16_array_get_values(GArrowUInt16Array *array,
+                                              gint64 *length);
 
 
 #define GARROW_TYPE_INT32_ARRAY                 \
@@ -476,6 +484,8 @@ GArrowInt32Array *garrow_int32_array_new(gint64 length,
 
 gint32 garrow_int32_array_get_value(GArrowInt32Array *array,
                                     gint64 i);
+const gint32 *garrow_int32_array_get_values(GArrowInt32Array *array,
+                                            gint64 *length);
 
 
 #define GARROW_TYPE_UINT32_ARRAY                \
@@ -527,6 +537,8 @@ GArrowUInt32Array *garrow_uint32_array_new(gint64 length,
 
 guint32 garrow_uint32_array_get_value(GArrowUInt32Array *array,
                                       gint64 i);
+const guint32 *garrow_uint32_array_get_values(GArrowUInt32Array *array,
+                                              gint64 *length);
 
 
 #define GARROW_TYPE_INT64_ARRAY                 \
@@ -578,6 +590,8 @@ GArrowInt64Array *garrow_int64_array_new(gint64 length,
 
 gint64 garrow_int64_array_get_value(GArrowInt64Array *array,
                                     gint64 i);
+const gint64 *garrow_int64_array_get_values(GArrowInt64Array *array,
+                                            gint64 *length);
 
 
 #define GARROW_TYPE_UINT64_ARRAY                \
@@ -629,6 +643,8 @@ GArrowUInt64Array *garrow_uint64_array_new(gint64 length,
 
 guint64 garrow_uint64_array_get_value(GArrowUInt64Array *array,
                                       gint64 i);
+const guint64 *garrow_uint64_array_get_values(GArrowUInt64Array *array,
+                                              gint64 *length);
 
 
 #define GARROW_TYPE_FLOAT_ARRAY                 \
@@ -680,6 +696,8 @@ GArrowFloatArray *garrow_float_array_new(gint64 length,
 
 gfloat garrow_float_array_get_value(GArrowFloatArray *array,
                                     gint64 i);
+const gfloat *garrow_float_array_get_values(GArrowFloatArray *array,
+                                            gint64 *length);
 
 
 #define GARROW_TYPE_DOUBLE_ARRAY                \
@@ -731,6 +749,8 @@ GArrowDoubleArray *garrow_double_array_new(gint64 length,
 
 gdouble garrow_double_array_get_value(GArrowDoubleArray *array,
                                       gint64 i);
+const gdouble *garrow_double_array_get_values(GArrowDoubleArray *array,
+                                              gint64 *length);
 
 
 #define GARROW_TYPE_BINARY_ARRAY                \
