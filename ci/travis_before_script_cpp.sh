@@ -64,7 +64,7 @@ fi
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
-          -DARROW_CXXFLAGS="-Wconversion -Werror" \
+          -DARROW_CXXFLAGS="-Wconversion -Wno-sign-conversion -Werror" \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \

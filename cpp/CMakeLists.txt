@@ -182,6 +182,8 @@ endif()
 # Dependencies
 ############################################################
 
+add_custom_target(arrow_dependencies)
+
 include(ThirdpartyToolchain)
 
 # Add common flags
@@ -526,8 +528,7 @@ set(ARROW_STATIC_LINK_LIBS
   snappy
   zlib)
 
-set(ARROW_DEPENDENCIES
-  ${ARROW_STATIC_LINK_LIBS})
+add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_MIN_TEST_LIBS
   arrow_static
@@ -626,7 +627,7 @@ add_subdirectory(src/arrow/io)
 
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
-  set(ARROW_DEPENDENCIES ${ARROW_DEPENDENCIES} metadata_fbs)
+  add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
 set(ARROW_SRCS
@@ -684,7 +685,7 @@ set(ARROW_ALL_SRCS
 
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_ALL_SRCS}
-  DEPENDENCIES ${ARROW_DEPENDENCIES}
+  DEPENDENCIES arrow_dependencies
   SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
   SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
   SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
