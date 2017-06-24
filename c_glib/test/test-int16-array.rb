@@ -17,6 +17,7 @@
 
 class TestInt16Array < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def test_new
     assert_equal(build_int16_array([-1, 2, nil]),
@@ -40,5 +41,15 @@ class TestInt16Array < Test::Unit::TestCase
     builder.append(-1)
     array = builder.finish
     assert_equal(-1, array.get_value(0))
+  end
+
+  def test_values
+    require_gi(3, 1, 7)
+    builder = Arrow::Int16ArrayBuilder.new
+    builder.append(-1)
+    builder.append(2)
+    builder.append(-4)
+    array = builder.finish
+    assert_equal([-1, 2, -4], array.values)
   end
 end

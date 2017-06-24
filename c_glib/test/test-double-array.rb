@@ -17,6 +17,7 @@
 
 class TestDoubleArray < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def test_new
     assert_equal(build_double_array([-1.1, 2.2, nil]),
@@ -40,5 +41,15 @@ class TestDoubleArray < Test::Unit::TestCase
     builder.append(1.5)
     array = builder.finish
     assert_in_delta(1.5, array.get_value(0))
+  end
+
+  def test_values
+    require_gi(3, 1, 7)
+    builder = Arrow::DoubleArrayBuilder.new
+    builder.append(1.5)
+    builder.append(3)
+    builder.append(4.5)
+    array = builder.finish
+    assert_equal([1.5, 3.0, 4.5], array.values)
   end
 end
