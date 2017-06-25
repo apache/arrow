@@ -559,6 +559,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
 
+    cdef cppclass CFixedSizeBufferWrite" arrow::io::FixedSizeBufferWriter"(WriteableFile):
+        CFixedSizeBufferWrite(const shared_ptr[CBuffer]& buffer)
+
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::Message::Type":
