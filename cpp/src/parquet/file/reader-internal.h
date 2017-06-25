@@ -24,13 +24,17 @@
 
 #include "parquet/column/page.h"
 #include "parquet/column/properties.h"
-#include "parquet/compression.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/reader.h"
 #include "parquet/parquet_types.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
+
+namespace arrow {
+
+class Codec;
+};
 
 namespace parquet {
 
@@ -63,7 +67,7 @@ class PARQUET_EXPORT SerializedPageReader : public PageReader {
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
-  std::unique_ptr<Codec> decompressor_;
+  std::unique_ptr<::arrow::Codec> decompressor_;
   std::shared_ptr<PoolBuffer> decompression_buffer_;
 
   // Maximum allowed page size

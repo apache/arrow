@@ -24,8 +24,9 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/compression.h"
+
 #include "parquet/column/page.h"
-#include "parquet/compression.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/thrift.h"
@@ -41,13 +42,13 @@ namespace parquet {
 // assembled in a serialized stream for storing in a Parquet files
 
 SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
-    int64_t total_num_rows, Compression::type codec_type, MemoryPool* pool)
+    int64_t total_num_rows, Compression::type codec, MemoryPool* pool)
     : stream_(std::move(stream)),
       decompression_buffer_(AllocateBuffer(pool, 0)),
       seen_num_rows_(0),
       total_num_rows_(total_num_rows) {
   max_page_header_size_ = DEFAULT_MAX_PAGE_HEADER_SIZE;
-  decompressor_ = Codec::Create(codec_type);
+  decompressor_ = GetCodecFromArrow(codec);
 }
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
@@ -99,8 +100,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
         PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
       }
-      decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
-          decompression_buffer_->mutable_data());
+      PARQUET_THROW_NOT_OK(decompressor_->Decompress(compressed_len, buffer,
+          uncompressed_len, decompression_buffer_->mutable_data()));
       buffer = decompression_buffer_->data();
     }
 

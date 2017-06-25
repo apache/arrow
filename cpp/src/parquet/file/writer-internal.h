@@ -22,11 +22,15 @@
 #include <vector>
 
 #include "parquet/column/page.h"
-#include "parquet/compression.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/writer.h"
 #include "parquet/parquet_types.h"
 #include "parquet/util/memory.h"
+
+namespace arrow {
+
+class Codec;
+};
 
 namespace parquet {
 
@@ -65,7 +69,7 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_compressed_size_;
 
   // Compression codec to use.
-  std::unique_ptr<Codec> compressor_;
+  std::unique_ptr<::arrow::Codec> compressor_;
 };
 
 // RowGroupWriter::Contents implementation for the Parquet file specification

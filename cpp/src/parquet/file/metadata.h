@@ -26,7 +26,6 @@
 
 #include "parquet/column/properties.h"
 #include "parquet/column/statistics.h"
-#include "parquet/compression.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"

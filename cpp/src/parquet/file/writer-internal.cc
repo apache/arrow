@@ -17,6 +17,11 @@
 
 #include "parquet/file/writer-internal.h"
 
+#include <cstdint>
+#include <memory>
+
+#include "arrow/util/compression.h"
+
 #include "parquet/column/writer.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
@@ -46,7 +51,7 @@ SerializedPageWriter::SerializedPageWriter(OutputStream* sink, Compression::type
       data_page_offset_(0),
       total_uncompressed_size_(0),
       total_compressed_size_(0) {
-  compressor_ = Codec::Create(codec);
+  compressor_ = GetCodecFromArrow(codec);
 }
 
 static format::Statistics ToThrift(const EncodedStatistics& row_group_statistics) {
@@ -81,8 +86,9 @@ void SerializedPageWriter::Compress(
   // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
   PARQUET_THROW_NOT_OK(dest_buffer->Resize(max_compressed_size, false));
 
-  int64_t compressed_size = compressor_->Compress(src_buffer.size(), src_buffer.data(),
-      max_compressed_size, dest_buffer->mutable_data());
+  int64_t compressed_size;
+  PARQUET_THROW_NOT_OK(compressor_->Compress(src_buffer.size(), src_buffer.data(),
+      max_compressed_size, dest_buffer->mutable_data(), &compressed_size));
   PARQUET_THROW_NOT_OK(dest_buffer->Resize(compressed_size, false));
 }
 

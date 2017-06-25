@@ -27,7 +27,6 @@
 #include <vector>
 
 #include "parquet/column/page.h"
-#include "parquet/compression.h"
 #include "parquet/exception.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/parquet_types.h"
@@ -37,6 +36,12 @@
 #include "parquet/util/test-common.h"
 
 namespace parquet {
+
+#define ASSERT_OK(expr)                      \
+  do {                                       \
+    ::arrow::Status s = (expr);              \
+    if (!s.ok()) { FAIL() << s.ToString(); } \
+  } while (0)
 
 using ::arrow::io::BufferReader;
 
@@ -187,7 +192,7 @@ TEST_F(TestPageSerde, Compression) {
     test::random_bytes(page_size, 0, &faux_data[i]);
   }
   for (auto codec_type : codec_types) {
-    std::unique_ptr<Codec> codec = Codec::Create(codec_type);
+    std::unique_ptr<::arrow::Codec> codec = GetCodecFromArrow(codec_type);
 
     std::vector<uint8_t> buffer;
     for (int i = 0; i < num_pages; ++i) {
@@ -197,8 +202,9 @@ TEST_F(TestPageSerde, Compression) {
       int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
       buffer.resize(max_compressed_size);
 
-      int64_t actual_size =
-          codec->Compress(data_size, data, max_compressed_size, &buffer[0]);
+      int64_t actual_size;
+      ASSERT_OK(codec->Compress(
+          data_size, data, max_compressed_size, &buffer[0], &actual_size));
 
       WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size));
       out_stream_->Write(buffer.data(), actual_size);

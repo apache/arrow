@@ -264,9 +264,7 @@ int GroupNode::FieldIndex(const std::string& name) const {
 
 int GroupNode::FieldIndex(const Node& node) const {
   int result = FieldIndex(node.name());
-  if (result < 0) {
-    return -1;
-  }
+  if (result < 0) { return -1; }
   DCHECK(result < field_count());
   if (!node.Equals(field(result).get())) {
     // Same name but not the same node
@@ -679,9 +677,7 @@ int SchemaDescriptor::ColumnIndex(const std::string& node_path) const {
 
 int SchemaDescriptor::ColumnIndex(const Node& node) const {
   int result = ColumnIndex(node.path()->ToDotString());
-  if (result < 0) {
-    return -1;
-  }
+  if (result < 0) { return -1; }
   DCHECK(result < num_columns());
   if (!node.Equals(Column(result)->schema_node().get())) {
     // Same path but not the same node

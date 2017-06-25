@@ -21,4 +21,4 @@
 // define the parquet created by version
 #define CREATED_BY_VERSION "parquet-cpp version 1.1.1-SNAPSHOT"
 
-#endif // PARQUET_VERSION_H
+#endif  // PARQUET_VERSION_H

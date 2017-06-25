@@ -19,9 +19,34 @@
 #define PARQUET_EXCEPTION_H
 
 #include <exception>
+#include <sstream>
 #include <string>
 
+#include "arrow/status.h"
+
 #include "parquet/util/visibility.h"
+
+#define PARQUET_CATCH_NOT_OK(s)                    \
+  try {                                            \
+    (s);                                           \
+  } catch (const ::parquet::ParquetException& e) { \
+    return ::arrow::Status::IOError(e.what());     \
+  }
+
+#define PARQUET_IGNORE_NOT_OK(s) \
+  try {                          \
+    (s);                         \
+  } catch (const ::parquet::ParquetException& e) { UNUSED(e); }
+
+#define PARQUET_THROW_NOT_OK(s)                     \
+  do {                                              \
+    ::arrow::Status _s = (s);                       \
+    if (!_s.ok()) {                                 \
+      std::stringstream ss;                         \
+      ss << "Arrow error: " << _s.ToString();       \
+      ::parquet::ParquetException::Throw(ss.str()); \
+    }                                               \
+  } while (0);
 
 namespace parquet {
 

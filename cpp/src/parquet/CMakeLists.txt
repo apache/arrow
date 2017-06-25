@@ -17,7 +17,6 @@
 
 # Headers: top level
 install(FILES
-  compression.h
   encoding.h
   exception.h
   schema.h
@@ -41,11 +40,9 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
-ADD_PARQUET_TEST(compression-test)
 ADD_PARQUET_TEST(encoding-test)
 ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(schema-test)
-
 ADD_PARQUET_BENCHMARK(encoding-benchmark)
