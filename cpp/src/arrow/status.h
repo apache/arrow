@@ -29,6 +29,18 @@
     if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; }   \
   } while (0);
 
+// If 'to_call' returns a bad status, CHECK immediately with a logged message
+// of 'msg' followed by the status.
+#define ARROW_CHECK_OK_PREPEND(to_call, msg)                \
+  do {                                                      \
+    ::arrow::Status _s = (to_call);                         \
+    ARROW_CHECK(_s.ok()) << (msg) << ": " << _s.ToString(); \
+  } while (0);
+
+// If the status is bad, CHECK immediately, appending the status to the
+// logged message.
+#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
+
 namespace arrow {
 
 #define RETURN_NOT_OK(s)                                \
