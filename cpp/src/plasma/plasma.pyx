@@ -7,6 +7,9 @@ from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libc.stdint cimport int64_t, uint8_t
 
+from pyarrow.lib cimport Buffer
+from pyarrow.includes.libarrow cimport CBuffer
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
     cdef CStatus CStatus_OK "Status::OK"()
@@ -70,7 +73,15 @@ cdef class PlasmaClient:
 
   def create(self, ObjectID object_id, data_size):
     cdef uint8_t* data
+    cdef shared_ptr[CBuffer] buffer
     self.client.get().Create(object_id.data, data_size, NULL, 0, &data)
+    buffer.reset(new CBuffer(data, data_size))
+    result = Buffer()
+    result.init(buffer)
+    return result
+
+  def seal(self, ObjectID object_id):
+    self.client.get().Seal(object_id)
 
   def disconnect(self):
     self.client.get().Disconnect()

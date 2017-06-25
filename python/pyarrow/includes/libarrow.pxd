@@ -148,6 +148,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CLoggingMemoryPool(CMemoryPool*)
 
     cdef cppclass CBuffer" arrow::Buffer":
+        CBuffer(const uint8_t* data, int64_t size)
         uint8_t* data()
         int64_t size()
         shared_ptr[CBuffer] parent()
