@@ -27,7 +27,6 @@
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/compiler-util.h"
-#include "arrow/util/memory.h"
 
 namespace arrow {
 

@@ -23,7 +23,6 @@
 install(FILES
   bit-util.h
   bit-stream-utils.h
-  bit-stream-utils.inline.h
   bpacking.h
   compiler-util.h
   compression.h
@@ -33,6 +32,7 @@ install(FILES
   logging.h
   macros.h
   random.h
+  rle-encoding.h
   sse-util.h
   stl.h
   visibility.h

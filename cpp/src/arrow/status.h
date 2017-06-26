@@ -23,10 +23,10 @@
 #include "arrow/util/visibility.h"
 
 // Return the given status if it is not OK.
-#define ARROW_RETURN_NOT_OK(s)                          \
-  do {                                                  \
-    ::arrow::Status _s = (s);                           \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; }   \
+#define ARROW_RETURN_NOT_OK(s)                        \
+  do {                                                \
+    ::arrow::Status _s = (s);                         \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
   } while (0);
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
@@ -43,10 +43,10 @@
 
 namespace arrow {
 
-#define RETURN_NOT_OK(s)                                \
-  do {                                                  \
-    Status _s = (s);                                    \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; }   \
+#define RETURN_NOT_OK(s)                              \
+  do {                                                \
+    Status _s = (s);                                  \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
   } while (0);
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
