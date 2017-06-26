@@ -17,6 +17,11 @@
 
 #include "arrow/util/compression.h"
 
+// Work around warning caused by Snappy include
+#ifdef DISALLOW_COPY_AND_ASSIGN
+#undef DISALLOW_COPY_AND_ASSIGN
+#endif
+
 #include <cstdint>
 #include <memory>
 #include <sstream>
