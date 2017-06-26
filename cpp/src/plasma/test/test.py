@@ -34,6 +34,23 @@ def generate_metadata(length):
       metadata_buffer[random.randint(0, length - 1)] = random.randint(0, 255)
   return metadata_buffer
 
+def write_to_data_buffer(buff, length):
+  array = np.frombuffer(buff, dtype="uint8")
+  if length > 0:
+    array[0] = random.randint(0, 255)
+    array[-1] = random.randint(0, 255)
+    for _ in range(100):
+      array[random.randint(0, length - 1)] = random.randint(0, 255)
+
+def create_object_with_id(client, object_id, data_size, metadata_size,
+                          seal=True):
+  metadata = generate_metadata(metadata_size)
+  memory_buffer = client.create(object_id, data_size, metadata)
+  write_to_data_buffer(memory_buffer, data_size)
+  if seal:
+    client.seal(object_id)
+  return memory_buffer, metadata
+
 def assert_get_object_equal(unit_test, client1, client2, object_id,
                             memory_buffer=None, metadata=None):
   client1_buff = client1.get([object_id])[0]
@@ -168,10 +185,45 @@ class TestPlasmaClient(unittest.TestCase):
       self.plasma_client.create(object_id, length, generate_metadata(length))
       try:
         self.plasma_client.create(object_id, length, generate_metadata(length))
+      # TODO(pcm): Introduce a more specific error type here
       except pa.lib.ArrowException as e:
         pass
       else:
         self.assertTrue(False)
+
+  def test_get(self):
+    num_object_ids = 100
+    # Test timing out of get with various timeouts.
+    for timeout in [0, 10, 100, 1000]:
+      object_ids = [random_object_id() for _ in range(num_object_ids)]
+      results = self.plasma_client.get(object_ids, timeout_ms=timeout)
+      self.assertEqual(results, num_object_ids * [None])
+
+    data_buffers = []
+    metadata_buffers = []
+    for i in range(num_object_ids):
+      if i % 2 == 0:
+        data_buffer, metadata_buffer = create_object_with_id(
+            self.plasma_client, object_ids[i], 2000, 2000)
+        data_buffers.append(data_buffer)
+        metadata_buffers.append(metadata_buffer)
+
+    # Test timing out from some but not all get calls with various timeouts.
+    for timeout in [0, 10, 100, 1000]:
+      data_results = self.plasma_client.get(object_ids, timeout_ms=timeout)
+      # metadata_results = self.plasma_client.get_metadata(object_ids,
+      #                                                    timeout_ms=timeout)
+      for i in range(num_object_ids):
+        if i % 2 == 0:
+          array1 = np.frombuffer(data_buffers[i // 2], dtype="uint8")
+          array2 = np.frombuffer(data_results[i], dtype="uint8")
+          np.testing.assert_equal(array1, array2)
+          # TODO(rkn): We should compare the metadata as well. But currently
+          # the types are different (e.g., memoryview versus bytearray).
+          # self.assertTrue(plasma.buffers_equal(metadata_buffers[i // 2],
+          #                                      metadata_results[i]))
+        else:
+          self.assertIsNone(results[i])
 
 if __name__ == "__main__":
   if len(sys.argv) > 1:

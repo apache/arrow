@@ -72,13 +72,13 @@ cdef class PlasmaClient:
   def __cinit__(self):
     self.client.reset(new CPlasmaClient())
 
-  cdef _get_object_buffers(self, object_ids, c_vector[CObjectBuffer]* result):
+  cdef _get_object_buffers(self, object_ids, int64_t timeout_ms, c_vector[CObjectBuffer]* result):
     cdef c_vector[CUniqueID] ids
     cdef ObjectID object_id
     for object_id in object_ids:
       ids.push_back(object_id.data)
     result[0].resize(ids.size())
-    check_status(self.client.get().Get(ids.data(), ids.size(), 0, result[0].data()))
+    check_status(self.client.get().Get(ids.data(), ids.size(), timeout_ms, result[0].data()))
 
   cdef _make_buffer(self, uint8_t* data, int64_t size):
     cdef shared_ptr[MutableBuffer] buffer
@@ -95,14 +95,20 @@ cdef class PlasmaClient:
     check_status(self.client.get().Create(object_id.data, data_size, <uint8_t*>(metadata.data()), metadata.size(), &data))
     return self._make_buffer(data, data_size)
 
-  def get(self, object_ids):
+  def get(self, object_ids, timeout_ms=-1):
     cdef c_vector[CObjectBuffer] object_buffers
-    self._get_object_buffers(object_ids, &object_buffers)
-    return [self._make_buffer(b.data, b.data_size) for b in object_buffers]
+    self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
+    result = []
+    for object_buffer in object_buffers:
+      if object_buffer.data_size != -1:
+        result.append(self._make_buffer(object_buffer.data, object_buffer.data_size))
+      else:
+        result.append(None)
+    return result
 
-  def get_metadata(self, object_ids):
+  def get_metadata(self, object_ids, timeout_ms=-1):
     cdef c_vector[CObjectBuffer] object_buffers
-    self._get_object_buffers(object_ids, &object_buffers)
+    self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
     return [self._make_buffer(b.metadata, b.metadata_size) for b in object_buffers]
 
   def seal(self, ObjectID object_id):
