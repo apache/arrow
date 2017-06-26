@@ -729,7 +729,14 @@ cdef class ArrayValue(Scalar):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
 
+    def _check_null(self):
+        if self.sp_array.get() == NULL:
+            raise ReferenceError(
+                'ArrayValue instance not propertly initialized '
+                '(references NULL pointer)')
+
     def __repr__(self):
+        self._check_null()
         if hasattr(self, 'as_py'):
             return repr(self.as_py())
         else:
