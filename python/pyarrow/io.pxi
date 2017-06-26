@@ -1254,7 +1254,7 @@ def read_tensor(NativeFile source):
     cdef:
         shared_ptr[CTensor] sp_tensor
 
-    source._assert_writeable()
+    source._assert_readable()
 
     cdef int64_t offset = source.tell()
     with nogil:
