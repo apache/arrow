@@ -9,26 +9,7 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status
-from pyarrow.includes.libarrow cimport MutableBuffer, CBuffer, CFixedSizeBufferWrite
-
-cdef extern from "arrow/api.h" namespace "arrow" nogil:
-    # We can later add more of the common status factory methods as needed
-    cdef CStatus CStatus_OK "Status::OK"()
-
-    cdef cppclass CStatus "arrow::Status":
-        CStatus()
-
-        c_string ToString()
-
-        c_bool ok()
-        c_bool IsIOError()
-        c_bool IsOutOfMemory()
-        c_bool IsInvalid()
-        c_bool IsKeyError()
-        c_bool IsNotImplemented()
-        c_bool IsTypeError()
-
-
+from pyarrow.includes.libarrow cimport MutableBuffer, CBuffer, CFixedSizeBufferWrite, CStatus
 
 cdef class FixedSizeBufferOutputStream(NativeFile):
 
@@ -55,7 +36,7 @@ cdef extern from "plasma/client.h" nogil:
 
     CStatus Connect(const c_string& store_socket_name, const c_string& manager_socket_name, int release_delay)
 
-    CStatus Create(const CUniqueID& object_id, int64_t data_size, uint8_t* metadata,
+    CStatus Create(const CUniqueID& object_id, int64_t data_size, const uint8_t* metadata,
       int64_t metadata_size, uint8_t** data)
 
     CStatus Get(const CUniqueID* object_ids, int64_t num_objects, int64_t timeout_ms, CObjectBuffer* object_buffers)
@@ -91,6 +72,14 @@ cdef class PlasmaClient:
   def __cinit__(self):
     self.client.reset(new CPlasmaClient())
 
+  cdef _get_object_buffers(self, object_ids, c_vector[CObjectBuffer]* result):
+    cdef c_vector[CUniqueID] ids
+    cdef ObjectID object_id
+    for object_id in object_ids:
+      ids.push_back(object_id.data)
+    result[0].resize(ids.size())
+    check_status(self.client.get().Get(ids.data(), ids.size(), 0, result[0].data()))
+
   cdef _make_buffer(self, uint8_t* data, int64_t size):
     cdef shared_ptr[MutableBuffer] buffer
     buffer.reset(new MutableBuffer(data, size))
@@ -99,21 +88,22 @@ cdef class PlasmaClient:
     return result
 
   def connect(self, store_socket_name, manager_socket_name, release_delay):
-    check_status(self.client.get().Connect(store_socket_name, manager_socket_name, release_delay))
+    check_status(self.client.get().Connect(store_socket_name.encode(), manager_socket_name.encode(), release_delay))
 
-  def create(self, ObjectID object_id, data_size):
+  def create(self, ObjectID object_id, data_size, c_string metadata=b""):
     cdef uint8_t* data
-    check_status(self.client.get().Create(object_id.data, data_size, NULL, 0, &data))
+    check_status(self.client.get().Create(object_id.data, data_size, <uint8_t*>(metadata.data()), metadata.size(), &data))
     return self._make_buffer(data, data_size)
 
   def get(self, object_ids):
-    cdef c_vector[CUniqueID] ids
-    cdef ObjectID object_id
-    for object_id in object_ids:
-      ids.push_back(object_id.data)
-    cdef c_vector[CObjectBuffer] result = c_vector[CObjectBuffer](ids.size())
-    check_status(self.client.get().Get(ids.data(), ids.size(), 0, result.data()))
-    return [self._make_buffer(r.data, r.data_size) for r in result]
+    cdef c_vector[CObjectBuffer] object_buffers
+    self._get_object_buffers(object_ids, &object_buffers)
+    return [self._make_buffer(b.data, b.data_size) for b in object_buffers]
+
+  def get_metadata(self, object_ids):
+    cdef c_vector[CObjectBuffer] object_buffers
+    self._get_object_buffers(object_ids, &object_buffers)
+    return [self._make_buffer(b.metadata, b.metadata_size) for b in object_buffers]
 
   def seal(self, ObjectID object_id):
     check_status(self.client.get().Seal(object_id.data))
