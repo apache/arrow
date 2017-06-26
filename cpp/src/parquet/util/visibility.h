@@ -21,7 +21,8 @@
 #if defined(_WIN32) || defined(__CYGWIN__)
 #ifdef _MSC_VER
 #pragma warning(push)
-// Disable warning for STL types usage in DLL interface https://web.archive.org/web/20130317015847/http://connect.microsoft.com/VisualStudio/feedback/details/696593/vc-10-vs-2010-basic-string-exports
+// Disable warning for STL types usage in DLL interface
+// https://web.archive.org/web/20130317015847/http://connect.microsoft.com/VisualStudio/feedback/details/696593/vc-10-vs-2010-basic-string-exports
 #pragma warning(disable : 4275 4251)
 // Disable diamond inheritance warnings
 #pragma warning(disable : 4250)

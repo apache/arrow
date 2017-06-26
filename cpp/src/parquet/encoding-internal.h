@@ -464,9 +464,8 @@ class DictEncoder : public Encoder<DType> {
     // reserve
     // an extra "RleEncoder::MinBufferSize" bytes. These extra bytes won't be used
     // but not reserving them would cause the encoder to fail.
-    return 1 +
-           RleEncoder::MaxBufferSize(
-               bit_width(), static_cast<int>(buffered_indices_.size())) +
+    return 1 + RleEncoder::MaxBufferSize(
+                   bit_width(), static_cast<int>(buffered_indices_.size())) +
            RleEncoder::MinBufferSize(bit_width());
   }
 

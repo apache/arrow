@@ -19,8 +19,8 @@
 #define PARQUET_API_READER_H
 
 // Column reader API
-#include "parquet/column/reader.h"
-#include "parquet/column/scan-all.h"
+#include "parquet/column_reader.h"
+#include "parquet/column_scanner.h"
 #include "parquet/exception.h"
 #include "parquet/file/printer.h"
 #include "parquet/file/reader.h"

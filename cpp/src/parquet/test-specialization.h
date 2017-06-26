@@ -28,7 +28,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column/test-util.h"
+#include "parquet/test-util.h"
 
 namespace parquet {
 
@@ -115,11 +115,11 @@ void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
 
 template <>
 void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
-    std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
-    std::vector<T>::iterator destination_iterator = values_out_.begin();
-    while (source_iterator != bool_buffer_out_.end()) {
-        *destination_iterator++ = *source_iterator++ != 0;
-    }
+  std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
+  std::vector<T>::iterator destination_iterator = values_out_.begin();
+  while (source_iterator != bool_buffer_out_.end()) {
+    *destination_iterator++ = *source_iterator++ != 0;
+  }
 }
 
 template <typename TestType>

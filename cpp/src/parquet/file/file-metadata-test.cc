@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column/statistics.h"
 #include "parquet/file/metadata.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 #include <gtest/gtest.h>
 

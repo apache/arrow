@@ -15,15 +15,84 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column/writer.h"
+#include "parquet/column_writer.h"
 
-#include "parquet/column/properties.h"
-#include "parquet/column/statistics.h"
 #include "parquet/encoding-internal.h"
+#include "parquet/properties.h"
+#include "parquet/statistics.h"
 #include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
+#include "parquet/util/rle-encoding.h"
 
 namespace parquet {
+
+LevelEncoder::LevelEncoder() {}
+LevelEncoder::~LevelEncoder() {}
+
+void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
+    int num_buffered_values, uint8_t* data, int data_size) {
+  bit_width_ = BitUtil::Log2(max_level + 1);
+  encoding_ = encoding;
+  switch (encoding) {
+    case Encoding::RLE: {
+      rle_encoder_.reset(new RleEncoder(data, data_size, bit_width_));
+      break;
+    }
+    case Encoding::BIT_PACKED: {
+      int num_bytes =
+          static_cast<int>(BitUtil::Ceil(num_buffered_values * bit_width_, 8));
+      bit_packed_encoder_.reset(new BitWriter(data, num_bytes));
+      break;
+    }
+    default:
+      throw ParquetException("Unknown encoding type for levels.");
+  }
+}
+
+int LevelEncoder::MaxBufferSize(
+    Encoding::type encoding, int16_t max_level, int num_buffered_values) {
+  int bit_width = BitUtil::Log2(max_level + 1);
+  int num_bytes = 0;
+  switch (encoding) {
+    case Encoding::RLE: {
+      // TODO: Due to the way we currently check if the buffer is full enough,
+      // we need to have MinBufferSize as head room.
+      num_bytes = RleEncoder::MaxBufferSize(bit_width, num_buffered_values) +
+                  RleEncoder::MinBufferSize(bit_width);
+      break;
+    }
+    case Encoding::BIT_PACKED: {
+      num_bytes = static_cast<int>(BitUtil::Ceil(num_buffered_values * bit_width, 8));
+      break;
+    }
+    default:
+      throw ParquetException("Unknown encoding type for levels.");
+  }
+  return num_bytes;
+}
+
+int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
+  int num_encoded = 0;
+  if (!rle_encoder_ && !bit_packed_encoder_) {
+    throw ParquetException("Level encoders are not initialized.");
+  }
+
+  if (encoding_ == Encoding::RLE) {
+    for (int i = 0; i < batch_size; ++i) {
+      if (!rle_encoder_->Put(*(levels + i))) { break; }
+      ++num_encoded;
+    }
+    rle_encoder_->Flush();
+    rle_length_ = rle_encoder_->len();
+  } else {
+    for (int i = 0; i < batch_size; ++i) {
+      if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) { break; }
+      ++num_encoded;
+    }
+    bit_packed_encoder_->Flush();
+  }
+  return num_encoded;
+}
 
 // ----------------------------------------------------------------------
 // ColumnWriter

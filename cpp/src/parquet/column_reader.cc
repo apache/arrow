@@ -15,19 +15,70 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column/reader.h"
+#include "parquet/column_reader.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <memory>
 
-#include "parquet/column/page.h"
-#include "parquet/column/properties.h"
+#include "parquet/column_page.h"
 #include "parquet/encoding-internal.h"
+#include "parquet/properties.h"
+#include "parquet/util/rle-encoding.h"
 
 using arrow::MemoryPool;
 
 namespace parquet {
+
+LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
+
+LevelDecoder::~LevelDecoder() {}
+
+int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
+    int num_buffered_values, const uint8_t* data) {
+  int32_t num_bytes = 0;
+  encoding_ = encoding;
+  num_values_remaining_ = num_buffered_values;
+  bit_width_ = BitUtil::Log2(max_level + 1);
+  switch (encoding) {
+    case Encoding::RLE: {
+      num_bytes = *reinterpret_cast<const int32_t*>(data);
+      const uint8_t* decoder_data = data + sizeof(int32_t);
+      if (!rle_decoder_) {
+        rle_decoder_.reset(new RleDecoder(decoder_data, num_bytes, bit_width_));
+      } else {
+        rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
+      }
+      return sizeof(int32_t) + num_bytes;
+    }
+    case Encoding::BIT_PACKED: {
+      num_bytes =
+          static_cast<int32_t>(BitUtil::Ceil(num_buffered_values * bit_width_, 8));
+      if (!bit_packed_decoder_) {
+        bit_packed_decoder_.reset(new BitReader(data, num_bytes));
+      } else {
+        bit_packed_decoder_->Reset(data, num_bytes);
+      }
+      return num_bytes;
+    }
+    default:
+      throw ParquetException("Unknown encoding type for levels.");
+  }
+  return -1;
+}
+
+int LevelDecoder::Decode(int batch_size, int16_t* levels) {
+  int num_decoded = 0;
+
+  int num_values = std::min(num_values_remaining_, batch_size);
+  if (encoding_ == Encoding::RLE) {
+    num_decoded = rle_decoder_->GetBatch(levels, num_values);
+  } else {
+    num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
+  }
+  num_values_remaining_ -= num_decoded;
+  return num_decoded;
+}
 
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;

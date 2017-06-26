@@ -21,8 +21,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "parquet/column/properties.h"
 #include "parquet/file/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

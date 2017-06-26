@@ -525,8 +525,7 @@ Status FileWriter::Impl::TypedWriteBatch<Int32Type, ::arrow::NullType>(
     const int16_t* def_levels, const int16_t* rep_levels) {
   auto writer = reinterpret_cast<TypedColumnWriter<Int32Type>*>(column_writer);
 
-  PARQUET_CATCH_NOT_OK(
-      writer->WriteBatch(num_levels, def_levels, rep_levels, nullptr));
+  PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, nullptr));
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
 }

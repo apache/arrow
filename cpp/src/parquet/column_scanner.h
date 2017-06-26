@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column/reader.h"
+#include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -226,6 +226,20 @@ typedef TypedScanner<FloatType> FloatScanner;
 typedef TypedScanner<DoubleType> DoubleScanner;
 typedef TypedScanner<ByteArrayType> ByteArrayScanner;
 typedef TypedScanner<FLBAType> FixedLenByteArrayScanner;
+
+template <typename RType>
+int64_t ScanAll(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+    uint8_t* values, int64_t* values_buffered, parquet::ColumnReader* reader) {
+  typedef typename RType::T Type;
+  auto typed_reader = static_cast<RType*>(reader);
+  auto vals = reinterpret_cast<Type*>(&values[0]);
+  return typed_reader->ReadBatch(
+      batch_size, def_levels, rep_levels, vals, values_buffered);
+}
+
+int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
+    int16_t* rep_levels, uint8_t* values, int64_t* values_buffered,
+    parquet::ColumnReader* reader);
 
 }  // namespace parquet
 

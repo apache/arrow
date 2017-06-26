@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column/scanner.h"
+#include "parquet/column_scanner.h"
 
 using std::string;
 using std::vector;

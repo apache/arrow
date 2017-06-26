@@ -19,8 +19,8 @@
 
 #include <string>
 
-#include "parquet/column/properties.h"
 #include "parquet/file/reader.h"
+#include "parquet/properties.h"
 
 namespace parquet {
 

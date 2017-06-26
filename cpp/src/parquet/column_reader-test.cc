@@ -25,10 +25,10 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column/page.h"
-#include "parquet/column/reader.h"
-#include "parquet/column/test-util.h"
+#include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/schema.h"
+#include "parquet/test-util.h"
 #include "parquet/types.h"
 #include "parquet/util/test-common.h"
 
@@ -58,14 +58,12 @@ static inline bool vector_equal_with_def_levels(const vector<T>& left,
       }
       i_left++;
       i_right++;
-    } else if (def_levels[i] == (max_def_levels -1)) {
+    } else if (def_levels[i] == (max_def_levels - 1)) {
       // Null entry on the lowest nested level
       i_right++;
     } else if (def_levels[i] < (max_def_levels - 1)) {
       // Null entry on a higher nesting level, only supported for non-repeating data
-      if (max_rep_levels == 0) {
-        i_right++;
-      }
+      if (max_rep_levels == 0) { i_right++; }
     }
   }
 
@@ -147,9 +145,8 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(num_values_, total_values_read);
     if (max_def_level_ > 0) {
       ASSERT_TRUE(vector_equal(def_levels_, dresult));
-      ASSERT_TRUE(
-          vector_equal_with_def_levels(values_, dresult, max_def_level_,
-            max_rep_level_, vresult));
+      ASSERT_TRUE(vector_equal_with_def_levels(
+          values_, dresult, max_def_level_, max_rep_level_, vresult));
     } else {
       ASSERT_TRUE(vector_equal(values_, vresult));
     }

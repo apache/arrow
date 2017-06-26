@@ -21,15 +21,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <iostream>
 
 #include <arrow/util/bit-util.h>
 
-#include "parquet/column/levels.h"
-#include "parquet/column/page.h"
+#include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -38,6 +37,30 @@
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+class BitReader;
+class RleDecoder;
+
+class PARQUET_EXPORT LevelDecoder {
+ public:
+  LevelDecoder();
+  ~LevelDecoder();
+
+  // Initialize the LevelDecoder state with new data
+  // and return the number of bytes consumed
+  int SetData(Encoding::type encoding, int16_t max_level, int num_buffered_values,
+      const uint8_t* data);
+
+  // Decodes a batch of levels into an array and returns the number of levels decoded
+  int Decode(int batch_size, int16_t* levels);
+
+ private:
+  int bit_width_;
+  int num_values_remaining_;
+  Encoding::type encoding_;
+  std::unique_ptr<RleDecoder> rle_decoder_;
+  std::unique_ptr<BitReader> bit_packed_decoder_;
+};
 
 class PARQUET_EXPORT ColumnReader {
  public:
@@ -264,9 +287,8 @@ inline int64_t TypedColumnReader<DType>::ReadBatch(int64_t batch_size,
 }
 
 inline void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-    int16_t max_definition_level,  int16_t max_repetition_level,
-    int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset) {
+    int16_t max_definition_level, int16_t max_repetition_level, int64_t* values_read,
+    int64_t* null_count, uint8_t* valid_bits, int64_t valid_bits_offset) {
   int byte_offset = static_cast<int>(valid_bits_offset) / 8;
   int bit_offset = static_cast<int>(valid_bits_offset) % 8;
   uint8_t bitset = valid_bits[byte_offset];

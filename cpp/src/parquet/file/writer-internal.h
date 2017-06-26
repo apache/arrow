@@ -21,7 +21,7 @@
 #include <memory>
 #include <vector>
 
-#include "parquet/column/page.h"
+#include "parquet/column_page.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/writer.h"
 #include "parquet/parquet_types.h"

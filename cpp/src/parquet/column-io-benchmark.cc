@@ -17,8 +17,8 @@
 
 #include "benchmark/benchmark.h"
 
-#include "parquet/column/reader.h"
-#include "parquet/column/writer.h"
+#include "parquet/column_reader.h"
+#include "parquet/column_writer.h"
 #include "parquet/file/reader-internal.h"
 #include "parquet/file/writer-internal.h"
 #include "parquet/util/memory.h"
@@ -132,6 +132,55 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL)
 
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED)
     ->RangePair(1024, 65536, 1, 1024);
+
+static void BM_RleEncoding(::benchmark::State& state) {
+  std::vector<int16_t> levels(state.range(0), 0);
+  int64_t n = 0;
+  std::generate(
+      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
+  int16_t max_level = 1;
+  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
+  auto buffer_rle = std::make_shared<PoolBuffer>();
+  PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size));
+
+  while (state.KeepRunning()) {
+    LevelEncoder level_encoder;
+    level_encoder.Init(Encoding::RLE, max_level, levels.size(),
+        buffer_rle->mutable_data(), buffer_rle->size());
+    level_encoder.Encode(levels.size(), levels.data());
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_RleEncoding)->RangePair(1024, 65536, 1, 16);
+
+static void BM_RleDecoding(::benchmark::State& state) {
+  LevelEncoder level_encoder;
+  std::vector<int16_t> levels(state.range(0), 0);
+  int64_t n = 0;
+  std::generate(
+      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
+  int16_t max_level = 1;
+  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
+  auto buffer_rle = std::make_shared<PoolBuffer>();
+  PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size + sizeof(int32_t)));
+  level_encoder.Init(Encoding::RLE, max_level, levels.size(),
+      buffer_rle->mutable_data() + sizeof(int32_t), rle_size);
+  level_encoder.Encode(levels.size(), levels.data());
+  reinterpret_cast<int32_t*>(buffer_rle->mutable_data())[0] = level_encoder.len();
+
+  while (state.KeepRunning()) {
+    LevelDecoder level_decoder;
+    level_decoder.SetData(Encoding::RLE, max_level, levels.size(), buffer_rle->data());
+    level_decoder.Decode(state.range(0), levels.data());
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_RleDecoding)->RangePair(1024, 65536, 1, 16);
 
 }  // namespace benchmark
 

@@ -20,18 +20,50 @@
 
 #include <vector>
 
-#include "parquet/column/levels.h"
-#include "parquet/column/page.h"
-#include "parquet/column/properties.h"
-#include "parquet/column/statistics.h"
+#include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/file/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+class BitWriter;
+class RleEncoder;
+
+class PARQUET_EXPORT LevelEncoder {
+ public:
+  LevelEncoder();
+  ~LevelEncoder();
+
+  static int MaxBufferSize(
+      Encoding::type encoding, int16_t max_level, int num_buffered_values);
+
+  // Initialize the LevelEncoder.
+  void Init(Encoding::type encoding, int16_t max_level, int num_buffered_values,
+      uint8_t* data, int data_size);
+
+  // Encodes a batch of levels from an array and returns the number of levels encoded
+  int Encode(int batch_size, const int16_t* levels);
+
+  int32_t len() {
+    if (encoding_ != Encoding::RLE) {
+      throw ParquetException("Only implemented for RLE encoding");
+    }
+    return rle_length_;
+  }
+
+ private:
+  int bit_width_;
+  int rle_length_;
+  Encoding::type encoding_;
+  std::unique_ptr<RleEncoder> rle_encoder_;
+  std::unique_ptr<BitWriter> bit_packed_encoder_;
+};
 
 static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {

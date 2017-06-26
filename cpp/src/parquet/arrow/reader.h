@@ -130,8 +130,8 @@ class PARQUET_EXPORT FileReader {
   // i=1 indices={3} will read foo2 column
   // i=1 indices={2} will result in out=nullptr
   // leaf indices which are unrelated to the schema field are ignored
-  ::arrow::Status ReadSchemaField(int i, const std::vector<int>& indices,
-      std::shared_ptr<::arrow::Array>* out);
+  ::arrow::Status ReadSchemaField(
+      int i, const std::vector<int>& indices, std::shared_ptr<::arrow::Array>* out);
 
   // Read a table of columns into a Table
   ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);

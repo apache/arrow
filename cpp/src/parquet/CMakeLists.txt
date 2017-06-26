@@ -17,9 +17,15 @@
 
 # Headers: top level
 install(FILES
+  column_reader.h
+  column_page.h
+  column_scanner.h
+  column_writer.h
   encoding.h
   exception.h
+  properties.h
   schema.h
+  statistics.h
   types.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
@@ -40,9 +46,16 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/parquet.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+ADD_PARQUET_TEST(column_reader-test)
+ADD_PARQUET_TEST(column_scanner-test)
+ADD_PARQUET_TEST(column_writer-test)
+ADD_PARQUET_TEST(properties-test)
+ADD_PARQUET_TEST(statistics-test)
 ADD_PARQUET_TEST(encoding-test)
 ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)
 ADD_PARQUET_TEST(schema-test)
+
+ADD_PARQUET_BENCHMARK(column-io-benchmark)
 ADD_PARQUET_BENCHMARK(encoding-benchmark)

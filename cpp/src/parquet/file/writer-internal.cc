@@ -22,7 +22,7 @@
 
 #include "arrow/util/compression.h"
 
-#include "parquet/column/writer.h"
+#include "parquet/column_writer.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/thrift.h"

@@ -24,9 +24,9 @@
 
 #include "arrow/util/key_value_metadata.h"
 
-#include "parquet/column/properties.h"
-#include "parquet/column/statistics.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

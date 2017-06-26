@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/column/scanner.h"
+#include "parquet/column_scanner.h"
 
 #include <cstdint>
 #include <memory>
 
-#include "parquet/column/reader.h"
+#include "parquet/column_reader.h"
 #include "parquet/util/memory.h"
 
 using arrow::MemoryPool;
@@ -51,6 +51,40 @@ std::shared_ptr<Scanner> Scanner::Make(
   }
   // Unreachable code, but supress compiler warning
   return std::shared_ptr<Scanner>(nullptr);
+}
+
+int64_t ScanAllValues(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+    uint8_t* values, int64_t* values_buffered, parquet::ColumnReader* reader) {
+  switch (reader->type()) {
+    case parquet::Type::BOOLEAN:
+      return ScanAll<parquet::BoolReader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::INT32:
+      return ScanAll<parquet::Int32Reader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::INT64:
+      return ScanAll<parquet::Int64Reader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::INT96:
+      return ScanAll<parquet::Int96Reader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::FLOAT:
+      return ScanAll<parquet::FloatReader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::DOUBLE:
+      return ScanAll<parquet::DoubleReader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::BYTE_ARRAY:
+      return ScanAll<parquet::ByteArrayReader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
+      return ScanAll<parquet::FixedLenByteArrayReader>(
+          batch_size, def_levels, rep_levels, values, values_buffered, reader);
+    default:
+      parquet::ParquetException::NYI("type reader not implemented");
+  }
+  // Unreachable code, but supress compiler warning
+  return 0;
 }
 
 }  // namespace parquet

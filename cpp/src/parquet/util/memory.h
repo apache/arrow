@@ -46,20 +46,16 @@ static inline std::unique_ptr<::arrow::Codec> GetCodecFromArrow(Compression::typ
     case Compression::UNCOMPRESSED:
       break;
     case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(
-          ::arrow::Codec::Create(::arrow::Compression::SNAPPY, &result));
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::SNAPPY, &result));
       break;
     case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(
-          ::arrow::Codec::Create(::arrow::Compression::GZIP, &result));
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::GZIP, &result));
       break;
     case Compression::LZO:
-      PARQUET_THROW_NOT_OK(
-          ::arrow::Codec::Create(::arrow::Compression::LZO, &result));
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::LZO, &result));
       break;
     case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(
-          ::arrow::Codec::Create(::arrow::Compression::BROTLI, &result));
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::BROTLI, &result));
       break;
     default:
       break;

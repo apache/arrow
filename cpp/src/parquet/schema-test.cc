@@ -337,13 +337,13 @@ TEST_F(TestGroupNode, FieldIndex) {
   NodeVector fields = Fields1();
   GroupNode group("group", Repetition::REQUIRED, fields);
   for (size_t i = 0; i < fields.size(); i++) {
-      auto field = group.field(static_cast<int>(i));
-      ASSERT_EQ(i, group.FieldIndex(*field.get()));
+    auto field = group.field(static_cast<int>(i));
+    ASSERT_EQ(i, group.FieldIndex(*field.get()));
   }
 
   // Test a non field node
-  auto non_field_alien = Int32("alien", Repetition::REQUIRED); // other name
-  auto non_field_familiar = Int32("one", Repetition::REPEATED); // other node
+  auto non_field_alien = Int32("alien", Repetition::REQUIRED);   // other name
+  auto non_field_familiar = Int32("one", Repetition::REPEATED);  // other node
   ASSERT_TRUE(group.FieldIndex(*non_field_alien.get()) < 0);
   ASSERT_TRUE(group.FieldIndex(*non_field_familiar.get()) < 0);
 }
@@ -664,13 +664,13 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_EQ(descr_.Column(5)->path()->ToDotString(), "bag.records.item3");
 
   for (int i = 0; i < nleaves; ++i) {
-      auto col = descr_.Column(i);
-      ASSERT_EQ(i, descr_.ColumnIndex(*col->schema_node().get()));
+    auto col = descr_.Column(i);
+    ASSERT_EQ(i, descr_.ColumnIndex(*col->schema_node().get()));
   }
 
   // Test non-column nodes find
-  NodePtr non_column_alien = Int32("alien", Repetition::REQUIRED); // other path
-  NodePtr non_column_familiar = Int32("a", Repetition::REPEATED); // other node
+  NodePtr non_column_alien = Int32("alien", Repetition::REQUIRED);  // other path
+  NodePtr non_column_familiar = Int32("a", Repetition::REPEATED);   // other node
   ASSERT_TRUE(descr_.ColumnIndex(*non_column_alien.get()) < 0);
   ASSERT_TRUE(descr_.ColumnIndex(*non_column_familiar.get()) < 0);
 

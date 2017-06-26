@@ -24,14 +24,14 @@
 #include <memory>
 #include <vector>
 
-#include "parquet/column/reader.h"
-#include "parquet/column/statistics.h"
-#include "parquet/column/test-specialization.h"
-#include "parquet/column/test-util.h"
-#include "parquet/column/writer.h"
+#include "parquet/column_reader.h"
+#include "parquet/column_writer.h"
 #include "parquet/file/reader.h"
 #include "parquet/file/writer.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
+#include "parquet/test-specialization.h"
+#include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"

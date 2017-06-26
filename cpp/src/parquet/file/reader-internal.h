@@ -22,11 +22,11 @@
 #include <memory>
 #include <vector>
 
-#include "parquet/column/page.h"
-#include "parquet/column/properties.h"
+#include "parquet/column_page.h"
 #include "parquet/file/metadata.h"
 #include "parquet/file/reader.h"
 #include "parquet/parquet_types.h"
+#include "parquet/properties.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

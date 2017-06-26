@@ -26,7 +26,7 @@
 
 #include "arrow/util/compression.h"
 
-#include "parquet/column/page.h"
+#include "parquet/column_page.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/thrift.h"

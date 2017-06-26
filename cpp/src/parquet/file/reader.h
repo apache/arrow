@@ -25,11 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column/page.h"
-#include "parquet/column/properties.h"
-#include "parquet/column/statistics.h"
+#include "parquet/column_page.h"
 #include "parquet/file/metadata.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 

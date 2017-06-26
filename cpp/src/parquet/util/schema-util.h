@@ -19,8 +19,8 @@
 #define PARQUET_SCHEMA_UTIL_H
 
 #include <string>
-#include <vector>
 #include <unordered_set>
+#include <vector>
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -43,8 +43,7 @@ inline bool str_endswith_tuple(const std::string& str) {
 //   If the name is array or ends in _tuple, this should be a list of struct
 //   even for single child elements.
 inline bool HasStructListName(const GroupNode& node) {
-  return (node.name() == "array" ||
-          str_endswith_tuple(node.name()));
+  return (node.name() == "array" || str_endswith_tuple(node.name()));
 }
 
 // TODO(itaiin): This aux. function is to be deleted once repeated structs are supported
@@ -53,8 +52,8 @@ inline bool IsSimpleStruct(const NodePtr& node) {
   if (node->is_repeated()) return false;
   if (node->logical_type() == LogicalType::LIST) return false;
   // Special case mentioned in the format spec:
-    //   If the name is array or ends in _tuple, this should be a list of struct
-    //   even for single child elements.
+  //   If the name is array or ends in _tuple, this should be a list of struct
+  //   even for single child elements.
   auto group = static_cast<const GroupNode*>(node.get());
   if (group->field_count() == 1 && HasStructListName(*group)) return false;
 
@@ -71,9 +70,7 @@ inline bool ColumnIndicesToFieldIndices(const SchemaDescriptor& descr,
   for (auto& column_idx : column_indices) {
     auto field_node = descr.GetColumnRoot(column_idx);
     auto field_idx = group->FieldIndex(field_node->name());
-    if (field_idx < 0) {
-      return false;
-    }
+    if (field_idx < 0) { return false; }
     auto insertion = already_added.insert(field_idx);
     if (insertion.second) { out->push_back(field_idx); }
   }
