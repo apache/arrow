@@ -323,8 +323,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
   Status Visit(const NullArray& left) {
-      result_ = true;
-      return Status::OK();
+    result_ = true;
+    return Status::OK();
   }
 
   Status Visit(const BooleanArray& left) {
