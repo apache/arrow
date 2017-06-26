@@ -10,7 +10,7 @@
 // non-const method, all threads accessing the same Status must use
 // external synchronization.
 
-// Adapted from Kudu github.com/cloudera/kudu
+// Adapted from Kudu github.com/apache/kudu
 
 #ifndef ARROW_STATUS_H_
 #define ARROW_STATUS_H_
@@ -19,30 +19,14 @@
 #include <cstring>
 #include <string>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 // Return the given status if it is not OK.
-#define ARROW_RETURN_NOT_OK(s)   \
-  do {                           \
-    ::arrow::Status _s = (s);    \
-    if (!_s.ok()) { return _s; } \
-  } while (0);
-
-// Return the given status if it is not OK, but first clone it and
-// prepend the given message.
-#define ARROW_RETURN_NOT_OK_PREPEND(s, msg)                               \
-  do {                                                                    \
-    ::arrow::Status _s = (s);                                             \
-    if (::gutil::PREDICT_FALSE(!_s.ok())) return _s.CloneAndPrepend(msg); \
-  } while (0);
-
-// Return 'to_return' if 'to_call' returns a bad status.
-// The substitution for 'to_return' may reference the variable
-// 's' for the bad status.
-#define ARROW_RETURN_NOT_OK_RET(to_call, to_return)          \
-  do {                                                       \
-    ::arrow::Status s = (to_call);                           \
-    if (::gutil::PREDICT_FALSE(!s.ok())) return (to_return); \
+#define ARROW_RETURN_NOT_OK(s)                          \
+  do {                                                  \
+    ::arrow::Status _s = (s);                           \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; }   \
   } while (0);
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
@@ -59,10 +43,10 @@
 
 namespace arrow {
 
-#define RETURN_NOT_OK(s)         \
-  do {                           \
-    Status _s = (s);             \
-    if (!_s.ok()) { return _s; } \
+#define RETURN_NOT_OK(s)                                \
+  do {                                                  \
+    Status _s = (s);                                    \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; }   \
   } while (0);
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
