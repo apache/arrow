@@ -131,7 +131,7 @@ static inline void SetBit(uint8_t* bits, int64_t i) {
 
 /// Set bit if is_set is true, but cannot clear bit
 static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
-  bits[i / 8] |= (1 << (i % 8)) * is_set;
+  if (is_set) { SetBit(bits, i); }
 }
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
@@ -316,7 +316,8 @@ static inline uint32_t ByteSwap(uint32_t value) {
   return static_cast<uint32_t>(ARROW_BYTE_SWAP32(value));
 }
 static inline int16_t ByteSwap(int16_t value) {
-  return (((value >> 8) & 0xff) | ((value & 0xff) << 8));
+  constexpr int16_t m = static_cast<int16_t>(0xff);
+  return static_cast<int16_t>(((value >> 8) & m) | ((value & m) << 8));
 }
 static inline uint16_t ByteSwap(uint16_t value) {
   return static_cast<uint16_t>(ByteSwap(static_cast<int16_t>(value)));

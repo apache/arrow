@@ -496,7 +496,7 @@ inline void RleEncoder::FlushLiteralRun(bool update_indicator_byte) {
     int num_groups = literal_count_ / 8;
     int32_t indicator_value = (num_groups << 1) | 1;
     DCHECK_EQ(indicator_value & 0xFFFFFF00, 0);
-    *literal_indicator_byte_ = indicator_value;
+    *literal_indicator_byte_ = static_cast<uint8_t>(indicator_value);
     literal_indicator_byte_ = NULL;
     literal_count_ = 0;
     CheckBufferFull();

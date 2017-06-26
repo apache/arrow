@@ -220,10 +220,10 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
 inline bool BitWriter::PutVlqInt(uint32_t v) {
   bool result = true;
   while ((v & 0xFFFFFF80) != 0L) {
-    result &= PutAligned<uint8_t>((v & 0x7F) | 0x80, 1);
+    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
     v >>= 7;
   }
-  result &= PutAligned<uint8_t>(v & 0x7F, 1);
+  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
   return result;
 }
 
@@ -255,8 +255,8 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
-    *v |= BitUtil::TrailingBits(*buffered_values, *bit_offset)
-          << (num_bits - *bit_offset);
+    *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
+                             << (num_bits - *bit_offset));
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -314,7 +314,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 #pragma warning(push)
 #pragma warning(disable : 4800)
 #endif
-        v[i + k] = unpack_buffer[k];
+        v[i + k] = static_cast<T>(unpack_buffer[k]);
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif

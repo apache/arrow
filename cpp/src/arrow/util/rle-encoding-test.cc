@@ -283,7 +283,7 @@ TEST(Rle, SpecificSequences) {
     values[i] = i % 2;
   }
   int num_groups = static_cast<int>(BitUtil::Ceil(100, 8));
-  expected_buffer[0] = (num_groups << 1) | 1;
+  expected_buffer[0] = static_cast<uint8_t>((num_groups << 1) | 1);
   for (int i = 1; i <= 100 / 8; ++i) {
     expected_buffer[i] = BOOST_BINARY(1 0 1 0 1 0 1 0);
   }
@@ -305,7 +305,7 @@ void TestRleValues(int bit_width, int num_vals, int value = -1) {
   const uint64_t mod = (bit_width == 64) ? 1 : 1LL << bit_width;
   vector<int> values;
   for (int v = 0; v < num_vals; ++v) {
-    values.push_back((value != -1) ? value : (v % mod));
+    values.push_back((value != -1) ? value : static_cast<int>(v % mod));
   }
   ValidateRle(values, bit_width, NULL, -1);
 }
