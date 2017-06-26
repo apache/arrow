@@ -114,3 +114,16 @@ def test_tensor_size():
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
     assert pa.get_tensor_size(tensor) > (data.size * 8)
+
+def test_read_tensor(tmpdir):
+    # Create and write tensor tensor
+    data = np.random.randn(10, 4)
+    tensor = pa.Tensor.from_numpy(data)
+    data_size = pa.get_tensor_size(tensor)
+    path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-read-tensor')
+    write_mmap = pa.create_memory_map(path, data_size)
+    pa.write_tensor(tensor, write_mmap)
+    # Try to read tensor
+    read_mmap = pa.memory_map(path, mode='r')
+    array = pa.read_tensor(read_mmap).to_numpy()
+    np.testing.assert_equal(data, array)
