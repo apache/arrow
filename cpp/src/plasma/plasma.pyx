@@ -5,10 +5,11 @@
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
-from libc.stdint cimport int64_t, uint8_t
+from libcpp.vector cimport vector as c_vector
+from libc.stdint cimport int64_t, uint8_t, uintptr_t
 
-from pyarrow.lib cimport Buffer, NativeFile
-from pyarrow.includes.libarrow cimport CBuffer, CFixedSizeBufferWrite
+from pyarrow.lib cimport Buffer, NativeFile, check_status
+from pyarrow.includes.libarrow cimport MutableBuffer, CBuffer, CFixedSizeBufferWrite
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
@@ -57,9 +58,19 @@ cdef extern from "plasma/client.h" nogil:
     CStatus Create(const CUniqueID& object_id, int64_t data_size, uint8_t* metadata,
       int64_t metadata_size, uint8_t** data)
 
+    CStatus Get(const CUniqueID* object_ids, int64_t num_objects, int64_t timeout_ms, CObjectBuffer* object_buffers)
+
     CStatus Seal(const CUniqueID& object_id)
 
     CStatus Disconnect()
+
+cdef extern from "plasma/client.h" nogil:
+
+  cdef struct CObjectBuffer" ObjectBuffer":
+    int64_t data_size
+    uint8_t* data
+    int64_t metadata_size
+    uint8_t* metadata
 
 cdef class ObjectID:
 
@@ -80,20 +91,32 @@ cdef class PlasmaClient:
   def __cinit__(self):
     self.client.reset(new CPlasmaClient())
 
+  cdef _make_buffer(self, uint8_t* data, int64_t size):
+    cdef shared_ptr[MutableBuffer] buffer
+    buffer.reset(new MutableBuffer(data, size))
+    result = Buffer()
+    result.init(<shared_ptr[CBuffer]>(buffer))
+    return result
+
   def connect(self, store_socket_name, manager_socket_name, release_delay):
-    self.client.get().Connect(store_socket_name, manager_socket_name, release_delay)
+    check_status(self.client.get().Connect(store_socket_name, manager_socket_name, release_delay))
 
   def create(self, ObjectID object_id, data_size):
     cdef uint8_t* data
-    cdef shared_ptr[CBuffer] buffer
-    self.client.get().Create(object_id.data, data_size, NULL, 0, &data)
-    buffer.reset(new CBuffer(data, data_size))
-    result = Buffer()
-    result.init(buffer)
-    return result
+    check_status(self.client.get().Create(object_id.data, data_size, NULL, 0, &data))
+    return self._make_buffer(data, data_size)
+
+  def get(self, object_ids):
+    cdef c_vector[CUniqueID] ids
+    cdef ObjectID object_id
+    for object_id in object_ids:
+      ids.push_back(object_id.data)
+    cdef c_vector[CObjectBuffer] result = c_vector[CObjectBuffer](ids.size())
+    check_status(self.client.get().Get(ids.data(), ids.size(), 0, result.data()))
+    return [self._make_buffer(r.data, r.data_size) for r in result]
 
   def seal(self, ObjectID object_id):
-    self.client.get().Seal(object_id.data)
+    check_status(self.client.get().Seal(object_id.data))
 
   def disconnect(self):
-    self.client.get().Disconnect()
+    check_status(self.client.get().Disconnect())
