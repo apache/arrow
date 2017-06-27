@@ -346,7 +346,8 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
       OwnedRef iter_ref(iter);
       PyObject* item;
       int64_t i = 0;
-      // To allow people with long generators to only convert a subset, stop consuming at size.
+      // To allow people with long generators to only convert a subset, stop
+      // consuming at size.
       while ((item = PyIter_Next(iter)) && i < size) {
 	OwnedRef ref(item);
 	RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
