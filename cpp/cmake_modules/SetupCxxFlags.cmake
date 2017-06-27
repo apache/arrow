@@ -30,6 +30,10 @@ if (MSVC)
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
+  # Use __declspec(dllexport) during library build, other users of the Arrow
+  # headers will see dllimport
+  add_definitions(-DARROW_EXPORTING)
+
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")
