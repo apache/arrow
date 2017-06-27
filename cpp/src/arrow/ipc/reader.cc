@@ -188,8 +188,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     return ReadSchema();
   }
 
-  Status ReadNextMessage(Message::Type expected_type, bool allow_null,
-      std::shared_ptr<Message>* message) {
+  Status ReadNextMessage(
+      Message::Type expected_type, bool allow_null, std::shared_ptr<Message>* message) {
     RETURN_NOT_OK(ReadMessage(stream_.get(), message));
 
     if (!(*message) && !allow_null) {

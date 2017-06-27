@@ -22,11 +22,18 @@
 # Headers: top level
 install(FILES
   bit-util.h
+  bit-stream-utils.h
+  bpacking.h
+  compiler-util.h
   compression.h
+  cpu-info.h
   key_value_metadata.h
+  hash-util.h
   logging.h
   macros.h
   random.h
+  rle-encoding.h
+  sse-util.h
   stl.h
   visibility.h
   DESTINATION include/arrow/util)
@@ -56,4 +63,5 @@ ADD_ARROW_TEST(bit-util-test)
 ADD_ARROW_TEST(compression-test)
 ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
+ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(stl-util-test)

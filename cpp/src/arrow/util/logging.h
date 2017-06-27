@@ -38,6 +38,7 @@ namespace arrow {
 
 #define ARROW_LOG_INTERNAL(level) ::arrow::internal::CerrLog(level)
 #define ARROW_LOG(level) ARROW_LOG_INTERNAL(ARROW_##level)
+#define ARROW_IGNORE_EXPR(expr) ((void)(expr));
 
 #define ARROW_CHECK(condition)                           \
   (condition) ? 0                                        \
@@ -47,25 +48,32 @@ namespace arrow {
 #ifdef NDEBUG
 #define ARROW_DFATAL ARROW_WARNING
 
-#define DCHECK(condition) \
-  while (false)           \
+#define DCHECK(condition)      \
+  ARROW_IGNORE_EXPR(condition) \
+  while (false)                \
   ::arrow::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 #define DCHECK_NE(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 #define DCHECK_LE(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 #define DCHECK_LT(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 #define DCHECK_GE(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 #define DCHECK_GT(val1, val2) \
+  ARROW_IGNORE_EXPR(val1)     \
   while (false)               \
   ::arrow::internal::NullLog()
 

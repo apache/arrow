@@ -137,6 +137,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the plasma object store along with Arrow"
     OFF)
 
+  option(ARROW_USE_SSE
+    "Build with SSE4 optimizations"
+    OFF)
+
   option(ARROW_ZLIB_VENDORED
     "Build our own zlib (some libz.a aren't configured for static linking)"
     ON)
@@ -650,6 +654,7 @@ set(ARROW_SRCS
 
   src/arrow/util/bit-util.cc
   src/arrow/util/compression.cc
+  src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
