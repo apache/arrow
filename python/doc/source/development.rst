@@ -22,14 +22,11 @@
 Development
 ***********
 
-Developing with conda
-=====================
-
-Linux and macOS
----------------
+Developing on Linux and MacOS
+=============================
 
 System Requirements
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 On macOS, any modern XCode (6.4 or higher; the current version is 8.3.1) is
 sufficient.
@@ -55,20 +52,9 @@ Finally, set gcc 4.9 as the active compiler using:
    export CXX=g++-4.9
 
 Environment Setup and Build
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
-First, let's create a conda environment with all the C++ build and Python
-dependencies from conda-forge:
-
-.. code-block:: shell
-
-   conda create -y -q -n pyarrow-dev \
-         python=3.6 numpy six setuptools cython pandas pytest \
-         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-         brotli jemalloc -c conda-forge
-   source activate pyarrow-dev
-
-Now, let's clone the Arrow and Parquet git repositories:
+First, let's clone the Arrow and Parquet git repositories:
 
 .. code-block:: shell
 
@@ -87,6 +73,21 @@ You should now see
    drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 arrow/
    drwxrwxr-x 12 wesm wesm 4096 Apr 15 19:19 parquet-cpp/
 
+Using Conda
+~~~~~~~~~~~
+
+Let's create a conda environment with all the C++ build and Python dependencies
+from conda-forge:
+
+.. code-block:: shell
+
+   conda create -y -q -n pyarrow-dev \
+         python=3.6 numpy six setuptools cython pandas pytest \
+         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+         brotli jemalloc -c conda-forge
+   source activate pyarrow-dev
+
+
 We need to set some environment variables to let Arrow's build system know
 about our build toolchain:
 
@@ -98,6 +99,55 @@ about our build toolchain:
    export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
    export ARROW_HOME=$CONDA_PREFIX
    export PARQUET_HOME=$CONDA_PREFIX
+
+Using pip
+~~~~~~~~~
+
+On macOS, install all dependencies through Homebrew that are required for
+building Arrow C++:
+
+.. code-block:: shell
+
+   brew install ccache jemalloc boost thrift
+
+On Debian/Ubuntu, you need the following minimal set of dependencies. All other
+dependencies will be automatically built by Arrow' thrid-party toolchain.
+
+.. code-block:: shell
+
+   $ sudo apt-get install libjemalloc-dev libboost-dev \
+                          libboost-filesystem-dev \
+                          libboost-system-dev
+
+Now, let's create a Python virtualenv with all Python dependencies in the same
+folder as the repositories and a target installation folder:
+
+.. code-block:: shell
+
+   virtualenv pyarrow
+   source ./pyarrow/bin/activate
+   pip install six numpy pandas cython pytest
+
+   # This is the folder where we will install Arrow and Parquet to during
+   # development
+   mkdir dist
+
+If your cmake version is too old on Linux, you could get a newer one via ``pip
+install cmake``.
+
+We need to set some environment variables to let Arrow's build system know
+about our build toolchain:
+
+.. code-block:: shell
+
+   export ARROW_BUILD_TYPE=release
+
+   export ARROW_HOME=$(pwd)/dist
+   export PARQUET_HOME=$(pwd)/dist
+   export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+
+Build and test
+--------------
 
 Now build and install the Arrow C++ libraries:
 
@@ -127,7 +177,6 @@ toolchain:
          -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
          -DPARQUET_BUILD_BENCHMARKS=off \
          -DPARQUET_BUILD_EXECUTABLES=off \
-         -DPARQUET_ZLIB_VENDORED=off \
          -DPARQUET_BUILD_TESTS=off \
          ..
 
@@ -179,8 +228,8 @@ You can build a wheel by running:
 
 Again, if you did not build parquet-cpp, you should omit ``--with-parquet``.
 
-Windows
-=======
+Developing on Windows
+=====================
 
 First, we bootstrap a conda environment similar to the `C++ build instructions
 <https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md>`_. This
