@@ -17,19 +17,11 @@
 
 # Headers: util
 install(FILES
-  bit-stream-utils.h
-  bit-stream-utils.inline.h
-  bit-util.h
   buffer-builder.h
-  compiler-util.h
-  cpu-info.h
-  hash-util.h
   logging.h
   macros.h
   memory.h
-  rle-encoding.h
   stopwatch.h
-  sse-util.h
   visibility.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet/util")
 
@@ -52,7 +44,5 @@ if (PARQUET_BUILD_BENCHMARKS)
   endif()
 endif()
 
-ADD_PARQUET_TEST(bit-util-test)
 ADD_PARQUET_TEST(comparison-test)
 ADD_PARQUET_TEST(memory-test)
-ADD_PARQUET_TEST(rle-test)

@@ -21,10 +21,11 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/util/rle-encoding.h"
+
 #include "parquet/column_page.h"
 #include "parquet/encoding-internal.h"
 #include "parquet/properties.h"
-#include "parquet/util/rle-encoding.h"
 
 using arrow::MemoryPool;
 
@@ -45,7 +46,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes = *reinterpret_cast<const int32_t*>(data);
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
-        rle_decoder_.reset(new RleDecoder(decoder_data, num_bytes, bit_width_));
+        rle_decoder_.reset(new ::arrow::RleDecoder(decoder_data, num_bytes, bit_width_));
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -55,7 +56,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       num_bytes =
           static_cast<int32_t>(BitUtil::Ceil(num_buffered_values * bit_width_, 8));
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new BitReader(data, num_bytes));
+        bit_packed_decoder_.reset(new ::arrow::BitReader(data, num_bytes));
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }

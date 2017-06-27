@@ -21,13 +21,12 @@
 #include <string>
 #include <vector>
 
-#include "parquet/util/bit-util.h"
-#include "parquet/util/logging.h"
+#include "arrow/api.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/visitor_inline.h"
 
 #include "parquet/arrow/schema.h"
-
-#include "arrow/api.h"
-#include "arrow/visitor_inline.h"
+#include "parquet/util/logging.h"
 
 using arrow::Array;
 using arrow::BinaryArray;

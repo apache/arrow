@@ -17,14 +17,19 @@
 
 #include "parquet/column_writer.h"
 
+#include "arrow/util/bit-util.h"
+#include "arrow/util/rle-encoding.h"
+
 #include "parquet/encoding-internal.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
-#include "parquet/util/rle-encoding.h"
 
 namespace parquet {
+
+using BitWriter = ::arrow::BitWriter;
+using RleEncoder = ::arrow::RleEncoder;
 
 LevelEncoder::LevelEncoder() {}
 LevelEncoder::~LevelEncoder() {}

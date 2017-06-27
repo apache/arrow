@@ -26,11 +26,11 @@
 #include <thread>
 #include <vector>
 
-#include "parquet/arrow/schema.h"
-#include "parquet/util/bit-util.h"
-#include "parquet/util/schema-util.h"
-
 #include "arrow/api.h"
+#include "arrow/util/bit-util.h"
+
+#include "parquet/arrow/schema.h"
+#include "parquet/util/schema-util.h"
 
 using arrow::Array;
 using arrow::BooleanArray;

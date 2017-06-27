@@ -80,6 +80,8 @@ class PARQUET_EXPORT Vector {
   void Swap(Vector<T>& v);
   inline T& operator[](int64_t i) const { return data_[i]; }
 
+  const T* data() const { return data_; }
+
  private:
   std::unique_ptr<PoolBuffer> buffer_;
   int64_t size_;

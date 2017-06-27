@@ -24,7 +24,8 @@
 #include <sstream>
 #include <string>
 
-#include "parquet/util/compiler-util.h"
+#include "arrow/util/compiler-util.h"
+
 #include "parquet/util/visibility.h"
 
 namespace parquet {

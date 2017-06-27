@@ -24,10 +24,10 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/util/bit-util.h"
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
-#include "parquet/util/bit-util.h"
 #include "parquet/util/logging.h"
 
 using arrow::MemoryPool;
@@ -123,7 +123,7 @@ template <bool CHECK_LIMIT_FIRST>
 uint8_t* ChunkedAllocator::Allocate(int size) {
   if (size == 0) return NULL;
 
-  int64_t num_bytes = BitUtil::RoundUp(size, 8);
+  int64_t num_bytes = ::arrow::BitUtil::RoundUp(size, 8);
   if (current_chunk_idx_ == -1 ||
       num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
           chunks_[current_chunk_idx_].size) {

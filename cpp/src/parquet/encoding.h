@@ -21,12 +21,11 @@
 #include <cstdint>
 #include <memory>
 
-#include <arrow/util/bit-util.h>
+#include "arrow/util/bit-util.h"
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/bit-util.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {

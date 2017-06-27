@@ -22,10 +22,11 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/bit-util.h"
+
 #include "parquet/encoding-internal.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/bit-util.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/test-common.h"
 
@@ -64,7 +65,7 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   ASSERT_EQ(nvalues, values_decoded);
 
   for (int i = 0; i < nvalues; ++i) {
-    ASSERT_EQ(draws[i], BitUtil::GetArrayBit(decode_data, i)) << i;
+    ASSERT_EQ(draws[i], BitUtil::GetBit(decode_data, i)) << i;
   }
 }
 

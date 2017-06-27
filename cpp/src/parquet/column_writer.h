@@ -30,10 +30,14 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
-namespace parquet {
+namespace arrow {
 
 class BitWriter;
 class RleEncoder;
+
+}  // namespace arrow
+
+namespace parquet {
 
 class PARQUET_EXPORT LevelEncoder {
  public:
@@ -61,8 +65,8 @@ class PARQUET_EXPORT LevelEncoder {
   int bit_width_;
   int rle_length_;
   Encoding::type encoding_;
-  std::unique_ptr<RleEncoder> rle_encoder_;
-  std::unique_ptr<BitWriter> bit_packed_encoder_;
+  std::unique_ptr<::arrow::RleEncoder> rle_encoder_;
+  std::unique_ptr<::arrow::BitWriter> bit_packed_encoder_;
 };
 
 static constexpr int WRITE_BATCH_SIZE = 1000;

@@ -36,10 +36,14 @@
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
-namespace parquet {
+namespace arrow {
 
 class BitReader;
 class RleDecoder;
+
+}  // namespace arrow
+
+namespace parquet {
 
 class PARQUET_EXPORT LevelDecoder {
  public:
@@ -58,8 +62,8 @@ class PARQUET_EXPORT LevelDecoder {
   int bit_width_;
   int num_values_remaining_;
   Encoding::type encoding_;
-  std::unique_ptr<RleDecoder> rle_decoder_;
-  std::unique_ptr<BitReader> bit_packed_decoder_;
+  std::unique_ptr<::arrow::RleDecoder> rle_decoder_;
+  std::unique_ptr<::arrow::BitReader> bit_packed_decoder_;
 };
 
 class PARQUET_EXPORT ColumnReader {
