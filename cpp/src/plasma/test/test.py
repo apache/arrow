@@ -51,6 +51,12 @@ def create_object_with_id(client, object_id, data_size, metadata_size,
     client.seal(object_id)
   return memory_buffer, metadata
 
+def create_object(client, data_size, metadata_size, seal=True):
+  object_id = random_object_id()
+  memory_buffer, metadata = create_object_with_id(client, object_id, data_size,
+                                                  metadata_size, seal=seal)
+  return object_id, memory_buffer, metadata
+
 def assert_get_object_equal(unit_test, client1, client2, object_id,
                             memory_buffer=None, metadata=None):
   client1_buff = client1.get([object_id])[0]
@@ -224,6 +230,45 @@ class TestPlasmaClient(unittest.TestCase):
           #                                      metadata_results[i]))
         else:
           self.assertIsNone(results[i])
+
+  def test_store_full(self):
+    # The store is started with 1GB, so make sure that create throws an
+    # exception when it is full.
+    def assert_create_raises_plasma_full(unit_test, size):
+      partial_size = np.random.randint(size)
+      try:
+        _, memory_buffer, _ = create_object(unit_test.plasma_client,
+                                            partial_size,
+                                            size - partial_size)
+      # TODO(pcm): More specific error here.
+      except pa.lib.ArrowException as e:
+        pass
+      else:
+        # For some reason the above didn't throw an exception, so fail.
+        unit_test.assertTrue(False)
+
+    # Create a list to keep some of the buffers in scope.
+    memory_buffers = []
+    _, memory_buffer, _ = create_object(self.plasma_client, 5 * 10 ** 8, 0)
+    memory_buffers.append(memory_buffer)
+    # Remaining space is 5 * 10 ** 8. Make sure that we can't create an object
+    # of size 5 * 10 ** 8 + 1, but we can create one of size 2 * 10 ** 8.
+    assert_create_raises_plasma_full(self, 5 * 10 ** 8 + 1)
+    _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+    del memory_buffer
+    _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+    del memory_buffer
+    assert_create_raises_plasma_full(self, 5 * 10 ** 8 + 1)
+
+    _, memory_buffer, _ = create_object(self.plasma_client, 2 * 10 ** 8, 0)
+    memory_buffers.append(memory_buffer)
+    # Remaining space is 3 * 10 ** 8.
+    assert_create_raises_plasma_full(self, 3 * 10 ** 8 + 1)
+
+    _, memory_buffer, _ = create_object(self.plasma_client, 10 ** 8, 0)
+    memory_buffers.append(memory_buffer)
+    # Remaining space is 2 * 10 ** 8.
+    assert_create_raises_plasma_full(self, 2 * 10 ** 8 + 1)
 
 if __name__ == "__main__":
   if len(sys.argv) > 1:
