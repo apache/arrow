@@ -52,7 +52,7 @@ build_parquet_cpp() {
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_ZLIB_VENDORED=off \
-      -DPARQUET_BUILD_TESTS=off \
+      -DPARQUET_BUILD_TESTS=on \
       ..
 
   make -j${CPU_COUNT}
