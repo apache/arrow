@@ -24,7 +24,13 @@
 #else
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
+
+#ifdef ARROW_EXPORTING
 #define ARROW_EXPORT __declspec(dllexport)
+#else
+#define ARROW_EXPORT __declspec(dllimport)
+#endif
+
 #define ARROW_NO_EXPORT
 #else  // Not Windows
 #ifndef ARROW_EXPORT
