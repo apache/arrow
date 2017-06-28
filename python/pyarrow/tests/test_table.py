@@ -238,66 +238,6 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
-def test_table_pandas():
-    data = {'a': range(5), 'b': [-10, -5, 0, 5, 10]}
-    df = pd.DataFrame(data)
-    table = pa.Table.from_pandas(df)
-
-    df = table.to_pandas()
-    assert set(df.columns) == set(('a', 'b'))
-    assert df.shape == (5, 2)
-    assert df.loc[0, 'b'] == -10
-
-
-def test_table_pandas_with_schema():
-    data = OrderedDict({
-        'a': range(5),
-        'b': [-10, -5, 0, 5, 10],
-        'c': np.array([-10, -5, 0, 5, 10], dtype=np.int32)
-    })
-    df = pd.DataFrame(data)
-
-    schema = pa.schema([
-        pa.field('a', pa.int64()),
-        pa.field('b', pa.int64()),
-        pa.field('c', pa.int32())
-    ])
-    table = pa.Table.from_pandas(df, schema=schema)
-    assert table.column(0).type == pa.int64()
-    assert table.column(1).type == pa.int64()
-    assert table.column(2).type == pa.int32()
-
-    df = table.to_pandas()
-    assert all(df.dtypes == [np.int64, np.int64, np.int32])
-    assert set(df.columns) == set(('a', 'b', 'c'))
-    assert df.shape == (5, 3)
-    assert df.loc[0, 'b'] == -10
-
-
-def test_table_pandas_with_partial_schema():
-    data = OrderedDict([
-        ('a', range(5)),
-        ('b', np.array([-10, -5, 0, 5, 10], dtype=np.int32)),
-        ('c', [-10, -5, 0, 5, 10])
-    ])
-    df = pd.DataFrame(data)
-
-    schema = pa.schema([
-        pa.field('a', pa.int64()),
-        pa.field('b', pa.int32())
-    ])
-    table = pa.Table.from_pandas(df, schema=schema)
-    assert table.column(0).type == pa.int64()
-    assert table.column(1).type == pa.int32()
-    assert table.column(2).type == pa.int64()
-
-    df = table.to_pandas()
-    assert all(df.dtypes == [np.int64, np.int32, np.int64])
-    assert set(df.columns) == set(('a', 'b', 'c'))
-    assert df.shape == (5, 3)
-    assert df.loc[0, 'b'] == -10
-
-
 def test_table_negative_indexing():
     data = [
         pa.array(range(5)),

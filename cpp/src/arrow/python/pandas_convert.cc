@@ -396,7 +396,7 @@ class PandasConverter {
      std::stringstream ss;
      ss << "PandasConverter doesn't implement NestedType conversion. Input type was: " << type.ToString();
      return Status::NotImplemented(ss.str()); 
-     }
+  }
 
   Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {
