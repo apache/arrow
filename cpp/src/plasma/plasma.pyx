@@ -26,7 +26,12 @@ cdef extern from "plasma/common.h" nogil:
     @staticmethod
     CUniqueID from_binary(const c_string& binary)
 
+    c_bool operator==(const CUniqueID& rhs) const
+
     c_string hex()
+
+cdef extern from "plasma/plasma.h":
+    cdef int64_t kDigestSize
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -43,7 +48,17 @@ cdef extern from "plasma/client.h" nogil:
 
     CStatus Seal(const CUniqueID& object_id)
 
+    CStatus Evict(int64_t num_bytes, int64_t& num_bytes_evicted)
+
+    CStatus Hash(const CUniqueID& object_id, uint8_t* digest)
+
     CStatus Release(const CUniqueID& object_id)
+
+    CStatus Contains(const CUniqueID& object_id, c_bool* has_object)
+
+    CStatus Subscribe(int* fd)
+
+    CStatus GetNotification(int fd, CUniqueID* object_id, int64_t* data_size, int64_t* metadata_size)
 
     CStatus Disconnect()
 
@@ -62,6 +77,10 @@ cdef class ObjectID:
 
   def __cinit__(self, object_id):
     self.data = CUniqueID.from_binary(object_id)
+
+  def __richcmp__(ObjectID self, ObjectID object_id, operation):
+    assert operation == 2, "only equality implemented so far"
+    return self.data == object_id.data
 
   def __repr__(self):
     return "ObjectID(" + self.data.hex().decode() + ")"
@@ -83,9 +102,11 @@ cdef class PlasmaClient:
 
   cdef:
     shared_ptr[CPlasmaClient] client
+    int notification_fd
 
   def __cinit__(self):
     self.client.reset(new CPlasmaClient())
+    self.notification_fd = -1
 
   cdef _get_object_buffers(self, object_ids, int64_t timeout_ms, c_vector[CObjectBuffer]* result):
     cdef c_vector[CUniqueID] ids
@@ -134,6 +155,31 @@ cdef class PlasmaClient:
 
   def release(self, ObjectID object_id):
     check_status(self.client.get().Release(object_id.data))
+
+  def contains(self, ObjectID object_id):
+    cdef c_bool is_contained
+    check_status(self.client.get().Contains(object_id.data, &is_contained))
+    return is_contained
+
+  def hash(self, ObjectID object_id):
+    cdef c_vector[uint8_t] digest = c_vector[uint8_t](kDigestSize)
+    check_status(self.client.get().Hash(object_id.data, digest.data()))
+    return bytes(digest[:])
+
+  def evict(self, int64_t num_bytes):
+    cdef int64_t num_bytes_evicted
+    check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
+    return num_bytes_evicted
+
+  def subscribe(self):
+    check_status(self.client.get().Subscribe(&self.notification_fd))
+
+  def get_next_notification(self):
+    cdef ObjectID object_id = ObjectID(20 * b"\0")
+    cdef int64_t data_size
+    cdef int64_t metadata_size
+    check_status(self.client.get().GetNotification(self.notification_fd, &object_id.data, &data_size, &metadata_size))
+    return object_id, data_size, metadata_size
 
   def disconnect(self):
     check_status(self.client.get().Disconnect())

@@ -270,6 +270,298 @@ class TestPlasmaClient(unittest.TestCase):
     # Remaining space is 2 * 10 ** 8.
     assert_create_raises_plasma_full(self, 2 * 10 ** 8 + 1)
 
+  def test_contains(self):
+    fake_object_ids = [random_object_id() for _ in range(100)]
+    real_object_ids = [random_object_id() for _ in range(100)]
+    for object_id in real_object_ids:
+      self.assertFalse(self.plasma_client.contains(object_id))
+      self.plasma_client.create(object_id, 100)
+      self.plasma_client.seal(object_id)
+      self.assertTrue(self.plasma_client.contains(object_id))
+    for object_id in fake_object_ids:
+      self.assertFalse(self.plasma_client.contains(object_id))
+    for object_id in real_object_ids:
+      self.assertTrue(self.plasma_client.contains(object_id))
+
+  def test_hash(self):
+    # Check the hash of an object that doesn't exist.
+    object_id1 = random_object_id()
+    try:
+      self.plasma_client.hash(object_id1)
+      # TODO(pcm): Introduce a more specific error type here
+    except pa.lib.ArrowException as e:
+      pass
+    else:
+      self.assertTrue(False)
+
+    length = 1000
+    # Create a random object, and check that the hash function always returns
+    # the same value.
+    metadata = generate_metadata(length)
+    memory_buffer = np.frombuffer(self.plasma_client.create(object_id1, length, metadata), dtype="uint8")
+    for i in range(length):
+      memory_buffer[i] = i % 256
+    self.plasma_client.seal(object_id1)
+    self.assertEqual(self.plasma_client.hash(object_id1),
+                     self.plasma_client.hash(object_id1))
+
+    # Create a second object with the same value as the first, and check that
+    # their hashes are equal.
+    object_id2 = random_object_id()
+    memory_buffer = np.frombuffer(self.plasma_client.create(object_id2, length, metadata), dtype="uint8")
+    for i in range(length):
+      memory_buffer[i] = i % 256
+    self.plasma_client.seal(object_id2)
+    self.assertEqual(self.plasma_client.hash(object_id1),
+                     self.plasma_client.hash(object_id2))
+
+    # Create a third object with a different value from the first two, and
+    # check that its hash is different.
+    object_id3 = random_object_id()
+    metadata = generate_metadata(length)
+    memory_buffer = np.frombuffer(self.plasma_client.create(object_id3, length, metadata), dtype="uint8")
+    for i in range(length):
+      memory_buffer[i] = (i + 1) % 256
+    self.plasma_client.seal(object_id3)
+    self.assertNotEqual(self.plasma_client.hash(object_id1),
+                        self.plasma_client.hash(object_id3))
+
+    # Create a fourth object with the same value as the third, but different
+    # metadata. Check that its hash is different from any of the previous
+    # three.
+    object_id4 = random_object_id()
+    metadata4 = generate_metadata(length)
+    memory_buffer = np.frombuffer(self.plasma_client.create(object_id4, length, metadata4), dtype="uint8")
+    for i in range(length):
+      memory_buffer[i] = (i + 1) % 256
+    self.plasma_client.seal(object_id4)
+    self.assertNotEqual(self.plasma_client.hash(object_id1),
+                        self.plasma_client.hash(object_id4))
+    self.assertNotEqual(self.plasma_client.hash(object_id3),
+                        self.plasma_client.hash(object_id4))
+
+  def test_many_hashes(self):
+    hashes = []
+    length = 2 ** 10
+
+    for i in range(256):
+      object_id = random_object_id()
+      memory_buffer = np.frombuffer(self.plasma_client.create(object_id, length), dtype="uint8")
+      for j in range(length):
+        memory_buffer[j] = i
+      self.plasma_client.seal(object_id)
+      hashes.append(self.plasma_client.hash(object_id))
+
+    # Create objects of varying length. Each pair has two bits different.
+    for i in range(length):
+      object_id = random_object_id()
+      memory_buffer = np.frombuffer(self.plasma_client.create(object_id, length), dtype="uint8")
+      for j in range(length):
+        memory_buffer[j] = 0
+      memory_buffer[i] = 1
+      self.plasma_client.seal(object_id)
+      hashes.append(self.plasma_client.hash(object_id))
+
+    # Create objects of varying length, all with value 0.
+    for i in range(length):
+      object_id = random_object_id()
+      memory_buffer = np.frombuffer(self.plasma_client.create(object_id, i), dtype="uint8")
+      for j in range(i):
+        memory_buffer[j] = 0
+      self.plasma_client.seal(object_id)
+      hashes.append(self.plasma_client.hash(object_id))
+
+    # Check that all hashes were unique.
+    self.assertEqual(len(set(hashes)), 256 + length + length)
+
+  # def test_individual_delete(self):
+  #   length = 100
+  #   # Create an object id string.
+  #   object_id = random_object_id()
+  #   # Create a random metadata string.
+  #   metadata = generate_metadata(100)
+  #   # Create a new buffer and write to it.
+  #   memory_buffer = self.plasma_client.create(object_id, length, metadata)
+  #   for i in range(length):
+  #     memory_buffer[i] = chr(i % 256)
+  #   # Seal the object.
+  #   self.plasma_client.seal(object_id)
+  #   # Check that the object is present.
+  #   self.assertTrue(self.plasma_client.contains(object_id))
+  #   # Delete the object.
+  #   self.plasma_client.delete(object_id)
+  #   # Make sure the object is no longer present.
+  #   self.assertFalse(self.plasma_client.contains(object_id))
+  #
+  # def test_delete(self):
+  #   # Create some objects.
+  #   object_ids = [random_object_id() for _ in range(100)]
+  #   for object_id in object_ids:
+  #     length = 100
+  #     # Create a random metadata string.
+  #     metadata = generate_metadata(100)
+  #     # Create a new buffer and write to it.
+  #     memory_buffer = self.plasma_client.create(object_id, length, metadata)
+  #     for i in range(length):
+  #       memory_buffer[i] = chr(i % 256)
+  #     # Seal the object.
+  #     self.plasma_client.seal(object_id)
+  #     # Check that the object is present.
+  #     self.assertTrue(self.plasma_client.contains(object_id))
+  #
+  #   # Delete the objects and make sure they are no longer present.
+  #   for object_id in object_ids:
+  #     # Delete the object.
+  #     self.plasma_client.delete(object_id)
+  #     # Make sure the object is no longer present.
+  #     self.assertFalse(self.plasma_client.contains(object_id))
+
+  def test_illegal_functionality(self):
+    # Create an object id string.
+    object_id = random_object_id()
+    # Create a new buffer and write to it.
+    length = 1000
+    memory_buffer = self.plasma_client.create(object_id, length)
+    # Make sure we cannot access memory out of bounds.
+    self.assertRaises(Exception, lambda: memory_buffer[length])
+    # Seal the object.
+    self.plasma_client.seal(object_id)
+    # This test is commented out because it currently fails.
+    # # Make sure the object is ready only now.
+    # def illegal_assignment():
+    #   memory_buffer[0] = chr(0)
+    # self.assertRaises(Exception, illegal_assignment)
+    # Get the object.
+    memory_buffer = self.plasma_client.get([object_id])[0]
+
+    # Make sure the object is read only.
+    def illegal_assignment():
+      memory_buffer[0] = chr(0)
+    self.assertRaises(Exception, illegal_assignment)
+
+  def test_evict(self):
+    client = self.plasma_client2
+    object_id1 = random_object_id()
+    b1 = client.create(object_id1, 1000)
+    client.seal(object_id1)
+    del b1
+    self.assertEqual(client.evict(1), 1000)
+
+    object_id2 = random_object_id()
+    object_id3 = random_object_id()
+    b2 = client.create(object_id2, 999)
+    b3 = client.create(object_id3, 998)
+    client.seal(object_id3)
+    del b3
+    self.assertEqual(client.evict(1000), 998)
+
+    object_id4 = random_object_id()
+    b4 = client.create(object_id4, 997)
+    client.seal(object_id4)
+    del b4
+    client.seal(object_id2)
+    del b2
+    self.assertEqual(client.evict(1), 997)
+    self.assertEqual(client.evict(1), 999)
+
+    object_id5 = random_object_id()
+    object_id6 = random_object_id()
+    object_id7 = random_object_id()
+    b5 = client.create(object_id5, 996)
+    b6 = client.create(object_id6, 995)
+    b7 = client.create(object_id7, 994)
+    client.seal(object_id5)
+    client.seal(object_id6)
+    client.seal(object_id7)
+    del b5
+    del b6
+    del b7
+    self.assertEqual(client.evict(2000), 996 + 995 + 994)
+
+  def test_subscribe(self):
+    # Subscribe to notifications from the Plasma Store.
+    self.plasma_client.subscribe()
+    for i in [1, 10, 100, 1000, 10000, 100000]:
+      object_ids = [random_object_id() for _ in range(i)]
+      metadata_sizes = [np.random.randint(1000) for _ in range(i)]
+      data_sizes = [np.random.randint(1000) for _ in range(i)]
+      for j in range(i):
+        self.plasma_client.create(
+            object_ids[j], data_sizes[j],
+            metadata=bytearray(np.random.bytes(metadata_sizes[j])))
+        self.plasma_client.seal(object_ids[j])
+      # Check that we received notifications for all of the objects.
+      for j in range(i):
+        notification_info = self.plasma_client.get_next_notification()
+        recv_objid, recv_dsize, recv_msize = notification_info
+        self.assertEqual(object_ids[j], recv_objid)
+        self.assertEqual(data_sizes[j], recv_dsize)
+        self.assertEqual(metadata_sizes[j], recv_msize)
+
+  def test_subscribe_deletions(self):
+    # Subscribe to notifications from the Plasma Store. We use plasma_client2
+    # to make sure that all used objects will get evicted properly.
+    self.plasma_client2.subscribe()
+    for i in [1, 10, 100, 1000, 10000, 100000]:
+      object_ids = [random_object_id() for _ in range(i)]
+      # Add 1 to the sizes to make sure we have nonzero object sizes.
+      metadata_sizes = [np.random.randint(1000) + 1 for _ in range(i)]
+      data_sizes = [np.random.randint(1000) + 1 for _ in range(i)]
+      for j in range(i):
+        x = self.plasma_client2.create(
+            object_ids[j], data_sizes[j],
+            metadata=bytearray(np.random.bytes(metadata_sizes[j])))
+        self.plasma_client2.seal(object_ids[j])
+      del x
+      # Check that we received notifications for creating all of the objects.
+      for j in range(i):
+        notification_info = self.plasma_client2.get_next_notification()
+        recv_objid, recv_dsize, recv_msize = notification_info
+        self.assertEqual(object_ids[j], recv_objid)
+        self.assertEqual(data_sizes[j], recv_dsize)
+        self.assertEqual(metadata_sizes[j], recv_msize)
+
+      # Check that we receive notifications for deleting all objects, as we
+      # evict them.
+      for j in range(i):
+        self.assertEqual(self.plasma_client2.evict(1),
+                         data_sizes[j] + metadata_sizes[j])
+        notification_info = self.plasma_client2.get_next_notification()
+        recv_objid, recv_dsize, recv_msize = notification_info
+        self.assertEqual(object_ids[j], recv_objid)
+        self.assertEqual(-1, recv_dsize)
+        self.assertEqual(-1, recv_msize)
+
+    # Test multiple deletion notifications. The first 9 object IDs have size 0,
+    # and the last has a nonzero size. When Plasma evicts 1 byte, it will evict
+    # all objects, so we should receive deletion notifications for each.
+    num_object_ids = 10
+    object_ids = [random_object_id() for _ in range(num_object_ids)]
+    metadata_sizes = [0] * (num_object_ids - 1)
+    data_sizes = [0] * (num_object_ids - 1)
+    metadata_sizes.append(np.random.randint(1000))
+    data_sizes.append(np.random.randint(1000))
+    for i in range(num_object_ids):
+      x = self.plasma_client2.create(
+          object_ids[i], data_sizes[i],
+          metadata=bytearray(np.random.bytes(metadata_sizes[i])))
+      self.plasma_client2.seal(object_ids[i])
+    del x
+    for i in range(num_object_ids):
+      notification_info = self.plasma_client2.get_next_notification()
+      recv_objid, recv_dsize, recv_msize = notification_info
+      self.assertEqual(object_ids[i], recv_objid)
+      self.assertEqual(data_sizes[i], recv_dsize)
+      self.assertEqual(metadata_sizes[i], recv_msize)
+    self.assertEqual(self.plasma_client2.evict(1),
+                     data_sizes[-1] + metadata_sizes[-1])
+    for i in range(num_object_ids):
+      notification_info = self.plasma_client2.get_next_notification()
+      recv_objid, recv_dsize, recv_msize = notification_info
+      self.assertEqual(object_ids[i], recv_objid)
+      self.assertEqual(-1, recv_dsize)
+      self.assertEqual(-1, recv_msize)
+
 if __name__ == "__main__":
   if len(sys.argv) > 1:
     # Pop the argument so we don't mess with unittest's own argument parser.
