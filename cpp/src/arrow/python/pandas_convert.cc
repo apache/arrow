@@ -1369,7 +1369,8 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
     // Convert the struct arrays first
     for (size_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
-      RETURN_NOT_OK(ConvertArrayToPandas(arr->field(i), nullptr, &numpy_array));
+      RETURN_NOT_OK(
+          ConvertArrayToPandas(arr->field(static_cast<int>(i)), nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -1385,8 +1386,8 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
         RETURN_IF_PYERROR();
         for (size_t field_idx = 0; field_idx < num_fields; ++field_idx) {
           OwnedRef field_value;
-          auto name = array_type->child(field_idx)->name();
-          if (!arr->field(field_idx)->IsNull(i)) {
+          auto name = array_type->child(static_cast<int>(field_idx))->name();
+          if (!arr->field(static_cast<int>(field_idx))->IsNull(i)) {
             // Value exists in child array, obtain it
             auto array = reinterpret_cast<PyArrayObject*>(fields_data[field_idx].obj());
             auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));

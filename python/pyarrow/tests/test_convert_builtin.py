@@ -259,22 +259,19 @@ class TestConvertSequence(unittest.TestCase):
         assert arr.type == pa.null()
         assert arr.to_pylist() == []
 
-    def test_structarray_to_pylist(self):
+    def test_structarray(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
-        strs = pa.array(['a', None, 'c'], type=pa.binary())
+        strs = pa.array([u'a', None, u'c'], type=pa.string())
         bools = pa.array([True, False, None], type=pa.bool_())
         arr = pa.StructArray.from_arrays(
             ['ints', 'strs', 'bools'],
             [ints, strs, bools])
 
         expected = [
-            {'ints': None, 'strs': 'a', 'bools': True},
+            {'ints': None, 'strs': u'a', 'bools': True},
             {'ints': 2, 'strs': None, 'bools': False},
-            {'ints': 3, 'strs': 'c', 'bools': None},
+            {'ints': 3, 'strs': u'c', 'bools': None},
         ]
 
         pylist = arr.to_pylist()
         assert pylist == expected, (pylist, expected)
-
-        # Make sure pandas converts the same
-        assert (arr.to_pandas() == expected).all()
