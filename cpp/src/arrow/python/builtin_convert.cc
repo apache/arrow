@@ -362,9 +362,7 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
     return Status::OK();
   }
 
-  Status AppendItem(const OwnedRef& item) {
-    return Status::NotImplemented;
-  }
+  virtual Status AppendItem(const OwnedRef& item) = 0;
 };
 
 class BoolConverter : public TypedConverterVisitor<
