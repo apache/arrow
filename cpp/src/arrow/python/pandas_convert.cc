@@ -362,23 +362,41 @@ class PandasConverter {
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
   Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
 
-  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
+  Status Visit(const NullType& type) {
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement null type conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
+  }
 
-  Status Visit(const BinaryType& type) { return Status::NotImplemented(type.ToString()); }
+  Status Visit(const BinaryType& type) {
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement BinaryType conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
+  }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    return Status::NotImplemented(type.ToString());
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement FixedSizeBinaryType conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
   }
 
   Status Visit(const DecimalType& type) {
-    return Status::NotImplemented(type.ToString());
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement DecimalType conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
   }
 
   Status Visit(const DictionaryType& type) {
-    return Status::NotImplemented(type.ToString());
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement DictionaryType conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
   }
 
-  Status Visit(const NestedType& type) { return Status::NotImplemented(type.ToString()); }
+  Status Visit(const NestedType& type) {
+     std::stringstream ss;
+     ss << "PandasConverter doesn't implement NestedType conversion. Input type was: " << type.ToString();
+     return Status::NotImplemented(ss.str()); 
+     }
 
   Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {
