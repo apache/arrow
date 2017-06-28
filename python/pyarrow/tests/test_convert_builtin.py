@@ -22,6 +22,44 @@ import pyarrow as pa
 import datetime
 import decimal
 
+class StrangeIterable:
+    def __init__(self, lst):
+        self.lst = lst
+
+    def __iter__(self):
+        return self.lst.__iter__()
+
+class TestConvertIterable(unittest.TestCase):
+
+    def test_iterable_types(self):
+        arr1 = pa.array(StrangeIterable([0, 1, 2, 3]))
+        arr2 = pa.array((0, 1, 2, 3))
+
+        assert arr1.equals(arr2)
+
+    def test_empty_iterable(self):
+        arr = pa.array(StrangeIterable([]))
+        assert len(arr) == 0
+        assert arr.null_count == 0
+        assert arr.type == pa.null()
+        assert arr.to_pylist() == []
+
+
+class TestLimitedConvertIterator(unittest.TestCase):
+    def test_iterator_types(self):
+        arr1 = pa.array(iter(range(3)), type=pa.int64(), size=3)
+        arr2 = pa.array((0, 1, 2))
+        assert arr1.equals(arr2)
+
+    def test_iterator_size_overflow(self):
+        arr1 = pa.array(iter(range(3)), type=pa.int64(), size=2)
+        arr2 = pa.array((0, 1))
+        assert arr1.equals(arr2)
+
+    def test_iterator_size_underflow(self):
+        arr1 = pa.array(iter(range(3)), type=pa.int64(), size=10)
+        arr2 = pa.array((0, 1, 2))
+        assert arr1.equals(arr2)
 
 class TestConvertSequence(unittest.TestCase):
 
@@ -208,3 +246,15 @@ class TestConvertSequence(unittest.TestCase):
         type = pa.decimal(precision=23, scale=5)
         arr = pa.array(data, type=type)
         assert arr.to_pylist() == data
+
+    def test_range_types(self):
+        arr1 = pa.array(range(3))
+        arr2 = pa.array((0, 1, 2))
+        assert arr1.equals(arr2)
+
+    def test_empty_range(self):
+        arr = pa.array(range(0))
+        assert len(arr) == 0
+        assert arr.null_count == 0
+        assert arr.type == pa.null()
+        assert arr.to_pylist() == []
