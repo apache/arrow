@@ -101,13 +101,3 @@ ADD_ARROW_TEST(test/serialization_tests)
 ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
 ADD_ARROW_TEST(test/client_tests)
 ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
-
-if(PLASMA_PYTHON)
-  add_library(plasma_extension SHARED extension.cc)
-
-  if(APPLE)
-    target_link_libraries(plasma_extension plasma_static "-undefined dynamic_lookup")
-  else(APPLE)
-    target_link_libraries(plasma_extension plasma_static -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive)
-  endif(APPLE)
-endif()
