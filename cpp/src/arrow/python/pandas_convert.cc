@@ -362,41 +362,25 @@ class PandasConverter {
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
   Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
 
-  Status Visit(const NullType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement null type conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
+  template<typename T>
+  Status TypeNotImplemented(const T& type) {
+    std::stringstream ss;
+    ss << "PandasConverter doesn't implement <" << type.name() << "> conversion. ";
+    ss << "Input was: " << type.ToString();
+    return Status::NotImplemented(ss.str());
   }
 
-  Status Visit(const BinaryType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement BinaryType conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
-  }
+  Status Visit(const NullType& type) { return TypeNotImplemented(type); }
 
-  Status Visit(const FixedSizeBinaryType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement FixedSizeBinaryType conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
-  }
+  Status Visit(const BinaryType& type) { return TypeNotImplemented(type); }
 
-  Status Visit(const DecimalType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement DecimalType conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
-  }
+  Status Visit(const FixedSizeBinaryType& type) { return TypeNotImplemented(type); }
 
-  Status Visit(const DictionaryType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement DictionaryType conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
-  }
+  Status Visit(const DecimalType& type) { return TypeNotImplemented(type); }
 
-  Status Visit(const NestedType& type) {
-     std::stringstream ss;
-     ss << "PandasConverter doesn't implement NestedType conversion. Input type was: " << type.ToString();
-     return Status::NotImplemented(ss.str()); 
-  }
+  Status Visit(const DictionaryType& type) { return TypeNotImplemented(type); }
+
+  Status Visit(const NestedType& type) { return TypeNotImplemented(type); }
 
   Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {
