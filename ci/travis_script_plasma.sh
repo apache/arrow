@@ -97,6 +97,9 @@ python_version_tests() {
   # Build and install plasma
   pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
     python setup.py install
+
+    # Run Plasma tests
+    python test/test.py
   popd
 }
 
