@@ -967,7 +967,7 @@ const uint8_t* StringBuilder::GetValue(int64_t i, int32_t* out_length) const {
   const int32_t* offsets = reinterpret_cast<const int32_t*>(offset_builder_.data());
   int32_t offset = offsets[i];
   if (i == (length_ - 1)) {
-    *out_length = value_builder_->length() - offset;
+    *out_length = static_cast<int32_t>(value_builder_->length()) - offset;
   } else {
     *out_length = offsets[i + 1] - offset;
   }

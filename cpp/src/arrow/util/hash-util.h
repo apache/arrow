@@ -41,8 +41,8 @@ class HashUtil {
   /// TODO: update this to also use SSE4_crc32_u64 and SSE4_crc32_u16 where appropriate.
   static uint32_t CrcHash(const void* data, int32_t bytes, uint32_t hash) {
     DCHECK(CpuInfo::IsSupported(CpuInfo::SSE4_2));
-    uint32_t words = bytes / sizeof(uint32_t);
-    bytes = bytes % sizeof(uint32_t);
+    uint32_t words = static_cast<uint32_t>(bytes / sizeof(uint32_t));
+    bytes = static_cast<int32_t>(bytes % sizeof(uint32_t));
 
     const uint32_t* p = reinterpret_cast<const uint32_t*>(data);
     while (words--) {
@@ -201,7 +201,7 @@ class HashUtil {
     DCHECK_GT(bytes, 0);
     uint64_t hash_u64 = hash | ((uint64_t)hash << 32);
     hash_u64 = FnvHash64(data, bytes, hash_u64);
-    return (hash_u64 >> 32) ^ (hash_u64 & 0xFFFFFFFF);
+    return static_cast<uint32_t>((hash_u64 >> 32) ^ (hash_u64 & 0xFFFFFFFF));
   }
 
   /// Computes the hash value for data.  Will call either CrcHash or MurmurHash
@@ -241,7 +241,7 @@ class HashUtil {
     // randomness of the constants) that any subset of bit positions of
     // Rehash32to32(hash1) is equal to the same subset of bit positions
     // Rehash32to32(hash2) is minimal.
-    return (static_cast<uint64_t>(hash) * m + a) >> 32;
+    return static_cast<uint32_t>((static_cast<uint64_t>(hash) * m + a) >> 32);
   }
 
   static inline uint64_t Rehash32to64(const uint32_t hash) {

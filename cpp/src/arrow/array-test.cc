@@ -1534,7 +1534,7 @@ TEST_F(TestDictionaryBuilder, StringDictionaryBuilderDoubleTableSize) {
     ss << "test" << i;
     ASSERT_OK(builder.Append(ss.str()));
     ASSERT_OK(str_builder.Append(ss.str()));
-    ASSERT_OK(int_builder.Append(i));
+    ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
   }
   // Fill with an already existing value
   for (int64_t i = 0; i < 1024; i++) {
