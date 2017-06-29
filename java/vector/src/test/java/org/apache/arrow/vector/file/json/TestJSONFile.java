@@ -22,20 +22,17 @@ import java.io.IOException;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.file.BaseFileTest;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.DictionaryUtility;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 
 public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);
@@ -163,27 +160,23 @@ public class TestJSONFile extends BaseFileTest {
   @Test
   public void testWriteReadDictionaryJSON() throws IOException {
     File file = new File("target/mytest_dictionary.json");
-    long dictId = 1L;
 
     // write
     try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NullableVarCharVector vector = newNullableVarCharVector("varchar", vectorAllocator);
-        NullableVarCharVector dictionaryVector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(dictId), vectorAllocator);
-        ) {
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+      MapDictionaryProvider provider = new MapDictionaryProvider();
 
-      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-      VectorSchemaRoot root = writeFlatDictionaryData(vector, dictionaryVector, provider);
+      try (VectorSchemaRoot root = writeFlatDictionaryData(vectorAllocator, provider)) {
+        printVectors(root.getFieldVectors());
+        validateFlatDictionary(root, provider);
+        writeJSON(file, root, provider);
+      }
 
-      printVectors(root.getFieldVectors());
-
-      validateFlatDictionary(root.getFieldVectors().get(0), provider);
-
-      writeJSON(file, root, provider);
-
-      vector.close();
-      dictionaryVector.close();
-      root.close();
+      // Need to close dictionary vectors
+      for (long id: provider.getDictionaryIds()) {
+        provider.lookup(id).getVector().close();
+      }
     }
 
     // read
@@ -196,7 +189,48 @@ public class TestJSONFile extends BaseFileTest {
 
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
-        validateFlatDictionary(root.getFieldVectors().get(0), reader);
+        validateFlatDictionary(root, reader);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
+  public void testWriteReadNestedDictionaryJSON() throws IOException {
+    File file = new File("target/mytest_dict_nested.json");
+
+    // data being written:
+    // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+      MapDictionaryProvider provider = new MapDictionaryProvider();
+
+      try (VectorSchemaRoot root = writeNestedDictionaryData(vectorAllocator, provider)) {
+        printVectors(root.getFieldVectors());
+        validateNestedDictionary(root, provider);
+        writeJSON(file, root, provider);
+      }
+
+      // Need to close dictionary vectors
+      for (long id: provider.getDictionaryIds()) {
+        provider.lookup(id).getVector().close();
+      }
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateNestedDictionary(root, reader);
       }
       reader.close();
     }

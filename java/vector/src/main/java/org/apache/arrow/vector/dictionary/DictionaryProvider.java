@@ -19,6 +19,7 @@ package org.apache.arrow.vector.dictionary;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public interface DictionaryProvider {
 
@@ -37,6 +38,10 @@ public interface DictionaryProvider {
 
     public void put(Dictionary dictionary) {
       map.put(dictionary.getEncoding().getId(), dictionary);
+    }
+
+    public final Set<Long> getDictionaryIds() {
+      return map.keySet();
     }
 
     @Override
