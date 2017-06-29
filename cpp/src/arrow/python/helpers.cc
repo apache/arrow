@@ -90,11 +90,11 @@ Status PythonDecimalToArrowDecimal(
   return FromString(c_string, arrow_decimal);
 }
 
-template Status ARROW_TEMPLATE_EXPORT PythonDecimalToArrowDecimal(
+template Status ARROW_EXPORT PythonDecimalToArrowDecimal(
     PyObject* python_decimal, decimal::Decimal32* arrow_decimal);
-template Status ARROW_TEMPLATE_EXPORT PythonDecimalToArrowDecimal(
+template Status ARROW_EXPORT PythonDecimalToArrowDecimal(
     PyObject* python_decimal, decimal::Decimal64* arrow_decimal);
-template Status ARROW_TEMPLATE_EXPORT PythonDecimalToArrowDecimal(
+template Status ARROW_EXPORT PythonDecimalToArrowDecimal(
     PyObject* python_decimal, decimal::Decimal128* arrow_decimal);
 
 Status InferDecimalPrecisionAndScale(
