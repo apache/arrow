@@ -384,37 +384,42 @@ The layout for [{'joe', 1}, {null, 2}, null, {'mark', 4}] would be:
 
 * Children arrays:
   * field-0 array (`List<char>`):
-    * Length: 4, Null count: 1
+    * Length: 4, Null count: 2
     * Null bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
       |--------------------------|-----------------------|
-      | 00001101                 | 0 (padding)           |
+      | 00001001                 | 0 (padding)           |
 
     * Offsets buffer:
 
       | Bytes 0-19     |
       |----------------|
-      | 0, 3, 3, 6, 10 |
+      | 0, 3, 3, 3, 7  |
 
      * Values array:
-        * Length: 10, Null count: 0
+        * Length: 7, Null count: 0
         * Null bitmap buffer: Not required
 
         * Value buffer:
 
-          | Bytes 0-9      |
+          | Bytes 0-6      |
           |----------------|
-          | joebobmark     |
+          | joemark        |
 
   * field-1 array (int32 array):
-    * Length: 4, Null count: 0
-    * Null bitmap buffer: Not required
+    * Length: 4, Null count: 1
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001011                 | 0 (padding)           |
+
     * Value Buffer:
 
-      | Bytes 0-15     |
-      |----------------|
-      | 1, 2, 3, 4     |
+      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63 |
+      |------------|-------------|-------------|-------------|-------------|
+      | 1          | 2           | unspecified | 4           | unspecified |
 
 ```
 
@@ -600,7 +605,7 @@ the the types array indicates that a slot contains a different type at the index
 ## Dictionary encoding
 
 When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
-The Dictionary is received as a DictionaryBacth whose id is referenced by a dictionary attribute defined in the metadata (Message.fbs) in the Field table.
+The Dictionary is received as a DictionaryBacth whose id is referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
 The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatch.
 When a Schema references a Dictionary id, it must send a DictionaryBatch for this id before any RecordBatch.
 
@@ -644,3 +649,4 @@ Apache Drill Documentation - [Value Vectors][6]
 [4]: https://software.intel.com/en-us/node/600110
 [5]: https://parquet.apache.org/documentation/latest/
 [6]: https://drill.apache.org/docs/value-vectors/
+[7]: https://github.com/apache/arrow/blob/master/format/Message.fbs
