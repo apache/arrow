@@ -461,7 +461,8 @@ Status PlasmaClient::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::GetNotification(int fd, ObjectID *object_id, int64_t* data_size, int64_t* metadata_size) {
+Status PlasmaClient::GetNotification(
+    int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size) {
   uint8_t* notification = read_message_async(fd);
   if (notification == NULL) {
     return Status::IOError("Failed to read object notification from Plasma socket");

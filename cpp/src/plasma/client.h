@@ -179,7 +179,7 @@ class ARROW_EXPORT PlasmaClient {
   /// retrieved.
   /// @return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
-  
+
   /// Compute the hash of an object in the object store.
   ///
   /// @param conn The object containing the connection state.
@@ -206,7 +206,8 @@ class ARROW_EXPORT PlasmaClient {
   /// @param data_size Out parameter, the data size of the object that was sealed.
   /// @param metadata_size Out parameter, the metadata size of the object that was sealed.
   /// @return The return status.
-  Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
+  Status GetNotification(
+      int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
