@@ -27,6 +27,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
@@ -164,7 +165,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       vector = fieldType.createNewSingleVector(DATA_VECTOR_NAME, allocator, callBack);
       // returned vector must have the same field
       created = true;
-      if (callBack != null) {
+      if (callBack != null &&
+        // not a schema change if changing from ZeroVector to ZeroVector
+        (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         callBack.doWork();
       }
     }
