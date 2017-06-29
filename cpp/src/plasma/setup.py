@@ -15,15 +15,49 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from setuptools import setup, find_packages, Extension
-from Cython.Build import cythonize
+import os
+import shutil
 
-extensions = [
-    Extension(
-        'plasma',
-        ["plasma.pyx"],
-        language="c++",
-        extra_link_args=["../../build/debug/libplasma.a", "../../build/debug/libarrow.a"],
-        extra_compile_args=["-std=c++11", "-I.", "-I..", "-I../../../cpp/build/flatbuffers_ep-prefix/src/flatbuffers_ep-install/include"])]
+from setuptools import setup, find_packages, Distribution
+import setuptools.command.build_ext as _build_ext
 
-setup(ext_modules = cythonize(extensions))
+class build_ext(_build_ext.build_ext):
+  def run(self):
+    # Ideally, we could include these files by putting them in a MANIFEST.in or
+    # using the package_data argument to setup, but the MANIFEST.in gets
+    # applied at the very beginning when setup.py runs before these files have
+    # been created, so we have to move the files manually.
+    for filename in files_to_include:
+      self.move_file(filename)
+
+  def move_file(self, filename):
+    # TODO(rkn): This feels very brittle. It may not handle all cases. See
+    # https://github.com/apache/arrow/blob/master/python/setup.py for an
+    # example.
+    source = filename
+    destination = os.path.join(self.build_lib, filename)
+    # Create the target directory if it doesn't already exist.
+    parent_directory = os.path.dirname(destination)
+    if not os.path.exists(parent_directory):
+      os.makedirs(parent_directory)
+    print("Copying {} to {}.".format(source, destination))
+    shutil.copy(source, destination)
+
+files_to_include = [
+    "../../../python/arrow-build-3.6/debug/plasma.cpython-36m-x86_64-linux-gnu.so"
+]
+
+class BinaryDistribution(Distribution):
+  def has_ext_modules(self):
+    return True
+
+setup(name="plasma",
+      version="0.0.1",
+      packages=find_packages(),
+      cmdclass={"build_ext": build_ext},
+      # The BinaryDistribution argument triggers build_ext.
+      distclass=BinaryDistribution,
+      install_requires=["numpy"],
+      include_package_data=True,
+      zip_safe=False,
+      license="Apache 2.0")

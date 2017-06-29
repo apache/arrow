@@ -19,6 +19,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project(plasma)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_modules")
+
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
@@ -101,3 +103,19 @@ ADD_ARROW_TEST(test/serialization_tests)
 ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
 ADD_ARROW_TEST(test/client_tests)
 ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
+
+if (PLASMA_PYTHON)
+  include(UseCython)
+  find_package(NumPy REQUIRED)
+
+  include_directories(SYSTEM
+    ${NUMPY_INCLUDE_DIRS}
+    ${PYTHON_INCLUDE_DIRS})
+
+  set_source_files_properties(plasma.pyx PROPERTIES CYTHON_IS_CXX 1)
+
+  cython_add_module(plasma
+      plasma_pyx
+      plasma_output
+      plasma.pyx)
+endif()

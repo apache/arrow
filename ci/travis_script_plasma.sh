@@ -29,7 +29,6 @@ function build_arrow_libraries() {
 
   cmake -DARROW_BUILD_TESTS=off \
         -DARROW_PYTHON=on \
-        -DPLASMA_PYTHON=on \
         -DARROW_PLASMA=on \
         -DCMAKE_INSTALL_PREFIX=$2 \
         $CPP_DIR
@@ -81,6 +80,20 @@ python_version_tests() {
     python setup.py install
   popd
 
+  # Make python plasma extension
+  pushd $CPP_BUILD_DIR
+
+  cmake -DARROW_BUILD_TESTS=off \
+        -DARROW_PYTHON=on \
+        -DPLASMA_PYTHON=on \
+        -DARROW_PLASMA=on \
+        -DCMAKE_INSTALL_PREFIX=$2 \
+        $CPP_DIR
+
+  make -j4
+
+  popd
+
   # Build and install plasma
   pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
     python setup.py install
@@ -88,7 +101,7 @@ python_version_tests() {
 }
 
 # run tests for python 2.7 and 3.6
-python_version_tests 2.7
+# python_version_tests 2.7
 python_version_tests 3.6
 
 popd
