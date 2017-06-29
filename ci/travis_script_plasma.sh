@@ -76,6 +76,11 @@ python_version_tests() {
       python setup.py build_sphinx -s doc/source
   fi
 
+  # Build and install pyarrow
+  pushd $TRAVIS_BUILD_DIR/python
+    python setup.py install
+  popd
+
   # Build and install plasma
   pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
     python setup.py install
