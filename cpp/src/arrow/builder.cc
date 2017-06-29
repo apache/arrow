@@ -28,7 +28,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/hash-util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -656,6 +658,135 @@ Status BooleanBuilder::Append(
 }
 
 // ----------------------------------------------------------------------
+// DictionaryBuilder
+
+StringDictionaryBuilder::StringDictionaryBuilder(MemoryPool* pool)
+    : ArrayBuilder(pool, utf8()),
+      hash_table_(new PoolBuffer(pool)),
+      hash_slots_(nullptr),
+      dict_builder_(pool),
+      values_builder_(pool) {
+  if (!::arrow::CpuInfo::initialized()) { ::arrow::CpuInfo::Init(); }
+}
+
+bool StringDictionaryBuilder::SlotDifferent(
+    hash_slot_t index, const uint8_t* value, int32_t length) {
+  int32_t other_length;
+  const uint8_t* other_value =
+      dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);
+  return !(other_length == length && 0 == memcmp(other_value, value, length));
+}
+
+Status StringDictionaryBuilder::Append(const uint8_t* value, int32_t length) {
+  RETURN_NOT_OK(Reserve(1));
+  // Based on DictEncoder<DType>::Put
+  int j = HashUtil::Hash(value, length, 0) & mod_bitmask_;
+  hash_slot_t index = hash_slots_[j];
+
+  // Find an empty slot
+  while (kHashSlotEmpty != index && SlotDifferent(index, value, length)) {
+    // Linear probing
+    ++j;
+    if (j == hash_table_size_) j = 0;
+    index = hash_slots_[j];
+  }
+
+  if (index == kHashSlotEmpty) {
+    // Not in the hash table, so we insert it now
+    index = static_cast<hash_slot_t>(dict_builder_.length());
+    hash_slots_[j] = index;
+    RETURN_NOT_OK(dict_builder_.Append(value, length));
+
+    if (UNLIKELY(static_cast<int32_t>(dict_builder_.length()) >
+                 hash_table_size_ * kMaxHashTableLoad)) {
+      RETURN_NOT_OK(DoubleTableSize());
+    }
+  }
+
+  RETURN_NOT_OK(values_builder_.Append(index));
+
+  return Status::OK();
+}
+
+Status StringDictionaryBuilder::DoubleTableSize() {
+  int new_size = hash_table_size_ * 2;
+  auto new_hash_table = std::make_shared<PoolBuffer>(pool_);
+
+  RETURN_NOT_OK(new_hash_table->Resize(sizeof(hash_slot_t) * new_size));
+  int32_t* new_hash_slots = reinterpret_cast<int32_t*>(new_hash_table->mutable_data());
+  std::fill(new_hash_slots, new_hash_slots + new_size, kHashSlotEmpty);
+  int new_mod_bitmask = new_size - 1;
+
+  for (int i = 0; i < hash_table_size_; ++i) {
+    hash_slot_t index = hash_slots_[i];
+
+    if (index == kHashSlotEmpty) { continue; }
+
+    // Compute the hash value mod the new table size to start looking for an
+    // empty slot
+    int32_t v_len;
+    const uint8_t* v = dict_builder_.GetValue(static_cast<int64_t>(index), &v_len);
+
+    // Find an empty slot in the new hash table
+    int j = HashUtil::Hash(v, v_len, 0) & new_mod_bitmask;
+    hash_slot_t slot = new_hash_slots[j];
+
+    while (kHashSlotEmpty != slot && SlotDifferent(slot, v, v_len)) {
+      ++j;
+      if (j == new_size) j = 0;
+      slot = new_hash_slots[j];
+    }
+
+    // Copy the old slot index to the new hash table
+    new_hash_slots[j] = index;
+  }
+
+  hash_table_ = new_hash_table;
+  hash_slots_ = reinterpret_cast<int32_t*>(hash_table_->mutable_data());
+  hash_table_size_ = new_size;
+  mod_bitmask_ = new_size - 1;
+
+  return Status::OK();
+}
+
+Status StringDictionaryBuilder::Init(int64_t elements) {
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
+
+  // Fill the initial hash table
+  RETURN_NOT_OK(hash_table_->Resize(sizeof(hash_slot_t) * kInitialHashTableSize));
+  hash_slots_ = reinterpret_cast<int32_t*>(hash_table_->mutable_data());
+  std::fill(hash_slots_, hash_slots_ + kInitialHashTableSize, kHashSlotEmpty);
+  hash_table_size_ = kInitialHashTableSize;
+  mod_bitmask_ = kInitialHashTableSize - 1;
+
+  return values_builder_.Init(elements);
+}
+
+Status StringDictionaryBuilder::Resize(int64_t capacity) {
+  // XXX: Set floor size for now
+  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+
+  if (capacity_ == 0) {
+    RETURN_NOT_OK(Init(capacity));
+  } else {
+    RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
+  }
+  return Status::OK();
+}
+
+Status StringDictionaryBuilder::Finish(std::shared_ptr<Array>* out) {
+  std::shared_ptr<Array> dictionary;
+  RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
+  auto type = std::make_shared<DictionaryType>(utf8(), dictionary);
+
+  std::shared_ptr<Array> values;
+  RETURN_NOT_OK(values_builder_.Finish(&values));
+
+  *out = std::make_shared<DictionaryArray>(type, values);
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // DecimalBuilder
 DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
     : FixedSizeBinaryBuilder(pool, type),
@@ -831,6 +962,17 @@ Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
 }
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(pool, utf8()) {}
+
+const uint8_t* StringBuilder::GetValue(int64_t i, int32_t* out_length) const {
+  const int32_t* offsets = reinterpret_cast<const int32_t*>(offset_builder_.data());
+  int32_t offset = offsets[i];
+  if (i == (length_ - 1)) {
+    *out_length = value_builder_->length() - offset;
+  } else {
+    *out_length = offsets[i + 1] - offset;
+  }
+  return byte_builder_->data()->data() + offset;
+}
 
 Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> result;

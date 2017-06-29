@@ -581,6 +581,11 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
   using BinaryBuilder::Append;
 
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
+
   Status Finish(std::shared_ptr<Array>* out) override;
 
   Status Append(const std::vector<std::string>& values, uint8_t* null_bytes);
@@ -672,6 +677,55 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
  protected:
   std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
+};
+
+// ----------------------------------------------------------------------
+// Dictionary builder
+
+// Based on Apache Parquet-cpp's DictEncoder
+
+// Initially 1024 elements
+static constexpr int kInitialHashTableSize = 1 << 10;
+
+typedef int32_t hash_slot_t;
+static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
+
+// The maximum load factor for the hash table before resizing.
+static constexpr double kMaxHashTableLoad = 0.7;
+
+class StringDictionaryBuilder : public ArrayBuilder {
+ public:
+  explicit StringDictionaryBuilder(MemoryPool* pool);
+
+  Status Append(const uint8_t* value, int32_t length);
+
+  Status Append(const char* value, int32_t length) {
+    return Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+  Status Append(const std::string& value) {
+    return Append(value.c_str(), static_cast<int32_t>(value.size()));
+  }
+
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ private:
+  Status DoubleTableSize();
+  bool SlotDifferent(hash_slot_t slot, const uint8_t* value, int32_t length);
+
+  std::shared_ptr<PoolBuffer> hash_table_;
+  int32_t* hash_slots_;
+
+  /// Size of the table. Must be a power of 2.
+  int hash_table_size_;
+
+  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
+  // hash_table_size_, but uses far fewer CPU cycles
+  int mod_bitmask_;
+
+  StringBuilder dict_builder_;
+  AdaptiveUIntBuilder values_builder_;
 };
 
 // ----------------------------------------------------------------------

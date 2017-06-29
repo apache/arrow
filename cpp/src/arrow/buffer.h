@@ -241,8 +241,9 @@ class ARROW_EXPORT BufferBuilder {
     capacity_ = size_ = 0;
     return result;
   }
-  int64_t capacity() { return capacity_; }
-  int64_t length() { return size_; }
+  int64_t capacity() const { return capacity_; }
+  int64_t length() const { return size_; }
+  const uint8_t* data() const { return data_; }
 
  private:
   std::shared_ptr<PoolBuffer> buffer_;
