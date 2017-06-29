@@ -545,12 +545,14 @@ Status PandasConverter::ConvertDates() {
   return date_builder.Finish(&out_);
 }
 
-#define CONVERT_DECIMAL_CASE(bit_width, builder, object)      \
-  case bit_width: {                                           \
-    decimal::Decimal##bit_width d;                            \
-    RETURN_NOT_OK(PythonDecimalToArrowDecimal((object), &d)); \
-    RETURN_NOT_OK((builder).Append(d));                       \
-    break;                                                    \
+#define CONVERT_DECIMAL_CASE(bit_width, builder, object)         \
+  case bit_width: {                                              \
+    decimal::Decimal##bit_width d;                               \
+    std::string string_out;                                      \
+    RETURN_NOT_OK(PythonDecimalToString((object), &string_out)); \
+    RETURN_NOT_OK(FromString(string_out, &d));                   \
+    RETURN_NOT_OK((builder).Append(d));                          \
+    break;                                                       \
   }
 
 Status PandasConverter::ConvertDecimals() {

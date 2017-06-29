@@ -40,7 +40,7 @@ TEST(PyBuffer, InvalidInputObject) {
   PyBuffer buffer(Py_None);
 }
 
-TEST(DecimalTest, TestPythonDecimalToArrowDecimal128) {
+TEST(DecimalTest, TestPythonDecimalToString) {
   PyAcquireGIL lock;
 
   OwnedRef decimal;
@@ -63,11 +63,13 @@ TEST(DecimalTest, TestPythonDecimalToArrowDecimal128) {
   ASSERT_NE(pydecimal.obj(), nullptr);
   ASSERT_EQ(PyErr_Occurred(), nullptr);
 
-  decimal::Decimal128 arrow_decimal;
   boost::multiprecision::int128_t boost_decimal(decimal_string);
-  PyObject* obj = pydecimal.obj();
-  ASSERT_OK(PythonDecimalToArrowDecimal(obj, &arrow_decimal));
-  ASSERT_EQ(boost_decimal, arrow_decimal.value);
+  PyObject* python_object = pydecimal.obj();
+  ASSERT_NE(python_object, nullptr);
+
+  std::string string_result;
+  ASSERT_OK(PythonDecimalToString(python_object, &string_result));
+  ASSERT_EQ(boost_decimal.str(), string_result);
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
