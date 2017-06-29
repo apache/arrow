@@ -77,7 +77,7 @@ python_version_tests() {
   fi
 
   # Build and install plasma
-  pushd $ARROW_HOME/cpp/src/plasma
+  pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
     python setup.py install
   popd
 }
