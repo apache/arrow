@@ -18,6 +18,7 @@
 
 
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionReader.java" />
@@ -51,6 +52,11 @@ public class UnionReader extends AbstractFieldReader {
     for (MinorType minorType : MinorType.values()) {
       TYPES[minorType.ordinal()] = minorType;
     }
+  }
+
+  @Override
+  public Field getField() {
+    return data.getField();
   }
 
   public boolean isSet(){
