@@ -44,8 +44,7 @@ ARROW_EXPORT arrow::Status InferArrowSize(PyObject* obj, int64_t* size);
 
 ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj,
     const std::shared_ptr<arrow::DataType>& type,
-    const std::shared_ptr<arrow::ArrayBuilder>& builder,
-    int64_t size);
+    const std::shared_ptr<arrow::ArrayBuilder>& builder, int64_t size);
 
 // Type and size inference
 ARROW_EXPORT
