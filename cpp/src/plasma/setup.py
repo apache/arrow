@@ -35,16 +35,19 @@ class build_ext(_build_ext.build_ext):
     # https://github.com/apache/arrow/blob/master/python/setup.py for an
     # example.
     source = filename
-    destination = os.path.join(self.build_lib, filename)
+    destination = os.path.join(self.build_lib, "plasma.cpython-36m-x86_64-linux-gnu.so")
+    print("XXX build_lib is ", self.build_lib)
     # Create the target directory if it doesn't already exist.
     parent_directory = os.path.dirname(destination)
     if not os.path.exists(parent_directory):
       os.makedirs(parent_directory)
     print("Copying {} to {}.".format(source, destination))
-    shutil.copy(source, destination)
+    # shutil.copy(source, destination)
+    shutil.copy("../../../python/arrow-build-3.6/debug/plasma.cpython-36m-x86_64-linux-gnu.so", destination)
 
 files_to_include = [
-    "../../../python/arrow-build-3.6/debug/plasma.cpython-36m-x86_64-linux-gnu.so"
+    # "../../../python/arrow-build-3.6/debug/plasma.cpython-36m-x86_64-linux-gnu.so"
+    "../../../cpp/build/debug/plasma.cpython-35m-x86_64-linux-gnu.so"
 ]
 
 class BinaryDistribution(Distribution):
