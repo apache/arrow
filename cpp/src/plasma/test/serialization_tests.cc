@@ -25,6 +25,8 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
+using namespace plasma;
+
 /**
  * Create a temporary file. Needs to be closed by the caller.
  *

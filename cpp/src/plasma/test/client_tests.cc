@@ -29,6 +29,8 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
+using namespace plasma;
+
 std::string g_test_executable;  // NOLINT
 
 class TestPlasmaStore : public ::testing::Test {
