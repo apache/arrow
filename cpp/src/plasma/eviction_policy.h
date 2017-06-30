@@ -26,6 +26,8 @@
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 
+namespace plasma {
+
 // ==== The eviction policy ====
 //
 // This file contains declaration for all functions and data structures that
@@ -130,5 +132,7 @@ class EvictionPolicy {
   /// Datastructure for the LRU cache.
   LRUCache cache_;
 };
+
+} // namespace plasma
 
 #endif  // PLASMA_EVICTION_POLICY_H

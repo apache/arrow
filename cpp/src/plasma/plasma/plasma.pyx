@@ -38,7 +38,7 @@ cdef class FixedSizeBufferOutputStream(NativeFile):
 
 cdef extern from "plasma/common.h" nogil:
 
-  cdef cppclass CUniqueID" UniqueID":
+  cdef cppclass CUniqueID" plasma::UniqueID":
 
     @staticmethod
     CUniqueID from_binary(const c_string& binary)
@@ -48,11 +48,11 @@ cdef extern from "plasma/common.h" nogil:
     c_string hex()
 
 cdef extern from "plasma/plasma.h":
-    cdef int64_t kDigestSize
+    cdef int64_t kDigestSize" plasma::kDigestSize"
 
 cdef extern from "plasma/client.h" nogil:
 
-  cdef cppclass CPlasmaClient" PlasmaClient":
+  cdef cppclass CPlasmaClient" plasma::PlasmaClient":
 
     CPlasmaClient()
 
@@ -81,7 +81,7 @@ cdef extern from "plasma/client.h" nogil:
 
 cdef extern from "plasma/client.h" nogil:
 
-  cdef struct CObjectBuffer" ObjectBuffer":
+  cdef struct CObjectBuffer" plasma::ObjectBuffer":
     int64_t data_size
     uint8_t* data
     int64_t metadata_size
@@ -295,7 +295,7 @@ cdef class PlasmaClient:
     Args:
       num_bytes (int): The number of bytes to attempt to recover.
     """
-    cdef int64_t num_bytes_evicted
+    cdef int64_t num_bytes_evicted = -1
     check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
     return num_bytes_evicted
 

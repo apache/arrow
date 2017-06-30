@@ -114,6 +114,9 @@ if (PLASMA_PYTHON)
 
   set_source_files_properties(plasma/plasma.pyx PROPERTIES CYTHON_IS_CXX 1)
 
+  # for Cython
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+
   cython_add_module(plasma
       plasma_pyx
       plasma_output

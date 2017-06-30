@@ -21,6 +21,8 @@
 
 #include "format/plasma_generated.h"
 
+namespace plasma {
+
 using arrow::Status;
 
 UniqueID UniqueID::from_random() {
@@ -81,3 +83,5 @@ Status plasma_error_status(int plasma_error) {
   }
   return Status::OK();
 }
+
+} // namespace plasma

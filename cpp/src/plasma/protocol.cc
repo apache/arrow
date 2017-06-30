@@ -23,6 +23,8 @@
 #include "plasma/common.h"
 #include "plasma/io.h"
 
+namespace plasma {
+
 using flatbuffers::uoffset_t;
 
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
@@ -500,3 +502,5 @@ Status ReadDataReply(
   *metadata_size = (int64_t)message->metadata_size();
   return Status::OK();
 }
+
+} // namespace plasma

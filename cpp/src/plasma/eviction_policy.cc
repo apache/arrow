@@ -19,6 +19,8 @@
 
 #include <algorithm>
 
+namespace plasma {
+
 void LRUCache::add(const ObjectID& key, int64_t size) {
   auto it = item_map_.find(key);
   ARROW_CHECK(it == item_map_.end());
@@ -105,3 +107,5 @@ void EvictionPolicy::end_object_access(
   /* Add the object to the LRU cache.*/
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);
 }
+
+} // namespace plasma

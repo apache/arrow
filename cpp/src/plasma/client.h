@@ -29,6 +29,8 @@
 
 using arrow::Status;
 
+namespace plasma {
+
 #define PLASMA_DEFAULT_RELEASE_DELAY 64
 
 // Use 100MB as an overestimate of the L3 cache size.
@@ -350,5 +352,7 @@ class ARROW_EXPORT PlasmaClient {
   /// memory that the store is unable to evict enough objects to free up space.
   int64_t store_capacity_;
 };
+
+} // namespace plasma
 
 #endif  // PLASMA_CLIENT_H

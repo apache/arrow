@@ -26,6 +26,8 @@ extern "C" {
 #include "ae/ae.h"
 }
 
+namespace plasma {
+
 /// Constant specifying that the timer is done and it will be removed.
 constexpr int kEventLoopTimerDone = AE_NOMORE;
 
@@ -95,5 +97,7 @@ class EventLoop {
   std::unordered_map<int, std::unique_ptr<FileCallback>> file_callbacks_;
   std::unordered_map<int64_t, std::unique_ptr<TimerCallback>> timer_callbacks_;
 };
+
+} // namespace plasma
 
 #endif  // PLASMA_EVENTS

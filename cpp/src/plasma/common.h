@@ -29,6 +29,8 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+namespace plasma {
+
 constexpr int64_t kUniqueIDSize = 20;
 
 class UniqueID {
@@ -59,5 +61,7 @@ struct UniqueIDHasher {
 typedef UniqueID ObjectID;
 
 arrow::Status plasma_error_status(int plasma_error);
+
+} // namespace plasma
 
 #endif  // PLASMA_COMMON_H

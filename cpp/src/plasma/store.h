@@ -27,6 +27,8 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
+namespace plasma {
+
 struct GetRequest;
 
 struct NotificationQueue {
@@ -165,5 +167,7 @@ class PlasmaStore {
   /// reorganize the code slightly.
   std::unordered_map<int, NotificationQueue> pending_notifications_;
 };
+
+} // namespace plasma
 
 #endif  // PLASMA_STORE_H

@@ -35,6 +35,8 @@
 #include "format/common_generated.h"
 #include "plasma/common.h"
 
+namespace plasma {
+
 #define HANDLE_SIGPIPE(s, fd_)                                              \
   do {                                                                      \
     Status _s = (s);                                                        \
@@ -193,5 +195,7 @@ ObjectTableEntry* get_object_table_entry(
 int warn_if_sigpipe(int status, int client_sock);
 
 uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
+
+} // namespace plasma
 
 #endif  // PLASMA_PLASMA_H

@@ -51,6 +51,8 @@
 
 #define XXH64_DEFAULT_SEED 0
 
+namespace plasma {
+
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
@@ -577,3 +579,5 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
   }
   return Status::OK();
 }
+
+} // namespace plasma
