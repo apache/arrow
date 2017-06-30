@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -10,21 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License. See accompanying LICENSE file.
 
-{
-  # Symbols marked as 'local' are not exported by the DSO and thus may not
-  # be used by client applications.
-  local:
-    # devtoolset / static-libstdc++ symbols
-    __cxa_*;
-
-    extern "C++" {
-      # boost
-      boost::*;
-
-      # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
-      # links c++11 symbols into binaries so that the result may be executed on
-      # a system with an older libstdc++ which doesn't include the necessary
-      # c++11 symbols.
-      std::*;
-    };
-};
+wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+sudo apt-add-repository -y \
+     "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-4.0 main"
+sudo apt-get update
+sudo apt-get install clang-4.0 clang-format-4.0 clang-tidy-4.0

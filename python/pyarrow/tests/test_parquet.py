@@ -225,8 +225,12 @@ def _test_dataframe(size=10000, seed=0):
         'float32': np.random.randn(size).astype(np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        'strings': [tm.rands(10) for i in range(size)]
+        'strings': [tm.rands(10) for i in range(size)],
+        'all_none': [None] * size,
+        'all_none_category': [None] * size
     })
+    # TODO(PARQUET-1015)
+    # df['all_none_category'] = df['all_none_category'].astype('category')
     return df
 
 
@@ -449,13 +453,13 @@ def test_date_time_types():
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6],
                                  ['date32', 'date64', 'timestamp[us]',
-                                  'time32[s]', 'time64[us]', 'time32[s]'])
+                                  'time32[s]', 'time64[us]', 'time32_from64[s]'])
 
     # date64 as date32
     # time32[s] to time32[ms]
     expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6],
                                     ['date32', 'date64', 'timestamp[us]',
-                                     'time32[s]', 'time64[us]', 'time32[s]'])
+                                     'time32[s]', 'time64[us]', 'time32_from64[s]'])
 
     _check_roundtrip(table, expected=expected, version='2.0')
 
@@ -843,3 +847,24 @@ def test_read_multiple_files(tmpdir):
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
+
+
+def test_multiindex_duplicate_values(tmpdir):
+    num_rows = 3
+    numbers = list(range(num_rows))
+    index = pd.MultiIndex.from_arrays(
+        [['foo', 'foo', 'bar'], numbers],
+        names=['foobar', 'some_numbers'],
+    )
+
+    df = pd.DataFrame({'numbers': numbers}, index=index)
+    table = pa.Table.from_pandas(df)
+
+    filename = tmpdir.join('dup_multi_index_levels.parquet').strpath
+
+    _write_table(table, filename)
+    result_table = _read_table(filename)
+    assert table.equals(result_table)
+
+    result_df = result_table.to_pandas()
+    tm.assert_frame_equal(result_df, df)

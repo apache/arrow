@@ -30,6 +30,17 @@
 #include <iostream>
 #include <sstream>
 
+template <typename T>
+const typename T::c_type *
+garrow_array_get_values_raw(std::shared_ptr<arrow::Array> arrow_array,
+                            gint64 *length)
+{
+  auto arrow_specific_array =
+    std::static_pointer_cast<typename arrow::TypeTraits<T>::ArrayType>(arrow_array);
+  *length = arrow_specific_array->length();
+  return arrow_specific_array->raw_data();
+};
+
 G_BEGIN_DECLS
 
 /**
@@ -609,6 +620,21 @@ garrow_int8_array_get_value(GArrowInt8Array *array,
   return static_cast<arrow::Int8Array *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_int8_array_get_values:
+ * @array: A #GArrowInt8Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gint8 *
+garrow_int8_array_get_values(GArrowInt8Array *array,
+                             gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::Int8Type>(arrow_array, length);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt8Array,               \
               garrow_uint8_array,             \
@@ -670,6 +696,21 @@ garrow_uint8_array_get_value(GArrowUInt8Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt8Array *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_uint8_array_get_values:
+ * @array: A #GArrowUInt8Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const guint8 *
+garrow_uint8_array_get_values(GArrowUInt8Array *array,
+                              gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::UInt8Type>(arrow_array, length);
 }
 
 
@@ -735,6 +776,21 @@ garrow_int16_array_get_value(GArrowInt16Array *array,
   return static_cast<arrow::Int16Array *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_int16_array_get_values:
+ * @array: A #GArrowInt16Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gint16 *
+garrow_int16_array_get_values(GArrowInt16Array *array,
+                              gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::Int16Type>(arrow_array, length);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt16Array,               \
               garrow_uint16_array,             \
@@ -792,10 +848,25 @@ garrow_uint16_array_new(gint64 length,
  */
 guint16
 garrow_uint16_array_get_value(GArrowUInt16Array *array,
-                             gint64 i)
+                              gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt16Array *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_uint16_array_get_values:
+ * @array: A #GArrowUInt16Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const guint16 *
+garrow_uint16_array_get_values(GArrowUInt16Array *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::UInt16Type>(arrow_array, length);
 }
 
 
@@ -861,6 +932,21 @@ garrow_int32_array_get_value(GArrowInt32Array *array,
   return static_cast<arrow::Int32Array *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_int32_array_get_values:
+ * @array: A #GArrowInt32Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gint32 *
+garrow_int32_array_get_values(GArrowInt32Array *array,
+                              gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::Int32Type>(arrow_array, length);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt32Array,               \
               garrow_uint32_array,             \
@@ -922,6 +1008,21 @@ garrow_uint32_array_get_value(GArrowUInt32Array *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt32Array *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_uint32_array_get_values:
+ * @array: A #GArrowUInt32Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const guint32 *
+garrow_uint32_array_get_values(GArrowUInt32Array *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::UInt32Type>(arrow_array, length);
 }
 
 
@@ -987,6 +1088,23 @@ garrow_int64_array_get_value(GArrowInt64Array *array,
   return static_cast<arrow::Int64Array *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_int64_array_get_values:
+ * @array: A #GArrowInt64Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gint64 *
+garrow_int64_array_get_values(GArrowInt64Array *array,
+                              gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto values =
+    garrow_array_get_values_raw<arrow::Int64Type>(arrow_array, length);
+  return reinterpret_cast<const gint64 *>(values);
+}
+
 
 G_DEFINE_TYPE(GArrowUInt64Array,               \
               garrow_uint64_array,             \
@@ -1050,6 +1168,24 @@ garrow_uint64_array_get_value(GArrowUInt64Array *array,
   return static_cast<arrow::UInt64Array *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_uint64_array_get_values:
+ * @array: A #GArrowUInt64Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const guint64 *
+garrow_uint64_array_get_values(GArrowUInt64Array *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto values =
+    garrow_array_get_values_raw<arrow::UInt64Type>(arrow_array, length);
+  return reinterpret_cast<const guint64 *>(values);
+}
+
+
 G_DEFINE_TYPE(GArrowFloatArray,               \
               garrow_float_array,             \
               GARROW_TYPE_PRIMITIVE_ARRAY)
@@ -1110,6 +1246,21 @@ garrow_float_array_get_value(GArrowFloatArray *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::FloatArray *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_float_array_get_values:
+ * @array: A #GArrowFloatArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gfloat *
+garrow_float_array_get_values(GArrowFloatArray *array,
+                              gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::FloatType>(arrow_array, length);
 }
 
 
@@ -1173,6 +1324,21 @@ garrow_double_array_get_value(GArrowDoubleArray *array,
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::DoubleArray *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_double_array_get_values:
+ * @array: A #GArrowDoubleArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ */
+const gdouble *
+garrow_double_array_get_values(GArrowDoubleArray *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::DoubleType>(arrow_array, length);
 }
 
 

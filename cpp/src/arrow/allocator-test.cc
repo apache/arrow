@@ -33,7 +33,7 @@ TEST(stl_allocator, MemoryTracking) {
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
-#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
+#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(ARROW_JEMALLOC))
 
 TEST(stl_allocator, TestOOM) {
   stl_allocator<uint64_t> alloc;

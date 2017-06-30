@@ -18,9 +18,15 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.CallBack;
 import org.junit.Test;
 
 public class TestBufferOwnershipTransfer {
@@ -61,5 +67,38 @@ public class TestBufferOwnershipTransfer {
     assertEquals(0, childAllocator1.getAllocatedMemory());
     int expected = 8*4096 + 4*4096 + 4096;
     assertEquals(expected, childAllocator2.getAllocatedMemory());
+  }
+
+  private static class Pointer<T> {
+    T value;
+  }
+
+  private static CallBack newTriggerCallback(final Pointer<Boolean> trigger) {
+    trigger.value = false;
+    return new CallBack() {
+      @Override
+      public void doWork() {
+        trigger.value = true;
+      }
+    };
+  }
+
+  @Test
+  public void emptyListTransferShouldNotTriggerSchemaChange() {
+    final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+
+    final Pointer<Boolean> trigger1 = new Pointer<>();
+    final Pointer<Boolean> trigger2 = new Pointer<>();
+    final ListVector v1 = new ListVector("v1", allocator,
+            FieldType.nullable(ArrowType.Null.INSTANCE),
+            newTriggerCallback(trigger1));
+    final ListVector v2 = new ListVector("v2", allocator,
+            FieldType.nullable(ArrowType.Null.INSTANCE),
+            newTriggerCallback(trigger2));
+
+    v1.makeTransferPair(v2).transfer();
+
+    assertFalse(trigger1.value);
+    assertFalse(trigger2.value);
   }
 }

@@ -432,6 +432,7 @@ cdef set PRIMITIVE_TYPES = set([
     _Type_UINT32, _Type_INT32,
     _Type_UINT64, _Type_INT64,
     _Type_TIMESTAMP, _Type_DATE32,
+    _Type_TIME32, _Type_TIME64,
     _Type_DATE64,
     _Type_HALF_FLOAT,
     _Type_FLOAT,
@@ -728,7 +729,14 @@ cdef class ArrayValue(Scalar):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
 
+    def _check_null(self):
+        if self.sp_array.get() == NULL:
+            raise ReferenceError(
+                'ArrayValue instance not propertly initialized '
+                '(references NULL pointer)')
+
     def __repr__(self):
+        self._check_null()
         if hasattr(self, 'as_py'):
             return repr(self.as_py())
         else:
@@ -814,6 +822,32 @@ cdef class Date64Value(ArrayValue):
         cdef CDate64Array* ap = <CDate64Array*> self.sp_array.get()
         return datetime.datetime.utcfromtimestamp(
             ap.Value(self.index) / 1000).date()
+
+
+cdef class Time32Value(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CTime32Array* ap = <CTime32Array*> self.sp_array.get()
+            CTime32Type* dtype = <CTime32Type*> ap.type().get()
+
+        if dtype.unit() == TimeUnit_SECOND:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=ap.Value(self.index))).time()
+        else:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=ap.Value(self.index))).time()
+
+
+cdef class Time64Value(ArrayValue):
+
+    def as_py(self):
+        cdef:
+            CTime64Array* ap = <CTime64Array*> self.sp_array.get()
+            CTime64Type* dtype = <CTime64Type*> ap.type().get()
+
+        if dtype.unit() == TimeUnit_MICRO:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=ap.Value(self.index))).time()
+        else:
+            return (datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=ap.Value(self.index) / 1000)).time()
 
 
 cdef dict DATETIME_CONVERSION_FUNCTIONS
@@ -975,6 +1009,8 @@ cdef dict _scalar_classes = {
     _Type_INT64: Int64Value,
     _Type_DATE32: Date32Value,
     _Type_DATE64: Date64Value,
+    _Type_TIME32: Time32Value,
+    _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
@@ -1023,18 +1059,26 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
 
 
 
-def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
+def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
+          size=None):
     """
     Create pyarrow.Array instance from a Python sequence
 
     Parameters
     ----------
-    sequence : sequence-like object of Python objects
+    sequence : sequence-like or iterable object of Python objects.
+        If both type and size are specified may be a single use iterable.
     type : pyarrow.DataType, optional
         If not passed, will be inferred from the data
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool
+    size : int64, optional
+        Size of the elements. If the imput is larger than size bail at this
+        length. For iterators, if size is larger than the input iterator this
+        will be treated as a "max size", but will involve an initial allocation
+        of size followed by a resize to the actual size (so if you know the
+        exact size specifying it correctly will give you better performance).
 
     Returns
     -------
@@ -1048,11 +1092,18 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None):
     if type is None:
         check_status(ConvertPySequence(sequence, pool, &sp_array))
     else:
-        check_status(
-            ConvertPySequence(
-                sequence, pool, &sp_array, type.sp_type
-            )
-        )
+        if size is None:
+            check_status(
+                ConvertPySequence(
+                    sequence, pool, &sp_array, type.sp_type
+                )
+             )
+        else:
+            check_status(
+                ConvertPySequence(
+                    sequence, pool, &sp_array, type.sp_type, size
+                )
+             )
 
     return pyarrow_wrap_array(sp_array)
 

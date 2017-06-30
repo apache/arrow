@@ -52,7 +52,7 @@ build_parquet_cpp() {
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
       -DPARQUET_ZLIB_VENDORED=off \
-      -DPARQUET_BUILD_TESTS=off \
+      -DPARQUET_BUILD_TESTS=on \
       ..
 
   make -j${CPU_COUNT}
@@ -72,6 +72,8 @@ function build_arrow_libraries() {
 
   cmake -DARROW_BUILD_TESTS=off \
         -DARROW_PYTHON=on \
+        -DPLASMA_PYTHON=on \
+        -DARROW_PLASMA=on \
         -DCMAKE_INSTALL_PREFIX=$2 \
         $CPP_DIR
 
@@ -106,10 +108,9 @@ python_version_tests() {
   # Other stuff pip install
   pip install -r requirements.txt
 
-  python setup.py build_ext --inplace --with-parquet --with-jemalloc
+  python setup.py build_ext --inplace --with-parquet
 
   python -c "import pyarrow.parquet"
-  python -c "import pyarrow._jemalloc"
 
   python -m pytest -vv -r sxX pyarrow --parquet
 

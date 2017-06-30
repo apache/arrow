@@ -72,6 +72,11 @@ class TestFile(MessagingTest, unittest.TestCase):
     def _get_writer(self, sink, schema):
         return pa.RecordBatchFileWriter(sink, schema)
 
+    def test_empty_file(self):
+        buf = io.BytesIO(b'')
+        with pytest.raises(pa.ArrowInvalid):
+            pa.open_file(buf)
+
     def test_simple_roundtrip(self):
         batches = self.write_batches()
         file_contents = self._get_source()
@@ -100,6 +105,11 @@ class TestStream(MessagingTest, unittest.TestCase):
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
+
+    def test_empty_stream(self):
+        buf = io.BytesIO(b'')
+        with pytest.raises(pa.ArrowInvalid):
+            pa.open_stream(buf)
 
     def test_simple_roundtrip(self):
         batches = self.write_batches()

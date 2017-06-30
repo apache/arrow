@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,13 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# distutils: language = c++
+# Cause the script to exit if a single command fails.
+set -e
 
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-    
-cdef extern from "arrow/jemalloc/memory_pool.h" namespace "arrow::jemalloc" nogil:
-    cdef cppclass CJemallocMemoryPool" arrow::jemalloc::MemoryPool":
-        int64_t bytes_allocated()
-        @staticmethod
-        CMemoryPool* default_pool()
+./src/plasma/plasma_store -s /tmp/plasma_store_socket_1 -m 0 &
+sleep 1
+valgrind --leak-check=full --error-exitcode=1 ./src/plasma/manager_tests
+killall plasma_store
+valgrind --leak-check=full --error-exitcode=1 ./src/plasma/serialization_tests

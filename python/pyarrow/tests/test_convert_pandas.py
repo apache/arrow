@@ -98,6 +98,17 @@ class TestPandasConversion(unittest.TestCase):
             tm.assert_series_equal(pd.Series(result), expected,
                                    check_names=False)
 
+    def test_all_none_objects(self):
+        df = pd.DataFrame({'a': [None, None, None]})
+        self._check_pandas_roundtrip(df)
+
+
+    def test_all_none_category(self):
+        df = pd.DataFrame({'a': [None, None, None]})
+        df['a'] = df['a'].astype('category')
+        self._check_pandas_roundtrip(df)
+
+
     def test_float_no_nulls(self):
         data = {}
         fields = []
@@ -629,3 +640,17 @@ class TestPandasConversion(unittest.TestCase):
         _check_series(pd.Series([None] * 3, dtype=object))
         _check_series(pd.Series([np.nan] * 3, dtype=object))
         _check_series(pd.Series([np.sqrt(-1)] * 3, dtype=object))
+
+    def test_multiindex_duplicate_values(self):
+        num_rows = 3
+        numbers = list(range(num_rows))
+        index = pd.MultiIndex.from_arrays(
+            [['foo', 'foo', 'bar'], numbers],
+            names=['foobar', 'some_numbers'],
+        )
+
+        df = pd.DataFrame({'numbers': numbers}, index=index)
+
+        table = pa.Table.from_pandas(df)
+        result_df = table.to_pandas()
+        tm.assert_frame_equal(result_df, df)

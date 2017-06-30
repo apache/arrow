@@ -50,15 +50,15 @@ released in the future.
 
 ### Package
 
-See [install document][../site/install.md] for details.
+See [install document](../site/install.md) for details.
 
 ### How to build by users
 
 Arrow GLib users should use released source archive to build Arrow
-GLib:
+GLib (replace the version number in the following commands with the one you use):
 
 ```text
-% wget https://dist.apache.org/repos/dist/release/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
+% wget https://archive.apache.org/dist/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
 % tar xf apache-arrow-0.3.0.tar.gz
 % cd apache-arrow-0.3.0
 ```

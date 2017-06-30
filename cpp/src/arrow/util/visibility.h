@@ -24,7 +24,13 @@
 #else
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
+
+#ifdef ARROW_EXPORTING
 #define ARROW_EXPORT __declspec(dllexport)
+#else
+#define ARROW_EXPORT __declspec(dllimport)
+#endif
+
 #define ARROW_NO_EXPORT
 #else  // Not Windows
 #ifndef ARROW_EXPORT
@@ -46,7 +52,7 @@
 
 // This is a complicated topic, some reading on it:
 // http://www.codesynthesis.com/~boris/blog/2010/01/18/dll-export-cxx-templates/
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__clang__)
 #define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
 #else
 #define ARROW_TEMPLATE_EXPORT

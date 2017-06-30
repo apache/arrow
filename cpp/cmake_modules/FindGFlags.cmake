@@ -22,12 +22,22 @@
 #  GFLAGS_STATIC_LIB, path to libgflags static library
 #  GFLAGS_FOUND, whether gflags has been found
 
-if( NOT "$ENV{GFLAGS_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "$ENV{GFLAGS_HOME}" _native_path )
+if( NOT "${GFLAGS_HOME}" STREQUAL "")
+    file( TO_CMAKE_PATH "${GFLAGS_HOME}" _native_path )
     list( APPEND _gflags_roots ${_native_path} )
 elseif ( GFlags_HOME )
     list( APPEND _gflags_roots ${GFlags_HOME} )
 endif()
+
+if (MSVC AND NOT GFLAGS_MSVC_STATIC_LIB_SUFFIX)
+  set(GFLAGS_MSVC_STATIC_LIB_SUFFIX "_static")
+endif()
+
+set(GFLAGS_STATIC_LIB_SUFFIX
+  "${GFLAGS_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+set(GFLAGS_STATIC_LIB_NAME
+  ${CMAKE_STATIC_LIBRARY_PREFIX}gflags${GFLAGS_STATIC_LIB_SUFFIX})
 
 if ( _gflags_roots )
   find_path(GFLAGS_INCLUDE_DIR NAMES gflags/gflags.h
@@ -38,7 +48,7 @@ if ( _gflags_roots )
     PATHS ${_gflags_roots}
     NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" )
-  find_library(GFLAGS_SHARED_LIB NAMES libgflags.a
+  find_library(GFLAGS_STATIC_LIB NAMES ${GFLAGS_STATIC_LIB_NAME}
     PATHS ${_gflags_roots}
     NO_DEFAULT_PATH
     PATH_SUFFIXES "lib" )
@@ -50,7 +60,7 @@ else()
   find_library(GFLAGS_SHARED_LIB gflags
     NO_CMAKE_SYSTEM_PATH
     NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(GFLAGS_STATIC_LIB libgflags.a
+  find_library(GFLAGS_STATIC_LIB ${GFLAGS_STATIC_LIB_NAME}
     NO_CMAKE_SYSTEM_PATH
     NO_SYSTEM_ENVIRONMENT_PATH)
 endif()

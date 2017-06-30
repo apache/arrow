@@ -26,12 +26,11 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 if [ $only_library_mode == "no" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-  export FLATBUFFERS_HOME=$CPP_TOOLCHAIN
   export RAPIDJSON_HOME=$CPP_TOOLCHAIN
 
   # Set up C++ toolchain from conda-forge packages for faster builds
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 flatbuffers rapidjson
+  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 rapidjson
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
@@ -45,7 +44,8 @@ pushd $ARROW_CPP_BUILD_DIR
 
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
--DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL
+-DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
+-DARROW_PLASMA=ON \
 -DARROW_NO_DEPRECATED_API=ON"
 CMAKE_LINUX_FLAGS=""
 CMAKE_OSX_FLAGS=""
@@ -64,7 +64,7 @@ fi
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
-          -DARROW_CXXFLAGS="-Wconversion -Werror" \
+          -DARROW_CXXFLAGS="-Wconversion -Wno-sign-conversion -Werror" \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
@@ -73,7 +73,7 @@ else
           $ARROW_CPP_DIR
 fi
 
-make -j4
+make VERBOSE=1 -j4
 make install
 
 popd

@@ -249,6 +249,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDate64Array" arrow::Date64Array"(CArray):
         int64_t Value(int i)
 
+    cdef cppclass CTime32Array" arrow::Time32Array"(CArray):
+        int32_t Value(int i)
+
+    cdef cppclass CTime64Array" arrow::Time64Array"(CArray):
+        int64_t Value(int i)
+
     cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
         int64_t Value(int i)
 
@@ -644,6 +650,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertPySequence(object obj, CMemoryPool* pool,
                               shared_ptr[CArray]* out,
                               const shared_ptr[CDataType]& type)
+    CStatus ConvertPySequence(object obj, CMemoryPool* pool,
+                              shared_ptr[CArray]* out,
+                              const shared_ptr[CDataType]& type,
+			      int64_t size)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 

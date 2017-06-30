@@ -44,9 +44,3 @@ structures.
    parquet
    api
    getting_involved
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Additional Features
-
-   jemalloc MemoryPool <jemalloc.rst>

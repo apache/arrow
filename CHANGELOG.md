@@ -12,6 +12,151 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 
+# Apache Arrow 0.4.1 (9 June 2017)
+
+## Bug
+
+* ARROW-1039 - Python: pyarrow.Filesystem.read_parquet causing error if nthreads>1
+* ARROW-1050 - [C++] Export arrow::ValidateArray
+* ARROW-1051 - [Python] If pyarrow.parquet fails to import due to a shared library ABI conflict, the test_parquet.py tests silently do not run
+* ARROW-1056 - [Python] Parquet+HDFS test failure due to writing pandas index
+* ARROW-1057 - Fix cmake warning and msvc debug asserts
+* ARROW-1062 - [GLib] Examples use old API
+* ARROW-1066 - remove warning on feather for pandas >= 0.20.1
+* ARROW-1070 - [C++] Feather files for date/time types should be written with the physical types
+* ARROW-1075 - [GLib] Build error on macOS
+* ARROW-1085 - [java] Follow up on template cleanup. Missing method for IntervalYear
+* ARROW-1086 - [Python] pyarrow 0.4.0 on pypi is missing pxd files
+* ARROW-1088 - [Python] test_unicode_filename test fails when unicode filenames aren't supported by system
+* ARROW-1090 - [Python] build_ext usability
+* ARROW-1091 - Decimal scale and precision are flipped
+* ARROW-1092 - More Decimal and scale flipped follow-up
+* ARROW-1094 - [C++] Incomplete buffer reads in arrow::io::ReadableFile should exactly truncate returned buffer
+* ARROW-424 - [C++] Threadsafety in arrow/io/hdfs.h
+
+## Improvement
+
+* ARROW-1020 - [Format] Add additional language to Schema.fbs to clarify naive vs. localized Timestamp values
+* ARROW-1034 - [Python] Enable creation of binary wheels on Windows / MSVC
+* ARROW-1049 - [java] vector template cleanup
+* ARROW-1063 - [Website] Blog post and website updates for 0.4.0 release
+* ARROW-1078 - [Python] Account for PARQUET-967
+* ARROW-1080 - C++: Add tutorial about converting to/from row-wise representation
+* ARROW-897 - [GLib] Build arrow-glib as a separate build in the Travis CI build matrix
+* ARROW-986 - [Format] Update IPC.md to account for dictionary batches
+* ARROW-990 - [JS] Add tslint support for linting TypeScript
+
+## Task
+
+* ARROW-1068 - [Python] Create external repo with appveyor.yml configured for building Python wheel installers
+* ARROW-1069 - Add instructions for publishing maven artifacts
+* ARROW-1084 - Implementations of BufferAllocator should handle Netty's OutOfDirectMemoryError
+
+## Test
+
+* ARROW-1060 - [Python] Add unit test for ARROW-1053
+* ARROW-1082 - [GLib] Add CI on macOS
+
+# Apache Arrow 0.4.0 (22 May 2017)
+
+## Bug
+
+* ARROW-1003 - [C++] Hdfs and java dlls fail to load when built for Windows with MSVC
+* ARROW-1004 - ArrowInvalid: Invalid: Python object of type float is not None and is not a string, bool, or date object
+* ARROW-1017 - Python: Table.to_pandas leaks memory
+* ARROW-1023 - Python: Fix bundling of arrow-cpp for macOS
+* ARROW-1033 - [Python] pytest discovers scripts/test_leak.py
+* ARROW-1046 - [Python] Conform DataFrame metadata to pandas spec
+* ARROW-1053 - [Python] Memory leak with RecordBatchFileReader
+* ARROW-1054 - [Python] Test suite fails on pandas 0.19.2
+* ARROW-1061 - [C++] Harden decimal parsing against invalid strings
+* ARROW-1064 - ModuleNotFoundError: No module named 'pyarrow._parquet'
+* ARROW-813 - [Python] setup.py sdist must also bundle dependent cmake modules
+* ARROW-824 - Date and Time Vectors should reflect timezone-less semantics
+* ARROW-856 - CmakeError by Unknown compiler.
+* ARROW-881 - [Python] Reconstruct Pandas DataFrame indexes using custom_metadata
+* ARROW-909 - libjemalloc.so.2: cannot open shared object file:
+* ARROW-939 - Fix division by zero for zero-dimensional Tensors
+* ARROW-940 - [JS] Generate multiple sets of artifacts
+* ARROW-944 - Python: Compat broken for pandas==0.18.1
+* ARROW-948 - [GLib] Update C++ header file list
+* ARROW-952 - Compilation error on macOS with clang-802.0.42
+* ARROW-958 - [Python] Conda build guide still needs ARROW_HOME, PARQUET_HOME
+* ARROW-979 - [Python] Fix setuptools_scm version when release tag is not in the master timeline
+* ARROW-991 - [Python] PyArray_SimpleNew should not be used with NPY_DATETIME
+* ARROW-995 - [Website] 0.3 release announce has a typo in reference
+* ARROW-998 - [Doc] File format documents incorrect schema location
+
+## Improvement
+
+* ARROW-1000 - [GLib] Move install document to Website
+* ARROW-1001 - [GLib] Unify writer files
+* ARROW-1002 - [C++] It is not necessary to add padding after the magic header in the FileWriter implementation
+* ARROW-1010 - [Website] Only show English posts in /blog/
+* ARROW-1016 - Python: Include C++ headers (optionally) in wheels
+* ARROW-1022 - [Python] Add nthreads option to Feather read method
+* ARROW-1024 - Python: Update build time numpy version to 1.10.1
+* ARROW-1025 - [Website] Improve changelog on website
+* ARROW-1027 - [Python] Allow negative indexing in fields/columns on pyarrow Table and Schema objects
+* ARROW-1028 - [Python] Documentation updates after ARROW-1008
+* ARROW-1029 - [Python] Fix --with-parquet build on Windows, add unit tests to Appveyor
+* ARROW-1030 - Python: Account for library versioning in parquet-cpp
+* ARROW-1037 - [GLib] Follow reader name change
+* ARROW-1038 - [GLib] Follow writer name change
+* ARROW-1040 - [GLib] Follow tensor IO
+* ARROW-182 - [C++] Remove Array::Validate virtual function and make a separate method
+* ARROW-376 - Python: Convert non-range Pandas indices (optionally) to Arrow
+* ARROW-532 - [Python] Expand pyarrow.parquet documentation for 0.3 release
+* ARROW-579 - Python: Provide redistributable pyarrow wheels on OSX
+* ARROW-891 - [Python] Expand Windows build instructions to not require looking at separate C++ docs
+* ARROW-899 - [Docs] Add CHANGELOG for 0.3.0
+* ARROW-901 - [Python] Write FixedSizeBinary to Parquet
+* ARROW-913 - [Python] Only link jemalloc to the Cython extension where it's needed
+* ARROW-923 - [Docs] Generate Changelog for website with JIRA links
+* ARROW-929 - Move KEYS file to SVN, remove from git
+* ARROW-943 - [GLib] Support running unit tests with source archive
+* ARROW-945 - [GLib] Add a Lua example to show Torch integration
+* ARROW-946 - [GLib] Use "new" instead of "open" for constructor name
+* ARROW-947 - [Python] Improve execution time of manylinux1 build
+* ARROW-953 - Use cmake / curl from conda-forge in CI builds
+* ARROW-954 - Make it possible to compile Arrow with header-only boost
+* ARROW-961 - [Python] Rename InMemoryOutputStream to BufferOutputStream
+* ARROW-970 - [Python] Accidentally calling pyarrow.Table() should not segfault process
+* ARROW-982 - [Website] Improve website front copy to highlight serialization efficiency benefits
+* ARROW-984 - [GLib] Add Go examples
+* ARROW-985 - [GLib] Update package information
+* ARROW-988 - [JS] Add entry to Travis CI matrix
+* ARROW-993 - [GLib] Add missing error checks in Go examples
+* ARROW-996 - [Website] Add 0.3 release announce in Japanese
+
+## New Feature
+
+* ARROW-1008 - [C++] Define abstract interface for stream iteration
+* ARROW-1011 - [Format] Clarify requirements around buffer padding in validity bitmaps
+* ARROW-1014 - 0.4.0 release
+* ARROW-1031 - [GLib] Support pretty print
+* ARROW-1044 - [GLib] Support Feather
+* ARROW-29 - C++: Add re2 as optional 3rd-party toolchain dependency
+* ARROW-446 - [Python] Document NativeFile interfaces, HDFS client in Sphinx
+* ARROW-482 - [Java] Provide API access to "custom_metadata" Field attribute in IPC setting
+* ARROW-596 - [Python] Add convenience function to convert pandas.DataFrame to pyarrow.Buffer containing a file or stream representation
+* ARROW-714 - [C++] Add import_pyarrow C API in the style of NumPy for thirdparty C++ users
+* ARROW-819 - [Python] Define public Cython API
+* ARROW-872 - [JS] Read streaming format
+* ARROW-873 - [JS] Implement fixed width list type
+* ARROW-874 - [JS] Read dictionary-encoded vectors
+* ARROW-963 - [GLib] Add equal
+* ARROW-967 - [GLib] Support initializing array with buffer
+* ARROW-977 - [java] Add Timezone aware timestamp vectors
+
+## Task
+
+* ARROW-1015 - [Java] Implement schema-level metadata
+* ARROW-629 - [JS] Add unit test suite
+* ARROW-956 - remove pandas pre-0.20.0 compat
+* ARROW-957 - [Doc] Add HDFS and Windows documents to doxygen output
+* ARROW-997 - [Java] Implement transfer in FixedSizeListVector
+
 # Apache Arrow 0.3.0 (5 May 2017)
 
 ## Bug

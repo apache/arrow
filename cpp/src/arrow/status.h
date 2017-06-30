@@ -10,7 +10,7 @@
 // non-const method, all threads accessing the same Status must use
 // external synchronization.
 
-// Adapted from Kudu github.com/cloudera/kudu
+// Adapted from Kudu github.com/apache/kudu
 
 #ifndef ARROW_STATUS_H_
 #define ARROW_STATUS_H_
@@ -19,30 +19,14 @@
 #include <cstring>
 #include <string>
 
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 // Return the given status if it is not OK.
-#define ARROW_RETURN_NOT_OK(s)   \
-  do {                           \
-    ::arrow::Status _s = (s);    \
-    if (!_s.ok()) { return _s; } \
-  } while (0);
-
-// Return the given status if it is not OK, but first clone it and
-// prepend the given message.
-#define ARROW_RETURN_NOT_OK_PREPEND(s, msg)                               \
-  do {                                                                    \
-    ::arrow::Status _s = (s);                                             \
-    if (::gutil::PREDICT_FALSE(!_s.ok())) return _s.CloneAndPrepend(msg); \
-  } while (0);
-
-// Return 'to_return' if 'to_call' returns a bad status.
-// The substitution for 'to_return' may reference the variable
-// 's' for the bad status.
-#define ARROW_RETURN_NOT_OK_RET(to_call, to_return)          \
-  do {                                                       \
-    ::arrow::Status s = (to_call);                           \
-    if (::gutil::PREDICT_FALSE(!s.ok())) return (to_return); \
+#define ARROW_RETURN_NOT_OK(s)                        \
+  do {                                                \
+    ::arrow::Status _s = (s);                         \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
   } while (0);
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
@@ -59,10 +43,10 @@
 
 namespace arrow {
 
-#define RETURN_NOT_OK(s)         \
-  do {                           \
-    Status _s = (s);             \
-    if (!_s.ok()) { return _s; } \
+#define RETURN_NOT_OK(s)                              \
+  do {                                                \
+    Status _s = (s);                                  \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
   } while (0);
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
@@ -83,6 +67,9 @@ enum class StatusCode : char {
   IOError = 5,
   UnknownError = 9,
   NotImplemented = 10,
+  PlasmaObjectExists = 20,
+  PlasmaObjectNonexistent = 21,
+  PlasmaStoreFull = 22
 };
 
 class ARROW_EXPORT Status {
@@ -129,6 +116,18 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::IOError, msg, -1);
   }
 
+  static Status PlasmaObjectExists(const std::string& msg) {
+    return Status(StatusCode::PlasmaObjectExists, msg, -1);
+  }
+
+  static Status PlasmaObjectNonexistent(const std::string& msg) {
+    return Status(StatusCode::PlasmaObjectNonexistent, msg, -1);
+  }
+
+  static Status PlasmaStoreFull(const std::string& msg) {
+    return Status(StatusCode::PlasmaStoreFull, msg, -1);
+  }
+
   // Returns true iff the status indicates success.
   bool ok() const { return (state_ == NULL); }
 
@@ -139,6 +138,14 @@ class ARROW_EXPORT Status {
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
+  // An object with this object ID already exists in the plasma store.
+  bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
+  // An object was requested that doesn't exist in the plasma store.
+  bool IsPlasmaObjectNonexistent() const {
+    return code() == StatusCode::PlasmaObjectNonexistent;
+  }
+  // An object is too large to fit into the plasma store.
+  bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.

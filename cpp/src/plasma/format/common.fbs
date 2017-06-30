@@ -15,37 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <limits>
-
-#include "gtest/gtest.h"
-
-#include "arrow/jemalloc/memory_pool.h"
-#include "arrow/memory_pool-test.h"
-
-namespace arrow {
-namespace jemalloc {
-namespace test {
-
-class TestJemallocMemoryPool : public ::arrow::test::TestMemoryPoolBase {
- public:
-  ::arrow::MemoryPool* memory_pool() override {
-    return ::arrow::jemalloc::MemoryPool::default_pool();
-  }
-};
-
-TEST_F(TestJemallocMemoryPool, MemoryTracking) {
-  this->TestMemoryTracking();
+// Object information data structure.
+table ObjectInfo {
+  // Object ID of this object.
+  object_id: string;
+  // Number of bytes the content of this object occupies in memory.
+  data_size: long;
+  // Number of bytes the metadata of this object occupies in memory.
+  metadata_size: long;
+  // Unix epoch of when this object was created.
+  create_time: long;
+  // How long creation of this object took.
+  construct_duration: long;
+  // Hash of the object content.
+  digest: string;
+  // Specifies if this object was deleted or added.
+  is_deletion: bool;
 }
-
-TEST_F(TestJemallocMemoryPool, OOM) {
-  this->TestOOM();
-}
-
-TEST_F(TestJemallocMemoryPool, Reallocate) {
-  this->TestReallocate();
-}
-
-}  // namespace test
-}  // namespace jemalloc
-}  // namespace arrow
