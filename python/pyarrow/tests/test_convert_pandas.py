@@ -655,7 +655,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_partial_schema(self):
         data = OrderedDict([
-            ('a', range(5)),
+            ('a', [0, 1, 2, 3, 4]),
             ('b', np.array([-10, -5, 0, 5, 10], dtype=np.int32)),
             ('c', [-10, -5, 0, 5, 10])
         ])
@@ -672,5 +672,5 @@ class TestPandasConversion(unittest.TestCase):
             pa.field('c', pa.int64())
         ])
 
-        self._check_pandas_roundtrip(df, schema=partial_schema, 
+        self._check_pandas_roundtrip(df, schema=partial_schema,
                                      expected_schema=expected_schema)
