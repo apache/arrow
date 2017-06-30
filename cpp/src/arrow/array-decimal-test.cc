@@ -170,14 +170,14 @@ TEST_P(Decimal128BuilderTest, WithNulls) {
 }
 
 INSTANTIATE_TEST_CASE_P(Decimal32BuilderTest, Decimal32BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int32_t>::minimum, DecimalPrecision<int32_t>::maximum));
+    ::testing::Range(DecimalPrecision<int32_t>::minimum,
+                            DecimalPrecision<int32_t>::maximum));
 INSTANTIATE_TEST_CASE_P(Decimal64BuilderTest, Decimal64BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int64_t>::minimum, DecimalPrecision<int64_t>::maximum));
+    ::testing::Range(DecimalPrecision<int64_t>::minimum,
+                            DecimalPrecision<int64_t>::maximum));
 INSTANTIATE_TEST_CASE_P(Decimal128BuilderTest, Decimal128BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int128_t>::minimum, DecimalPrecision<int128_t>::maximum));
+    ::testing::Range(DecimalPrecision<int128_t>::minimum,
+                            DecimalPrecision<int128_t>::maximum));
 
 }  // namespace decimal
 }  // namespace arrow
