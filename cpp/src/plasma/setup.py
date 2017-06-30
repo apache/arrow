@@ -49,6 +49,7 @@ class build_ext(_build_ext.build_ext):
             '-DPYTHON_EXECUTABLE=%s' % sys.executable,
             '-DARROW_PLASMA=on',
             '-DPLASMA_PYTHON=on',
+            '-DARROW_BUILD_TESTS=off',
             static_lib_option,
         ]
 
