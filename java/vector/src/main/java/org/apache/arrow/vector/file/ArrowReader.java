@@ -80,11 +80,11 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
 
   @Override
   public Dictionary lookup(long id) {
-    if (initialized) {
-      return dictionaries.get(id);
-    } else {
-      return null;
+    if (!initialized) {
+      throw new IllegalStateException("Unable to lookup until after read() has started");
     }
+
+    return dictionaries.get(id);
   }
 
   // Returns true if a batch was read, false on EOS

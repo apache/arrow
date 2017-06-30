@@ -39,8 +39,8 @@ public class Validator {
   /**
    * Validate two arrow schemas are equal.
    *
-   * @param schema1 the 1st shema to compare
-   * @param schema2 the 2nd shema to compare
+   * @param schema1 the 1st schema to compare
+   * @param schema2 the 2nd schema to compare
    * @throws IllegalArgumentException if they are different.
    */
   public static void compareSchemas(Schema schema1, Schema schema2) {
@@ -80,19 +80,19 @@ public class Validator {
   /**
    * Validate two arrow vectorSchemaRoot are equal.
    *
-   * @param root1 the 1st shema to compare
-   * @param root2 the 2nd shema to compare
+   * @param root1 the 1st schema to compare
+   * @param root2 the 2nd schema to compare
    * @throws IllegalArgumentException if they are different.
    */
   public static void compareVectorSchemaRoot(VectorSchemaRoot root1, VectorSchemaRoot root2) {
     compareSchemas(root2.getSchema(), root1.getSchema());
     if (root1.getRowCount() != root2.getRowCount()) {
-      throw new IllegalArgumentException("Different row count:\n" + root1.getRowCount() + "\n" + root2.getRowCount());
+      throw new IllegalArgumentException("Different row count:\n" + root1.getRowCount() + " != " + root2.getRowCount());
     }
     List<FieldVector> vectors1 = root1.getFieldVectors();
     List<FieldVector> vectors2 = root2.getFieldVectors();
     if (vectors1.size() != vectors2.size()) {
-      throw new IllegalArgumentException("Different column count:\n" + vectors1.size() + "\n" + vectors2.size());
+      throw new IllegalArgumentException("Different column count:\n" + vectors1.toString() + "\n!=\n" + vectors2.toString());
     }
     for (int i = 0; i < vectors1.size(); i++) {
       Field field = root1.getSchema().getFields().get(i);

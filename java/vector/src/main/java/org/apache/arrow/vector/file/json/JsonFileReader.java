@@ -99,11 +99,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
   @Override
   public Dictionary lookup(long id) {
-    if (initialized) {
-      return dictionaries.get(id);
-    } else {
-      return null;
+    if (!initialized) {
+      throw new IllegalStateException("Unable to lookup until after read() has started");
     }
+
+    return dictionaries.get(id);
   }
 
   public Schema start() throws JsonParseException, IOException {
@@ -158,7 +158,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
 
     if (token != END_ARRAY) {
-      throw new IllegalArgumentException("Invalid token: " + token);
+      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " + parser.getTokenLocation());
     }
   }
 
