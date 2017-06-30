@@ -112,10 +112,12 @@ if (PLASMA_PYTHON)
     ${NUMPY_INCLUDE_DIRS}
     ${PYTHON_INCLUDE_DIRS})
 
-  set_source_files_properties(plasma.pyx PROPERTIES CYTHON_IS_CXX 1)
+  set_source_files_properties(plasma/plasma.pyx PROPERTIES CYTHON_IS_CXX 1)
 
   cython_add_module(plasma
       plasma_pyx
       plasma_output
-      plasma.pyx)
+      plasma/plasma.pyx)
+
+  target_link_libraries(plasma arrow_static plasma_static)
 endif()

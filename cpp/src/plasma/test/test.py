@@ -19,10 +19,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import glob
 import numpy as np
 import os
 import random
 import signal
+import site
 import subprocess
 import sys
 import threading
@@ -113,9 +115,9 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
   """
   if use_valgrind and use_profiler:
     raise Exception("Cannot use valgrind and profiler at the same time.")
-  plasma_store_executable = os.path.join(os.path.abspath(
-      os.path.dirname(__file__)),
-      "../../../build/debug/plasma_store")
+  module_dir = site.getsitepackages()
+  [plasma_dir] = glob.glob(os.path.join(module_dir[0], "plasma*"))
+  plasma_store_executable = os.path.join(os.path.abspath(plasma_dir), "plasma/plasma_store")
   plasma_store_name = "/tmp/plasma_store{}".format(random_name())
   command = [plasma_store_executable,
              "-s", plasma_store_name,

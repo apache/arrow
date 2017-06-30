@@ -67,7 +67,7 @@ class build_ext(_build_ext.build_ext):
         for name in ["plasma"]:
             built_path = self.get_ext_built(name)
             if not os.path.exists(built_path):
-                raise RuntimeError('pyarrow C-extension failed to build:',
+                raise RuntimeError('plasma C-extension failed to build:',
                                    os.path.abspath(built_path))
 
             ext_path = os.path.join(build_lib, self._get_cmake_ext_path(name))
@@ -78,6 +78,12 @@ class build_ext(_build_ext.build_ext):
                   'to build path', ext_path)
             shutil.move(self.get_ext_built(name), ext_path)
             self._found_names.append(name)
+
+        # Move the plasma store
+        build_py = self.get_finalized_command('build_py')
+        source = os.path.join(self.build_type, "plasma_store")
+        target = os.path.join(build_lib, build_py.get_package_dir('plasma'), "plasma_store")
+        shutil.move(source, target)
 
         os.chdir(saved_cwd)
 
@@ -116,7 +122,7 @@ class BinaryDistribution(Distribution):
 
 setup(name="plasma",
       version="0.0.1",
-      packages=find_packages(),
+      packages=["plasma"],
       cmdclass={"build_ext": build_ext},
       # The BinaryDistribution argument triggers build_ext.
       distclass=BinaryDistribution,
