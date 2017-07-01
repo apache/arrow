@@ -119,6 +119,9 @@ class Column(object):
         self.name = name
         self.count = count
 
+    def __len__(self):
+        return self.count
+
     def _get_children(self):
         return []
 
@@ -197,10 +200,13 @@ class IntegerType(PrimitiveType):
 
     def generate_column(self, size):
         iinfo = np.iinfo(self.numpy_type)
+        lower_bound = max(iinfo.min, self.min_value)
+        upper_bound = min(iinfo.max, self.max_value)
+        return self.generate_range(size, lower_bound, upper_bound)
+
+    def generate_range(self, size, lower, upper):
         values = [int(x) for x in
-                  np.random.randint(max(iinfo.min, self.min_value),
-                                    min(iinfo.max, self.max_value),
-                                    size=size)]
+                  np.random.randint(lower, upper, size=size)]
 
         is_valid = self._make_is_valid(size)
         return PrimitiveColumn(self.name, size, is_valid, values)
@@ -382,7 +388,7 @@ class StringType(BinaryType):
         return self.column_class(self.name, size, is_valid, values)
 
 
-class JSONSchema(object):
+class JsonSchema(object):
 
     def __init__(self, fields):
         self.fields = fields
@@ -513,6 +519,57 @@ class StructType(DataType):
         return StructColumn(self.name, size, is_valid, field_values)
 
 
+class Dictionary(object):
+
+    def __init__(self, id_, field, values, ordered=False):
+        self.id_ = id_
+        self.field = field
+        self.values = values
+        self.ordered = ordered
+
+    def __len__(self):
+        return len(self.values)
+
+    def get_json(self):
+        dummy_batch = JsonRecordBatch(len(self.values), [self.values])
+        return OrderedDict([
+            ('id', self.id_),
+            ('data', dummy_batch.get_json())
+        ])
+
+
+class DictionaryType(DataType):
+
+    def __init__(self, name, index_type, dictionary, nullable=True):
+        DataType.__init__(self, name, nullable=nullable)
+        assert isinstance(index_type, IntegerType)
+        assert isinstance(dictionary, Dictionary)
+
+        self.index_type = index_type
+        self.dictionary = dictionary
+
+    def get_json(self):
+        dict_field = self.dictionary.field
+        return OrderedDict([
+            ('name', self.name),
+            ('type', dict_field._get_type()),
+            ('nullable', self.nullable),
+            ('children', dict_field._get_children()),
+            ('dictionary', OrderedDict([
+                ('id', self.dictionary.id_),
+                ('indexType', self.index_type._get_type()),
+                ('isOrdered', self.dictionary.ordered)
+            ])),
+            ('typeLayout', self.index_type._get_type_layout())
+        ])
+
+    def _get_type_layout(self):
+        return self.index_type._get_type_layout()
+
+    def generate_column(self, size):
+        return self.index_type.generate_range(size, 0, len(self.dictionary))
+
+
 class StructColumn(Column):
 
     def __init__(self, name, count, is_valid, field_values):
@@ -529,7 +586,7 @@ class StructColumn(Column):
         return [field.get_json() for field in self.field_values]
 
 
-class JSONRecordBatch(object):
+class JsonRecordBatch(object):
 
     def __init__(self, count, columns):
         self.count = count
@@ -542,16 +599,19 @@ class JSONRecordBatch(object):
         ])
 
 
-class JSONFile(object):
+class JsonFile(object):
 
-    def __init__(self, name, schema, batches):
+    def __init__(self, name, schema, batches, dictionaries=None):
         self.name = name
         self.schema = schema
+        self.dictionaries = dictionaries or []
         self.batches = batches
 
     def get_json(self):
         return OrderedDict([
             ('schema', self.schema.get_json()),
+            ('dictionaries', [dictionary.get_json()
+                              for dictionary in self.dictionaries]),
             ('batches', [batch.get_json() for batch in self.batches])
         ])
 
@@ -580,8 +640,8 @@ def get_field(name, type_, nullable=True):
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes):
-    schema = JSONSchema(fields)
+def _generate_file(name, fields, batch_sizes, dictionaries=None):
+    schema = JsonSchema(fields)
     batches = []
     for size in batch_sizes:
         columns = []
@@ -589,9 +649,9 @@ def _generate_file(name, fields, batch_sizes):
             col = field.generate_column(size)
             columns.append(col)
 
-        batches.append(JSONRecordBatch(size, columns))
+        batches.append(JsonRecordBatch(size, columns))
 
-    return JSONFile(name, schema, batches)
+    return JsonFile(name, schema, batches, dictionaries)
 
 
 def generate_primitive_case(batch_sizes):
@@ -645,6 +705,23 @@ def generate_nested_case():
     return _generate_file("nested", fields, batch_sizes)
 
 
+def generate_dictionary_case():
+    dict_type1 = StringType('dictionary1')
+    dict_type2 = get_field('dictionary2', 'int64')
+
+    dict1 = Dictionary(5, dict_type1, dict_type1.generate_column(10))
+    dict2 = Dictionary(10, dict_type2, dict_type2.generate_column(50))
+
+    fields = [
+        DictionaryType('dict1_0', get_field('', 'int8'), dict1),
+        DictionaryType('dict1_1', get_field('', 'int32'), dict1),
+        DictionaryType('dict2_0', get_field('', 'int16'), dict2)
+    ]
+    batch_sizes = [7, 10]
+    return _generate_file("dictionary", fields, batch_sizes,
+                          dictionaries=[dict1, dict2])
+
+
 def get_generated_json_files():
     temp_dir = tempfile.mkdtemp()
 
@@ -655,12 +732,14 @@ def get_generated_json_files():
         generate_primitive_case([7, 10]),
         generate_primitive_case([0, 0, 0]),
         generate_datetime_case(),
-        generate_nested_case()
+        generate_nested_case(),
+        generate_dictionary_case()
     ]
 
     generated_paths = []
     for file_obj in file_objs:
-        out_path = os.path.join(temp_dir, 'generated_' + file_obj.name + '.json')
+        out_path = os.path.join(temp_dir, 'generated_' +
+                                file_obj.name + '.json')
         file_obj.write(out_path)
         generated_paths.append(out_path)
 
@@ -689,15 +768,16 @@ class IntegrationRunner(object):
                                                        consumer.name))
 
         for json_path in self.json_files:
-            print('=====================================================================================')
+            print('==========================================================')
             print('Testing file {0}'.format(json_path))
-            print('=====================================================================================')
+            print('==========================================================')
 
             name = os.path.splitext(os.path.basename(json_path))[0]
 
             # Make the random access file
             print('-- Creating binary inputs')
-            producer_file_path = os.path.join(self.temp_dir, guid() + '_' + name + '.json_to_arrow')
+            producer_file_path = os.path.join(self.temp_dir, guid() + '_' +
+                                              name + '.json_to_arrow')
             producer.json_to_file(json_path, producer_file_path)
 
             # Validate the file
@@ -705,8 +785,10 @@ class IntegrationRunner(object):
             consumer.validate(json_path, producer_file_path)
 
             print('-- Validating stream')
-            producer_stream_path = os.path.join(self.temp_dir, guid() + '_' + name + '.arrow_to_stream')
-            consumer_file_path = os.path.join(self.temp_dir, guid() + '_' + name + '.stream_to_arrow')
+            producer_stream_path = os.path.join(self.temp_dir, guid() + '_' +
+                                                name + '.arrow_to_stream')
+            consumer_file_path = os.path.join(self.temp_dir, guid() + '_' +
+                                              name + '.stream_to_arrow')
             producer.file_to_stream(producer_file_path,
                                     producer_stream_path)
             consumer.stream_to_file(producer_stream_path,
@@ -838,7 +920,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug)]  # , JavaTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files
