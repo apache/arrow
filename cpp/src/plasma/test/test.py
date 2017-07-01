@@ -250,6 +250,23 @@ class TestPlasmaClient(unittest.TestCase):
         else:
           self.assertIsNone(results[i])
 
+  def test_store_arrow_objects(self):
+    data = np.random.randn(10, 4)
+    # Write an arrow object.
+    object_id = random_object_id()
+    tensor = pa.Tensor.from_numpy(data)
+    data_size = pa.get_tensor_size(tensor)
+    buf = self.plasma_client.create(object_id, data_size)
+    stream = plasma.FixedSizeBufferOutputStream(buf)
+    pa.write_tensor(tensor, stream)
+    self.plasma_client.seal(object_id)
+    # Read the arrow object.
+    [tensor] = self.plasma_client.get([object_id])
+    reader = pa.BufferReader(tensor)
+    array = pa.read_tensor(reader).to_numpy()
+    # Assert that they are equal.
+    np.testing.assert_equal(data, array)
+
   def test_pickle_object_ids(self):
     # This can be used for sharing object IDs between processes.
     import pickle
