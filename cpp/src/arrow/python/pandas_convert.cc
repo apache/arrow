@@ -362,23 +362,25 @@ class PandasConverter {
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
   Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
 
-  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
+  Status TypeNotImplemented(std::string type_name) {
+    std::stringstream ss;
+    ss << "PandasConverter doesn't implement <" << type_name << "> conversion. ";
+    return Status::NotImplemented(ss.str());
+  }
 
-  Status Visit(const BinaryType& type) { return Status::NotImplemented(type.ToString()); }
+  Status Visit(const NullType& type) { return TypeNotImplemented(type.ToString()); }
+
+  Status Visit(const BinaryType& type) { return TypeNotImplemented(type.ToString()); }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    return Status::NotImplemented(type.ToString());
+    return TypeNotImplemented(type.ToString());
   }
 
-  Status Visit(const DecimalType& type) {
-    return Status::NotImplemented(type.ToString());
-  }
+  Status Visit(const DecimalType& type) { return TypeNotImplemented(type.ToString()); }
 
-  Status Visit(const DictionaryType& type) {
-    return Status::NotImplemented(type.ToString());
-  }
+  Status Visit(const DictionaryType& type) { return TypeNotImplemented(type.ToString()); }
 
-  Status Visit(const NestedType& type) { return Status::NotImplemented(type.ToString()); }
+  Status Visit(const NestedType& type) { return TypeNotImplemented(type.ToString()); }
 
   Status Convert() {
     if (PyArray_NDIM(arr_) != 1) {

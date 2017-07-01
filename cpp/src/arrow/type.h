@@ -194,6 +194,7 @@ class ARROW_EXPORT FloatingPoint : public PrimitiveCType {
 class ARROW_EXPORT NestedType : public DataType {
  public:
   using DataType::DataType;
+  static std::string name() { return "nested"; }
 };
 
 class NoExtraMeta {};
@@ -406,6 +407,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static std::string name() {return "fixed_size_binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
@@ -674,6 +676,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+  static std::string name() { return "dictionary"; }
 
   bool ordered() const { return ordered_; }
 

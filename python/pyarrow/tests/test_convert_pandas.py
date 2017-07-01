@@ -102,12 +102,10 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'a': [None, None, None]})
         self._check_pandas_roundtrip(df)
 
-
     def test_all_none_category(self):
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
         self._check_pandas_roundtrip(df)
-
 
     def test_float_no_nulls(self):
         data = {}
@@ -654,3 +652,25 @@ class TestPandasConversion(unittest.TestCase):
         table = pa.Table.from_pandas(df)
         result_df = table.to_pandas()
         tm.assert_frame_equal(result_df, df)
+
+    def test_partial_schema(self):
+        data = OrderedDict([
+            ('a', [0, 1, 2, 3, 4]),
+            ('b', np.array([-10, -5, 0, 5, 10], dtype=np.int32)),
+            ('c', [-10, -5, 0, 5, 10])
+        ])
+        df = pd.DataFrame(data)
+
+        partial_schema = pa.schema([
+            pa.field('a', pa.int64()),
+            pa.field('b', pa.int32())
+        ])
+
+        expected_schema = pa.schema([
+            pa.field('a', pa.int64()),
+            pa.field('b', pa.int32()),
+            pa.field('c', pa.int64())
+        ])
+
+        self._check_pandas_roundtrip(df, schema=partial_schema,
+                                     expected_schema=expected_schema)
