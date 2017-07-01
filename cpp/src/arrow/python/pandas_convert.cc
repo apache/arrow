@@ -372,7 +372,9 @@ class PandasConverter {
 
   Status Visit(const BinaryType& type) { return TypeNotImplemented(type.ToString()); }
 
-  Status Visit(const FixedSizeBinaryType& type) { return TypeNotImplemented(type.ToString()); }
+  Status Visit(const FixedSizeBinaryType& type) { 
+    return TypeNotImplemented(type.ToString()); 
+  }
 
   Status Visit(const DecimalType& type) { return TypeNotImplemented(type.ToString()); }
 
