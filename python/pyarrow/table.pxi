@@ -333,7 +333,8 @@ cdef tuple _dataframe_to_arrays(
     for name in df.columns:
         col = df[name]
         if schema is not None:
-            type = schema.field_by_name(name).type
+            field = schema.field_by_name(name)
+            type = getattr(field, "type", None)
 
         arr = arrays.append(
             Array.from_pandas(
