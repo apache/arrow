@@ -250,6 +250,14 @@ class TestPlasmaClient(unittest.TestCase):
         else:
           self.assertIsNone(results[i])
 
+  def test_pickle_object_ids(self):
+    # This can be used for sharing object IDs between processes.
+    import pickle
+    object_id = random_object_id()
+    data = pickle.dumps(object_id)
+    object_id2 = pickle.loads(data)
+    self.assertEqual(object_id, object_id2)
+
   def test_store_full(self):
     # The store is started with 1GB, so make sure that create throws an
     # exception when it is full.

@@ -45,7 +45,9 @@ cdef extern from "plasma/common.h" nogil:
 
     c_bool operator==(const CUniqueID& rhs) const
 
-    c_string hex()
+    c_string hex() const
+
+    c_string binary() const
 
 cdef extern from "plasma/plasma.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
@@ -87,6 +89,9 @@ cdef extern from "plasma/client.h" nogil:
     int64_t metadata_size
     uint8_t* metadata
 
+def make_object_id(object_id):
+  return ObjectID(object_id)
+
 cdef class ObjectID:
 
   cdef:
@@ -101,6 +106,9 @@ cdef class ObjectID:
 
   def __repr__(self):
     return "ObjectID(" + self.data.hex().decode() + ")"
+
+  def __reduce__(self):
+    return (make_object_id, (self.data.binary(),))
 
 cdef class PlasmaBuffer(Buffer):
   """This is the type of objects returned by calls to get with a PlasmaClient.
