@@ -29,7 +29,7 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-using namespace plasma;
+namespace plasma {
 
 std::string g_test_executable;  // NOLINT
 
@@ -132,3 +132,5 @@ int main(int argc, char** argv) {
   g_test_executable = std::string(argv[0]);
   return RUN_ALL_TESTS();
 }
+
+} // namespace plasma
