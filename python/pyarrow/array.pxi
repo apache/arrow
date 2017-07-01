@@ -1007,7 +1007,7 @@ cdef class StructValue(ArrayValue):
         child_names = (child.get().name() for child in child_fields)
         # Return the struct as a dict
         return {
-            name.decode('utf8'): child_array[self.index].as_py()
+            frombytes(name): child_array[self.index].as_py()
             for name, child_array in
             zip(child_names, wrapped_arrays)
         }
