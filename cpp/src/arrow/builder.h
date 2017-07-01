@@ -510,7 +510,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
-  ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
+  ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
       const std::shared_ptr<DataType>& type = nullptr);
 
   /// Use this constructor to build the list with a pre-existing values array
@@ -536,11 +536,11 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
   Status AppendNull() { return Append(false); }
 
-  std::shared_ptr<ArrayBuilder> value_builder() const;
+  ArrayBuilder* value_builder() const;
 
  protected:
   BufferBuilder offset_builder_;
-  std::shared_ptr<ArrayBuilder> value_builder_;
+  std::unique_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
 
   void Reset();
@@ -642,10 +642,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-      const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders)
-      : ArrayBuilder(pool, type) {
-    field_builders_ = field_builders;
-  }
+      std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
@@ -669,14 +666,12 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   Status AppendNull() { return Append(false); }
 
-  std::shared_ptr<ArrayBuilder> field_builder(int pos) const;
+  ArrayBuilder* field_builder(int i) const { return field_builders_[i].get(); }
 
-  const std::vector<std::shared_ptr<ArrayBuilder>>& field_builders() const {
-    return field_builders_;
-  }
+  int num_fields() const { return static_cast<int>(field_builders_.size()); }
 
  protected:
-  std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
+  std::vector<std::unique_ptr<ArrayBuilder>> field_builders_;
 };
 
 // ----------------------------------------------------------------------
@@ -763,7 +758,7 @@ class ARROW_EXPORT StringDictionaryBuilder
 // Helper functions
 
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::shared_ptr<ArrayBuilder>* out);
+    std::unique_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 
