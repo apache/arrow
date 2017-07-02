@@ -730,6 +730,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   AdaptiveUIntBuilder values_builder_;
 };
 
+// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
 struct WrappedBinary {
   WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
 

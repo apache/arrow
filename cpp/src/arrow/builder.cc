@@ -687,15 +687,13 @@ Status DictionaryBuilder<T, Scalar>::Init(int64_t elements) {
 
 template <typename T, typename Scalar>
 Status DictionaryBuilder<T, Scalar>::Resize(int64_t capacity) {
-  // XXX: Set floor size for now
   if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
 
   if (capacity_ == 0) {
-    RETURN_NOT_OK(Init(capacity));
+    return Init(capacity);
   } else {
-    RETURN_NOT_OK(ArrayBuilder::Resize(capacity));
+    return ArrayBuilder::Resize(capacity);
   }
-  return Status::OK();
 }
 
 template <typename T, typename Scalar>
@@ -722,7 +720,7 @@ Status DictionaryBuilder<T, Scalar>::Append(const Scalar& value) {
   while (kHashSlotEmpty != index && SlotDifferent(index, value)) {
     // Linear probing
     ++j;
-    if (j == hash_table_size_) j = 0;
+    if (j == hash_table_size_) { j = 0; }
     index = hash_slots_[j];
   }
 
@@ -768,7 +766,7 @@ Status DictionaryBuilder<T, Scalar>::DoubleTableSize() {
 
     while (kHashSlotEmpty != slot && SlotDifferent(slot, value)) {
       ++j;
-      if (j == new_size) j = 0;
+      if (j == new_size) { j = 0; }
       slot = new_hash_slots[j];
     }
 
@@ -854,7 +852,7 @@ template class DictionaryBuilder<Time64Type>;
 template class DictionaryBuilder<TimestampType>;
 template class DictionaryBuilder<FloatType>;
 template class DictionaryBuilder<DoubleType>;
-// template class DictionaryBuilder<BinaryType, WrappedBinary>;
+template class DictionaryBuilder<BinaryType, WrappedBinary>;
 template class DictionaryBuilder<StringType, WrappedBinary>;
 
 // ----------------------------------------------------------------------
