@@ -1555,9 +1555,10 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     ASSERT_OK(builder.Finish(&result));
 
     // Finalize expected data
-     std::shared_ptr<Array> dict_array;
+    std::shared_ptr<Array> dict_array;
     ASSERT_OK(dict_builder.Finish(&dict_array));
-    auto dtype = std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+    auto dtype =
+        std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
     std::shared_ptr<Array> int_array;
     ASSERT_OK(int_builder.Finish(&int_array));
 
