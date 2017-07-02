@@ -608,12 +608,18 @@ class JsonFile(object):
         self.batches = batches
 
     def get_json(self):
-        return OrderedDict([
-            ('schema', self.schema.get_json()),
-            ('dictionaries', [dictionary.get_json()
-                              for dictionary in self.dictionaries]),
-            ('batches', [batch.get_json() for batch in self.batches])
-        ])
+        entries = [
+            ('schema', self.schema.get_json())
+        ]
+
+        if len(self.dictionaries) > 0:
+            entries.append(('dictionaries',
+                            [dictionary.get_json()
+                             for dictionary in self.dictionaries]))
+
+        entries.append(('batches', [batch.get_json()
+                                    for batch in self.batches]))
+        return OrderedDict(entries)
 
     def write(self, path):
         with open(path, 'wb') as f:
@@ -920,7 +926,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug)]  # , JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files
