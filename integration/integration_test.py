@@ -756,7 +756,7 @@ def get_generated_json_files():
         generate_primitive_case([0, 0, 0]),
         generate_datetime_case(),
         generate_nested_case(),
-        generate_dictionary_case()
+        # generate_dictionary_case()
     ]
 
     generated_paths = []
