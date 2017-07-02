@@ -1488,6 +1488,151 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendVector) {
 }
 
 // ----------------------------------------------------------------------
+// Dictionary tests
+
+template <typename Type>
+class TestDictionaryBuilder : public TestBuilder {};
+
+typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+    UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>
+    PrimitiveDictionaries;
+
+TYPED_TEST_CASE(TestDictionaryBuilder, PrimitiveDictionaries);
+
+TYPED_TEST(TestDictionaryBuilder, Basic) {
+  DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Build expected data
+  NumericBuilder<TypeParam> dict_builder(default_memory_pool());
+  ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  std::shared_ptr<Array> dict_array;
+  ASSERT_OK(dict_builder.Finish(&dict_array));
+  auto dtype =
+      std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+
+  UInt8Builder int_builder(default_memory_pool());
+  ASSERT_OK(int_builder.Append(0));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(0));
+  std::shared_ptr<Array> int_array;
+  ASSERT_OK(int_builder.Finish(&int_array));
+
+  DictionaryArray expected(dtype, int_array);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
+  using Scalar = typename TypeParam::c_type;
+  // Skip this test for (u)int8
+  if (sizeof(Scalar) > 1) {
+    // Build the dictionary Array
+    DictionaryBuilder<TypeParam> builder(default_memory_pool());
+    // Build expected data
+    NumericBuilder<TypeParam> dict_builder(default_memory_pool());
+    UInt16Builder int_builder(default_memory_pool());
+
+    // Fill with 1024 different values
+    for (int64_t i = 0; i < 1024; i++) {
+      ASSERT_OK(builder.Append(static_cast<Scalar>(i)));
+      ASSERT_OK(dict_builder.Append(static_cast<Scalar>(i)));
+      ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
+    }
+    // Fill with an already existing value
+    for (int64_t i = 0; i < 1024; i++) {
+      ASSERT_OK(builder.Append(static_cast<Scalar>(1)));
+      ASSERT_OK(int_builder.Append(1));
+    }
+
+    // Finalize result
+    std::shared_ptr<Array> result;
+    ASSERT_OK(builder.Finish(&result));
+
+    // Finalize expected data
+    std::shared_ptr<Array> dict_array;
+    ASSERT_OK(dict_builder.Finish(&dict_array));
+    auto dtype =
+        std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+    std::shared_ptr<Array> int_array;
+    ASSERT_OK(int_builder.Finish(&int_array));
+
+    DictionaryArray expected(dtype, int_array);
+    ASSERT_TRUE(expected.Equals(result));
+  }
+}
+
+TEST(TestStringDictionaryBuilder, Basic) {
+  // Build the dictionary Array
+  StringDictionaryBuilder builder(default_memory_pool());
+  ASSERT_OK(builder.Append("test"));
+  ASSERT_OK(builder.Append("test2"));
+  ASSERT_OK(builder.Append("test"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Build expected data
+  StringBuilder str_builder(default_memory_pool());
+  ASSERT_OK(str_builder.Append("test"));
+  ASSERT_OK(str_builder.Append("test2"));
+  std::shared_ptr<Array> str_array;
+  ASSERT_OK(str_builder.Finish(&str_array));
+  auto dtype = std::make_shared<DictionaryType>(utf8(), str_array);
+
+  UInt8Builder int_builder(default_memory_pool());
+  ASSERT_OK(int_builder.Append(0));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(0));
+  std::shared_ptr<Array> int_array;
+  ASSERT_OK(int_builder.Finish(&int_array));
+
+  DictionaryArray expected(dtype, int_array);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestStringDictionaryBuilder, DoubleTableSize) {
+  // Build the dictionary Array
+  StringDictionaryBuilder builder(default_memory_pool());
+  // Build expected data
+  StringBuilder str_builder(default_memory_pool());
+  UInt16Builder int_builder(default_memory_pool());
+
+  // Fill with 1024 different values
+  for (int64_t i = 0; i < 1024; i++) {
+    std::stringstream ss;
+    ss << "test" << i;
+    ASSERT_OK(builder.Append(ss.str()));
+    ASSERT_OK(str_builder.Append(ss.str()));
+    ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
+  }
+  // Fill with an already existing value
+  for (int64_t i = 0; i < 1024; i++) {
+    ASSERT_OK(builder.Append("test1"));
+    ASSERT_OK(int_builder.Append(1));
+  }
+
+  // Finalize result
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Finalize expected data
+  std::shared_ptr<Array> str_array;
+  ASSERT_OK(str_builder.Finish(&str_array));
+  auto dtype = std::make_shared<DictionaryType>(utf8(), str_array);
+  std::shared_ptr<Array> int_array;
+  ASSERT_OK(int_builder.Finish(&int_array));
+
+  DictionaryArray expected(dtype, int_array);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
+// ----------------------------------------------------------------------
 // List tests
 
 class TestListBuilder : public TestBuilder {

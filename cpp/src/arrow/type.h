@@ -407,7 +407,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() {return "fixed_size_binary"; }
+  static std::string name() { return "fixed_size_binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
