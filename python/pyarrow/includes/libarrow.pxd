@@ -76,6 +76,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const CDataType& other)
 
+        shared_ptr[CField] child(int i)
+
+        const vector[shared_ptr[CField]] children()
+
+        int num_children()
+
         c_string ToString()
 
     cdef cppclass CArray" arrow::Array":
@@ -282,6 +288,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CStringArray" arrow::StringArray"(CBinaryArray):
         c_string GetString(int i)
+
+    cdef cppclass CStructArray" arrow::StructArray"(CArray):
+        CStructArray(shared_ptr[CDataType] type, int64_t length,
+            vector[shared_ptr[CArray]] children,
+            shared_ptr[CBuffer] null_bitmap = nullptr, int64_t null_count = 0,
+            int64_t offset = 0)
+
+        shared_ptr[CArray] field(int pos)
+        const vector[shared_ptr[CArray]] fields()
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         int64_t length()
