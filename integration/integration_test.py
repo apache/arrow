@@ -198,18 +198,21 @@ class IntegerType(PrimitiveType):
             ('bitWidth', self.bit_width)
         ])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         iinfo = np.iinfo(self.numpy_type)
         lower_bound = max(iinfo.min, self.min_value)
         upper_bound = min(iinfo.max, self.max_value)
-        return self.generate_range(size, lower_bound, upper_bound)
+        return self.generate_range(size, lower_bound, upper_bound, name=name)
 
-    def generate_range(self, size, lower, upper):
+    def generate_range(self, size, lower, upper, name=None):
         values = [int(x) for x in
                   np.random.randint(lower, upper, size=size)]
 
         is_valid = self._make_is_valid(size)
-        return PrimitiveColumn(self.name, size, is_valid, values)
+
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
 
 
 class DateType(IntegerType):
@@ -300,12 +303,14 @@ class FloatingPointType(PrimitiveType):
             ('precision', self.precision)
         ])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         values = np.random.randn(size) * 1000
         values = np.round(values, 3)
 
         is_valid = self._make_is_valid(size)
-        return PrimitiveColumn(self.name, size, is_valid, values)
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
 
 
 class BooleanType(PrimitiveType):
@@ -319,10 +324,12 @@ class BooleanType(PrimitiveType):
     def numpy_type(self):
         return 'bool'
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         values = list(map(bool, np.random.randint(0, 2, size=size)))
         is_valid = self._make_is_valid(size)
-        return PrimitiveColumn(self.name, size, is_valid, values)
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
 
 
 class BinaryType(PrimitiveType):
@@ -348,7 +355,7 @@ class BinaryType(PrimitiveType):
               OrderedDict([('type', 'DATA'),
                            ('typeBitWidth', 8)])])])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         K = 7
         is_valid = self._make_is_valid(size)
         values = []
@@ -362,7 +369,9 @@ class BinaryType(PrimitiveType):
             else:
                 values.append("")
 
-        return self.column_class(self.name, size, is_valid, values)
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
 
 
 class StringType(BinaryType):
@@ -374,7 +383,7 @@ class StringType(BinaryType):
     def _get_type(self):
         return OrderedDict([('name', 'utf8')])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         K = 7
         is_valid = self._make_is_valid(size)
         values = []
@@ -385,7 +394,9 @@ class StringType(BinaryType):
             else:
                 values.append("")
 
-        return self.column_class(self.name, size, is_valid, values)
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, values)
 
 
 class JsonSchema(object):
@@ -453,7 +464,7 @@ class ListType(DataType):
               OrderedDict([('type', 'OFFSET'),
                            ('typeBitWidth', 32)])])])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
 
         is_valid = self._make_is_valid(size)
@@ -469,7 +480,9 @@ class ListType(DataType):
         # The offset now is the total number of elements in the child array
         values = self.value_type.generate_column(offset)
 
-        return ListColumn(self.name, size, is_valid, offsets, values)
+        if name is None:
+            name = self.name
+        return ListColumn(name, size, is_valid, offsets, values)
 
 
 class ListColumn(Column):
@@ -510,13 +523,14 @@ class StructType(DataType):
              [OrderedDict([('type', 'VALIDITY'),
                            ('typeBitWidth', 1)])])])
 
-    def generate_column(self, size):
+    def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
 
         field_values = [type_.generate_column(size)
                         for type_ in self.field_types]
-
-        return StructColumn(self.name, size, is_valid, field_values)
+        if name is None:
+            name = self.name
+        return StructColumn(name, size, is_valid, field_values)
 
 
 class Dictionary(object):
@@ -566,8 +580,9 @@ class DictionaryType(DataType):
     def _get_type_layout(self):
         return self.index_type._get_type_layout()
 
-    def generate_column(self, size):
-        return self.index_type.generate_range(size, 0, len(self.dictionary))
+    def generate_column(self, size, name=None):
+        return self.index_type.generate_range(size, 0, len(self.dictionary),
+                                              name=name)
 
 
 class StructColumn(Column):
@@ -715,8 +730,10 @@ def generate_dictionary_case():
     dict_type1 = StringType('dictionary1')
     dict_type2 = get_field('dictionary2', 'int64')
 
-    dict1 = Dictionary(5, dict_type1, dict_type1.generate_column(10))
-    dict2 = Dictionary(10, dict_type2, dict_type2.generate_column(50))
+    dict1 = Dictionary(5, dict_type1,
+                       dict_type1.generate_column(10, name='DICT5'))
+    dict2 = Dictionary(10, dict_type2,
+                       dict_type2.generate_column(50, name='DICT10'))
 
     fields = [
         DictionaryType('dict1_0', get_field('', 'int8'), dict1),
