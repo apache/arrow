@@ -730,10 +730,10 @@ def generate_dictionary_case():
     dict_type1 = StringType('dictionary1')
     dict_type2 = get_field('dictionary2', 'int64')
 
-    dict1 = Dictionary(5, dict_type1,
-                       dict_type1.generate_column(10, name='DICT5'))
-    dict2 = Dictionary(10, dict_type2,
-                       dict_type2.generate_column(50, name='DICT10'))
+    dict1 = Dictionary(0, dict_type1,
+                       dict_type1.generate_column(10, name='DICT0'))
+    dict2 = Dictionary(1, dict_type2,
+                       dict_type2.generate_column(50, name='DICT1'))
 
     fields = [
         DictionaryType('dict1_0', get_field('', 'int8'), dict1),
@@ -756,7 +756,7 @@ def get_generated_json_files():
         generate_primitive_case([0, 0, 0]),
         generate_datetime_case(),
         generate_nested_case(),
-        # generate_dictionary_case()
+        generate_dictionary_case()
     ]
 
     generated_paths = []
