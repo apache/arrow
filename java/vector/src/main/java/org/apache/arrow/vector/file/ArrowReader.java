@@ -81,7 +81,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
   @Override
   public Dictionary lookup(long id) {
     if (!initialized) {
-      throw new IllegalStateException("Unable to lookup until after read() has started");
+      throw new IllegalStateException("Unable to lookup until reader has been initialized");
     }
 
     return dictionaries.get(id);

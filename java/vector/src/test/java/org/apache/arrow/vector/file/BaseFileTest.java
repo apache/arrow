@@ -214,7 +214,7 @@ public class BaseFileTest {
   protected VectorSchemaRoot writeFlatDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define dictionaries and add to provider
-    NullableVarCharVector dictionary1Vector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(1L), bufferAllocator);
+    NullableVarCharVector dictionary1Vector = newNullableVarCharVector("D1", bufferAllocator);
     dictionary1Vector.allocateNewSafe();
     NullableVarCharVector.Mutator mutator = dictionary1Vector.getMutator();
     mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
@@ -225,7 +225,7 @@ public class BaseFileTest {
     Dictionary dictionary1 = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
     provider.put(dictionary1);
 
-    NullableVarCharVector dictionary2Vector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(2L), bufferAllocator);
+    NullableVarCharVector dictionary2Vector = newNullableVarCharVector("D2", bufferAllocator);
     dictionary2Vector.allocateNewSafe();
     mutator = dictionary2Vector.getMutator();
     mutator.set(0, "micro".getBytes(StandardCharsets.UTF_8));
@@ -350,7 +350,7 @@ public class BaseFileTest {
   protected VectorSchemaRoot writeNestedDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define the dictionary and add to the provider
-    NullableVarCharVector dictionaryVector = newNullableVarCharVector(DictionaryUtility.getDictionaryName(2L), bufferAllocator);
+    NullableVarCharVector dictionaryVector = newNullableVarCharVector("D2", bufferAllocator);
     dictionaryVector.allocateNewSafe();
     dictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));

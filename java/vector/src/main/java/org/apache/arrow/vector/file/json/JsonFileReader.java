@@ -87,7 +87,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final BufferAllocator allocator;
   private Schema schema;
   private Map<Long, Dictionary> dictionaries;
-  private Boolean initialized = false;
+  private Boolean started = false;
 
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
@@ -99,7 +99,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
   @Override
   public Dictionary lookup(long id) {
-    if (!initialized) {
+    if (!started) {
       throw new IllegalStateException("Unable to lookup until after read() has started");
     }
 
@@ -123,10 +123,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         nextFieldIs("dictionaries");
         readDictionaryBatches();
       }
-      initialized = true;
 
       nextFieldIs("batches");
       readToken(START_ARRAY);
+      started = true;
       return this.schema;
     }
   }
@@ -222,8 +222,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
     readToken(START_OBJECT);
     {
+      // If currently reading dictionaries, field name is not important so don't check
       String name = readNextField("name", String.class);
-      if (!Objects.equal(field.getName(), name)) {
+      if (started && !Objects.equal(field.getName(), name)) {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
       int count = readNextField("count", Integer.class);

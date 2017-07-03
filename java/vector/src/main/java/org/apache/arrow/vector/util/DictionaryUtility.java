@@ -36,13 +36,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 public class DictionaryUtility {
 
   /**
-   * Get a common name for a dictionary field from the given id
-   */
-  public static String getDictionaryName(long id) {
-    return "DICT" + id;
-  }
-
-  /**
    * Convert field and child fields that have a dictionary encoding to message format, so fields
    * have the dictionary type
    *
@@ -108,7 +101,8 @@ public class DictionaryUtility {
       // get existing or create dictionary vector
       if (!dictionaries.containsKey(encoding.getId())) {
         // create a new dictionary vector for the values
-        Field dictionaryField = new Field(getDictionaryName(encoding.getId()), new FieldType(false, field.getType(), null, null), children);
+        String dictName = "DICT" + encoding.getId();
+        Field dictionaryField = new Field(dictName, new FieldType(false, field.getType(), null, null), children);
         FieldVector dictionaryVector = dictionaryField.createVector(allocator);
         dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
       }
