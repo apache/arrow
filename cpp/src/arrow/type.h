@@ -694,6 +694,7 @@ class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+  virtual ~Schema() = default;
 
   // Returns true if all of the schema fields are equal
   bool Equals(const Schema& other) const;
