@@ -314,8 +314,8 @@ const gchar *
 garrow_tensor_get_dimension_name(GArrowTensor *tensor, gint i)
 {
   auto arrow_tensor = garrow_tensor_get_raw(tensor);
-  auto arrow_dimension_name = arrow_tensor->dim_name(i);
-  return arrow_dimension_name.c_str();
+  auto arrow_dimension_name = &(arrow_tensor->dim_name(i));
+  return arrow_dimension_name->c_str();
 }
 
 /**
