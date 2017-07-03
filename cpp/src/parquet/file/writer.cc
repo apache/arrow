@@ -45,6 +45,15 @@ int RowGroupWriter::current_column() {
   return contents_->current_column();
 }
 
+int RowGroupWriter::num_columns() const {
+  return contents_->num_columns();
+}
+
+int64_t RowGroupWriter::num_rows() const {
+  return contents_->num_rows();
+}
+
+
 // ----------------------------------------------------------------------
 // ParquetFileWriter public API
 
@@ -82,6 +91,18 @@ const SchemaDescriptor* ParquetFileWriter::schema() const {
 
 const ColumnDescriptor* ParquetFileWriter::descr(int i) const {
   return contents_->schema()->Column(i);
+}
+
+int ParquetFileWriter::num_columns() const {
+  return contents_->num_columns();
+}
+
+int64_t ParquetFileWriter::num_rows() const {
+  return contents_->num_rows();
+}
+
+int ParquetFileWriter::num_row_groups() const {
+  return contents_->num_row_groups();
 }
 
 const std::shared_ptr<const KeyValueMetadata>& ParquetFileWriter::key_value_metadata()
