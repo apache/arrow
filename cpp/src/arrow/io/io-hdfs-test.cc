@@ -87,9 +87,10 @@ class TestHdfsClient : public ::testing::Test {
     LibHdfsShim* driver_shim;
 
     client_ = nullptr;
-    scratch_dir_ = boost::filesystem::unique_path(
-        boost::filesystem::temp_directory_path() / "arrow-hdfs/scratch-%%%%")
-                       .string();
+    scratch_dir_ =
+        boost::filesystem::unique_path(
+            boost::filesystem::temp_directory_path() / "arrow-hdfs/scratch-%%%%")
+            .string();
 
     loaded_driver_ = false;
 

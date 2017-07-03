@@ -569,6 +569,11 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
+
  protected:
   UInt8Builder* byte_builder_;
 };
@@ -672,6 +677,86 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
  protected:
   std::vector<std::shared_ptr<ArrayBuilder>> field_builders_;
+};
+
+// ----------------------------------------------------------------------
+// Dictionary builder
+
+// Based on Apache Parquet-cpp's DictEncoder
+
+// Initially 1024 elements
+static constexpr int kInitialHashTableSize = 1 << 10;
+
+typedef int32_t hash_slot_t;
+static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
+
+// The maximum load factor for the hash table before resizing.
+static constexpr double kMaxHashTableLoad = 0.7;
+
+template <typename T, typename Scalar = typename T::c_type>
+class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
+ public:
+  explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
+
+  template <typename T1 = T, typename Scalar1 = Scalar>
+  explicit DictionaryBuilder(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
+      : DictionaryBuilder<T1, Scalar1>(pool, TypeTraits<T1>::type_singleton()) {}
+
+  Status Append(const Scalar& value);
+
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
+  Status Finish(std::shared_ptr<Array>* out) override;
+
+ protected:
+  Status DoubleTableSize();
+  Scalar GetDictionaryValue(int64_t index);
+  int HashValue(const Scalar& value);
+  bool SlotDifferent(hash_slot_t slot, const Scalar& value);
+  Status AppendDictionary(const Scalar& value);
+
+  std::shared_ptr<PoolBuffer> hash_table_;
+  int32_t* hash_slots_;
+
+  /// Size of the table. Must be a power of 2.
+  int hash_table_size_;
+
+  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
+  // hash_table_size_, but uses far fewer CPU cycles
+  int mod_bitmask_;
+
+  typename TypeTraits<T>::BuilderType dict_builder_;
+  AdaptiveUIntBuilder values_builder_;
+};
+
+// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
+struct WrappedBinary {
+  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
+
+  const uint8_t* ptr_;
+  int32_t length_;
+};
+
+class ARROW_EXPORT StringDictionaryBuilder
+    : public DictionaryBuilder<StringType, WrappedBinary> {
+ public:
+  using DictionaryBuilder::DictionaryBuilder;
+
+  using DictionaryBuilder::Append;
+
+  Status Append(const uint8_t* value, int32_t length) {
+    return Append(WrappedBinary(value, length));
+  }
+
+  Status Append(const char* value, int32_t length) {
+    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
+  }
+
+  Status Append(const std::string& value) {
+    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
+        static_cast<int32_t>(value.size())));
+  }
 };
 
 // ----------------------------------------------------------------------

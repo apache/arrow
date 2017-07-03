@@ -238,24 +238,6 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
-def test_table_pandas():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=('a', 'b'))
-
-    # TODO: Use this part once from_pandas is implemented
-    # data = {'a': range(5), 'b': [-10, -5, 0, 5, 10]}
-    # df = pd.DataFrame(data)
-    # pa.Table.from_pandas(df)
-
-    df = table.to_pandas()
-    assert set(df.columns) == set(('a', 'b'))
-    assert df.shape == (5, 2)
-    assert df.loc[0, 'b'] == -10
-
-
 def test_table_negative_indexing():
     data = [
         pa.array(range(5)),

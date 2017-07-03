@@ -616,6 +616,9 @@ elseif (NOT MSVC)
   set(ARROW_LINK_LIBS
     ${ARROW_LINK_LIBS}
     ${PTHREAD_LIBRARY})
+  set(ARROW_STATIC_LINK_LIBS
+    ${ARROW_STATIC_LINK_LIBS}
+    ${PTHREAD_LIBRARY})
 endif()
 
 ############################################################

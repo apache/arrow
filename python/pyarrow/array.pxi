@@ -996,6 +996,21 @@ cdef class FixedSizeBinaryValue(ArrayValue):
         return cp.PyBytes_FromStringAndSize(data, length)
 
 
+cdef class StructValue(ArrayValue):
+    def as_py(self):
+        cdef:
+            CStructArray* ap
+            vector[shared_ptr[CField]] child_fields = self.type.type.children()
+        ap = <CStructArray*> self.sp_array.get()
+        child_arrays = ap.fields()
+        wrapped_arrays = (pyarrow_wrap_array(child) for child in child_arrays)
+        child_names = (child.get().name() for child in child_fields)
+        # Return the struct as a dict
+        return {
+            frombytes(name): child_array[self.index].as_py()
+            for name, child_array in
+            zip(child_names, wrapped_arrays)
+        }
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,
@@ -1019,6 +1034,7 @@ cdef dict _scalar_classes = {
     _Type_STRING: StringValue,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,
     _Type_DECIMAL: DecimalValue,
+    _Type_STRUCT: StructValue,
 }
 
 cdef object box_scalar(DataType type, const shared_ptr[CArray]& sp_array,
@@ -1589,6 +1605,42 @@ cdef class DictionaryArray(Array):
         result.init(c_result)
         return result
 
+cdef class StructArray(Array):
+    @staticmethod
+    def from_arrays(field_names, arrays):
+        cdef:
+            Array array
+            shared_ptr[CArray] c_array
+            vector[shared_ptr[CArray]] c_arrays
+            shared_ptr[CArray] c_result
+            ssize_t num_arrays
+            ssize_t length
+            ssize_t i
+
+        num_arrays = len(arrays)
+        if num_arrays == 0:
+            raise ValueError("arrays list is empty")
+
+        length = len(arrays[0])
+
+        c_arrays.resize(num_arrays)
+        for i in range(num_arrays):
+            array = arrays[i]
+            if len(array) != length:
+                raise ValueError("All arrays must have the same length")
+            c_arrays[i] = array.sp_array
+
+        cdef DataType struct_type = struct([
+            field(name, array.type)
+            for name, array in
+            zip(field_names, arrays)
+        ])
+
+        c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
+        result = StructArray()
+        result.init(c_result)
+        return result
+
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,
@@ -1614,6 +1666,7 @@ cdef dict _array_classes = {
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL: DecimalArray,
+    _Type_STRUCT: StructArray,
 }
 
 

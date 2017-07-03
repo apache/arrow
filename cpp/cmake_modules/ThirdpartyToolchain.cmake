@@ -27,6 +27,7 @@ set(FLATBUFFERS_VERSION "1.7.1")
 set(JEMALLOC_VERSION "4.4.0")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
+set(LZ4_VERSION "1.7.5")
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -47,6 +48,7 @@ if (NOT "$ENV{ARROW_BUILD_TOOLCHAIN}" STREQUAL "")
   set(SNAPPY_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(ZLIB_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
   set(BROTLI_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
+  set(LZ4_HOME "$ENV{ARROW_BUILD_TOOLCHAIN}")
 
   if (NOT DEFINED ENV{BOOST_ROOT})
     # Since we have to set this in the environment, we check whether
@@ -81,6 +83,10 @@ endif()
 
 if (DEFINED ENV{BROTLI_HOME})
   set(BROTLI_HOME "$ENV{BROTLI_HOME}")
+endif()
+
+if (DEFINED ENV{LZ4_HOME})
+  set(LZ4_HOME "$ENV{LZ4_HOME}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -401,16 +407,16 @@ if (ARROW_JEMALLOC)
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
+        BUILD_COMMAND ${MAKE}
         BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
-        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
+        INSTALL_COMMAND ${MAKE} -j1 install)
     else()
       ExternalProject_Add(jemalloc_ep
         URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
         CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
         BUILD_IN_SOURCE 1
-        BUILD_COMMAND ${CMAKE_MAKE_PROGRAM}
-        INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} -j1 install)
+        BUILD_COMMAND ${MAKE}
+        INSTALL_COMMAND ${MAKE} -j1 install)
     endif()
   else()
     set(JEMALLOC_VENDORED 0)
@@ -636,4 +642,43 @@ if (BROTLI_VENDORED)
   add_dependencies(brotli_enc brotli_ep)
   add_dependencies(brotli_dec brotli_ep)
   add_dependencies(brotli_common brotli_ep)
+endif()
+
+# ----------------------------------------------------------------------
+# Lz4
+
+find_package(Lz4)
+if (NOT LZ4_FOUND)
+  set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
+  set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
+
+  if (MSVC)
+    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_Release/liblz4_static.lib")
+    set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+  else()
+    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
+    set(LZ4_BUILD_COMMAND BUILD_COMMAND make -j4)
+  endif()
+
+  ExternalProject_Add(lz4_ep
+      URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
+      UPDATE_COMMAND ""
+      PATCH_COMMAND ""
+      CONFIGURE_COMMAND ""
+      INSTALL_COMMAND ""
+      BINARY_DIR ${LZ4_BUILD_DIR}
+      ${LZ4_BUILD_COMMAND}
+      )
+
+  set(LZ4_VENDORED 1)
+else()
+  set(LZ4_VENDORED 0)
+endif()
+
+include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
+ADD_THIRDPARTY_LIB(lz4_static
+  STATIC_LIB ${LZ4_STATIC_LIB})
+
+if (LZ4_VENDORED)
+  add_dependencies(lz4_static lz4_ep)
 endif()
