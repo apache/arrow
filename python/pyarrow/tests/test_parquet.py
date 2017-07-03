@@ -848,7 +848,7 @@ def test_read_multiple_files(tmpdir):
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
 
-
+@parquet
 def test_multiindex_duplicate_values(tmpdir):
     num_rows = 3
     numbers = list(range(num_rows))
