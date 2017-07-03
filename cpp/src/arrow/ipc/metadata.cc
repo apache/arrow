@@ -798,7 +798,7 @@ int64_t DictionaryMemo::GetId(const std::shared_ptr<Array>& dictionary) {
     // Dictionary already observed, return the id
     return it->second;
   } else {
-    int64_t new_id = static_cast<int64_t>(dictionary_to_id_.size()) + 1;
+    int64_t new_id = static_cast<int64_t>(dictionary_to_id_.size());
     dictionary_to_id_[address] = new_id;
     id_to_dictionary_[new_id] = dictionary;
     return new_id;
