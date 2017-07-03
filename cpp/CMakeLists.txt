@@ -530,7 +530,8 @@ set(ARROW_STATIC_LINK_LIBS
   brotli_enc
   brotli_common
   snappy
-  zlib)
+  zlib
+  zstd_static)
 
 add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 

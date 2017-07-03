@@ -49,6 +49,14 @@ ADD scripts/build_snappy.sh /
 RUN /build_snappy.sh
 ENV SNAPPY_HOME /usr
 
+ADD scripts/build_lz4.sh /
+RUN /build_lz4.sh
+ENV LZ4_HOME /usr
+
+ADD scripts/build_zstd.sh /
+RUN /build_zstd.sh
+ENV ZSTD_HOME /usr
+
 ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
 
