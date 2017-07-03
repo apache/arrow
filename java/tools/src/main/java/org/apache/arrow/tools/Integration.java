@@ -189,13 +189,6 @@ public class Integration {
           LOGGER.debug("JSON schema: " + jsonSchema);
           Validator.compareSchemas(jsonSchema, arrowSchema);
 
-          // Validate Dictionaries
-          List<DictionaryEncoding> encodingsJson = new ArrayList<>();
-          extractDictionaryEncodings(jsonSchema.getFields(), encodingsJson);
-          List<DictionaryEncoding> encodingsArrow = new ArrayList<>();
-          extractDictionaryEncodings(arrowSchema.getFields(), encodingsArrow);
-          Validator.compareDictionaries(encodingsJson, encodingsArrow, jsonReader, arrowReader);
-
           List<ArrowBlock> recordBatches = arrowReader.getRecordBlocks();
           Iterator<ArrowBlock> iterator = recordBatches.iterator();
           VectorSchemaRoot jsonRoot;
@@ -209,6 +202,14 @@ public class Integration {
             jsonRoot.close();
             totalBatches++;
           }
+
+          // Validate Dictionaries after ArrowFileReader has read batches
+          List<DictionaryEncoding> encodingsJson = new ArrayList<>();
+          extractDictionaryEncodings(jsonSchema.getFields(), encodingsJson);
+          List<DictionaryEncoding> encodingsArrow = new ArrayList<>();
+          extractDictionaryEncodings(arrowSchema.getFields(), encodingsArrow);
+          Validator.compareDictionaries(encodingsJson, encodingsArrow, jsonReader, arrowReader);
+
           boolean hasMoreJSON = jsonRoot != null;
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {

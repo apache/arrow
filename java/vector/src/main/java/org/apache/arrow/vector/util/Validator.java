@@ -71,8 +71,10 @@ public class Validator {
         throw new IllegalArgumentException("The DictionaryProvider did not contain the required dictionary with id: " + id +"\n" + dict1 + "\n" + dict2);
       }
 
-      if (!dict1.equals(dict2)) {
-        throw new IllegalArgumentException("Different dictionaries:\n" + dict1 + "\n" + dict2);
+      try {
+        compareFieldVectors(dict1.getVector(), dict2.getVector());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("Different dictionaries:\n" + dict1 + "\n" + dict2, e);
       }
     }
   }
@@ -95,20 +97,32 @@ public class Validator {
       throw new IllegalArgumentException("Different column count:\n" + vectors1.toString() + "\n!=\n" + vectors2.toString());
     }
     for (int i = 0; i < vectors1.size(); i++) {
-      Field field = root1.getSchema().getFields().get(i);
-      FieldVector vector1 = vectors1.get(i);
-      FieldVector vector2 = vectors2.get(i);
-      int valueCount = vector1.getAccessor().getValueCount();
-      if (valueCount != vector2.getAccessor().getValueCount()) {
-        throw new IllegalArgumentException("Different value count for field " + field + " : " + valueCount + " != " + vector2.getAccessor().getValueCount());
-      }
-      for (int j = 0; j < valueCount; j++) {
-        Object obj1 = vector1.getAccessor().getObject(j);
-        Object obj2 = vector2.getAccessor().getObject(j);
-        if (!equals(field.getType(), obj1, obj2)) {
-          throw new IllegalArgumentException(
-              "Different values in column:\n" + field + " at index " + j + ": " + obj1 + " != " + obj2);
-        }
+      compareFieldVectors(vectors1.get(i), vectors2.get(i));
+    }
+  }
+
+  /**
+   * Validate two arrow FieldVectors are equal.
+   *
+   * @param vector1 the 1st VectorField to compare
+   * @param vector2 the 2nd VectorField to compare
+   * @throws IllegalArgumentException if they are different
+   */
+  public static void compareFieldVectors(FieldVector vector1, FieldVector vector2) {
+    Field field1 = vector1.getField();
+    if (!field1.equals(vector2.getField())) {
+      throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" + vector2.getField());
+    }
+    int valueCount = vector1.getAccessor().getValueCount();
+    if (valueCount != vector2.getAccessor().getValueCount()) {
+      throw new IllegalArgumentException("Different value count for field " + field1 + " : " + valueCount + " != " + vector2.getAccessor().getValueCount());
+    }
+    for (int j = 0; j < valueCount; j++) {
+      Object obj1 = vector1.getAccessor().getObject(j);
+      Object obj2 = vector2.getAccessor().getObject(j);
+      if (!equals(field1.getType(), obj1, obj2)) {
+        throw new IllegalArgumentException(
+            "Different values in column:\n" + field1 + " at index " + j + ": " + obj1 + " != " + obj2);
       }
     }
   }
