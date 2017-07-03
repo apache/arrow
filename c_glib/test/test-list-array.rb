@@ -22,7 +22,7 @@ class TestListArray < Test::Unit::TestCase
     value_offsets = Arrow::Buffer.new([0, 2, 5, 5].pack("l*"))
     data = Arrow::Buffer.new([1, 2, 3, 4, 5].pack("c*"))
     values = Arrow::Int8Array.new(5, data, nil, 0)
-    assert_equal(build_list_array(Arrow::Int8ArrayBuilder,
+    assert_equal(build_list_array(Arrow::Int8DataType.new,
                                   [[1, 2], [3, 4, 5], nil]),
                  Arrow::ListArray.new(3,
                                       value_offsets,
@@ -32,7 +32,9 @@ class TestListArray < Test::Unit::TestCase
   end
 
   def test_value
-    builder = Arrow::ListArrayBuilder.new(Arrow::Int8ArrayBuilder.new)
+    field = Arrow::Field.new("value", Arrow::Int8DataType.new)
+    data_type = Arrow::ListDataType.new(field)
+    builder = Arrow::ListArrayBuilder.new(data_type)
     value_builder = builder.value_builder
 
     builder.append
@@ -51,7 +53,9 @@ class TestListArray < Test::Unit::TestCase
   end
 
   def test_value_type
-    builder = Arrow::ListArrayBuilder.new(Arrow::Int8ArrayBuilder.new)
+    field = Arrow::Field.new("value", Arrow::Int8DataType.new)
+    data_type = Arrow::ListDataType.new(field)
+    builder = Arrow::ListArrayBuilder.new(data_type)
     array = builder.finish
     assert_equal(Arrow::Int8DataType.new, array.value_type)
   end

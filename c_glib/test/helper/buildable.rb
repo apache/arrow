@@ -69,9 +69,11 @@ module Helper
       build_array(Arrow::StringArrayBuilder, values)
     end
 
-    def build_list_array(value_builder_class, values_list)
-      value_builder = value_builder_class.new
-      builder = Arrow::ListArrayBuilder.new(value_builder)
+    def build_list_array(value_data_type, values_list)
+      value_field = Arrow::Field.new("value", value_data_type)
+      data_type = Arrow::ListDataType.new(value_field)
+      builder = Arrow::ListArrayBuilder.new(data_type)
+      value_builder = builder.value_builder
       values_list.each do |values|
         if values.nil?
           builder.append_null
@@ -90,13 +92,8 @@ module Helper
     end
 
     def build_struct_array(fields, structs)
-      field_builders = fields.collect do |field|
-        data_type_name = field.data_type.class.name
-        builder_name = data_type_name.gsub(/DataType/, "ArrayBuilder")
-        Arrow.const_get(builder_name).new
-      end
       data_type = Arrow::StructDataType.new(fields)
-      builder = Arrow::StructArrayBuilder.new(data_type, field_builders)
+      builder = Arrow::StructArrayBuilder.new(data_type)
       structs.each do |struct|
         if struct.nil?
           builder.append_null
