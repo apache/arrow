@@ -622,17 +622,46 @@ def binary(int length=-1):
     return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
-def list_(DataType value_type):
-    cdef DataType out = DataType()
+def list_(value_type):
+    """
+    Create ListType instance from child data type or field
+
+    Parameters
+    ----------
+    value_type : DataType or Field
+
+    Returns
+    -------
+    list_type : DataType
+    """
+    cdef:
+        DataType data_type
+        Field field
+
     cdef shared_ptr[CDataType] list_type
-    list_type.reset(new CListType(value_type.sp_type))
-    out.init(list_type)
-    return out
+
+    if isinstance(value_type, DataType):
+        list_type.reset(new CListType((<DataType> value_type).sp_type))
+    elif isinstance(value_type, Field):
+        list_type.reset(new CListType((<Field> value_type).sp_field))
+    else:
+        raise ValueError('List requires DataType or Field')
+
+    return pyarrow_wrap_data_type(list_type)
 
 
 def dictionary(DataType index_type, Array dictionary):
     """
     Dictionary (categorical, or simply encoded) type
+
+    Parameters
+    ----------
+    index_type : DataType
+    dictionary : Array
+
+    Returns
+    -------
+    type : DictionaryType
     """
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
@@ -644,10 +673,26 @@ def dictionary(DataType index_type, Array dictionary):
 
 def struct(fields):
     """
+    Create StructType instance from fields
 
+    Parameters
+    ----------
+    fields : sequence of Field values
+
+    Examples
+    --------
+    import pyarrow as pa
+    fields = [
+        pa.field('f1', pa.int32()),
+        pa.field('f2', pa.string())
+    ]
+    struct_type = pa.struct(fields)
+
+    Returns
+    -------
+    type : DataType
     """
     cdef:
-        DataType out = DataType()
         Field field
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
@@ -656,8 +701,7 @@ def struct(fields):
         c_fields.push_back(field.sp_field)
 
     struct_type.reset(new CStructType(c_fields))
-    out.init(struct_type)
-    return out
+    return pyarrow_wrap_data_type(struct_type)
 
 
 def schema(fields):
