@@ -581,6 +581,8 @@ class DictionaryType(DataType):
         return self.index_type._get_type_layout()
 
     def generate_column(self, size, name=None):
+        if name is None:
+            name = self.name
         return self.index_type.generate_range(size, 0, len(self.dictionary),
                                               name=name)
 

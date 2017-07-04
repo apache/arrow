@@ -26,8 +26,12 @@ import static org.apache.arrow.vector.schema.ArrowVectorType.OFFSET;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -62,9 +66,12 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
@@ -74,11 +81,13 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Objects;
 
-public class JsonFileReader implements AutoCloseable {
+public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final File inputFile;
   private final JsonParser parser;
   private final BufferAllocator allocator;
   private Schema schema;
+  private Map<Long, Dictionary> dictionaries;
+  private Boolean started = false;
 
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
@@ -88,13 +97,68 @@ public class JsonFileReader implements AutoCloseable {
     this.parser = jsonFactory.createParser(inputFile);
   }
 
+  @Override
+  public Dictionary lookup(long id) {
+    if (!started) {
+      throw new IllegalStateException("Unable to lookup until after read() has started");
+    }
+
+    return dictionaries.get(id);
+  }
+
   public Schema start() throws JsonParseException, IOException {
     readToken(START_OBJECT);
     {
-      this.schema = readNextField("schema", Schema.class);
+      Schema originalSchema = readNextField("schema", Schema.class);
+      List<Field> fields = new ArrayList<>();
+      dictionaries = new HashMap<>();
+
+      // Convert fields with dictionaries to have the index type
+      for (Field field: originalSchema.getFields()) {
+        fields.add(DictionaryUtility.toMemoryFormat(field, allocator, dictionaries));
+      }
+      this.schema = new Schema(fields, originalSchema.getCustomMetadata());
+
+      if (!dictionaries.isEmpty()) {
+        nextFieldIs("dictionaries");
+        readDictionaryBatches();
+      }
+
       nextFieldIs("batches");
       readToken(START_ARRAY);
-      return schema;
+      started = true;
+      return this.schema;
+    }
+  }
+
+  private void readDictionaryBatches() throws JsonParseException, IOException {
+    readToken(START_ARRAY);
+    JsonToken token = parser.nextToken();
+    boolean haveDictionaryBatch = token == START_OBJECT;
+    while (haveDictionaryBatch) {
+
+      // Lookup what dictionary for the batch about to be read
+      long id = readNextField("id", Long.class);
+      Dictionary dict = dictionaries.get(id);
+      if (dict == null) {
+        throw new IllegalArgumentException("Dictionary with id: " + id + " missing encoding from schema Field");
+      }
+
+      // Read the dictionary record batch
+      nextFieldIs("data");
+      FieldVector vector = dict.getVector();
+      List<Field> fields = ImmutableList.of(vector.getField());
+      List<FieldVector> vectors = ImmutableList.of(vector);
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getAccessor().getValueCount());
+      read(root);
+
+      readToken(END_OBJECT);
+      token = parser.nextToken();
+      haveDictionaryBatch = token == START_OBJECT;
+    }
+
+    if (token != END_ARRAY) {
+      throw new IllegalArgumentException("Invalid token: " + token + " expected end of array at " + parser.getTokenLocation());
     }
   }
 
@@ -107,7 +171,7 @@ public class JsonFileReader implements AutoCloseable {
         nextFieldIs("columns");
         readToken(START_ARRAY);
         {
-          for (Field field : schema.getFields()) {
+          for (Field field : root.getSchema().getFields()) {
             FieldVector vector = root.getVector(field.getName());
             readVector(field, vector);
           }
@@ -158,8 +222,9 @@ public class JsonFileReader implements AutoCloseable {
     }
     readToken(START_OBJECT);
     {
+      // If currently reading dictionaries, field name is not important so don't check
       String name = readNextField("name", String.class);
-      if (!Objects.equal(field.getName(), name)) {
+      if (started && !Objects.equal(field.getName(), name)) {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
       int count = readNextField("count", Integer.class);
@@ -302,6 +367,9 @@ public class JsonFileReader implements AutoCloseable {
   @Override
   public void close() throws IOException {
     parser.close();
+    for (Dictionary dictionary: dictionaries.values()) {
+      dictionary.getVector().close();
+    }
   }
 
   private <T> T readNextField(String expectedFieldName, Class<T> c) throws IOException, JsonParseException {
