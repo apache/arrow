@@ -17,18 +17,25 @@
  */
 package org.apache.arrow.vector.file;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableDateMilliVector;
+import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTimeMilliVector;
+import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
@@ -39,8 +46,17 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
+import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.util.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import org.junit.After;
@@ -50,6 +66,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
+
+import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 
 /**
  * Helps testing the file formats
@@ -191,6 +209,226 @@ public class BaseFileTest {
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getAccessor().getObject(i);
       Assert.assertEquals(DateUtility.toMillis(dt), timestampMilliTZVal);
     }
+  }
+
+  protected VectorSchemaRoot writeFlatDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
+
+    // Define dictionaries and add to provider
+    NullableVarCharVector dictionary1Vector = newNullableVarCharVector("D1", bufferAllocator);
+    dictionary1Vector.allocateNewSafe();
+    NullableVarCharVector.Mutator mutator = dictionary1Vector.getMutator();
+    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(3);
+
+    Dictionary dictionary1 = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
+    provider.put(dictionary1);
+
+    NullableVarCharVector dictionary2Vector = newNullableVarCharVector("D2", bufferAllocator);
+    dictionary2Vector.allocateNewSafe();
+    mutator = dictionary2Vector.getMutator();
+    mutator.set(0, "micro".getBytes(StandardCharsets.UTF_8));
+    mutator.set(1, "small".getBytes(StandardCharsets.UTF_8));
+    mutator.set(2, "large".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(3);
+
+    Dictionary dictionary2 = new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
+    provider.put(dictionary2);
+
+    // Populate the vectors
+    NullableVarCharVector vector1A = newNullableVarCharVector("varcharA", bufferAllocator);
+    vector1A.allocateNewSafe();
+    mutator = vector1A.getMutator();
+    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
+    mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(6);
+
+    FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector1A, dictionary1);
+    vector1A.close();  // Done with this vector after encoding
+
+    // Write this vector using indices instead of encoding
+    NullableIntVector encodedVector1B = new NullableIntVector("varcharB", bufferAllocator);
+    encodedVector1B.allocateNewSafe();
+    NullableIntVector.Mutator mutator1B = encodedVector1B.getMutator();
+    mutator1B.set(0, 2);  // "baz"
+    mutator1B.set(1, 1);  // "bar"
+    mutator1B.set(2, 2);  // "baz"
+    mutator1B.set(4, 1);  // "bar"
+    mutator1B.set(5, 0);  // "foo"
+    mutator1B.setValueCount(6);
+
+    NullableVarCharVector vector2 = newNullableVarCharVector("sizes", bufferAllocator);
+    vector2.allocateNewSafe();
+    mutator = vector2.getMutator();
+    mutator.set(1, "large".getBytes(StandardCharsets.UTF_8));
+    mutator.set(2, "small".getBytes(StandardCharsets.UTF_8));
+    mutator.set(3, "small".getBytes(StandardCharsets.UTF_8));
+    mutator.set(4, "large".getBytes(StandardCharsets.UTF_8));
+    mutator.setValueCount(6);
+
+    FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
+    vector2.close();  // Done with this vector after encoding
+
+    List<Field> fields = ImmutableList.of(encodedVector1A.getField(), encodedVector1B.getField(), encodedVector2.getField());
+    List<FieldVector> vectors = ImmutableList.of(encodedVector1A, encodedVector1B, encodedVector2);
+
+    return new VectorSchemaRoot(fields, vectors, encodedVector1A.getAccessor().getValueCount());
+  }
+
+  protected void validateFlatDictionary(VectorSchemaRoot root, DictionaryProvider provider) {
+    FieldVector vector1A = root.getVector("varcharA");
+    Assert.assertNotNull(vector1A);
+
+    DictionaryEncoding encoding1A = vector1A.getField().getDictionary();
+    Assert.assertNotNull(encoding1A);
+    Assert.assertEquals(1L, encoding1A.getId());
+
+    FieldVector.Accessor accessor = vector1A.getAccessor();
+    Assert.assertEquals(6, accessor.getValueCount());
+    Assert.assertEquals(0, accessor.getObject(0));
+    Assert.assertEquals(1, accessor.getObject(1));
+    Assert.assertEquals(null, accessor.getObject(2));
+    Assert.assertEquals(2, accessor.getObject(3));
+    Assert.assertEquals(1, accessor.getObject(4));
+    Assert.assertEquals(2, accessor.getObject(5));
+
+    FieldVector vector1B = root.getVector("varcharB");
+    Assert.assertNotNull(vector1B);
+
+    DictionaryEncoding encoding1B = vector1A.getField().getDictionary();
+    Assert.assertNotNull(encoding1B);
+    Assert.assertTrue(encoding1A.equals(encoding1B));
+    Assert.assertEquals(1L, encoding1B.getId());
+
+    accessor = vector1B.getAccessor();
+    Assert.assertEquals(6, accessor.getValueCount());
+    Assert.assertEquals(2, accessor.getObject(0));
+    Assert.assertEquals(1, accessor.getObject(1));
+    Assert.assertEquals(2, accessor.getObject(2));
+    Assert.assertEquals(null, accessor.getObject(3));
+    Assert.assertEquals(1, accessor.getObject(4));
+    Assert.assertEquals(0, accessor.getObject(5));
+
+
+    FieldVector vector2 = root.getVector("sizes");
+    Assert.assertNotNull(vector2);
+
+    DictionaryEncoding encoding2 = vector2.getField().getDictionary();
+    Assert.assertNotNull(encoding2);
+    Assert.assertEquals(2L, encoding2.getId());
+
+    accessor = vector2.getAccessor();
+    Assert.assertEquals(6, accessor.getValueCount());
+    Assert.assertEquals(null, accessor.getObject(0));
+    Assert.assertEquals(2, accessor.getObject(1));
+    Assert.assertEquals(1, accessor.getObject(2));
+    Assert.assertEquals(1, accessor.getObject(3));
+    Assert.assertEquals(2, accessor.getObject(4));
+    Assert.assertEquals(null, accessor.getObject(5));
+
+    Dictionary dictionary1 = provider.lookup(1L);
+    Assert.assertNotNull(dictionary1);
+    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary1.getVector()).getAccessor();
+    Assert.assertEquals(3, dictionaryAccessor.getValueCount());
+    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
+    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+    Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
+
+    Dictionary dictionary2 = provider.lookup(2L);
+    Assert.assertNotNull(dictionary2);
+    dictionaryAccessor = ((NullableVarCharVector) dictionary2.getVector()).getAccessor();
+    Assert.assertEquals(3, dictionaryAccessor.getValueCount());
+    Assert.assertEquals(new Text("micro"), dictionaryAccessor.getObject(0));
+    Assert.assertEquals(new Text("small"), dictionaryAccessor.getObject(1));
+    Assert.assertEquals(new Text("large"), dictionaryAccessor.getObject(2));
+  }
+
+  protected VectorSchemaRoot writeNestedDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
+
+    // Define the dictionary and add to the provider
+    NullableVarCharVector dictionaryVector = newNullableVarCharVector("D2", bufferAllocator);
+    dictionaryVector.allocateNewSafe();
+    dictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.getMutator().setValueCount(2);
+
+    Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(2L, false, null));
+    provider.put(dictionary);
+
+    // Write the vector data using dictionary indices
+    ListVector listVector = ListVector.empty("list", bufferAllocator);
+    DictionaryEncoding encoding = dictionary.getEncoding();
+    listVector.addOrGetVector(new FieldType(true, encoding.getIndexType(), encoding));
+    listVector.allocateNew();
+    UnionListWriter listWriter = new UnionListWriter(listVector);
+    listWriter.startList();
+    listWriter.writeInt(0);
+    listWriter.writeInt(1);
+    listWriter.endList();
+    listWriter.startList();
+    listWriter.writeInt(0);
+    listWriter.endList();
+    listWriter.startList();
+    listWriter.writeInt(1);
+    listWriter.endList();
+    listWriter.setValueCount(3);
+
+    List<Field> fields = ImmutableList.of(listVector.getField());
+    List<FieldVector> vectors = ImmutableList.<FieldVector>of(listVector);
+    return new VectorSchemaRoot(fields, vectors, 3);
+  }
+
+  protected void validateNestedDictionary(VectorSchemaRoot root, DictionaryProvider provider) {
+    FieldVector vector = root.getFieldVectors().get(0);
+    Assert.assertNotNull(vector);
+    Assert.assertNull(vector.getField().getDictionary());
+    Field nestedField = vector.getField().getChildren().get(0);
+
+    DictionaryEncoding encoding = nestedField.getDictionary();
+    Assert.assertNotNull(encoding);
+    Assert.assertEquals(2L, encoding.getId());
+    Assert.assertEquals(new ArrowType.Int(32, true), encoding.getIndexType());
+
+    FieldVector.Accessor accessor = vector.getAccessor();
+    Assert.assertEquals(3, accessor.getValueCount());
+    Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
+    Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
+    Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+
+    Dictionary dictionary = provider.lookup(2L);
+    Assert.assertNotNull(dictionary);
+    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
+    Assert.assertEquals(2, dictionaryAccessor.getValueCount());
+    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
+    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+  }
+
+  protected void validateNestedDictionary(ListVector vector, DictionaryProvider provider) {
+    Assert.assertNotNull(vector);
+    Assert.assertNull(vector.getField().getDictionary());
+    Field nestedField = vector.getField().getChildren().get(0);
+
+    DictionaryEncoding encoding = nestedField.getDictionary();
+    Assert.assertNotNull(encoding);
+    Assert.assertEquals(2L, encoding.getId());
+    Assert.assertEquals(new ArrowType.Int(32, true), encoding.getIndexType());
+
+    ListVector.Accessor accessor = vector.getAccessor();
+    Assert.assertEquals(3, accessor.getValueCount());
+    Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
+    Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
+    Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+
+    Dictionary dictionary = provider.lookup(2L);
+    Assert.assertNotNull(dictionary);
+    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
+    Assert.assertEquals(2, dictionaryAccessor.getValueCount());
+    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
+    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
   }
 
   protected void writeData(int count, MapVector parent) {

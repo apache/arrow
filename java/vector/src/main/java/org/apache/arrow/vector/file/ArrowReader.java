@@ -36,12 +36,9 @@ import org.apache.arrow.vector.schema.ArrowDictionaryBatch;
 import org.apache.arrow.vector.schema.ArrowMessage;
 import org.apache.arrow.vector.schema.ArrowMessage.ArrowMessageVisitor;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 
 public abstract class ArrowReader<T extends ReadChannel> implements DictionaryProvider, AutoCloseable {
 
@@ -83,11 +80,11 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
 
   @Override
   public Dictionary lookup(long id) {
-    if (initialized) {
-      return dictionaries.get(id);
-    } else {
-      return null;
+    if (!initialized) {
+      throw new IllegalStateException("Unable to lookup until reader has been initialized");
     }
+
+    return dictionaries.get(id);
   }
 
   // Returns true if a batch was read, false on EOS
@@ -155,8 +152,9 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     List<FieldVector> vectors = new ArrayList<>();
     Map<Long, Dictionary> dictionaries = new HashMap<>();
 
+    // Convert fields with dictionaries to have the index type
     for (Field field: originalSchema.getFields()) {
-      Field updated = toMemoryFormat(field, dictionaries);
+      Field updated = DictionaryUtility.toMemoryFormat(field, allocator, dictionaries);
       fields.add(updated);
       vectors.add(updated.createVector(allocator));
     }
@@ -165,42 +163,6 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new VectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
-  }
-
-  // in the message format, fields have the dictionary type
-  // in the memory format, they have the index type
-  private Field toMemoryFormat(Field field, Map<Long, Dictionary> dictionaries) {
-    DictionaryEncoding encoding = field.getDictionary();
-    List<Field> children = field.getChildren();
-
-    if (encoding == null && children.isEmpty()) {
-      return field;
-    }
-
-    List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child: children) {
-      updatedChildren.add(toMemoryFormat(child, dictionaries));
-    }
-
-    ArrowType type;
-    if (encoding == null) {
-      type = field.getType();
-    } else {
-      // re-type the field for in-memory format
-      type = encoding.getIndexType();
-      if (type == null) {
-        type = new Int(32, true);
-      }
-      // get existing or create dictionary vector
-      if (!dictionaries.containsKey(encoding.getId())) {
-        // create a new dictionary vector for the values
-        Field dictionaryField = new Field(field.getName(), new FieldType(field.isNullable(), field.getType(), null, null), children);
-        FieldVector dictionaryVector = dictionaryField.createVector(allocator);
-        dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
-      }
-    }
-
-    return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()), updatedChildren);
   }
 
   private void load(ArrowDictionaryBatch dictionaryBatch) {

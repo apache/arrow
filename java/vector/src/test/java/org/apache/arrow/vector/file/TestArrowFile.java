@@ -17,8 +17,6 @@
  */
 package org.apache.arrow.vector.file;
 
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -26,9 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,16 +38,10 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableFloat4Vector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTinyIntVector;
-import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
-import org.apache.arrow.vector.dictionary.Dictionary;
-import org.apache.arrow.vector.dictionary.DictionaryEncoder;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowBuffer;
 import org.apache.arrow.vector.schema.ArrowMessage;
@@ -64,11 +54,9 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.Text;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -469,142 +457,11 @@ public class TestArrowFile extends BaseFileTest {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
     // write
-    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         NullableVarCharVector vector = newNullableVarCharVector("varchar", originalVectorAllocator);
-         NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", originalVectorAllocator)) {
-      vector.allocateNewSafe();
-      NullableVarCharVector.Mutator mutator = vector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(6);
+    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
 
-      dictionaryVector.allocateNewSafe();
-      mutator = dictionaryVector.getMutator();
-      mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      mutator.setValueCount(3);
-
-      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       MapDictionaryProvider provider = new MapDictionaryProvider();
-      provider.put(dictionary);
 
-      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
-
-      List<Field> fields = ImmutableList.of(encodedVector.getField());
-      List<FieldVector> vectors = ImmutableList.of(encodedVector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
-
-      try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-           ArrowFileWriter fileWriter = new ArrowFileWriter(root, provider, fileOutputStream.getChannel());
-           ArrowStreamWriter streamWriter = new ArrowStreamWriter(root, provider, stream)) {
-        LOGGER.debug("writing schema: " + root.getSchema());
-        fileWriter.start();
-        streamWriter.start();
-        fileWriter.writeBatch();
-        streamWriter.writeBatch();
-        fileWriter.end();
-        streamWriter.end();
-      }
-
-      dictionaryVector.close();
-      encodedVector.close();
-    }
-
-    // read from file
-    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-         FileInputStream fileInputStream = new FileInputStream(file);
-         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
-      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
-      Schema schema = root.getSchema();
-      LOGGER.debug("reading schema: " + schema);
-      Assert.assertTrue(arrowReader.loadNextBatch());
-      validateFlatDictionary(root.getFieldVectors().get(0), arrowReader);
-    }
-
-    // Read from stream
-    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-         ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
-         ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator)) {
-      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
-      Schema schema = root.getSchema();
-      LOGGER.debug("reading schema: " + schema);
-      Assert.assertTrue(arrowReader.loadNextBatch());
-      validateFlatDictionary(root.getFieldVectors().get(0), arrowReader);
-    }
-  }
-
-  private void validateFlatDictionary(FieldVector vector, DictionaryProvider provider) {
-    Assert.assertNotNull(vector);
-
-    DictionaryEncoding encoding = vector.getField().getDictionary();
-    Assert.assertNotNull(encoding);
-    Assert.assertEquals(1L, encoding.getId());
-
-    FieldVector.Accessor accessor = vector.getAccessor();
-    Assert.assertEquals(6, accessor.getValueCount());
-    Assert.assertEquals(0, accessor.getObject(0));
-    Assert.assertEquals(1, accessor.getObject(1));
-    Assert.assertEquals(null, accessor.getObject(2));
-    Assert.assertEquals(2, accessor.getObject(3));
-    Assert.assertEquals(1, accessor.getObject(4));
-    Assert.assertEquals(2, accessor.getObject(5));
-
-    Dictionary dictionary = provider.lookup(1L);
-    Assert.assertNotNull(dictionary);
-    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
-    Assert.assertEquals(3, dictionaryAccessor.getValueCount());
-    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
-    Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
-  }
-
-  @Test
-  public void testWriteReadNestedDictionary() throws IOException {
-    File file = new File("target/mytest_dict_nested.arrow");
-    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-
-    DictionaryEncoding encoding = new DictionaryEncoding(2L, false, null);
-
-    // data being written:
-    // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
-
-    // write
-    try (NullableVarCharVector dictionaryVector = newNullableVarCharVector("dictionary", allocator);
-         ListVector listVector = ListVector.empty("list", allocator)) {
-
-      Dictionary dictionary = new Dictionary(dictionaryVector, encoding);
-      MapDictionaryProvider provider = new MapDictionaryProvider();
-      provider.put(dictionary);
-
-      dictionaryVector.allocateNew();
-      dictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      dictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      dictionaryVector.getMutator().setValueCount(2);
-
-      listVector.addOrGetVector(new FieldType(true, new Int(32, true), encoding));
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      listWriter.startList();
-      listWriter.writeInt(0);
-      listWriter.writeInt(1);
-      listWriter.endList();
-      listWriter.startList();
-      listWriter.writeInt(0);
-      listWriter.endList();
-      listWriter.startList();
-      listWriter.writeInt(1);
-      listWriter.endList();
-      listWriter.setValueCount(3);
-
-      List<Field> fields = ImmutableList.of(listVector.getField());
-      List<FieldVector> vectors = ImmutableList.<FieldVector>of(listVector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 3);
-
-      try (
+      try (VectorSchemaRoot root = writeFlatDictionaryData(originalVectorAllocator, provider);
            FileOutputStream fileOutputStream = new FileOutputStream(file);
            ArrowFileWriter fileWriter = new ArrowFileWriter(root, provider, fileOutputStream.getChannel());
            ArrowStreamWriter streamWriter = new ArrowStreamWriter(root, provider, stream)) {
@@ -616,6 +473,11 @@ public class TestArrowFile extends BaseFileTest {
         fileWriter.end();
         streamWriter.end();
       }
+
+      // Need to close dictionary vectors
+      for (long id: provider.getDictionaryIds()) {
+        provider.lookup(id).getVector().close();
+      }
     }
 
     // read from file
@@ -626,7 +488,7 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
       Assert.assertTrue(arrowReader.loadNextBatch());
-      validateNestedDictionary((ListVector) root.getFieldVectors().get(0), arrowReader);
+      validateFlatDictionary(root, arrowReader);
     }
 
     // Read from stream
@@ -637,32 +499,67 @@ public class TestArrowFile extends BaseFileTest {
       Schema schema = root.getSchema();
       LOGGER.debug("reading schema: " + schema);
       Assert.assertTrue(arrowReader.loadNextBatch());
-      validateNestedDictionary((ListVector) root.getFieldVectors().get(0), arrowReader);
+      validateFlatDictionary(root, arrowReader);
     }
   }
 
-  private void validateNestedDictionary(ListVector vector, DictionaryProvider provider) {
-    Assert.assertNotNull(vector);
-    Assert.assertNull(vector.getField().getDictionary());
-    Field nestedField = vector.getField().getChildren().get(0);
+  @Test
+  public void testWriteReadNestedDictionary() throws IOException {
+    File file = new File("target/mytest_dict_nested.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-    DictionaryEncoding encoding = nestedField.getDictionary();
-    Assert.assertNotNull(encoding);
-    Assert.assertEquals(2L, encoding.getId());
-    Assert.assertEquals(new Int(32, true), encoding.getIndexType());
+    // data being written:
+    // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
 
-    ListVector.Accessor accessor = vector.getAccessor();
-    Assert.assertEquals(3, accessor.getValueCount());
-    Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
-    Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
-    Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+      MapDictionaryProvider provider = new MapDictionaryProvider();
 
-    Dictionary dictionary = provider.lookup(2L);
-    Assert.assertNotNull(dictionary);
-    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
-    Assert.assertEquals(2, dictionaryAccessor.getValueCount());
-    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+      try (VectorSchemaRoot root = writeNestedDictionaryData(vectorAllocator, provider);
+           FileOutputStream fileOutputStream = new FileOutputStream(file);
+           ArrowFileWriter fileWriter = new ArrowFileWriter(root, provider, fileOutputStream.getChannel());
+           ArrowStreamWriter streamWriter = new ArrowStreamWriter(root, provider, stream)) {
+
+        validateNestedDictionary(root, provider);
+
+        LOGGER.debug("writing schema: " + root.getSchema());
+        fileWriter.start();
+        streamWriter.start();
+        fileWriter.writeBatch();
+        streamWriter.writeBatch();
+        fileWriter.end();
+        streamWriter.end();
+      }
+
+      // Need to close dictionary vectors
+      for (long id: provider.getDictionaryIds()) {
+        provider.lookup(id).getVector().close();
+      }
+    }
+
+    // read from file
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+         FileInputStream fileInputStream = new FileInputStream(file);
+         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
+      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+      Schema schema = root.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+      Assert.assertTrue(arrowReader.loadNextBatch());
+      validateNestedDictionary(root, arrowReader);
+    }
+
+    // Read from stream
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+         ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+         ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator)) {
+      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+      Schema schema = root.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+      Assert.assertTrue(arrowReader.loadNextBatch());
+      validateNestedDictionary(root, arrowReader);
+    }
   }
 
   @Test

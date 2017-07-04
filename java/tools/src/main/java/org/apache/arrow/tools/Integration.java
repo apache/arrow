@@ -27,6 +27,8 @@ import org.apache.arrow.vector.file.ArrowFileReader;
 import org.apache.arrow.vector.file.ArrowFileWriter;
 import org.apache.arrow.vector.file.json.JsonFileReader;
 import org.apache.arrow.vector.file.json.JsonFileWriter;
+import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
 import org.apache.commons.cli.CommandLine;
@@ -41,6 +43,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -90,10 +93,20 @@ public class Integration {
     return f;
   }
 
+  static void extractDictionaryEncodings(List<Field> fields, List<DictionaryEncoding> encodings) {
+    for (Field field: fields) {
+      DictionaryEncoding encoding = field.getDictionary();
+      if (encoding != null) {
+        encodings.add(encoding);
+      }
+
+      extractDictionaryEncodings(field.getChildren(), encodings);
+    }
+  }
+
   void run(String[] args) throws ParseException, IOException {
     CommandLineParser parser = new PosixParser();
     CommandLine cmd = parser.parse(options, args, false);
-
 
     Command command = toCommand(cmd.getOptionValue("command"));
     File arrowFile = validateFile("arrow", cmd.getOptionValue("arrow"), command.arrowExists);
@@ -124,7 +137,7 @@ public class Integration {
           LOGGER.debug("Found schema: " + schema);
           try (JsonFileWriter writer = new JsonFileWriter(jsonFile, JsonFileWriter.config()
               .pretty(true))) {
-            writer.start(schema);
+            writer.start(schema, arrowReader);
             for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
               if (!arrowReader.loadRecordBatch(rbBlock)) {
                 throw new IOException("Expected to load record batch");
@@ -147,7 +160,7 @@ public class Integration {
           try (FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
                VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
                // TODO json dictionaries
-               ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream
+               ArrowFileWriter arrowWriter = new ArrowFileWriter(root, reader, fileOutputStream
                    .getChannel())) {
             arrowWriter.start();
             while (reader.read(root)) {
@@ -189,6 +202,14 @@ public class Integration {
             jsonRoot.close();
             totalBatches++;
           }
+
+          // Validate Dictionaries after ArrowFileReader has read batches
+          List<DictionaryEncoding> encodingsJson = new ArrayList<>();
+          extractDictionaryEncodings(jsonSchema.getFields(), encodingsJson);
+          List<DictionaryEncoding> encodingsArrow = new ArrayList<>();
+          extractDictionaryEncodings(arrowSchema.getFields(), encodingsArrow);
+          Validator.compareDictionaries(encodingsJson, encodingsArrow, jsonReader, arrowReader);
+
           boolean hasMoreJSON = jsonRoot != null;
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {

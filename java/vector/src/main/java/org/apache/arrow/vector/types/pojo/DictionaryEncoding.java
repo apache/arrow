@@ -20,6 +20,9 @@ package org.apache.arrow.vector.types.pojo;
 
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class DictionaryEncoding {
@@ -28,7 +31,11 @@ public class DictionaryEncoding {
   private final boolean ordered;
   private final Int indexType;
 
-  public DictionaryEncoding(long id, boolean ordered, Int indexType) {
+  @JsonCreator
+  public DictionaryEncoding(
+      @JsonProperty("id") long id,
+      @JsonProperty("isOrdered") boolean ordered,
+      @JsonProperty("indexType") Int indexType) {
     this.id = id;
     this.ordered = ordered;
     this.indexType = indexType == null ? new Int(32, true) : indexType;
@@ -38,6 +45,7 @@ public class DictionaryEncoding {
     return id;
   }
 
+  @JsonGetter("isOrdered")
   public boolean isOrdered() {
     return ordered;
   }
