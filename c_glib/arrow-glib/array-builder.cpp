@@ -85,7 +85,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GArrowArrayBuilderPrivate_ {
-  std::shared_ptr<arrow::ArrayBuilder> array_builder;
+  arrow::ArrayBuilder *array_builder;
 } GArrowArrayBuilderPrivate;
 
 enum {
@@ -109,7 +109,7 @@ garrow_array_builder_finalize(GObject *object)
 
   priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
 
-  priv->array_builder = nullptr;
+  delete priv->array_builder;
 
   G_OBJECT_CLASS(garrow_array_builder_parent_class)->finalize(object);
 }
@@ -127,7 +127,7 @@ garrow_array_builder_set_property(GObject *object,
   switch (prop_id) {
   case PROP_ARRAY_BUILDER:
     priv->array_builder =
-      *static_cast<std::shared_ptr<arrow::ArrayBuilder> *>(g_value_get_pointer(value));
+      static_cast<arrow::ArrayBuilder *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -167,11 +167,25 @@ garrow_array_builder_class_init(GArrowArrayBuilderClass *klass)
 
   spec = g_param_spec_pointer("array-builder",
                               "Array builder",
-                              "The raw std::shared<arrow::ArrayBuilder> *",
+                              "The raw arrow::ArrayBuilder *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARRAY_BUILDER, spec);
 }
+
+static GArrowArrayBuilder *
+garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
+                         GError **error,
+                         const char *context)
+{
+  auto memory_pool = arrow::default_memory_pool();
+  std::unique_ptr<arrow::ArrayBuilder> arrow_builder;
+  auto status = arrow::MakeBuilder(memory_pool, type, &arrow_builder);
+  if (!garrow_error_check(error, status, context)) {
+    return NULL;
+  }
+  return garrow_array_builder_new_raw(arrow_builder.release());
+};
 
 /**
  * garrow_array_builder_finish:
@@ -211,11 +225,9 @@ garrow_boolean_array_builder_class_init(GArrowBooleanArrayBuilderClass *klass)
 GArrowBooleanArrayBuilder *
 garrow_boolean_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_boolean_builder =
-    std::make_shared<arrow::BooleanBuilder>(memory_pool);
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_boolean_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::boolean(),
+                                          NULL,
+                                          "[boolean-array-builder][new]");
   return GARROW_BOOLEAN_ARRAY_BUILDER(builder);
 }
 
@@ -234,7 +246,7 @@ garrow_boolean_array_builder_append(GArrowBooleanArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::BooleanBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(static_cast<bool>(value));
   return garrow_error_check(error, status, "[boolean-array-builder][append]");
@@ -253,7 +265,7 @@ garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::BooleanBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -284,11 +296,9 @@ garrow_int8_array_builder_class_init(GArrowInt8ArrayBuilderClass *klass)
 GArrowInt8ArrayBuilder *
 garrow_int8_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_int8_builder =
-    std::make_shared<arrow::Int8Builder>(memory_pool, arrow::int8());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_int8_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::int8(),
+                                          NULL,
+                                          "[int8-array-builder][new]");
   return GARROW_INT8_ARRAY_BUILDER(builder);
 }
 
@@ -307,7 +317,7 @@ garrow_int8_array_builder_append(GArrowInt8ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int8Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[int8-array-builder][append]");
@@ -326,7 +336,7 @@ garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int8Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[int8-array-builder][append-null]");
@@ -355,11 +365,9 @@ garrow_uint8_array_builder_class_init(GArrowUInt8ArrayBuilderClass *klass)
 GArrowUInt8ArrayBuilder *
 garrow_uint8_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_uint8_builder =
-    std::make_shared<arrow::UInt8Builder>(memory_pool, arrow::uint8());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_uint8_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::uint8(),
+                                          NULL,
+                                          "[uint8-array-builder][new]");
   return GARROW_UINT8_ARRAY_BUILDER(builder);
 }
 
@@ -378,7 +386,7 @@ garrow_uint8_array_builder_append(GArrowUInt8ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt8Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[uint8-array-builder][append]");
@@ -397,7 +405,7 @@ garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt8Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[uint8-array-builder][append-null]");
@@ -426,11 +434,9 @@ garrow_int16_array_builder_class_init(GArrowInt16ArrayBuilderClass *klass)
 GArrowInt16ArrayBuilder *
 garrow_int16_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_int16_builder =
-    std::make_shared<arrow::Int16Builder>(memory_pool, arrow::int16());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_int16_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::int16(),
+                                          NULL,
+                                          "[int16-array-builder][new]");
   return GARROW_INT16_ARRAY_BUILDER(builder);
 }
 
@@ -449,7 +455,7 @@ garrow_int16_array_builder_append(GArrowInt16ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int16Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[int16-array-builder][append]");
@@ -468,7 +474,7 @@ garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int16Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[int16-array-builder][append-null]");
@@ -497,11 +503,9 @@ garrow_uint16_array_builder_class_init(GArrowUInt16ArrayBuilderClass *klass)
 GArrowUInt16ArrayBuilder *
 garrow_uint16_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_uint16_builder =
-    std::make_shared<arrow::UInt16Builder>(memory_pool, arrow::uint16());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_uint16_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::uint16(),
+                                          NULL,
+                                          "[uint16-array-builder][new]");
   return GARROW_UINT16_ARRAY_BUILDER(builder);
 }
 
@@ -520,7 +524,7 @@ garrow_uint16_array_builder_append(GArrowUInt16ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt16Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[uint16-array-builder][append]");
@@ -539,7 +543,7 @@ garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt16Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -570,11 +574,9 @@ garrow_int32_array_builder_class_init(GArrowInt32ArrayBuilderClass *klass)
 GArrowInt32ArrayBuilder *
 garrow_int32_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_int32_builder =
-    std::make_shared<arrow::Int32Builder>(memory_pool, arrow::int32());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_int32_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::int32(),
+                                          NULL,
+                                          "[int32-array-builder][new]");
   return GARROW_INT32_ARRAY_BUILDER(builder);
 }
 
@@ -593,7 +595,7 @@ garrow_int32_array_builder_append(GArrowInt32ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int32Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[int32-array-builder][append]");
@@ -612,7 +614,7 @@ garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int32Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[int32-array-builder][append-null]");
@@ -641,11 +643,9 @@ garrow_uint32_array_builder_class_init(GArrowUInt32ArrayBuilderClass *klass)
 GArrowUInt32ArrayBuilder *
 garrow_uint32_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_uint32_builder =
-    std::make_shared<arrow::UInt32Builder>(memory_pool, arrow::uint32());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_uint32_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::uint32(),
+                                          NULL,
+                                          "[uint32-array-builder][new]");
   return GARROW_UINT32_ARRAY_BUILDER(builder);
 }
 
@@ -664,7 +664,7 @@ garrow_uint32_array_builder_append(GArrowUInt32ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt32Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[uint32-array-builder][append]");
@@ -683,7 +683,7 @@ garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt32Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -714,11 +714,9 @@ garrow_int64_array_builder_class_init(GArrowInt64ArrayBuilderClass *klass)
 GArrowInt64ArrayBuilder *
 garrow_int64_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_int64_builder =
-    std::make_shared<arrow::Int64Builder>(memory_pool, arrow::int64());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_int64_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::int64(),
+                                          NULL,
+                                          "[int64-array-builder][new]");
   return GARROW_INT64_ARRAY_BUILDER(builder);
 }
 
@@ -737,7 +735,7 @@ garrow_int64_array_builder_append(GArrowInt64ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int64Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[int64-array-builder][append]");
@@ -756,7 +754,7 @@ garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::Int64Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[int64-array-builder][append-null]");
@@ -785,11 +783,9 @@ garrow_uint64_array_builder_class_init(GArrowUInt64ArrayBuilderClass *klass)
 GArrowUInt64ArrayBuilder *
 garrow_uint64_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_uint64_builder =
-    std::make_shared<arrow::UInt64Builder>(memory_pool, arrow::uint64());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_uint64_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::uint64(),
+                                          NULL,
+                                          "[uint64-array-builder][new]");
   return GARROW_UINT64_ARRAY_BUILDER(builder);
 }
 
@@ -808,7 +804,7 @@ garrow_uint64_array_builder_append(GArrowUInt64ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt64Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[uint64-array-builder][append]");
@@ -827,7 +823,7 @@ garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::UInt64Builder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   if (status.ok()) {
@@ -861,11 +857,9 @@ garrow_float_array_builder_class_init(GArrowFloatArrayBuilderClass *klass)
 GArrowFloatArrayBuilder *
 garrow_float_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_float_builder =
-    std::make_shared<arrow::FloatBuilder>(memory_pool, arrow::float32());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_float_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::float32(),
+                                          NULL,
+                                          "[float-array-builder][new]");
   return GARROW_FLOAT_ARRAY_BUILDER(builder);
 }
 
@@ -884,7 +878,7 @@ garrow_float_array_builder_append(GArrowFloatArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::FloatBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[float-array-builder][append]");
@@ -903,7 +897,7 @@ garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::FloatBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[float-array-builder][append-null]");
@@ -932,11 +926,9 @@ garrow_double_array_builder_class_init(GArrowDoubleArrayBuilderClass *klass)
 GArrowDoubleArrayBuilder *
 garrow_double_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_double_builder =
-    std::make_shared<arrow::DoubleBuilder>(memory_pool, arrow::float64());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_double_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::float64(),
+                                          NULL,
+                                          "[double-array-builder][new]");
   return GARROW_DOUBLE_ARRAY_BUILDER(builder);
 }
 
@@ -955,7 +947,7 @@ garrow_double_array_builder_append(GArrowDoubleArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::DoubleBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, "[double-array-builder][append]");
@@ -974,7 +966,7 @@ garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::DoubleBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -1005,11 +997,9 @@ garrow_binary_array_builder_class_init(GArrowBinaryArrayBuilderClass *klass)
 GArrowBinaryArrayBuilder *
 garrow_binary_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_binary_builder =
-    std::make_shared<arrow::BinaryBuilder>(memory_pool, arrow::binary());
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_binary_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::binary(),
+                                          NULL,
+                                          "[binary-array-builder][new]");
   return GARROW_BINARY_ARRAY_BUILDER(builder);
 }
 
@@ -1030,7 +1020,7 @@ garrow_binary_array_builder_append(GArrowBinaryArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::BinaryBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value, length);
   return garrow_error_check(error, status, "[binary-array-builder][append]");
@@ -1049,7 +1039,7 @@ garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::BinaryBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -1080,11 +1070,9 @@ garrow_string_array_builder_class_init(GArrowStringArrayBuilderClass *klass)
 GArrowStringArrayBuilder *
 garrow_string_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_string_builder =
-    std::make_shared<arrow::StringBuilder>(memory_pool);
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_string_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto builder = garrow_array_builder_new(arrow::utf8(),
+                                          NULL,
+                                          "[string-array-builder][new]");
   return GARROW_STRING_ARRAY_BUILDER(builder);
 }
 
@@ -1103,7 +1091,7 @@ garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::StringBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append(value,
                                       static_cast<gint32>(strlen(value)));
@@ -1111,9 +1099,36 @@ garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
 }
 
 
-G_DEFINE_TYPE(GArrowListArrayBuilder,
-              garrow_list_array_builder,
-              GARROW_TYPE_ARRAY_BUILDER)
+typedef struct GArrowListArrayBuilderPrivate_ {
+  GArrowArrayBuilder *value_builder;
+} GArrowListArrayBuilderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArrayBuilder,
+                           garrow_list_array_builder,
+                           GARROW_TYPE_ARRAY_BUILDER)
+
+#define GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)              \
+  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                           \
+                               GARROW_TYPE_LIST_ARRAY_BUILDER,  \
+                               GArrowListArrayBuilderPrivate))
+
+static void
+garrow_list_array_builder_dispose(GObject *object)
+{
+  GArrowListArrayBuilderPrivate *priv;
+
+  priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
+
+  if (priv->value_builder) {
+    GArrowArrayBuilderPrivate *value_builder_priv;
+    value_builder_priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(priv->value_builder);
+    value_builder_priv->array_builder = nullptr;
+    g_object_unref(priv->value_builder);
+    priv->value_builder = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_list_array_builder_parent_class)->dispose(object);
+}
 
 static void
 garrow_list_array_builder_init(GArrowListArrayBuilder *builder)
@@ -1123,23 +1138,37 @@ garrow_list_array_builder_init(GArrowListArrayBuilder *builder)
 static void
 garrow_list_array_builder_class_init(GArrowListArrayBuilderClass *klass)
 {
+  GObjectClass *gobject_class;
+
+  gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_list_array_builder_dispose;
 }
 
 /**
  * garrow_list_array_builder_new:
- * @value_builder: A #GArrowArrayBuilder for value array.
+ * @data_type: A #GArrowListDataType for value.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowListArrayBuilder.
  */
 GArrowListArrayBuilder *
-garrow_list_array_builder_new(GArrowArrayBuilder *value_builder)
+garrow_list_array_builder_new(GArrowListDataType *data_type,
+                              GError **error)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_value_builder = garrow_array_builder_get_raw(value_builder);
-  auto arrow_list_builder =
-    std::make_shared<arrow::ListBuilder>(memory_pool, arrow_value_builder);
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_list_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  if (!GARROW_IS_LIST_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[list-array-builder][new] data type must be list data type");
+    return NULL;
+  }
+
+  auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          error,
+                                          "[list-array-builder][new]");
   return GARROW_LIST_ARRAY_BUILDER(builder);
 }
 
@@ -1192,7 +1221,7 @@ garrow_list_array_builder_append(GArrowListArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::ListBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append();
   return garrow_error_check(error, status, "[list-array-builder][append]");
@@ -1213,7 +1242,7 @@ garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::ListBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, "[list-array-builder][append-null]");
@@ -1223,22 +1252,59 @@ garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
  * garrow_list_array_builder_get_value_builder:
  * @builder: A #GArrowListArrayBuilder.
  *
- * Returns: (transfer full): The #GArrowArrayBuilder for values.
+ * Returns: (transfer none): The #GArrowArrayBuilder for values.
  */
 GArrowArrayBuilder *
 garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder)
 {
-  auto arrow_builder =
-    static_cast<arrow::ListBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
-  auto arrow_value_builder = arrow_builder->value_builder();
-  return garrow_array_builder_new_raw(&arrow_value_builder);
+  GArrowListArrayBuilderPrivate *priv;
+
+  priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->value_builder) {
+    auto arrow_builder =
+      static_cast<arrow::ListBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_value_builder = arrow_builder->value_builder();
+    priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+  }
+  return priv->value_builder;
 }
 
 
-G_DEFINE_TYPE(GArrowStructArrayBuilder,
-              garrow_struct_array_builder,
-              GARROW_TYPE_ARRAY_BUILDER)
+typedef struct GArrowStructArrayBuilderPrivate_ {
+  GList *field_builders;
+} GArrowStructArrayBuilderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructArrayBuilder,
+                           garrow_struct_array_builder,
+                           GARROW_TYPE_ARRAY_BUILDER)
+
+#define GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(obj)                    \
+  (G_TYPE_INSTANCE_GET_PRIVATE((obj),                                   \
+                               GARROW_TYPE_STRUCT_ARRAY_BUILDER,        \
+                               GArrowStructArrayBuilderPrivate))
+
+static void
+garrow_struct_array_builder_dispose(GObject *object)
+{
+  GArrowStructArrayBuilderPrivate *priv;
+  GList *node;
+
+  priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(object);
+
+  for (node = priv->field_builders; node; node = g_list_next(node)) {
+    auto field_builder = static_cast<GArrowArrayBuilder *>(node->data);
+    GArrowArrayBuilderPrivate *field_builder_priv;
+
+    field_builder_priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(field_builder);
+    field_builder_priv->array_builder = nullptr;
+    g_object_unref(field_builder);
+  }
+  g_list_free(priv->field_builders);
+  priv->field_builders = NULL;
+
+  G_OBJECT_CLASS(garrow_struct_array_builder_parent_class)->dispose(object);
+}
 
 static void
 garrow_struct_array_builder_init(GArrowStructArrayBuilder *builder)
@@ -1248,35 +1314,36 @@ garrow_struct_array_builder_init(GArrowStructArrayBuilder *builder)
 static void
 garrow_struct_array_builder_class_init(GArrowStructArrayBuilderClass *klass)
 {
+  GObjectClass *gobject_class;
+
+  gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_struct_array_builder_dispose;
 }
 
 /**
  * garrow_struct_array_builder_new:
  * @data_type: #GArrowStructDataType for the struct.
- * @field_builders: (element-type GArrowArray): #GArrowArrayBuilders
- *   for fields.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowStructArrayBuilder.
  */
 GArrowStructArrayBuilder *
 garrow_struct_array_builder_new(GArrowStructDataType *data_type,
-                                GList *field_builders)
+                                GError **error)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  std::vector<std::shared_ptr<arrow::ArrayBuilder>> arrow_field_builders;
-  for (GList *node = field_builders; node; node = g_list_next(node)) {
-    auto field_builder = static_cast<GArrowArrayBuilder *>(node->data);
-    auto arrow_field_builder = garrow_array_builder_get_raw(field_builder);
-    arrow_field_builders.push_back(arrow_field_builder);
+  if (!GARROW_IS_STRUCT_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[struct-array-builder][new] data type must be struct data type");
+    return NULL;
   }
 
-  auto arrow_struct_builder =
-    std::make_shared<arrow::StructBuilder>(memory_pool,
-                                           arrow_data_type,
-                                           arrow_field_builders);
-  std::shared_ptr<arrow::ArrayBuilder> arrow_builder = arrow_struct_builder;
-  auto builder = garrow_array_builder_new_raw(&arrow_builder);
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          error,
+                                          "[struct-array-builder][new]");
   return GARROW_STRUCT_ARRAY_BUILDER(builder);
 }
 
@@ -1304,7 +1371,7 @@ garrow_struct_array_builder_append(GArrowStructArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::StructBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->Append();
   return garrow_error_check(error, status, "[struct-array-builder][append]");
@@ -1325,7 +1392,7 @@ garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
 {
   auto arrow_builder =
     static_cast<arrow::StructBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error,
@@ -1338,51 +1405,56 @@ garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
  * @builder: A #GArrowStructArrayBuilder.
  * @i: The index of the field in the struct.
  *
- * Returns: (transfer full): The #GArrowArrayBuilder for the i-th field.
+ * Returns: (transfer none): The #GArrowArrayBuilder for the i-th field.
  */
 GArrowArrayBuilder *
 garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
                                               gint i)
 {
-  auto arrow_builder =
-    static_cast<arrow::StructBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
-  auto arrow_field_builder = arrow_builder->field_builder(i);
-  return garrow_array_builder_new_raw(&arrow_field_builder);
+  auto field_builders = garrow_struct_array_builder_get_field_builders(builder);
+  auto field_builder = g_list_nth_data(field_builders, i);
+  return static_cast<GArrowArrayBuilder *>(field_builder);
 }
 
 /**
  * garrow_struct_array_builder_get_field_builders:
  * @builder: A #GArrowStructArrayBuilder.
  *
- * Returns: (element-type GArrowArray) (transfer full):
+ * Returns: (element-type GArrowArray) (transfer none):
  *   The #GArrowArrayBuilder for all fields.
  */
 GList *
 garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder)
 {
-  auto arrow_struct_builder =
-    static_cast<arrow::StructBuilder *>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)).get());
+  GArrowStructArrayBuilderPrivate *priv;
 
-  GList *field_builders = NULL;
-  for (auto arrow_field_builder : arrow_struct_builder->field_builders()) {
-    auto field_builder = garrow_array_builder_new_raw(&arrow_field_builder);
-    field_builders = g_list_prepend(field_builders, field_builder);
+  priv = GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->field_builders) {
+    auto arrow_struct_builder =
+      static_cast<arrow::StructBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+    GList *field_builders = NULL;
+    for (int i = 0; i < arrow_struct_builder->num_fields(); ++i) {
+      auto arrow_field_builder = arrow_struct_builder->field_builder(i);
+      auto field_builder = garrow_array_builder_new_raw(arrow_field_builder);
+      field_builders = g_list_prepend(field_builders, field_builder);
+    }
+    priv->field_builders = g_list_reverse(field_builders);
   }
 
-  return g_list_reverse(field_builders);
+  return priv->field_builders;
 }
 
 
 G_END_DECLS
 
 GArrowArrayBuilder *
-garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder)
+garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder)
 {
   GType type;
 
-  switch ((*arrow_builder)->type()->id()) {
+  switch (arrow_builder->type()->id()) {
   case arrow::Type::type::BOOL:
     type = GARROW_TYPE_BOOLEAN_ARRAY_BUILDER;
     break;
@@ -1440,7 +1512,7 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
   return builder;
 }
 
-std::shared_ptr<arrow::ArrayBuilder>
+arrow::ArrayBuilder *
 garrow_array_builder_get_raw(GArrowArrayBuilder *builder)
 {
   GArrowArrayBuilderPrivate *priv;

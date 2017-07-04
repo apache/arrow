@@ -55,11 +55,7 @@ class TestStructArray < Test::Unit::TestCase
       Arrow::Field.new("enabled", Arrow::BooleanDataType.new),
     ]
     data_type = Arrow::StructDataType.new(fields)
-    field_builders = [
-      Arrow::Int8ArrayBuilder.new,
-      Arrow::BooleanArrayBuilder.new,
-    ]
-    builder = Arrow::StructArrayBuilder.new(data_type, field_builders)
+    builder = Arrow::StructArrayBuilder.new(data_type)
 
     builder.append
     builder.get_field_builder(0).append(-29)

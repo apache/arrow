@@ -772,7 +772,8 @@ struct _GArrowListArrayBuilderClass
 
 GType garrow_list_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowListArrayBuilder *garrow_list_array_builder_new(GArrowArrayBuilder *value_builder);
+GArrowListArrayBuilder *garrow_list_array_builder_new(GArrowListDataType *data_type,
+                                                      GError **error);
 
 gboolean garrow_list_array_builder_append(GArrowListArrayBuilder *builder,
                                           GError **error);
@@ -825,7 +826,7 @@ struct _GArrowStructArrayBuilderClass
 GType garrow_struct_array_builder_get_type(void) G_GNUC_CONST;
 
 GArrowStructArrayBuilder *garrow_struct_array_builder_new(GArrowStructDataType *data_type,
-                                                          GList *field_builders);
+                                                          GError **error);
 
 gboolean garrow_struct_array_builder_append(GArrowStructArrayBuilder *builder,
                                             GError **error);
