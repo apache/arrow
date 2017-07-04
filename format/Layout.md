@@ -552,7 +552,7 @@ will have the following layout:
 
       |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
       |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
-      | 1          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
+      | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
   * u1 (float):
     * Length: 6, Null count: 4
@@ -605,7 +605,7 @@ the the types array indicates that a slot contains a different type at the index
 ## Dictionary encoding
 
 When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
-The Dictionary is received as a DictionaryBacth whose id is referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
+The Dictionary is received as a DictionaryBatch whose id is referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
 The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatch.
 When a Schema references a Dictionary id, it must send a DictionaryBatch for this id before any RecordBatch.
 
