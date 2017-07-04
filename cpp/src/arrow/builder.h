@@ -693,17 +693,43 @@ static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max(
 // The maximum load factor for the hash table before resizing.
 static constexpr double kMaxHashTableLoad = 0.7;
 
-template <typename T, typename Scalar = typename T::c_type>
+// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
+struct WrappedBinary {
+  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
+
+  const uint8_t* ptr_;
+  int32_t length_;
+};
+
+template <typename T>
+struct DictionaryScalar {
+  using type = typename T::c_type;
+};
+
+template <>
+struct DictionaryScalar<BinaryType> {
+  using type = WrappedBinary;
+};
+
+template <>
+struct DictionaryScalar<StringType> {
+  using type = WrappedBinary;
+};
+
+template <typename T>
 class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
+  using Scalar = typename DictionaryScalar<T>::type;
   explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
-  template <typename T1 = T, typename Scalar1 = Scalar>
+  template <typename T1 = T>
   explicit DictionaryBuilder(
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
-      : DictionaryBuilder<T1, Scalar1>(pool, TypeTraits<T1>::type_singleton()) {}
+      : DictionaryBuilder<T1>(pool, TypeTraits<T1>::type_singleton()) {}
 
   Status Append(const Scalar& value);
+  Status AppendArray(const Array& array);
+  Status AppendNull();
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -730,16 +756,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   AdaptiveUIntBuilder values_builder_;
 };
 
-// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
-struct WrappedBinary {
-  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
-
-  const uint8_t* ptr_;
-  int32_t length_;
-};
-
-class ARROW_EXPORT StringDictionaryBuilder
-    : public DictionaryBuilder<StringType, WrappedBinary> {
+class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
  public:
   using DictionaryBuilder::DictionaryBuilder;
 
@@ -764,6 +781,9 @@ class ARROW_EXPORT StringDictionaryBuilder
 
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ArrayBuilder>* out);
+
+Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 
