@@ -64,6 +64,10 @@ def test_type_list():
     list_type = pa.list_(value_type)
     assert str(list_type) == 'list<item: int32>'
 
+    field = pa.field('my_item', pa.string())
+    l2 = pa.list_(field)
+    assert str(l2) == 'list<my_item: string>'
+
 
 def test_type_string():
     t = pa.string()
