@@ -110,7 +110,7 @@ struct _GArrowBooleanArrayBuilderClass
 
 GType garrow_boolean_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowBooleanArrayBuilder *garrow_boolean_array_builder_new(GError **error);
+GArrowBooleanArrayBuilder *garrow_boolean_array_builder_new(void);
 
 gboolean garrow_boolean_array_builder_append(GArrowBooleanArrayBuilder *builder,
                                              gboolean value,
@@ -161,7 +161,7 @@ struct _GArrowInt8ArrayBuilderClass
 
 GType garrow_int8_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowInt8ArrayBuilder *garrow_int8_array_builder_new(GError **error);
+GArrowInt8ArrayBuilder *garrow_int8_array_builder_new(void);
 
 gboolean garrow_int8_array_builder_append(GArrowInt8ArrayBuilder *builder,
                                           gint8 value,
@@ -212,7 +212,7 @@ struct _GArrowUInt8ArrayBuilderClass
 
 GType garrow_uint8_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowUInt8ArrayBuilder *garrow_uint8_array_builder_new(GError **error);
+GArrowUInt8ArrayBuilder *garrow_uint8_array_builder_new(void);
 
 gboolean garrow_uint8_array_builder_append(GArrowUInt8ArrayBuilder *builder,
                                            guint8 value,
@@ -263,7 +263,7 @@ struct _GArrowInt16ArrayBuilderClass
 
 GType garrow_int16_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowInt16ArrayBuilder *garrow_int16_array_builder_new(GError **error);
+GArrowInt16ArrayBuilder *garrow_int16_array_builder_new(void);
 
 gboolean garrow_int16_array_builder_append(GArrowInt16ArrayBuilder *builder,
                                            gint16 value,
@@ -314,7 +314,7 @@ struct _GArrowUInt16ArrayBuilderClass
 
 GType garrow_uint16_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowUInt16ArrayBuilder *garrow_uint16_array_builder_new(GError **error);
+GArrowUInt16ArrayBuilder *garrow_uint16_array_builder_new(void);
 
 gboolean garrow_uint16_array_builder_append(GArrowUInt16ArrayBuilder *builder,
                                             guint16 value,
@@ -365,7 +365,7 @@ struct _GArrowInt32ArrayBuilderClass
 
 GType garrow_int32_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowInt32ArrayBuilder *garrow_int32_array_builder_new(GError **error);
+GArrowInt32ArrayBuilder *garrow_int32_array_builder_new(void);
 
 gboolean garrow_int32_array_builder_append(GArrowInt32ArrayBuilder *builder,
                                            gint32 value,
@@ -416,7 +416,7 @@ struct _GArrowUInt32ArrayBuilderClass
 
 GType garrow_uint32_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowUInt32ArrayBuilder *garrow_uint32_array_builder_new(GError **error);
+GArrowUInt32ArrayBuilder *garrow_uint32_array_builder_new(void);
 
 gboolean garrow_uint32_array_builder_append(GArrowUInt32ArrayBuilder *builder,
                                             guint32 value,
@@ -467,7 +467,7 @@ struct _GArrowInt64ArrayBuilderClass
 
 GType garrow_int64_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowInt64ArrayBuilder *garrow_int64_array_builder_new(GError **error);
+GArrowInt64ArrayBuilder *garrow_int64_array_builder_new(void);
 
 gboolean garrow_int64_array_builder_append(GArrowInt64ArrayBuilder *builder,
                                            gint64 value,
@@ -518,7 +518,7 @@ struct _GArrowUInt64ArrayBuilderClass
 
 GType garrow_uint64_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowUInt64ArrayBuilder *garrow_uint64_array_builder_new(GError **error);
+GArrowUInt64ArrayBuilder *garrow_uint64_array_builder_new(void);
 
 gboolean garrow_uint64_array_builder_append(GArrowUInt64ArrayBuilder *builder,
                                             guint64 value,
@@ -569,7 +569,7 @@ struct _GArrowFloatArrayBuilderClass
 
 GType garrow_float_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowFloatArrayBuilder *garrow_float_array_builder_new(GError **error);
+GArrowFloatArrayBuilder *garrow_float_array_builder_new(void);
 
 gboolean garrow_float_array_builder_append(GArrowFloatArrayBuilder *builder,
                                            gfloat value,
@@ -620,7 +620,7 @@ struct _GArrowDoubleArrayBuilderClass
 
 GType garrow_double_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowDoubleArrayBuilder *garrow_double_array_builder_new(GError **error);
+GArrowDoubleArrayBuilder *garrow_double_array_builder_new(void);
 
 gboolean garrow_double_array_builder_append(GArrowDoubleArrayBuilder *builder,
                                             gdouble value,
@@ -671,7 +671,7 @@ struct _GArrowBinaryArrayBuilderClass
 
 GType garrow_binary_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowBinaryArrayBuilder *garrow_binary_array_builder_new(GError **error);
+GArrowBinaryArrayBuilder *garrow_binary_array_builder_new(void);
 
 gboolean garrow_binary_array_builder_append(GArrowBinaryArrayBuilder *builder,
                                             const guint8 *value,
@@ -723,7 +723,7 @@ struct _GArrowStringArrayBuilderClass
 
 GType garrow_string_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowStringArrayBuilder *garrow_string_array_builder_new(GError **error);
+GArrowStringArrayBuilder *garrow_string_array_builder_new(void);
 
 gboolean garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
                                             const gchar *value,

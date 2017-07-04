@@ -31,12 +31,7 @@ main(int argc, char **argv)
     gboolean success = TRUE;
     GError *error = NULL;
 
-    builder = garrow_int32_array_builder_new(&error);
-    if (error) {
-      g_print("failed to create array builder: %s\n", error->message);
-      g_error_free(error);
-      return EXIT_FAILURE;
-    }
+    builder = garrow_int32_array_builder_new();
     if (success) {
       success = garrow_int32_array_builder_append(builder, 29, &error);
     }

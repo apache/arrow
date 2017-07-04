@@ -219,15 +219,14 @@ garrow_boolean_array_builder_class_init(GArrowBooleanArrayBuilderClass *klass)
 
 /**
  * garrow_boolean_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowBooleanArrayBuilder.
  */
 GArrowBooleanArrayBuilder *
-garrow_boolean_array_builder_new(GError **error)
+garrow_boolean_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::boolean(),
-                                          error,
+                                          NULL,
                                           "[boolean-array-builder][new]");
   return GARROW_BOOLEAN_ARRAY_BUILDER(builder);
 }
@@ -291,15 +290,14 @@ garrow_int8_array_builder_class_init(GArrowInt8ArrayBuilderClass *klass)
 
 /**
  * garrow_int8_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowInt8ArrayBuilder.
  */
 GArrowInt8ArrayBuilder *
-garrow_int8_array_builder_new(GError **error)
+garrow_int8_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::int8(),
-                                          error,
+                                          NULL,
                                           "[int8-array-builder][new]");
   return GARROW_INT8_ARRAY_BUILDER(builder);
 }
@@ -361,15 +359,14 @@ garrow_uint8_array_builder_class_init(GArrowUInt8ArrayBuilderClass *klass)
 
 /**
  * garrow_uint8_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowUInt8ArrayBuilder.
  */
 GArrowUInt8ArrayBuilder *
-garrow_uint8_array_builder_new(GError **error)
+garrow_uint8_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::uint8(),
-                                          error,
+                                          NULL,
                                           "[uint8-array-builder][new]");
   return GARROW_UINT8_ARRAY_BUILDER(builder);
 }
@@ -431,15 +428,14 @@ garrow_int16_array_builder_class_init(GArrowInt16ArrayBuilderClass *klass)
 
 /**
  * garrow_int16_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowInt16ArrayBuilder.
  */
 GArrowInt16ArrayBuilder *
-garrow_int16_array_builder_new(GError **error)
+garrow_int16_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::int16(),
-                                          error,
+                                          NULL,
                                           "[int16-array-builder][new]");
   return GARROW_INT16_ARRAY_BUILDER(builder);
 }
@@ -501,15 +497,14 @@ garrow_uint16_array_builder_class_init(GArrowUInt16ArrayBuilderClass *klass)
 
 /**
  * garrow_uint16_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowUInt16ArrayBuilder.
  */
 GArrowUInt16ArrayBuilder *
-garrow_uint16_array_builder_new(GError **error)
+garrow_uint16_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::uint16(),
-                                          error,
+                                          NULL,
                                           "[uint16-array-builder][new]");
   return GARROW_UINT16_ARRAY_BUILDER(builder);
 }
@@ -573,15 +568,14 @@ garrow_int32_array_builder_class_init(GArrowInt32ArrayBuilderClass *klass)
 
 /**
  * garrow_int32_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowInt32ArrayBuilder.
  */
 GArrowInt32ArrayBuilder *
-garrow_int32_array_builder_new(GError **error)
+garrow_int32_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::int32(),
-                                          error,
+                                          NULL,
                                           "[int32-array-builder][new]");
   return GARROW_INT32_ARRAY_BUILDER(builder);
 }
@@ -643,15 +637,14 @@ garrow_uint32_array_builder_class_init(GArrowUInt32ArrayBuilderClass *klass)
 
 /**
  * garrow_uint32_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowUInt32ArrayBuilder.
  */
 GArrowUInt32ArrayBuilder *
-garrow_uint32_array_builder_new(GError **error)
+garrow_uint32_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::uint32(),
-                                          error,
+                                          NULL,
                                           "[uint32-array-builder][new]");
   return GARROW_UINT32_ARRAY_BUILDER(builder);
 }
@@ -715,15 +708,14 @@ garrow_int64_array_builder_class_init(GArrowInt64ArrayBuilderClass *klass)
 
 /**
  * garrow_int64_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowInt64ArrayBuilder.
  */
 GArrowInt64ArrayBuilder *
-garrow_int64_array_builder_new(GError **error)
+garrow_int64_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::int64(),
-                                          error,
+                                          NULL,
                                           "[int64-array-builder][new]");
   return GARROW_INT64_ARRAY_BUILDER(builder);
 }
@@ -785,15 +777,14 @@ garrow_uint64_array_builder_class_init(GArrowUInt64ArrayBuilderClass *klass)
 
 /**
  * garrow_uint64_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowUInt64ArrayBuilder.
  */
 GArrowUInt64ArrayBuilder *
-garrow_uint64_array_builder_new(GError **error)
+garrow_uint64_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::uint64(),
-                                          error,
+                                          NULL,
                                           "[uint64-array-builder][new]");
   return GARROW_UINT64_ARRAY_BUILDER(builder);
 }
@@ -860,15 +851,14 @@ garrow_float_array_builder_class_init(GArrowFloatArrayBuilderClass *klass)
 
 /**
  * garrow_float_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowFloatArrayBuilder.
  */
 GArrowFloatArrayBuilder *
-garrow_float_array_builder_new(GError **error)
+garrow_float_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::float32(),
-                                          error,
+                                          NULL,
                                           "[float-array-builder][new]");
   return GARROW_FLOAT_ARRAY_BUILDER(builder);
 }
@@ -930,15 +920,14 @@ garrow_double_array_builder_class_init(GArrowDoubleArrayBuilderClass *klass)
 
 /**
  * garrow_double_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowDoubleArrayBuilder.
  */
 GArrowDoubleArrayBuilder *
-garrow_double_array_builder_new(GError **error)
+garrow_double_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::float64(),
-                                          error,
+                                          NULL,
                                           "[double-array-builder][new]");
   return GARROW_DOUBLE_ARRAY_BUILDER(builder);
 }
@@ -1002,15 +991,14 @@ garrow_binary_array_builder_class_init(GArrowBinaryArrayBuilderClass *klass)
 
 /**
  * garrow_binary_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowBinaryArrayBuilder.
  */
 GArrowBinaryArrayBuilder *
-garrow_binary_array_builder_new(GError **error)
+garrow_binary_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::binary(),
-                                          error,
+                                          NULL,
                                           "[binary-array-builder][new]");
   return GARROW_BINARY_ARRAY_BUILDER(builder);
 }
@@ -1076,15 +1064,14 @@ garrow_string_array_builder_class_init(GArrowStringArrayBuilderClass *klass)
 
 /**
  * garrow_string_array_builder_new:
- * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: A newly created #GArrowStringArrayBuilder.
  */
 GArrowStringArrayBuilder *
-garrow_string_array_builder_new(GError **error)
+garrow_string_array_builder_new(void)
 {
   auto builder = garrow_array_builder_new(arrow::utf8(),
-                                          error,
+                                          NULL,
                                           "[string-array-builder][new]");
   return GARROW_STRING_ARRAY_BUILDER(builder);
 }
