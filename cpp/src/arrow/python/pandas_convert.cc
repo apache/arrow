@@ -921,8 +921,10 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
     return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
-  auto value_builder = std::make_shared<BuilderT>(pool_, type);
-  ListBuilder list_builder(pool_, value_builder);
+  ListBuilder list_builder(
+      pool_, std::unique_ptr<ArrayBuilder>(new BuilderT(pool_, type)));
+  BuilderT* value_builder = static_cast<BuilderT*>(list_builder.value_builder());
+
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   for (int64_t i = 0; i < length_; ++i) {
     if (PandasObjectIsNull(objects[i])) {
@@ -957,7 +959,7 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
       }
-      RETURN_NOT_OK(AppendPySequence(objects[i], type, value_builder, size));
+      RETURN_NOT_OK(AppendPySequence(objects[i], size, type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
@@ -981,8 +983,10 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
-  auto value_builder = std::make_shared<StringBuilder>(pool_);
-  ListBuilder list_builder(pool_, value_builder);
+  ListBuilder list_builder(
+      pool_, std::unique_ptr<ArrayBuilder>(new StringBuilder(pool_)));
+  auto value_builder = static_cast<StringBuilder*>(list_builder.value_builder());
+
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
   for (int64_t i = 0; i < length_; ++i) {
     if (PandasObjectIsNull(objects[i])) {
@@ -995,7 +999,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
       RETURN_NOT_OK(
-          AppendObjectStrings(numpy_array, nullptr, value_builder.get(), &have_bytes));
+          AppendObjectStrings(numpy_array, nullptr, value_builder, &have_bytes));
     } else if (PyList_Check(objects[i])) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
@@ -1006,7 +1010,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
       }
-      RETURN_NOT_OK(AppendPySequence(objects[i], inferred_type, value_builder, size));
+      RETURN_NOT_OK(AppendPySequence(objects[i], size, inferred_type, value_builder));
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }

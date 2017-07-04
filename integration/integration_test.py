@@ -756,7 +756,7 @@ def get_generated_json_files():
         generate_primitive_case([0, 0, 0]),
         generate_datetime_case(),
         generate_nested_case(),
-        # generate_dictionary_case()
+        generate_dictionary_case()
     ]
 
     generated_paths = []
@@ -943,7 +943,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug)]  # , JavaTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files

@@ -935,13 +935,13 @@ Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
 // ----------------------------------------------------------------------
 // ListBuilder
 
-ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> value_builder,
+ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
     const std::shared_ptr<DataType>& type)
     : ArrayBuilder(
           pool, type ? type : std::static_pointer_cast<DataType>(
                                   std::make_shared<ListType>(value_builder->type()))),
       offset_builder_(pool),
-      value_builder_(value_builder) {}
+      value_builder_(std::move(value_builder)) {}
 
 ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
     const std::shared_ptr<DataType>& type)
@@ -1000,21 +1000,23 @@ void ListBuilder::Reset() {
   null_bitmap_ = nullptr;
 }
 
-std::shared_ptr<ArrayBuilder> ListBuilder::value_builder() const {
+ArrayBuilder* ListBuilder::value_builder() const {
   DCHECK(!values_) << "Using value builder is pointless when values_ is set";
-  return value_builder_;
+  return value_builder_.get();
 }
 
 // ----------------------------------------------------------------------
 // String and binary
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool)
-    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, uint8()), binary()) {
+    : ListBuilder(pool, std::unique_ptr<ArrayBuilder>(new UInt8Builder(pool, uint8())),
+          binary()) {
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : ListBuilder(pool, std::make_shared<UInt8Builder>(pool, uint8()), type) {
+    : ListBuilder(
+          pool, std::unique_ptr<ArrayBuilder>(new UInt8Builder(pool, uint8())), type) {
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
 
@@ -1109,6 +1111,12 @@ Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
 // ----------------------------------------------------------------------
 // Struct
 
+StructBuilder::StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders)
+    : ArrayBuilder(pool, type) {
+  field_builders_ = std::move(field_builders);
+}
+
 Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
   std::vector<std::shared_ptr<Array>> fields(field_builders_.size());
   for (size_t i = 0; i < field_builders_.size(); ++i) {
@@ -1121,11 +1129,6 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
   capacity_ = length_ = null_count_ = 0;
 
   return Status::OK();
-}
-
-std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
-  DCHECK_GT(field_builders_.size(), 0);
-  return field_builders_[pos];
 }
 
 // ----------------------------------------------------------------------
@@ -1141,7 +1144,7 @@ std::shared_ptr<ArrayBuilder> StructBuilder::field_builder(int pos) const {
 //
 // TODO(wesm): come up with a less monolithic strategy
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::shared_ptr<ArrayBuilder>* out) {
+    std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
     BUILDER_CASE(UINT8, UInt8Builder);
     BUILDER_CASE(INT8, Int8Builder);
@@ -1164,24 +1167,24 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
     BUILDER_CASE(DECIMAL, DecimalBuilder);
     case Type::LIST: {
-      std::shared_ptr<ArrayBuilder> value_builder;
+      std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
           static_cast<ListType*>(type.get())->value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
-      out->reset(new ListBuilder(pool, value_builder));
+      out->reset(new ListBuilder(pool, std::move(value_builder)));
       return Status::OK();
     }
 
     case Type::STRUCT: {
       const std::vector<FieldPtr>& fields = type->children();
-      std::vector<std::shared_ptr<ArrayBuilder>> values_builder;
+      std::vector<std::unique_ptr<ArrayBuilder>> values_builder;
 
       for (auto it : fields) {
-        std::shared_ptr<ArrayBuilder> builder;
+        std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
-        values_builder.push_back(builder);
+        values_builder.emplace_back(std::move(builder));
       }
-      out->reset(new StructBuilder(pool, type, values_builder));
+      out->reset(new StructBuilder(pool, type, std::move(values_builder)));
       return Status::OK();
     }
 
