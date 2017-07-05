@@ -897,7 +897,7 @@ ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
 Status DecimalBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Init(capacity));
   if (byte_width_ == 16) {
-    AllocateResizableBuffer(pool_, null_bitmap_->size(), &sign_bitmap_);
+    RETURN_NOT_OK(AllocateResizableBuffer(pool_, null_bitmap_->size(), &sign_bitmap_));
     sign_bitmap_data_ = sign_bitmap_->mutable_data();
     memset(sign_bitmap_data_, 0, static_cast<size_t>(sign_bitmap_->capacity()));
   }

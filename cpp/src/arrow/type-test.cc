@@ -188,7 +188,7 @@ TEST_F(TestSchema, TestAddMetadata) {
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema;
-  schema->AddMetadata(metadata, &new_schema);
+  ASSERT_OK(schema->AddMetadata(metadata, &new_schema));
   ASSERT_TRUE(metadata->Equals(*new_schema->metadata()));
 
   // Not copied

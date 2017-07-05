@@ -224,10 +224,10 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   StringBuilder string_builder(default_memory_pool());
   for (int i = 0; i < num_rows; ++i) {
     if (!is_valid[i]) {
-      string_builder.AppendNull();
+      ASSERT_OK(string_builder.AppendNull());
     } else {
       test::random_ascii(kBufferSize, seed++, buffer);
-      string_builder.Append(buffer, kBufferSize);
+      ASSERT_OK(string_builder.Append(buffer, kBufferSize));
     }
   }
   std::shared_ptr<Array> v3;

@@ -25,12 +25,6 @@ namespace arrow {
 
 constexpr int64_t kFinalSize = 256;
 
-#define ABORT_NOT_OK(s)                              \
-  do {                                               \
-    ::arrow::Status _s = (s);                        \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { exit(-1); } \
-  } while (0);
-
 static void BM_BuildPrimitiveArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   // 2 MiB block

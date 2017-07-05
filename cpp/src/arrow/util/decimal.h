@@ -51,7 +51,7 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out,
 template <typename T>
 struct ARROW_EXPORT Decimal {
   Decimal() : value() {}
-  explicit Decimal(const std::string& s) : value() { FromString(s, this); }
+  explicit Decimal(const std::string& s) : value() { DCHECK(FromString(s, this).ok()); }
   explicit Decimal(const char* s) : Decimal(std::string(s)) {}
   explicit Decimal(const T& value) : value(value) {}
 

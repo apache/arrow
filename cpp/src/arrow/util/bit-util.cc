@@ -34,7 +34,7 @@
 
 namespace arrow {
 
-void BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits) {
+void BitUtil::FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) { SetBit(bits, i); }
   }
@@ -48,7 +48,7 @@ Status BitUtil::BytesToBits(
   RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), bit_length, &buffer));
 
   memset(buffer->mutable_data(), 0, static_cast<size_t>(bit_length));
-  BytesToBits(bytes, buffer->mutable_data());
+  FillBitsFromBytes(bytes, buffer->mutable_data());
 
   *out = buffer;
   return Status::OK();

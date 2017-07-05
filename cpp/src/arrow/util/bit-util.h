@@ -441,7 +441,7 @@ static T ShiftRightLogical(T v, int shift) {
   return static_cast<typename make_unsigned<T>::type>(v) >> shift;
 }
 
-void BytesToBits(const std::vector<uint8_t>& bytes, uint8_t* bits);
+void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
 ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil

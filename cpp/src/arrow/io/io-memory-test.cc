@@ -121,16 +121,16 @@ TEST(TestMemcopy, ParallelMemcopy) {
     int64_t total_size = 3 * 1024 * 1024 + std::rand() % 100;
 
     auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-    buffer1->Resize(total_size);
+    ASSERT_OK(buffer1->Resize(total_size));
 
     auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-    buffer2->Resize(total_size);
+    ASSERT_OK(buffer2->Resize(total_size));
     test::random_bytes(total_size, 0, buffer2->mutable_data());
 
     io::FixedSizeBufferWriter writer(buffer1);
     writer.set_memcopy_threads(4);
     writer.set_memcopy_threshold(1024 * 1024);
-    writer.Write(buffer2->data(), buffer2->size());
+    ASSERT_OK(writer.Write(buffer2->data(), buffer2->size()));
 
     ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));
   }

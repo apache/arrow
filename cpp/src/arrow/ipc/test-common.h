@@ -96,11 +96,11 @@ const auto kListListInt32 = list(kListInt32);
 Status MakeRandomInt32Array(
     int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
-  test::MakeRandomInt32PoolBuffer(length, pool, &data);
+  RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
   Int32Builder builder(pool, int32());
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
-    test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes);
+    RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
     RETURN_NOT_OK(builder.Append(
         reinterpret_cast<const int32_t*>(data->data()), length, valid_bytes->data()));
     return builder.Finish(out);
@@ -149,11 +149,13 @@ Status MakeRandomBooleanArray(
     const int length, bool include_nulls, std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   test::random_null_bytes(length, 0.5, values.data());
-  auto data = test::bytes_to_null_buffer(values);
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(BitUtil::BytesToBits(values, &data));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
-    auto null_bitmap = test::bytes_to_null_buffer(valid_bytes);
+    std::shared_ptr<Buffer> null_bitmap;
+    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, &null_bitmap));
     test::random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -611,9 +613,9 @@ void AppendValues(const std::vector<bool>& is_valid, const std::vector<T>& value
     BuilderType* builder) {
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
-      builder->Append(values[i]);
+      ASSERT_OK(builder->Append(values[i]));
     } else {
-      builder->AppendNull();
+      ASSERT_OK(builder->AppendNull());
     }
   }
 }
