@@ -111,6 +111,7 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace io {
@@ -434,7 +435,7 @@ ReadableFile::ReadableFile(MemoryPool* pool) {
 }
 
 ReadableFile::~ReadableFile() {
-  impl_->Close();
+  DCHECK(impl_->Close().ok());
 }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
@@ -497,7 +498,7 @@ FileOutputStream::FileOutputStream() {
 
 FileOutputStream::~FileOutputStream() {
   // This can fail; better to explicitly call close
-  impl_->Close();
+  DCHECK(impl_->Close().ok());
 }
 
 Status FileOutputStream::Open(
@@ -538,7 +539,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   ~MemoryMap() {
     if (file_->is_open()) {
       munmap(mutable_data_, static_cast<size_t>(size_));
-      file_->Close();
+      DCHECK(file_->Close().ok());
     }
   }
 

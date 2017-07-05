@@ -249,7 +249,7 @@ TYPED_TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
   Decimal<TypeParam> d;
   int precision;
   int scale;
-  FromString(string_value, &d, &precision, &scale);
+  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(precision, 7);
   ASSERT_EQ(scale, 0);
   ASSERT_EQ(d.value, 0);
@@ -260,7 +260,7 @@ TYPED_TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   Decimal<TypeParam> d;
   int precision;
   int scale;
-  FromString(string_value, &d, &precision, &scale);
+  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
   // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
   ASSERT_NE(precision, 7);
 
@@ -273,7 +273,7 @@ TYPED_TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   Decimal<TypeParam> d;
   int precision;
   int scale;
-  FromString(string_value, &d, &precision, &scale);
+  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(precision, 5);
   ASSERT_EQ(scale, 5);
   ASSERT_EQ(d.value, 0);

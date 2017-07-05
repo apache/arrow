@@ -29,15 +29,15 @@ static void BM_SerialMemcopy(benchmark::State& state) {  // NOLINT non-const ref
   constexpr int64_t kTotalSize = 100 * 1024 * 1024;      // 100MB
 
   auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-  buffer1->Resize(kTotalSize);
+  ABORT_NOT_OK(buffer1->Resize(kTotalSize));
 
   auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-  buffer2->Resize(kTotalSize);
+  ABORT_NOT_OK(buffer2->Resize(kTotalSize));
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(buffer1);
-    writer.Write(buffer2->data(), buffer2->size());
+    ABORT_NOT_OK(writer.Write(buffer2->data(), buffer2->size()));
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
@@ -46,16 +46,16 @@ static void BM_ParallelMemcopy(benchmark::State& state) {  // NOLINT non-const r
   constexpr int64_t kTotalSize = 100 * 1024 * 1024;        // 100MB
 
   auto buffer1 = std::make_shared<PoolBuffer>(default_memory_pool());
-  buffer1->Resize(kTotalSize);
+  ABORT_NOT_OK(buffer1->Resize(kTotalSize));
 
   auto buffer2 = std::make_shared<PoolBuffer>(default_memory_pool());
-  buffer2->Resize(kTotalSize);
+  ABORT_NOT_OK(buffer2->Resize(kTotalSize));
   test::random_bytes(kTotalSize, 0, buffer2->mutable_data());
 
   while (state.KeepRunning()) {
     io::FixedSizeBufferWriter writer(buffer1);
     writer.set_memcopy_threads(4);
-    writer.Write(buffer2->data(), buffer2->size());
+    ABORT_NOT_OK(writer.Write(buffer2->data(), buffer2->size()));
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }

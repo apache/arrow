@@ -404,8 +404,10 @@ void PlasmaStore::connect_client(int listener_sock) {
   Client* client = new Client(client_fd);
   // Add a callback to handle events on this socket.
   // TODO(pcm): Check return value.
-  loop_->add_file_event(
-      client_fd, kEventLoopRead, [this, client](int events) { process_message(client); });
+  loop_->add_file_event(client_fd, kEventLoopRead, [this, client](int events) {
+    Status s = process_message(client);
+    if (!s.ok()) { ARROW_LOG(FATAL) << "Failed to process file event: " << s; }
+  });
   ARROW_LOG(DEBUG) << "New connection with fd " << client_fd;
 }
 

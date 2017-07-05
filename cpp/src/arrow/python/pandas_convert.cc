@@ -537,9 +537,9 @@ Status PandasConverter::ConvertDates() {
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
     if (PyDate_CheckExact(obj)) {
-      date_builder.Append(UnboxDate<ArrowType>::Unbox(obj));
+      RETURN_NOT_OK(date_builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
     } else if (PandasObjectIsNull(obj)) {
-      date_builder.AppendNull();
+      RETURN_NOT_OK(date_builder.AppendNull());
     } else {
       return InvalidConversion(obj, "date");
     }
@@ -592,7 +592,7 @@ Status PandasConverter::ConvertDecimals() {
           break;
       }
     } else if (PandasObjectIsNull(object)) {
-      decimal_builder.AppendNull();
+      RETURN_NOT_OK(decimal_builder.AppendNull());
     } else {
       return InvalidConversion(object, "decimal.Decimal");
     }
@@ -939,7 +939,7 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
       int64_t size = PyArray_DIM(numpy_array, 0);
       auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
       if (traits::supports_nulls) {
-        null_bitmap_->Resize(size, false);
+        RETURN_NOT_OK(null_bitmap_->Resize(size, false));
         // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't
         // currently support this.
         // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
@@ -2423,7 +2423,7 @@ class ArrowDeserializer {
   }
 
   Status Visit(const StructType& type) {
-    AllocateOutput(NPY_OBJECT);
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return ConvertStruct(data_, out_values);
   }

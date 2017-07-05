@@ -59,6 +59,12 @@
     EXPECT_TRUE(s.ok());        \
   } while (0)
 
+#define ABORT_NOT_OK(s)                              \
+  do {                                               \
+    ::arrow::Status _s = (s);                        \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { exit(-1); } \
+  } while (0);
+
 namespace arrow {
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
@@ -174,14 +180,6 @@ static inline int64_t null_count(const std::vector<uint8_t>& valid_bytes) {
     if (valid_bytes[i] == 0) { ++result; }
   }
   return result;
-}
-
-std::shared_ptr<Buffer> bytes_to_null_buffer(const std::vector<uint8_t>& bytes) {
-  std::shared_ptr<Buffer> out;
-
-  // TODO(wesm): error checking
-  BitUtil::BytesToBits(bytes, &out);
-  return out;
 }
 
 Status MakeRandomInt32PoolBuffer(int64_t length, MemoryPool* pool,
