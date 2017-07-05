@@ -16,23 +16,25 @@
 
 namespace arrow {
 
-Status::Status(StatusCode code, const std::string& msg, int16_t posix_code) {
+Status::Status(StatusCode code, const std::string& msg) {
   assert(code != StatusCode::OK);
-  const uint32_t size = static_cast<uint32_t>(msg.size());
-  char* result = new char[size + 7];
-  memcpy(result, &size, sizeof(size));
-  result[4] = static_cast<char>(code);
-  memcpy(result + 5, &posix_code, sizeof(posix_code));
-  memcpy(result + 7, msg.c_str(), msg.size());
-  state_ = result;
+  state_ = new State;
+  state_->code = code;
+  state_->msg = msg;
 }
 
-const char* Status::CopyState(const char* state) {
-  uint32_t size;
-  memcpy(&size, state, sizeof(size));
-  char* result = new char[size + 7];
-  memcpy(result, state, size + 7);
-  return result;
+void Status::CopyFrom(const State* state) {
+  delete state_;
+  if (state == nullptr) {
+    state_ = nullptr;
+  } else {
+    state_ = new State(*state);
+  }
+}
+
+std::ostream& operator<<(std::ostream& os, const Status& x) {
+  os << x.ToString();
+  return os;
 }
 
 std::string Status::CodeAsString() const {
@@ -74,12 +76,8 @@ std::string Status::CodeAsString() const {
 std::string Status::ToString() const {
   std::string result(CodeAsString());
   if (state_ == NULL) { return result; }
-
-  result.append(": ");
-
-  uint32_t length;
-  memcpy(&length, state_, sizeof(length));
-  result.append(reinterpret_cast<const char*>(state_ + 7), length);
+  result += ": ";
+  result += state_->msg;
   return result;
 }
 

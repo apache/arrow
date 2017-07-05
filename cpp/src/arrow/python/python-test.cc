@@ -77,7 +77,7 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   const char value[] = {'\xf1', '\0'};
 
   for (int i = 0; i < 1000; ++i) {
-    builder.Append(value, static_cast<int32_t>(strlen(value)));
+    ASSERT_OK(builder.Append(value, static_cast<int32_t>(strlen(value))));
   }
 
   std::shared_ptr<Array> arr;

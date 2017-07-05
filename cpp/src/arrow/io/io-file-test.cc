@@ -125,12 +125,12 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(file_->Write(reinterpret_cast<const uint8_t*>(data), strlen(data)));
 
   int fd = file_->file_descriptor();
-  file_->Close();
+  ASSERT_OK(file_->Close());
 
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
-  file_->Close();
+  ASSERT_OK(file_->Close());
 
   std::shared_ptr<ReadableFile> rd_file;
   ASSERT_OK(ReadableFile::Open(path_, &rd_file));
@@ -215,12 +215,12 @@ TEST_F(TestReadableFile, Close) {
   OpenFile();
 
   int fd = file_->file_descriptor();
-  file_->Close();
+  ASSERT_OK(file_->Close());
 
   ASSERT_TRUE(FileIsClosed(fd));
 
   // Idempotent
-  file_->Close();
+  ASSERT_OK(file_->Close());
 }
 
 TEST_F(TestReadableFile, SeekTellSize) {
@@ -446,7 +446,7 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
     ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
     position += buffer_size;
   }
-  rwmmap->Close();
+  ASSERT_OK(rwmmap->Close());
 
   std::shared_ptr<MemoryMappedFile> rommap;
   ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
@@ -459,7 +459,7 @@ TEST_F(TestMemoryMappedFile, ReadOnly) {
     ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
     position += buffer_size;
   }
-  rommap->Close();
+  ASSERT_OK(rommap->Close());
 }
 
 TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
@@ -481,7 +481,7 @@ TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
     ASSERT_OK(rwmmap->Write(buffer.data(), buffer_size));
     position += buffer_size;
   }
-  rwmmap->Close();
+  ASSERT_OK(rwmmap->Close());
 
   std::shared_ptr<MemoryMappedFile> rommap;
   ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READ, &rommap));
@@ -494,7 +494,7 @@ TEST_F(TestMemoryMappedFile, DISABLED_ReadWriteOver4GbFile) {
     ASSERT_EQ(0, memcmp(out_buffer->data(), buffer.data(), buffer_size));
     position += buffer_size;
   }
-  rommap->Close();
+  ASSERT_OK(rommap->Close());
 }
 
 TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {

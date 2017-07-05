@@ -41,4 +41,12 @@
 #define ARROW_PREDICT_TRUE(x) x
 #endif
 
+#if (defined(__GNUC__) || defined(__APPLE__))
+#define ARROW_MUST_USE_RESULT __attribute__((warn_unused_result))
+#elif defined(_MSC_VER)
+#define ARROW_MUST_USE_RESULT
+#else
+#define ARROW_MUST_USE_RESULT
+#endif
+
 #endif  // ARROW_UTIL_MACROS_H

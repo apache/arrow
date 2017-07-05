@@ -50,7 +50,7 @@ class TestTableBuilder : public ::testing::Test {
   void SetUp() { tb_.reset(new TableBuilder(1000)); }
 
   virtual void Finish() {
-    tb_->Finish();
+    ASSERT_OK(tb_->Finish());
 
     table_.reset(new TableMetadata());
     ASSERT_OK(table_->Open(tb_->GetBuffer()));
@@ -107,7 +107,7 @@ TEST_F(TestTableBuilder, AddPrimitiveColumn) {
   std::string user_meta = "as you wish";
   cb->SetUserMetadata(user_meta);
 
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   cb = tb_->AddColumn("f1");
 
@@ -118,7 +118,7 @@ TEST_F(TestTableBuilder, AddPrimitiveColumn) {
   values2.total_bytes = 10000;
 
   cb->SetValues(values2);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   Finish();
 
@@ -148,12 +148,12 @@ TEST_F(TestTableBuilder, AddCategoryColumn) {
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
   cb->SetCategory(levels);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   cb = tb_->AddColumn("c1");
   cb->SetValues(values1);
   cb->SetCategory(levels, true);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   Finish();
 
@@ -182,7 +182,7 @@ TEST_F(TestTableBuilder, AddTimestampColumn) {
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
   cb->SetTimestamp(TimeUnit::MILLI);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   cb = tb_->AddColumn("c1");
 
@@ -190,7 +190,7 @@ TEST_F(TestTableBuilder, AddTimestampColumn) {
 
   cb->SetValues(values1);
   cb->SetTimestamp(TimeUnit::SECOND, tz);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   Finish();
 
@@ -216,7 +216,7 @@ TEST_F(TestTableBuilder, AddDateColumn) {
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("d0");
   cb->SetValues(values1);
   cb->SetDate();
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
 
   Finish();
 
@@ -233,7 +233,7 @@ TEST_F(TestTableBuilder, AddTimeColumn) {
   std::unique_ptr<ColumnBuilder> cb = tb_->AddColumn("c0");
   cb->SetValues(values1);
   cb->SetTime(TimeUnit::SECOND);
-  cb->Finish();
+  ASSERT_OK(cb->Finish());
   Finish();
 
   auto col = table_->column(0);
@@ -379,7 +379,7 @@ TEST_F(TestTableWriter, TimeTypes) {
 
   for (int i = 1; i < schema->num_fields(); ++i) {
     std::shared_ptr<Array> arr;
-    LoadArray(schema->field(i)->type(), fields, buffers, &arr);
+    ASSERT_OK(LoadArray(schema->field(i)->type(), fields, buffers, &arr));
     arrays.push_back(arr);
   }
 

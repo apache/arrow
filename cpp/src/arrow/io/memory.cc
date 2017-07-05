@@ -55,7 +55,7 @@ Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
 
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
-  if (buffer_) { Close(); }
+  if (buffer_) { DCHECK(Close().ok()); }
 }
 
 Status BufferOutputStream::Close() {

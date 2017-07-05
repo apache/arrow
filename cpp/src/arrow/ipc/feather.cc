@@ -498,7 +498,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
   Status Finalize() {
     RETURN_NOT_OK(CheckStarted());
-    metadata_.Finish();
+    RETURN_NOT_OK(metadata_.Finish());
 
     auto buffer = metadata_.GetBuffer();
 
@@ -655,8 +655,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status Append(const std::string& name, const Array& values) {
     current_column_ = metadata_.AddColumn(name);
     RETURN_NOT_OK(values.Accept(this));
-    current_column_->Finish();
-    return Status::OK();
+    return current_column_->Finish();
   }
 
  private:

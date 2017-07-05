@@ -974,12 +974,12 @@ class ArrayReader {
     DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
-        builder.AppendNull();
+        RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
 
       const rj::Value& val = json_data_arr[i];
-      builder.Append(UnboxValue<T>(val));
+      RETURN_NOT_OK(builder.Append(UnboxValue<T>(val)));
     }
 
     return builder.Finish(&result_);
@@ -1000,14 +1000,14 @@ class ArrayReader {
     auto byte_buffer = std::make_shared<PoolBuffer>(pool_);
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
-        builder.AppendNull();
+        RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
 
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
       if (std::is_base_of<StringType, T>::value) {
-        builder.Append(val.GetString());
+        RETURN_NOT_OK(builder.Append(val.GetString()));
       } else {
         std::string hex_string = val.GetString();
 
@@ -1048,7 +1048,7 @@ class ArrayReader {
 
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
-        builder.AppendNull();
+        RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
 

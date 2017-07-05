@@ -464,9 +464,8 @@ class FixedWidthBytesConverter
   inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
-            ->byte_width();
+    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
+        typed_builder_->type())->byte_width();
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
       return Status::OK();
@@ -518,7 +517,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
     if (item.obj() == Py_None) {
       return typed_builder_->AppendNull();
     } else {
-      typed_builder_->Append();
+      RETURN_NOT_OK(typed_builder_->Append());
       PyObject* item_obj = item.obj();
       int64_t list_size = static_cast<int64_t>(PySequence_Size(item_obj));
       return value_converter_->AppendData(item_obj, list_size);
@@ -607,8 +606,7 @@ Status ListConverter::Init(ArrayBuilder* builder) {
     return Status::NotImplemented("value type not implemented");
   }
 
-  value_converter_->Init(typed_builder_->value_builder());
-  return Status::OK();
+  return value_converter_->Init(typed_builder_->value_builder());
 }
 
 Status AppendPySequence(PyObject* obj, int64_t size,
@@ -620,8 +618,7 @@ Status AppendPySequence(PyObject* obj, int64_t size,
     ss << "No type converter implemented for " << type->ToString();
     return Status::NotImplemented(ss.str());
   }
-  converter->Init(builder);
-
+  RETURN_NOT_OK(converter->Init(builder));
   return converter->AppendData(obj, size);
 }
 

@@ -27,6 +27,7 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace io {
@@ -191,7 +192,7 @@ HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
 }
 
 HdfsReadableFile::~HdfsReadableFile() {
-  impl_->Close();
+  DCHECK(impl_->Close().ok());
 }
 
 Status HdfsReadableFile::Close() {
@@ -271,7 +272,7 @@ HdfsOutputStream::HdfsOutputStream() {
 }
 
 HdfsOutputStream::~HdfsOutputStream() {
-  impl_->Close();
+  DCHECK(impl_->Close().ok());
 }
 
 Status HdfsOutputStream::Close() {
