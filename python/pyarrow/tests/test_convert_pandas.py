@@ -691,3 +691,17 @@ class TestPandasConversion(unittest.TestCase):
 
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
+
+    def test_lists(self):
+        data = OrderedDict([
+            ('ints', [[0], [1]]),
+            ('strs', [['a'], ['b']])
+        ])
+        df = pd.DataFrame(data)
+
+        expected_schema = pa.schema([
+            pa.field('ints', pa.list_(pa.int64())),
+            pa.field('strs', pa.list_(pa.string()))
+        ])
+
+        self._check_pandas_roundtrip(df, expected_schema=expected_schema)

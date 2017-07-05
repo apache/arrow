@@ -893,6 +893,11 @@ Status PandasConverter::ConvertObjects() {
         return ConvertDates<Date32Type>();
       } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
         return ConvertDecimals();
+      } else if (PyList_Check(objects[i])) {
+        int64_t size;
+        std::shared_ptr<DataType> inferred_type;
+        RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
+        return ConvertLists(inferred_type);
       } else {
         return InvalidConversion(
             const_cast<PyObject*>(objects[i]), "string, bool, float, int, date, decimal");
