@@ -240,6 +240,53 @@ public class TestVectorUnloadLoad {
     }
   }
 
+  @Test
+  public void testUnloadLoadDuplicates() throws IOException {
+    int count = 10;
+    Schema schema = new Schema(asList(
+      new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
+      new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
+    ));
+
+    try (
+      BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    ) {
+      List<FieldVector> sources = new ArrayList<>();
+      for (Field field: schema.getFields()) {
+        FieldVector vector = field.createVector(originalVectorsAllocator);
+        vector.allocateNew();
+        sources.add(vector);
+        NullableIntVector.Mutator mutator = (NullableIntVector.Mutator) vector.getMutator();
+        for (int i =  0; i < count; i++) {
+          mutator.set(i, i);
+        }
+        mutator.setValueCount(count);
+      }
+
+      try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), sources, count)) {
+        VectorUnloader vectorUnloader = new VectorUnloader(root);
+        try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+                BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+                VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);) {
+          // load it
+          VectorLoader vectorLoader = new VectorLoader(newRoot);
+          vectorLoader.load(recordBatch);
+
+          List<FieldVector> targets = newRoot.getFieldVectors();
+          Assert.assertEquals(sources.size(), targets.size());
+          for (int k = 0; k < sources.size(); k++) {
+            NullableIntVector.Accessor src = (NullableIntVector.Accessor) sources.get(k).getAccessor();
+            NullableIntVector.Accessor tgt = (NullableIntVector.Accessor) targets.get(k).getAccessor();
+            Assert.assertEquals(src.getValueCount(), tgt.getValueCount());
+            for (int i = 0; i < count; i++) {
+              Assert.assertEquals(src.get(i), tgt.get(i));
+            }
+          }
+        }
+      }
+    }
+  }
+
   public static VectorUnloader newVectorUnloader(FieldVector root) {
     Schema schema = new Schema(root.getField().getChildren());
     int valueCount = root.getAccessor().getValueCount();
