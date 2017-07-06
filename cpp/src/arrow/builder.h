@@ -693,6 +693,8 @@ static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max(
 // The maximum load factor for the hash table before resizing.
 static constexpr double kMaxHashTableLoad = 0.7;
 
+namespace internal {
+
 // TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
 struct WrappedBinary {
   WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
@@ -716,10 +718,14 @@ struct DictionaryScalar<StringType> {
   using type = WrappedBinary;
 };
 
+}  // namespace internal
+
+/// \brief Array builder for created encoded DictionaryArray from dense array
+/// data
 template <typename T>
 class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
-  using Scalar = typename DictionaryScalar<T>::type;
+  using Scalar = typename internal::DictionaryScalar<T>::type;
   explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   template <typename T1 = T>
@@ -727,9 +733,14 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(pool, TypeTraits<T1>::type_singleton()) {}
 
+  /// \brief Append a scalar value
   Status Append(const Scalar& value);
-  Status AppendArray(const Array& array);
+
+  /// \brief Append a scalar null value
   Status AppendNull();
+
+  /// \brief Append a whole dense array to the builder
+  Status AppendArray(const Array& array);
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -756,22 +767,43 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   AdaptiveUIntBuilder values_builder_;
 };
 
-class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
+class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
   using DictionaryBuilder::DictionaryBuilder;
-
   using DictionaryBuilder::Append;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(WrappedBinary(value, length));
+    return Append(internal::WrappedBinary(value, length));
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
+    return Append(
+        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
   }
 
   Status Append(const std::string& value) {
-    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
+    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
+        static_cast<int32_t>(value.size())));
+  }
+};
+
+/// \brief Dictionary array builder with convenience methods for strings
+class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
+ public:
+  using DictionaryBuilder::DictionaryBuilder;
+  using DictionaryBuilder::Append;
+
+  Status Append(const uint8_t* value, int32_t length) {
+    return Append(internal::WrappedBinary(value, length));
+  }
+
+  Status Append(const char* value, int32_t length) {
+    return Append(
+        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
+  }
+
+  Status Append(const std::string& value) {
+    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
         static_cast<int32_t>(value.size())));
   }
 };

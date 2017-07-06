@@ -1494,7 +1494,8 @@ template <typename Type>
 class TestDictionaryBuilder : public TestBuilder {};
 
 typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
-    UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType> PrimitiveDictionaries;
+    UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>
+    PrimitiveDictionaries;
 
 TYPED_TEST_CASE(TestDictionaryBuilder, PrimitiveDictionaries);
 
