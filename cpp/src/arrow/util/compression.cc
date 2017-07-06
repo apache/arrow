@@ -29,10 +29,8 @@
 
 #include <brotli/decode.h>
 #include <brotli/encode.h>
-#include <lz4.h>
 #include <snappy.h>
 #include <zlib.h>
-#include <zstd.h>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -328,58 +326,6 @@ Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
     return Status::IOError("Brotli compression failure.");
   }
   *output_length = output_len;
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// ZSTD implementation
-
-Status ZSTDCodec::Decompress(
-    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
-  int64_t decompressed_size = ZSTD_decompress(output_buffer,
-      static_cast<size_t>(output_len), input, static_cast<size_t>(input_len));
-  if (decompressed_size != output_len) {
-    return Status::IOError("Corrupt ZSTD compressed data.");
-  }
-  return Status::OK();
-}
-
-int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
-  return ZSTD_compressBound(input_len);
-}
-
-Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) {
-  *output_length = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
-      input, static_cast<size_t>(input_len), 1);
-  if (ZSTD_isError(*output_length)) {
-    return Status::IOError("ZSTD compression failure.");
-  }
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// Lz4 implementation
-
-Status Lz4Codec::Decompress(
-    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
-  int64_t decompressed_size = LZ4_decompress_safe(reinterpret_cast<const char*>(input),
-      reinterpret_cast<char*>(output_buffer), static_cast<int>(input_len),
-      static_cast<int>(output_len));
-  if (decompressed_size < 1) { return Status::IOError("Corrupt Lz4 compressed data."); }
-  return Status::OK();
-}
-
-int64_t Lz4Codec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
-  return LZ4_compressBound(static_cast<int>(input_len));
-}
-
-Status Lz4Codec::Compress(int64_t input_len, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) {
-  *output_length = LZ4_compress_default(reinterpret_cast<const char*>(input),
-      reinterpret_cast<char*>(output_buffer), static_cast<int>(input_len),
-      static_cast<int>(output_buffer_len));
-  if (*output_length < 1) { return Status::IOError("Lz4 compression failure."); }
   return Status::OK();
 }
 

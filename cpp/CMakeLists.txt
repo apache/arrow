@@ -142,6 +142,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with SSE4 optimizations"
     OFF)
 
+  option(ARROW_BUILD_PARQUET_DEPS_ONLY
+    "Build only the required Parquet Dependencies"
+    OFF)
+
   option(ARROW_ZLIB_VENDORED
     "Build our own zlib (some libz.a aren't configured for static linking)"
     ON)
@@ -532,9 +536,11 @@ set(ARROW_STATIC_LINK_LIBS
   brotli_enc
   brotli_common
   snappy
-  zlib
-  zstd_static
-  lz4_static)
+  zlib)
+
+if(NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
+  list(APPEND ARROW_STATIC_LINK_LIBS zstd_static lz4_static)
+endif()
 
 add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 
@@ -641,19 +647,10 @@ if (ARROW_IPC)
   add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
-set(ARROW_SRCS
-  src/arrow/array.cc
+set(ARROW_PARQUET_SRCS
   src/arrow/buffer.cc
-  src/arrow/builder.cc
-  src/arrow/compare.cc
-  src/arrow/loader.cc
   src/arrow/memory_pool.cc
-  src/arrow/pretty_print.cc
   src/arrow/status.cc
-  src/arrow/table.cc
-  src/arrow/tensor.cc
-  src/arrow/type.cc
-  src/arrow/visitor.cc
 
   src/arrow/io/file.cc
   src/arrow/io/interfaces.cc
@@ -664,6 +661,20 @@ set(ARROW_SRCS
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
+)
+
+set(ARROW_SRCS
+  src/arrow/array.cc
+  src/arrow/builder.cc
+  src/arrow/compare.cc
+  src/arrow/loader.cc
+  src/arrow/pretty_print.cc
+  src/arrow/table.cc
+  src/arrow/tensor.cc
+  src/arrow/type.cc
+  src/arrow/visitor.cc
+
+  src/arrow/util/arrow_compression.cc
 )
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
@@ -693,7 +704,11 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 set(ARROW_ALL_SRCS
-  ${ARROW_SRCS})
+  ${ARROW_PARQUET_SRCS})
+
+if(NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
+  list(APPEND ARROW_ALL_SRCS ${ARROW_SRCS})
+endif()
 
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_ALL_SRCS}
