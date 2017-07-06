@@ -688,17 +688,54 @@ static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max(
 // The maximum load factor for the hash table before resizing.
 static constexpr double kMaxHashTableLoad = 0.7;
 
-template <typename T, typename Scalar = typename T::c_type>
+namespace internal {
+
+// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
+struct WrappedBinary {
+  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
+
+  const uint8_t* ptr_;
+  int32_t length_;
+};
+
+template <typename T>
+struct DictionaryScalar {
+  using type = typename T::c_type;
+};
+
+template <>
+struct DictionaryScalar<BinaryType> {
+  using type = WrappedBinary;
+};
+
+template <>
+struct DictionaryScalar<StringType> {
+  using type = WrappedBinary;
+};
+
+}  // namespace internal
+
+/// \brief Array builder for created encoded DictionaryArray from dense array
+/// data
+template <typename T>
 class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
+  using Scalar = typename internal::DictionaryScalar<T>::type;
   explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
-  template <typename T1 = T, typename Scalar1 = Scalar>
+  template <typename T1 = T>
   explicit DictionaryBuilder(
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
-      : DictionaryBuilder<T1, Scalar1>(pool, TypeTraits<T1>::type_singleton()) {}
+      : DictionaryBuilder<T1>(pool, TypeTraits<T1>::type_singleton()) {}
 
+  /// \brief Append a scalar value
   Status Append(const Scalar& value);
+
+  /// \brief Append a scalar null value
+  Status AppendNull();
+
+  /// \brief Append a whole dense array to the builder
+  Status AppendArray(const Array& array);
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -725,31 +762,43 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   AdaptiveUIntBuilder values_builder_;
 };
 
-// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
-struct WrappedBinary {
-  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
-
-  const uint8_t* ptr_;
-  int32_t length_;
-};
-
-class ARROW_EXPORT StringDictionaryBuilder
-    : public DictionaryBuilder<StringType, WrappedBinary> {
+class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
   using DictionaryBuilder::DictionaryBuilder;
-
   using DictionaryBuilder::Append;
 
   Status Append(const uint8_t* value, int32_t length) {
-    return Append(WrappedBinary(value, length));
+    return Append(internal::WrappedBinary(value, length));
   }
 
   Status Append(const char* value, int32_t length) {
-    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
+    return Append(
+        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
   }
 
   Status Append(const std::string& value) {
-    return Append(WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
+    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
+        static_cast<int32_t>(value.size())));
+  }
+};
+
+/// \brief Dictionary array builder with convenience methods for strings
+class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
+ public:
+  using DictionaryBuilder::DictionaryBuilder;
+  using DictionaryBuilder::Append;
+
+  Status Append(const uint8_t* value, int32_t length) {
+    return Append(internal::WrappedBinary(value, length));
+  }
+
+  Status Append(const char* value, int32_t length) {
+    return Append(
+        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
+  }
+
+  Status Append(const std::string& value) {
+    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
         static_cast<int32_t>(value.size())));
   }
 };
@@ -759,6 +808,9 @@ class ARROW_EXPORT StringDictionaryBuilder
 
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     std::unique_ptr<ArrayBuilder>* out);
+
+Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
+    const std::shared_ptr<DataType>& type, std::shared_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 

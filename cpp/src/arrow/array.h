@@ -478,7 +478,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices() const { return indices_; }
   std::shared_ptr<Array> dictionary() const;
 
-  const DictionaryType* dict_type() { return dict_type_; }
+  const DictionaryType* dict_type() const { return dict_type_; }
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 

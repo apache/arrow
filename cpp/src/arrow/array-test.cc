@@ -1538,6 +1538,40 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
+  NumericBuilder<TypeParam> builder(default_memory_pool());
+  // DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
+
+  std::shared_ptr<Array> intermediate_result;
+  ASSERT_OK(builder.Finish(&intermediate_result));
+  DictionaryBuilder<TypeParam> dictionary_builder(default_memory_pool());
+  ASSERT_OK(dictionary_builder.AppendArray(*intermediate_result));
+  std::shared_ptr<Array> result;
+  ASSERT_OK(dictionary_builder.Finish(&result));
+
+  // Build expected data
+  NumericBuilder<TypeParam> dict_builder(default_memory_pool());
+  ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(1)));
+  ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
+  std::shared_ptr<Array> dict_array;
+  ASSERT_OK(dict_builder.Finish(&dict_array));
+  auto dtype =
+      std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+
+  UInt8Builder int_builder(default_memory_pool());
+  ASSERT_OK(int_builder.Append(0));
+  ASSERT_OK(int_builder.Append(1));
+  ASSERT_OK(int_builder.Append(0));
+  std::shared_ptr<Array> int_array;
+  ASSERT_OK(int_builder.Finish(&int_array));
+
+  DictionaryArray expected(dtype, int_array);
+  ASSERT_TRUE(expected.Equals(result));
+}
+
 TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
   using Scalar = typename TypeParam::c_type;
   // Skip this test for (u)int8
