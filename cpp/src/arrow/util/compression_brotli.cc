@@ -24,8 +24,6 @@
 
 #include <brotli/decode.h>
 #include <brotli/encode.h>
-#include <snappy.h>
-#include <zlib.h>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
