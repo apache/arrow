@@ -95,6 +95,14 @@ install(FILES
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
+# pkg-config support
+configure_file(arrow-python.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-python.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
 if (ARROW_BUILD_TESTS)
   ADD_ARROW_TEST(python-test
     STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}")
