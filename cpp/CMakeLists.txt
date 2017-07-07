@@ -547,6 +547,14 @@ set(ARROW_STATIC_LINK_LIBS
   snappy
   zlib)
 
+if (ARROW_WITH_LZ4)
+  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_ZSTD)
+  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+endif()
+
 add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_MIN_TEST_LIBS
@@ -681,12 +689,10 @@ set(ARROW_SRCS
 )
 
 if (ARROW_WITH_LZ4)
-  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
   SET(ARROW_SRCS src/arrow/util/compression_lz4.cc ${ARROW_SRCS})
 endif()
 
 if (ARROW_WITH_ZSTD)
-  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
   SET(ARROW_SRCS src/arrow/util/compression_zstd.cc ${ARROW_SRCS})
 endif()
 
