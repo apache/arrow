@@ -313,6 +313,13 @@ cdef class Buffer:
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
 
 
+cdef class MutableBuffer(Buffer):
+    cdef:
+        shared_ptr[CMutableBuffer] mutable_buffer
+
+    cdef void init_mutable(self, const shared_ptr[CMutableBuffer]& buffer)
+
+
 cdef class NativeFile:
     cdef:
         shared_ptr[RandomAccessFile] rd_file

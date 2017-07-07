@@ -541,6 +541,30 @@ cdef class Buffer:
         return self.size
 
 
+cdef class MutableBuffer(Buffer):
+
+    def __cinit__(self):
+        pass
+
+    cdef void init_mutable(self, const shared_ptr[CMutableBuffer]& buffer):
+        Buffer.init(self, <shared_ptr[CBuffer]>(buffer))
+        self.mutable_buffer = buffer
+
+    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+
+        buffer.buf = <char *>self.mutable_buffer.get().mutable_data()
+        buffer.format = 'b'
+        buffer.internal = NULL
+        buffer.itemsize = 1
+        buffer.len = self.size
+        buffer.ndim = 1
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
+
+
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))

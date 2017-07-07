@@ -153,8 +153,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t size()
         shared_ptr[CBuffer] parent()
 
-    cdef cppclass MutableBuffer(CBuffer):
-        MutableBuffer(const uint8_t* data, int64_t size)
+    cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
+        CMutableBuffer(const uint8_t* data, int64_t size)
+        uint8_t* mutable_data()
 
     cdef cppclass ResizableBuffer(CBuffer):
         CStatus Resize(int64_t nbytes)
