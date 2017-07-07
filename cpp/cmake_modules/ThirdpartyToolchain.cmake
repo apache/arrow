@@ -610,7 +610,7 @@ if (BROTLI_VENDORED)
   add_dependencies(brotli_common brotli_ep)
 endif()
 
-if (NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
+if (ARROW_WITH_LZ4)
 # ----------------------------------------------------------------------
 # Lz4
 
@@ -650,7 +650,9 @@ if (NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
   if (LZ4_VENDORED)
     add_dependencies(lz4_static lz4_ep)
   endif()
+endif()
   
+if (ARROW_WITH_ZSTD)
 # ----------------------------------------------------------------------
 # ZSTD
 

@@ -142,9 +142,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with SSE4 optimizations"
     OFF)
 
-  option(ARROW_BUILD_PARQUET_DEPS_ONLY
-    "Build only the required Parquet Dependencies"
-    OFF)
+  option(ARROW_WITH_LZ4
+    "Build with lz4 compression"
+    ON)
+
+  option(ARROW_WITH_ZSTD
+    "Build with zstd compression"
+    ON)
 
   option(ARROW_ZLIB_VENDORED
     "Build our own zlib (some libz.a aren't configured for static linking)"
@@ -161,7 +165,8 @@ endif()
 
 if(ARROW_BUILD_TESTS)
   set(ARROW_BUILD_STATIC ON)
-  set(ARROW_BUILD_PARQUET_DEPS_ONLY OFF)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_ZSTD ON)
 else()
   set(NO_TESTS 1)
 endif()
@@ -169,7 +174,8 @@ endif()
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 else()
-  set(ARROW_BUILD_PARQUET_DEPS_ONLY OFF)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(ARROW_HDFS)
@@ -541,10 +547,6 @@ set(ARROW_STATIC_LINK_LIBS
   snappy
   zlib)
 
-if(NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
-  list(APPEND ARROW_STATIC_LINK_LIBS zstd_static lz4_static)
-endif()
-
 add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_MIN_TEST_LIBS
@@ -650,10 +652,19 @@ if (ARROW_IPC)
   add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
-set(ARROW_PARQUET_SRCS
+set(ARROW_SRCS
+  src/arrow/array.cc
   src/arrow/buffer.cc
+  src/arrow/builder.cc
+  src/arrow/compare.cc
+  src/arrow/loader.cc
   src/arrow/memory_pool.cc
+  src/arrow/pretty_print.cc
   src/arrow/status.cc
+  src/arrow/table.cc
+  src/arrow/tensor.cc
+  src/arrow/type.cc
+  src/arrow/visitor.cc
 
   src/arrow/io/file.cc
   src/arrow/io/interfaces.cc
@@ -661,24 +672,23 @@ set(ARROW_PARQUET_SRCS
 
   src/arrow/util/bit-util.cc
   src/arrow/util/compression.cc
+  src/arrow/util/compression_brotli.cc
+  src/arrow/util/compression_snappy.cc
+  src/arrow/util/compression_zlib.cc
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
 
-set(ARROW_SRCS
-  src/arrow/array.cc
-  src/arrow/builder.cc
-  src/arrow/compare.cc
-  src/arrow/loader.cc
-  src/arrow/pretty_print.cc
-  src/arrow/table.cc
-  src/arrow/tensor.cc
-  src/arrow/type.cc
-  src/arrow/visitor.cc
+if (ARROW_WITH_LZ4)
+  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_SRCS src/arrow/util/compression_lz4.cc ${ARROW_SRCS})
+endif()
 
-  src/arrow/util/arrow_compression.cc
-)
+if (ARROW_WITH_ZSTD)
+  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+  SET(ARROW_SRCS src/arrow/util/compression_zstd.cc ${ARROW_SRCS})
+endif()
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
   set(ARROW_SRCS ${ARROW_SRCS}
@@ -707,11 +717,7 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 set(ARROW_ALL_SRCS
-  ${ARROW_PARQUET_SRCS})
-
-if(NOT ARROW_BUILD_PARQUET_DEPS_ONLY)
-  list(APPEND ARROW_ALL_SRCS ${ARROW_SRCS})
-endif()
+  ${ARROW_SRCS})
 
 ADD_ARROW_LIB(arrow
   SOURCES ${ARROW_ALL_SRCS}

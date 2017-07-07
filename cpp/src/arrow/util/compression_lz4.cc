@@ -17,50 +17,17 @@
 
 #include "arrow/util/compression.h"
 
-// Work around warning caused by Snappy include
-#ifdef DISALLOW_COPY_AND_ASSIGN
-#undef DISALLOW_COPY_AND_ASSIGN
-#endif
-
 #include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
 
 #include <lz4.h>
-#include <zstd.h>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-// ----------------------------------------------------------------------
-// ZSTD implementation
-
-Status ZSTDCodec::Decompress(
-    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
-  int64_t decompressed_size = ZSTD_decompress(output_buffer,
-      static_cast<size_t>(output_len), input, static_cast<size_t>(input_len));
-  if (decompressed_size != output_len) {
-    return Status::IOError("Corrupt ZSTD compressed data.");
-  }
-  return Status::OK();
-}
-
-int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
-  return ZSTD_compressBound(input_len);
-}
-
-Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) {
-  *output_length = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
-      input, static_cast<size_t>(input_len), 1);
-  if (ZSTD_isError(*output_length)) {
-    return Status::IOError("ZSTD compression failure.");
-  }
-  return Status::OK();
-}
 
 // ----------------------------------------------------------------------
 // Lz4 implementation
