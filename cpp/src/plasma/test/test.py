@@ -33,6 +33,7 @@ import unittest
 
 import plasma
 import pyarrow as pa
+import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
 
@@ -266,6 +267,30 @@ class TestPlasmaClient(unittest.TestCase):
     array = pa.read_tensor(reader).to_numpy()
     # Assert that they are equal.
     np.testing.assert_equal(data, array)
+
+  def test_store_pandas_dataframe(self):
+    d = {'one' : pd.Series([1., 2., 3.], index=['a', 'b', 'c']),
+         'two' : pd.Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}
+    df = pd.DataFrame(d)
+
+    # Write the DataFrame.
+    record_batch = pa.RecordBatch.from_pandas(df)
+    data_size = pa.get_record_batch_size(record_batch)
+    object_id = plasma.ObjectID(np.random.bytes(20))
+
+    buf = self.plasma_client.create(object_id, data_size)
+    stream = plasma.FixedSizeBufferOutputStream(buf)
+    stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
+    stream_writer.write_batch(record_batch)
+
+    self.plasma_client.seal(object_id)
+
+    # Read the DataFrame.
+    [data] = self.plasma_client.get([object_id])
+    reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
+    result = reader.read_next_batch().to_pandas()
+
+    pd.util.testing.assert_frame_equal(df, result)
 
   def test_pickle_object_ids(self):
     # This can be used for sharing object IDs between processes.
