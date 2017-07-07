@@ -32,6 +32,15 @@ ENV["GI_TYPELIB_PATH"] = [
 require "gi"
 
 Arrow = GI.load("Arrow")
+module Arrow
+  class Buffer
+    alias_method :initialize_raw, :initialize
+    def initialize(data)
+      initialize_raw(data)
+      @data = data
+    end
+  end
+end
 
 require "tempfile"
 require_relative "helper/buildable"
