@@ -24,8 +24,12 @@ The Plasma In-Memory Object Store
 .. contents:: Contents
     :depth: 3
 
+Installing Plasma
+-----------------
+
 Installation on Ubuntu
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
+
 The following install instructions have been tested for Ubuntu 16.04.
 
 
@@ -150,7 +154,8 @@ encounter the following error:
 
 
 Installation on Mac OS X (TODO)
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The following install instructions have been tested for Mac OS X 10.9 
 Mavericks.
 
@@ -215,10 +220,10 @@ TODO:
 
 
 Troubleshooting Installation Issues
------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ImportError when Running Cmake
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 While installing arrow, if you run into the following error when running 
 the ``cmake`` command, there may be an issue with finding numpy.
@@ -319,7 +324,7 @@ You may now proceed with the rest of the arrow installation.
 
 
 ImportError After Installing Pyarrow
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 You may encounter the following error output when trying to ``import pyarrow`` 
 inside Python:
@@ -466,16 +471,41 @@ the object.
 
 .. code-block:: python
 
-	# Get the object from a different client. This blocks until the object has been sealed.
-	object_id = plasma.ObjectID(20 * b"a")  
-	[buffer] = client.get([object_id])  # Note that you pass in as an ObjectID object, not a string
+	# Create a different client. Note that this second client could be
+	# created in the same or in a separate, concurrent Python session.
+	client2 = plasma.PlasmaClient()
+	client2.connect("/tmp/plasma", "", 0)
 
+	# Get the object in the second client. This blocks until the object has been sealed.
+	object_id2 = plasma.ObjectID(20 * b"a")  
+	[buffer2] = client2.get([object_id])  # Note that you pass in as an ObjectID object, not a string
 
 If the object has not been sealed yet, then the call to client.get will block 
 until the object has been sealed by the client constructing the object.
 
+Note that the buffer fetched is not in the same object type as the buffer the
+original client created to store the object in the first place. The 
+buffer the original client created is a Python ``memoryview`` buffer object,
+while the buffer returned from ``client.get`` is a custom ``PlasmaBuffer`` 
+object. 
+
+However, the ``PlasmaBuffer`` object should behave like a ``memoryview``
+object, and supports slicing and indexing to expose its data.
+
+.. code-block:: shell
+
+	>>> buffer
+	<memory at 0x7fdbdc96e708>
+	>>> buffer[1]
+	1
+	>>> buffer2
+	<plasma.plasma.PlasmaBuffer object at 0x7fdbf2770e88>
+	>>> buffer2[1]
+	1
+	
+
 Storing Arrow Objects and Pandas DataFrames in Plasma (TODO)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------
 
 You can copy the examples from test_store_arrow_objects as well as 
 test_store_pandas_dataframe in arrow/cpp/src/plasma/test/test.py; maybe explain 
