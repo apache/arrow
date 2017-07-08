@@ -27,7 +27,6 @@ import signal
 import site
 import subprocess
 import sys
-import threading
 import time
 import unittest
 
@@ -39,11 +38,14 @@ DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
 
 USE_VALGRIND = False
 
+
 def random_name():
     return str(random.randint(0, 99999999))
 
+
 def random_object_id():
     return plasma.ObjectID(np.random.bytes(20))
+
 
 def generate_metadata(length):
     metadata = bytearray(length)
@@ -54,6 +56,7 @@ def generate_metadata(length):
             metadata[random.randint(0, length - 1)] = random.randint(0, 255)
     return metadata
 
+
 def write_to_data_buffer(buff, length):
     array = np.frombuffer(buff, dtype="uint8")
     if length > 0:
@@ -61,6 +64,7 @@ def write_to_data_buffer(buff, length):
         array[-1] = random.randint(0, 255)
         for _ in range(100):
             array[random.randint(0, length - 1)] = random.randint(0, 255)
+
 
 def create_object_with_id(client, object_id, data_size, metadata_size,
                           seal=True):
@@ -71,12 +75,14 @@ def create_object_with_id(client, object_id, data_size, metadata_size,
         client.seal(object_id)
     return memory_buffer, metadata
 
+
 def create_object(client, data_size, metadata_size, seal=True):
     object_id = random_object_id()
     memory_buffer, metadata = create_object_with_id(client, object_id,
                                                     data_size, metadata_size,
                                                     seal=seal)
     return object_id, memory_buffer, metadata
+
 
 def assert_get_object_equal(unit_test, client1, client2, object_id,
                             memory_buffer=None, metadata=None):
@@ -97,6 +103,7 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
     # If reference metadata was provided, check that it is the same as well.
     if metadata is not None:
         unit_test.assertTrue(plasma.buffers_equal(metadata, client1_metadata))
+
 
 def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
                        use_valgrind=False, use_profiler=False,
@@ -141,6 +148,7 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
         pid = subprocess.Popen(command, stdout=stdout_file, stderr=stderr_file)
         time.sleep(0.1)
     return plasma_store_name, pid
+
 
 class TestPlasmaClient(unittest.TestCase):
 
@@ -284,8 +292,8 @@ class TestPlasmaClient(unittest.TestCase):
         np.testing.assert_equal(data, array)
 
     def test_store_pandas_dataframe(self):
-        d = {'one' : pd.Series([1., 2., 3.], index=['a', 'b', 'c']),
-             'two' : pd.Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}
+        d = {'one': pd.Series([1., 2., 3.], index=['a', 'b', 'c']),
+             'two': pd.Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}
         df = pd.DataFrame(d)
 
         # Write the DataFrame.
@@ -380,8 +388,8 @@ class TestPlasmaClient(unittest.TestCase):
             self.assertTrue(False)
 
         length = 1000
-        # Create a random object, and check that the hash function always returns
-        # the same value.
+        # Create a random object, and check that the hash function always
+        # returns the same value.
         metadata = generate_metadata(length)
         memory_buffer = np.frombuffer(self.plasma_client.create(object_id1,
                                                                 length,
@@ -669,6 +677,7 @@ class TestPlasmaClient(unittest.TestCase):
             self.assertEqual(object_ids[i], recv_objid)
             self.assertEqual(-1, recv_dsize)
             self.assertEqual(-1, recv_msize)
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
