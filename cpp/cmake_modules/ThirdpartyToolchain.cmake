@@ -346,10 +346,15 @@ if (ARROW_IPC)
   ## Flatbuffers
   if("${FLATBUFFERS_HOME}" STREQUAL "")
     set(FLATBUFFERS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
+    if (MSVC)
+      set(FLATBUFFERS_CMAKE_CXX_FLAGS /EHsc)
+    else()
+      set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
+    endif()
     ExternalProject_Add(flatbuffers_ep
       URL "https://github.com/google/flatbuffers/archive/v${FLATBUFFERS_VERSION}.tar.gz"
       CMAKE_ARGS
-      "-DCMAKE_CXX_FLAGS=-fPIC"
+      "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
       "-DFLATBUFFERS_BUILD_TESTS=OFF")
 

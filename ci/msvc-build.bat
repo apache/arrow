@@ -17,18 +17,41 @@
 
 @echo on
 
+if "%CONFIGURATION%" == "Debug" (
+  mkdir cpp\build-debug
+  pushd cpp\build-debug
+
+  cmake -G "%GENERATOR%" ^
+        -DARROW_BOOST_USE_SHARED=OFF ^
+        -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_CXXFLAGS="/MP" ^
+        ..  || exit /B
+
+  cmake --build . --config Debug || exit /B
+  popd
+
+  @rem Finish Debug build successfully
+  exit /B 0
+)
+
 conda update --yes --quiet conda
 
 conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython
-conda install -n arrow -q -y -c conda-forge ^
-      flatbuffers rapidjson ^
-      cmake git boost-cpp thrift-cpp snappy zlib brotli gflags
+
+if "%CONFIGURATION%" == "Toolchain" (
+  conda install -n arrow -q -y -c conda-forge ^
+      flatbuffers rapidjson cmake git boost-cpp ^
+      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+)
 
 call activate arrow
 
+if "%CONFIGURATION%" == "Toolchain" (
+  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+)
+
 set ARROW_HOME=%CONDA_PREFIX%\Library
-set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
 
 @rem Build and test Arrow C++ libraries
 
