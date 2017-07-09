@@ -280,12 +280,7 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
 }
 
 // Non-exhaustive type inference
-Status InferArrowTypeAndSize(
-    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
-  RETURN_NOT_OK(InferArrowSize(obj, size));
-
-  // For 0-length sequences, refuse to guess
-  if (*size == 0) { *out_type = null(); }
+Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
 
   PyDateTime_IMPORT;
   SeqVisitor seq_visitor;
@@ -293,8 +288,23 @@ Status InferArrowTypeAndSize(
   RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
+  if (*out_type == nullptr) {
+    return Status::TypeError("Unable to determine data type");
+  }
 
-  if (*out_type == nullptr) { return Status::TypeError("Unable to determine data type"); }
+  return Status::OK();
+}
+
+Status InferArrowTypeAndSize(
+    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
+  RETURN_NOT_OK(InferArrowSize(obj, size));
+  
+  // For 0-length sequences, refuse to guess
+  if (*size == 0) {
+    *out_type = null();
+    return Status::OK();
+  }
+  RETURN_NOT_OK(InferArrowType(obj, out_type));
 
   return Status::OK();
 }
