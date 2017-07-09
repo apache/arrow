@@ -29,7 +29,7 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
-#include <arrow-glib/record-batch.h>
+#include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 #include <arrow-glib/tensor.hpp>
