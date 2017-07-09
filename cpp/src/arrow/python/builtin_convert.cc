@@ -159,17 +159,16 @@ class SeqVisitor {
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
       for (int64_t i = 0; i < size; ++i) {
-        OwnedRef ref;
         if (PyArray_Check(obj)) {
           auto array = reinterpret_cast<PyArrayObject*>(obj);
           auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
-          ref = OwnedRef(PyArray_GETITEM(array, ptr));
-        } else if (PyList_Check(obj)) {
-          ref = OwnedRef(PyList_GET_ITEM(obj, i));
-        } else {
-          return Status::TypeError("Encountered python sequence which is neither list nor array.");
+          OwnedRef ref = OwnedRef(PyArray_GETITEM(array, ptr));
+          RETURN_NOT_OK(VisitElem(ref, level));
+        } 
+        else {
+          OwnedRef ref = OwnedRef(PySequence_GetItem(obj, i));
+          RETURN_NOT_OK(VisitElem(ref, level));
         }
-        RETURN_NOT_OK(VisitElem(ref, level));
       }
     } else if (PyObject_HasAttrString(obj, "__iter__")) {
       OwnedRef iter = OwnedRef(PyObject_GetIter(obj));
