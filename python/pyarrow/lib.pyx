@@ -67,6 +67,33 @@ def set_cpu_count(count):
     CPU_COUNT = max(int(count), 1)
 
 
+Type_NA = _Type_NA
+Type_BOOL = _Type_BOOL
+Type_UINT8 = _Type_UINT8
+Type_INT8 = _Type_INT8
+Type_UINT16 = _Type_UINT16
+Type_INT16 = _Type_INT16
+Type_UINT32 = _Type_UINT32
+Type_INT32 = _Type_INT32
+Type_UINT64 = _Type_UINT64
+Type_INT64 = _Type_INT64
+Type_HALF_FLOAT = _Type_HALF_FLOAT
+Type_FLOAT = _Type_FLOAT
+Type_DOUBLE = _Type_DOUBLE
+Type_DECIMAL = _Type_DECIMAL
+Type_DATE32 = _Type_DATE32
+Type_DATE64 = _Type_DATE64
+Type_TIMESTAMP = _Type_TIMESTAMP
+Type_TIME32 = _Type_TIME32
+Type_TIME64 = _Type_TIME64
+Type_BINARY = _Type_BINARY
+Type_STRING = _Type_STRING
+Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
+Type_LIST = _Type_LIST
+Type_STRUCT = _Type_STRUCT
+Type_DICTIONARY = _Type_DICTIONARY
+
+
 # Exception types
 include "error.pxi"
 
