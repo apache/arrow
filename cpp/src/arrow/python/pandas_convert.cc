@@ -893,9 +893,13 @@ Status PandasConverter::ConvertObjects() {
         return ConvertDates<Date32Type>();
       } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
         return ConvertDecimals();
+      } else if (PyList_Check(objects[i]) || PyArray_Check(objects[i])) {
+        std::shared_ptr<DataType> inferred_type;
+        RETURN_NOT_OK(InferArrowType(objects[i], &inferred_type));
+        return ConvertLists(inferred_type);
       } else {
-        return InvalidConversion(
-            const_cast<PyObject*>(objects[i]), "string, bool, float, int, date, decimal");
+        return InvalidConversion(const_cast<PyObject*>(objects[i]),
+            "string, bool, float, int, date, decimal, list, array");
       }
     }
   }
@@ -1038,7 +1042,10 @@ Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
     default:
-      return Status::TypeError("Unknown list item type");
+      std::stringstream ss;
+      ss << "Unknown list item type: ";
+      ss << type->ToString();
+      return Status::TypeError(ss.str());
   }
 
   return Status::TypeError("Unknown list type");

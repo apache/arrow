@@ -691,3 +691,33 @@ class TestPandasConversion(unittest.TestCase):
 
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
+
+    def test_infer_lists(self):
+        data = OrderedDict([
+            ('nan_ints', [[None, 1], [2, 3]]),
+            ('ints', [[0, 1], [2, 3]]),
+            ('strs', [[None, u'b'], [u'c', u'd']])
+        ])
+        df = pd.DataFrame(data)
+
+        expected_schema = pa.schema([
+            pa.field('nan_ints', pa.list_(pa.int64())),
+            pa.field('ints', pa.list_(pa.int64())),
+            pa.field('strs', pa.list_(pa.string()))
+        ])
+
+        self._check_pandas_roundtrip(df, expected_schema=expected_schema)
+
+    def test_infer_numpy_array(self):
+        data = OrderedDict([
+            ('ints', [
+                np.array([0, 1], dtype=np.int64),
+                np.array([2, 3], dtype=np.int64)
+            ])
+        ])
+        df = pd.DataFrame(data)
+        expected_schema = pa.schema([
+            pa.field('ints', pa.list_(pa.int64()))
+        ])
+
+        self._check_pandas_roundtrip(df, expected_schema=expected_schema)
