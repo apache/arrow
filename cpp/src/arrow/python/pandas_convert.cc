@@ -34,7 +34,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/loader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
