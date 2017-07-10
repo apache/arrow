@@ -29,6 +29,7 @@
 namespace arrow {
 
 class Array;
+struct ArrayData;
 class Column;
 class Schema;
 class Status;
@@ -113,7 +114,7 @@ class ARROW_EXPORT RecordBatch {
       const std::vector<std::shared_ptr<Array>>& columns);
 
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<Array>>&& columns);
+      std::vector<std::shared_ptr<ArrayData>>&& columns);
 
   bool Equals(const RecordBatch& other) const;
 
@@ -124,9 +125,9 @@ class ARROW_EXPORT RecordBatch {
 
   // @returns: the i-th column
   // Note: Does not boundscheck
-  std::shared_ptr<Array> column(int i) const { return columns_[i]; }
+  std::shared_ptr<Array> column(int i) const;
 
-  const std::vector<std::shared_ptr<Array>>& columns() const { return columns_; }
+  std::shared_ptr<ArrayData> column_data(int i) const;
 
   const std::string& column_name(int i) const;
 
@@ -147,7 +148,7 @@ class ARROW_EXPORT RecordBatch {
  private:
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
-  std::vector<std::shared_ptr<Array>> columns_;
+  std::vector<std::shared_ptr<ArrayData>> columns_;
 };
 
 // Immutable container of fixed-length columns conforming to a particular schema

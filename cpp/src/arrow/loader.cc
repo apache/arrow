@@ -35,17 +35,16 @@ namespace arrow {
 
 class ArrayLoader {
  public:
-  ArrayLoader(const std::shared_ptr<DataType>& type, ArrayLoaderContext* context)
-      : type_(type), context_(context) {}
+  ArrayLoader(
+      const std::shared_ptr<DataType>& type, ArrayData* out, ArrayLoaderContext* context)
+      : type_(type), context_(context), out_(out) {}
 
-  Status Load(std::shared_ptr<Array>* out) {
+  Status Load() {
     if (context_->max_recursion_depth <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
 
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
-
-    *out = std::move(result_);
     return Status::OK();
   }
 
@@ -53,18 +52,23 @@ class ArrayLoader {
     return context_->source->GetBuffer(buffer_index, out);
   }
 
-  Status LoadCommon(FieldMetadata* field_meta, std::shared_ptr<Buffer>* null_bitmap) {
+  Status LoadCommon() {
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
+    FieldMetadata field_meta;
     RETURN_NOT_OK(
-        context_->source->GetFieldMetadata(context_->field_index++, field_meta));
+        context_->source->GetFieldMetadata(context_->field_index++, &field_meta));
+
+    out_->length = field_meta.length;
+    out_->null_count = field_meta.null_count;
+    out_->offset = field_meta.offset;
 
     // extract null_bitmap which is common to all arrays
-    if (field_meta->null_count == 0) {
-      *null_bitmap = nullptr;
+    if (field_meta.null_count == 0) {
+      out_->buffers[0] = nullptr;
     } else {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, null_bitmap));
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[0]));
     }
     context_->buffer_index++;
     return Status::OK();
@@ -72,61 +76,42 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive() {
-    using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+    out_->buffers.resize(2);
 
-    ArrayData array_data;
-    array_data.buffers.resize(2);
-
-    FieldMetadata field_meta;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &array_data.buffers[0]));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &array_data.buffers[1]));
+    RETURN_NOT_OK(LoadCommon());
+    if (out_->length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
     } else {
       context_->buffer_index++;
-      array_data.buffers[1].reset(new Buffer(nullptr, 0));
+      out_->buffers[1].reset(new Buffer(nullptr, 0));
     }
-
-    array_data.length = field_meta.length;
-    array_data.null_count = field_meta.null_count;
-    array_data.offset = field_meta.offset;
-
-    result_ = std::make_shared<ArrayType>(std::move(array_data));
     return Status::OK();
   }
 
   template <typename TYPE>
   Status LoadBinary() {
-    using CONTAINER = typename TypeTraits<TYPE>::ArrayType;
+    out_->buffers.resize(3);
 
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, offsets, values;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &values));
-
-    result_ = std::make_shared<CONTAINER>(
-        field_meta.length, offsets, values, null_bitmap, field_meta.null_count);
-    return Status::OK();
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+    return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
-  Status LoadChild(const Field& field, std::shared_ptr<Array>* out) {
-    ArrayLoader loader(field.type(), context_);
+  Status LoadChild(const Field& field, ArrayData* out) {
+    ArrayLoader loader(field.type(), out, context_);
     --context_->max_recursion_depth;
-    RETURN_NOT_OK(loader.Load(out));
+    RETURN_NOT_OK(loader.Load());
     ++context_->max_recursion_depth;
     return Status::OK();
   }
 
-  Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields,
-      std::vector<std::shared_ptr<Array>>* arrays) {
-    arrays->reserve(static_cast<int>(child_fields.size()));
+  Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields) {
+    out_->child_data.reserve(static_cast<int>(child_fields.size()));
 
     for (const auto& child_field : child_fields) {
-      std::shared_ptr<Array> field_array;
-      RETURN_NOT_OK(LoadChild(*child_field.get(), &field_array));
-      arrays->emplace_back(field_array);
+      auto field_array = std::make_shared<ArrayData>();
+      RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
+      out_->child_data.emplace_back(field_array);
     }
     return Status::OK();
   }
@@ -151,23 +136,16 @@ class ArrayLoader {
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, data;
-
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
-
-    result_ = std::make_shared<FixedSizeBinaryArray>(
-        type_, field_meta.length, data, null_bitmap, field_meta.null_count);
-    return Status::OK();
+    out_->buffers.resize(2);
+    RETURN_NOT_OK(LoadCommon());
+    return GetBuffer(context_->buffer_index++, &out_->buffers[1]);
   }
 
   Status Visit(const ListType& type) {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, offsets;
+    out_->buffers.resize(2);
 
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &offsets));
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
 
     const int num_children = type.num_children();
     if (num_children != 1) {
@@ -175,68 +153,45 @@ class ArrayLoader {
       ss << "Wrong number of children: " << num_children;
       return Status::Invalid(ss.str());
     }
-    std::shared_ptr<Array> values_array;
 
-    RETURN_NOT_OK(LoadChild(*type.child(0).get(), &values_array));
-
-    result_ = std::make_shared<ListArray>(type_, field_meta.length, offsets, values_array,
-        null_bitmap, field_meta.null_count);
-    return Status::OK();
+    return LoadChildren(type.children());
   }
 
   Status Visit(const StructType& type) {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-
-    std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
-
-    result_ = std::make_shared<StructArray>(
-        type_, field_meta.length, fields, null_bitmap, field_meta.null_count);
-    return Status::OK();
+    RETURN_NOT_OK(LoadCommon());
+    return LoadChildren(type.children());
   }
 
   Status Visit(const UnionType& type) {
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, type_ids, offsets;
+    out_->buffers.resize(3);
 
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
-    if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &type_ids));
+    RETURN_NOT_OK(LoadCommon());
+    if (out_->length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[1]));
       if (type.mode() == UnionMode::DENSE) {
-        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &offsets));
+        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &out_->buffers[2]));
       }
     }
     context_->buffer_index += type.mode() == UnionMode::DENSE ? 2 : 1;
-
-    std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(LoadChildren(type.children(), &fields));
-
-    result_ = std::make_shared<UnionArray>(type_, field_meta.length, fields, type_ids,
-        offsets, null_bitmap, field_meta.null_count);
-    return Status::OK();
+    return LoadChildren(type.children());
   }
 
   Status Visit(const DictionaryType& type) {
-    std::shared_ptr<Array> indices;
-    RETURN_NOT_OK(LoadArray(type.index_type(), context_, &indices));
-    result_ = std::make_shared<DictionaryArray>(type_, indices);
+    RETURN_NOT_OK(LoadArray(type.index_type(), context_, out_));
+    out_->type = type_;
     return Status::OK();
   }
-
-  std::shared_ptr<Array> result() const { return result_; }
 
  private:
   const std::shared_ptr<DataType> type_;
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
-  std::shared_ptr<Array> result_;
+  ArrayData* out_;
 };
 
-Status LoadArray(const std::shared_ptr<DataType>& type, ArrayComponentSource* source,
-    std::shared_ptr<Array>* out) {
+Status LoadArray(
+    const std::shared_ptr<DataType>& type, ArrayComponentSource* source, ArrayData* out) {
   ArrayLoaderContext context;
   context.source = source;
   context.field_index = context.buffer_index = 0;
@@ -244,12 +199,10 @@ Status LoadArray(const std::shared_ptr<DataType>& type, ArrayComponentSource* so
   return LoadArray(type, &context, out);
 }
 
-Status LoadArray(const std::shared_ptr<DataType>& type, ArrayLoaderContext* context,
-    std::shared_ptr<Array>* out) {
-  ArrayLoader loader(type, context);
-  RETURN_NOT_OK(loader.Load(out));
-
-  return Status::OK();
+Status LoadArray(
+    const std::shared_ptr<DataType>& type, ArrayLoaderContext* context, ArrayData* out) {
+  ArrayLoader loader(type, out, context);
+  return loader.Load();
 }
 
 class InMemorySource : public ArrayComponentSource {
@@ -277,7 +230,7 @@ class InMemorySource : public ArrayComponentSource {
 
 Status LoadArray(const std::shared_ptr<DataType>& type,
     const std::vector<FieldMetadata>& fields,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, std::shared_ptr<Array>* out) {
+    const std::vector<std::shared_ptr<Buffer>>& buffers, ArrayData* out) {
   InMemorySource source(fields, buffers);
   return LoadArray(type, &source, out);
 }
@@ -297,7 +250,9 @@ Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
   fields[0].null_count = null_count;
   fields[0].offset = offset;
 
-  return LoadArray(type, fields, buffers, out);
+  auto data = std::make_shared<ArrayData>();
+  RETURN_NOT_OK(LoadArray(type, fields, buffers, data.get()));
+  return MakeArray(data, out);
 }
 
 }  // namespace arrow

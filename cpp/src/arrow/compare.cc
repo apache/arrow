@@ -126,7 +126,7 @@ class RangeEqualsVisitor {
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
-      for (int j = 0; j < static_cast<int>(left.fields().size()); ++j) {
+      for (int j = 0; j < left.num_fields(); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
         const int64_t left_abs_index = i + left.offset();

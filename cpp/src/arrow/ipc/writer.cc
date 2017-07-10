@@ -367,7 +367,8 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
-    for (std::shared_ptr<Array> field : array.fields()) {
+    for (int i = 0; i < array.num_fields(); ++i) {
+      std::shared_ptr<Array> field = array.field(i);
       if (array.offset() != 0 || array.length() < field->length()) {
         // If offset is non-zero, slice the child array
         field = field->Slice(array.offset(), array.length());
@@ -450,7 +451,9 @@ class RecordBatchSerializer : public ArrayVisitor {
         RETURN_NOT_OK(VisitArray(*child));
       }
     } else {
-      for (std::shared_ptr<Array> child : array.children()) {
+      for (int i = 0; i < array.num_fields(); ++i) {
+        std::shared_ptr<Array> child = array.child(i);
+
         // Sparse union, slicing is simpler
         if (offset != 0 || length < child->length()) {
           // If offset is non-zero, slice the child array

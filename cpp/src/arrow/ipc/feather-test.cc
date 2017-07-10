@@ -374,16 +374,16 @@ TEST_F(TestTableWriter, TimeTypes) {
   std::vector<std::shared_ptr<Buffer>> buffers = {
       prim_values.null_bitmap(), prim_values.values()};
 
-  std::vector<std::shared_ptr<Array>> arrays;
-  arrays.push_back(date_array);
+  std::vector<std::shared_ptr<ArrayData>> arrays;
+  arrays.push_back(date_array->data());
 
   for (int i = 1; i < schema->num_fields(); ++i) {
-    std::shared_ptr<Array> arr;
-    ASSERT_OK(LoadArray(schema->field(i)->type(), fields, buffers, &arr));
-    arrays.push_back(arr);
+    auto arr = std::make_shared<ArrayData>();
+    ASSERT_OK(LoadArray(schema->field(i)->type(), fields, buffers, arr.get()));
+    arrays.emplace_back(arr);
   }
 
-  RecordBatch batch(schema, values->length(), arrays);
+  RecordBatch batch(schema, values->length(), std::move(arrays));
   CheckBatch(batch);
 }
 

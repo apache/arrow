@@ -2086,7 +2086,7 @@ TEST_F(TestStructBuilder, TestAppendNull) {
 
   ASSERT_OK(ValidateArray(*result_));
 
-  ASSERT_EQ(2, static_cast<int>(result_->fields().size()));
+  ASSERT_EQ(2, static_cast<int>(result_->num_fields()));
   ASSERT_EQ(2, result_->length());
   ASSERT_EQ(2, result_->field(0)->length());
   ASSERT_EQ(2, result_->field(1)->length());

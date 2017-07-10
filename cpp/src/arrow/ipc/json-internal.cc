@@ -558,7 +558,11 @@ class ArrayWriter {
   Status Visit(const StructArray& array) {
     WriteValidityField(array);
     const auto& type = static_cast<const StructType&>(*array.type());
-    return WriteChildren(type.children(), array.fields());
+    std::vector<std::shared_ptr<Array>> children;
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.field(i));
+    }
+    return WriteChildren(type.children(), children);
   }
 
   Status Visit(const UnionArray& array) {
@@ -569,7 +573,11 @@ class ArrayWriter {
     if (type.mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
-    return WriteChildren(type.children(), array.children());
+    std::vector<std::shared_ptr<Array>> children;
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.child(i));
+    }
+    return WriteChildren(type.children(), children);
   }
 
  private:

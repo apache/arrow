@@ -88,18 +88,19 @@ Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& s
 static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
     int64_t num_rows, int max_recursion_depth, ArrayComponentSource* source,
     std::shared_ptr<RecordBatch>* out) {
-  std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
-
   ArrayLoaderContext context;
   context.source = source;
   context.field_index = 0;
   context.buffer_index = 0;
   context.max_recursion_depth = max_recursion_depth;
 
+  std::vector<std::shared_ptr<ArrayData>> arrays;
+  arrays.reserve(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
-    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, &arrays[i]));
-    DCHECK_EQ(num_rows, arrays[i]->length())
-        << "Array length did not match record batch length";
+    auto arr = std::make_shared<ArrayData>();
+    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, arr.get()));
+    DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
+    arrays.emplace_back(arr);
   }
 
   *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));

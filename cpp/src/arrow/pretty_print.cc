@@ -187,7 +187,11 @@ class ArrayPrinter {
 
   Status Visit(const StructArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
-    return PrintChildren(array.fields(), array.offset(), array.length());
+    std::vector<std::shared_ptr<Array>> children;
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.field(i));
+    }
+    return PrintChildren(children, array.offset(), array.length());
   }
 
   Status Visit(const UnionArray& array) {
@@ -207,7 +211,11 @@ class ArrayPrinter {
     }
 
     // Print the children without any offset, because the type ids are absolute
-    return PrintChildren(array.children(), 0, array.length() + array.offset());
+    std::vector<std::shared_ptr<Array>> children;
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.child(i));
+    }
+    return PrintChildren(children, 0, array.length() + array.offset());
   }
 
   Status Visit(const DictionaryArray& array) {

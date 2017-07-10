@@ -32,6 +32,7 @@
 namespace arrow {
 
 class Array;
+struct ArrayData;
 class Buffer;
 class DataType;
 
@@ -99,15 +100,15 @@ struct ArrayLoaderContext {
 /// \param[in] source an implementation of ArrayComponentSource
 /// \param[out] out the constructed array
 /// \return Status indicating success or failure
-Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
-    ArrayComponentSource* source, std::shared_ptr<Array>* out);
+Status ARROW_EXPORT LoadArray(
+    const std::shared_ptr<DataType>& type, ArrayComponentSource* source, ArrayData* out);
 
-Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& field,
-    ArrayLoaderContext* context, std::shared_ptr<Array>* out);
+Status ARROW_EXPORT LoadArray(
+    const std::shared_ptr<DataType>& field, ArrayLoaderContext* context, ArrayData* out);
 
 Status ARROW_EXPORT LoadArray(const std::shared_ptr<DataType>& type,
     const std::vector<FieldMetadata>& fields,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, std::shared_ptr<Array>* out);
+    const std::vector<std::shared_ptr<Buffer>>& buffers, ArrayData* out);
 
 /// Create new arrays for logical types that are backed by primitive arrays.
 Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
