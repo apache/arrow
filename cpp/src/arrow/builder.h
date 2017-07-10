@@ -554,18 +554,9 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
   explicit BinaryBuilder(MemoryPool* pool);
   explicit BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
-  Status Append(const uint8_t* value, int32_t length) {
-    RETURN_NOT_OK(ListBuilder::Append());
-    return byte_builder_->Append(value, length);
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(reinterpret_cast<const uint8_t*>(value), length);
-  }
-
-  Status Append(const std::string& value) {
-    return Append(value.c_str(), static_cast<int32_t>(value.size()));
-  }
+  Status Append(const uint8_t* value, int32_t length);
+  Status Append(const char* value, int32_t length);
+  Status Append(const std::string& value);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
