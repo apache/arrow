@@ -613,7 +613,11 @@ Status PandasConverter::ConvertObjectStrings() {
   RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, &builder, &have_bytes));
   RETURN_NOT_OK(builder.Finish(&out_));
 
-  if (have_bytes) { out_ = std::make_shared<BinaryArray>(out_->data()); }
+  if (have_bytes) {
+    auto binary_data = out_->data()->ShallowCopy();
+    binary_data->type = ::arrow::binary();
+    out_ = std::make_shared<BinaryArray>(binary_data);
+  }
   return Status::OK();
 }
 
