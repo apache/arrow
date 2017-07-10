@@ -696,7 +696,7 @@ class TestPandasConversion(unittest.TestCase):
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
-            ('strs', [[None, 'b'], ['c', 'd']])
+            ('strs', [[None, u'b'], [u'c', u'd']])
         ])
         df = pd.DataFrame(data)
 
