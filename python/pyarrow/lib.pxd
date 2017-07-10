@@ -52,6 +52,11 @@ cdef class DataType:
     cdef void init(self, const shared_ptr[CDataType]& type)
 
 
+cdef class ListType(DataType):
+    cdef:
+        const CListType* list_type
+
+
 cdef class DictionaryType(DataType):
     cdef:
         const CDictionaryType* dict_type

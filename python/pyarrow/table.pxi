@@ -321,7 +321,9 @@ cdef tuple _dataframe_to_arrays(
         list names = []
         list arrays = []
         list index_columns = []
+        list types = []
         DataType type = None
+        Array array
         dict metadata
         Py_ssize_t i
         Py_ssize_t n
@@ -336,20 +338,22 @@ cdef tuple _dataframe_to_arrays(
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
 
-        arr = arrays.append(
-            Array.from_pandas(
-                col, type=type, timestamps_to_ms=timestamps_to_ms
-            )
+        array = Array.from_pandas(
+            col, type=type, timestamps_to_ms=timestamps_to_ms
         )
+        arrays.append(array)
         names.append(name)
+        types.append(array.type)
 
     for i, column in enumerate(index_columns):
-        arrays.append(
-            Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
-        )
+        array = Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
+        arrays.append(array)
         names.append(pdcompat.index_level_name(column, i))
+        types.append(array.type)
 
-    metadata = pdcompat.construct_metadata(df, index_columns, preserve_index)
+    metadata = pdcompat.construct_metadata(
+        df, index_columns, preserve_index, types
+    )
     return names, arrays, metadata
 
 

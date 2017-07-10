@@ -23,6 +23,7 @@ import pandas as pd
 import pandas.util.testing as tm
 
 import pyarrow as pa
+from pyarrow.pandas_compat import get_logical_type
 import pyarrow.formatting as fmt
 
 
@@ -195,3 +196,36 @@ def test_simple_type_construction():
     result = pa.lib.TimestampType()
     with pytest.raises(TypeError):
         str(result)
+
+
+@pytest.mark.parametrize(
+    ('type', 'expected'),
+    [
+        (pa.null(), 'float64'),
+        (pa.bool_(), 'bool'),
+        (pa.int8(), 'int8'),
+        (pa.int16(), 'int16'),
+        (pa.int32(), 'int32'),
+        (pa.int64(), 'int64'),
+        (pa.uint8(), 'uint8'),
+        (pa.uint16(), 'uint16'),
+        (pa.uint32(), 'uint32'),
+        (pa.uint64(), 'uint64'),
+        (pa.float16(), 'float16'),
+        (pa.float32(), 'float32'),
+        (pa.float64(), 'float64'),
+        (pa.date32(), 'date'),
+        (pa.date64(), 'date'),
+        (pa.binary(), 'bytes'),
+        (pa.binary(length=4), 'bytes'),
+        (pa.string(), 'unicode'),
+        (pa.list_(pa.list_(pa.int16())), 'list[list[int16]]'),
+        (pa.decimal(18, 3), 'decimal'),
+        (pa.timestamp('ms'), 'datetime'),
+        (pa.timestamp('us', 'UTC'), 'datetimetz'),
+        pytest.mark.xfail((pa.time32('s'), None), raises=NotImplementedError),
+        pytest.mark.xfail((pa.time64('us'), None), raises=NotImplementedError),
+   ]
+)
+def test_logical_type(type, expected):
+    assert get_logical_type(type) == expected
