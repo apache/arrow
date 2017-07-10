@@ -21,6 +21,7 @@ import pandas as pd
 
 import six
 
+import pyarrow as pa
 from pyarrow.compat import PY2
 
 
@@ -38,17 +39,83 @@ def infer_dtype(column):
         return pd.lib.infer_dtype(column)
 
 
-def get_column_metadata(column, name):
-    inferred_dtype = infer_dtype(column)
+_logical_type_map = {}
+
+
+def get_logical_type_map():
+    global _logical_type_map
+
+    if not _logical_type_map:
+        _logical_type_map.update({
+            pa.lib.Type_NA: 'float64',  # NaNs
+            pa.lib.Type_BOOL: 'bool',
+            pa.lib.Type_INT8: 'int8',
+            pa.lib.Type_INT16: 'int16',
+            pa.lib.Type_INT32: 'int32',
+            pa.lib.Type_INT64: 'int64',
+            pa.lib.Type_UINT8: 'uint8',
+            pa.lib.Type_UINT16: 'uint16',
+            pa.lib.Type_UINT32: 'uint32',
+            pa.lib.Type_UINT64: 'uint64',
+            pa.lib.Type_HALF_FLOAT: 'float16',
+            pa.lib.Type_FLOAT: 'float32',
+            pa.lib.Type_DOUBLE: 'float64',
+            pa.lib.Type_DATE32: 'date',
+            pa.lib.Type_DATE64: 'date',
+            pa.lib.Type_BINARY: 'bytes',
+            pa.lib.Type_FIXED_SIZE_BINARY: 'bytes',
+            pa.lib.Type_STRING: 'unicode',
+        })
+    return _logical_type_map
+
+
+def get_logical_type(arrow_type):
+    logical_type_map = get_logical_type_map()
+
+    try:
+        return logical_type_map[arrow_type.id]
+    except KeyError:
+        if isinstance(arrow_type, pa.lib.DictionaryType):
+            return 'categorical'
+        elif isinstance(arrow_type, pa.lib.ListType):
+            return 'list[{}]'.format(get_logical_type(arrow_type.value_type))
+        elif isinstance(arrow_type, pa.lib.TimestampType):
+            return 'datetimetz' if arrow_type.tz is not None else 'datetime'
+        elif isinstance(arrow_type, pa.lib.DecimalType):
+            return 'decimal'
+        raise NotImplementedError(str(arrow_type))
+
+
+def get_column_metadata(column, name, arrow_type):
+    """Construct the metadata for a given column
+
+    Parameters
+    ----------
+    column : pandas.Series
+    name : str
+    arrow_type : pyarrow.DataType
+
+    Returns
+    -------
+    dict
+    """
     dtype = column.dtype
+    logical_type = get_logical_type(arrow_type)
 
     if hasattr(dtype, 'categories'):
+        assert logical_type == 'categorical'
         extra_metadata = {
             'num_categories': len(column.cat.categories),
             'ordered': column.cat.ordered,
         }
     elif hasattr(dtype, 'tz'):
+        assert logical_type == 'datetimetz'
         extra_metadata = {'timezone': str(dtype.tz)}
+    elif logical_type == 'decimal':
+        extra_metadata = {
+            'precision': arrow_type.precision,
+            'scale': arrow_type.scale,
+        }
     else:
         extra_metadata = None
 
@@ -61,25 +128,49 @@ def get_column_metadata(column, name):
 
     return {
         'name': name,
-        'pandas_type': {
-            'string': 'bytes' if PY2 else 'unicode',
-            'datetime64': (
-                'datetimetz' if hasattr(dtype, 'tz')
-                else 'datetime'
-            ),
-            'integer': str(dtype),
-            'floating': str(dtype),
-        }.get(inferred_dtype, inferred_dtype),
+        'pandas_type': logical_type,
         'numpy_type': str(dtype),
         'metadata': extra_metadata,
     }
 
 
 def index_level_name(index, i):
-    return index.name or '__index_level_{:d}__'.format(i)
+    """Return the name of an index level or a default name if `index.name` is
+    None.
+
+    Parameters
+    ----------
+    index : pandas.Index
+    i : int
+
+    Returns
+    -------
+    name : str
+    """
+    if index.name is not None:
+        return index.name
+    else:
+        return '__index_level_{:d}__'.format(i)
 
 
-def construct_metadata(df, index_levels, preserve_index):
+def construct_metadata(df, index_levels, preserve_index, types):
+    """Returns a dictionary containing enough metadata to reconstruct a pandas
+    DataFrame as an Arrow Table, including index columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    index_levels : List[pd.Index]
+    presere_index : bool
+    types : List[pyarrow.DataType]
+
+    Returns
+    -------
+    dict
+    """
+    ncolumns = len(df.columns)
+    df_types = types[:ncolumns]
+    index_types = types[ncolumns:ncolumns + len(index_levels)]
     return {
         b'pandas': json.dumps(
             {
@@ -88,14 +179,22 @@ def construct_metadata(df, index_levels, preserve_index):
                     for i, level in enumerate(index_levels)
                 ] if preserve_index else [],
                 'columns': [
-                    get_column_metadata(df[name], name=name)
-                    for name in df.columns
+                    get_column_metadata(
+                        df[name],
+                        name=name,
+                        arrow_type=arrow_type
+                    )
+                    for name, arrow_type in zip(df.columns, df_types)
                 ] + (
                     [
                         get_column_metadata(
-                            level, name=index_level_name(level, i)
+                            level,
+                            name=index_level_name(level, i),
+                            arrow_type=arrow_type
                         )
-                        for i, level in enumerate(index_levels)
+                        for i, (level, arrow_type) in enumerate(
+                            zip(index_levels, index_types)
+                        )
                     ] if preserve_index else []
                 ),
                 'pandas_version': pd.__version__,

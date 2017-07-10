@@ -19,7 +19,7 @@ from pyarrow.includes.libarrow cimport *
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
-_pandas_type_map = {
+cdef dict _pandas_type_map = {
     _Type_NA: np.float64,  # NaNs
     _Type_BOOL: np.bool_,
     _Type_INT8: np.int8,
@@ -39,8 +39,10 @@ _pandas_type_map = {
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
-    _Type_LIST: np.object_
+    _Type_LIST: np.object_,
+    _Type_DECIMAL: np.object_,
 }
+
 
 cdef class DataType:
 
@@ -50,6 +52,11 @@ cdef class DataType:
     cdef void init(self, const shared_ptr[CDataType]& type):
         self.sp_type = type
         self.type = type.get()
+
+    property id:
+
+        def __get__(self):
+            return self.type.id()
 
     def __str__(self):
         if self.type is NULL:
@@ -89,6 +96,18 @@ cdef class DictionaryType(DataType):
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
+
+
+cdef class ListType(DataType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+        self.list_type = <const CListType*> type.get()
+
+    property value_type:
+
+        def __get__(self):
+            return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
 cdef class TimestampType(DataType):
@@ -153,6 +172,16 @@ cdef class DecimalType(FixedSizeBinaryType):
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
         self.decimal_type = <const CDecimalType*> type.get()
+
+    property precision:
+
+        def __get__(self):
+            return self.decimal_type.precision()
+
+    property scale:
+
+        def __get__(self):
+            return self.decimal_type.scale()
 
 
 cdef class Field:
@@ -630,7 +659,7 @@ def binary(int length=-1):
     return pyarrow_wrap_data_type(fixed_size_binary_type)
 
 
-def list_(value_type):
+cpdef ListType list_(value_type):
     """
     Create ListType instance from child data type or field
 
@@ -645,8 +674,8 @@ def list_(value_type):
     cdef:
         DataType data_type
         Field field
-
-    cdef shared_ptr[CDataType] list_type
+        shared_ptr[CDataType] list_type
+        ListType out = ListType()
 
     if isinstance(value_type, DataType):
         list_type.reset(new CListType((<DataType> value_type).sp_type))
@@ -655,10 +684,11 @@ def list_(value_type):
     else:
         raise ValueError('List requires DataType or Field')
 
-    return pyarrow_wrap_data_type(list_type)
+    out.init(list_type)
+    return out
 
 
-def dictionary(DataType index_type, Array dictionary):
+cpdef DictionaryType dictionary(DataType index_type, Array dictionary):
     """
     Dictionary (categorical, or simply encoded) type
 

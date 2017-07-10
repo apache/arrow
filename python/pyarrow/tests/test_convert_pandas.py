@@ -18,10 +18,12 @@
 
 from collections import OrderedDict
 
-import pytest
 import datetime
 import unittest
 import decimal
+import json
+
+import pytest
 
 import numpy as np
 
@@ -721,3 +723,43 @@ class TestPandasConversion(unittest.TestCase):
         ])
 
         self._check_pandas_roundtrip(df, expected_schema=expected_schema)
+
+    def test_metadata_with_mixed_types(self):
+        df = pd.DataFrame({'data': [b'some_bytes', u'some_unicode']})
+        table = pa.Table.from_pandas(df)
+        metadata = table.schema.metadata
+        assert b'mixed' not in metadata[b'pandas']
+
+        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        data_column = js['columns'][0]
+        assert data_column['pandas_type'] == 'bytes'
+        assert data_column['numpy_type'] == 'object'
+
+    def test_list_metadata(self):
+        df = pd.DataFrame({'data': [[1], [2, 3, 4], [5] * 7]})
+        schema = pa.schema([pa.field('data', type=pa.list_(pa.int64()))])
+        table = pa.Table.from_pandas(df, schema=schema)
+        metadata = table.schema.metadata
+        assert b'mixed' not in metadata[b'pandas']
+
+        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        data_column = js['columns'][0]
+        assert data_column['pandas_type'] == 'list[int64]'
+        assert data_column['numpy_type'] == 'object'
+
+    def test_decimal_metadata(self):
+        expected = pd.DataFrame({
+            'decimals': [
+                decimal.Decimal('394092382910493.12341234678'),
+                -decimal.Decimal('314292388910493.12343437128'),
+            ]
+        })
+        table = pa.Table.from_pandas(expected)
+        metadata = table.schema.metadata
+        assert b'mixed' not in metadata[b'pandas']
+
+        js = json.loads(metadata[b'pandas'].decode('utf8'))
+        data_column = js['columns'][0]
+        assert data_column['pandas_type'] == 'decimal'
+        assert data_column['numpy_type'] == 'object'
+        assert data_column['metadata'] == {'precision': 26, 'scale': 11}
