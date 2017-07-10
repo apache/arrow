@@ -17,5 +17,5 @@
 
 if (PARQUET_BUILD_EXECUTABLES)
   add_executable(reader-writer reader-writer.cc)
-  target_link_libraries(reader-writer parquet_shared arrow)
+  target_link_libraries(reader-writer parquet_static)
 endif()
