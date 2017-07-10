@@ -160,6 +160,7 @@ class ArrayLoader {
   }
 
   Status Visit(const StructType& type) {
+    out_->buffers.resize(1);
     RETURN_NOT_OK(LoadCommon());
     return LoadChildren(type.children());
   }

@@ -1977,8 +1977,8 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
 
-  // TODO. In ARROW-1199, there is now a DCHECK to compare the indices type
-  // with the dict_type. How can we test for this?
+  // TODO(wesm) In ARROW-1199, there is now a DCHECK to compare the indices
+  // type with the dict_type. How can we test for this?
 
   // std::shared_ptr<Array> indices2;
   // vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
