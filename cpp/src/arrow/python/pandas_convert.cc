@@ -898,8 +898,7 @@ Status PandasConverter::ConvertObjects() {
         RETURN_NOT_OK(InferArrowType(objects[i], &inferred_type));
         return ConvertLists(inferred_type);
       } else {
-        return InvalidConversion(
-            const_cast<PyObject*>(objects[i]), 
+        return InvalidConversion(const_cast<PyObject*>(objects[i]),
             "string, bool, float, int, date, decimal, list, array");
       }
     }

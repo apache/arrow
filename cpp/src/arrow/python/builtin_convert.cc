@@ -164,8 +164,7 @@ class SeqVisitor {
           auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
           OwnedRef ref = OwnedRef(PyArray_GETITEM(array, ptr));
           RETURN_NOT_OK(VisitElem(ref, level));
-        } 
-        else {
+        } else {
           OwnedRef ref = OwnedRef(PySequence_GetItem(obj, i));
           RETURN_NOT_OK(VisitElem(ref, level));
         }
@@ -287,16 +286,13 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
 
 // Non-exhaustive type inference
 Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
-
   PyDateTime_IMPORT;
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));
   RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
-  if (*out_type == nullptr) {
-    return Status::TypeError("Unable to determine data type");
-  }
+  if (*out_type == nullptr) { return Status::TypeError("Unable to determine data type"); }
 
   return Status::OK();
 }
@@ -304,7 +300,7 @@ Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
 Status InferArrowTypeAndSize(
     PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
   RETURN_NOT_OK(InferArrowSize(obj, size));
-  
+
   // For 0-length sequences, refuse to guess
   if (*size == 0) {
     *out_type = null();
@@ -480,8 +476,9 @@ class FixedWidthBytesConverter
   inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
-        typed_builder_->type())->byte_width();
+    Py_ssize_t expected_length =
+        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
+            ->byte_width();
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
       return Status::OK();
