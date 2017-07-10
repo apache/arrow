@@ -25,6 +25,7 @@
 
 namespace arrow {
 
+class Array;
 class Status;
 
 struct PrettyPrintOptions {

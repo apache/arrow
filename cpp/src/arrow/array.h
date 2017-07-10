@@ -256,8 +256,15 @@ class ARROW_EXPORT Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Array& x);
+
+class FlatArray : public Array {
+ protected:
+  using Array::Array;
+};
+
 /// Degenerate null type Array
-class ARROW_EXPORT NullArray : public Array {
+class ARROW_EXPORT NullArray : public FlatArray {
  public:
   using TypeClass = NullType;
 
@@ -269,7 +276,7 @@ class ARROW_EXPORT NullArray : public Array {
 };
 
 /// Base class for fixed-size logical types
-class ARROW_EXPORT PrimitiveArray : public Array {
+class ARROW_EXPORT PrimitiveArray : public FlatArray {
  public:
   PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
       const std::shared_ptr<Buffer>& data,
@@ -392,7 +399,7 @@ class ARROW_EXPORT ListArray : public Array {
 // ----------------------------------------------------------------------
 // Binary and String
 
-class ARROW_EXPORT BinaryArray : public Array {
+class ARROW_EXPORT BinaryArray : public FlatArray {
  public:
   using TypeClass = BinaryType;
 
@@ -505,7 +512,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
 // ----------------------------------------------------------------------
 // DecimalArray
-class ARROW_EXPORT DecimalArray : public Array {
+class ARROW_EXPORT DecimalArray : public FlatArray {
  public:
   using TypeClass = Type;
 

@@ -91,6 +91,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t null_count()
         Type type_id()
 
+        int num_fields()
+
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 

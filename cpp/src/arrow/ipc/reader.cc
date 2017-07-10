@@ -122,8 +122,7 @@ class ArrayLoader {
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
-    RETURN_NOT_OK(
-        context_->source->GetFieldMetadata(context_->field_index++, out_));
+    RETURN_NOT_OK(context_->source->GetFieldMetadata(context_->field_index++, out_));
 
     // extract null_bitmap which is common to all arrays
     if (out_->null_count == 0) {

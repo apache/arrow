@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -104,6 +105,11 @@ static inline void ConformSliceParams(
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
   int64_t slice_length = data_->length - offset;
   return Slice(offset, slice_length);
+}
+
+std::ostream& operator<<(std::ostream& os, const Array& x) {
+  DCHECK(PrettyPrint(x, 0, &os).ok());
+  return os;
 }
 
 static inline std::shared_ptr<ArrayData> SliceData(
@@ -625,7 +631,7 @@ Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>*
 Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
     const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
     int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
-  BufferVector buffers = {data, null_bitmap};
+  BufferVector buffers = {null_bitmap, data};
   auto internal_data = std::make_shared<internal::ArrayData>(
       type, length, std::move(buffers), null_count, offset);
   return internal::MakeArray(internal_data, out);

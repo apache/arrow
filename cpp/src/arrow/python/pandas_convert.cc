@@ -339,12 +339,10 @@ class PandasConverter {
       null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
     }
 
-    auto array_data = std::make_shared<internal::ArrayData>();
-    array_data->buffers = {null_bitmap_, data};
-    array_data->length = length_;
-    array_data->null_count = null_count;
-    array_data->offset = 0;
-    return MakeArray(array_data, &out_);
+    BufferVector buffers = {null_bitmap_, data};
+    auto array_data = std::make_shared<internal::ArrayData>(
+        type_, length_, std::move(buffers), null_count, 0);
+    return internal::MakeArray(array_data, &out_);
   }
 
   template <typename T>
@@ -1366,7 +1364,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
-    for (size_t i = 0; i < num_fields; i++) {
+    for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
       RETURN_NOT_OK(
           ConvertArrayToPandas(arr->field(static_cast<int>(i)), nullptr, &numpy_array));
@@ -1383,7 +1381,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
         // Build the new dict object for the row
         dict_item.reset(PyDict_New());
         RETURN_IF_PYERROR();
-        for (size_t field_idx = 0; field_idx < num_fields; ++field_idx) {
+        for (int32_t field_idx = 0; field_idx < num_fields; ++field_idx) {
           OwnedRef field_value;
           auto name = array_type->child(static_cast<int>(field_idx))->name();
           if (!arr->field(static_cast<int>(field_idx))->IsNull(i)) {

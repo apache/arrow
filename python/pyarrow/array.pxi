@@ -1046,8 +1046,8 @@ cdef class StructValue(ArrayValue):
             CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
         ap = <CStructArray*> self.sp_array.get()
-        child_arrays = ap.fields()
-        wrapped_arrays = (pyarrow_wrap_array(child) for child in child_arrays)
+        wrapped_arrays = (pyarrow_wrap_array(ap.field(i))
+                          for i in range(ap.num_fields()))
         child_names = (child.get().name() for child in child_fields)
         # Return the struct as a dict
         return {
