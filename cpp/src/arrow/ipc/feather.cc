@@ -562,7 +562,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       // Write the variable-length offsets
       RETURN_NOT_OK(WritePadded(stream_.get(),
           reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()), offset_bytes,
-          &bytes_written))
+          &bytes_written));
       meta->total_bytes += bytes_written;
 
       if (bin_values.data()) { values_buffer = bin_values.data()->data(); }
