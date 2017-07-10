@@ -52,6 +52,14 @@ cdef class DataType:
         self.type = type.get()
 
     def __str__(self):
+        if self.type is NULL:
+            raise TypeError(
+                '{} is incomplete. The correct way to construct types is '
+                'through public API functions named '
+                'pyarrow.int64, pyarrow.list_, etc.'.format(
+                    type(self).__name__
+                )
+            )
         return frombytes(self.type.ToString())
 
     def __repr__(self):
