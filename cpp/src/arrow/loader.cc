@@ -74,18 +74,24 @@ class ArrayLoader {
   Status LoadPrimitive() {
     using ArrayType = typename TypeTraits<TYPE>::ArrayType;
 
-    FieldMetadata field_meta;
-    std::shared_ptr<Buffer> null_bitmap, data;
+    ArrayData array_data;
+    array_data.buffers.resize(2);
 
-    RETURN_NOT_OK(LoadCommon(&field_meta, &null_bitmap));
+    FieldMetadata field_meta;
+
+    RETURN_NOT_OK(LoadCommon(&field_meta, &array_data.buffers[0]));
     if (field_meta.length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &data));
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &array_data.buffers[1]));
     } else {
       context_->buffer_index++;
-      data.reset(new Buffer(nullptr, 0));
+      array_data.buffers[1].reset(new Buffer(nullptr, 0));
     }
-    result_ = std::make_shared<ArrayType>(type_, field_meta.length, data, null_bitmap,
-        field_meta.null_count, field_meta.offset);
+
+    array_data.length = field_meta.length;
+    array_data.null_count = field_meta.null_count;
+    array_data.offset = field_meta.offset;
+
+    result_ = std::make_shared<ArrayType>(std::move(array_data));
     return Status::OK();
   }
 
