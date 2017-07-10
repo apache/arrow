@@ -63,7 +63,7 @@ class IpcComponentSource {
     }
   }
 
-  Status GetFieldMetadata(int field_index, FieldMetadata* field) {
+  Status GetFieldMetadata(int field_index, internal::ArrayData* out) {
     auto nodes = metadata_->nodes();
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
@@ -71,9 +71,9 @@ class IpcComponentSource {
     }
     const flatbuf::FieldNode* node = nodes->Get(field_index);
 
-    field->length = node->length();
-    field->null_count = node->null_count();
-    field->offset = 0;
+    out->length = node->length();
+    out->null_count = node->null_count();
+    out->offset = 0;
     return Status::OK();
   }
 
@@ -122,16 +122,11 @@ class ArrayLoader {
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
-    FieldMetadata field_meta;
     RETURN_NOT_OK(
-        context_->source->GetFieldMetadata(context_->field_index++, &field_meta));
-
-    out_->length = field_meta.length;
-    out_->null_count = field_meta.null_count;
-    out_->offset = field_meta.offset;
+        context_->source->GetFieldMetadata(context_->field_index++, out_));
 
     // extract null_bitmap which is common to all arrays
-    if (field_meta.null_count == 0) {
+    if (out_->null_count == 0) {
       out_->buffers[0] = nullptr;
     } else {
       RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[0]));
