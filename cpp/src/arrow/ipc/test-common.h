@@ -86,7 +86,9 @@ static inline void CompareArraysDetailed(
 static inline void CompareBatchColumnsDetailed(
     const RecordBatch& result, const RecordBatch& expected) {
   for (int i = 0; i < expected.num_columns(); ++i) {
-    CompareArraysDetailed(i, *result.column(i), *expected.column(i));
+    auto left = result.column(i);
+    auto right = expected.column(i);
+    CompareArraysDetailed(i, *left, *right);
   }
 }
 

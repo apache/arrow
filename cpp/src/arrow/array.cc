@@ -363,8 +363,7 @@ UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) {
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
     const std::vector<std::shared_ptr<Array>>& children,
     const std::shared_ptr<Buffer>& type_ids, const std::shared_ptr<Buffer>& value_offsets,
-    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
-    : raw_type_ids_(nullptr), raw_value_offsets_(nullptr) {
+    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset) {
   BufferVector buffers = {null_bitmap, type_ids, value_offsets};
   auto internal_data =
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);

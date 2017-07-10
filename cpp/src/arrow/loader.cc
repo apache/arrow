@@ -44,6 +44,8 @@ class ArrayLoader {
       return Status::Invalid("Max recursion depth reached");
     }
 
+    out_->type = type_;
+
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return Status::OK();
   }
