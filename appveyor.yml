@@ -20,9 +20,23 @@ os: Visual Studio 2015
 
 environment:
   matrix:
+    - GENERATOR: NMake Makefiles
+      PYTHON: "3.5"
+      ARCH: "64"
+      CONFIGURATION: "Release"
     - GENERATOR: Visual Studio 14 2015 Win64
       PYTHON: "3.5"
       ARCH: "64"
+      CONFIGURATION: "Debug"
+    - GENERATOR: Visual Studio 14 2015 Win64
+      PYTHON: "3.5"
+      ARCH: "64"
+      CONFIGURATION: "Release"
+    - GENERATOR: Visual Studio 14 2015 Win64
+      PYTHON: "3.5"
+      ARCH: "64"
+      CONFIGURATION: "Toolchain"
+
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0
   BOOST_LIBRARYDIR: C:\Libraries\boost_1_63_0\lib64-msvc-14.0
@@ -30,6 +44,7 @@ environment:
 init:
   - set MINICONDA=C:\Miniconda35-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
+  - if "%GENERATOR%"=="NMake Makefiles" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
 
 build_script:
   - git config core.symlinks true

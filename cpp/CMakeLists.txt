@@ -152,6 +152,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
     set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
       "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
+    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "Lz4 static lib suffix used on Windows with MSVC (default _static)")
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "ZStd static lib suffix used on Windows with MSVC (default _static)")
   endif()
 endif()
 
