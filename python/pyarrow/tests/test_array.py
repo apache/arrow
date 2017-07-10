@@ -189,3 +189,9 @@ def test_dictionary_with_pandas():
                                            categories=dictionary)
 
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+
+
+def test_simple_type_construction():
+    result = pa.lib.TimestampType()
+    with pytest.raises(TypeError):
+        str(result)
