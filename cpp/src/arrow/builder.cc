@@ -1053,6 +1053,27 @@ BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
   byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
 }
 
+Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
+  DCHECK_GE(length, 0) << "Length overflow";
+  RETURN_NOT_OK(ListBuilder::Append());
+  return byte_builder_->Append(value, length);
+}
+
+Status BinaryBuilder::Append(const char* value, int32_t length) {
+  DCHECK_GE(length, 0) << "Length overflow";
+  return Append(reinterpret_cast<const uint8_t*>(value), length);
+}
+
+Status BinaryBuilder::Append(const std::string& value) {
+  const size_t length = value.size();
+  if (length > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid(
+        "Byte string is too large to be represented. Use chunked "
+        "RecordBatches to build string arrays less than 2GB long");
+  }
+  return Append(value.c_str(), static_cast<int32_t>(length));
+}
+
 Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> result;
   RETURN_NOT_OK(ListBuilder::Finish(&result));

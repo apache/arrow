@@ -763,3 +763,12 @@ class TestPandasConversion(unittest.TestCase):
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
+
+
+def test_raise_on_huge_string_creation():
+    offset_upper_bound = np.iinfo(np.int32).max
+    nchars = offset_upper_bound + 1
+    large_string = 'a' * nchars
+    df = pd.DataFrame({'data': [large_string]})
+    with pytest.raises(pa.lib.ArrowInvalid):
+        pa.Table.from_pandas(df)

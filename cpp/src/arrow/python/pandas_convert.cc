@@ -25,6 +25,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -181,8 +182,17 @@ static Status AppendObjectStrings(
         PyErr_Clear();
         return Status::Invalid("failed converting unicode to UTF8");
       }
-      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
+
+      const Py_ssize_t python_length = PyBytes_GET_SIZE(obj);
+      if (python_length > std::numeric_limits<int32_t>::max()) {
+        return Status::Invalid(
+            "Byte string is too large to be represented. Use chunked "
+            "RecordBatches to build string arrays less than 2GB long");
+      }
+
+      const int32_t length = static_cast<int32_t>(python_length);
       Status s = builder->Append(PyBytes_AS_STRING(obj), length);
+
       Py_DECREF(obj);
       if (!s.ok()) { return s; }
     } else if (PyBytes_Check(obj)) {
