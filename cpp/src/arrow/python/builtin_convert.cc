@@ -159,13 +159,14 @@ class SeqVisitor {
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
       for (int64_t i = 0; i < size; ++i) {
+        OwnedRef ref;
         if (PyArray_Check(obj)) {
           auto array = reinterpret_cast<PyArrayObject*>(obj);
           auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
-          OwnedRef ref = OwnedRef(PyArray_GETITEM(array, ptr));
+          ref.reset(PyArray_GETITEM(array, ptr));
           RETURN_NOT_OK(VisitElem(ref, level));
         } else {
-          OwnedRef ref = OwnedRef(PySequence_GetItem(obj, i));
+          ref.reset(PySequence_GetItem(obj, i));
           RETURN_NOT_OK(VisitElem(ref, level));
         }
       }
