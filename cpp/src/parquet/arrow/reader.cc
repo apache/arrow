@@ -226,7 +226,7 @@ class ColumnReader::Impl {
 };
 
 // Reader implementation for primitive arrays
-class PrimitiveImpl : public ColumnReader::Impl {
+class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::Impl {
  public:
   PrimitiveImpl(MemoryPool* pool, std::unique_ptr<FileColumnIterator> input)
       : pool_(pool),
@@ -300,7 +300,7 @@ class PrimitiveImpl : public ColumnReader::Impl {
 };
 
 // Reader implementation for struct array
-class StructImpl : public ColumnReader::Impl {
+class PARQUET_NO_EXPORT StructImpl : public ColumnReader::Impl {
  public:
   explicit StructImpl(const std::vector<std::shared_ptr<Impl>>& children,
       int16_t struct_def_level, MemoryPool* pool, const NodePtr& node)
