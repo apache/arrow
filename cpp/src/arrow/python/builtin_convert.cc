@@ -155,14 +155,20 @@ class SeqVisitor {
   // co-recursive with VisitElem
   Status Visit(PyObject* obj, int level = 0) {
     if (level > max_nesting_level_) { max_nesting_level_ = level; }
-
     // Loop through either a sequence or an iterator.
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
       for (int64_t i = 0; i < size; ++i) {
-        // TODO(wesm): Specialize for PyList_GET_ITEM?
-        OwnedRef ref = OwnedRef(PySequence_GetItem(obj, i));
-        RETURN_NOT_OK(VisitElem(ref, level));
+        OwnedRef ref;
+        if (PyArray_Check(obj)) {
+          auto array = reinterpret_cast<PyArrayObject*>(obj);
+          auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
+          ref.reset(PyArray_GETITEM(array, ptr));
+          RETURN_NOT_OK(VisitElem(ref, level));
+        } else {
+          ref.reset(PySequence_GetItem(obj, i));
+          RETURN_NOT_OK(VisitElem(ref, level));
+        }
       }
     } else if (PyObject_HasAttrString(obj, "__iter__")) {
       OwnedRef iter = OwnedRef(PyObject_GetIter(obj));
@@ -280,21 +286,28 @@ Status InferArrowSize(PyObject* obj, int64_t* size) {
 }
 
 // Non-exhaustive type inference
-Status InferArrowTypeAndSize(
-    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
-  RETURN_NOT_OK(InferArrowSize(obj, size));
-
-  // For 0-length sequences, refuse to guess
-  if (*size == 0) { *out_type = null(); }
-
+Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
   PyDateTime_IMPORT;
   SeqVisitor seq_visitor;
   RETURN_NOT_OK(seq_visitor.Visit(obj));
   RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
-
   if (*out_type == nullptr) { return Status::TypeError("Unable to determine data type"); }
+
+  return Status::OK();
+}
+
+Status InferArrowTypeAndSize(
+    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
+  RETURN_NOT_OK(InferArrowSize(obj, size));
+
+  // For 0-length sequences, refuse to guess
+  if (*size == 0) {
+    *out_type = null();
+    return Status::OK();
+  }
+  RETURN_NOT_OK(InferArrowType(obj, out_type));
 
   return Status::OK();
 }
@@ -464,8 +477,9 @@ class FixedWidthBytesConverter
   inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
-        typed_builder_->type())->byte_width();
+    Py_ssize_t expected_length =
+        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
+            ->byte_width();
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
       return Status::OK();
