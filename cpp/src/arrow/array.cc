@@ -107,6 +107,7 @@ static inline std::shared_ptr<ArrayData> SliceData(
   auto new_data = data.ShallowCopy();
   new_data->length = length;
   new_data->offset = offset;
+  new_data->null_count = kUnknownNullCount;
   return new_data;
 }
 
@@ -179,7 +180,12 @@ static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
 
 void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
-  raw_data_ = data == nullptr ? nullptr : data->buffers[2]->data();
+  auto value_offsets = data->buffers[1];
+  auto value_data = data->buffers[2];
+  raw_data_ = value_data == nullptr ? nullptr : value_data->data();
+  raw_value_offsets_ = value_offsets == nullptr
+                           ? nullptr
+                           : reinterpret_cast<const int32_t*>(value_offsets->data());
 }
 
 BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
@@ -190,15 +196,10 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 
 BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
     const std::shared_ptr<Buffer>& value_offsets, const std::shared_ptr<Buffer>& data,
-    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
-    : raw_value_offsets_(nullptr), raw_data_(nullptr) {
+    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset) {
   BufferVector buffers = {null_bitmap, value_offsets, data};
-
   SetData(
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
-  if (value_offsets != nullptr) {
-    raw_value_offsets_ = reinterpret_cast<const int32_t*>(value_offsets->data());
-  }
 }
 
 std::shared_ptr<Array> BinaryArray::Slice(int64_t offset, int64_t length) const {
@@ -362,7 +363,9 @@ DictionaryArray::DictionaryArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
     : dict_type_(static_cast<const DictionaryType*>(type.get())), indices_(indices) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
-  SetData(indices->data());
+  auto indices_as_dict = indices->data()->ShallowCopy();
+  indices_as_dict->type = type;
+  SetData(indices_as_dict);
 }
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {

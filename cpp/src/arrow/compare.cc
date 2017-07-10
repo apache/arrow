@@ -350,9 +350,11 @@ static inline bool CompareBuiltIn(
     const Array& left, const Array& right, const T* ldata, const T* rdata) {
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
-      if (!left.IsNull(i) && ldata[i] == rdata[i]) { return false; }
-      ++ldata;
-      ++rdata;
+      if (left.IsNull(i) != right.IsNull(i)) {
+        return false;
+      } else if (!left.IsNull(i) && (ldata[i] != rdata[i])) {
+        return false;
+      }
     }
     return true;
   } else {

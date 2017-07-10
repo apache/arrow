@@ -215,11 +215,14 @@ class ARROW_EXPORT PrimitiveArray : public Array {
  protected:
   PrimitiveArray() {}
 
-  inline PrimitiveArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  explicit inline PrimitiveArray(const std::shared_ptr<ArrayData>& data) {
+    SetData(data);
+  }
 
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     this->Array::SetData(data);
-    raw_values_ = data == nullptr ? nullptr : data->buffers[1]->data();
+    auto values = data->buffers[1];
+    raw_values_ = values == nullptr ? nullptr : values->data();
   }
 
   const uint8_t* raw_values_;
@@ -231,7 +234,8 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
 
-  NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit inline NumericArray(const std::shared_ptr<ArrayData>& data)
+      : PrimitiveArray(data) {}
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -260,7 +264,8 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
   using TypeClass = BooleanType;
 
-  inline BooleanArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit inline BooleanArray(const std::shared_ptr<ArrayData>& data)
+      : PrimitiveArray(data) {}
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
@@ -321,7 +326,7 @@ class ARROW_EXPORT BinaryArray : public Array {
  public:
   using TypeClass = BinaryType;
 
-  BinaryArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  explicit BinaryArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
   BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
       const std::shared_ptr<Buffer>& data,
@@ -376,7 +381,7 @@ class ARROW_EXPORT StringArray : public BinaryArray {
  public:
   using TypeClass = StringType;
 
-  StringArray(const std::shared_ptr<ArrayData>& data) : BinaryArray(data) {}
+  explicit StringArray(const std::shared_ptr<ArrayData>& data) : BinaryArray(data) {}
 
   StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
       const std::shared_ptr<Buffer>& data,
@@ -401,7 +406,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
  public:
   using TypeClass = FixedSizeBinaryType;
 
-  FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  explicit FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
   FixedSizeBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
       const std::shared_ptr<Buffer>& data,
@@ -431,7 +436,8 @@ class ARROW_EXPORT DecimalArray : public Array {
  public:
   using TypeClass = Type;
 
-  DecimalArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  /// \brief Construct DecimalArray from ArrayData instance
+  explicit DecimalArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
   DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
       const std::shared_ptr<Buffer>& data,
