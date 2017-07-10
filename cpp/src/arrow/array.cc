@@ -175,7 +175,7 @@ static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
 void BinaryArray::SetData(ArrayData&& data) {
   auto value_offsets = data.buffers[1];
   auto value_data = data.buffers[2];
-  this->Array::SetData(std::forward<ArrayData>(data));
+  this->Array::SetData(std::move(data));
 
   raw_data_ = value_data == nullptr ? nullptr : value_data->data();
   raw_value_offsets_ = value_offsets == nullptr
@@ -233,7 +233,7 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 void DecimalArray::SetData(ArrayData&& data) {
   auto fixed_size_data = data.buffers[1];
   auto sign_bitmap = data.buffers[2];
-  this->Array::SetData(std::forward<ArrayData>(data));
+  this->Array::SetData(std::move(data));
 
   raw_values_ = fixed_size_data != nullptr ? fixed_size_data->data() : nullptr;
   sign_bitmap_data_ = sign_bitmap != nullptr ? sign_bitmap->data() : nullptr;
