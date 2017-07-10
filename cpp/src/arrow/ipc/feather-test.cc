@@ -372,7 +372,7 @@ TEST_F(TestTableWriter, TimeTypes) {
 
   const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
   std::vector<std::shared_ptr<Buffer>> buffers = {
-      prim_values.null_bitmap(), prim_values.data()};
+      prim_values.null_bitmap(), prim_values.values()};
 
   std::vector<std::shared_ptr<Array>> arrays;
   arrays.push_back(date_array);

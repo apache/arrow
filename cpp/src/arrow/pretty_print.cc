@@ -39,7 +39,7 @@ class ArrayPrinter {
   template <typename T>
   inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
       const T& array) {
-    const auto data = array.raw_data();
+    const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
@@ -53,7 +53,7 @@ class ArrayPrinter {
   template <typename T>
   inline typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& array) {
-    const auto data = array.raw_data();
+    const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {

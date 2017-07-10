@@ -414,7 +414,7 @@ class ArrayWriter {
   template <typename T>
   typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const auto data = arr.raw_data();
+    const auto data = arr.raw_values();
     for (int i = 0; i < arr.length(); ++i) {
       writer_->Int64(data[i]);
     }
@@ -423,7 +423,7 @@ class ArrayWriter {
   template <typename T>
   typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const auto data = arr.raw_data();
+    const auto data = arr.raw_values();
     for (int i = 0; i < arr.length(); ++i) {
       writer_->Uint64(data[i]);
     }
@@ -432,7 +432,7 @@ class ArrayWriter {
   template <typename T>
   typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& arr) {
-    const auto data = arr.raw_data();
+    const auto data = arr.raw_values();
     for (int i = 0; i < arr.length(); ++i) {
       writer_->Double(data[i]);
     }

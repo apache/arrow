@@ -351,7 +351,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   for (int64_t i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
-    bool actual = BitUtil::GetBit(result->data()->data(), i);
+    bool actual = BitUtil::GetBit(result->values()->data(), i);
     ASSERT_EQ(draws_[i] != 0, actual) << i;
   }
   ASSERT_TRUE(result->Equals(*expected));
@@ -778,8 +778,8 @@ TEST_F(TestStringArray, CompareNullByteSlots) {
 
   // The validity bitmaps are the same, the data is different, but the unequal
   // portion is masked out
-  StringArray equal_array(3, a1.value_offsets(), a1.data(), a2.null_bitmap(), 1);
-  StringArray equal_array2(3, a3.value_offsets(), a3.data(), a2.null_bitmap(), 1);
+  StringArray equal_array(3, a1.value_offsets(), a1.value_data(), a2.null_bitmap(), 1);
+  StringArray equal_array2(3, a3.value_offsets(), a3.value_data(), a2.null_bitmap(), 1);
 
   ASSERT_TRUE(equal_array.Equals(equal_array2));
   ASSERT_TRUE(a2.RangeEquals(equal_array2, 0, 3, 0));
@@ -846,7 +846,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
 
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->data()->size());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
 
   int32_t length;
   int32_t pos = 0;
@@ -1011,7 +1011,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_OK(ValidateArray(*result_));
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->data()->size());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
 
   int32_t length;
   for (int i = 0; i < N * reps; ++i) {
@@ -1200,8 +1200,8 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   const auto& a1 = static_cast<const FixedSizeBinaryArray&>(*array1);
   const auto& a2 = static_cast<const FixedSizeBinaryArray&>(*array2);
 
-  FixedSizeBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
-  FixedSizeBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal1(type, 2, a1.values(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal2(type, 2, a2.values(), a1.null_bitmap(), 1);
 
   ASSERT_TRUE(equal1.Equals(equal2));
   ASSERT_TRUE(equal1.RangeEquals(equal2, 0, 2, 0));
@@ -1224,7 +1224,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = static_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.data() == nullptr);
+  ASSERT_TRUE(fw_array.values() == nullptr);
   ASSERT_EQ(0, fw_array.byte_width());
 
   ASSERT_EQ(6, array->length());

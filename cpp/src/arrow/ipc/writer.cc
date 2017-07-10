@@ -233,7 +233,7 @@ class RecordBatchSerializer : public ArrayVisitor {
  protected:
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
-    std::shared_ptr<Buffer> data = array.data();
+    std::shared_ptr<Buffer> data = array.values();
 
     const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
     const int64_t type_width = fw_type.bit_width() / 8;
@@ -287,7 +287,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status VisitBinary(const BinaryArray& array) {
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
-    auto data = array.data();
+    auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
     if (value_offsets) {
@@ -309,7 +309,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status Visit(const BooleanArray& array) override {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(
-        GetTruncatedBitmap(array.offset(), array.length(), array.data(), pool_, &data));
+        GetTruncatedBitmap(array.offset(), array.length(), array.values(), pool_, &data));
     buffers_.push_back(data);
     return Status::OK();
   }
