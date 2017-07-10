@@ -224,7 +224,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     RETURN_NOT_OK(ReadNextMessage(Message::DICTIONARY_BATCH, false, &message));
 
     std::shared_ptr<Buffer> batch_body;
-    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body))
+    RETURN_NOT_OK(ReadExact(message->body_length(), &batch_body));
     io::BufferReader reader(batch_body);
 
     std::shared_ptr<Array> dictionary;
