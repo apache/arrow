@@ -559,6 +559,8 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
  protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+
   const type_id_t* raw_type_ids_;
   const int32_t* raw_value_offsets_;
 };

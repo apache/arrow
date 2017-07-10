@@ -171,8 +171,8 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto value_offsets = data->buffers[1];
   raw_value_offsets_ = value_offsets == nullptr
-    ? nullptr
-    : reinterpret_cast<const int32_t*>(value_offsets->data());
+                           ? nullptr
+                           : reinterpret_cast<const int32_t*>(value_offsets->data());
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
@@ -344,15 +344,20 @@ std::shared_ptr<Array> StructArray::Slice(int64_t offset, int64_t length) const 
 // ----------------------------------------------------------------------
 // UnionArray
 
+void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+
+  auto type_ids = data_->buffers[1];
+  auto value_offsets = data_->buffers[2];
+  raw_type_ids_ =
+      type_ids == nullptr ? nullptr : reinterpret_cast<const uint8_t*>(type_ids->data());
+  raw_value_offsets_ = value_offsets == nullptr
+                           ? nullptr
+                           : reinterpret_cast<const int32_t*>(value_offsets->data());
+}
+
 UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);
-
-  auto type_ids = data->buffers[1];
-  auto value_offsets = data->buffers[2];
-  if (type_ids) { raw_type_ids_ = reinterpret_cast<const uint8_t*>(type_ids->data()); }
-  if (value_offsets) {
-    raw_value_offsets_ = reinterpret_cast<const int32_t*>(value_offsets->data());
-  }
 }
 
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -382,12 +387,16 @@ std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data) {}
+DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
+    : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
+  SetData(data);
+}
 
 DictionaryArray::DictionaryArray(
     const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices)
     : dict_type_(static_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
+  DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
   SetData(std::make_shared<ArrayData>(*indices->data()));
   data_->type = type;
 }

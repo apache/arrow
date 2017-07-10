@@ -700,11 +700,11 @@ template <typename T>
 Status DictionaryBuilder<T>::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Array> dictionary;
   RETURN_NOT_OK(dict_builder_.Finish(&dictionary));
-  auto type = std::make_shared<DictionaryType>(type_, dictionary);
 
   std::shared_ptr<Array> values;
   RETURN_NOT_OK(values_builder_.Finish(&values));
 
+  auto type = std::make_shared<DictionaryType>(values->type(), dictionary);
   *out = std::make_shared<DictionaryArray>(type, values);
   return Status::OK();
 }
