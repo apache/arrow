@@ -116,7 +116,7 @@ static inline std::shared_ptr<ArrayData> SliceData(
     const ArrayData& data, int64_t offset, int64_t length) {
   ConformSliceParams(data.offset, data.length, &offset, &length);
 
-  auto new_data = std::make_shared<ArrayData>(data);
+  auto new_data = data.ShallowCopy();
   new_data->length = length;
   new_data->offset = offset;
   new_data->null_count = kUnknownNullCount;
@@ -184,9 +184,10 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
     const std::shared_ptr<Buffer>& value_offsets, const std::shared_ptr<Array>& values,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset) {
   BufferVector buffers = {null_bitmap, value_offsets};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
-  data_->child_data.emplace_back(values->data());
+  auto internal_data =
+      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
+  internal_data->child_data.emplace_back(values->data());
+  SetData(internal_data);
 }
 
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -195,6 +196,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
+  DCHECK(internal::MakeArray(data_->child_data[0], &values_).ok());
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
@@ -202,9 +204,7 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 }
 
 std::shared_ptr<Array> ListArray::values() const {
-  std::shared_ptr<Array> result;
-  DCHECK(internal::MakeArray(data_->child_data[0], &result).ok());
-  return result;
+  return values_;
 }
 
 std::shared_ptr<Array> ListArray::Slice(int64_t offset, int64_t length) const {
@@ -442,16 +442,21 @@ DictionaryArray::DictionaryArray(
     : dict_type_(static_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
-  SetData(std::make_shared<ArrayData>(*indices->data()));
-  data_->type = type;
+  auto data = indices->data()->ShallowCopy();
+  data->type = type;
+  SetData(data);
+}
+
+void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+  auto indices_data = data_->ShallowCopy();
+  indices_data->type = dict_type_->index_type();
+  std::shared_ptr<Array> result;
+  DCHECK(internal::MakeArray(indices_data, &indices_).ok());
 }
 
 std::shared_ptr<Array> DictionaryArray::indices() const {
-  auto indices_data = std::make_shared<ArrayData>(*data_);
-  indices_data->type = dict_type_->index_type();
-  std::shared_ptr<Array> result;
-  DCHECK(internal::MakeArray(indices_data, &result).ok());
-  return result;
+  return indices_;
 }
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {

@@ -394,6 +394,9 @@ class ARROW_EXPORT ListArray : public Array {
  protected:
   void SetData(const std::shared_ptr<internal::ArrayData>& data);
   const int32_t* raw_value_offsets_;
+
+ private:
+  std::shared_ptr<Array> values_;
 };
 
 // ----------------------------------------------------------------------
@@ -644,8 +647,11 @@ class ARROW_EXPORT DictionaryArray : public Array {
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
- protected:
+ private:
+  void SetData(const std::shared_ptr<internal::ArrayData>& data);
+
   const DictionaryType* dict_type_;
+  std::shared_ptr<Array> indices_;
 };
 
 // ----------------------------------------------------------------------
