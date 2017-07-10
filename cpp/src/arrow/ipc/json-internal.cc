@@ -559,6 +559,7 @@ class ArrayWriter {
     WriteValidityField(array);
     const auto& type = static_cast<const StructType&>(*array.type());
     std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
     }
@@ -574,6 +575,7 @@ class ArrayWriter {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
     std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.child(i));
     }

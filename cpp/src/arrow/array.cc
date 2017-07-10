@@ -29,19 +29,23 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/visitor.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
 
+using internal::ArrayData;
+
 // ----------------------------------------------------------------------
 // Base array class
 
 int64_t Array::null_count() const {
-  if (data_->null_count < 0) {
+  if (ARROW_PREDICT_FALSE(data_->null_count < 0)) {
     if (data_->buffers[0]) {
       data_->null_count =
           data_->length - CountSetBits(null_bitmap_data_, data_->offset, data_->length);
+
     } else {
       data_->null_count = 0;
     }
@@ -136,12 +140,23 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 }
 
 template <typename T>
+NumericArray<T>::NumericArray(const std::shared_ptr<internal::ArrayData>& data)
+    : PrimitiveArray(data) {
+  DCHECK_EQ(data->type->id(), T::type_id);
+}
+
+template <typename T>
 std::shared_ptr<Array> NumericArray<T>::Slice(int64_t offset, int64_t length) const {
   return std::make_shared<NumericArray<T>>(SliceData(*data_, offset, length));
 }
 
 // ----------------------------------------------------------------------
 // BooleanArray
+
+BooleanArray::BooleanArray(const std::shared_ptr<internal::ArrayData>& data)
+    : PrimitiveArray(data) {
+  DCHECK_EQ(data->type->id(), Type::BOOL);
+}
 
 BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
     const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count, int64_t offset)
@@ -155,6 +170,7 @@ std::shared_ptr<Array> BooleanArray::Slice(int64_t offset, int64_t length) const
 // ListArray
 
 ListArray::ListArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::LIST);
   SetData(data);
 }
 
@@ -181,7 +197,7 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 
 std::shared_ptr<Array> ListArray::values() const {
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(data_->child_data[0], &result).ok());
+  DCHECK(internal::MakeArray(data_->child_data[0], &result).ok());
   return result;
 }
 
@@ -196,6 +212,11 @@ std::shared_ptr<Array> ListArray::Slice(int64_t offset, int64_t length) const {
 
 static std::shared_ptr<DataType> kBinary = std::make_shared<BinaryType>();
 static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
+
+BinaryArray::BinaryArray(const std::shared_ptr<internal::ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::BINARY);
+  SetData(data);
+}
 
 void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto value_offsets = data->buffers[1];
@@ -225,6 +246,11 @@ std::shared_ptr<Array> BinaryArray::Slice(int64_t offset, int64_t length) const 
   return std::make_shared<BinaryArray>(SliceData(*data_, offset, length));
 }
 
+StringArray::StringArray(const std::shared_ptr<internal::ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::STRING);
+  SetData(data);
+}
+
 StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
     const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
     int64_t null_count, int64_t offset)
@@ -237,6 +263,12 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 
 // ----------------------------------------------------------------------
 // Fixed width binary
+
+FixedSizeBinaryArray::FixedSizeBinaryArray(
+    const std::shared_ptr<internal::ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_BINARY);
+  SetData(data);
+}
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type,
     int64_t length, const std::shared_ptr<Buffer>& data,
@@ -254,6 +286,11 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 
 // ----------------------------------------------------------------------
 // Decimal
+
+DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::DECIMAL);
+  SetData(data);
+}
 
 void DecimalArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto fixed_size_data = data->buffers[1];
@@ -317,6 +354,7 @@ std::shared_ptr<Array> DecimalArray::Slice(int64_t offset, int64_t length) const
 // Struct
 
 StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::STRUCT);
   SetData(data);
 }
 
@@ -333,7 +371,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> StructArray::field(int pos) const {
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(data_->child_data[pos], &result).ok());
+  DCHECK(internal::MakeArray(data_->child_data[pos], &result).ok());
   return result;
 }
 
@@ -357,6 +395,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::UNION);
   SetData(data);
 }
 
@@ -375,7 +414,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> UnionArray::child(int pos) const {
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(data_->child_data[pos], &result).ok());
+  DCHECK(internal::MakeArray(data_->child_data[pos], &result).ok());
   return result;
 }
 
@@ -388,6 +427,7 @@ std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(static_cast<const DictionaryType*>(data->type.get())) {
+  DCHECK_EQ(data->type->id(), Type::DICTIONARY);
   SetData(data);
 }
 
@@ -404,7 +444,7 @@ std::shared_ptr<Array> DictionaryArray::indices() const {
   auto indices_data = std::make_shared<ArrayData>(*data_);
   indices_data->type = dict_type_->index_type();
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(indices_data, &result).ok());
+  DCHECK(internal::MakeArray(indices_data, &result).ok());
   return result;
 }
 
@@ -557,6 +597,8 @@ Status ValidateArray(const Array& array) {
 // ----------------------------------------------------------------------
 // Loading from ArrayData
 
+namespace internal {
+
 class ArrayDataWrapper {
  public:
   ArrayDataWrapper(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out)
@@ -576,6 +618,25 @@ class ArrayDataWrapper {
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
   ArrayDataWrapper wrapper_visitor(data, out);
   return VisitTypeInline(*data->type, &wrapper_visitor);
+}
+
+}  // namespace internal
+
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
+    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
+    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
+  BufferVector buffers = {data, null_bitmap};
+  auto internal_data = std::make_shared<internal::ArrayData>(
+      type, length, std::move(buffers), null_count, offset);
+  return internal::MakeArray(internal_data, out);
+}
+
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t length,
+    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
+  auto internal_data =
+      std::make_shared<internal::ArrayData>(type, length, buffers, null_count, offset);
+  return internal::MakeArray(internal_data, out);
 }
 
 // ----------------------------------------------------------------------

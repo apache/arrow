@@ -340,7 +340,7 @@ class PandasConverter {
       null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
     }
 
-    auto array_data = std::make_shared<ArrayData>();
+    auto array_data = std::make_shared<internal::ArrayData>();
     array_data->buffers = {null_bitmap_, data};
     array_data->length = length_;
     array_data->null_count = null_count;
@@ -1360,7 +1360,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   // ChunkedArray has at least one chunk
   auto arr = static_cast<const StructArray*>(data.chunk(0).get());
   // Use it to cache the struct type and number of fields for all chunks
-  int num_fields = arr->num_fields();
+  int32_t num_fields = arr->num_fields();
   auto array_type = arr->type();
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;

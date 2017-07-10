@@ -169,13 +169,9 @@ class RangeEqualsVisitor {
     uint8_t id, child_num;
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
-      if (left.IsNull(i) != right.IsNull(o_i)) {
-        return false;
-      }
+      if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
-      if (left_ids[i] != right_ids[o_i]) {
-        return false;
-      }
+      if (left_ids[i] != right_ids[o_i]) { return false; }
 
       id = left_ids[i];
       child_num = type_id_to_child_num[id];

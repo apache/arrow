@@ -35,8 +35,8 @@ namespace arrow {
 
 class ArrayLoader {
  public:
-  ArrayLoader(
-      const std::shared_ptr<DataType>& type, ArrayData* out, ArrayLoaderContext* context)
+  ArrayLoader(const std::shared_ptr<DataType>& type, internal::ArrayData* out,
+      ArrayLoaderContext* context)
       : type_(type), context_(context), out_(out) {}
 
   Status Load() {
@@ -99,7 +99,7 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
-  Status LoadChild(const Field& field, ArrayData* out) {
+  Status LoadChild(const Field& field, internal::ArrayData* out) {
     ArrayLoader loader(field.type(), out, context_);
     --context_->max_recursion_depth;
     RETURN_NOT_OK(loader.Load());
@@ -111,7 +111,7 @@ class ArrayLoader {
     out_->child_data.reserve(static_cast<int>(child_fields.size()));
 
     for (const auto& child_field : child_fields) {
-      auto field_array = std::make_shared<ArrayData>();
+      auto field_array = std::make_shared<internal::ArrayData>();
       RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
       out_->child_data.emplace_back(field_array);
     }
@@ -186,15 +186,15 @@ class ArrayLoader {
   }
 
  private:
-  const std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType>& type_;
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
-  ArrayData* out_;
+  internal::ArrayData* out_;
 };
 
-Status LoadArray(
-    const std::shared_ptr<DataType>& type, ArrayComponentSource* source, ArrayData* out) {
+Status LoadArray(const std::shared_ptr<DataType>& type, ArrayComponentSource* source,
+    internal::ArrayData* out) {
   ArrayLoaderContext context;
   context.source = source;
   context.field_index = context.buffer_index = 0;
@@ -202,8 +202,8 @@ Status LoadArray(
   return LoadArray(type, &context, out);
 }
 
-Status LoadArray(
-    const std::shared_ptr<DataType>& type, ArrayLoaderContext* context, ArrayData* out) {
+Status LoadArray(const std::shared_ptr<DataType>& type, ArrayLoaderContext* context,
+    internal::ArrayData* out) {
   ArrayLoader loader(type, out, context);
   return loader.Load();
 }
@@ -233,29 +233,9 @@ class InMemorySource : public ArrayComponentSource {
 
 Status LoadArray(const std::shared_ptr<DataType>& type,
     const std::vector<FieldMetadata>& fields,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, ArrayData* out) {
+    const std::vector<std::shared_ptr<Buffer>>& buffers, internal::ArrayData* out) {
   InMemorySource source(fields, buffers);
   return LoadArray(type, &source, out);
-}
-
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
-    const std::shared_ptr<Buffer>& data, const std::shared_ptr<Buffer>& null_bitmap,
-    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
-  std::vector<std::shared_ptr<Buffer>> buffers = {null_bitmap, data};
-  return MakePrimitiveArray(type, buffers, length, null_count, offset, out);
-}
-
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-    const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t length,
-    int64_t null_count, int64_t offset, std::shared_ptr<Array>* out) {
-  std::vector<FieldMetadata> fields(1);
-  fields[0].length = length;
-  fields[0].null_count = null_count;
-  fields[0].offset = offset;
-
-  auto data = std::make_shared<ArrayData>();
-  RETURN_NOT_OK(LoadArray(type, fields, buffers, data.get()));
-  return MakeArray(data, out);
 }
 
 }  // namespace arrow

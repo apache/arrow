@@ -188,6 +188,7 @@ class ArrayPrinter {
   Status Visit(const StructArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
     std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
     }
@@ -212,6 +213,7 @@ class ArrayPrinter {
 
     // Print the children without any offset, because the type ids are absolute
     std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.child(i));
     }
