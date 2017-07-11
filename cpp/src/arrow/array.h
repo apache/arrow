@@ -258,7 +258,7 @@ class ARROW_EXPORT Array {
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Array& x);
 
-class FlatArray : public Array {
+class ARROW_EXPORT FlatArray : public Array {
  protected:
   using Array::Array;
 };

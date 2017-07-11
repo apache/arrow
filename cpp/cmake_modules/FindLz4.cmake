@@ -39,32 +39,15 @@ set(LZ4_STATIC_LIB_SUFFIX
 set(LZ4_STATIC_LIB_NAME
   ${CMAKE_STATIC_LIBRARY_PREFIX}lz4${LZ4_STATIC_LIB_SUFFIX})
 
-if ( _lz4_roots )
-  find_path(LZ4_INCLUDE_DIR NAMES lz4.h
-    PATHS ${_lz4_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "include" )
-  find_library(LZ4_SHARED_LIB NAMES lz4
-    PATHS ${_lz4_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" )
-  find_library(LZ4_STATIC_LIB NAMES ${LZ4_STATIC_LIB_NAME}
-    PATHS ${_lz4_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" )
-else()
-  find_path(LZ4_INCLUDE_DIR lz4.h
-    # make sure we don't accidentally pick up a different version
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(LZ4_SHARED_LIB lz4
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(LZ4_STATIC_LIB ${LZ4_STATIC_LIB_NAME}
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-endif()
+find_path(LZ4_INCLUDE_DIR NAMES lz4.h
+  PATHS ${_lz4_roots}
+  NO_DEFAULT_PATH
+  PATH_SUFFIXES "include" )
+find_library(LZ4_STATIC_LIB NAMES ${LZ4_STATIC_LIB_NAME} lib${LZ4_STATIC_LIB_NAME}
+  PATHS ${_lz4_roots}
+  NO_DEFAULT_PATH
+  PATH_SUFFIXES "lib" )
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(LZ4 REQUIRED_VARS
-  LZ4_SHARED_LIB LZ4_STATIC_LIB LZ4_INCLUDE_DIR)
+  LZ4_STATIC_LIB LZ4_INCLUDE_DIR)

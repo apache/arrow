@@ -39,32 +39,15 @@ set(ZSTD_STATIC_LIB_SUFFIX
 set(ZSTD_STATIC_LIB_NAME
   ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
 
-if ( _zstd_roots )
-  find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
-    PATHS ${_zstd_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "include" )
-  find_library(ZSTD_SHARED_LIB NAMES zstd
-    PATHS ${_zstd_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" )
-  find_library(ZSTD_STATIC_LIB NAMES ${ZSTD_STATIC_LIB_NAME}
-    PATHS ${_zstd_roots}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "lib" )
-else()
-  find_path(ZSTD_INCLUDE_DIR zstd.h
-    # make sure we don't accidentally pick up a different version
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(ZSTD_SHARED_LIB zstd
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-  find_library(ZSTD_STATIC_LIB ${ZSTD_STATIC_LIB_NAME}
-    NO_CMAKE_SYSTEM_PATH
-    NO_SYSTEM_ENVIRONMENT_PATH)
-endif()
+find_path(ZSTD_INCLUDE_DIR NAMES zstd.h
+  PATHS ${_zstd_roots}
+  NO_DEFAULT_PATH
+  PATH_SUFFIXES "include" )
+find_library(ZSTD_STATIC_LIB NAMES ${ZSTD_STATIC_LIB_NAME} lib${ZSTD_STATIC_LIB_NAME}
+  PATHS ${_zstd_roots}
+  NO_DEFAULT_PATH
+  PATH_SUFFIXES "lib" )
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ZSTD REQUIRED_VARS
-  ZSTD_SHARED_LIB ZSTD_STATIC_LIB ZSTD_INCLUDE_DIR)
+  ZSTD_STATIC_LIB ZSTD_INCLUDE_DIR)

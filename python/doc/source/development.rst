@@ -267,6 +267,7 @@ Now, we build and install Arrow C++ libraries
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=off ^
+         -DARROW_ZLIB_VENDORED=off ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
@@ -282,7 +283,6 @@ Now, we build parquet-cpp and install the result in the same place:
    cmake -G "Visual Studio 14 2015 Win64" ^
          -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
-         -DPARQUET_ZLIB_VENDORED=off ^
          -DPARQUET_BUILD_TESTS=off ..
    cmake --build . --target INSTALL --config Release
    popd
