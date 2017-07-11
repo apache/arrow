@@ -70,6 +70,21 @@ static Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t
   return Status::OK();
 }
 
+/// For compability, we need to write any data sometimes just to keep producing
+/// files that can be read with an older reader.
+static Status WritePaddedBlank(
+    io::OutputStream* stream, int64_t length, int64_t* bytes_written) {
+  const uint8_t null = 0;
+  for (int64_t i = 0; i < length; i++) {
+    RETURN_NOT_OK(stream->Write(&null, 1));
+  }
+
+  int64_t remainder = PaddedLength(length) - length;
+  if (remainder != 0) { RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder)); }
+  *bytes_written = length + remainder;
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // TableBuilder
 
@@ -542,8 +557,13 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     if (values.null_count() > 0) {
       // We assume there is one bit for each value in values.nulls, aligned on a
       // byte boundary, and we write this much data into the stream
-      RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-          values.null_bitmap()->size(), &bytes_written));
+      if (values.null_bitmap()) {
+        RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
+            values.null_bitmap()->size(), &bytes_written));
+      } else {
+        RETURN_NOT_OK(WritePaddedBlank(
+            stream_.get(), BitUtil::BytesForBits(values.length()), &bytes_written));
+      }
       meta->total_bytes += bytes_written;
     }
 
@@ -556,12 +576,16 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
       int64_t offset_bytes = sizeof(int32_t) * (values.length() + 1);
 
-      values_bytes = bin_values.raw_value_offsets()[values.length()];
+      if (bin_values.value_offsets()) {
+        values_bytes = bin_values.raw_value_offsets()[values.length()];
 
-      // Write the variable-length offsets
-      RETURN_NOT_OK(WritePadded(stream_.get(),
-          reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()), offset_bytes,
-          &bytes_written));
+        // Write the variable-length offsets
+        RETURN_NOT_OK(WritePadded(stream_.get(),
+            reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()),
+            offset_bytes, &bytes_written));
+      } else {
+        RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
+      }
       meta->total_bytes += bytes_written;
 
       if (bin_values.value_data()) { values_buffer = bin_values.value_data()->data(); }
@@ -578,8 +602,12 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
       if (prim_values.values()) { values_buffer = prim_values.values()->data(); }
     }
-    RETURN_NOT_OK(
-        WritePadded(stream_.get(), values_buffer, values_bytes, &bytes_written));
+    if (values_buffer) {
+      RETURN_NOT_OK(
+          WritePadded(stream_.get(), values_buffer, values_bytes, &bytes_written));
+    } else {
+      RETURN_NOT_OK(WritePaddedBlank(stream_.get(), values_bytes, &bytes_written));
+    }
     meta->total_bytes += bytes_written;
 
     return Status::OK();
@@ -591,6 +619,14 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     RETURN_NOT_OK(WriteArray(values, &meta));
     current_column_->SetValues(meta);
     return Status::OK();
+  }
+
+  Status Visit(const NullArray& values) override {
+    // As long as R doesn't support NA, we write this as a StringColumn
+    // to ensure stable roundtrips.
+    StringArray str_values(
+        values.length(), nullptr, nullptr, values.null_bitmap(), values.null_count());
+    return WritePrimitiveValues(str_values);
   }
 
 #define VISIT_PRIMITIVE(TYPE) \

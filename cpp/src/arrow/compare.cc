@@ -615,6 +615,8 @@ inline Status ArrayEqualsImpl(const Array& left, const Array& right, bool* are_e
     *are_equal = false;
   } else if (left.length() == 0) {
     *are_equal = true;
+  } else if (left.null_count() == left.length()) {
+    *are_equal = true;
   } else {
     VISITOR visitor(right);
     RETURN_NOT_OK(VisitArrayInline(left, &visitor));
