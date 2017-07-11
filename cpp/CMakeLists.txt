@@ -142,8 +142,20 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with SSE4 optimizations"
     OFF)
 
+  option(ARROW_WITH_BROTLI
+    "Build with Brotli compression"
+    ON)
+
   option(ARROW_WITH_LZ4
     "Build with lz4 compression"
+    ON)
+
+  option(ARROW_WITH_SNAPPY
+    "Build with Snappy compression"
+    ON)
+
+  option(ARROW_WITH_ZLIB
+    "Build with zlib compression"
     ON)
 
   option(ARROW_WITH_ZSTD
@@ -167,19 +179,21 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
 endif()
 
-if(ARROW_BUILD_TESTS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_BUILD_STATIC ON)
+  set(ARROW_WITH_BROTLI ON)
   set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
+  set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
-else()
+endif()
+
+if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
-else()
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(ARROW_HDFS)
@@ -544,15 +558,26 @@ endif()
 # Linker and Dependencies
 ############################################################
 
-set(ARROW_STATIC_LINK_LIBS
-  brotli_dec
-  brotli_enc
-  brotli_common
-  snappy
-  zlib)
+set(ARROW_STATIC_LINK_LIBS)
+
+if (ARROW_WITH_BROTLI)
+  SET(ARROW_STATIC_LINK_LIBS
+    brotli_dec
+    brotli_enc
+    brotli_common
+    ${ARROW_STATIC_LINK_LIBS})
+endif()
 
 if (ARROW_WITH_LZ4)
   SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_SNAPPY)
+  SET(ARROW_STATIC_LINK_LIBS snappy ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_ZLIB)
+  SET(ARROW_STATIC_LINK_LIBS zlib ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_WITH_ZSTD)
@@ -683,19 +708,33 @@ set(ARROW_SRCS
 
   src/arrow/util/bit-util.cc
   src/arrow/util/compression.cc
-  src/arrow/util/compression_brotli.cc
-  src/arrow/util/compression_snappy.cc
-  src/arrow/util/compression_zlib.cc
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
 
+if (ARROW_WITH_BROTLI)
+  add_definitions(-DARROW_WITH_BROTLI)
+  SET(ARROW_SRCS src/arrow/util/compression_brotli.cc ${ARROW_SRCS})
+endif()
+
 if (ARROW_WITH_LZ4)
+  add_definitions(-DARROW_WITH_LZ4)
   SET(ARROW_SRCS src/arrow/util/compression_lz4.cc ${ARROW_SRCS})
 endif()
 
+if (ARROW_WITH_SNAPPY)
+  add_definitions(-DARROW_WITH_SNAPPY)
+  SET(ARROW_SRCS src/arrow/util/compression_snappy.cc ${ARROW_SRCS})
+endif()
+
+if (ARROW_WITH_ZLIB)
+  add_definitions(-DARROW_WITH_ZLIB)
+  SET(ARROW_SRCS src/arrow/util/compression_zlib.cc ${ARROW_SRCS})
+endif()
+
 if (ARROW_WITH_ZSTD)
+  add_definitions(-DARROW_WITH_ZSTD)
   SET(ARROW_SRCS src/arrow/util/compression_zstd.cc ${ARROW_SRCS})
 endif()
 
