@@ -22,6 +22,7 @@
 #include <memory>
 
 #include <arrow/io/file.h>
+#include <arrow/util/logging.h>
 
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
@@ -216,7 +217,7 @@ int main(int argc, char** argv) {
     file_writer->Close();
 
     // Write the bytes to file
-    out_file->Close();
+    DCHECK(out_file->Close().ok());
   } catch (const std::exception& e) {
     std::cerr << "Parquet write error: " << e.what() << std::endl;
     return -1;
