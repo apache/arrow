@@ -244,7 +244,7 @@ class ArrayLoader {
   }
 
  private:
-  const std::shared_ptr<DataType>& type_;
+  const std::shared_ptr<DataType> type_;
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
