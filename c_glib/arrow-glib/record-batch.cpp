@@ -219,7 +219,8 @@ garrow_record_batch_get_columns(GArrowRecordBatch *record_batch)
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
 
   GList *columns = NULL;
-  for (auto arrow_column : arrow_record_batch->columns()) {
+  for (int i = 0; i < arrow_record_batch->num_columns(); ++i) {
+    auto arrow_column = arrow_record_batch->column(i);
     GArrowArray *column = garrow_array_new_raw(&arrow_column);
     columns = g_list_prepend(columns, column);
   }
