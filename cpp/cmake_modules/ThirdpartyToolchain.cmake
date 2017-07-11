@@ -615,82 +615,86 @@ if (BROTLI_VENDORED)
   add_dependencies(brotli_common brotli_ep)
 endif()
 
+if (ARROW_WITH_LZ4)
 # ----------------------------------------------------------------------
 # Lz4
 
-find_package(Lz4)
-if (NOT LZ4_FOUND)
-  set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
-  set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
-
-  if (MSVC)
-    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
-    set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+  find_package(Lz4)
+  if (NOT LZ4_FOUND)
+    set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
+    set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
+  
+    if (MSVC)
+      set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
+      set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+    else()
+      set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
+      set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
+    endif()
+  
+    ExternalProject_Add(lz4_ep
+        URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
+        UPDATE_COMMAND ""
+        PATCH_COMMAND ""
+        CONFIGURE_COMMAND ""
+        INSTALL_COMMAND ""
+        BINARY_DIR ${LZ4_BUILD_DIR}
+        BUILD_BYPRODUCTS ${LZ4_STATIC_LIB}
+        ${LZ4_BUILD_COMMAND}
+        )
+  
+    set(LZ4_VENDORED 1)
   else()
-    set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
-    set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
+    set(LZ4_VENDORED 0)
   endif()
-
-  ExternalProject_Add(lz4_ep
-      URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
-      UPDATE_COMMAND ""
-      PATCH_COMMAND ""
-      CONFIGURE_COMMAND ""
-      INSTALL_COMMAND ""
-      BINARY_DIR ${LZ4_BUILD_DIR}
-      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB}
-      ${LZ4_BUILD_COMMAND}
-      )
-
-  set(LZ4_VENDORED 1)
-else()
-  set(LZ4_VENDORED 0)
+  
+  include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(lz4_static
+    STATIC_LIB ${LZ4_STATIC_LIB})
+  
+  if (LZ4_VENDORED)
+    add_dependencies(lz4_static lz4_ep)
+  endif()
 endif()
-
-include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(lz4_static
-  STATIC_LIB ${LZ4_STATIC_LIB})
-
-if (LZ4_VENDORED)
-  add_dependencies(lz4_static lz4_ep)
-endif()
-
+  
+if (ARROW_WITH_ZSTD)
 # ----------------------------------------------------------------------
 # ZSTD
 
-find_package(ZSTD)
-if (NOT ZSTD_FOUND)
-  set(ZSTD_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-prefix/src/zstd_ep")
-  set(ZSTD_INCLUDE_DIR "${ZSTD_BUILD_DIR}/lib")
+  find_package(ZSTD)
+  if (NOT ZSTD_FOUND)
+    set(ZSTD_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-prefix/src/zstd_ep")
+    set(ZSTD_INCLUDE_DIR "${ZSTD_BUILD_DIR}/lib")
 
-  if (MSVC)
-    set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
-    set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
+    if (MSVC)
+      set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
+      set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
+    else()
+      set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
+      set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
+    endif()
+
+    ExternalProject_Add(zstd_ep
+        URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz"
+        UPDATE_COMMAND ""
+        PATCH_COMMAND ""
+        CONFIGURE_COMMAND ""
+        INSTALL_COMMAND ""
+        BINARY_DIR ${ZSTD_BUILD_DIR}
+        BUILD_BYPRODUCTS ${ZSTD_STATIC_LIB}
+        ${ZSTD_BUILD_COMMAND}
+        )
+
+    set(ZSTD_VENDORED 1)
   else()
-    set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
-    set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
+    set(ZSTD_VENDORED 0)
   endif()
 
-  ExternalProject_Add(zstd_ep
-      URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz"
-      UPDATE_COMMAND ""
-      PATCH_COMMAND ""
-      CONFIGURE_COMMAND ""
-      INSTALL_COMMAND ""
-      BINARY_DIR ${ZSTD_BUILD_DIR}
-      BUILD_BYPRODUCTS ${ZSTD_STATIC_LIB}
-      ${ZSTD_BUILD_COMMAND}
-      )
+  include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(zstd_static
+    STATIC_LIB ${ZSTD_STATIC_LIB})
 
-  set(ZSTD_VENDORED 1)
-else()
-  set(ZSTD_VENDORED 0)
-endif()
-
-include_directories(SYSTEM ${ZSTD_INCLUDE_DIR})
-ADD_THIRDPARTY_LIB(zstd_static
-  STATIC_LIB ${ZSTD_STATIC_LIB})
-
-if (ZSTD_VENDORED)
-  add_dependencies(zstd_static zstd_ep)
+  if (ZSTD_VENDORED)
+    add_dependencies(zstd_static zstd_ep)
+  endif()
 endif()
