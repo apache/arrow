@@ -37,29 +37,6 @@ static inline int64_t PaddedLength(int64_t nbytes, int64_t alignment = kArrowAli
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
 
-// A helper class to tracks the size of allocations
-class MockOutputStream : public io::OutputStream {
- public:
-  MockOutputStream() : extent_bytes_written_(0) {}
-
-  Status Close() override { return Status::OK(); }
-
-  Status Write(const uint8_t* data, int64_t nbytes) override {
-    extent_bytes_written_ += nbytes;
-    return Status::OK();
-  }
-
-  Status Tell(int64_t* position) override {
-    *position = extent_bytes_written_;
-    return Status::OK();
-  }
-
-  int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
-
- private:
-  int64_t extent_bytes_written_;
-};
-
 }  // namespace ipc
 }  // namespace arrow
 
