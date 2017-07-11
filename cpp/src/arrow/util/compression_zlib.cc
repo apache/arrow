@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_zlib.h"
 
 #include <cstdint>
 #include <memory>

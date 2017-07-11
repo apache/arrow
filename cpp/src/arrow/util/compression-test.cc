@@ -29,69 +29,71 @@ using std::vector;
 
 namespace arrow {
 
-template <typename T>
+template <Compression::type CODEC>
 void CheckCodecRoundtrip(const vector<uint8_t>& data) {
   // create multiple compressors to try to break them
-  T c1;
-  T c2;
+  std::unique_ptr<Codec> c1, c2;
 
-  int max_compressed_len = static_cast<int>(c1.MaxCompressedLen(data.size(), &data[0]));
+  ASSERT_OK(Codec::Create(CODEC, &c1));
+  ASSERT_OK(Codec::Create(CODEC, &c2));
+
+  int max_compressed_len = static_cast<int>(c1->MaxCompressedLen(data.size(), &data[0]));
   std::vector<uint8_t> compressed(max_compressed_len);
   std::vector<uint8_t> decompressed(data.size());
 
   // compress with c1
   int64_t actual_size;
-  ASSERT_OK(c1.Compress(
+  ASSERT_OK(c1->Compress(
       data.size(), &data[0], max_compressed_len, &compressed[0], &actual_size));
   compressed.resize(actual_size);
 
   // decompress with c2
-  ASSERT_OK(c2.Decompress(
+  ASSERT_OK(c2->Decompress(
       compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]));
 
   ASSERT_EQ(data, decompressed);
 
   // compress with c2
   int64_t actual_size2;
-  ASSERT_OK(c2.Compress(
+  ASSERT_OK(c2->Compress(
       data.size(), &data[0], max_compressed_len, &compressed[0], &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
 
   // decompress with c1
-  ASSERT_OK(c1.Decompress(
+  ASSERT_OK(c1->Decompress(
       compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]));
 
   ASSERT_EQ(data, decompressed);
 }
 
-template <typename T>
+template <Compression::type CODEC>
 void CheckCodec() {
   int sizes[] = {10000, 100000};
   for (int data_size : sizes) {
     vector<uint8_t> data(data_size);
     test::random_bytes(data_size, 1234, data.data());
-    CheckCodecRoundtrip<T>(data);
+    CheckCodecRoundtrip<CODEC>(data);
   }
 }
 
 TEST(TestCompressors, Snappy) {
-  CheckCodec<SnappyCodec>();
+  CheckCodec<Compression::SNAPPY>();
 }
 
 TEST(TestCompressors, Brotli) {
-  CheckCodec<BrotliCodec>();
+  CheckCodec<Compression::BROTLI>();
 }
 
 TEST(TestCompressors, GZip) {
-  CheckCodec<GZipCodec>();
+  CheckCodec<Compression::GZIP>();
 }
 
 TEST(TestCompressors, ZSTD) {
-  CheckCodec<ZSTDCodec>();
+  CheckCodec<Compression::ZSTD>();
 }
 
 TEST(TestCompressors, Lz4) {
-  CheckCodec<Lz4Codec>();
+  CheckCodec<Compression::LZ4>();
 }
 
 }  // namespace arrow

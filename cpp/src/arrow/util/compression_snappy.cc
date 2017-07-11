@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression.h"
+#include "arrow/util/compression_snappy.h"
 
 // Work around warning caused by Snappy include
 #ifdef DISALLOW_COPY_AND_ASSIGN

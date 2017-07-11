@@ -22,6 +22,26 @@
 #include <sstream>
 #include <string>
 
+#ifdef ARROW_WITH_BROTLI
+#include "arrow/util/compression_brotli.h"
+#endif
+
+#ifdef ARROW_WITH_SNAPPY
+#include "arrow/util/compression_snappy.h"
+#endif
+
+#ifdef ARROW_WITH_LZ4
+#include "arrow/util/compression_lz4.h"
+#endif
+
+#ifdef ARROW_WITH_ZLIB
+#include "arrow/util/compression_zlib.h"
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+#include "arrow/util/compression_zstd.h"
+#endif
+
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -34,15 +54,41 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
     case Compression::UNCOMPRESSED:
       break;
     case Compression::SNAPPY:
+#ifdef ARROW_WITH_SNAPPY
       result->reset(new SnappyCodec());
+#else
+      return Status::NotImplemented("Snappy codec support not built");
+#endif
       break;
     case Compression::GZIP:
+#ifdef ARROW_WITH_ZLIB
       result->reset(new GZipCodec());
+#else
+      return Status::NotImplemented("Gzip codec support not built");
+#endif
       break;
     case Compression::LZO:
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
+#ifdef ARROW_WITH_BROTLI
       result->reset(new BrotliCodec());
+#else
+      return Status::NotImplemented("Brotli codec support not built");
+#endif
+      break;
+    case Compression::LZ4:
+#ifdef ARROW_WITH_LZ4
+      result->reset(new Lz4Codec());
+#else
+      return Status::NotImplemented("LZ4 codec support not built");
+#endif
+      break;
+    case Compression::ZSTD:
+#ifdef ARROW_WITH_ZSTD
+      result->reset(new ZSTDCodec());
+#else
+      return Status::NotImplemented("ZSTD codec support not built");
+#endif
       break;
     default:
       return Status::Invalid("Unrecognized codec");
