@@ -23,7 +23,6 @@ install(FILES
   buffer.h
   builder.h
   compare.h
-  loader.h
   memory_pool.h
   pretty_print.h
   status.h

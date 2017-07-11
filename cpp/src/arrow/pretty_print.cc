@@ -26,6 +26,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
 
@@ -39,7 +40,7 @@ class ArrayPrinter {
   template <typename T>
   inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
       const T& array) {
-    const auto data = array.raw_data();
+    const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
@@ -53,7 +54,7 @@ class ArrayPrinter {
   template <typename T>
   inline typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
       const T& array) {
-    const auto data = array.raw_data();
+    const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) { (*sink_) << ", "; }
       if (array.IsNull(i)) {
@@ -187,7 +188,12 @@ class ArrayPrinter {
 
   Status Visit(const StructArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
-    return PrintChildren(array.fields(), array.offset(), array.length());
+    std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.field(i));
+    }
+    return PrintChildren(children, array.offset(), array.length());
   }
 
   Status Visit(const UnionArray& array) {
@@ -207,7 +213,12 @@ class ArrayPrinter {
     }
 
     // Print the children without any offset, because the type ids are absolute
-    return PrintChildren(array.children(), 0, array.length() + array.offset());
+    std::vector<std::shared_ptr<Array>> children;
+    children.reserve(array.num_fields());
+    for (int i = 0; i < array.num_fields(); ++i) {
+      children.emplace_back(array.child(i));
+    }
+    return PrintChildren(children, 0, array.length() + array.offset());
   }
 
   Status Visit(const DictionaryArray& array) {
@@ -284,6 +295,10 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
     (*sink) << "\n";
   }
   return Status::OK();
+}
+
+Status ARROW_EXPORT DebugPrint(const Array& arr, int indent) {
+  return PrettyPrint(arr, indent, &std::cout);
 }
 
 }  // namespace arrow

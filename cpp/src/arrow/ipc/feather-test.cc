@@ -28,7 +28,6 @@
 #include "arrow/ipc/feather-internal.h"
 #include "arrow/ipc/feather.h"
 #include "arrow/ipc/test-common.h"
-#include "arrow/loader.h"
 #include "arrow/pretty_print.h"
 #include "arrow/test-util.h"
 
@@ -365,25 +364,19 @@ TEST_F(TestTableWriter, TimeTypes) {
   std::shared_ptr<Array> date_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
-  std::vector<FieldMetadata> fields(1);
-  fields[0].length = values->length();
-  fields[0].null_count = values->null_count();
-  fields[0].offset = 0;
-
   const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
   std::vector<std::shared_ptr<Buffer>> buffers = {
-      prim_values.null_bitmap(), prim_values.data()};
+      prim_values.null_bitmap(), prim_values.values()};
 
-  std::vector<std::shared_ptr<Array>> arrays;
-  arrays.push_back(date_array);
+  std::vector<std::shared_ptr<internal::ArrayData>> arrays;
+  arrays.push_back(date_array->data());
 
   for (int i = 1; i < schema->num_fields(); ++i) {
-    std::shared_ptr<Array> arr;
-    ASSERT_OK(LoadArray(schema->field(i)->type(), fields, buffers, &arr));
-    arrays.push_back(arr);
+    arrays.emplace_back(std::make_shared<internal::ArrayData>(
+        schema->field(i)->type(), values->length(), buffers, values->null_count(), 0));
   }
 
-  RecordBatch batch(schema, values->length(), arrays);
+  RecordBatch batch(schema, values->length(), std::move(arrays));
   CheckBatch(batch);
 }
 

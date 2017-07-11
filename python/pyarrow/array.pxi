@@ -1084,8 +1084,8 @@ cdef class StructValue(ArrayValue):
             CStructArray* ap
             vector[shared_ptr[CField]] child_fields = self.type.type.children()
         ap = <CStructArray*> self.sp_array.get()
-        child_arrays = ap.fields()
-        wrapped_arrays = (pyarrow_wrap_array(child) for child in child_arrays)
+        wrapped_arrays = (pyarrow_wrap_array(ap.field(i))
+                          for i in range(ap.num_fields()))
         child_names = (child.get().name() for child in child_fields)
         # Return the struct as a dict
         return {
@@ -1213,6 +1213,9 @@ cdef class Array:
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
+
+    def _debug_print(self):
+        check_status(DebugPrint(deref(self.ap), 0))
 
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,

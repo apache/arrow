@@ -650,7 +650,6 @@ set(ARROW_SRCS
   src/arrow/buffer.cc
   src/arrow/builder.cc
   src/arrow/compare.cc
-  src/arrow/loader.cc
   src/arrow/memory_pool.cc
   src/arrow/pretty_print.cc
   src/arrow/status.cc

@@ -34,7 +34,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/loader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type_fwd.h"
@@ -340,12 +339,10 @@ class PandasConverter {
       null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
     }
 
-    std::vector<FieldMetadata> fields(1);
-    fields[0].length = length_;
-    fields[0].null_count = null_count;
-    fields[0].offset = 0;
-
-    return LoadArray(type_, fields, {null_bitmap_, data}, &out_);
+    BufferVector buffers = {null_bitmap_, data};
+    auto array_data = std::make_shared<internal::ArrayData>(
+        type_, length_, std::move(buffers), null_count, 0);
+    return internal::MakeArray(array_data, &out_);
   }
 
   template <typename T>
@@ -617,9 +614,9 @@ Status PandasConverter::ConvertObjectStrings() {
   RETURN_NOT_OK(builder.Finish(&out_));
 
   if (have_bytes) {
-    const auto& arr = static_cast<const StringArray&>(*out_);
-    out_ = std::make_shared<BinaryArray>(arr.length(), arr.value_offsets(), arr.data(),
-        arr.null_bitmap(), arr.null_count());
+    auto binary_data = out_->data()->ShallowCopy();
+    binary_data->type = ::arrow::binary();
+    out_ = std::make_shared<BinaryArray>(binary_data);
   }
   return Status::OK();
 }
@@ -1223,7 +1220,7 @@ inline void ConvertIntegerWithNulls(const ChunkedArray& data, double* out_values
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
     // Upcast to double, set NaN as appropriate
 
     for (int i = 0; i < arr->length(); ++i) {
@@ -1237,7 +1234,7 @@ inline void ConvertIntegerNoNullsSameType(const ChunkedArray& data, T* out_value
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
     memcpy(out_values, in_values, sizeof(T) * arr->length());
     out_values += arr->length();
   }
@@ -1248,7 +1245,7 @@ inline void ConvertIntegerNoNullsCast(const ChunkedArray& data, OutType* out_val
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const InType*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const InType*>(prim_arr->raw_values());
     for (int64_t i = 0; i < arr->length(); ++i) {
       *out_values = in_values[i];
     }
@@ -1371,14 +1368,14 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
   // ChunkedArray has at least one chunk
   auto arr = static_cast<const StructArray*>(data.chunk(0).get());
   // Use it to cache the struct type and number of fields for all chunks
-  auto num_fields = arr->fields().size();
+  int32_t num_fields = arr->num_fields();
   auto array_type = arr->type();
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
-    for (size_t i = 0; i < num_fields; i++) {
+    for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
       RETURN_NOT_OK(
           ConvertArrayToPandas(arr->field(static_cast<int>(i)), nullptr, &numpy_array));
@@ -1395,7 +1392,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
         // Build the new dict object for the row
         dict_item.reset(PyDict_New());
         RETURN_IF_PYERROR();
-        for (size_t field_idx = 0; field_idx < num_fields; ++field_idx) {
+        for (int32_t field_idx = 0; field_idx < num_fields; ++field_idx) {
           OwnedRef field_value;
           auto name = array_type->child(static_cast<int>(field_idx))->name();
           if (!arr->field(static_cast<int>(field_idx))->IsNull(i)) {
@@ -1475,7 +1472,7 @@ inline void ConvertNumericNullable(const ChunkedArray& data, T na_value, T* out_
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
 
     const uint8_t* valid_bits = arr->null_bitmap_data();
 
@@ -1496,7 +1493,7 @@ inline void ConvertNumericNullableCast(
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const InType*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const InType*>(prim_arr->raw_values());
 
     for (int64_t i = 0; i < arr->length(); ++i) {
       *out_values++ = arr->IsNull(i) ? na_value : static_cast<OutType>(in_values[i]);
@@ -1509,7 +1506,7 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const InType*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const InType*>(prim_arr->raw_values());
 
     for (int64_t i = 0; i < arr->length(); ++i) {
       *out_values++ = arr->IsNull(i) ? kPandasTimestampNull
@@ -1838,7 +1835,7 @@ class CategoricalBlock : public PandasBlock {
       const std::shared_ptr<Array> arr = data.chunk(c);
       const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
       const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
-      auto in_values = reinterpret_cast<const T*>(indices.data()->data());
+      auto in_values = reinterpret_cast<const T*>(indices.raw_values());
 
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr->length(); ++i) {
@@ -2214,7 +2211,7 @@ class ArrowDeserializer {
     typedef typename arrow_traits<TYPE>::T T;
 
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-    auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+    auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     void* data = const_cast<T*>(in_values);
@@ -2290,7 +2287,7 @@ class ArrowDeserializer {
     for (int c = 0; c < data_.num_chunks(); c++) {
       const std::shared_ptr<Array> arr = data_.chunk(c);
       auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
-      auto in_values = reinterpret_cast<const T*>(prim_arr->data()->data());
+      auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
 
       for (int64_t i = 0; i < arr->length(); ++i) {
         *out_values++ = arr->IsNull(i) ? na_value : in_values[i] / kShift;
