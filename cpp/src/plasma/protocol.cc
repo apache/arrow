@@ -18,7 +18,7 @@
 #include "plasma/protocol.h"
 
 #include "flatbuffers/flatbuffers.h"
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"

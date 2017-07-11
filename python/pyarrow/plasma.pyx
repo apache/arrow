@@ -53,7 +53,7 @@ cdef extern from "plasma/common.h" nogil:
         c_string binary() const
 
 
-cdef extern from "plasma/plasma.h":
+cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
 
 

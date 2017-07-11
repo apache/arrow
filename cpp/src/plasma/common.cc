@@ -19,7 +19,7 @@
 
 #include <random>
 
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
 
 namespace plasma {
 

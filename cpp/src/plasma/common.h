@@ -62,6 +62,9 @@ typedef UniqueID ObjectID;
 
 arrow::Status plasma_error_status(int plasma_error);
 
+/// Size of object hash digests.
+constexpr int64_t kDigestSize = sizeof(uint64_t);
+
 } // namespace plasma
 
 #endif  // PLASMA_COMMON_H

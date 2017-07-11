@@ -24,13 +24,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
-option(PLASMA_PYTHON
-  "Build the Plasma Python extensions"
-  OFF)
-
 if(APPLE)
   SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 endif(APPLE)
+
+set(PLASMA_SO_VERSION "0")
+set(PLASMA_ABI_VERSION "${PLASMA_SO_VERSION}.0.0")
 
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
@@ -42,7 +41,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/format/)
+set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/)
 
 set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
@@ -99,28 +98,26 @@ set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error -O3")
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static)
 
+# Headers: top level
+install(FILES
+  common.h
+  client.h
+  plasma.h
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
+
+# pkg-config support
+configure_file(plasma.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
+#######################################
+# Unit tests
+#######################################
+
 ADD_ARROW_TEST(test/serialization_tests)
 ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
 ADD_ARROW_TEST(test/client_tests)
 ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
-
-if (PLASMA_PYTHON)
-  include(UseCython)
-  find_package(NumPy REQUIRED)
-
-  include_directories(SYSTEM
-    ${NUMPY_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS})
-
-  set_source_files_properties(plasma/plasma.pyx PROPERTIES CYTHON_IS_CXX 1)
-
-  # for Cython
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
-
-  cython_add_module(plasma
-      plasma_pyx
-      plasma_output
-      plasma/plasma.pyx)
-
-  target_link_libraries(plasma arrow_static plasma_static)
-endif()

@@ -32,8 +32,8 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "format/common_generated.h"
 #include "plasma/common.h"
+#include "plasma/common_generated.h"
 
 namespace plasma {
 
@@ -62,14 +62,11 @@ namespace plasma {
 /// Allocation granularity used in plasma for object allocation.
 #define BLOCK_SIZE 64
 
-/// Size of object hash digests.
-constexpr int64_t kDigestSize = sizeof(uint64_t);
-
 struct Client;
 
 /// Object request data structure. Used in the plasma_wait_for_objects()
 /// argument.
-typedef struct {
+struct ObjectRequest {
   /// The ID of the requested object. If ID_NIL request any object.
   ObjectID object_id;
   /// Request associated to the object. It can take one of the following values:
@@ -86,23 +83,23 @@ typedef struct {
   ///  - PLASMA_CLIENT_IN_TRANSFER, if the object is currently being scheduled
   ///    for being transferred or it is transferring.
   int status;
-} ObjectRequest;
+};
 
 /// Mapping from object IDs to type and status of the request.
 typedef std::unordered_map<ObjectID, ObjectRequest, UniqueIDHasher> ObjectRequestMap;
 
 /// Handle to access memory mapped file and map it into client address space.
-typedef struct {
+struct object_handle {
   /// The file descriptor of the memory mapped file in the store. It is used as
   /// a unique identifier of the file in the client to look up the corresponding
   /// file descriptor on the client's side.
   int store_fd;
   /// The size in bytes of the memory mapped file.
   int64_t mmap_size;
-} object_handle;
+};
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
-typedef struct {
+struct PlasmaObject {
   /// Handle for memory mapped file the object is stored in.
   object_handle handle;
   /// The offset in bytes in the memory mapped file of the data.
@@ -113,28 +110,28 @@ typedef struct {
   int64_t data_size;
   /// The size in bytes of the metadata.
   int64_t metadata_size;
-} PlasmaObject;
+};
 
-typedef enum {
+enum object_state {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,
   /// Object is sealed and stored in the local Plasma Store.
   PLASMA_SEALED
-} object_state;
+};
 
-typedef enum {
+enum object_status {
   /// The object was not found.
   OBJECT_NOT_FOUND = 0,
   /// The object was found.
   OBJECT_FOUND = 1
-} object_status;
+};
 
-typedef enum {
+enum object_request_type {
   /// Query for object in the local plasma store.
   PLASMA_QUERY_LOCAL = 1,
   /// Query for object in the local plasma store or in a remote plasma store.
   PLASMA_QUERY_ANYWHERE
-} object_request_type;
+};
 
 /// This type is used by the Plasma store. It is here because it is exposed to
 /// the eviction policy.

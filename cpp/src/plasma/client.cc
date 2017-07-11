@@ -58,7 +58,23 @@ constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 static std::vector<std::thread> threadpool_(kThreadPoolSize);
 
+struct ObjectInUseEntry {
+  /// A count of the number of times this client has called PlasmaClient::Create
+  /// or
+  /// PlasmaClient::Get on this object ID minus the number of calls to
+  /// PlasmaClient::Release.
+  /// When this count reaches zero, we remove the entry from the ObjectsInUse
+  /// and decrement a count in the relevant ClientMmapTableEntry.
+  int count;
+  /// Cached information to read the object.
+  PlasmaObject object;
+  /// A flag representing whether the object has been sealed.
+  bool is_sealed;
+};
+
 PlasmaClient::PlasmaClient() {}
+
+PlasmaClient::~PlasmaClient() {}
 
 // If the file descriptor fd has been mmapped in this client process before,
 // return the pointer that was returned by mmap, otherwise mmap it and store the

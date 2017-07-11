@@ -220,6 +220,10 @@ include_directories(SYSTEM
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
+## Plasma
+find_package(Plasma)
+include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+
 function(bundle_arrow_lib library_path)
   get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
@@ -276,6 +280,7 @@ endif()
 
 set(CYTHON_EXTENSIONS
   lib
+  plasma
 )
 
 set(LINK_LIBS

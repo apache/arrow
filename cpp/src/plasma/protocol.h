@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
 #include "plasma/plasma.h"
 
 namespace plasma {

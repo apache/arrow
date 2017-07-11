@@ -49,7 +49,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "format/common_generated.h"
+#include "plasma/common_generated.h"
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"

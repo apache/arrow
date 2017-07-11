@@ -15,4 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .plasma import *
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/include
+
+so_version=@PLASMA_SO_VERSION@
+abi_version=@PLASMA_ABI_VERSION@
+
+Name: Plasma
+Description: Plasma is an in-memory object store and cache for big data.
+Version: @PLASMA_VERSION@
+Libs: -L${libdir} -lplasma
+Cflags: -I${includedir}

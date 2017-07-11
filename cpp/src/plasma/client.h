@@ -22,10 +22,13 @@
 #include <time.h>
 
 #include <deque>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
-#include "plasma/plasma.h"
+#include "plasma/common.h"
 
 using arrow::Status;
 
@@ -66,23 +69,15 @@ struct ClientMmapTableEntry {
   int count;
 };
 
-struct ObjectInUseEntry {
-  /// A count of the number of times this client has called PlasmaClient::Create
-  /// or
-  /// PlasmaClient::Get on this object ID minus the number of calls to
-  /// PlasmaClient::Release.
-  /// When this count reaches zero, we remove the entry from the ObjectsInUse
-  /// and decrement a count in the relevant ClientMmapTableEntry.
-  int count;
-  /// Cached information to read the object.
-  PlasmaObject object;
-  /// A flag representing whether the object has been sealed.
-  bool is_sealed;
-};
+struct ObjectInUseEntry;
+class ObjectRequest;
+class PlasmaObject;
 
 class ARROW_EXPORT PlasmaClient {
  public:
   PlasmaClient();
+
+  ~PlasmaClient();
 
   /// Connect to the local plasma store and plasma manager. Return
   /// the resulting connection.
