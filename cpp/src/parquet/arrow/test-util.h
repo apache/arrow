@@ -55,7 +55,7 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NonNullA
   std::vector<typename ArrowType::c_type> values;
   ::arrow::test::random_real<typename ArrowType::c_type>(size, 0, 0, 1, &values);
   ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool());
-  builder.Append(values.data(), values.size());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
 }
 
@@ -69,7 +69,7 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(
       ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
-  builder.Append(values.data(), values.size());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
 }
 
@@ -96,7 +96,7 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
   BuilderType builder(::arrow::default_memory_pool());
   for (size_t i = 0; i < size; i++) {
-    builder.Append("test-string");
+    RETURN_NOT_OK(builder.Append("test-string"));
   }
   return builder.Finish(out);
 }
@@ -109,7 +109,7 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   // todo: find a way to generate test data with more diversity.
   BuilderType builder(::arrow::default_memory_pool(), ::arrow::fixed_size_binary(5));
   for (size_t i = 0; i < size; i++) {
-    builder.Append("fixed");
+    RETURN_NOT_OK(builder.Append("fixed"));
   }
   return builder.Finish(out);
 }
@@ -120,7 +120,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NonNullAr
   std::vector<uint8_t> values;
   ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
   ::arrow::BooleanBuilder builder(::arrow::default_memory_pool());
-  builder.Append(values.data(), values.size());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
 }
 
@@ -138,7 +138,7 @@ typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type Nullable
   }
 
   ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool());
-  builder.Append(values.data(), values.size(), valid_bytes.data());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
 
@@ -161,7 +161,7 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Arra
   // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(
       ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
-  builder.Append(values.data(), values.size(), valid_bytes.data());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
 
@@ -208,10 +208,10 @@ NullableArray(
   uint8_t buffer[kBufferSize];
   for (size_t i = 0; i < size; i++) {
     if (!valid_bytes[i]) {
-      builder.AppendNull();
+      RETURN_NOT_OK(builder.AppendNull());
     } else {
       ::arrow::test::random_bytes(kBufferSize, seed + static_cast<uint32_t>(i), buffer);
-      builder.Append(buffer, kBufferSize);
+      RETURN_NOT_OK(builder.Append(buffer, kBufferSize));
     }
   }
   return builder.Finish(out);
@@ -238,10 +238,10 @@ NullableArray(
   uint8_t buffer[kBufferSize];
   for (size_t i = 0; i < size; i++) {
     if (!valid_bytes[i]) {
-      builder.AppendNull();
+      RETURN_NOT_OK(builder.AppendNull());
     } else {
       ::arrow::test::random_bytes(kBufferSize, seed + static_cast<uint32_t>(i), buffer);
-      builder.Append(buffer);
+      RETURN_NOT_OK(builder.Append(buffer));
     }
   }
   return builder.Finish(out);
@@ -264,7 +264,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
   }
 
   ::arrow::BooleanBuilder builder(::arrow::default_memory_pool());
-  builder.Append(values.data(), values.size(), valid_bytes.data());
+  RETURN_NOT_OK(builder.Append(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
 
@@ -349,7 +349,7 @@ template <>
 void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   ::arrow::BooleanBuilder builder(
       ::arrow::default_memory_pool(), std::make_shared<::arrow::BooleanType>());
-  builder.Append(reinterpret_cast<uint8_t*>(expected), result->length());
+  EXPECT_OK(builder.Append(reinterpret_cast<uint8_t*>(expected), result->length()));
 
   std::shared_ptr<Array> expected_array;
   EXPECT_OK(builder.Finish(&expected_array));

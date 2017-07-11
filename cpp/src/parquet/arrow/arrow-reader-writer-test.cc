@@ -709,7 +709,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
   ::arrow::TimestampBuilder builder(
       default_memory_pool(), ::arrow::timestamp(TimeUnit::NANO));
-  builder.Append(val);
+  ASSERT_OK(builder.Append(val));
   std::shared_ptr<Array> values;
   ASSERT_OK(builder.Finish(&values));
   this->ReadAndCheckSingleColumnFile(values.get());
@@ -782,7 +782,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<Array> values;
   ::arrow::StringBuilder builder(::arrow::default_memory_pool());
   for (size_t i = 0; i < SMALL_SIZE; i++) {
-    builder.Append("");
+    ASSERT_OK(builder.Append(""));
   }
   ASSERT_OK(builder.Finish(&values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);

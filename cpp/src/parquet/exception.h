@@ -34,9 +34,10 @@
   }
 
 #define PARQUET_IGNORE_NOT_OK(s) \
-  try {                          \
-    (s);                         \
-  } catch (const ::parquet::ParquetException& e) { UNUSED(e); }
+  do {                           \
+    ::arrow::Status _s = (s);    \
+    UNUSED(_s);                  \
+  } while (0)
 
 #define PARQUET_THROW_NOT_OK(s)                     \
   do {                                              \
@@ -46,7 +47,7 @@
       ss << "Arrow error: " << _s.ToString();       \
       ::parquet::ParquetException::Throw(ss.str()); \
     }                                               \
-  } while (0);
+  } while (0)
 
 namespace parquet {
 

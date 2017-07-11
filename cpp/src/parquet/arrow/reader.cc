@@ -28,6 +28,7 @@
 
 #include "arrow/api.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/arrow/schema.h"
 #include "parquet/util/schema-util.h"
@@ -235,7 +236,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::Impl {
         values_buffer_(pool),
         def_levels_buffer_(pool),
         rep_levels_buffer_(pool) {
-    NodeToField(input_->descr()->schema_node(), &field_);
+    DCHECK(NodeToField(input_->descr()->schema_node(), &field_).ok());
     NextRowGroup();
   }
 
@@ -1368,7 +1369,7 @@ Status StructImpl::GetDefLevels(ValueLevelsPtr* data, size_t* length) {
   size_t child_length;
   RETURN_NOT_OK(children_[0]->GetDefLevels(&child_def_levels, &child_length));
   auto size = child_length * sizeof(int16_t);
-  def_levels_buffer_.Resize(size);
+  RETURN_NOT_OK(def_levels_buffer_.Resize(size));
   // Initialize with the minimal def level
   std::memset(def_levels_buffer_.mutable_data(), -1, size);
   auto result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_.mutable_data());

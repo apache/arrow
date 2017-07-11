@@ -20,8 +20,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <sstream>
 
 #include "arrow/util/bit-util.h"
+#include "arrow/status.h"
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -49,7 +51,13 @@ class Encoder {
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
       int64_t valid_bits_offset) {
     PoolBuffer buffer(pool_);
-    buffer.Resize(num_values * sizeof(T));
+    ::arrow::Status status = buffer.Resize(num_values * sizeof(T));
+    if (!status.ok()) {
+      std::ostringstream ss;
+      ss << "buffer.Resize failed in Encoder.PutSpaced in " <<
+         __FILE__ << ", on line " << __LINE__;
+      throw ParquetException(ss.str());
+    }
     int32_t num_valid_values = 0;
     INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
     T* data = reinterpret_cast<T*>(buffer.mutable_data());
@@ -91,9 +99,7 @@ class Decoder {
   // the decoder would decode put to 'max_values', storing the result in 'buffer'.
   // The function returns the number of values decoded, which should be max_values
   // except for end of the current data page.
-  virtual int Decode(T* /* buffer */, int /* max_values */) {
-    throw ParquetException("Decoder does not implement this type.");
-  }
+  virtual int Decode(T* buffer, int max_values) = 0;
 
   // Decode the values in this data page but leave spaces for null entries.
   //

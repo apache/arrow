@@ -169,7 +169,7 @@ class LevelBuilder {
       *num_levels = array.length();
     } else {
       RETURN_NOT_OK(rep_levels_.Append(0));
-      HandleListEntries(0, 0, 0, array.length());
+      RETURN_NOT_OK(HandleListEntries(0, 0, 0, array.length()));
 
       std::shared_ptr<Array> def_levels_array;
       RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
