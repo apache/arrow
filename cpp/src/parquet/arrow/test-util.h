@@ -332,7 +332,7 @@ template <typename T>
 void ExpectArray(T* expected, Array* result) {
   auto p_array = static_cast<::arrow::PrimitiveArray*>(result);
   for (int i = 0; i < result->length(); i++) {
-    EXPECT_EQ(expected[i], reinterpret_cast<const T*>(p_array->data()->data())[i]);
+    EXPECT_EQ(expected[i], reinterpret_cast<const T*>(p_array->values()->data())[i]);
   }
 }
 
@@ -341,7 +341,8 @@ void ExpectArrayT(void* expected, Array* result) {
   ::arrow::PrimitiveArray* p_array = static_cast<::arrow::PrimitiveArray*>(result);
   for (int64_t i = 0; i < result->length(); i++) {
     EXPECT_EQ(reinterpret_cast<typename ArrowType::c_type*>(expected)[i],
-        reinterpret_cast<const typename ArrowType::c_type*>(p_array->data()->data())[i]);
+        reinterpret_cast<const typename ArrowType::c_type*>(
+            p_array->values()->data())[i]);
   }
 }
 

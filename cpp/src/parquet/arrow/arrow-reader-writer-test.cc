@@ -421,7 +421,9 @@ class TestParquetIO : public ::testing::Test {
 
     std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
     ASSERT_EQ(1, chunked_array->num_chunks());
-    ASSERT_TRUE(values->Equals(chunked_array->chunk(0)));
+    auto result = chunked_array->chunk(0);
+
+    ASSERT_TRUE(values->Equals(result));
   }
 
   void CheckRoundTrip(const std::shared_ptr<Table>& table) {
@@ -762,7 +764,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
     ASSERT_OK(int64_data->Resize(sizeof(int64_t) * values->length()));
     int64_t* int64_data_ptr = reinterpret_cast<int64_t*>(int64_data->mutable_data());
     const uint32_t* uint32_data_ptr =
-        reinterpret_cast<const uint32_t*>(values->data()->data());
+        reinterpret_cast<const uint32_t*>(values->values()->data());
     // std::copy might be faster but this is explicit on the casts)
     for (int64_t i = 0; i < values->length(); i++) {
       int64_data_ptr[i] = static_cast<int64_t>(uint32_data_ptr[i]);
@@ -1219,7 +1221,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
     // Produce values for the columns
     MakeValues(NUM_SIMPLE_TEST_ROWS);
-    int32_t* values = reinterpret_cast<int32_t*>(values_array_->data()->mutable_data());
+    int32_t* values = reinterpret_cast<int32_t*>(values_array_->values()->mutable_data());
 
     // Create the actual parquet file
     InitNewParquetFile(
@@ -1283,7 +1285,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
     // Produce values for the columns
     MakeValues(num_rows);
-    int32_t* values = reinterpret_cast<int32_t*>(values_array_->data()->mutable_data());
+    int32_t* values = reinterpret_cast<int32_t*>(values_array_->values()->mutable_data());
 
     // Create the actual parquet file
     InitNewParquetFile(std::static_pointer_cast<GroupNode>(schema_node), num_rows);
@@ -1323,7 +1325,8 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     }
 
     virtual Status Visit(const ::arrow::StructArray& array) {
-      for (auto& child : array.fields()) {
+      for (int32_t i = 0; i < array.num_fields(); ++i) {
+        auto child = array.field(i);
         if (node_repetition_ == Repetition::REQUIRED) {
           RETURN_NOT_OK(child->Accept(this));
         } else if (node_repetition_ == Repetition::OPTIONAL) {

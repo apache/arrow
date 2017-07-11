@@ -53,7 +53,6 @@ int64_t RowGroupWriter::num_rows() const {
   return contents_->num_rows();
 }
 
-
 // ----------------------------------------------------------------------
 // ParquetFileWriter public API
 

@@ -61,30 +61,14 @@ class LevelBuilder {
 
   Status VisitInline(const Array& array);
 
-  Status Visit(const ::arrow::NullArray& array) {
-    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
-    valid_bitmaps_.push_back(array.null_bitmap_data());
-    null_counts_.push_back(array.length());
-    values_type_ = array.type_id();
-    values_array_ = &array;
-    return Status::OK();
-  }
-
-  Status Visit(const ::arrow::PrimitiveArray& array) {
+  template <typename T>
+  typename std::enable_if<std::is_base_of<::arrow::FlatArray, T>::value, Status>::type
+  Visit(const T& array) {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());
     values_type_ = array.type_id();
-    values_array_ = &array;
-    return Status::OK();
-  }
-
-  Status Visit(const ::arrow::BinaryArray& array) {
-    array_offsets_.push_back(static_cast<int32_t>(array.offset()));
-    valid_bitmaps_.push_back(array.null_bitmap_data());
-    null_counts_.push_back(array.null_count());
-    values_type_ = array.type_id();
-    values_array_ = &array;
+    values_array_ = std::make_shared<T>(array.data());
     return Status::OK();
   }
 
@@ -115,7 +99,7 @@ class LevelBuilder {
   Status GenerateLevels(const Array& array, const std::shared_ptr<Field>& field,
       int64_t* values_offset, ::arrow::Type::type* values_type, int64_t* num_values,
       int64_t* num_levels, std::shared_ptr<Buffer>* def_levels,
-      std::shared_ptr<Buffer>* rep_levels, const Array** values_array) {
+      std::shared_ptr<Buffer>* rep_levels, std::shared_ptr<Array>* values_array) {
     // Work downwards to extract bitmaps and offsets
     min_offset_idx_ = 0;
     max_offset_idx_ = static_cast<int32_t>(array.length());
@@ -173,11 +157,11 @@ class LevelBuilder {
 
       std::shared_ptr<Array> def_levels_array;
       RETURN_NOT_OK(def_levels_.Finish(&def_levels_array));
-      *def_levels = static_cast<PrimitiveArray*>(def_levels_array.get())->data();
+      *def_levels = static_cast<PrimitiveArray*>(def_levels_array.get())->values();
 
       std::shared_ptr<Array> rep_levels_array;
       RETURN_NOT_OK(rep_levels_.Finish(&rep_levels_array));
-      *rep_levels = static_cast<PrimitiveArray*>(rep_levels_array.get())->data();
+      *rep_levels = static_cast<PrimitiveArray*>(rep_levels_array.get())->values();
       *num_levels = rep_levels_array->length();
     }
 
@@ -248,7 +232,7 @@ class LevelBuilder {
   int32_t min_offset_idx_;
   int32_t max_offset_idx_;
   ::arrow::Type::type values_type_;
-  const Array* values_array_;
+  std::shared_ptr<Array> values_array_;
 };
 
 Status LevelBuilder::VisitInline(const Array& array) {
@@ -311,7 +295,7 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
   using ArrowCType = typename ArrowType::c_type;
 
   auto data = static_cast<const PrimitiveArray*>(array.get());
-  auto data_ptr = reinterpret_cast<const ArrowCType*>(data->data()->data());
+  auto data_ptr = reinterpret_cast<const ArrowCType*>(data->values()->data());
   auto writer = reinterpret_cast<TypedColumnWriter<ParquetType>*>(column_writer);
 
   if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
@@ -501,7 +485,7 @@ Status FileWriter::Impl::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
     const int16_t* def_levels, const int16_t* rep_levels) {
   RETURN_NOT_OK(data_buffer_.Resize(array->length()));
   auto data = static_cast<const BooleanArray*>(array.get());
-  auto data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
+  auto data_ptr = reinterpret_cast<const uint8_t*>(data->values()->data());
   auto buffer_ptr = reinterpret_cast<bool*>(data_buffer_.mutable_data());
   auto writer = reinterpret_cast<TypedColumnWriter<BooleanType>*>(column_writer);
 
@@ -540,8 +524,8 @@ Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
   // data->data() points already to a nullptr, thus data->data()->data() will
   // segfault.
   const uint8_t* data_ptr = nullptr;
-  if (data->data()) {
-    data_ptr = reinterpret_cast<const uint8_t*>(data->data()->data());
+  if (data->value_data()) {
+    data_ptr = reinterpret_cast<const uint8_t*>(data->value_data()->data());
     DCHECK(data_ptr != nullptr);
   }
   auto writer = reinterpret_cast<TypedColumnWriter<ByteArrayType>*>(column_writer);
@@ -620,14 +604,15 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
   RETURN_NOT_OK(FromParquetSchema(writer_->schema(), {current_column_idx - 1},
       writer_->key_value_metadata(), &arrow_schema));
-  LevelBuilder level_builder(pool_);
   std::shared_ptr<Buffer> def_levels_buffer;
   std::shared_ptr<Buffer> rep_levels_buffer;
   int64_t values_offset;
   ::arrow::Type::type values_type;
   int64_t num_levels;
   int64_t num_values;
-  const Array* _values_array;
+
+  std::shared_ptr<Array> _values_array;
+  LevelBuilder level_builder(pool_);
   RETURN_NOT_OK(level_builder.GenerateLevels(data, arrow_schema->field(0), &values_offset,
       &values_type, &num_values, &num_levels, &def_levels_buffer, &rep_levels_buffer,
       &_values_array));

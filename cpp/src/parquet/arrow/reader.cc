@@ -974,9 +974,9 @@ Status PrimitiveImpl::WrapIntoListArray(const int16_t* def_levels,
       list_lengths.push_back(offset_builders[j]->length() - 1);
       std::shared_ptr<Array> array;
       RETURN_NOT_OK(offset_builders[j]->Finish(&array));
-      offsets.emplace_back(std::static_pointer_cast<Int32Array>(array)->data());
+      offsets.emplace_back(std::static_pointer_cast<Int32Array>(array)->values());
       RETURN_NOT_OK(valid_bits_builders[j]->Finish(&array));
-      valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->data());
+      valid_bits.emplace_back(std::static_pointer_cast<BooleanArray>(array)->values());
     }
 
     std::shared_ptr<Array> output(*array);
