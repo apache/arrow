@@ -36,6 +36,7 @@ cdef extern from "<Python.h>":
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
     cdef CStatus CStatus_OK "Status::OK"()
+    cdef CStatus CStatus_Invalid "Status::Invalid"()
 
     cdef cppclass CStatus "arrow::Status":
         CStatus()
