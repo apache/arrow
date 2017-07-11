@@ -15,38 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_COMPRESSION_H
-#define ARROW_UTIL_COMPRESSION_H
+#ifndef ARROW_UTIL_COMPRESSION_ZSTD_H
+#define ARROW_UTIL_COMPRESSION_ZSTD_H
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 
-struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, ZSTD, LZ4 };
-};
-
-class ARROW_EXPORT Codec {
+// ZSTD codec.
+class ARROW_EXPORT ZSTDCodec : public Codec {
  public:
-  virtual ~Codec();
+  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer) override;
 
-  static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
+      uint8_t* output_buffer, int64_t* output_length) override;
 
-  virtual Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-      uint8_t* output_buffer) = 0;
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 
-  virtual Status Compress(int64_t input_len, const uint8_t* input,
-      int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) = 0;
-
-  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
-
-  virtual const char* name() const = 0;
+  const char* name() const override { return "zstd"; }
 };
 
 }  // namespace arrow
 
-#endif
+#endif  // ARROW_UTIL_COMPRESSION_ZSTD_H

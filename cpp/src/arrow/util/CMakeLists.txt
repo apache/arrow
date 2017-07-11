@@ -26,6 +26,11 @@ install(FILES
   bpacking.h
   compiler-util.h
   compression.h
+  compression_brotli.h
+  compression_lz4.h
+  compression_snappy.h
+  compression_zlib.h
+  compression_zstd.h
   cpu-info.h
   key_value_metadata.h
   hash-util.h

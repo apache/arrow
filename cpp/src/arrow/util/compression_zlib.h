@@ -15,38 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_COMPRESSION_H
-#define ARROW_UTIL_COMPRESSION_H
+#ifndef ARROW_UTIL_COMPRESSION_ZLIB_H
+#define ARROW_UTIL_COMPRESSION_ZLIB_H
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 
-struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, ZSTD, LZ4 };
-};
-
-class ARROW_EXPORT Codec {
+// GZip codec.
+class ARROW_EXPORT GZipCodec : public Codec {
  public:
-  virtual ~Codec();
+  /// Compression formats supported by the zlib library
+  enum Format {
+    ZLIB,
+    DEFLATE,
+    GZIP,
+  };
 
-  static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+  explicit GZipCodec(Format format = GZIP);
+  virtual ~GZipCodec();
 
-  virtual Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-      uint8_t* output_buffer) = 0;
+  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+      uint8_t* output_buffer) override;
 
-  virtual Status Compress(int64_t input_len, const uint8_t* input,
-      int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) = 0;
+  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
+      uint8_t* output_buffer, int64_t* output_length) override;
 
-  virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
+  int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 
-  virtual const char* name() const = 0;
+  const char* name() const override;
+
+ private:
+  // The gzip compressor is stateful
+  class GZipCodecImpl;
+  std::unique_ptr<GZipCodecImpl> impl_;
 };
 
 }  // namespace arrow
 
-#endif
+#endif  // ARROW_UTIL_COMPRESSION_ZLIB_H
