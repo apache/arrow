@@ -150,15 +150,15 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   const int64_t new_length = length + length_;
 
   // Fill up the bytes until we have a byte alignment
-  int64_t pad_to_byte = 8 - (length_ % 8);
+  int64_t pad_to_byte = std::min<int64_t>(8 - (length_ % 8), length);
   if (pad_to_byte == 8) { pad_to_byte = 0; }
-  for (int64_t i = 0; i < pad_to_byte; ++i) {
+  for (int64_t i = length_; i < length_ + pad_to_byte; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
 
   // Fast bitsetting
   int64_t fast_length = (length - pad_to_byte) / 8;
-  memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 255,
+  memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 0xFF,
       static_cast<size_t>(fast_length));
 
   // Trailing bytes
@@ -1031,6 +1031,7 @@ Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
 void ListBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_ = nullptr;
+  values_ = nullptr;
 }
 
 ArrayBuilder* ListBuilder::value_builder() const {

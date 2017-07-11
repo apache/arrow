@@ -297,4 +297,8 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   return Status::OK();
 }
 
+Status ARROW_EXPORT DebugPrint(const Array& arr, int indent) {
+  return PrettyPrint(arr, indent, &std::cout);
+}
+
 }  // namespace arrow

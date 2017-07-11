@@ -1176,6 +1176,9 @@ cdef class Array:
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
+    def _debug_print(self):
+        check_status(DebugPrint(deref(self.ap), 0))
+
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,
                     timestamps_to_ms=False,

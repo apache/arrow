@@ -35,6 +35,8 @@ struct PrettyPrintOptions {
 Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
 Status ARROW_EXPORT PrettyPrint(const Array& arr, int indent, std::ostream* sink);
 
+Status ARROW_EXPORT DebugPrint(const Array& arr, int indent);
+
 }  // namespace arrow
 
 #endif  // ARROW_PRETTY_PRINT_H
