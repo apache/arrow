@@ -142,6 +142,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with SSE4 optimizations"
     OFF)
 
+  option(ARROW_WITH_LZ4
+    "Build with lz4 compression"
+    ON)
+
+  option(ARROW_WITH_ZSTD
+    "Build with zstd compression"
+    ON)
+
   option(ARROW_ZLIB_VENDORED
     "Build our own zlib (some libz.a aren't configured for static linking)"
     ON)
@@ -161,12 +169,17 @@ endif()
 
 if(ARROW_BUILD_TESTS)
   set(ARROW_BUILD_STATIC ON)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_ZSTD ON)
 else()
   set(NO_TESTS 1)
 endif()
 
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
+else()
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_ZSTD ON)
 endif()
 
 if(ARROW_HDFS)
@@ -536,9 +549,15 @@ set(ARROW_STATIC_LINK_LIBS
   brotli_enc
   brotli_common
   snappy
-  zlib
-  zstd_static
-  lz4_static)
+  zlib)
+
+if (ARROW_WITH_LZ4)
+  SET(ARROW_STATIC_LINK_LIBS lz4_static ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_ZSTD)
+  SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+endif()
 
 add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 
@@ -664,10 +683,21 @@ set(ARROW_SRCS
 
   src/arrow/util/bit-util.cc
   src/arrow/util/compression.cc
+  src/arrow/util/compression_brotli.cc
+  src/arrow/util/compression_snappy.cc
+  src/arrow/util/compression_zlib.cc
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
   src/arrow/util/key_value_metadata.cc
 )
+
+if (ARROW_WITH_LZ4)
+  SET(ARROW_SRCS src/arrow/util/compression_lz4.cc ${ARROW_SRCS})
+endif()
+
+if (ARROW_WITH_ZSTD)
+  SET(ARROW_SRCS src/arrow/util/compression_zstd.cc ${ARROW_SRCS})
+endif()
 
 if (NOT ARROW_BOOST_HEADER_ONLY)
   set(ARROW_SRCS ${ARROW_SRCS}
