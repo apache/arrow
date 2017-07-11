@@ -25,6 +25,7 @@
 
 namespace arrow {
 
+class Array;
 class Status;
 
 struct PrettyPrintOptions {
@@ -33,6 +34,8 @@ struct PrettyPrintOptions {
 
 Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
 Status ARROW_EXPORT PrettyPrint(const Array& arr, int indent, std::ostream* sink);
+
+Status ARROW_EXPORT DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow
 

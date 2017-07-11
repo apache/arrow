@@ -28,6 +28,12 @@
 
 namespace arrow {
 
+namespace internal {
+
+struct ArrayData;
+
+}  // namespace internal
+
 class Array;
 class Column;
 class Schema;
@@ -106,14 +112,28 @@ class ARROW_EXPORT Column {
 // corresponding sequence of equal-length Arrow arrays
 class ARROW_EXPORT RecordBatch {
  public:
-  // num_rows is a parameter to allow for record batches of a particular size not
-  // having any materialized columns. Each array should have the same length as
-  // num_rows
+  /// num_rows is a parameter to allow for record batches of a particular size not
+  /// having any materialized columns. Each array should have the same length as
+  /// num_rows
+
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<Array>>& columns);
 
+  /// \brief Deprecated move constructor for a vector of Array instances
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
       std::vector<std::shared_ptr<Array>>&& columns);
+
+  /// \brief Construct record batch from vector of internal data structures
+  ///
+  /// This class is only provided with an rvalue-reference for the input data,
+  /// and is intended for internal use, or advanced users.
+  ///
+  /// \param schema the record batch schema
+  /// \param num_rows the number of semantic rows in the record batch. This
+  /// should be equal to the length of each field
+  /// \param columns the data for the batch's columns
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      std::vector<std::shared_ptr<internal::ArrayData>>&& columns);
 
   bool Equals(const RecordBatch& other) const;
 
@@ -124,9 +144,9 @@ class ARROW_EXPORT RecordBatch {
 
   // @returns: the i-th column
   // Note: Does not boundscheck
-  std::shared_ptr<Array> column(int i) const { return columns_[i]; }
+  std::shared_ptr<Array> column(int i) const;
 
-  const std::vector<std::shared_ptr<Array>>& columns() const { return columns_; }
+  std::shared_ptr<internal::ArrayData> column_data(int i) const { return columns_[i]; }
 
   const std::string& column_name(int i) const;
 
@@ -147,7 +167,7 @@ class ARROW_EXPORT RecordBatch {
  private:
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
-  std::vector<std::shared_ptr<Array>> columns_;
+  std::vector<std::shared_ptr<internal::ArrayData>> columns_;
 };
 
 // Immutable container of fixed-length columns conforming to a particular schema

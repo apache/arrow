@@ -351,7 +351,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(
 
   for (int64_t i = 0; i < result->length(); ++i) {
     if (nullable) { ASSERT_EQ(valid_bytes_[i] == 0, result->IsNull(i)) << i; }
-    bool actual = BitUtil::GetBit(result->data()->data(), i);
+    bool actual = BitUtil::GetBit(result->values()->data(), i);
     ASSERT_EQ(draws_[i] != 0, actual) << i;
   }
   ASSERT_TRUE(result->Equals(*expected));
@@ -778,8 +778,8 @@ TEST_F(TestStringArray, CompareNullByteSlots) {
 
   // The validity bitmaps are the same, the data is different, but the unequal
   // portion is masked out
-  StringArray equal_array(3, a1.value_offsets(), a1.data(), a2.null_bitmap(), 1);
-  StringArray equal_array2(3, a3.value_offsets(), a3.data(), a2.null_bitmap(), 1);
+  StringArray equal_array(3, a1.value_offsets(), a1.value_data(), a2.null_bitmap(), 1);
+  StringArray equal_array2(3, a3.value_offsets(), a3.value_data(), a2.null_bitmap(), 1);
 
   ASSERT_TRUE(equal_array.Equals(equal_array2));
   ASSERT_TRUE(a2.RangeEquals(equal_array2, 0, 3, 0));
@@ -846,7 +846,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
 
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->data()->size());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
 
   int32_t length;
   int32_t pos = 0;
@@ -1011,7 +1011,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_OK(ValidateArray(*result_));
   ASSERT_EQ(reps * N, result_->length());
   ASSERT_EQ(reps, result_->null_count());
-  ASSERT_EQ(reps * 6, result_->data()->size());
+  ASSERT_EQ(reps * 6, result_->value_data()->size());
 
   int32_t length;
   for (int i = 0; i < N * reps; ++i) {
@@ -1200,8 +1200,8 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   const auto& a1 = static_cast<const FixedSizeBinaryArray&>(*array1);
   const auto& a2 = static_cast<const FixedSizeBinaryArray&>(*array2);
 
-  FixedSizeBinaryArray equal1(type, 2, a1.data(), a1.null_bitmap(), 1);
-  FixedSizeBinaryArray equal2(type, 2, a2.data(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal1(type, 2, a1.values(), a1.null_bitmap(), 1);
+  FixedSizeBinaryArray equal2(type, 2, a2.values(), a1.null_bitmap(), 1);
 
   ASSERT_TRUE(equal1.Equals(equal2));
   ASSERT_TRUE(equal1.RangeEquals(equal2, 0, 2, 0));
@@ -1224,7 +1224,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = static_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.data() == nullptr);
+  ASSERT_TRUE(fw_array.values() == nullptr);
   ASSERT_EQ(0, fw_array.byte_width());
 
   ASSERT_EQ(6, array->length());
@@ -1524,8 +1524,7 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
-  auto dtype =
-      std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+  auto dtype = std::make_shared<DictionaryType>(uint8(), dict_array);
 
   UInt8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
@@ -1558,8 +1557,7 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
-  auto dtype =
-      std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+  auto dtype = std::make_shared<DictionaryType>(uint8(), dict_array);
 
   UInt8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
@@ -1601,8 +1599,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     // Finalize expected data
     std::shared_ptr<Array> dict_array;
     ASSERT_OK(dict_builder.Finish(&dict_array));
-    auto dtype =
-        std::make_shared<DictionaryType>(std::make_shared<TypeParam>(), dict_array);
+    auto dtype = std::make_shared<DictionaryType>(uint16(), dict_array);
     std::shared_ptr<Array> int_array;
     ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -1627,7 +1624,7 @@ TEST(TestStringDictionaryBuilder, Basic) {
   ASSERT_OK(str_builder.Append("test2"));
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
-  auto dtype = std::make_shared<DictionaryType>(utf8(), str_array);
+  auto dtype = std::make_shared<DictionaryType>(uint8(), str_array);
 
   UInt8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
@@ -1668,7 +1665,7 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Finalize expected data
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
-  auto dtype = std::make_shared<DictionaryType>(utf8(), str_array);
+  auto dtype = std::make_shared<DictionaryType>(uint16(), str_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -1781,7 +1778,7 @@ TEST_F(TestListBuilder, TestAppendNull) {
   ASSERT_EQ(0, result_->value_offset(1));
   ASSERT_EQ(0, result_->value_offset(2));
 
-  Int32Array* values = static_cast<Int32Array*>(result_->values().get());
+  auto values = result_->values();
   ASSERT_EQ(0, values->length());
 }
 
@@ -1802,7 +1799,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   }
 
   ASSERT_EQ(7, result->values()->length());
-  Int32Array* varr = static_cast<Int32Array*>(result->values().get());
+  auto varr = std::dynamic_pointer_cast<Int32Array>(result->values());
 
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_EQ(values[i], varr->Value(i));
@@ -1972,25 +1969,27 @@ TEST(TestDictionary, Validate) {
   std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
 
   std::shared_ptr<Array> indices;
-  vector<uint8_t> indices_values = {1, 2, 0, 0, 2, 0};
-  ArrayFromVector<UInt8Type, uint8_t>(is_valid, indices_values, &indices);
-
-  std::shared_ptr<Array> indices2;
-  vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
-  ArrayFromVector<FloatType, float>(is_valid, indices2_values, &indices2);
-
-  std::shared_ptr<Array> indices3;
-  vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
-  ArrayFromVector<Int64Type, int64_t>(is_valid, indices3_values, &indices3);
+  vector<int16_t> indices_values = {1, 2, 0, 0, 2, 0};
+  ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
 
   std::shared_ptr<Array> arr = std::make_shared<DictionaryArray>(dict_type, indices);
-  std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
-  std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
 
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
-  ASSERT_RAISES(Invalid, ValidateArray(*arr2));
-  ASSERT_OK(ValidateArray(*arr3));
+
+  // TODO(wesm) In ARROW-1199, there is now a DCHECK to compare the indices
+  // type with the dict_type. How can we test for this?
+
+  // std::shared_ptr<Array> indices2;
+  // vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
+  // ArrayFromVector<FloatType, float>(is_valid, indices2_values, &indices2);
+
+  // std::shared_ptr<Array> indices3;
+  // vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
+  // ArrayFromVector<Int64Type, int64_t>(is_valid, indices3_values, &indices3);
+  // std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
+  // std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
+  // ASSERT_OK(ValidateArray(*arr3));
 }
 
 // ----------------------------------------------------------------------
@@ -2003,9 +2002,9 @@ void ValidateBasicStructArray(const StructArray* result,
   ASSERT_EQ(4, result->length());
   ASSERT_OK(ValidateArray(*result));
 
-  auto list_char_arr = static_cast<ListArray*>(result->field(0).get());
-  auto char_arr = static_cast<Int8Array*>(list_char_arr->values().get());
-  auto int32_arr = static_cast<Int32Array*>(result->field(1).get());
+  auto list_char_arr = std::dynamic_pointer_cast<ListArray>(result->field(0));
+  auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
+  auto int32_arr = std::dynamic_pointer_cast<Int32Array>(result->field(1));
 
   ASSERT_EQ(0, result->null_count());
   ASSERT_EQ(1, list_char_arr->null_count());
@@ -2086,7 +2085,7 @@ TEST_F(TestStructBuilder, TestAppendNull) {
 
   ASSERT_OK(ValidateArray(*result_));
 
-  ASSERT_EQ(2, static_cast<int>(result_->fields().size()));
+  ASSERT_EQ(2, static_cast<int>(result_->num_fields()));
   ASSERT_EQ(2, result_->length());
   ASSERT_EQ(2, result_->field(0)->length());
   ASSERT_EQ(2, result_->field(1)->length());

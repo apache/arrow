@@ -91,11 +91,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t null_count()
         Type type_id()
 
+        int num_fields()
+
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
         shared_ptr[CArray] Slice(int64_t offset)
         shared_ptr[CArray] Slice(int64_t offset, int64_t length)
+
+    CStatus DebugPrint(const CArray& arr, int indent)
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()

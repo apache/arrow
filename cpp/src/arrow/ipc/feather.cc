@@ -33,7 +33,6 @@
 #include "arrow/io/file.h"
 #include "arrow/ipc/feather-internal.h"
 #include "arrow/ipc/feather_generated.h"
-#include "arrow/loader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/bit-util.h"
@@ -565,7 +564,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
           &bytes_written));
       meta->total_bytes += bytes_written;
 
-      if (bin_values.data()) { values_buffer = bin_values.data()->data(); }
+      if (bin_values.value_data()) { values_buffer = bin_values.value_data()->data(); }
     } else {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
       const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
@@ -577,7 +576,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = values.length() * fw_type.bit_width() / 8;
       }
 
-      if (prim_values.data()) { values_buffer = prim_values.data()->data(); }
+      if (prim_values.values()) { values_buffer = prim_values.values()->data(); }
     }
     RETURN_NOT_OK(
         WritePadded(stream_.get(), values_buffer, values_bytes, &bytes_written));

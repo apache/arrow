@@ -38,7 +38,7 @@ garrow_array_get_values_raw(std::shared_ptr<arrow::Array> arrow_array,
   auto arrow_specific_array =
     std::static_pointer_cast<typename arrow::TypeTraits<T>::ArrayType>(arrow_array);
   *length = arrow_specific_array->length();
-  return arrow_specific_array->raw_data();
+  return arrow_specific_array->raw_values();
 };
 
 G_BEGIN_DECLS
@@ -490,7 +490,7 @@ garrow_primitive_array_get_buffer(GArrowPrimitiveArray *array)
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_primitive_array =
     static_cast<arrow::PrimitiveArray *>(arrow_array.get());
-  auto arrow_data = arrow_primitive_array->data();
+  auto arrow_data = arrow_primitive_array->values();
   return garrow_buffer_new_raw(&arrow_data);
 }
 
@@ -1425,7 +1425,7 @@ garrow_binary_array_get_buffer(GArrowBinaryArray *array)
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_binary_array =
     static_cast<arrow::BinaryArray *>(arrow_array.get());
-  auto arrow_data = arrow_binary_array->data();
+  auto arrow_data = arrow_binary_array->value_data();
   return garrow_buffer_new_raw(&arrow_data);
 }
 
@@ -1681,7 +1681,8 @@ garrow_struct_array_get_fields(GArrowStructArray *array)
     static_cast<const arrow::StructArray *>(arrow_array.get());
 
   GList *fields = NULL;
-  for (auto arrow_field : arrow_struct_array->fields()) {
+  for (int i = 0; i < arrow_struct_array->num_fields(); ++i) {
+    auto arrow_field = arrow_struct_array->field(i);
     GArrowArray *field = garrow_array_new_raw(&arrow_field);
     fields = g_list_prepend(fields, field);
   }

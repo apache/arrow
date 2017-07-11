@@ -83,8 +83,8 @@ class RangeEqualsVisitor {
       }
 
       if (end_offset - begin_offset > 0 &&
-          std::memcmp(left.data()->data() + begin_offset,
-              right.data()->data() + right_begin_offset,
+          std::memcmp(left.value_data()->data() + begin_offset,
+              right.value_data()->data() + right_begin_offset,
               static_cast<size_t>(end_offset - begin_offset))) {
         return false;
       }
@@ -126,7 +126,7 @@ class RangeEqualsVisitor {
          ++i, ++o_i) {
       if (left.IsNull(i) != right.IsNull(o_i)) { return false; }
       if (left.IsNull(i)) continue;
-      for (int j = 0; j < static_cast<int>(left.fields().size()); ++j) {
+      for (int j = 0; j < left.num_fields(); ++j) {
         // TODO: really we should be comparing stretches of non-null data rather
         // than looking at one value at a time.
         const int64_t left_abs_index = i + left.offset();
@@ -188,7 +188,7 @@ class RangeEqualsVisitor {
         }
       } else {
         const int32_t offset = left.raw_value_offsets()[i];
-        const int32_t o_offset = right.raw_value_offsets()[i];
+        const int32_t o_offset = right.raw_value_offsets()[o_i];
         if (!left.child(child_num)->RangeEquals(
                 offset, offset + 1, o_offset, right.child(child_num))) {
           return false;
@@ -211,9 +211,9 @@ class RangeEqualsVisitor {
     const uint8_t* left_data = nullptr;
     const uint8_t* right_data = nullptr;
 
-    if (left.data()) { left_data = left.raw_data() + left.offset() * width; }
+    if (left.values()) { left_data = left.raw_values() + left.offset() * width; }
 
-    if (right.data()) { right_data = right.raw_data() + right.offset() * width; }
+    if (right.values()) { right_data = right.raw_values() + right.offset() * width; }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -241,9 +241,9 @@ class RangeEqualsVisitor {
     const uint8_t* left_data = nullptr;
     const uint8_t* right_data = nullptr;
 
-    if (left.data()) { left_data = left.raw_data() + left.offset() * width; }
+    if (left.values()) { left_data = left.raw_values() + left.offset() * width; }
 
-    if (right.data()) { right_data = right.raw_data() + right.offset() * width; }
+    if (right.values()) { right_data = right.raw_values() + right.offset() * width; }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -317,6 +317,95 @@ class RangeEqualsVisitor {
   bool result_;
 };
 
+static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& right) {
+  const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+  const int byte_width = size_meta.bit_width() / 8;
+
+  const uint8_t* left_data = nullptr;
+  const uint8_t* right_data = nullptr;
+
+  if (left.values()) { left_data = left.values()->data() + left.offset() * byte_width; }
+  if (right.values()) {
+    right_data = right.values()->data() + right.offset() * byte_width;
+  }
+
+  if (left.null_count() > 0) {
+    for (int64_t i = 0; i < left.length(); ++i) {
+      bool left_null = left.IsNull(i);
+      if (!left_null && (memcmp(left_data, right_data, byte_width) || right.IsNull(i))) {
+        return false;
+      }
+      left_data += byte_width;
+      right_data += byte_width;
+    }
+    return true;
+  } else {
+    return memcmp(left_data, right_data,
+               static_cast<size_t>(byte_width * left.length())) == 0;
+  }
+}
+
+template <typename T>
+static inline bool CompareBuiltIn(
+    const Array& left, const Array& right, const T* ldata, const T* rdata) {
+  if (left.null_count() > 0) {
+    for (int64_t i = 0; i < left.length(); ++i) {
+      if (left.IsNull(i) != right.IsNull(i)) {
+        return false;
+      } else if (!left.IsNull(i) && (ldata[i] != rdata[i])) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return memcmp(ldata, rdata, sizeof(T) * left.length()) == 0;
+  }
+}
+
+static bool IsEqualDecimal(const DecimalArray& left, const DecimalArray& right) {
+  const int64_t loffset = left.offset();
+  const int64_t roffset = right.offset();
+
+  const uint8_t* left_data = nullptr;
+  const uint8_t* right_data = nullptr;
+
+  if (left.values()) { left_data = left.values()->data(); }
+  if (right.values()) { right_data = right.values()->data(); }
+
+  const int32_t byte_width = left.byte_width();
+  if (byte_width == 4) {
+    return CompareBuiltIn<int32_t>(left, right,
+        reinterpret_cast<const int32_t*>(left_data) + loffset,
+        reinterpret_cast<const int32_t*>(right_data) + roffset);
+  } else if (byte_width == 8) {
+    return CompareBuiltIn<int64_t>(left, right,
+        reinterpret_cast<const int64_t*>(left_data) + loffset,
+        reinterpret_cast<const int64_t*>(right_data) + roffset);
+  } else {
+    // 128-bit
+
+    // Must also compare sign bitmap
+    const uint8_t* left_sign = nullptr;
+    const uint8_t* right_sign = nullptr;
+    if (left.sign_bitmap()) { left_sign = left.sign_bitmap()->data(); }
+    if (right.sign_bitmap()) { right_sign = right.sign_bitmap()->data(); }
+
+    for (int64_t i = 0; i < left.length(); ++i) {
+      bool left_null = left.IsNull(i);
+      if (!left_null && (memcmp(left_data, right_data, byte_width) || right.IsNull(i))) {
+        return false;
+      }
+      if (BitUtil::GetBit(left_sign, i + loffset) !=
+          BitUtil::GetBit(right_sign, i + roffset)) {
+        return false;
+      }
+      left_data += byte_width;
+      right_data += byte_width;
+    }
+    return true;
+  }
+}
+
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
  public:
   explicit ArrayEqualsVisitor(const Array& right)
@@ -331,8 +420,8 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     const auto& right = static_cast<const BooleanArray&>(right_);
 
     if (left.null_count() > 0) {
-      const uint8_t* left_data = left.data()->data();
-      const uint8_t* right_data = right.data()->data();
+      const uint8_t* left_data = left.values()->data();
+      const uint8_t* right_data = right.values()->data();
 
       for (int64_t i = 0; i < left.length(); ++i) {
         if (!left.IsNull(i) &&
@@ -344,37 +433,10 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       }
       result_ = true;
     } else {
-      result_ = BitmapEquals(left.data()->data(), left.offset(), right.data()->data(),
+      result_ = BitmapEquals(left.values()->data(), left.offset(), right.values()->data(),
           right.offset(), left.length());
     }
     return Status::OK();
-  }
-
-  bool IsEqualPrimitive(const PrimitiveArray& left) {
-    const auto& right = static_cast<const PrimitiveArray&>(right_);
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / 8;
-
-    const uint8_t* left_data = nullptr;
-    const uint8_t* right_data = nullptr;
-
-    if (left.data()) { left_data = left.data()->data() + left.offset() * byte_width; }
-
-    if (right.data()) { right_data = right.data()->data() + right.offset() * byte_width; }
-
-    if (left.null_count() > 0) {
-      for (int64_t i = 0; i < left.length(); ++i) {
-        if (!left.IsNull(i) && memcmp(left_data, right_data, byte_width)) {
-          return false;
-        }
-        left_data += byte_width;
-        right_data += byte_width;
-      }
-      return true;
-    } else {
-      return memcmp(left_data, right_data,
-                 static_cast<size_t>(byte_width * left.length())) == 0;
-    }
   }
 
   template <typename T>
@@ -382,7 +444,12 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
                               !std::is_base_of<BooleanArray, T>::value,
       Status>::type
   Visit(const T& left) {
-    result_ = IsEqualPrimitive(left);
+    result_ = IsEqualPrimitive(left, static_cast<const PrimitiveArray&>(right_));
+    return Status::OK();
+  }
+
+  Status Visit(const DecimalArray& left) {
+    result_ = IsEqualDecimal(left, static_cast<const DecimalArray&>(right_));
     return Status::OK();
   }
 
@@ -417,11 +484,11 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     bool equal_offsets = ValueOffsetsEqual<BinaryArray>(left);
     if (!equal_offsets) { return false; }
 
-    if (!left.data() && !(right.data())) { return true; }
+    if (!left.value_data() && !(right.value_data())) { return true; }
     if (left.value_offset(left.length()) == 0) { return true; }
 
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right.data()->data();
+    const uint8_t* left_data = left.value_data()->data();
+    const uint8_t* right_data = right.value_data()->data();
 
     if (left.null_count() == 0) {
       // Fast path for null count 0, single memcmp
@@ -491,8 +558,8 @@ inline bool FloatingApproxEquals(
     const NumericArray<TYPE>& left, const NumericArray<TYPE>& right) {
   using T = typename TYPE::c_type;
 
-  const T* left_data = left.raw_data();
-  const T* right_data = right.raw_data();
+  const T* left_data = left.raw_values();
+  const T* right_data = right.raw_values();
 
   static constexpr T EPSILON = static_cast<T>(1E-5);
 

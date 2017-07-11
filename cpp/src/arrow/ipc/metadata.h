@@ -26,7 +26,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/loader.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -53,6 +52,42 @@ namespace ipc {
 enum class MetadataVersion : char { V1, V2, V3 };
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
+
+// ARROW-109: We set this number arbitrarily to help catch user mistakes. For
+// deeply nested schemas, it is expected the user will indicate explicitly the
+// maximum allowed recursion depth
+constexpr int kMaxNestingDepth = 64;
+
+struct ARROW_EXPORT FieldMetadata {
+  FieldMetadata() {}
+  FieldMetadata(int64_t length, int64_t null_count, int64_t offset)
+      : length(length), null_count(null_count), offset(offset) {}
+
+  FieldMetadata(const FieldMetadata& other) {
+    this->length = other.length;
+    this->null_count = other.null_count;
+    this->offset = other.offset;
+  }
+
+  int64_t length;
+  int64_t null_count;
+  int64_t offset;
+};
+
+struct ARROW_EXPORT BufferMetadata {
+  BufferMetadata() {}
+  BufferMetadata(int32_t page, int64_t offset, int64_t length)
+      : page(page), offset(offset), length(length) {}
+
+  /// The shared memory page id where to find this. Set to -1 if unused
+  int32_t page;
+
+  /// The relative offset into the memory page to the starting byte of the buffer
+  int64_t offset;
+
+  /// Absolute length in bytes of the buffer
+  int64_t length;
+};
 
 struct FileBlock {
   FileBlock() {}

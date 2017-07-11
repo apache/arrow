@@ -86,7 +86,9 @@ static inline void CompareArraysDetailed(
 static inline void CompareBatchColumnsDetailed(
     const RecordBatch& result, const RecordBatch& expected) {
   for (int i = 0; i < expected.num_columns(); ++i) {
-    CompareArraysDetailed(i, *result.column(i), *expected.column(i));
+    auto left = result.column(i);
+    auto right = expected.column(i);
+    CompareArraysDetailed(i, *left, *right);
   }
 }
 
@@ -471,7 +473,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(test::GetBitmapFromBoolVector(is_valid, &null_bitmap));
 
   std::shared_ptr<Array> a3 = std::make_shared<ListArray>(f3_type, length,
-      std::static_pointer_cast<PrimitiveArray>(offsets)->data(),
+      std::static_pointer_cast<PrimitiveArray>(offsets)->values(),
       std::make_shared<DictionaryArray>(f1_type, indices3), null_bitmap, 1);
 
   // Dictionary-encoded list of integer
@@ -487,7 +489,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Int8Type, int8_t>(std::vector<bool>(3, true), list_values4, &values4);
 
   auto dict3 = std::make_shared<ListArray>(f4_value_type, 3,
-      std::static_pointer_cast<PrimitiveArray>(offsets4)->data(), values4);
+      std::static_pointer_cast<PrimitiveArray>(offsets4)->values(), values4);
 
   std::vector<int8_t> indices4_values = {0, 1, 2, 0, 1, 2};
   ArrayFromVector<Int8Type, int8_t>(is_valid, indices4_values, &indices4);

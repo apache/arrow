@@ -30,7 +30,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/metadata.h"
 #include "arrow/ipc/util.h"
-#include "arrow/loader.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -233,7 +232,7 @@ class RecordBatchSerializer : public ArrayVisitor {
  protected:
   template <typename ArrayType>
   Status VisitFixedWidth(const ArrayType& array) {
-    std::shared_ptr<Buffer> data = array.data();
+    std::shared_ptr<Buffer> data = array.values();
 
     const auto& fw_type = static_cast<const FixedWidthType&>(*array.type());
     const int64_t type_width = fw_type.bit_width() / 8;
@@ -287,7 +286,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status VisitBinary(const BinaryArray& array) {
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<BinaryArray>(array, &value_offsets));
-    auto data = array.data();
+    auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
     if (value_offsets) {
@@ -309,7 +308,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   Status Visit(const BooleanArray& array) override {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(
-        GetTruncatedBitmap(array.offset(), array.length(), array.data(), pool_, &data));
+        GetTruncatedBitmap(array.offset(), array.length(), array.values(), pool_, &data));
     buffers_.push_back(data);
     return Status::OK();
   }
@@ -367,7 +366,8 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
-    for (std::shared_ptr<Array> field : array.fields()) {
+    for (int i = 0; i < array.num_fields(); ++i) {
+      std::shared_ptr<Array> field = array.field(i);
       if (array.offset() != 0 || array.length() < field->length()) {
         // If offset is non-zero, slice the child array
         field = field->Slice(array.offset(), array.length());
@@ -450,7 +450,9 @@ class RecordBatchSerializer : public ArrayVisitor {
         RETURN_NOT_OK(VisitArray(*child));
       }
     } else {
-      for (std::shared_ptr<Array> child : array.children()) {
+      for (int i = 0; i < array.num_fields(); ++i) {
+        std::shared_ptr<Array> child = array.child(i);
+
         // Sparse union, slicing is simpler
         if (offset != 0 || length < child->length()) {
           // If offset is non-zero, slice the child array

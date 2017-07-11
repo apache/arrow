@@ -35,6 +35,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -45,12 +46,13 @@ namespace ipc {
 // ----------------------------------------------------------------------
 // Record batch read path
 
-class IpcComponentSource : public ArrayComponentSource {
+/// Accessor class for flatbuffers metadata
+class IpcComponentSource {
  public:
   IpcComponentSource(const flatbuf::RecordBatch* metadata, io::RandomAccessFile* file)
       : metadata_(metadata), file_(file) {}
 
-  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) override {
+  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
     const flatbuf::Buffer* buffer = metadata_->buffers()->Get(buffer_index);
 
     if (buffer->length() == 0) {
@@ -61,7 +63,7 @@ class IpcComponentSource : public ArrayComponentSource {
     }
   }
 
-  Status GetFieldMetadata(int field_index, FieldMetadata* field) override {
+  Status GetFieldMetadata(int field_index, internal::ArrayData* out) {
     auto nodes = metadata_->nodes();
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
@@ -69,9 +71,9 @@ class IpcComponentSource : public ArrayComponentSource {
     }
     const flatbuf::FieldNode* node = nodes->Get(field_index);
 
-    field->length = node->length();
-    field->null_count = node->null_count();
-    field->offset = 0;
+    out->length = node->length();
+    out->null_count = node->null_count();
+    out->offset = 0;
     return Status::OK();
   }
 
@@ -80,26 +82,204 @@ class IpcComponentSource : public ArrayComponentSource {
   io::RandomAccessFile* file_;
 };
 
+/// Bookkeeping struct for loading array objects from their constituent pieces of raw data
+///
+/// The field_index and buffer_index are incremented in the ArrayLoader
+/// based on how much of the batch is "consumed" (through nested data
+/// reconstruction, for example)
+struct ArrayLoaderContext {
+  IpcComponentSource* source;
+  int buffer_index;
+  int field_index;
+  int max_recursion_depth;
+};
+
+static Status LoadArray(const std::shared_ptr<DataType>& type,
+    ArrayLoaderContext* context, internal::ArrayData* out);
+
+class ArrayLoader {
+ public:
+  ArrayLoader(const std::shared_ptr<DataType>& type, internal::ArrayData* out,
+      ArrayLoaderContext* context)
+      : type_(type), context_(context), out_(out) {}
+
+  Status Load() {
+    if (context_->max_recursion_depth <= 0) {
+      return Status::Invalid("Max recursion depth reached");
+    }
+
+    out_->type = type_;
+
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return Status::OK();
+  }
+
+  Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
+    return context_->source->GetBuffer(buffer_index, out);
+  }
+
+  Status LoadCommon() {
+    // This only contains the length and null count, which we need to figure
+    // out what to do with the buffers. For example, if null_count == 0, then
+    // we can skip that buffer without reading from shared memory
+    RETURN_NOT_OK(context_->source->GetFieldMetadata(context_->field_index++, out_));
+
+    // extract null_bitmap which is common to all arrays
+    if (out_->null_count == 0) {
+      out_->buffers[0] = nullptr;
+    } else {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[0]));
+    }
+    context_->buffer_index++;
+    return Status::OK();
+  }
+
+  template <typename TYPE>
+  Status LoadPrimitive() {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon());
+    if (out_->length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+    } else {
+      context_->buffer_index++;
+      out_->buffers[1].reset(new Buffer(nullptr, 0));
+    }
+    return Status::OK();
+  }
+
+  template <typename TYPE>
+  Status LoadBinary() {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+    return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
+  }
+
+  Status LoadChild(const Field& field, internal::ArrayData* out) {
+    ArrayLoader loader(field.type(), out, context_);
+    --context_->max_recursion_depth;
+    RETURN_NOT_OK(loader.Load());
+    ++context_->max_recursion_depth;
+    return Status::OK();
+  }
+
+  Status LoadChildren(std::vector<std::shared_ptr<Field>> child_fields) {
+    out_->child_data.reserve(static_cast<int>(child_fields.size()));
+
+    for (const auto& child_field : child_fields) {
+      auto field_array = std::make_shared<internal::ArrayData>();
+      RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
+      out_->child_data.emplace_back(field_array);
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
+
+  Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
+                              !std::is_base_of<FixedSizeBinaryType, T>::value &&
+                              !std::is_base_of<DictionaryType, T>::value,
+      Status>::type
+  Visit(const T& type) {
+    return LoadPrimitive<T>();
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<BinaryType, T>::value, Status>::type Visit(
+      const T& type) {
+    return LoadBinary<T>();
+  }
+
+  Status Visit(const FixedSizeBinaryType& type) {
+    out_->buffers.resize(2);
+    RETURN_NOT_OK(LoadCommon());
+    return GetBuffer(context_->buffer_index++, &out_->buffers[1]);
+  }
+
+  Status Visit(const ListType& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+
+    const int num_children = type.num_children();
+    if (num_children != 1) {
+      std::stringstream ss;
+      ss << "Wrong number of children: " << num_children;
+      return Status::Invalid(ss.str());
+    }
+
+    return LoadChildren(type.children());
+  }
+
+  Status Visit(const StructType& type) {
+    out_->buffers.resize(1);
+    RETURN_NOT_OK(LoadCommon());
+    return LoadChildren(type.children());
+  }
+
+  Status Visit(const UnionType& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon());
+    if (out_->length > 0) {
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[1]));
+      if (type.mode() == UnionMode::DENSE) {
+        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &out_->buffers[2]));
+      }
+    }
+    context_->buffer_index += type.mode() == UnionMode::DENSE ? 2 : 1;
+    return LoadChildren(type.children());
+  }
+
+  Status Visit(const DictionaryType& type) {
+    RETURN_NOT_OK(LoadArray(type.index_type(), context_, out_));
+    out_->type = type_;
+    return Status::OK();
+  }
+
+ private:
+  const std::shared_ptr<DataType>& type_;
+  ArrayLoaderContext* context_;
+
+  // Used in visitor pattern
+  internal::ArrayData* out_;
+};
+
+static Status LoadArray(const std::shared_ptr<DataType>& type,
+    ArrayLoaderContext* context, internal::ArrayData* out) {
+  ArrayLoader loader(type, out, context);
+  return loader.Load();
+}
+
 Status ReadRecordBatch(const Message& metadata, const std::shared_ptr<Schema>& schema,
     io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
 }
 
-static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
-    int64_t num_rows, int max_recursion_depth, ArrayComponentSource* source,
-    std::shared_ptr<RecordBatch>* out) {
-  std::vector<std::shared_ptr<Array>> arrays(schema->num_fields());
+// ----------------------------------------------------------------------
+// Array loading
 
+static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
+    int64_t num_rows, int max_recursion_depth, IpcComponentSource* source,
+    std::shared_ptr<RecordBatch>* out) {
   ArrayLoaderContext context;
   context.source = source;
   context.field_index = 0;
   context.buffer_index = 0;
   context.max_recursion_depth = max_recursion_depth;
 
+  std::vector<std::shared_ptr<internal::ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
-    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, &arrays[i]));
-    DCHECK_EQ(num_rows, arrays[i]->length())
-        << "Array length did not match record batch length";
+    auto arr = std::make_shared<internal::ArrayData>();
+    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, arr.get()));
+    DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
+    arrays[i] = std::move(arr);
   }
 
   *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));

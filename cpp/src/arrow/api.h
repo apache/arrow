@@ -24,7 +24,6 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compare.h"
-#include "arrow/loader.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"

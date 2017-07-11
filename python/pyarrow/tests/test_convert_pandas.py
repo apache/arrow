@@ -477,6 +477,23 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
+    def test_column_of_arrays_to_py(self):
+        # Test regression in ARROW-1199 not caught in above test
+        dtype = 'i1'
+        arr = np.array([
+            np.arange(10, dtype=dtype),
+            np.arange(5, dtype=dtype),
+            None,
+            np.arange(1, dtype=dtype)
+        ])
+        type_ = pa.list_(pa.int8())
+        parr = pa.Array.from_pandas(arr, type=type_)
+
+        assert parr[0].as_py() == list(range(10))
+        assert parr[1].as_py() == list(range(5))
+        assert parr[2].as_py() is None
+        assert parr[3].as_py() == [0]
+
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()
         self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
