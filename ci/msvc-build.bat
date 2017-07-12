@@ -42,7 +42,7 @@ conda create -n arrow -q -y python=%PYTHON% ^
 if "%CONFIGURATION%" == "Toolchain" (
   conda install -n arrow -q -y -c conda-forge ^
       flatbuffers rapidjson cmake git boost-cpp ^
-      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+      thrift-cpp snappy zlib brotli gflags lz4-c
 )
 
 call activate arrow
