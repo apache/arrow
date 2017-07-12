@@ -68,7 +68,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          frombuffer, read_tensor, write_tensor,
                          memory_map, create_memory_map,
                          get_record_batch_size, get_tensor_size,
-                         have_libhdfs, have_libhdfs3)
+                         have_libhdfs, have_libhdfs3, MockOutputStream)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
                          set_memory_pool, default_memory_pool)

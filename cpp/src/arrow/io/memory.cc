@@ -100,6 +100,23 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 }
 
 // ----------------------------------------------------------------------
+// OutputStream that doesn't write anything
+
+Status MockOutputStream::Close() {
+  return Status::OK();
+}
+
+Status MockOutputStream::Tell(int64_t* position) {
+  *position = extent_bytes_written_;
+  return Status::OK();
+}
+
+Status MockOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+  extent_bytes_written_ += nbytes;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // In-memory buffer writer
 
 static constexpr int kMemcopyDefaultNumThreads = 1;
