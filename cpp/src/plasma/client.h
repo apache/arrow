@@ -70,8 +70,8 @@ struct ClientMmapTableEntry {
 };
 
 struct ObjectInUseEntry;
-class ObjectRequest;
-class PlasmaObject;
+struct ObjectRequest;
+struct PlasmaObject;
 
 class ARROW_EXPORT PlasmaClient {
  public:

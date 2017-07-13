@@ -70,8 +70,6 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set_source_files_properties(extension.cc PROPERTIES COMPILE_FLAGS -Wno-strict-aliasing)
-
 set(PLASMA_SRCS
   client.cc
   common.cc
@@ -101,8 +99,12 @@ target_link_libraries(plasma_store plasma_static)
 # Headers: top level
 install(FILES
   common.h
+  common_generated.h
   client.h
+  events.h
   plasma.h
+  plasma_generated.h
+  protocol.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # pkg-config support
