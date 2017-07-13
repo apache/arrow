@@ -80,11 +80,8 @@ python_version_tests() {
     python setup.py install
   popd
 
-  # Build and install plasma
+  # Run Plasma tests
   pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
-    python setup.py install
-
-    # Run Plasma tests
     python test/test.py
   popd
 }

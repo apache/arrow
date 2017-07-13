@@ -124,10 +124,11 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     """
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
-    module_dir = site.getsitepackages()
-    [plasma_dir] = glob.glob(os.path.join(module_dir[0], "plasma*"))
-    plasma_store_executable = os.path.join(os.path.abspath(plasma_dir),
-                                           "plasma/plasma_store")
+    prefix = os.environ.get("ARROW_HOME")
+    if prefix:
+        plasma_store_executable = os.path.join(prefix, "bin", "plasma_store")
+    else:
+        plasma_store_executable = "plasma_store"
     plasma_store_name = "/tmp/plasma_store{}".format(random_name())
     command = [plasma_store_executable,
                "-s", plasma_store_name,
@@ -298,7 +299,11 @@ class TestPlasmaClient(unittest.TestCase):
 
         # Write the DataFrame.
         record_batch = pa.RecordBatch.from_pandas(df)
-        data_size = pa.get_record_batch_size(record_batch)
+        # Determine the size.
+        s = pa.MockOutputStream()
+        stream_writer = pa.RecordBatchStreamWriter(s, record_batch.schema)
+        stream_writer.write_batch(record_batch)
+        data_size = s.size()
         object_id = plasma.ObjectID(np.random.bytes(20))
 
         buf = self.plasma_client.create(object_id, data_size)
@@ -311,7 +316,7 @@ class TestPlasmaClient(unittest.TestCase):
         # Read the DataFrame.
         [data] = self.plasma_client.get([object_id])
         reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
-        result = reader.read_next_batch().to_pandas()
+        result = reader.get_next_batch().to_pandas()
 
         pd.util.testing.assert_frame_equal(df, result)
 

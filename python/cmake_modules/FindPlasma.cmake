@@ -26,7 +26,7 @@
 
 include(FindPkgConfig)
 
-if ("$ENV{PLASMA_HOME}" STREQUAL "")
+if ("$ENV{ARROW_HOME}" STREQUAL "")
   pkg_check_modules(PLASMA plasma)
   if (PLASMA_FOUND)
     pkg_get_variable(PLASMA_ABI_VERSION plasma abi_version)
@@ -38,7 +38,7 @@ if ("$ENV{PLASMA_HOME}" STREQUAL "")
     set(PLASMA_SEARCH_LIB_PATH ${PLASMA_LIBRARY_DIRS})
   endif()
 else()
-  set(PLASMA_HOME "$ENV{PLASMA_HOME}")
+  set(PLASMA_HOME "$ENV{ARROW_HOME}")
 
   set(PLASMA_SEARCH_HEADER_PATHS
     ${PLASMA_HOME}/include
