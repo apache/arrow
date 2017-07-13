@@ -804,6 +804,7 @@ GArrowBinaryArray *garrow_binary_array_new(gint64 length,
 GBytes *garrow_binary_array_get_value(GArrowBinaryArray *array,
                                       gint64 i);
 GArrowBuffer *garrow_binary_array_get_buffer(GArrowBinaryArray *array);
+GArrowBuffer *garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array);
 
 #define GARROW_TYPE_STRING_ARRAY                \
   (garrow_string_array_get_type())
