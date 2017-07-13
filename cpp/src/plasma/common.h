@@ -33,7 +33,7 @@ namespace plasma {
 
 constexpr int64_t kUniqueIDSize = 20;
 
-class UniqueID {
+class ARROW_EXPORT UniqueID {
  public:
   static UniqueID from_random();
   static UniqueID from_binary(const std::string& binary);

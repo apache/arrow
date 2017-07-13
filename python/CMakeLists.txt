@@ -256,6 +256,7 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
+  bundle_arrow_lib(PLASMA_SHARED_LIB)
 endif()
 
 if (MSVC)
@@ -286,6 +287,7 @@ set(CYTHON_EXTENSIONS
 set(LINK_LIBS
   arrow_shared
   arrow_python_shared
+  ${PLASMA_SHARED_LIB}
 )
 
 if (PYARROW_BUILD_PARQUET)

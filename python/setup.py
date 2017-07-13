@@ -104,7 +104,8 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        '_parquet']
+        '_parquet',
+        'plasma']
 
     def _run_cmake(self):
         # The directory containing this setup.py

@@ -30,7 +30,7 @@ import sys
 import time
 import unittest
 
-import plasma
+import pyarrow.plasma as plasma
 import pyarrow as pa
 import pandas as pd
 
