@@ -69,9 +69,8 @@ from pyarrow.lib import (null, bool_,
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          Buffer, BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
-                         frombuffer, read_tensor, write_tensor,
+                         frombuffer,
                          memory_map, create_memory_map,
-                         get_record_batch_size, get_tensor_size,
                          have_libhdfs, have_libhdfs3, MockOutputStream)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
@@ -89,8 +88,12 @@ from pyarrow.lib import (ArrowException,
 
 from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
 
-from pyarrow.ipc import (RecordBatchFileReader, RecordBatchFileWriter,
+from pyarrow.ipc import (Message, MessageReader,
+                         RecordBatchFileReader, RecordBatchFileWriter,
                          RecordBatchStreamReader, RecordBatchStreamWriter,
+                         read_message, read_record_batch, read_tensor,
+                         write_tensor,
+                         get_record_batch_size, get_tensor_size,
                          open_stream,
                          open_file,
                          serialize_pandas, deserialize_pandas)

@@ -26,7 +26,7 @@ defaults = {
 }
 
 try:
-    import pyarrow.parquet
+    import pyarrow.parquet  # noqa
     defaults['parquet'] = True
 except ImportError:
     pass

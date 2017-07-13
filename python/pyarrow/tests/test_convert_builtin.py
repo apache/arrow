@@ -22,12 +22,14 @@ import pyarrow as pa
 import datetime
 import decimal
 
+
 class StrangeIterable:
     def __init__(self, lst):
         self.lst = lst
 
     def __iter__(self):
         return self.lst.__iter__()
+
 
 class TestConvertIterable(unittest.TestCase):
 
@@ -60,6 +62,7 @@ class TestLimitedConvertIterator(unittest.TestCase):
         arr1 = pa.array(iter(range(3)), type=pa.int64(), size=10)
         arr2 = pa.array((0, 1, 2))
         assert arr1.equals(arr2)
+
 
 class TestConvertSequence(unittest.TestCase):
 

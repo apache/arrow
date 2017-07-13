@@ -72,7 +72,7 @@ class ARROW_EXPORT JsonReader {
   int num_record_batches() const;
 
   // Read a record batch from the file
-  Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
+  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
 
  private:
   JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);

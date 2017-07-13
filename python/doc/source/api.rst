@@ -137,7 +137,6 @@ Tables and Record Batches
    Column
    RecordBatch
    Table
-   get_record_batch_size
 
 .. _api.tensor:
 
@@ -148,9 +147,6 @@ Tensor type and Functions
    :toctree: generated/
 
    Tensor
-   write_tensor
-   get_tensor_size
-   read_tensor
 
 .. _api.io:
 
@@ -177,12 +173,20 @@ Interprocess Communication and Messaging
 .. autosummary::
    :toctree: generated/
 
+   Message
+   MessageReader
    RecordBatchFileReader
    RecordBatchFileWriter
    RecordBatchStreamReader
    RecordBatchStreamWriter
    open_file
    open_stream
+   read_message
+   read_record_batch
+   get_record_batch_size
+   read_tensor
+   write_tensor
+   get_tensor_size
 
 .. _api.memory_pool:
 

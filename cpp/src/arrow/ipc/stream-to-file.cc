@@ -40,7 +40,7 @@ Status ConvertToFile() {
 
   std::shared_ptr<RecordBatch> batch;
   while (true) {
-    RETURN_NOT_OK(reader->GetNextRecordBatch(&batch));
+    RETURN_NOT_OK(reader->ReadNextRecordBatch(&batch));
     if (batch == nullptr) break;
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }

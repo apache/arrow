@@ -51,8 +51,8 @@ class TestSchemaMetadata : public ::testing::Test {
     std::shared_ptr<Buffer> buffer;
     ASSERT_OK(WriteSchemaMessage(schema, memo, &buffer));
 
-    std::shared_ptr<Message> message;
-    ASSERT_OK(Message::Open(buffer, 0, &message));
+    std::unique_ptr<Message> message;
+    ASSERT_OK(Message::Open(buffer, nullptr, &message));
 
     ASSERT_EQ(Message::SCHEMA, message->type());
 
@@ -64,6 +64,32 @@ class TestSchemaMetadata : public ::testing::Test {
     AssertSchemaEqual(schema, *schema2);
   }
 };
+
+TEST(TestMessage, Equals) {
+  std::string metadata = "foo";
+  std::string body = "bar";
+
+  auto b1 = GetBufferFromString(metadata);
+  auto b2 = GetBufferFromString(metadata);
+  auto b3 = GetBufferFromString(body);
+  auto b4 = GetBufferFromString(body);
+
+  Message msg1(b1, b3);
+  Message msg2(b2, b4);
+  Message msg3(b1, nullptr);
+  Message msg4(b2, nullptr);
+
+  ASSERT_TRUE(msg1.Equals(msg2));
+  ASSERT_TRUE(msg3.Equals(msg4));
+
+  ASSERT_FALSE(msg1.Equals(msg3));
+  ASSERT_FALSE(msg3.Equals(msg1));
+
+  // same metadata as msg1, different body
+  Message msg5(b2, b1);
+  ASSERT_FALSE(msg1.Equals(msg5));
+  ASSERT_FALSE(msg5.Equals(msg1));
+}
 
 const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
 
@@ -123,16 +149,12 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(WriteRecordBatch(
         batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
 
-    std::shared_ptr<Message> message;
+    std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
-    // The buffer offsets start at 0, so we must construct a
-    // RandomAccessFile according to that frame of reference
-    std::shared_ptr<Buffer> buffer_payload;
-    RETURN_NOT_OK(mmap_->ReadAt(metadata_length, body_length, &buffer_payload));
-    io::BufferReader buffer_reader(buffer_payload);
-
-    return ReadRecordBatch(*message, batch.schema(), &buffer_reader, batch_result);
+    io::BufferReader buffer_reader(message->body());
+    return ReadRecordBatch(
+        *message->metadata(), batch.schema(), &buffer_reader, batch_result);
   }
 
   Status DoLargeRoundTrip(
@@ -151,7 +173,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::shared_ptr<RecordBatchFileReader> file_reader;
     RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_, offset, &file_reader));
 
-    return file_reader->GetRecordBatch(0, result);
+    return file_reader->ReadRecordBatch(0, result);
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
@@ -225,7 +247,7 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_OK(WriteRecordBatch(
       *batch, buffer_offset, mmap_.get(), &metadata_length, &body_length, pool_));
 
-  std::shared_ptr<Message> message;
+  std::unique_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
   ASSERT_EQ(MetadataVersion::V3, message->metadata_version());
@@ -434,16 +456,13 @@ TEST_F(RecursionLimits, ReadLimit) {
   ASSERT_OK(WriteToMmap(
       recursion_depth, true, &metadata_length, &body_length, &batch, &schema));
 
-  std::shared_ptr<Message> message;
+  std::unique_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
-  std::shared_ptr<Buffer> payload;
-  ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
-
-  io::BufferReader reader(payload);
+  io::BufferReader reader(message->body());
 
   std::shared_ptr<RecordBatch> result;
-  ASSERT_RAISES(Invalid, ReadRecordBatch(*message, schema, &reader, &result));
+  ASSERT_RAISES(Invalid, ReadRecordBatch(*message->metadata(), schema, &reader, &result));
 }
 
 TEST_F(RecursionLimits, StressLimit) {
@@ -455,16 +474,13 @@ TEST_F(RecursionLimits, StressLimit) {
     ASSERT_OK(WriteToMmap(
         recursion_depth, true, &metadata_length, &body_length, &batch, &schema));
 
-    std::shared_ptr<Message> message;
+    std::unique_ptr<Message> message;
     ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
-    std::shared_ptr<Buffer> payload;
-    ASSERT_OK(mmap_->ReadAt(metadata_length, body_length, &payload));
-
-    io::BufferReader reader(payload);
-
+    io::BufferReader reader(message->body());
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(ReadRecordBatch(*message, schema, recursion_depth + 1, &reader, &result));
+    ASSERT_OK(ReadRecordBatch(
+        *message->metadata(), schema, recursion_depth + 1, &reader, &result));
     *it_works = result->Equals(*batch);
   };
 
@@ -511,7 +527,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
     EXPECT_EQ(num_batches, reader->num_record_batches());
     for (int i = 0; i < num_batches; ++i) {
       std::shared_ptr<RecordBatch> chunk;
-      RETURN_NOT_OK(reader->GetRecordBatch(i, &chunk));
+      RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
       out_batches->emplace_back(chunk);
     }
 
@@ -571,7 +587,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
     std::shared_ptr<RecordBatch> chunk;
     while (true) {
-      RETURN_NOT_OK(reader->GetNextRecordBatch(&chunk));
+      RETURN_NOT_OK(reader->ReadNextRecordBatch(&chunk));
       if (chunk == nullptr) { break; }
       out_batches->emplace_back(chunk);
     }

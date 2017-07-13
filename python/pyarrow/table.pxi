@@ -432,8 +432,22 @@ cdef class RecordBatch:
 
         return self._schema
 
-    def __getitem__(self, i):
+    def column(self, i):
+        """
+        Select single column from record batcha
+
+        Returns
+        -------
+        column : pyarrow.Array
+        """
+        if not -self.num_columns <= i < self.num_columns:
+            raise IndexError(
+                'Record batch column index {:d} is out of range'.format(i)
+            )
         return pyarrow_wrap_array(self.batch.column(i))
+
+    def __getitem__(self, i):
+        return self.column(i)
 
     def slice(self, offset=0, length=None):
         """

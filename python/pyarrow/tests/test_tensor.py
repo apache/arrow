@@ -115,6 +115,7 @@ def test_tensor_size():
     tensor = pa.Tensor.from_numpy(data)
     assert pa.get_tensor_size(tensor) > (data.size * 8)
 
+
 def test_read_tensor(tmpdir):
     # Create and write tensor tensor
     data = np.random.randn(10, 4)

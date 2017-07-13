@@ -106,8 +106,14 @@ include "array.pxi"
 # Column, Table, Record Batch
 include "table.pxi"
 
-# File IO, IPC
+# File IO
 include "io.pxi"
+
+# IPC / Messaging
+include "ipc.pxi"
+
+# Feather format
+include "feather.pxi"
 
 #----------------------------------------------------------------------
 # Public API

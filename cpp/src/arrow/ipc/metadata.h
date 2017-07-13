@@ -59,26 +59,12 @@ static constexpr const char* kArrowMagicBytes = "ARROW1";
 constexpr int kMaxNestingDepth = 64;
 
 struct ARROW_EXPORT FieldMetadata {
-  FieldMetadata() {}
-  FieldMetadata(int64_t length, int64_t null_count, int64_t offset)
-      : length(length), null_count(null_count), offset(offset) {}
-
-  FieldMetadata(const FieldMetadata& other) {
-    this->length = other.length;
-    this->null_count = other.null_count;
-    this->offset = other.offset;
-  }
-
   int64_t length;
   int64_t null_count;
   int64_t offset;
 };
 
 struct ARROW_EXPORT BufferMetadata {
-  BufferMetadata() {}
-  BufferMetadata(int32_t page, int64_t offset, int64_t length)
-      : page(page), offset(offset), length(length) {}
-
   /// The shared memory page id where to find this. Set to -1 if unused
   int32_t page;
 
@@ -90,10 +76,6 @@ struct ARROW_EXPORT BufferMetadata {
 };
 
 struct FileBlock {
-  FileBlock() {}
-  FileBlock(int64_t offset, int32_t metadata_length, int64_t body_length)
-      : offset(offset), metadata_length(metadata_length), body_length(body_length) {}
-
   int64_t offset;
   int32_t metadata_length;
   int64_t body_length;
@@ -153,20 +135,46 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 Status ARROW_EXPORT GetSchema(const void* opaque_schema,
     const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out);
 
-Status ARROW_EXPORT GetTensorMetadata(const void* opaque_tensor,
+Status ARROW_EXPORT GetTensorMetadata(const Buffer& metadata,
     std::shared_ptr<DataType>* type, std::vector<int64_t>* shape,
     std::vector<int64_t>* strides, std::vector<std::string>* dim_names);
 
+/// \brief An IPC message including metadata and body
 class ARROW_EXPORT Message {
  public:
   enum Type { NONE, SCHEMA, DICTIONARY_BATCH, RECORD_BATCH, TENSOR };
 
+  /// \brief Construct message, but do not validate
+  ///
+  /// Use at your own risk; Message::Open has more metadata validation
+  Message(const std::shared_ptr<Buffer>& metadata, const std::shared_ptr<Buffer>& body);
+
   ~Message();
 
-  static Status Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
-      std::shared_ptr<Message>* out);
+  /// \brief Create and validate a Message instance from two buffers
+  ///
+  /// \param[in] metadata a buffer containing the Flatbuffer metadata
+  /// \param[in] body a buffer containing the message body, which may be nullptr
+  /// \param[out] out the created message
+  static Status Open(const std::shared_ptr<Buffer>& metadata,
+      const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
 
-  int64_t body_length() const;
+  /// \brief Write length-prefixed metadata and body to output stream
+  ///
+  /// \param[in] file output stream to write to
+  /// \param[out] output_length the number of bytes written
+  /// \return Status
+  bool Equals(const Message& other) const;
+
+  /// \brief the Message metadata
+  ///
+  /// \return buffer
+  std::shared_ptr<Buffer> metadata() const;
+
+  /// \brief the Message body, if any
+  ///
+  /// \return buffer is nullptr if no body
+  std::shared_ptr<Buffer> body() const;
 
   Type type() const;
 
@@ -174,9 +182,14 @@ class ARROW_EXPORT Message {
 
   const void* header() const;
 
- private:
-  Message(const std::shared_ptr<Buffer>& buffer, int64_t offset);
+  /// \brief Write length-prefixed metadata and body to output stream
+  ///
+  /// \param[in] file output stream to write to
+  /// \param[out] output_length the number of bytes written
+  /// \return Status
+  Status SerializeTo(io::OutputStream* file, int64_t* output_length) const;
 
+ private:
   // Hide serialization details from user API
   class MessageImpl;
   std::unique_ptr<MessageImpl> impl_;
@@ -184,8 +197,34 @@ class ARROW_EXPORT Message {
   DISALLOW_COPY_AND_ASSIGN(Message);
 };
 
+ARROW_EXPORT std::string FormatMessageType(Message::Type type);
+
+/// \brief Abstract interface for a sequence of messages
+class ARROW_EXPORT MessageReader {
+ public:
+  virtual ~MessageReader() = default;
+
+  virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
+};
+
+class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
+ public:
+  explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& stream)
+      : stream_(stream) {}
+
+  ~InputStreamMessageReader();
+
+  Status ReadNextMessage(std::unique_ptr<Message>* message) override;
+
+ private:
+  std::shared_ptr<io::InputStream> stream_;
+};
+
+/// \brief Read encapulated RPC message from position in file
+///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
-/// offset
+/// offset. If the message has a body with non-zero length, it will also be
+/// read
 ///
 /// The metadata_length includes at least the length prefix and the flatbuffer
 ///
@@ -196,15 +235,18 @@ class ARROW_EXPORT Message {
 /// \param[out] message the message read
 /// \return Status success or failure
 Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length,
-    io::RandomAccessFile* file, std::shared_ptr<Message>* message);
+    io::RandomAccessFile* file, std::unique_ptr<Message>* message);
 
+/// \brief Read encapulated RPC message (metadata and body) from InputStream
+///
 /// Read length-prefixed message with as-yet unknown length. Returns nullptr if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
 Status ARROW_EXPORT ReadMessage(
-    io::InputStream* stream, std::shared_ptr<Message>* message);
+    io::InputStream* stream, std::unique_ptr<Message>* message);
 
-/// Write a serialized message with a length-prefix and padding to an 8-byte offset
+/// Write a serialized message metadata with a length-prefix and padding to an
+/// 8-byte offset
 ///
 /// <message_size: int32><message: const void*><padding>
 Status ARROW_EXPORT WriteMessage(
