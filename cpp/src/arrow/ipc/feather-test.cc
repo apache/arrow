@@ -386,6 +386,25 @@ TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {
   CheckBatch(*batch);
 }
 
+TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeNullRecordBatch(&batch));
+
+  for (int i = 0; i < batch->num_columns(); ++i) {
+    ASSERT_OK(writer_->Append(batch->column_name(i), *batch->column(i)));
+  }
+  Finish();
+
+  std::shared_ptr<Column> col;
+  for (int i = 0; i < batch->num_columns(); ++i) {
+    ASSERT_OK(reader_->GetColumn(i, &col));
+    ASSERT_EQ(batch->column_name(i), col->name());
+    StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
+        batch->column(i)->null_bitmap(), batch->column(i)->null_count());
+    CheckArrays(str_values, *col->data()->chunk(0));
+  }
+}
+
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow

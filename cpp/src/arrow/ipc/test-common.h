@@ -247,6 +247,15 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  const int64_t length = 500;
+  auto f0 = field("f0", null());
+  std::shared_ptr<Schema> schema(new Schema({f0}));
+  std::shared_ptr<Array> a0 = std::make_shared<NullArray>(length);
+  out->reset(new RecordBatch(schema, length, {a0}));
+  return Status::OK();
+}
+
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", kListInt32);
