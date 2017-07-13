@@ -341,6 +341,10 @@ Status AdaptiveIntBuilder::Append(
     std::memcpy(reinterpret_cast<int64_t*>(raw_data_) + length_, values,
         sizeof(int64_t) * length);
   } else {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable:4996)
+#endif
     // int_size_ may have changed, so we need to recheck
     switch (int_size_) {
       case 1: {
@@ -361,6 +365,9 @@ Status AdaptiveIntBuilder::Append(
       default:
         DCHECK(false);
     }
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
   }
 
   // length_ is update by these
@@ -489,6 +496,10 @@ Status AdaptiveUIntBuilder::Append(
     std::memcpy(reinterpret_cast<uint64_t*>(raw_data_) + length_, values,
         sizeof(uint64_t) * length);
   } else {
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable:4996)
+#endif
     // int_size_ may have changed, so we need to recheck
     switch (int_size_) {
       case 1: {
@@ -509,6 +520,9 @@ Status AdaptiveUIntBuilder::Append(
       default:
         DCHECK(false);
     }
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
   }
 
   // length_ is update by these
