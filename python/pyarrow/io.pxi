@@ -534,6 +534,18 @@ cdef class BufferOutputStream(NativeFile):
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
 
+cdef class MockOutputStream(NativeFile):
+
+    def __cinit__(self):
+        self.wr_file.reset(new CMockOutputStream())
+        self.is_readable = 0
+        self.is_writeable = 1
+        self.is_open = True
+
+    def size(self):
+        return (<CMockOutputStream*>self.wr_file.get()).GetExtentBytesWritten()
+
+
 cdef class BufferReader(NativeFile):
     """
     Zero-copy reader from objects convertible to Arrow buffer

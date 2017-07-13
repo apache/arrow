@@ -23,6 +23,8 @@ import sys
 
 import numpy as np
 
+import pandas as pd
+
 from pyarrow.compat import u, guid
 import pyarrow as pa
 
@@ -230,6 +232,43 @@ def test_nativefile_write_memoryview():
     buf = f.get_result()
 
     assert buf.to_pybytes() == data * 2
+
+
+# ----------------------------------------------------------------------
+# Mock output stream
+
+
+def test_mock_output_stream():
+    # Make sure that the MockOutputStream and the BufferOutputStream record the
+    # same size
+
+    # 10 bytes
+    val = b'dataabcdef'
+
+    f1 = pa.MockOutputStream()
+    f2 = pa.BufferOutputStream()
+
+    K = 1000
+    for i in range(K):
+        f1.write(val)
+        f2.write(val)
+
+    assert f1.size() == len(f2.get_result())
+
+    # Do the same test with a pandas DataFrame
+    val = pd.DataFrame({'a': [1, 2, 3]})
+    record_batch = pa.RecordBatch.from_pandas(val)
+
+    f1 = pa.MockOutputStream()
+    f2 = pa.BufferOutputStream()
+
+    stream_writer1 = pa.RecordBatchStreamWriter(f1, record_batch.schema)
+    stream_writer2 = pa.RecordBatchStreamWriter(f2, record_batch.schema)
+
+    stream_writer1.write_batch(record_batch)
+    stream_writer2.write_batch(record_batch)
+
+    assert f1.size() == len(f2.get_result())
 
 
 # ----------------------------------------------------------------------

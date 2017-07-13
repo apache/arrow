@@ -340,7 +340,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 }
 
 void TestGetRecordBatchSize(std::shared_ptr<RecordBatch> batch) {
-  ipc::MockOutputStream mock;
+  io::MockOutputStream mock;
   int32_t mock_metadata_length = -1;
   int64_t mock_body_length = -1;
   int64_t size = -1;
