@@ -46,4 +46,16 @@ class TestBinaryArray < Test::Unit::TestCase
     array = builder.finish
     assert_equal(data1 + data2, array.buffer.data.to_s)
   end
+
+  def test_offsets_buffer
+    data1 = "\x00\x01"
+    data2 = "\x02\x03\x04"
+    builder = Arrow::BinaryArrayBuilder.new
+    builder.append(data1)
+    builder.append(data2)
+    array = builder.finish
+    byte_per_offset = 4
+    assert_equal([0, 2, 5].pack("l*"),
+                 array.offsets_buffer.data.to_s[0, byte_per_offset * 3])
+  end
 end
