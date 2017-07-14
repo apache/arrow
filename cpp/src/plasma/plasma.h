@@ -53,12 +53,6 @@ namespace plasma {
     }                                                                       \
   } while (0);
 
-/// Fix visibility of the Python C extension entry point
-#ifdef PyMODINIT_FUNC
-#undef PyMODINIT_FUNC
-#endif
-#define PyMODINIT_FUNC extern "C" __attribute__((visibility ("default"))) PyObject*
-
 /// Allocation granularity used in plasma for object allocation.
 #define BLOCK_SIZE 64
 

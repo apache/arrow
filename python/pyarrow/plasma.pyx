@@ -113,7 +113,8 @@ cdef class ObjectID:
         self.data = CUniqueID.from_binary(object_id)
 
     def __richcmp__(ObjectID self, ObjectID object_id, operation):
-        assert operation == 2, "only equality implemented so far"
+        if operation != 2:
+            raise ValueError("operation != 2 (only equality is supported)")
         return self.data == object_id.data
 
     def __repr__(self):
@@ -196,8 +197,9 @@ cdef class PlasmaClient:
         for object_id in object_ids:
             ids.push_back(object_id.data)
         result[0].resize(ids.size())
-        check_status(self.client.get().Get(ids.data(), ids.size(), timeout_ms,
-                     result[0].data()))
+        with nogil:
+            check_status(self.client.get().Get(ids.data(), ids.size(),
+                         timeout_ms, result[0].data()))
 
     cdef _make_plasma_buffer(self, ObjectID object_id, uint8_t* data,
                              int64_t size):
@@ -215,7 +217,7 @@ cdef class PlasmaClient:
         result.init_mutable(buffer)
         return result
 
-    def connect(self, store_socket_name, manager_socket_name, release_delay):
+    def connect(self, store_socket_name, manager_socket_name, int release_delay):
         """Conect the PlasmaClient to a plasma store and optionally a manager.
 
         Args:
@@ -226,10 +228,13 @@ cdef class PlasmaClient:
             release_delay (int): The maximum number of objects that the client
                 will keep and delay releasing (for caching reasons).
         """
-        check_status(self.client.get().Connect(store_socket_name.encode(),
-                     manager_socket_name.encode(), release_delay))
+        cdef c_string store_sock_name = store_socket_name.encode()
+        cdef c_string manager_sock_name = manager_socket_name.encode()
+        with nogil:
+            check_status(self.client.get().Connect(store_sock_name,
+                         manager_sock_name, release_delay))
 
-    def create(self, ObjectID object_id, data_size, c_string metadata=b""):
+    def create(self, ObjectID object_id, int64_t data_size, c_string metadata=b""):
         """Create a new buffer in the PlasmaStore for a particular object ID.
 
         The returned buffer is mutable until seal is called.
@@ -249,9 +254,10 @@ cdef class PlasmaClient:
                 enough objects to create room for it.
         """
         cdef uint8_t* data
-        check_status(self.client.get().Create(object_id.data, data_size,
-                                              <uint8_t*>(metadata.data()),
-                                              metadata.size(), &data))
+        with nogil:
+            check_status(self.client.get().Create(object_id.data, data_size,
+                                                  <uint8_t*>(metadata.data()),
+                                                  metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id, data, data_size)
 
     def get(self, object_ids, timeout_ms=-1):
@@ -318,11 +324,13 @@ cdef class PlasmaClient:
         Args:
             object_id (str): A string used to identify an object.
         """
-        check_status(self.client.get().Seal(object_id.data))
+        with nogil:
+            check_status(self.client.get().Seal(object_id.data))
 
     def release(self, ObjectID object_id):
         """Notify Plasma that the object is no longer needed."""
-        check_status(self.client.get().Release(object_id.data))
+        with nogil:
+            check_status(self.client.get().Release(object_id.data))
 
     def contains(self, ObjectID object_id):
         """Check if the object is present and sealed in the PlasmaStore.
@@ -331,7 +339,9 @@ cdef class PlasmaClient:
             object_id (str): A string used to identify an object.
         """
         cdef c_bool is_contained
-        check_status(self.client.get().Contains(object_id.data, &is_contained))
+        with nogil:
+            check_status(self.client.get().Contains(object_id.data,
+                                                    &is_contained))
         return is_contained
 
     def hash(self, ObjectID object_id):
@@ -345,7 +355,9 @@ cdef class PlasmaClient:
             store, the string will have length zero.
         """
         cdef c_vector[uint8_t] digest = c_vector[uint8_t](kDigestSize)
-        check_status(self.client.get().Hash(object_id.data, digest.data()))
+        with nogil:
+            check_status(self.client.get().Hash(object_id.data,
+                                                digest.data()))
         return bytes(digest[:])
 
     def evict(self, int64_t num_bytes):
@@ -357,23 +369,27 @@ cdef class PlasmaClient:
             num_bytes (int): The number of bytes to attempt to recover.
         """
         cdef int64_t num_bytes_evicted = -1
-        check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
+        with nogil:
+            check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
         return num_bytes_evicted
 
     def subscribe(self):
         """Subscribe to notifications about sealed objects."""
-        check_status(self.client.get().Subscribe(&self.notification_fd))
+        with nogil:
+            check_status(self.client.get().Subscribe(&self.notification_fd))
 
     def get_next_notification(self):
         """Get the next notification from the notification socket."""
         cdef ObjectID object_id = ObjectID(20 * b"\0")
         cdef int64_t data_size
         cdef int64_t metadata_size
-        check_status(self.client.get().GetNotification(self.notification_fd,
-                                                       &object_id.data,
-                                                       &data_size,
-                                                       &metadata_size))
+        with nogil:
+            check_status(self.client.get().GetNotification(self.notification_fd,
+                                                           &object_id.data,
+                                                           &data_size,
+                                                           &metadata_size))
         return object_id, data_size, metadata_size
 
     def disconnect(self):
-        check_status(self.client.get().Disconnect())
+        with nogil:
+            check_status(self.client.get().Disconnect())
