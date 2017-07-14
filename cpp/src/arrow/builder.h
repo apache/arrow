@@ -759,7 +759,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   int mod_bitmask_;
 
   typename TypeTraits<T>::BuilderType dict_builder_;
-  AdaptiveUIntBuilder values_builder_;
+  AdaptiveIntBuilder values_builder_;
 };
 
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
