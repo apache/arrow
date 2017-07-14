@@ -1524,9 +1524,9 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
-  auto dtype = std::make_shared<DictionaryType>(uint8(), dict_array);
+  auto dtype = std::make_shared<DictionaryType>(int8(), dict_array);
 
-  UInt8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1557,9 +1557,9 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
-  auto dtype = std::make_shared<DictionaryType>(uint8(), dict_array);
+  auto dtype = std::make_shared<DictionaryType>(int8(), dict_array);
 
-  UInt8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1578,7 +1578,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     DictionaryBuilder<TypeParam> builder(default_memory_pool());
     // Build expected data
     NumericBuilder<TypeParam> dict_builder(default_memory_pool());
-    UInt16Builder int_builder(default_memory_pool());
+    Int16Builder int_builder(default_memory_pool());
 
     // Fill with 1024 different values
     for (int64_t i = 0; i < 1024; i++) {
@@ -1599,7 +1599,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     // Finalize expected data
     std::shared_ptr<Array> dict_array;
     ASSERT_OK(dict_builder.Finish(&dict_array));
-    auto dtype = std::make_shared<DictionaryType>(uint16(), dict_array);
+    auto dtype = std::make_shared<DictionaryType>(int16(), dict_array);
     std::shared_ptr<Array> int_array;
     ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -1624,9 +1624,9 @@ TEST(TestStringDictionaryBuilder, Basic) {
   ASSERT_OK(str_builder.Append("test2"));
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
-  auto dtype = std::make_shared<DictionaryType>(uint8(), str_array);
+  auto dtype = std::make_shared<DictionaryType>(int8(), str_array);
 
-  UInt8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder(default_memory_pool());
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1642,7 +1642,7 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   StringDictionaryBuilder builder(default_memory_pool());
   // Build expected data
   StringBuilder str_builder(default_memory_pool());
-  UInt16Builder int_builder(default_memory_pool());
+  Int16Builder int_builder(default_memory_pool());
 
   // Fill with 1024 different values
   for (int64_t i = 0; i < 1024; i++) {
@@ -1665,7 +1665,7 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Finalize expected data
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
-  auto dtype = std::make_shared<DictionaryType>(uint16(), str_array);
+  auto dtype = std::make_shared<DictionaryType>(int16(), str_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
