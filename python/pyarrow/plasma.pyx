@@ -125,17 +125,20 @@ cdef class ObjectID:
 
 
 cdef class PlasmaBuffer(Buffer):
-    """This is the type returned by calls to get with a PlasmaClient.
+    """
+    This is the type returned by calls to get with a PlasmaClient.
 
     We define our own class instead of directly returning a buffer object so
     that we can add a custom destructor which notifies Plasma that the object
     is no longer being used, so the memory in the Plasma store backing the
     object can potentially be freed.
 
-    Attributes:
-        object_id (ObjectID): The ID of the object in the buffer.
-        client (PlasmaClient): The PlasmaClient that we use to communicate
-            with the store and manager.
+    Attributes
+    ----------
+    object_id : ObjectID
+        The ID of the object in the buffer.
+    client : PlasmaClient
+        The PlasmaClient that we use to communicate with the store and manager.
     """
 
     cdef:
@@ -143,12 +146,15 @@ cdef class PlasmaBuffer(Buffer):
         PlasmaClient client
 
     def __cinit__(self, ObjectID object_id, PlasmaClient client):
-        """Initialize a PlasmaBuffer."""
+        """
+        Initialize a PlasmaBuffer.
+        """
         self.object_id = object_id
         self.client = client
 
     def __dealloc__(self):
-        """Notify Plasma that the object is no longer needed.
+        """
+        Notify Plasma that the object is no longer needed.
 
         If the plasma client has been shut down, then don't do anything.
         """
@@ -167,7 +173,8 @@ cdef class MutablePlasmaBuffer(MutableBuffer):
         self.client = client
 
     def __dealloc__(self):
-        """Notify Plasma that the object is no longer needed.
+        """
+        Notify Plasma that the object is no longer needed.
 
         If the plasma client has been shut down, then don't do anything.
         """
@@ -175,7 +182,8 @@ cdef class MutablePlasmaBuffer(MutableBuffer):
 
 
 cdef class PlasmaClient:
-    """The PlasmaClient is used to interface with a plasma store and manager.
+    """
+    The PlasmaClient is used to interface with a plasma store and manager.
 
     The PlasmaClient can ask the PlasmaStore to allocate a new buffer, seal a
     buffer, and get a buffer. Buffers are referred to by object IDs, which are
@@ -238,21 +246,28 @@ cdef class PlasmaClient:
                          manager_sock_name, release_delay))
 
     def create(self, ObjectID object_id, int64_t data_size, c_string metadata=b""):
-        """Create a new buffer in the PlasmaStore for a particular object ID.
+        """
+        Create a new buffer in the PlasmaStore for a particular object ID.
 
         The returned buffer is mutable until seal is called.
 
-        Args:
-            object_id (ObjectID): The object ID used to identify an object.
-            size (int): The size in bytes of the created buffer.
-            metadata (bytes): An optional string of bytes encoding whatever
-                metadata the user wishes to encode.
+        Parameters
+        ----------
+        object_id : ObjectID
+            The object ID used to identify an object.
+        size : int
+            The size in bytes of the created buffer.
+        metadata : bytes
+            An optional string of bytes encoding whatever metadata the user
+            wishes to encode.
 
-        Raises:
-            PlasmaObjectExists: This exception is raised if the object could
-                not be created because there already is an object with the same
-                ID in the plasma store.
-            PlasmaStoreFull: This exception is raised if the object could
+        Raises
+        ------
+        PlasmaObjectExists
+            This exception is raised if the object could not be created because
+            there already is an object with the same ID in the plasma store.
+
+        PlasmaStoreFull: This exception is raised if the object could
                 not be created because the plasma store is unable to evict
                 enough objects to create room for it.
         """
@@ -264,21 +279,26 @@ cdef class PlasmaClient:
         return self._make_mutable_plasma_buffer(object_id, data, data_size)
 
     def get(self, object_ids, timeout_ms=-1):
-        """Returns data buffer from the PlasmaStore based on object ID.
+        """
+        Returns data buffer from the PlasmaStore based on object ID.
 
         If the object has not been sealed yet, this call will block. The
         retrieved buffer is immutable.
 
-        Args:
-            object_ids (List[ObjectID]): A list of ObjectIDs used to identify
-                some objects.
-            timeout_ms (int): The number of milliseconds that the get call
-                should block before timing out and returning. Pass -1 if the
-                call should block and 0 if the call should return immediately.
+        Parameters
+        ----------
+        object_ids : list
+            A list of ObjectIDs used to identify some objects.
+        timeout_ms :int
+            The number of milliseconds that the get call should block before
+            timing out and returning. Pass -1 if the call should block and 0
+            if the call should return immediately.
 
-        Returns:
+        Returns
+        -------
+        list
             List of PlasmaBuffers for the data associated with the object_ids
-                and None if the object was not available.
+            and None if the object was not available.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
@@ -293,21 +313,26 @@ cdef class PlasmaClient:
         return result
 
     def get_metadata(self, object_ids, timeout_ms=-1):
-        """Returns metadata buffer from the PlasmaStore based on object ID.
+        """
+        Returns metadata buffer from the PlasmaStore based on object ID.
 
         If the object has not been sealed yet, this call will block. The
         retrieved buffer is immutable.
 
-        Args:
-            object_ids (List[ObjectID]): A list of ObjectIDs used to identify
-                some objects.
-            timeout_ms (int): The number of milliseconds that the get call
-                should block before timing out and returning. Pass -1 if the
-                call should block and 0 if the call should return immediately.
+        Parameters
+        ----------
+        object_ids : list
+            A list of ObjectIDs used to identify some objects.
+        timeout_ms : int
+            The number of milliseconds that the get call should block before
+            timing out and returning. Pass -1 if the call should block and 0
+            if the call should return immediately.
 
-        Returns:
+        Returns
+        -------
+        list
             List of PlasmaBuffers for the metadata associated with the
-                object_ids and None if the object was not available.
+            object_ids and None if the object was not available.
         """
         cdef c_vector[CObjectBuffer] object_buffers
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
@@ -319,27 +344,40 @@ cdef class PlasmaClient:
         return result
 
     def seal(self, ObjectID object_id):
-        """Seal the buffer in the PlasmaStore for a particular object ID.
+        """
+        Seal the buffer in the PlasmaStore for a particular object ID.
 
         Once a buffer has been sealed, the buffer is immutable and can only be
         accessed through get.
 
-        Args:
-            object_id (str): A string used to identify an object.
+        Parameters
+        ----------
+        object_id : ObjectID
+            A string used to identify an object.
         """
         with nogil:
             check_status(self.client.get().Seal(object_id.data))
 
     def release(self, ObjectID object_id):
-        """Notify Plasma that the object is no longer needed."""
+        """
+        Notify Plasma that the object is no longer needed.
+
+        Parameters
+        ----------
+        object_id : ObjectID
+            A string used to identify an object.
+        """
         with nogil:
             check_status(self.client.get().Release(object_id.data))
 
     def contains(self, ObjectID object_id):
-        """Check if the object is present and sealed in the PlasmaStore.
+        """
+        Check if the object is present and sealed in the PlasmaStore.
 
-        Args:
-            object_id (str): A string used to identify an object.
+        Parameters
+        ----------
+        object_id : ObjectID
+            A string used to identify an object.
         """
         cdef c_bool is_contained
         with nogil:
@@ -348,12 +386,17 @@ cdef class PlasmaClient:
         return is_contained
 
     def hash(self, ObjectID object_id):
-        """Compute the checksum of an object in the object store.
+        """
+        Compute the checksum of an object in the object store.
 
-        Args:
-            object_id (str): A string used to identify an object.
+        Parameters
+        ----------
+        object_id : ObjectID
+            A string used to identify an object.
 
-        Returns:
+        Returns
+        -------
+        bytes
             A digest string object's hash. If the object isn't in the object
             store, the string will have length zero.
         """
@@ -364,12 +407,15 @@ cdef class PlasmaClient:
         return bytes(digest[:])
 
     def evict(self, int64_t num_bytes):
-        """Evict some objects until to recover some bytes.
+        """
+        Evict some objects until to recover some bytes.
 
         Recover at least num_bytes bytes if possible.
 
-        Args:
-            num_bytes (int): The number of bytes to attempt to recover.
+        Parameters
+        ----------
+        num_bytes : int
+            The number of bytes to attempt to recover.
         """
         cdef int64_t num_bytes_evicted = -1
         with nogil:
@@ -382,7 +428,18 @@ cdef class PlasmaClient:
             check_status(self.client.get().Subscribe(&self.notification_fd))
 
     def get_next_notification(self):
-        """Get the next notification from the notification socket."""
+        """
+        Get the next notification from the notification socket.
+
+        Returns
+        -------
+        ObjectID
+            The object ID of the object that was stored.
+        int
+            The data size of the object that was stored.
+        int
+            The metadata size of the object that was stored.
+        """
         cdef ObjectID object_id = ObjectID(20 * b"\0")
         cdef int64_t data_size
         cdef int64_t metadata_size
@@ -394,5 +451,8 @@ cdef class PlasmaClient:
         return object_id, data_size, metadata_size
 
     def disconnect(self):
+        """
+        Disconnect this client from the Plasma store.
+        """
         with nogil:
             check_status(self.client.get().Disconnect())
