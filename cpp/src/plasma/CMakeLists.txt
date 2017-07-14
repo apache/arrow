@@ -24,10 +24,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
-if(APPLE)
-  SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
-endif(APPLE)
-
 set(PLASMA_SO_VERSION "0")
 set(PLASMA_ABI_VERSION "${PLASMA_SO_VERSION}.0.0")
 
