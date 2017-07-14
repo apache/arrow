@@ -56,6 +56,9 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting'
 ]
 
+# Show members for classes in .. autosummary
+autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance', 'inherited-members']
+
 # numpydoc configuration
 napoleon_use_rtype = False
 
