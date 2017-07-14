@@ -218,15 +218,18 @@ cdef class PlasmaClient:
         return result
 
     def connect(self, store_socket_name, manager_socket_name, int release_delay):
-        """Conect the PlasmaClient to a plasma store and optionally a manager.
+        """
+        Conect the PlasmaClient to a plasma store and optionally a manager.
 
-        Args:
-            store_socket_name (str): Name of the socket the plasma store is
-                listening at.
-            manager_socket_name (str): Name of the socket the plasma manager is
-                listening at.
-            release_delay (int): The maximum number of objects that the client
-                will keep and delay releasing (for caching reasons).
+        Parameters
+        ----------
+        store_socket_name : str
+            Name of the socket the plasma store is listening at.
+        manager_socket_name : str
+            Name of the socket the plasma manager is listening at.
+        release_delay : int
+            The maximum number of objects that the client will keep and
+            delay releasing (for caching reasons).
         """
         cdef c_string store_sock_name = store_socket_name.encode()
         cdef c_string manager_sock_name = manager_socket_name.encode()
