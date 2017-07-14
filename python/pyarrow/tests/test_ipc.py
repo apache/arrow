@@ -89,6 +89,7 @@ class TestFile(MessagingTest, unittest.TestCase):
             # it works. Must convert back to DataFrame
             batch = reader.get_batch(i)
             assert batches[i].equals(batch)
+            assert reader.schema.equals(batches[0].schema)
 
     def test_read_all(self):
         batches = self.write_batches()
