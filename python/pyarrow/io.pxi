@@ -55,6 +55,13 @@ cdef class NativeFile:
         self.close()
 
     property mode:
+        """
+        The file mode. Currently instances of NativeFile may support:
+
+        * rb: binary read
+        * wb: binary write
+        * rb+: binary read and write
+        """
 
         def __get__(self):
             # Emulate built-in file modes
