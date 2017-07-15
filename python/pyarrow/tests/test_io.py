@@ -354,7 +354,7 @@ def test_memory_map_writer(tmpdir):
     with open(path, 'wb') as f:
         f.write(data)
 
-    f = pa.memory_map(path, mode='r+w')
+    f = pa.memory_map(path, mode='r+b')
 
     f.seek(10)
     f.write('peekaboo')
@@ -363,7 +363,7 @@ def test_memory_map_writer(tmpdir):
     f.seek(10)
     assert f.read(8) == b'peekaboo'
 
-    f2 = pa.memory_map(path, mode='r+w')
+    f2 = pa.memory_map(path, mode='r+b')
 
     f2.seek(10)
     f2.write(b'booapeak')
@@ -404,3 +404,33 @@ def test_os_file_writer(tmpdir):
 
     with pytest.raises(IOError):
         f2.read(5)
+
+
+def test_native_file_modes(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    with open(path, 'wb') as f:
+        f.write(b'foooo')
+
+    with pa.OSFile(path, mode='r') as f:
+        assert f.mode == 'rb'
+
+    with pa.OSFile(path, mode='rb') as f:
+        assert f.mode == 'rb'
+
+    with pa.OSFile(path, mode='w') as f:
+        assert f.mode == 'wb'
+
+    with pa.OSFile(path, mode='wb') as f:
+        assert f.mode == 'wb'
+
+    with open(path, 'wb') as f:
+        f.write(b'foooo')
+
+    with pa.memory_map(path, 'r') as f:
+        assert f.mode == 'rb'
+
+    with pa.memory_map(path, 'r+') as f:
+        assert f.mode == 'rb+'
+
+    with pa.memory_map(path, 'r+b') as f:
+        assert f.mode == 'rb+'

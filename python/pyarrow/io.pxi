@@ -54,6 +54,26 @@ cdef class NativeFile:
     def __exit__(self, exc_type, exc_value, tb):
         self.close()
 
+    property mode:
+        """
+        The file mode. Currently instances of NativeFile may support:
+
+        * rb: binary read
+        * wb: binary write
+        * rb+: binary read and write
+        """
+
+        def __get__(self):
+            # Emulate built-in file modes
+            if self.is_readable and self.is_writeable:
+                return 'rb+'
+            elif self.is_readable:
+                return 'rb'
+            elif self.is_writeable:
+                return 'wb'
+            else:
+                raise ValueError('File object is malformed, has no mode')
+
     def close(self):
         if self.is_open:
             with nogil:
@@ -346,7 +366,7 @@ cdef class MemoryMappedFile(NativeFile):
 
         return result
 
-    def open(self, path, mode='r'):
+    def _open(self, path, mode='r'):
         self.path = path
 
         cdef:
@@ -360,7 +380,7 @@ cdef class MemoryMappedFile(NativeFile):
         elif mode in ('w', 'wb'):
             c_mode = FileMode_WRITE
             self.is_writeable = 1
-        elif mode == 'r+w':
+        elif mode in ('r+', 'r+b', 'rb+'):
             c_mode = FileMode_READWRITE
             self.is_readable = 1
             self.is_writeable = 1
@@ -388,7 +408,7 @@ def memory_map(path, mode='r'):
     mmap : MemoryMappedFile
     """
     cdef MemoryMappedFile mmap = MemoryMappedFile()
-    mmap.open(path, mode)
+    mmap._open(path, mode)
     return mmap
 
 
