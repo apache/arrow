@@ -990,8 +990,7 @@ cdef class _RecordBatchReader:
             check_status(CRecordBatchStreamReader.Open(in_stream, &reader))
 
         self.reader = <shared_ptr[CRecordBatchReader]> reader
-        self.schema = Schema()
-        self.schema.init_schema(self.reader.get().schema())
+        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
     def get_next_batch(self):
         """
@@ -1049,6 +1048,9 @@ cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
 
+    cdef readonly:
+        Schema schema
+
     def __cinit__(self):
         pass
 
@@ -1066,6 +1068,8 @@ cdef class _RecordBatchFileReader:
                     reader, offset, &self.reader))
             else:
                 check_status(CRecordBatchFileReader.Open(reader, &self.reader))
+
+        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 
     property num_record_batches:
 
