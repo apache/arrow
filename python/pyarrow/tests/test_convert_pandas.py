@@ -715,14 +715,16 @@ class TestPandasConversion(unittest.TestCase):
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
-            ('strs', [[None, u'b'], [u'c', u'd']])
+            ('strs', [[None, u'b'], [u'c', u'd']]),
+            ('nested_strs', [[[None, u'b'], [u'c', u'd']], None])
         ])
         df = pd.DataFrame(data)
 
         expected_schema = pa.schema([
             pa.field('nan_ints', pa.list_(pa.int64())),
             pa.field('ints', pa.list_(pa.int64())),
-            pa.field('strs', pa.list_(pa.string()))
+            pa.field('strs', pa.list_(pa.string())),
+            pa.field('nested_strs', pa.list_(pa.list_(pa.string())))
         ])
 
         self._check_pandas_roundtrip(df, expected_schema=expected_schema)
