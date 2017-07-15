@@ -22,7 +22,11 @@ try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
    # package is not installed
-   pass
+    try:
+        import setuptools_scm
+        __version__ = setuptools_scm.get_version('../')
+    except (ImportError, LookupError):
+        __version__ = None
 
 
 from pyarrow.lib import cpu_count, set_cpu_count
