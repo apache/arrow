@@ -261,8 +261,8 @@ struct WrapBytes<FixedSizeBinaryArray> {
   }
 };
 
-static inline bool ListTypeSupported(const Type::type type_id) {
-  switch (type_id) {
+static inline bool ListTypeSupported(const DataType& type) {
+  switch (type.id()) {
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
@@ -277,6 +277,10 @@ static inline bool ListTypeSupported(const Type::type type_id) {
     case Type::TIMESTAMP:
       // The above types are all supported.
       return true;
+    case Type::LIST: {
+      const ListType& list_type = static_cast<const ListType&>(type);
+      return ListTypeSupported(*list_type.value_type());
+    }
     default:
       break;
   }
@@ -396,7 +400,8 @@ class PandasConverter {
   // Conversion logic for various object dtype arrays
 
   template <int ITEM_TYPE, typename ArrowType>
-  Status ConvertTypedLists(const std::shared_ptr<DataType>& type);
+  Status ConvertTypedLists(
+      const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list);
 
   template <typename ArrowType>
   Status ConvertDates();
@@ -407,6 +412,8 @@ class PandasConverter {
   Status ConvertObjectFixedWidthBytes(const std::shared_ptr<DataType>& type);
   Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
+  Status ConvertLists(
+      const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list);
   Status ConvertObjects();
   Status ConvertDecimals();
 
@@ -905,8 +912,40 @@ Status PandasConverter::ConvertObjects() {
   return Status::OK();
 }
 
+template <typename T>
+Status LoopPySequence(PyObject* sequence, T func) {
+  if (PySequence_Check(sequence)) {
+    OwnedRef ref;
+    Py_ssize_t size = PySequence_Size(sequence);
+    if (PyArray_Check(sequence)) {
+      auto array = reinterpret_cast<PyArrayObject*>(sequence);
+      PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(array));
+      for (int64_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(func(objects[i]));
+      }
+    } else {
+      for (int64_t i = 0; i < size; ++i) {
+        ref.reset(PySequence_GetItem(sequence, i));
+        RETURN_NOT_OK(func(ref.obj()));
+      }
+    }
+  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
+    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    PyObject* item;
+    while ((item = PyIter_Next(iter.obj()))) {
+      OwnedRef ref = OwnedRef(item);
+      RETURN_NOT_OK(func(ref.obj()));
+    }
+  } else {
+    return Status::TypeError("Object is not a sequence or iterable");
+  }
+
+  return Status::OK();
+}
+
 template <int ITEM_TYPE, typename ArrowType>
-inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type) {
+inline Status PandasConverter::ConvertTypedLists(
+    const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list) {
   typedef npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
@@ -922,16 +961,13 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
     return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
-  ListBuilder list_builder(
-      pool_, std::unique_ptr<ArrayBuilder>(new BuilderT(pool_, type)));
   BuilderT* value_builder = static_cast<BuilderT*>(list_builder.value_builder());
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-  for (int64_t i = 0; i < length_; ++i) {
-    if (PandasObjectIsNull(objects[i])) {
-      RETURN_NOT_OK(list_builder.AppendNull());
-    } else if (PyArray_Check(objects[i])) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
+  auto foreach_item = [&](PyObject* object) {
+    if (PandasObjectIsNull(object)) {
+      return list_builder.AppendNull();
+    } else if (PyArray_Check(object)) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
       RETURN_NOT_OK(list_builder.Append(true));
 
       // TODO(uwe): Support more complex numpy array structures
@@ -945,32 +981,32 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
         // currently support this.
         // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
         ValuesToValidBytes<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
-        RETURN_NOT_OK(value_builder->Append(data, size, null_bitmap_->data()));
+        return value_builder->Append(data, size, null_bitmap_->data());
       } else {
-        RETURN_NOT_OK(value_builder->Append(data, size));
+        return value_builder->Append(data, size);
       }
-
-    } else if (PyList_Check(objects[i])) {
+    } else if (PyList_Check(object)) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
-      RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
+      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
       if (inferred_type->id() != type->id()) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
       }
-      RETURN_NOT_OK(AppendPySequence(objects[i], size, type, value_builder));
+      return AppendPySequence(object, size, type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
-  }
-  return list_builder.Finish(&out_);
+  };
+
+  return LoopPySequence(list, foreach_item);
 }
 
 template <>
 inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
-    const std::shared_ptr<DataType>& type) {
+    const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list) {
   PyAcquireGIL lock;
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
@@ -984,47 +1020,45 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
-  ListBuilder list_builder(
-      pool_, std::unique_ptr<ArrayBuilder>(new StringBuilder(pool_)));
   auto value_builder = static_cast<StringBuilder*>(list_builder.value_builder());
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-  for (int64_t i = 0; i < length_; ++i) {
-    if (PandasObjectIsNull(objects[i])) {
-      RETURN_NOT_OK(list_builder.AppendNull());
-    } else if (PyArray_Check(objects[i])) {
-      auto numpy_array = reinterpret_cast<PyArrayObject*>(objects[i]);
+  auto foreach_item = [&](PyObject* object) {
+    if (PandasObjectIsNull(object)) {
+      return list_builder.AppendNull();
+    } else if (PyArray_Check(object)) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
       RETURN_NOT_OK(list_builder.Append(true));
 
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      RETURN_NOT_OK(
-          AppendObjectStrings(numpy_array, nullptr, value_builder, &have_bytes));
-    } else if (PyList_Check(objects[i])) {
+      return AppendObjectStrings(numpy_array, nullptr, value_builder, &have_bytes);
+    } else if (PyList_Check(object)) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(list_builder.Append(true));
-      RETURN_NOT_OK(InferArrowTypeAndSize(objects[i], &size, &inferred_type));
+      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
       if (inferred_type->id() != Type::STRING) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
       }
-      RETURN_NOT_OK(AppendPySequence(objects[i], size, inferred_type, value_builder));
+      return AppendPySequence(object, size, inferred_type, value_builder);
     } else {
       return Status::TypeError("Unsupported Python type for list items");
     }
-  }
-  return list_builder.Finish(&out_);
+  };
+
+  return LoopPySequence(list, foreach_item);
 }
 
-#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)             \
-  case Type::TYPE: {                                       \
-    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type); \
+#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                                 \
+  case Type::TYPE: {                                                           \
+    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type, list_builder, list); \
   }
 
-Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
+Status PandasConverter::ConvertLists(
+    const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list) {
   switch (type->id()) {
     LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
     LIST_CASE(INT8, NPY_INT8, Int8Type)
@@ -1038,14 +1072,36 @@ Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
     LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
-    default:
+    case Type::LIST: {
+      const ListType& list_type = static_cast<const ListType&>(*type);
+      auto value_builder = static_cast<ListBuilder*>(list_builder.value_builder());
+
+      auto foreach_item = [&](PyObject* object) {
+        if (PandasObjectIsNull(object)) {
+          return list_builder.AppendNull();
+        } else {
+          RETURN_NOT_OK(list_builder.Append(true));
+          return ConvertLists(list_type.value_type(), *value_builder, object);
+        }
+      };
+
+      return LoopPySequence(list, foreach_item);
+    }
+    default: {
       std::stringstream ss;
       ss << "Unknown list item type: ";
       ss << type->ToString();
       return Status::TypeError(ss.str());
+    }
   }
+}
 
-  return Status::TypeError("Unknown list type");
+Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
+  std::unique_ptr<ArrayBuilder> array_builder;
+  RETURN_NOT_OK(MakeBuilder(pool_, arrow::list(type), &array_builder));
+  ListBuilder& list_builder = static_cast<ListBuilder&>(*array_builder);
+  RETURN_NOT_OK(ConvertLists(type, list_builder, reinterpret_cast<PyObject*>(arr_)));
+  return list_builder.Finish(&out_);
 }
 
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
@@ -1561,9 +1617,11 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
+        CONVERTLISTSLIKE_CASE(ListType, LIST)
         default: {
           std::stringstream ss;
-          ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
+          ss << "Not implemented type for conversion from List to Pandas ObjectBlock: "
+             << list_type->value_type()->ToString();
           return Status::NotImplemented(ss.str());
         }
       }
@@ -2015,9 +2073,9 @@ class DataFrameBlockCreator {
         } break;
         case Type::LIST: {
           auto list_type = std::static_pointer_cast<ListType>(col->type());
-          if (!ListTypeSupported(list_type->value_type()->id())) {
+          if (!ListTypeSupported(*list_type->value_type())) {
             std::stringstream ss;
-            ss << "Not implemented type for lists: "
+            ss << "Not implemented type for list in DataFrameBlock: "
                << list_type->value_type()->ToString();
             return Status::NotImplemented(ss.str());
           }
@@ -2386,6 +2444,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
       CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
       CONVERTVALUES_LISTSLIKE_CASE(DecimalType, DECIMAL)
+      CONVERTVALUES_LISTSLIKE_CASE(ListType, LIST)
       default: {
         std::stringstream ss;
         ss << "Not implemented type for lists: " << list_type->value_type()->ToString();
