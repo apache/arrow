@@ -342,8 +342,8 @@ Status AdaptiveIntBuilder::Append(
         sizeof(int64_t) * length);
   } else {
 #ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable:4996)
+#pragma warning(push)
+#pragma warning(disable : 4996)
 #endif
     // int_size_ may have changed, so we need to recheck
     switch (int_size_) {
@@ -366,7 +366,7 @@ Status AdaptiveIntBuilder::Append(
         DCHECK(false);
     }
 #ifdef _MSC_VER
-#  pragma warning(pop)
+#pragma warning(pop)
 #endif
   }
 
@@ -497,8 +497,8 @@ Status AdaptiveUIntBuilder::Append(
         sizeof(uint64_t) * length);
   } else {
 #ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable:4996)
+#pragma warning(push)
+#pragma warning(disable : 4996)
 #endif
     // int_size_ may have changed, so we need to recheck
     switch (int_size_) {
@@ -521,7 +521,7 @@ Status AdaptiveUIntBuilder::Append(
         DCHECK(false);
     }
 #ifdef _MSC_VER
-#  pragma warning(pop)
+#pragma warning(pop)
 #endif
   }
 

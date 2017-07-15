@@ -453,13 +453,15 @@ def test_date_time_types():
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6],
                                  ['date32', 'date64', 'timestamp[us]',
-                                  'time32[s]', 'time64[us]', 'time32_from64[s]'])
+                                  'time32[s]', 'time64[us]',
+                                  'time32_from64[s]'])
 
     # date64 as date32
     # time32[s] to time32[ms]
     expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6],
                                     ['date32', 'date64', 'timestamp[us]',
-                                     'time32[s]', 'time64[us]', 'time32_from64[s]'])
+                                     'time32[s]', 'time64[us]',
+                                     'time32_from64[s]'])
 
     _check_roundtrip(table, expected=expected, version='2.0')
 
@@ -847,6 +849,7 @@ def test_read_multiple_files(tmpdir):
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
+
 
 @parquet
 def test_multiindex_duplicate_values(tmpdir):

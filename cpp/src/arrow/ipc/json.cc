@@ -115,7 +115,7 @@ class JsonReader::JsonReaderImpl {
     return Status::OK();
   }
 
-  Status GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
     DCHECK_GE(i, 0) << "i out of bounds";
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
@@ -164,8 +164,8 @@ int JsonReader::num_record_batches() const {
   return impl_->num_record_batches();
 }
 
-Status JsonReader::GetRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
-  return impl_->GetRecordBatch(i, batch);
+Status JsonReader::ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+  return impl_->ReadRecordBatch(i, batch);
 }
 
 }  // namespace ipc

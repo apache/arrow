@@ -276,7 +276,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
 
   for (int i = 0; i < nbatches; ++i) {
     std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(reader->GetRecordBatch(i, &batch));
+    ASSERT_OK(reader->ReadRecordBatch(i, &batch));
     ASSERT_TRUE(batch->Equals(*batches[i]));
   }
 }
@@ -344,7 +344,7 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_EQ(1, reader->num_record_batches());
 
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(reader->GetRecordBatch(0, &batch));
+  ASSERT_OK(reader->ReadRecordBatch(0, &batch));
 
   std::vector<bool> foo_valid = {true, false, true, true, true};
   std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
@@ -388,7 +388,7 @@ void CheckRoundtrip(const RecordBatch& batch) {
   ASSERT_OK(JsonReader::Open(buffer, &reader));
 
   std::shared_ptr<RecordBatch> result_batch;
-  ASSERT_OK(reader->GetRecordBatch(0, &result_batch));
+  ASSERT_OK(reader->ReadRecordBatch(0, &result_batch));
 
   CompareBatch(batch, *result_batch);
 }

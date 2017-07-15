@@ -39,7 +39,7 @@ Status ConvertToStream(const char* path) {
   RETURN_NOT_OK(RecordBatchStreamWriter::Open(&sink, reader->schema(), &writer));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> chunk;
-    RETURN_NOT_OK(reader->GetRecordBatch(i, &chunk));
+    RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
     RETURN_NOT_OK(writer->WriteRecordBatch(*chunk));
   }
   return writer->Close();

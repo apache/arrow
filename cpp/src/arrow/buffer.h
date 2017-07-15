@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -47,7 +48,8 @@ class ARROW_EXPORT Buffer {
  public:
   Buffer(const uint8_t* data, int64_t size)
       : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
-  virtual ~Buffer();
+
+  virtual ~Buffer() = default;
 
   /// An offset into data that is owned by another buffer, but we want to be
   /// able to retain a valid pointer to it even after other shared_ptr's to the
@@ -96,6 +98,17 @@ class ARROW_EXPORT Buffer {
  private:
   DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
+
+/// \brief Create Buffer referencing std::string memory
+///
+/// Warning: string instance must stay alive
+///
+/// \param str std::string instance
+/// \return std::shared_ptr<Buffer>
+static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
+  return std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(str.c_str()), static_cast<int64_t>(str.size()));
+}
 
 /// Construct a view on passed buffer at the indicated offset and length. This
 /// function cannot fail and does not error checking (except in debug builds)

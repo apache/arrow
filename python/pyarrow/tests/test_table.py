@@ -75,6 +75,10 @@ def test_recordbatch_basics():
         ('c1', [-10, -5, 0, 5, 10])
     ])
 
+    with pytest.raises(IndexError):
+        # bounds checking
+        batch[2]
+
 
 def test_recordbatch_slice():
     data = [
