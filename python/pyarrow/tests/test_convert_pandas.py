@@ -683,6 +683,54 @@ class TestPandasConversion(unittest.TestCase):
                                   type=pa.time32('s'))
         assert a4[0].as_py() == pytimes[0].replace(microsecond=0)
 
+    def test_arrow_time_to_pandas(self):
+        pytimes = [datetime.time(1, 2, 3, 1356),
+                   datetime.time(4, 5, 6, 1356),
+                   datetime.time(0, 0, 0)]
+
+        expected = np.array(pytimes + [None])
+        expected_ms = np.array([x.replace(microsecond=1000) for x in pytimes] +
+                               [None])
+        expected_s = np.array([x.replace(microsecond=0) for x in pytimes] +
+                              [None])
+
+        arr = np.array([_pytime_to_micros(v) for v in pytimes],
+                       dtype='int64')
+        arr = np.array([_pytime_to_micros(v) for v in pytimes],
+                       dtype='int64')
+
+        mask = np.array([True, True, False], dtype=bool)
+
+        a1 = pa.Array.from_pandas(arr, mask=mask, type=pa.time64('us'))
+        a2 = pa.Array.from_pandas(arr * 1000, mask=mask, type=pa.time64('ns'))
+        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'), mask=mask,
+                                  type=pa.time32('ms'))
+        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'), mask=mask,
+                                  type=pa.time32('s'))
+
+        names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
+        batch = pa.RecordBatch.from_arrays([a1, a2, a3, a4], names)
+        arr = a1.to_pandas()
+        assert (arr == expected).all()
+
+        arr = a2.to_pandas()
+        assert (arr == expected).all()
+
+        arr = a3.to_pandas()
+        assert (arr == expected_ms).all()
+
+        arr = a4.to_pandas()
+        assert (arr == expected_s).all()
+
+        df = batch.to_pandas()
+        expected_df = pd.DataFrame({'time64[us]': expected,
+                                    'time64[ns]': expected,
+                                    'time32[ms]': expected_ms,
+                                    'time32[s]': expected_s},
+                                   columns=names)
+
+        tm.assert_frame_equal(df, expected_df)
+
     def test_all_nones(self):
         def _check_series(s):
             converted = pa.Array.from_pandas(s)
