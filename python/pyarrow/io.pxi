@@ -564,6 +564,12 @@ cdef class MutableBuffer(Buffer):
         buffer.strides = self.strides
         buffer.suboffsets = NULL
 
+    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        if idx != 0:
+            raise SystemError("accessing non-existent buffer segment")
+        if p != NULL:
+            p[0] = <void*> self.mutable_buffer.get().data()
+        return self.size
 
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
