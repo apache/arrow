@@ -243,6 +243,7 @@ class build_ext(_build_ext):
             shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
+            move_lib("plasma")
             if self.with_parquet:
                 move_lib("parquet")
 
