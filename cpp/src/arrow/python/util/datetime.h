@@ -25,9 +25,9 @@ namespace arrow {
 namespace py {
 
 static inline int64_t PyTime_to_us(PyObject* pytime) {
-  return (PyDateTime_TIME_GET_HOUR(pytime) * 86400000000LL +
-      PyDateTime_TIME_GET_MINUTE(pytime) * 60000000LL +
-      PyDateTime_TIME_GET_SECOND(pytime) * 1000000LL +
+  return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
+      static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
+      static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
       PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 

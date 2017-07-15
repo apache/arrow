@@ -100,6 +100,12 @@ include "error.pxi"
 # Memory pools and allocation
 include "memory.pxi"
 
+# DataType, Field, Schema
+include "types.pxi"
+
+# Array scalar values
+include "scalar.pxi"
+
 # Array types
 include "array.pxi"
 

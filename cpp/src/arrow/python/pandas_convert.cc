@@ -919,6 +919,8 @@ Status PandasConverter::ConvertObjects() {
       } else if (PyDate_CheckExact(objects[i])) {
         // We could choose Date32 or Date64
         return ConvertDates<Date32Type>();
+      } else if (PyTime_Check(objects[i])) {
+        return ConvertTimes();
       } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
         return ConvertDecimals();
       } else if (PyList_Check(objects[i]) || PyArray_Check(objects[i])) {
@@ -927,7 +929,7 @@ Status PandasConverter::ConvertObjects() {
         return ConvertLists(inferred_type);
       } else {
         return InvalidConversion(const_cast<PyObject*>(objects[i]),
-            "string, bool, float, int, date, decimal, list, array");
+            "string, bool, float, int, date, time, decimal, list, array");
       }
     }
   }
