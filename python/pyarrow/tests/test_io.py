@@ -167,6 +167,7 @@ def test_buffer_numpy():
     buf = pa.frombuffer(byte_array)
     array = np.frombuffer(buf, dtype="uint8")
     assert array[0] == byte_array[0]
+    assert array.base == buf
 
 
 def test_buffer_memoryview_is_immutable():
