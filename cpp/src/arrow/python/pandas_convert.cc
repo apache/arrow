@@ -822,6 +822,8 @@ static Status ConvertTimes(const ChunkedArray& data, PyObject** out_values) {
   PyAcquireGIL lock;
   OwnedRef time_ref;
 
+  PyDateTime_IMPORT;
+
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const ArrayType&>(*data.chunk(c));
     auto type = std::dynamic_pointer_cast<TYPE>(arr.type());
