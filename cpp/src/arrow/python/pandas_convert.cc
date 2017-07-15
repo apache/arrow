@@ -416,6 +416,7 @@ class PandasConverter {
       const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list);
   Status ConvertObjects();
   Status ConvertDecimals();
+  Status ConvertTimes();
 
  protected:
   MemoryPool* pool_;
@@ -530,13 +531,12 @@ Status PandasConverter::ConvertDates() {
   }
 
   BuilderType date_builder(pool_);
-  RETURN_NOT_OK(date_builder.Resize(length_));
+  RETURN_NOT_OK(date_builder.Reserve(length_));
 
   /// We have to run this in this compilation unit, since we cannot use the
   /// datetime API otherwise
   PyDateTime_IMPORT;
 
-  Status s;
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
@@ -582,8 +582,7 @@ Status PandasConverter::ConvertDecimals() {
 
   const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
   DecimalBuilder decimal_builder(pool_, type_);
-
-  RETURN_NOT_OK(decimal_builder.Resize(length_));
+  RETURN_NOT_OK(decimal_builder.Reserve(length_));
 
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
@@ -604,6 +603,31 @@ Status PandasConverter::ConvertDecimals() {
   return decimal_builder.Finish(&out_);
 }
 
+Status PandasConverter::ConvertTimes() {
+  // Convert array of datetime.time objects to Arrow
+  PyAcquireGIL lock;
+  PyDateTime_IMPORT;
+
+  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+
+  // datetime.time stores microsecond resolution
+  Time64Builder builder(pool_, ::arrow::time64(TimeUnit::MICRO));
+  RETURN_NOT_OK(builder.Reserve(length_));
+
+  PyObject* obj;
+  for (int64_t i = 0; i < length_; ++i) {
+    obj = objects[i];
+    if (PyTime_Check(obj)) {
+      RETURN_NOT_OK(builder.Append(PyTime_to_us(obj)));
+    } else if (PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder.AppendNull());
+    } else {
+      return InvalidConversion(obj, "time");
+    }
+  }
+  return builder.Finish(&out_);
+}
+
 #undef CONVERT_DECIMAL_CASE
 
 Status PandasConverter::ConvertObjectStrings() {
@@ -613,7 +637,7 @@ Status PandasConverter::ConvertObjectStrings() {
   // and unicode mixed in the object array
 
   StringBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
+  RETURN_NOT_OK(builder.Reserve(length_));
 
   Status s;
   bool have_bytes = false;
@@ -632,7 +656,7 @@ Status PandasConverter::ConvertObjectFloats() {
   PyAcquireGIL lock;
 
   DoubleBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
+  RETURN_NOT_OK(builder.Reserve(length_));
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
@@ -664,7 +688,7 @@ Status PandasConverter::ConvertObjectIntegers() {
   PyAcquireGIL lock;
 
   Int64Builder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
+  RETURN_NOT_OK(builder.Reserve(length_));
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
@@ -701,7 +725,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
   int32_t value_size = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   FixedSizeBinaryBuilder builder(pool_, type);
-  RETURN_NOT_OK(builder.Resize(length_));
+  RETURN_NOT_OK(builder.Reserve(length_));
   RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, value_size, &builder));
   RETURN_NOT_OK(builder.Finish(&out_));
   return Status::OK();
@@ -1187,7 +1211,6 @@ class PandasBlock {
     INT64,
     FLOAT,
     DOUBLE,
-    DECIMAL,
     BOOL,
     DATETIME,
     DATETIME_WITH_TZ,
@@ -1950,7 +1973,6 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
     BLOCK_CASE(DOUBLE, Float64Block);
     BLOCK_CASE(BOOL, BoolBlock);
     BLOCK_CASE(DATETIME, DatetimeBlock);
-    BLOCK_CASE(DECIMAL, ObjectBlock);
     default:
       return Status::NotImplemented("Unsupported block type");
   }
@@ -2055,6 +2077,12 @@ class DataFrameBlockCreator {
         case Type::STRING:
         case Type::BINARY:
         case Type::FIXED_SIZE_BINARY:
+        case Type::TIME32:
+        case Type::TIME64:
+        case Type::DECIMAL:
+        case Type::NA:
+        case Type::STRUCT:
+          output_type = PandasBlock::OBJECT;
           output_type = PandasBlock::OBJECT;
           break;
         case Type::DATE32:
@@ -2083,13 +2111,6 @@ class DataFrameBlockCreator {
         } break;
         case Type::DICTIONARY:
           output_type = PandasBlock::CATEGORICAL;
-          break;
-        case Type::DECIMAL:
-          output_type = PandasBlock::DECIMAL;
-          break;
-        case Type::NA:
-        case Type::STRUCT:
-          output_type = PandasBlock::OBJECT;
           break;
         default:
           std::stringstream ss;
