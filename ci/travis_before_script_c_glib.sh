@@ -44,6 +44,7 @@ luarocks install lgi
 
 go get github.com/linuxdeepin/go-gir-generator || :
 pushd $GOPATH/src/github.com/linuxdeepin/go-gir-generator
+rm lib.in/gio-2.0/gdk_workaround.go
 mv Makefile{,.orig}
 sed -e 's/ gudev-1.0//' Makefile.orig > Makefile
 mkdir -p out/src/gir/gudev-1.0
