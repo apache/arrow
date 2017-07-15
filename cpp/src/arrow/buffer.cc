@@ -27,8 +27,6 @@
 
 namespace arrow {
 
-Buffer::~Buffer() {}
-
 Status Buffer::Copy(
     int64_t start, int64_t nbytes, MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
   // Sanity checks

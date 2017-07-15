@@ -22,7 +22,7 @@ import pandas as pd
 import six
 
 import pyarrow as pa
-from pyarrow.compat import PY2
+from pyarrow.compat import PY2  # noqa
 
 
 INDEX_LEVEL_NAME_REGEX = re.compile(r'^__index_level_\d+__$')

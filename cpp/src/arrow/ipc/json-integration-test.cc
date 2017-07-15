@@ -82,7 +82,7 @@ static Status ConvertJsonToArrow(
 
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader->GetRecordBatch(i, &batch));
+    RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
   return writer->Close();
@@ -109,7 +109,7 @@ static Status ConvertArrowToJson(
 
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader->GetRecordBatch(i, &batch));
+    RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
@@ -168,8 +168,8 @@ static Status ValidateArrowVsJson(
   std::shared_ptr<RecordBatch> arrow_batch;
   std::shared_ptr<RecordBatch> json_batch;
   for (int i = 0; i < json_nbatches; ++i) {
-    RETURN_NOT_OK(json_reader->GetRecordBatch(i, &json_batch));
-    RETURN_NOT_OK(arrow_reader->GetRecordBatch(i, &arrow_batch));
+    RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
+    RETURN_NOT_OK(arrow_reader->ReadRecordBatch(i, &arrow_batch));
 
     if (!json_batch->ApproxEquals(*arrow_batch)) {
       std::stringstream ss;

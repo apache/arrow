@@ -225,7 +225,7 @@ def test_simple_type_construction():
         (pa.timestamp('us', 'UTC'), 'datetimetz'),
         pytest.mark.xfail((pa.time32('s'), None), raises=NotImplementedError),
         pytest.mark.xfail((pa.time64('us'), None), raises=NotImplementedError),
-   ]
+    ]
 )
 def test_logical_type(type, expected):
     assert get_logical_type(type) == expected

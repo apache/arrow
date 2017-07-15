@@ -546,41 +546,41 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         int64_t GetExtentBytesWritten()
 
 
-cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
-    cdef cppclass SchemaMessage:
-        int num_fields()
-        CStatus GetField(int i, shared_ptr[CField]* out)
-        CStatus GetSchema(shared_ptr[CSchema]* out)
-
-    cdef cppclass FieldMetadata:
-        pass
-
-    cdef cppclass BufferMetadata:
-        pass
-
-    cdef cppclass RecordBatchMessage:
-        pass
-
-    cdef cppclass DictionaryBatchMessage:
-        pass
-
+cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::Message::Type":
         MessageType_SCHEMA" arrow::ipc::Message::SCHEMA"
         MessageType_RECORD_BATCH" arrow::ipc::Message::RECORD_BATCH"
         MessageType_DICTIONARY_BATCH" arrow::ipc::Message::DICTIONARY_BATCH"
 
-    cdef cppclass Message:
-        CStatus Open(const shared_ptr[CBuffer]& buf,
-                     shared_ptr[Message]* out)
-        int64_t body_length()
+    enum MetadataVersion" arrow::ipc::MetadataVersion":
+        MessageType_V1" arrow::ipc::MetadataVersion::V1"
+        MessageType_V2" arrow::ipc::MetadataVersion::V2"
+        MessageType_V3" arrow::ipc::MetadataVersion::V3"
+
+    cdef cppclass CMessage" arrow::ipc::Message":
+        CStatus Open(const shared_ptr[CBuffer]& metadata,
+                     const shared_ptr[CBuffer]& body,
+                     unique_ptr[CMessage]* out)
+
+        shared_ptr[CBuffer] body()
+
+        c_bool Equals(const CMessage& other)
+
+        shared_ptr[CBuffer] metadata()
+        MetadataVersion metadata_version()
         MessageType type()
 
-        shared_ptr[SchemaMessage] GetSchema()
-        shared_ptr[RecordBatchMessage] GetRecordBatch()
-        shared_ptr[DictionaryBatchMessage] GetDictionaryBatch()
+        CStatus SerializeTo(OutputStream* stream, int64_t* output_length)
 
+    c_string FormatMessageType(MessageType type)
 
-cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
+    cdef cppclass CMessageReader \
+        " arrow::ipc::MessageReader":
+        CStatus ReadNextMessage(unique_ptr[CMessage]* out)
+
+    cdef cppclass CInputStreamMessageReader \
+        " arrow::ipc::InputStreamMessageReader":
+        CInputStreamMessageReader(const shared_ptr[InputStream]& stream)
 
     cdef cppclass CRecordBatchWriter \
         " arrow::ipc::RecordBatchWriter":
@@ -590,12 +590,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchReader \
         " arrow::ipc::RecordBatchReader":
         shared_ptr[CSchema] schema()
-        CStatus GetNextRecordBatch(shared_ptr[CRecordBatch]* batch)
+        CStatus ReadNextRecordBatch(shared_ptr[CRecordBatch]* batch)
 
     cdef cppclass CRecordBatchStreamReader \
         " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
         CStatus Open(const shared_ptr[InputStream]& stream,
+                     shared_ptr[CRecordBatchStreamReader]* out)
+
+        @staticmethod
+        CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
                      shared_ptr[CRecordBatchStreamReader]* out)
 
     cdef cppclass CRecordBatchStreamWriter \
@@ -625,7 +629,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         int num_record_batches()
 
-        CStatus GetRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+        CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
+
+    CStatus ReadMessage(InputStream* stream, unique_ptr[CMessage]* message)
 
     CStatus GetRecordBatchSize(const CRecordBatch& batch, int64_t* size)
     CStatus GetTensorSize(const CTensor& tensor, int64_t* size)
@@ -636,6 +642,10 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CStatus ReadTensor(int64_t offset, RandomAccessFile* file,
                        shared_ptr[CTensor]* out)
+
+    CStatus ReadRecordBatch(const CMessage& message,
+                            const shared_ptr[CSchema]& schema,
+                            shared_ptr[CRecordBatch]* out)
 
 
 cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:

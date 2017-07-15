@@ -17,6 +17,7 @@
 
 #include "arrow/ipc/metadata.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <sstream>
@@ -834,11 +835,12 @@ Status DictionaryMemo::AddDictionary(
 
 class Message::MessageImpl {
  public:
-  explicit MessageImpl(const std::shared_ptr<Buffer>& buffer, int64_t offset)
-      : buffer_(buffer), offset_(offset), message_(nullptr) {}
+  explicit MessageImpl(
+      const std::shared_ptr<Buffer>& metadata, const std::shared_ptr<Buffer>& body)
+      : metadata_(metadata), message_(nullptr), body_(body) {}
 
   Status Open() {
-    message_ = flatbuf::GetMessage(buffer_->data() + offset_);
+    message_ = flatbuf::GetMessage(metadata_->data());
 
     // Check that the metadata version is supported
     if (message_->version() < kMinMetadataVersion) {
@@ -872,7 +874,7 @@ class Message::MessageImpl {
         // Arrow 0.2
         return MetadataVersion::V2;
       case flatbuf::MetadataVersion_V3:
-        // Arrow 0.3
+        // Arrow >= 0.3
         return MetadataVersion::V3;
       // Add cases as other versions become available
       default:
@@ -882,28 +884,38 @@ class Message::MessageImpl {
 
   const void* header() const { return message_->header(); }
 
-  int64_t body_length() const { return message_->bodyLength(); }
+  std::shared_ptr<Buffer> body() const { return body_; }
+
+  std::shared_ptr<Buffer> metadata() const { return metadata_; }
 
  private:
-  // Retain reference to memory
-  std::shared_ptr<Buffer> buffer_;
-  int64_t offset_;
-
+  // The Flatbuffer metadata
+  std::shared_ptr<Buffer> metadata_;
   const flatbuf::Message* message_;
+
+  // The message body, if any
+  std::shared_ptr<Buffer> body_;
 };
 
-Message::Message(const std::shared_ptr<Buffer>& buffer, int64_t offset) {
-  impl_.reset(new MessageImpl(buffer, offset));
+Message::Message(
+    const std::shared_ptr<Buffer>& metadata, const std::shared_ptr<Buffer>& body) {
+  impl_.reset(new MessageImpl(metadata, body));
+}
+
+Status Message::Open(const std::shared_ptr<Buffer>& metadata,
+    const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out) {
+  out->reset(new Message(metadata, body));
+  return (*out)->impl_->Open();
 }
 
 Message::~Message() {}
 
-Status Message::Open(const std::shared_ptr<Buffer>& buffer, int64_t offset,
-    std::shared_ptr<Message>* out) {
-  // ctor is private
+std::shared_ptr<Buffer> Message::body() const {
+  return impl_->body();
+}
 
-  *out = std::shared_ptr<Message>(new Message(buffer, offset));
-  return (*out)->impl_->Open();
+std::shared_ptr<Buffer> Message::metadata() const {
+  return impl_->metadata();
 }
 
 Message::Type Message::type() const {
@@ -914,12 +926,62 @@ MetadataVersion Message::metadata_version() const {
   return impl_->version();
 }
 
-int64_t Message::body_length() const {
-  return impl_->body_length();
-}
-
 const void* Message::header() const {
   return impl_->header();
+}
+
+bool Message::Equals(const Message& other) const {
+  int64_t metadata_bytes = std::min(metadata()->size(), other.metadata()->size());
+
+  if (!metadata()->Equals(*other.metadata(), metadata_bytes)) {
+    return false;
+  }
+
+  // Compare bodies, if they have them
+  auto this_body = body();
+  auto other_body = other.body();
+
+  const bool this_has_body = (this_body != nullptr) && (this_body->size() > 0);
+  const bool other_has_body = (other_body != nullptr) && (other_body->size() > 0);
+
+  if (this_has_body && other_has_body) {
+    return this_body->Equals(*other_body);
+  } else if (this_has_body ^ other_has_body) {
+    // One has a body but not the other
+    return false;
+  } else {
+    // Neither has a body
+    return true;
+  }
+}
+
+Status Message::SerializeTo(io::OutputStream* file, int64_t* output_length) const {
+  int32_t metadata_length = 0;
+  RETURN_NOT_OK(WriteMessage(*metadata(), file, &metadata_length));
+
+  *output_length = metadata_length;
+
+  auto body_buffer = body();
+  if (body_buffer) {
+    RETURN_NOT_OK(file->Write(body_buffer->data(), body_buffer->size()));
+    *output_length += body_buffer->size();
+  }
+
+  return Status::OK();
+}
+
+std::string FormatMessageType(Message::Type type) {
+  switch (type) {
+    case Message::SCHEMA:
+      return "schema";
+    case Message::RECORD_BATCH:
+      return "record batch";
+    case Message::DICTIONARY_BATCH:
+      return "dictionary";
+    default:
+      break;
+  }
+  return "unknown";
 }
 
 // ----------------------------------------------------------------------
@@ -975,10 +1037,11 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
   return Status::OK();
 }
 
-Status GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* type,
+Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
     std::vector<int64_t>* shape, std::vector<int64_t>* strides,
     std::vector<std::string>* dim_names) {
-  auto tensor = static_cast<const flatbuf::Tensor*>(opaque_tensor);
+  auto message = flatbuf::GetMessage(metadata.data());
+  auto tensor = reinterpret_cast<const flatbuf::Tensor*>(message->header());
 
   int ndim = static_cast<int>(tensor->shape()->size());
 
@@ -1006,8 +1069,27 @@ Status GetTensorMetadata(const void* opaque_tensor, std::shared_ptr<DataType>* t
 // ----------------------------------------------------------------------
 // Read and write messages
 
+static Status ReadFullMessage(const std::shared_ptr<Buffer>& metadata,
+    io::InputStream* stream, std::unique_ptr<Message>* message) {
+  auto fb_message = flatbuf::GetMessage(metadata->data());
+
+  int64_t body_length = fb_message->bodyLength();
+
+  std::shared_ptr<Buffer> body;
+  RETURN_NOT_OK(stream->Read(body_length, &body));
+
+  if (body->size() < body_length) {
+    std::stringstream ss;
+    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
+       << body->size();
+    return Status::IOError(ss.str());
+  }
+
+  return Message::Open(metadata, body, message);
+}
+
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-    std::shared_ptr<Message>* message) {
+    std::unique_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
 
@@ -1019,13 +1101,15 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
        << ", metadata length: " << metadata_length;
     return Status::Invalid(ss.str());
   }
-  return Message::Open(buffer, 4, message);
+
+  auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
+  return ReadFullMessage(metadata, file, message);
 }
 
-Status ReadMessage(io::InputStream* file, std::shared_ptr<Message>* message) {
+Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
 
+  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
   if (buffer->size() != sizeof(int32_t)) {
     *message = nullptr;
     return Status::OK();
@@ -1044,8 +1128,20 @@ Status ReadMessage(io::InputStream* file, std::shared_ptr<Message>* message) {
     return Status::IOError("Unexpected end of stream trying to read message");
   }
 
-  return Message::Open(buffer, 0, message);
+  return ReadFullMessage(buffer, file, message);
 }
+
+// ----------------------------------------------------------------------
+// Implement InputStream message reader
+
+Status InputStreamMessageReader::ReadNextMessage(std::unique_ptr<Message>* message) {
+  return ReadMessage(stream_.get(), message);
+}
+
+InputStreamMessageReader::~InputStreamMessageReader() {}
+
+// ----------------------------------------------------------------------
+// Implement message writing
 
 Status WriteMessage(
     const Buffer& message, io::OutputStream* file, int32_t* message_length) {

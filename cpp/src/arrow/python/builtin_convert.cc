@@ -477,9 +477,8 @@ class FixedWidthBytesConverter
   inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length =
-        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
-            ->byte_width();
+    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
+        typed_builder_->type())->byte_width();
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
       return Status::OK();
