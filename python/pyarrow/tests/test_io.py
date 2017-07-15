@@ -160,6 +160,16 @@ def test_buffer_bytearray():
     assert result == val
 
 
+def test_buffer_numpy():
+    # Make sure creating a numpy array from an arrow buffer works
+    byte_array = bytearray(20)
+    byte_array[0] = 42
+    buf = pa.frombuffer(byte_array)
+    array = np.frombuffer(buf, dtype="uint8")
+    assert array[0] == byte_array[0]
+    assert array.base == buf
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
