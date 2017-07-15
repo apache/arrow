@@ -531,7 +531,7 @@ Status PandasConverter::ConvertDates() {
   }
 
   BuilderType date_builder(pool_);
-  RETURN_NOT_OK(date_builder.Reserve(length_));
+  RETURN_NOT_OK(date_builder.Resize(length_));
 
   /// We have to run this in this compilation unit, since we cannot use the
   /// datetime API otherwise
@@ -582,7 +582,7 @@ Status PandasConverter::ConvertDecimals() {
 
   const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
   DecimalBuilder decimal_builder(pool_, type_);
-  RETURN_NOT_OK(decimal_builder.Reserve(length_));
+  RETURN_NOT_OK(decimal_builder.Resize(length_));
 
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
@@ -612,7 +612,7 @@ Status PandasConverter::ConvertTimes() {
 
   // datetime.time stores microsecond resolution
   Time64Builder builder(pool_, ::arrow::time64(TimeUnit::MICRO));
-  RETURN_NOT_OK(builder.Reserve(length_));
+  RETURN_NOT_OK(builder.Resize(length_));
 
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
@@ -637,7 +637,7 @@ Status PandasConverter::ConvertObjectStrings() {
   // and unicode mixed in the object array
 
   StringBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Reserve(length_));
+  RETURN_NOT_OK(builder.Resize(length_));
 
   Status s;
   bool have_bytes = false;
@@ -656,7 +656,7 @@ Status PandasConverter::ConvertObjectFloats() {
   PyAcquireGIL lock;
 
   DoubleBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Reserve(length_));
+  RETURN_NOT_OK(builder.Resize(length_));
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
@@ -688,7 +688,7 @@ Status PandasConverter::ConvertObjectIntegers() {
   PyAcquireGIL lock;
 
   Int64Builder builder(pool_);
-  RETURN_NOT_OK(builder.Reserve(length_));
+  RETURN_NOT_OK(builder.Resize(length_));
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
@@ -725,7 +725,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
   int32_t value_size = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   FixedSizeBinaryBuilder builder(pool_, type);
-  RETURN_NOT_OK(builder.Reserve(length_));
+  RETURN_NOT_OK(builder.Resize(length_));
   RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, value_size, &builder));
   RETURN_NOT_OK(builder.Finish(&out_));
   return Status::OK();
@@ -808,6 +808,34 @@ static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
             break;
         }
         RETURN_NOT_OK(DecimalFromString(Decimal, s, out_values++));
+      }
+    }
+  }
+
+  return Status::OK();
+}
+
+template <typename TYPE>
+static Status ConvertTimes(const ChunkedArray& data, PyObject** out_values) {
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+
+  PyAcquireGIL lock;
+  OwnedRef time_ref;
+
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = static_cast<const ArrayType&>(*data.chunk(c));
+    auto type = std::dynamic_pointer_cast<TYPE>(arr.type());
+    DCHECK(type);
+
+    const TimeUnit::type unit = type->unit();
+
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values++ = Py_None;
+      } else {
+        RETURN_NOT_OK(PyTime_from_int(arr.Value(i), unit, out_values++));
+        RETURN_IF_PYERROR();
       }
     }
   }
@@ -1623,6 +1651,10 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertBinaryLike<StringType>(data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
       RETURN_NOT_OK(ConvertFixedSizeBinary(data, out_buffer));
+    } else if (type == Type::TIME32) {
+      RETURN_NOT_OK(ConvertTimes<Time32Type>(data, out_buffer));
+    } else if (type == Type::TIME64) {
+      RETURN_NOT_OK(ConvertTimes<Time64Type>(data, out_buffer));
     } else if (type == Type::DECIMAL) {
       RETURN_NOT_OK(ConvertDecimals(data, out_buffer));
     } else if (type == Type::NA) {
@@ -2076,15 +2108,14 @@ class DataFrameBlockCreator {
         case Type::DOUBLE:
           output_type = PandasBlock::DOUBLE;
           break;
+        case Type::NA:
         case Type::STRING:
         case Type::BINARY:
         case Type::FIXED_SIZE_BINARY:
+        case Type::STRUCT:
         case Type::TIME32:
         case Type::TIME64:
         case Type::DECIMAL:
-        case Type::NA:
-        case Type::STRUCT:
-          output_type = PandasBlock::OBJECT;
           output_type = PandasBlock::OBJECT;
           break;
         case Type::DATE32:
@@ -2409,40 +2440,45 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  // Boolean specialization
-  Status Visit(const BooleanType& type) {
-    if (data_.null_count() > 0) {
-      RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-      auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-      RETURN_NOT_OK(ConvertBooleanWithNulls(data_, out_values));
-    } else {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<Type::BOOL>::npy_type));
-      auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(arr_));
-      ConvertBooleanNoNulls(data_, out_values);
-    }
-    return Status::OK();
+  template <typename FUNCTOR>
+  inline Status VisitObjects(FUNCTOR func) {
+    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
+    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+    return func(data_, out_values);
   }
 
   // UTF8 strings
   template <typename Type>
   typename std::enable_if<std::is_base_of<BinaryType, Type>::value, Status>::type Visit(
       const Type& type) {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertBinaryLike<Type>(data_, out_values);
+    return VisitObjects(ConvertBinaryLike<Type>);
   }
+
+  Status Visit(const NullType& type) { return VisitObjects(ConvertNulls); }
 
   // Fixed length binary strings
   Status Visit(const FixedSizeBinaryType& type) {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertFixedSizeBinary(data_, out_values);
+    return VisitObjects(ConvertFixedSizeBinary);
   }
 
-  Status Visit(const DecimalType& type) {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertDecimals(data_, out_values);
+  Status Visit(const DecimalType& type) { return VisitObjects(ConvertDecimals); }
+
+  Status Visit(const Time32Type& type) { return VisitObjects(ConvertTimes<Time32Type>); }
+
+  Status Visit(const Time64Type& type) { return VisitObjects(ConvertTimes<Time64Type>); }
+
+  Status Visit(const StructType& type) { return VisitObjects(ConvertStruct); }
+
+  // Boolean specialization
+  Status Visit(const BooleanType& type) {
+    if (data_.null_count() > 0) {
+      return VisitObjects(ConvertBooleanWithNulls);
+    } else {
+      RETURN_NOT_OK(AllocateOutput(arrow_traits<Type::BOOL>::npy_type));
+      auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(arr_));
+      ConvertBooleanNoNulls(data_, out_values);
+    }
+    return Status::OK();
   }
 
   Status Visit(const ListType& type) {
@@ -2500,18 +2536,6 @@ class ArrowDeserializer {
     PyDict_SetItemString(result_, "dictionary", dictionary);
 
     return Status::OK();
-  }
-
-  Status Visit(const NullType& type) {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertNulls(data_, out_values);
-  }
-
-  Status Visit(const StructType& type) {
-    RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
-    auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return ConvertStruct(data_, out_values);
   }
 
   Status Visit(const UnionType& type) { return Status::NotImplemented("union type"); }

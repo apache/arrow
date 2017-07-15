@@ -933,9 +933,7 @@ const void* Message::header() const {
 bool Message::Equals(const Message& other) const {
   int64_t metadata_bytes = std::min(metadata()->size(), other.metadata()->size());
 
-  if (!metadata()->Equals(*other.metadata(), metadata_bytes)) {
-    return false;
-  }
+  if (!metadata()->Equals(*other.metadata(), metadata_bytes)) { return false; }
 
   // Compare bodies, if they have them
   auto this_body = body();

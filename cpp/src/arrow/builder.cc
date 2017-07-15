@@ -984,16 +984,17 @@ Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
 
 ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(
-          pool, type ? type : std::static_pointer_cast<DataType>(
-                                  std::make_shared<ListType>(value_builder->type()))),
+    : ArrayBuilder(pool,
+          type ? type : std::static_pointer_cast<DataType>(
+                            std::make_shared<ListType>(value_builder->type()))),
       offset_builder_(pool),
       value_builder_(std::move(value_builder)) {}
 
 ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool, type ? type : std::static_pointer_cast<DataType>(
-                                           std::make_shared<ListType>(values->type()))),
+    : ArrayBuilder(pool,
+          type ? type : std::static_pointer_cast<DataType>(
+                            std::make_shared<ListType>(values->type()))),
       offset_builder_(pool),
       values_(values) {}
 

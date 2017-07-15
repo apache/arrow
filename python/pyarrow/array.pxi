@@ -113,7 +113,7 @@ cdef class Array:
         series : pandas.Series or numpy.ndarray
 
         mask : pandas.Series or numpy.ndarray, optional
-            boolean mask if the object is valid (True) or null (False)
+            boolean mask if the object is null (True) or valid (False)
 
         type : pyarrow.DataType
             Explicit type to attempt to coerce to

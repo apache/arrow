@@ -688,10 +688,12 @@ class TestPandasConversion(unittest.TestCase):
                    datetime.time(4, 5, 6, 1356),
                    datetime.time(0, 0, 0)]
 
-        expected = np.array(pytimes + [None])
-        expected_ms = np.array([x.replace(microsecond=1000) for x in pytimes] +
+        expected = np.array(pytimes[:2] + [None])
+        expected_ms = np.array([x.replace(microsecond=1000)
+                                for x in pytimes[:2]] +
                                [None])
-        expected_s = np.array([x.replace(microsecond=0) for x in pytimes] +
+        expected_s = np.array([x.replace(microsecond=0)
+                               for x in pytimes[:2]] +
                               [None])
 
         arr = np.array([_pytime_to_micros(v) for v in pytimes],
@@ -699,13 +701,15 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([_pytime_to_micros(v) for v in pytimes],
                        dtype='int64')
 
-        mask = np.array([True, True, False], dtype=bool)
+        null_mask = np.array([False, False, True], dtype=bool)
 
-        a1 = pa.Array.from_pandas(arr, mask=mask, type=pa.time64('us'))
-        a2 = pa.Array.from_pandas(arr * 1000, mask=mask, type=pa.time64('ns'))
-        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'), mask=mask,
+        a1 = pa.Array.from_pandas(arr, mask=null_mask, type=pa.time64('us'))
+        a2 = pa.Array.from_pandas(arr * 1000, mask=null_mask,
+                                  type=pa.time64('ns'))
+
+        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'), mask=null_mask,
                                   type=pa.time32('ms'))
-        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'), mask=mask,
+        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'), mask=null_mask,
                                   type=pa.time32('s'))
 
         names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
