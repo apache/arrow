@@ -584,7 +584,9 @@ if (ARROW_WITH_ZSTD)
   SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
+if (ARROW_STATIC_LINK_LIBS)
+  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
+endif()
 
 set(ARROW_MIN_TEST_LIBS
   arrow_static
