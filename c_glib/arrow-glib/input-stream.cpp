@@ -561,7 +561,7 @@ garrow_gio_input_stream_new(GInputStream *gio_input_stream)
 }
 
 /**
- * garrow_gio_input_stream_get_gio_input_stream:
+ * garrow_gio_input_stream_get_raw:
  * @input_stream: A #GArrowGIOInputStream.
  *
  * Returns: (transfer none): The wrapped #GInputStream.
@@ -569,7 +569,7 @@ garrow_gio_input_stream_new(GInputStream *gio_input_stream)
  * Since: 0.5.0
  */
 GInputStream *
-garrow_gio_input_stream_get_gio_input_stream(GArrowGIOInputStream *input_stream)
+garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream)
 {
   auto arrow_input_stream =
     garrow_input_stream_get_raw(GARROW_INPUT_STREAM(input_stream));

@@ -279,6 +279,6 @@ struct _GArrowGIOInputStreamClass
 GType garrow_gio_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowGIOInputStream *garrow_gio_input_stream_new(GInputStream *gio_input_stream);
-GInputStream *garrow_gio_input_stream_get_gio_input_stream(GArrowGIOInputStream *input_stream);
+GInputStream *garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
 
 G_END_DECLS
