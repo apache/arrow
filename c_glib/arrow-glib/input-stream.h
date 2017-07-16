@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <gio/gio.h>
+
 #include <arrow-glib/buffer.h>
 #include <arrow-glib/tensor.h>
 
@@ -228,5 +230,55 @@ GType garrow_memory_mapped_input_stream_get_type(void) G_GNUC_CONST;
 
 GArrowMemoryMappedInputStream *garrow_memory_mapped_input_stream_new(const gchar *path,
                                                                      GError **error);
+
+
+#define GARROW_TYPE_GIO_INPUT_STREAM            \
+  (garrow_gio_input_stream_get_type())
+#define GARROW_GIO_INPUT_STREAM(obj)                            \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_GIO_INPUT_STREAM,     \
+                              GArrowGIOInputStream))
+#define GARROW_GIO_INPUT_STREAM_CLASS(klass)                    \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_GIO_INPUT_STREAM,        \
+                           GArrowGIOInputStreamClass))
+#define GARROW_IS_GIO_INPUT_STREAM(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_GIO_INPUT_STREAM))
+#define GARROW_IS_GIO_INPUT_STREAM_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_GIO_INPUT_STREAM))
+#define GARROW_GIO_INPUT_STREAM_GET_CLASS(obj)                  \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_GIO_INPUT_STREAM,      \
+                             GArrowGIOInputStreamClass))
+
+typedef struct _GArrowGIOInputStream         GArrowGIOInputStream;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowGIOInputStreamClass    GArrowGIOInputStreamClass;
+#endif
+
+/**
+ * GArrowGIOInputStream:
+ *
+ * It's an input stream for `GInputStream`.
+ */
+struct _GArrowGIOInputStream
+{
+  /*< private >*/
+  GArrowSeekableInputStream parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowGIOInputStreamClass
+{
+  GArrowSeekableInputStreamClass parent_class;
+};
+#endif
+
+GType garrow_gio_input_stream_get_type(void) G_GNUC_CONST;
+
+GArrowGIOInputStream *garrow_gio_input_stream_new(GInputStream *gio_input_stream);
+GInputStream *garrow_gio_input_stream_get_gio_input_stream(GArrowGIOInputStream *input_stream);
 
 G_END_DECLS

@@ -32,6 +32,9 @@
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/tensor.hpp>
 
+#include <iostream>
+#include <sstream>
+
 G_BEGIN_DECLS
 
 /**
@@ -370,6 +373,210 @@ garrow_memory_mapped_input_stream_new(const gchar *path,
     garrow_error_check(error, status, context.c_str());
     return NULL;
   }
+}
+
+
+G_END_DECLS
+
+namespace garrow {
+  class GIOInputStream : public arrow::io::RandomAccessFile {
+  public:
+    GIOInputStream(GInputStream *input_stream) :
+      input_stream_(input_stream) {
+      g_object_ref(input_stream_);
+    }
+
+    ~GIOInputStream() {
+      g_object_unref(input_stream_);
+    }
+
+    GInputStream *get_input_stream() {
+      return input_stream_;
+    }
+
+    arrow::Status Close() override {
+      GError *error = NULL;
+      if (g_input_stream_close(input_stream_, NULL, &error)) {
+        return arrow::Status::OK();
+      } else {
+        return io_error_to_status(error, "[gio-input-stream][close]");
+      }
+    }
+
+    arrow::Status Tell(int64_t *position) override {
+      if (!G_IS_SEEKABLE(input_stream_)) {
+        std::string message("[gio-input-stream][tell] "
+                            "not seekable input stream: <");
+        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));
+        message += ">";
+        return arrow::Status::NotImplemented(message);
+      }
+
+      *position = g_seekable_tell(G_SEEKABLE(input_stream_));
+      return arrow::Status::OK();
+    }
+
+    arrow::Status Read(int64_t n_bytes,
+                       int64_t *n_read_bytes,
+                       uint8_t *out) override {
+      GError *error = NULL;
+      *n_read_bytes = g_input_stream_read(input_stream_,
+                                          out,
+                                          n_bytes,
+                                          NULL,
+                                          &error);
+      if (*n_read_bytes == -1) {
+        return io_error_to_status(error, "[gio-input-stream][read]");
+      } else {
+        return arrow::Status::OK();
+      }
+    }
+
+    arrow::Status Read(int64_t n_bytes,
+                       std::shared_ptr<arrow::Buffer> *out) override {
+      arrow::MemoryPool *pool = arrow::default_memory_pool();
+      std::shared_ptr<arrow::ResizableBuffer> buffer;
+      ARROW_RETURN_NOT_OK(AllocateResizableBuffer(pool, n_bytes, &buffer));
+
+      GError *error = NULL;
+      auto n_read_bytes = g_input_stream_read(input_stream_,
+                                              buffer->mutable_data(),
+                                              n_bytes,
+                                              NULL,
+                                              &error);
+      if (n_read_bytes == -1) {
+        return io_error_to_status(error, "[gio-input-stream][read][buffer]");
+      } else {
+        if (n_read_bytes < n_bytes) {
+          ARROW_RETURN_NOT_OK(buffer->Resize(n_read_bytes));
+        }
+        *out = buffer;
+        return arrow::Status::OK();
+      }
+    }
+
+    arrow::Status Seek(int64_t position) override {
+      if (!G_IS_SEEKABLE(input_stream_)) {
+        std::string message("[gio-input-stream][seek] "
+                            "not seekable input stream: <");
+        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));
+        message += ">";
+        return arrow::Status::NotImplemented(message);
+      }
+
+      GError *error = NULL;
+      if (g_seekable_seek(G_SEEKABLE(input_stream_),
+                          position,
+                          G_SEEK_SET,
+                          NULL,
+                          &error)) {
+        return arrow::Status::OK();
+      } else {
+        return io_error_to_status(error, "[gio-input-stream][seek]");
+      }
+    }
+
+    arrow::Status GetSize(int64_t *size) override {
+      if (!G_IS_SEEKABLE(input_stream_)) {
+        std::string message("[gio-input-stream][size] "
+                            "not seekable input stream: <");
+        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(input_stream_));
+        message += ">";
+        return arrow::Status::NotImplemented(message);
+      }
+
+      auto current_position = g_seekable_tell(G_SEEKABLE(input_stream_));
+      GError *error = NULL;
+      if (!g_seekable_seek(G_SEEKABLE(input_stream_),
+                           0,
+                           G_SEEK_END,
+                           NULL,
+                           &error)) {
+        return io_error_to_status(error, "[gio-input-stream][size][seek]");
+      }
+      *size = g_seekable_tell(G_SEEKABLE(input_stream_));
+      if (!g_seekable_seek(G_SEEKABLE(input_stream_),
+                           current_position,
+                           G_SEEK_SET,
+                           NULL,
+                           &error)) {
+        return io_error_to_status(error,
+                                  "[gio-input-stream][size][seek][restore]");
+      }
+      return arrow::Status::OK();
+    }
+
+    bool supports_zero_copy() const override {
+      return false;
+    }
+
+  private:
+    GInputStream *input_stream_;
+
+    arrow::Status io_error_to_status(GError *error, const char *context) {
+      std::stringstream message;
+      message << context << ": " << g_quark_to_string(error->domain);
+      message << "(" << error->code << "): ";
+      message << error->message;
+      g_error_free(error);
+      return arrow::Status::IOError(message.str());
+    }
+  };
+};
+
+G_BEGIN_DECLS
+
+G_DEFINE_TYPE(GArrowGIOInputStream,                \
+              garrow_gio_input_stream,             \
+              GARROW_TYPE_SEEKABLE_INPUT_STREAM);
+
+static void
+garrow_gio_input_stream_init(GArrowGIOInputStream *object)
+{
+}
+
+static void
+garrow_gio_input_stream_class_init(GArrowGIOInputStreamClass *klass)
+{
+}
+
+/**
+ * garrow_gio_input_stream_new:
+ * @gio_input_stream: The stream to be read.
+ *
+ * Returns: A newly created #GArrowGIOInputStream.
+ *
+ * Since: 0.5.0
+ */
+GArrowGIOInputStream *
+garrow_gio_input_stream_new(GInputStream *gio_input_stream)
+{
+  auto arrow_input_stream =
+    std::make_shared<garrow::GIOInputStream>(gio_input_stream);
+  auto object = g_object_new(GARROW_TYPE_GIO_INPUT_STREAM,
+                             "input-stream", &arrow_input_stream,
+                             NULL);
+  auto input_stream = GARROW_GIO_INPUT_STREAM(object);
+  return input_stream;
+}
+
+/**
+ * garrow_gio_input_stream_get_gio_input_stream:
+ * @input_stream: A #GArrowGIOInputStream.
+ *
+ * Returns: (transfer none): The wrapped #GInputStream.
+ *
+ * Since: 0.5.0
+ */
+GInputStream *
+garrow_gio_input_stream_get_gio_input_stream(GArrowGIOInputStream *input_stream)
+{
+  auto arrow_input_stream =
+    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(input_stream));
+  auto arrow_gio_input_stream =
+    std::static_pointer_cast<garrow::GIOInputStream>(arrow_input_stream);
+  auto gio_input_stream = arrow_gio_input_stream->get_input_stream();
+  return gio_input_stream;
 }
 
 
