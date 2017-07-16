@@ -33,7 +33,7 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
 
 static inline Status PyTime_from_int(
     int64_t val, const TimeUnit::type unit, PyObject** out) {
-  int32_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   switch (unit) {
     case TimeUnit::NANO:
       if (val % 1000 != 0) {
@@ -64,7 +64,8 @@ static inline Status PyTime_from_int(
     default:
       break;
   }
-  *out = PyTime_FromTime(hour, minute, second, microsecond);
+  *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
+      static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
   return Status::OK();
 }
 
