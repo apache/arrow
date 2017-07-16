@@ -55,7 +55,7 @@ Series
 
 In Arrow, the most similar structure to a pandas Series is an Array.
 It is a vector that contains data of the same type as linear memory. You can
-convert a pandas Series to an Arrow Array using :meth:`pyarrow.array.from_pandas_series`.
+convert a pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
 
