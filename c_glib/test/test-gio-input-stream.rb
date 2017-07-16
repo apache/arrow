@@ -48,6 +48,6 @@ class TestGIOInputStream < Test::Unit::TestCase
   def test_getter
     input_stream = Gio::MemoryInputStream.new("Hello")
     input = Arrow::GIOInputStream.new(input_stream)
-    assert_equal(input_stream, input.gio_input_stream)
+    assert_equal(input_stream, input.raw)
   end
 end
