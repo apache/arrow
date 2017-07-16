@@ -67,7 +67,6 @@ Scalar Value Types
    :toctree: generated/
 
    NA
-   NAType
    Scalar
    ArrayValue
    BooleanValue
@@ -210,12 +209,6 @@ Type Classes
    :toctree: generated/
 
    DataType
-   DecimalType
-   DictionaryType
-   FixedSizeBinaryType
-   Time32Type
-   Time64Type
-   TimestampType
    Field
    Schema
 

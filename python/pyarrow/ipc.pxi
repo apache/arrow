@@ -16,6 +16,9 @@
 # under the License.
 
 cdef class Message:
+    """
+    Container for an Arrow IPC message with metadata and optional body
+    """
     cdef:
         unique_ptr[CMessage] message
 
@@ -100,6 +103,10 @@ body length: {2}""".format(self.type, metadata_len, body_len)
 
 
 cdef class MessageReader:
+    """
+    Interface for reading Message objects from some source (like an
+    InputStream)
+    """
     cdef:
         unique_ptr[CMessageReader] reader
 

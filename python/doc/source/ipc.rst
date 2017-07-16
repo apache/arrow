@@ -136,3 +136,15 @@ batches in the file, and can read any at random:
    reader.num_record_batches
    b = reader.get_batch(3)
    b.equals(batch)
+
+Reading from Stream and File Format for pandas
+----------------------------------------------
+
+The stream and file reader classes have a special ``read_pandas`` method to
+simplify reading multiple record batches and converting them to a single
+DataFrame output:
+
+.. ipython:: python
+
+   df = pa.open_file(buf).read_pandas()
+   df
