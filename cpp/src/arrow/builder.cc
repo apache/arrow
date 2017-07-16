@@ -999,7 +999,7 @@ Status ListBuilder::Append(
 
 Status ListBuilder::AppendNextOffset() {
   int64_t num_values = value_builder_->length();
-  if (ARROW_PREDICT_FALSE(num_values > std::numeric_limits<int32_t>::max())) {
+  if (ARROW_PREDICT_FALSE(num_values >= std::numeric_limits<int32_t>::max())) {
     std::stringstream ss;
     ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
        << " have " << num_values;

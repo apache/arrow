@@ -594,7 +594,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<int32_t> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
-  static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max();
+  static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max() - 1;
 
   Status AppendNextOffset();
   Status FinishInternal(std::shared_ptr<internal::ArrayData>* out);
