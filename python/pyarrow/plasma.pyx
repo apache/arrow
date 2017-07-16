@@ -24,10 +24,14 @@ from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from cpython.pycapsule cimport *
 
 from pyarrow.lib cimport Buffer, MutableBuffer, NativeFile, check_status
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
                                         CFixedSizeBufferWrite, CStatus)
+
+
+PLASMA_WAIT_TIMEOUT = 2 ** 30
 
 
 cdef class FixedSizeBufferOutputStream(NativeFile):
@@ -52,10 +56,21 @@ cdef extern from "plasma/common.h" nogil:
 
         c_string binary() const
 
+    cdef struct CObjectRequest" plasma::ObjectRequest":
+        CUniqueID object_id
+        int type
+        int status
+
 
 cdef extern from "plasma/common.h":
     cdef int64_t kDigestSize" plasma::kDigestSize"
 
+    cdef enum ObjectRequestType:
+        PLASMA_QUERY_LOCAL"plasma::PLASMA_QUERY_LOCAL",
+        PLASMA_QUERY_ANYWHERE"plasma::PLASMA_QUERY_ANYWHERE"
+
+    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal";
+    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote";
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -90,6 +105,11 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Disconnect()
 
+        CStatus Fetch(int num_object_ids, const CUniqueID* object_ids)
+
+        CStatus Wait(int64_t num_object_requests, CObjectRequest* object_requests,
+           int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
+
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -117,11 +137,17 @@ cdef class ObjectID:
             raise ValueError("operation != 2 (only equality is supported)")
         return self.data == object_id.data
 
+    def __hash__(self):
+        return hash(self.data.binary())
+
     def __repr__(self):
         return "ObjectID(" + self.data.hex().decode() + ")"
 
     def __reduce__(self):
         return (make_object_id, (self.data.binary(),))
+
+    def binary(self):
+        return self.data.binary()
 
 
 cdef class PlasmaBuffer(Buffer):
@@ -422,6 +448,69 @@ cdef class PlasmaClient:
             check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
         return num_bytes_evicted
 
+    def fetch(self, object_ids):
+        """
+        Fetch the objects with the given IDs from other plasma managers.
+
+        Parameters
+        ----------
+        object_ids : list
+            A list of strings used to identify the objects.
+        """
+        cdef c_vector[CUniqueID] ids
+        cdef ObjectID object_id
+        for object_id in object_ids:
+            ids.push_back(object_id.data)
+        with nogil:
+            check_status(self.client.get().Fetch(ids.size(), ids.data()))
+
+    def wait(self, object_ids, int64_t timeout=PLASMA_WAIT_TIMEOUT, int num_returns=1):
+        """
+        Wait until num_returns objects in object_ids are ready.
+        Currently, the object ID arguments to wait must be unique.
+
+        Parameters
+        ----------
+        object_ids : list
+            List of object IDs to wait for.
+        timeout :int
+            Return to the caller after timeout milliseconds.
+        num_returns : int
+            We are waiting for this number of objects to be ready.
+
+        Returns
+        -------
+        list
+            List of object IDs that are ready.
+        list
+            List of object IDs we might still wait on.
+        """
+        # Check that the object ID arguments are unique. The plasma manager
+        # currently crashes if given duplicate object IDs.
+        if len(object_ids) != len(set(object_ids)):
+            raise Exception("Wait requires a list of unique object IDs.")
+        cdef int64_t num_object_requests = len(object_ids)
+        cdef c_vector[CObjectRequest] object_requests = c_vector[CObjectRequest](num_object_requests)
+        cdef int num_objects_ready = 0
+        cdef ObjectID object_id
+        for i, object_id in enumerate(object_ids):
+            object_requests[i].object_id = object_id.data
+            object_requests[i].type = PLASMA_QUERY_ANYWHERE
+        with nogil:
+            check_status(self.client.get().Wait(num_object_requests, object_requests.data(), num_returns, timeout, &num_objects_ready))
+        cdef int num_to_return = min(num_objects_ready, num_returns);
+        ready_ids = []
+        waiting_ids = set(object_ids)
+        cdef int num_returned = 0
+        for i in range(len(object_ids)):
+            if num_returned == num_to_return:
+                break
+            if object_requests[i].status == ObjectStatusLocal or object_requests[i].status == ObjectStatusRemote:
+                ready_ids.append(ObjectID(object_requests[i].object_id.binary()))
+                waiting_ids.discard(ObjectID(object_requests[i].object_id.binary()))
+                num_returned += 1
+        return ready_ids, list(waiting_ids)
+
     def subscribe(self):
         """Subscribe to notifications about sealed objects."""
         with nogil:
@@ -449,6 +538,9 @@ cdef class PlasmaClient:
                                                            &data_size,
                                                            &metadata_size))
         return object_id, data_size, metadata_size
+
+    def to_capsule(self):
+        return PyCapsule_New(<void *>self.client.get(), "plasma", NULL)
 
     def disconnect(self):
         """

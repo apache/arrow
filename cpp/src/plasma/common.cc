@@ -84,4 +84,7 @@ Status plasma_error_status(int plasma_error) {
   return Status::OK();
 }
 
+ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
+ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
+
 } // namespace plasma

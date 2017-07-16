@@ -320,6 +320,10 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Release(const ObjectID& object_id) {
+  // If the client is already disconnected, ignore release requests.
+  if (store_conn_ < 0) {
+    return Status::OK();
+  }
   // Add the new object to the release history.
   release_history_.push_front(object_id);
   // If there are too many bytes in use by the client or if there are too many
@@ -525,7 +529,11 @@ Status PlasmaClient::Disconnect() {
   // Close the connections to Plasma. The Plasma store will release the objects
   // that were in use by us when handling the SIGPIPE.
   close(store_conn_);
-  if (manager_conn_ >= 0) { close(manager_conn_); }
+  store_conn_ = -1;
+  if (manager_conn_ >= 0) {
+    close(manager_conn_);
+    manager_conn_ = -1;
+  }
   return Status::OK();
 }
 
