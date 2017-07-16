@@ -290,19 +290,23 @@ template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int num_threads,
-    int64_t row_group_size, std::shared_ptr<Buffer>* out) {
+    int64_t row_group_size,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+    std::shared_ptr<Buffer>* out) {
   auto sink = std::make_shared<InMemoryOutputStream>();
 
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-      row_group_size, default_writer_properties()));
+      row_group_size, default_writer_properties(), arrow_properties));
   *out = sink->GetBuffer();
 }
 
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
     int64_t row_group_size, const std::vector<int>& column_subset,
-    std::shared_ptr<Table>* out) {
+    std::shared_ptr<Table>* out,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+        default_arrow_writer_properties()) {
   std::shared_ptr<Buffer> buffer;
-  WriteTableToBuffer(table, num_threads, row_group_size, &buffer);
+  WriteTableToBuffer(table, num_threads, row_group_size, arrow_properties, &buffer);
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(
@@ -919,7 +923,7 @@ TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
   this->CheckSingleColumnRequiredTableRead(4);
 }
 
-void MakeDateTimeTypesTable(std::shared_ptr<Table>* out) {
+void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool nanos_as_micros = false) {
   using ::arrow::ArrayFromVector;
 
   std::vector<bool> is_valid = {true, true, true, false, true, true};
@@ -928,26 +932,41 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out) {
   auto f0 = field("f0", ::arrow::date32());
   auto f1 = field("f1", ::arrow::timestamp(TimeUnit::MILLI));
   auto f2 = field("f2", ::arrow::timestamp(TimeUnit::MICRO));
-  auto f3 = field("f3", ::arrow::time32(TimeUnit::MILLI));
-  auto f4 = field("f4", ::arrow::time64(TimeUnit::MICRO));
-  std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1, f2, f3, f4}));
+  std::shared_ptr<::arrow::Field> f3;
+  if (nanos_as_micros) {
+    f3 = field("f3", ::arrow::timestamp(TimeUnit::MICRO));
+  } else {
+    f3 = field("f3", ::arrow::timestamp(TimeUnit::NANO));
+  }
+  auto f4 = field("f4", ::arrow::time32(TimeUnit::MILLI));
+  auto f5 = field("f5", ::arrow::time64(TimeUnit::MICRO));
+  std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1, f2, f3, f4, f5}));
 
   std::vector<int32_t> t32_values = {
       1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
       1489272000000, 1489272000000, 1489273000000};
+  std::vector<int64_t> t64_us_values = {
+      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
 
-  std::shared_ptr<Array> a0, a1, a2, a3, a4;
+  std::shared_ptr<Array> a0, a1, a2, a3, a4, a5;
   ArrayFromVector<::arrow::Date32Type, int32_t>(f0->type(), is_valid, t32_values, &a0);
   ArrayFromVector<::arrow::TimestampType, int64_t>(f1->type(), is_valid, t64_values, &a1);
   ArrayFromVector<::arrow::TimestampType, int64_t>(f2->type(), is_valid, t64_values, &a2);
-  ArrayFromVector<::arrow::Time32Type, int32_t>(f3->type(), is_valid, t32_values, &a3);
-  ArrayFromVector<::arrow::Time64Type, int64_t>(f4->type(), is_valid, t64_values, &a4);
+  if (nanos_as_micros) {
+    ArrayFromVector<::arrow::TimestampType, int64_t>(
+        f3->type(), is_valid, t64_us_values, &a3);
+  } else {
+    ArrayFromVector<::arrow::TimestampType, int64_t>(
+        f3->type(), is_valid, t64_values, &a3);
+  }
+  ArrayFromVector<::arrow::Time32Type, int32_t>(f4->type(), is_valid, t32_values, &a4);
+  ArrayFromVector<::arrow::Time64Type, int64_t>(f5->type(), is_valid, t64_values, &a5);
 
   std::vector<std::shared_ptr<::arrow::Column>> columns = {
       std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1),
       std::make_shared<Column>("f2", a2), std::make_shared<Column>("f3", a3),
-      std::make_shared<Column>("f4", a4)};
+      std::make_shared<Column>("f4", a4), std::make_shared<Column>("f5", a5)};
   *out = std::make_shared<::arrow::Table>(schema, columns);
 }
 
@@ -955,8 +974,17 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
   std::shared_ptr<Table> table;
   MakeDateTimeTypesTable(&table);
 
+  // Use deprecated INT96 type
   std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result,
+      ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build());
+
+  ASSERT_TRUE(table->Equals(*result));
+
+  // Cast nanaoseconds to microseconds and use INT64 physical type
   DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result);
+  std::shared_ptr<Table> expected;
+  MakeDateTimeTypesTable(&table, true);
 
   ASSERT_TRUE(table->Equals(*result));
 }
@@ -1050,7 +1078,7 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   MakeDoubleTable(num_columns, num_rows, 1, &table);
 
   std::shared_ptr<Buffer> buffer;
-  WriteTableToBuffer(table, 1, num_rows / 2, &buffer);
+  WriteTableToBuffer(table, 1, num_rows / 2, default_arrow_writer_properties(), &buffer);
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(
@@ -1448,6 +1476,15 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
 
 INSTANTIATE_TEST_CASE_P(Repetition_type, TestNestedSchemaRead,
     ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
+
+TEST(TestImpalaConversion, NanosecondToImpala) {
+  // June 20, 2017 16:32:56 and 123456789 nanoseconds
+  int64_t nanoseconds = INT64_C(1497976376123456789);
+  Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
+  Int96 calculated;
+  internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
+  ASSERT_EQ(expected, calculated);
+}
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   // PARQUET-995

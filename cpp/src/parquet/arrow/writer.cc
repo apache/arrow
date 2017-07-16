@@ -36,6 +36,7 @@ using arrow::Int16Array;
 using arrow::Int16Builder;
 using arrow::Field;
 using arrow::MemoryPool;
+using arrow::NumericArray;
 using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
 using arrow::ListArray;
@@ -51,6 +52,12 @@ namespace parquet {
 namespace arrow {
 
 namespace BitUtil = ::arrow::BitUtil;
+
+std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
+  static std::shared_ptr<ArrowWriterProperties> default_writer_properties =
+      ArrowWriterProperties::Builder().build();
+  return default_writer_properties;
+}
 
 class LevelBuilder {
  public:
@@ -241,12 +248,17 @@ Status LevelBuilder::VisitInline(const Array& array) {
 
 class FileWriter::Impl {
  public:
-  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer);
+  Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties);
 
   Status NewRowGroup(int64_t chunk_size);
   template <typename ParquetType, typename ArrowType>
   Status TypedWriteBatch(ColumnWriter* writer, const std::shared_ptr<Array>& data,
       int64_t num_levels, const int16_t* def_levels, const int16_t* rep_levels);
+
+  Status TypedWriteBatchConvertedNanos(ColumnWriter* writer,
+      const std::shared_ptr<Array>& data, int64_t num_levels, const int16_t* def_levels,
+      const int16_t* rep_levels);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNonNullableBatch(TypedColumnWriter<ParquetType>* writer,
@@ -274,13 +286,16 @@ class FileWriter::Impl {
   PoolBuffer data_buffer_;
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
+  std::shared_ptr<ArrowWriterProperties> arrow_properties_;
 };
 
-FileWriter::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
+FileWriter::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
     : pool_(pool),
       data_buffer_(pool),
       writer_(std::move(writer)),
-      row_group_writer_(nullptr) {}
+      row_group_writer_(nullptr),
+      arrow_properties_(arrow_properties) {}
 
 Status FileWriter::Impl::NewRowGroup(int64_t chunk_size) {
   if (row_group_writer_ != nullptr) { PARQUET_CATCH_NOT_OK(row_group_writer_->Close()); }
@@ -355,6 +370,25 @@ Status FileWriter::Impl::WriteNonNullableBatch<Int32Type, ::arrow::Time32Type>(
     }
   } else {
     std::copy(data_ptr, data_ptr + num_values, buffer_ptr);
+  }
+  PARQUET_CATCH_NOT_OK(
+      writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
+  return Status::OK();
+}
+
+template <>
+Status FileWriter::Impl::WriteNonNullableBatch<Int96Type, ::arrow::TimestampType>(
+    TypedColumnWriter<Int96Type>* writer, const ::arrow::TimestampType& type,
+    int64_t num_values, int64_t num_levels, const int16_t* def_levels,
+    const int16_t* rep_levels, const int64_t* data_ptr) {
+  RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(Int96)));
+  auto buffer_ptr = reinterpret_cast<Int96*>(data_buffer_.mutable_data());
+  if (type.unit() == TimeUnit::NANO) {
+    for (int i = 0; i < num_values; i++) {
+      internal::NanosecondsToImpalaTimestamp(data_ptr[i], buffer_ptr + i);
+    }
+  } else {
+    return Status::NotImplemented("Only NANO timestamps are supported for Int96 writing");
   }
   PARQUET_CATCH_NOT_OK(
       writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
@@ -455,6 +489,32 @@ Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Time32Type>(
   return Status::OK();
 }
 
+template <>
+Status FileWriter::Impl::WriteNullableBatch<Int96Type, ::arrow::TimestampType>(
+    TypedColumnWriter<Int96Type>* writer, const ::arrow::TimestampType& type,
+    int64_t num_values, int64_t num_levels, const int16_t* def_levels,
+    const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    const int64_t* data_ptr) {
+  RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(Int96)));
+  auto buffer_ptr = reinterpret_cast<Int96*>(data_buffer_.mutable_data());
+  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+
+  if (type.unit() == TimeUnit::NANO) {
+    for (int i = 0; i < num_values; i++) {
+      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+        internal::NanosecondsToImpalaTimestamp(data_ptr[i], buffer_ptr + i);
+      }
+      READ_NEXT_BITSET(valid_bits);
+    }
+  } else {
+    return Status::NotImplemented("Only NANO timestamps are supported for Int96 writing");
+  }
+  PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(
+      num_levels, def_levels, rep_levels, valid_bits, valid_bits_offset, buffer_ptr));
+
+  return Status::OK();
+}
+
 #define NULLABLE_BATCH_FAST_PATH(ParquetType, ArrowType, CType)                        \
   template <>                                                                          \
   Status FileWriter::Impl::WriteNullableBatch<ParquetType, ArrowType>(                 \
@@ -474,6 +534,40 @@ NULLABLE_BATCH_FAST_PATH(Int64Type, ::arrow::TimestampType, int64_t)
 NULLABLE_BATCH_FAST_PATH(Int64Type, ::arrow::Time64Type, int64_t)
 NULLABLE_BATCH_FAST_PATH(FloatType, ::arrow::FloatType, float)
 NULLABLE_BATCH_FAST_PATH(DoubleType, ::arrow::DoubleType, double)
+
+Status FileWriter::Impl::TypedWriteBatchConvertedNanos(ColumnWriter* column_writer,
+    const std::shared_ptr<Array>& array, int64_t num_levels, const int16_t* def_levels,
+    const int16_t* rep_levels) {
+  // Note that we can only use data_buffer_ here as we write timestamps with the fast
+  // path.
+  RETURN_NOT_OK(data_buffer_.Resize(array->length() * sizeof(int64_t)));
+  int64_t* data_buffer_ptr = reinterpret_cast<int64_t*>(data_buffer_.mutable_data());
+
+  auto data = static_cast<const NumericArray<::arrow::TimestampType>*>(array.get());
+  auto data_ptr = reinterpret_cast<const int64_t*>(data->values()->data());
+  auto writer = reinterpret_cast<TypedColumnWriter<Int64Type>*>(column_writer);
+
+  // Convert nanoseconds to microseconds
+  for (int64_t i = 0; i < array->length(); i++) {
+    data_buffer_ptr[i] = data_ptr[i] / 1000;
+  }
+
+  std::shared_ptr<::arrow::TimestampType> type =
+      std::static_pointer_cast<::arrow::TimestampType>(
+          ::arrow::timestamp(::arrow::TimeUnit::MICRO));
+  if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
+    // no nulls, just dump the data
+    RETURN_NOT_OK((WriteNonNullableBatch<Int64Type, ::arrow::TimestampType>(writer, *type,
+        array->length(), num_levels, def_levels, rep_levels, data_buffer_ptr)));
+  } else {
+    const uint8_t* valid_bits = data->null_bitmap_data();
+    RETURN_NOT_OK((WriteNullableBatch<Int64Type, ::arrow::TimestampType>(writer, *type,
+        array->length(), num_levels, def_levels, rep_levels, valid_bits, data->offset(),
+        data_buffer_ptr)));
+  }
+  PARQUET_CATCH_NOT_OK(writer->Close());
+  return Status::OK();
+}
 
 // This specialization seems quite similar but it significantly differs in two points:
 // * offset is added at the most latest time to the pointer as we have sub-byte access
@@ -645,6 +739,21 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
       }
     }
       WRITE_BATCH_CASE(NA, NullType, Int32Type)
+    case ::arrow::Type::TIMESTAMP: {
+      auto timestamp_type =
+          static_cast<::arrow::TimestampType*>(values_array->type().get());
+      if (timestamp_type->unit() == ::arrow::TimeUnit::NANO &&
+          arrow_properties_->support_deprecated_int96_timestamps()) {
+        return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(
+            column_writer, values_array, num_levels, def_levels, rep_levels);
+      } else if (timestamp_type->unit() == ::arrow::TimeUnit::NANO) {
+        return TypedWriteBatchConvertedNanos(
+            column_writer, values_array, num_levels, def_levels, rep_levels);
+      } else {
+        return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(
+            column_writer, values_array, num_levels, def_levels, rep_levels);
+      }
+    }
       WRITE_BATCH_CASE(BOOL, BooleanType, BooleanType)
       WRITE_BATCH_CASE(INT8, Int8Type, Int32Type)
       WRITE_BATCH_CASE(UINT8, UInt8Type, Int32Type)
@@ -660,7 +769,6 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
       WRITE_BATCH_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
       WRITE_BATCH_CASE(DATE32, Date32Type, Int32Type)
       WRITE_BATCH_CASE(DATE64, Date64Type, Int32Type)
-      WRITE_BATCH_CASE(TIMESTAMP, TimestampType, Int64Type)
       WRITE_BATCH_CASE(TIME32, Time32Type, Int32Type)
       WRITE_BATCH_CASE(TIME64, Time64Type, Int64Type)
     default:
@@ -688,22 +796,32 @@ MemoryPool* FileWriter::memory_pool() const {
 
 FileWriter::~FileWriter() {}
 
-FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer)
-    : impl_(new FileWriter::Impl(pool, std::move(writer))) {}
+FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties)
+    : impl_(new FileWriter::Impl(pool, std::move(writer), arrow_properties)) {}
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
     const std::shared_ptr<OutputStream>& sink,
     const std::shared_ptr<WriterProperties>& properties,
     std::unique_ptr<FileWriter>* writer) {
+  return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<OutputStream>& sink,
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+    std::unique_ptr<FileWriter>* writer) {
   std::shared_ptr<SchemaDescriptor> parquet_schema;
-  RETURN_NOT_OK(ToParquetSchema(&schema, *properties, &parquet_schema));
+  RETURN_NOT_OK(ToParquetSchema(&schema, *properties, &parquet_schema,
+      arrow_properties->support_deprecated_int96_timestamps()));
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
   std::unique_ptr<ParquetFileWriter> base_writer =
       ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
 
-  writer->reset(new FileWriter(pool, std::move(base_writer)));
+  writer->reset(new FileWriter(pool, std::move(base_writer), arrow_properties));
   return Status::OK();
 }
 
@@ -713,6 +831,15 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
     std::unique_ptr<FileWriter>* writer) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
   return Open(schema, pool, wrapper, properties, writer);
+}
+
+Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+    const std::shared_ptr<::arrow::io::OutputStream>& sink,
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+    std::unique_ptr<FileWriter>* writer) {
+  auto wrapper = std::make_shared<ArrowOutputStream>(sink);
+  return Open(schema, pool, wrapper, properties, arrow_properties, writer);
 }
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
@@ -742,18 +869,21 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
 
 Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
     const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties) {
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   std::unique_ptr<FileWriter> writer;
-  RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties, &writer));
+  RETURN_NOT_OK(FileWriter::Open(
+      *table.schema(), pool, sink, properties, arrow_properties, &writer));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
   return writer->Close();
 }
 
 Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties) {
+    const std::shared_ptr<WriterProperties>& properties,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  return WriteTable(table, pool, wrapper, chunk_size, properties);
+  return WriteTable(table, pool, wrapper, chunk_size, properties, arrow_properties);
 }
 
 }  // namespace arrow

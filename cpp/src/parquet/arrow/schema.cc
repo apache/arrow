@@ -381,11 +381,13 @@ Status FromParquetSchema(
 }
 
 Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,
-    bool nullable, const WriterProperties& properties, NodePtr* out) {
+    bool nullable, bool support_int96_nanoseconds, const WriterProperties& properties,
+    NodePtr* out) {
   Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   NodePtr element;
-  RETURN_NOT_OK(FieldToNode(type->value_field(), properties, &element));
+  RETURN_NOT_OK(
+      FieldToNode(type->value_field(), properties, &element, support_int96_nanoseconds));
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
   *out = GroupNode::Make(name, repetition, {list}, LogicalType::LIST);
@@ -393,13 +395,14 @@ Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::str
 }
 
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
-    const std::string& name, bool nullable, const WriterProperties& properties,
-    NodePtr* out) {
+    const std::string& name, bool nullable, bool support_int96_nanoseconds,
+    const WriterProperties& properties, NodePtr* out) {
   Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   std::vector<NodePtr> children(type->num_children());
   for (int i = 0; i < type->num_children(); i++) {
-    RETURN_NOT_OK(FieldToNode(type->child(i), properties, &children[i]));
+    RETURN_NOT_OK(
+        FieldToNode(type->child(i), properties, &children[i], support_int96_nanoseconds));
   }
 
   *out = GroupNode::Make(name, repetition, children);
@@ -407,7 +410,7 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
 }
 
 Status FieldToNode(const std::shared_ptr<Field>& field,
-    const WriterProperties& properties, NodePtr* out) {
+    const WriterProperties& properties, NodePtr* out, bool support_int96_nanoseconds) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
   Repetition::type repetition =
@@ -486,14 +489,24 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::TIMESTAMP: {
       auto timestamp_type = static_cast<::arrow::TimestampType*>(field->type().get());
       auto unit = timestamp_type->unit();
-      type = ParquetType::INT64;
       if (unit == ::arrow::TimeUnit::MILLI) {
+        type = ParquetType::INT64;
         logical_type = LogicalType::TIMESTAMP_MILLIS;
       } else if (unit == ::arrow::TimeUnit::MICRO) {
+        type = ParquetType::INT64;
         logical_type = LogicalType::TIMESTAMP_MICROS;
+      } else if (unit == ::arrow::TimeUnit::NANO) {
+        if (support_int96_nanoseconds) {
+          type = ParquetType::INT96;
+          // No corresponding logical type
+        } else {
+          type = ParquetType::INT64;
+          logical_type = LogicalType::TIMESTAMP_MICROS;
+        }
       } else {
         return Status::NotImplemented(
-            "Only MILLI and MICRO units supported for Arrow timestamps with Parquet.");
+            "Only MILLI, MICRO, and NANOS units supported for Arrow timestamps with "
+            "Parquet.");
       }
     } break;
     case ArrowType::TIME32:
@@ -510,11 +523,13 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     } break;
     case ArrowType::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
-      return StructToNode(struct_type, field->name(), field->nullable(), properties, out);
+      return StructToNode(struct_type, field->name(), field->nullable(),
+          support_int96_nanoseconds, properties, out);
     } break;
     case ArrowType::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type());
-      return ListToNode(list_type, field->name(), field->nullable(), properties, out);
+      return ListToNode(list_type, field->name(), field->nullable(),
+          support_int96_nanoseconds, properties, out);
     } break;
     default:
       // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
@@ -525,10 +540,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
 }
 
 Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
-    const WriterProperties& properties, std::shared_ptr<SchemaDescriptor>* out) {
+    const WriterProperties& properties, std::shared_ptr<SchemaDescriptor>* out,
+    bool support_int96_nanoseconds) {
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
-    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), properties, &nodes[i]));
+    RETURN_NOT_OK(FieldToNode(
+        arrow_schema->field(i), properties, &nodes[i], support_int96_nanoseconds));
   }
 
   NodePtr schema = GroupNode::Make("schema", Repetition::REQUIRED, nodes);
