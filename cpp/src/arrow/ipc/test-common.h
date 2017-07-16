@@ -140,7 +140,7 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
         [child_length](int32_t offset) { return offset > child_length; }, child_length);
   }
 
-  offsets[num_lists] = child_array->length();
+  offsets[num_lists] = static_cast<int32_t>(child_array->length());
 
   /// TODO(wesm): Implement support for nulls in ListArray::FromArrays
   std::shared_ptr<Buffer> null_bitmap, offsets_buffer;
