@@ -35,14 +35,26 @@ if "%JOB%" == "Build_Debug" (
 )
 
 conda update --yes --quiet conda
+conda config --set auto_update_conda false
+conda info -a
+
+conda config --set show_channel_urls True
+
+# Help with SSL timeouts to S3
+conda config --set remote_connect_timeout_secs 12
+
+conda config --add channels https://repo.continuum.io/pkgs/free
+conda config --add channels conda-forge
+conda info -a
 
 conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython
+      six pytest setuptools numpy pandas cython ^
+      thrift-cpp
 
 if "%JOB%" == "Toolchain" (
   conda install -n arrow -q -y -c conda-forge ^
       flatbuffers rapidjson cmake git boost-cpp ^
-      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+      snappy zlib brotli gflags lz4-c zstd
 )
 
 call activate arrow

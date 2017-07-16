@@ -62,6 +62,8 @@ def get_logical_type_map():
             pa.lib.Type_DOUBLE: 'float64',
             pa.lib.Type_DATE32: 'date',
             pa.lib.Type_DATE64: 'date',
+            pa.lib.Type_TIME32: 'time',
+            pa.lib.Type_TIME64: 'time',
             pa.lib.Type_BINARY: 'bytes',
             pa.lib.Type_FIXED_SIZE_BINARY: 'bytes',
             pa.lib.Type_STRING: 'unicode',

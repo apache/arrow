@@ -24,6 +24,51 @@
 namespace arrow {
 namespace py {
 
+static inline int64_t PyTime_to_us(PyObject* pytime) {
+  return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
+          static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
+          static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
+          PyDateTime_TIME_GET_MICROSECOND(pytime));
+}
+
+static inline Status PyTime_from_int(
+    int64_t val, const TimeUnit::type unit, PyObject** out) {
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  switch (unit) {
+    case TimeUnit::NANO:
+      if (val % 1000 != 0) {
+        std::stringstream ss;
+        ss << "Value " << val << " has non-zero nanoseconds";
+        return Status::Invalid(ss.str());
+      }
+      val /= 1000;
+    // fall through
+    case TimeUnit::MICRO:
+      microsecond = val - (val / 1000000LL) * 1000000LL;
+      val /= 1000000LL;
+      second = val - (val / 60) * 60;
+      val /= 60;
+      minute = val - (val / 60) * 60;
+      hour = val / 60;
+      break;
+    case TimeUnit::MILLI:
+      microsecond = (val - (val / 1000) * 1000) * 1000;
+      val /= 1000;
+    // fall through
+    case TimeUnit::SECOND:
+      second = val - (val / 60) * 60;
+      val /= 60;
+      minute = val - (val / 60) * 60;
+      hour = val / 60;
+      break;
+    default:
+      break;
+  }
+  *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
+      static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
+  return Status::OK();
+}
+
 static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   struct tm date = {0};
   date.tm_year = PyDateTime_GET_YEAR(pydate) - 1900;

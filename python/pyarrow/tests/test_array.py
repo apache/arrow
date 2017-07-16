@@ -223,8 +223,8 @@ def test_simple_type_construction():
         (pa.decimal(18, 3), 'decimal'),
         (pa.timestamp('ms'), 'datetime'),
         (pa.timestamp('us', 'UTC'), 'datetimetz'),
-        pytest.mark.xfail((pa.time32('s'), None), raises=NotImplementedError),
-        pytest.mark.xfail((pa.time64('us'), None), raises=NotImplementedError),
+        (pa.time32('s'), 'time'),
+        (pa.time64('us'), 'time')
     ]
 )
 def test_logical_type(type, expected):

@@ -646,6 +646,95 @@ class TestPandasConversion(unittest.TestCase):
         df = converted.to_pandas()
         tm.assert_frame_equal(df, expected)
 
+    def test_pytime_from_pandas(self):
+        pytimes = [datetime.time(1, 2, 3, 1356),
+                   datetime.time(4, 5, 6, 1356)]
+
+        # microseconds
+        t1 = pa.time64('us')
+
+        aobjs = np.array(pytimes + [None], dtype=object)
+        parr = pa.Array.from_pandas(aobjs)
+        assert parr.type == t1
+        assert parr[0].as_py() == pytimes[0]
+        assert parr[1].as_py() == pytimes[1]
+        assert parr[2] is pa.NA
+
+        # DataFrame
+        df = pd.DataFrame({'times': aobjs})
+        batch = pa.RecordBatch.from_pandas(df)
+        assert batch[0].equals(parr)
+
+        # Test ndarray of int64 values
+        arr = np.array([_pytime_to_micros(v) for v in pytimes],
+                       dtype='int64')
+
+        a1 = pa.Array.from_pandas(arr, type=pa.time64('us'))
+        assert a1[0].as_py() == pytimes[0]
+
+        a2 = pa.Array.from_pandas(arr * 1000, type=pa.time64('ns'))
+        assert a2[0].as_py() == pytimes[0]
+
+        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'),
+                                  type=pa.time32('ms'))
+        assert a3[0].as_py() == pytimes[0].replace(microsecond=1000)
+
+        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'),
+                                  type=pa.time32('s'))
+        assert a4[0].as_py() == pytimes[0].replace(microsecond=0)
+
+    def test_arrow_time_to_pandas(self):
+        pytimes = [datetime.time(1, 2, 3, 1356),
+                   datetime.time(4, 5, 6, 1356),
+                   datetime.time(0, 0, 0)]
+
+        expected = np.array(pytimes[:2] + [None])
+        expected_ms = np.array([x.replace(microsecond=1000)
+                                for x in pytimes[:2]] +
+                               [None])
+        expected_s = np.array([x.replace(microsecond=0)
+                               for x in pytimes[:2]] +
+                              [None])
+
+        arr = np.array([_pytime_to_micros(v) for v in pytimes],
+                       dtype='int64')
+        arr = np.array([_pytime_to_micros(v) for v in pytimes],
+                       dtype='int64')
+
+        null_mask = np.array([False, False, True], dtype=bool)
+
+        a1 = pa.Array.from_pandas(arr, mask=null_mask, type=pa.time64('us'))
+        a2 = pa.Array.from_pandas(arr * 1000, mask=null_mask,
+                                  type=pa.time64('ns'))
+
+        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'), mask=null_mask,
+                                  type=pa.time32('ms'))
+        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'), mask=null_mask,
+                                  type=pa.time32('s'))
+
+        names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
+        batch = pa.RecordBatch.from_arrays([a1, a2, a3, a4], names)
+        arr = a1.to_pandas()
+        assert (arr == expected).all()
+
+        arr = a2.to_pandas()
+        assert (arr == expected).all()
+
+        arr = a3.to_pandas()
+        assert (arr == expected_ms).all()
+
+        arr = a4.to_pandas()
+        assert (arr == expected_s).all()
+
+        df = batch.to_pandas()
+        expected_df = pd.DataFrame({'time64[us]': expected,
+                                    'time64[ns]': expected,
+                                    'time32[ms]': expected_ms,
+                                    'time32[s]': expected_s},
+                                   columns=names)
+
+        tm.assert_frame_equal(df, expected_df)
+
     def test_all_nones(self):
         def _check_series(s):
             converted = pa.Array.from_pandas(s)
@@ -782,3 +871,20 @@ class TestPandasConversion(unittest.TestCase):
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
+
+
+def _pytime_from_micros(val):
+    microseconds = val % 1000000
+    val //= 1000000
+    seconds = val % 60
+    val //= 60
+    minutes = val % 60
+    hours = val // 60
+    return datetime.time(hours, minutes, seconds, microseconds)
+
+
+def _pytime_to_micros(pytime):
+    return (pytime.hour * 3600000000 +
+            pytime.minute * 60000000 +
+            pytime.second * 1000000 +
+            pytime.microsecond)
