@@ -31,6 +31,7 @@ ENV["GI_TYPELIB_PATH"] = [
 
 require "gi"
 
+Gio = GI.load("Gio")
 Arrow = GI.load("Arrow")
 module Arrow
   class Buffer

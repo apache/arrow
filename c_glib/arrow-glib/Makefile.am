@@ -194,9 +194,12 @@ INTROSPECTION_COMPILER_ARGS =
 if HAVE_INTROSPECTION
 Arrow-1.0.gir: libarrow-glib.la
 Arrow_1_0_gir_PACKAGES =			\
-	gobject-2.0
+	gobject-2.0				\
+	gio-2.0
 Arrow_1_0_gir_EXPORT_PACKAGES = arrow
-Arrow_1_0_gir_INCLUDES = GObject-2.0
+Arrow_1_0_gir_INCLUDES =			\
+	GObject-2.0				\
+	Gio-2.0
 Arrow_1_0_gir_CFLAGS =				\
 	$(AM_CPPFLAGS)
 Arrow_1_0_gir_LIBS = libarrow-glib.la
