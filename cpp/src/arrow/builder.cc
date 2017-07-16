@@ -1077,13 +1077,14 @@ Status BinaryBuilder::Resize(int64_t capacity) {
 }
 
 Status BinaryBuilder::AppendNextOffset() {
-  if (ARROW_PREDICT_FALSE(value_data_builder_.length() > kMaximumCapacity)) {
+  const int64_t num_bytes = value_data_builder_.length();
+  if (ARROW_PREDICT_FALSE(num_bytes > kMaximumCapacity)) {
     std::stringstream ss;
     ss << "BinaryArray cannot contain more than " << kMaximumCapacity << " bytes, have "
-       << value_data_builder_.length();
+       << num_bytes;
     return Status::Invalid(ss.str());
   }
-  return offsets_builder_.Append(value_data_builder_.length());
+  return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
 }
 
 Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
