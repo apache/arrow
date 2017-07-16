@@ -195,11 +195,11 @@ def test_dictionary_with_pandas():
 def test_list_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.Array.from_pandas(offsets_arr, type=pa.int32())
-    values = pa.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
-                      type=pa.string())
+    pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
+    values = pa.array(pyvalues, type=pa.binary())
 
     result = pa.ListArray.from_arrays(offsets, values)
-    expected = pa.array([['a', 'b'], ['c', 'd', 'e'], ['f', 'g', 'h']])
+    expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]])
 
     assert result.equals(expected)
 
