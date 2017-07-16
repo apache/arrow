@@ -162,9 +162,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with zstd compression"
     ON)
 
-  option(ARROW_ZLIB_VENDORED
-    "Build our own zlib (some libz.a aren't configured for static linking)"
-    ON)
   if (MSVC)
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default _static)")
