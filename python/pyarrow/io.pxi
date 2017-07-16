@@ -571,6 +571,7 @@ cdef class MutableBuffer(Buffer):
             p[0] = <void*> self.mutable_buffer.get().data()
         return self.size
 
+
 cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))
