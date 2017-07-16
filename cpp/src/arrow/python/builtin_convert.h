@@ -24,6 +24,7 @@
 #include "arrow/python/platform.h"
 
 #include <memory>
+#include <ostream>
 #include <string>
 
 #include "arrow/type.h"
@@ -62,7 +63,8 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
     const std::shared_ptr<DataType>& type, int64_t size);
 
 ARROW_EXPORT
-Status InvalidConversion(PyObject* obj, const std::string& expected_type_name);
+Status InvalidConversion(
+    PyObject* obj, const std::string& expected_type_name, std::ostream* out);
 
 ARROW_EXPORT Status CheckPythonBytesAreFixedLength(
     PyObject* obj, Py_ssize_t expected_length);

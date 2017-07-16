@@ -189,7 +189,10 @@ static Status AppendObjectStrings(
       const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
       RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
     } else {
-      return InvalidConversion(obj, "string or bytes");
+      std::stringstream ss;
+      ss << "Error converting to Python objects to String/UTF8: ";
+      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
+      return Status::Invalid(ss.str());
     }
   }
 
@@ -230,7 +233,10 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
       RETURN_NOT_OK(
           builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
     } else {
-      return InvalidConversion(obj, "string or bytes");
+      std::stringstream ss;
+      ss << "Error converting to Python objects to FixedSizeBinary: ";
+      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
+      return Status::Invalid(ss.str());
     }
   }
 
@@ -545,7 +551,11 @@ Status PandasConverter::ConvertDates() {
     } else if (PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(date_builder.AppendNull());
     } else {
-      return InvalidConversion(obj, "date");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(obj, "datetime.date", &ss));
+      return Status::Invalid(ss.str());
     }
   }
   return date_builder.Finish(&out_);
@@ -597,7 +607,11 @@ Status PandasConverter::ConvertDecimals() {
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(decimal_builder.AppendNull());
     } else {
-      return InvalidConversion(object, "decimal.Decimal");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
+      return Status::Invalid(ss.str());
     }
   }
   return decimal_builder.Finish(&out_);
@@ -622,7 +636,11 @@ Status PandasConverter::ConvertTimes() {
     } else if (PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
-      return InvalidConversion(obj, "time");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(obj, "datetime.time", &ss));
+      return Status::Invalid(ss.str());
     }
   }
   return builder.Finish(&out_);
@@ -655,9 +673,6 @@ Status PandasConverter::ConvertObjectStrings() {
 Status PandasConverter::ConvertObjectFloats() {
   PyAcquireGIL lock;
 
-  DoubleBuilder builder(pool_);
-  RETURN_NOT_OK(builder.Resize(length_));
-
   Ndarray1DIndexer<PyObject*> objects(arr_);
   Ndarray1DIndexer<uint8_t> mask_values;
 
@@ -666,6 +681,9 @@ Status PandasConverter::ConvertObjectFloats() {
     mask_values.Init(mask_);
     have_mask = true;
   }
+
+  DoubleBuilder builder(pool_);
+  RETURN_NOT_OK(builder.Resize(length_));
 
   PyObject* obj;
   for (int64_t i = 0; i < objects.size(); ++i) {
@@ -677,7 +695,11 @@ Status PandasConverter::ConvertObjectFloats() {
       RETURN_IF_PYERROR();
       RETURN_NOT_OK(builder.Append(val));
     } else {
-      return InvalidConversion(obj, "float");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(obj, "float", &ss));
+      return Status::Invalid(ss.str());
     }
   }
 
@@ -709,7 +731,11 @@ Status PandasConverter::ConvertObjectIntegers() {
       RETURN_IF_PYERROR();
       RETURN_NOT_OK(builder.Append(val));
     } else {
-      return InvalidConversion(obj, "integer");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(obj, "integer", &ss));
+      return Status::Invalid(ss.str());
     }
   }
 
@@ -875,7 +901,11 @@ Status PandasConverter::ConvertBooleans() {
     } else if (obj == Py_False) {
       BitUtil::SetBit(null_bitmap_data_, i);
     } else {
-      return InvalidConversion(obj, "bool");
+      std::stringstream ss;
+      ss << "Error converting from Python objects to "
+         << type_->ToString() << ": ";
+      RETURN_NOT_OK(InvalidConversion(obj, "bool", &ss));
+      return Status::Invalid(ss.str());
     }
   }
 
@@ -936,30 +966,35 @@ Status PandasConverter::ConvertObjects() {
     RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
 
     for (int64_t i = 0; i < length_; ++i) {
-      if (PandasObjectIsNull(objects[i])) {
+      PyObject* obj = objects[i];
+      if (PandasObjectIsNull(obj)) {
         continue;
-      } else if (PyObject_is_string(objects[i])) {
+      } else if (PyObject_is_string(obj)) {
         return ConvertObjectStrings();
-      } else if (PyObject_is_float(objects[i])) {
+      } else if (PyObject_is_float(obj)) {
         return ConvertObjectFloats();
-      } else if (PyBool_Check(objects[i])) {
+      } else if (PyBool_Check(obj)) {
         return ConvertBooleans();
-      } else if (PyObject_is_integer(objects[i])) {
+      } else if (PyObject_is_integer(obj)) {
         return ConvertObjectIntegers();
-      } else if (PyDate_CheckExact(objects[i])) {
+      } else if (PyDate_CheckExact(obj)) {
         // We could choose Date32 or Date64
         return ConvertDates<Date32Type>();
-      } else if (PyTime_Check(objects[i])) {
+      } else if (PyTime_Check(obj)) {
         return ConvertTimes();
-      } else if (PyObject_IsInstance(const_cast<PyObject*>(objects[i]), Decimal.obj())) {
+      } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
         return ConvertDecimals();
-      } else if (PyList_Check(objects[i]) || PyArray_Check(objects[i])) {
+      } else if (PyList_Check(obj) || PyArray_Check(obj)) {
         std::shared_ptr<DataType> inferred_type;
-        RETURN_NOT_OK(InferArrowType(objects[i], &inferred_type));
+        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
         return ConvertLists(inferred_type);
       } else {
-        return InvalidConversion(const_cast<PyObject*>(objects[i]),
-            "string, bool, float, int, date, time, decimal, list, array");
+        const std::string supported_types =
+          "string, bool, float, int, date, time, decimal, list, array";
+        std::stringstream ss;
+        ss << "Error inferring Arrow type for Python object array. ";
+        RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
+        return Status::Invalid(ss.str());
       }
     }
   }
