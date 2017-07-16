@@ -37,12 +37,13 @@ if "%JOB%" == "Build_Debug" (
 conda update --yes --quiet conda
 
 conda create -n arrow -q -y python=%PYTHON% ^
-      six pytest setuptools numpy pandas cython
+      six pytest setuptools numpy pandas cython ^
+      thrift-cpp
 
 if "%JOB%" == "Toolchain" (
   conda install -n arrow -q -y -c conda-forge ^
       flatbuffers rapidjson cmake git boost-cpp ^
-      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+      snappy zlib brotli gflags lz4-c zstd
 )
 
 call activate arrow
