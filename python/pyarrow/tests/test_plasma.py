@@ -22,6 +22,7 @@ from __future__ import print_function
 import glob
 import numpy as np
 import os
+import pytest
 import random
 import signal
 import site
@@ -30,14 +31,11 @@ import sys
 import time
 import unittest
 
-import pyarrow.plasma as plasma
 import pyarrow as pa
+import pyarrow.plasma as plasma
 import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
-
-USE_VALGRIND = False
-
 
 def random_name():
     return str(random.randint(0, 99999999))
@@ -90,19 +88,18 @@ def assert_get_object_equal(unit_test, client1, client2, object_id,
     client2_buff = client2.get([object_id])[0]
     client1_metadata = client1.get_metadata([object_id])[0]
     client2_metadata = client2.get_metadata([object_id])[0]
-    unit_test.assertEqual(len(client1_buff), len(client2_buff))
-    unit_test.assertEqual(len(client1_metadata), len(client2_metadata))
+    assert len(client1_buff) == len(client2_buff)
+    assert len(client1_metadata) == len(client2_metadata)
     # Check that the buffers from the two clients are the same.
-    unit_test.assertTrue(plasma.buffers_equal(client1_buff, client2_buff))
+    assert plasma.buffers_equal(client1_buff, client2_buff)
     # Check that the metadata buffers from the two clients are the same.
-    unit_test.assertTrue(plasma.buffers_equal(client1_metadata,
-                                              client2_metadata))
+    assert plasma.buffers_equal(client1_metadata, client2_metadata)
     # If a reference buffer was provided, check that it is the same as well.
     if memory_buffer is not None:
-        unit_test.assertTrue(plasma.buffers_equal(memory_buffer, client1_buff))
+        assert plasma.buffers_equal(memory_buffer, client1_buff)
     # If reference metadata was provided, check that it is the same as well.
     if metadata is not None:
-        unit_test.assertTrue(plasma.buffers_equal(metadata, client1_metadata))
+        assert plasma.buffers_equal(metadata, client1_metadata)
 
 
 def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
@@ -138,6 +135,7 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
                                 "--track-origins=yes",
                                 "--leak-check=full",
                                 "--show-leak-kinds=all",
+                                "--leak-check-heuristics=stdstring",
                                 "--error-exitcode=1"] + command,
                                stdout=stdout_file, stderr=stderr_file)
         time.sleep(1.0)
@@ -151,12 +149,13 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     return plasma_store_name, pid
 
 
-class TestPlasmaClient(unittest.TestCase):
+@pytest.mark.plasma
+class TestPlasmaClient(object):
 
-    def setUp(self):
+    def setup_method(self, test_method):
         # Start Plasma store.
         plasma_store_name, self.p = start_plasma_store(
-            use_valgrind=USE_VALGRIND)
+            use_valgrind=os.getenv("VALGRIND") == "1")
         # Connect to Plasma.
         self.plasma_client = plasma.PlasmaClient()
         self.plasma_client.connect(plasma_store_name, "", 64)
@@ -164,15 +163,15 @@ class TestPlasmaClient(unittest.TestCase):
         self.plasma_client2 = plasma.PlasmaClient()
         self.plasma_client2.connect(plasma_store_name, "", 0)
 
-    def tearDown(self):
+    def teardown_method(self, test_method):
         # Check that the Plasma store is still alive.
-        self.assertEqual(self.p.poll(), None)
+        assert self.p.poll() == None
         # Kill the plasma store process.
-        if USE_VALGRIND:
+        if os.getenv("VALGRIND") == "1":
             self.p.send_signal(signal.SIGTERM)
             self.p.wait()
             if self.p.returncode != 0:
-                os._exit(-1)
+                assert False
         else:
             self.p.kill()
 
@@ -192,7 +191,7 @@ class TestPlasmaClient(unittest.TestCase):
         memory_buffer = np.frombuffer(self.plasma_client.get([object_id])[0],
                                       dtype="uint8")
         for i in range(length):
-            self.assertEqual(memory_buffer[i], i % 256)
+            assert memory_buffer[i] == i % 256
 
     def test_create_with_metadata(self):
         for length in range(1000):
@@ -213,13 +212,13 @@ class TestPlasmaClient(unittest.TestCase):
             memory_buffer = np.frombuffer(
                 self.plasma_client.get([object_id])[0], dtype="uint8")
             for i in range(length):
-                self.assertEqual(memory_buffer[i], i % 256)
+                assert memory_buffer[i] == i % 256
             # Get the metadata.
             metadata_buffer = np.frombuffer(
                 self.plasma_client.get_metadata([object_id])[0], dtype="uint8")
-            self.assertEqual(len(metadata), len(metadata_buffer))
+            assert len(metadata) == len(metadata_buffer)
             for i in range(len(metadata)):
-                self.assertEqual(metadata[i], metadata_buffer[i])
+                assert metadata[i] == metadata_buffer[i]
 
     def test_create_existing(self):
         # This test is partially used to test the code path in which we create
@@ -236,7 +235,7 @@ class TestPlasmaClient(unittest.TestCase):
             except pa.lib.ArrowException as e:
                 pass
             else:
-                self.assertTrue(False)
+                assert False
 
     def test_get(self):
         num_object_ids = 100
@@ -244,7 +243,7 @@ class TestPlasmaClient(unittest.TestCase):
         for timeout in [0, 10, 100, 1000]:
             object_ids = [random_object_id() for _ in range(num_object_ids)]
             results = self.plasma_client.get(object_ids, timeout_ms=timeout)
-            self.assertEqual(results, num_object_ids * [None])
+            assert results == num_object_ids * [None]
 
         data_buffers = []
         metadata_buffers = []
@@ -270,10 +269,10 @@ class TestPlasmaClient(unittest.TestCase):
                     # TODO(rkn): We should compare the metadata as well. But
                     # currently the types are different (e.g., memoryview
                     # versus bytearray).
-                    # self.assertTrue(plasma.buffers_equal(
-                    #     metadata_buffers[i // 2], metadata_results[i]))
+                    # assert plasma.buffers_equal(
+                    #     metadata_buffers[i // 2], metadata_results[i])
                 else:
-                    self.assertIsNone(results[i])
+                    assert results[i] is None
 
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
@@ -326,7 +325,7 @@ class TestPlasmaClient(unittest.TestCase):
         object_id = random_object_id()
         data = pickle.dumps(object_id)
         object_id2 = pickle.loads(data)
-        self.assertEqual(object_id, object_id2)
+        assert object_id == object_id2
 
     def test_store_full(self):
         # The store is started with 1GB, so make sure that create throws an
@@ -342,7 +341,7 @@ class TestPlasmaClient(unittest.TestCase):
                 pass
             else:
                 # For some reason the above didn't throw an exception, so fail.
-                unit_test.assertTrue(False)
+                assert False
 
         # Create a list to keep some of the buffers in scope.
         memory_buffers = []
@@ -372,14 +371,14 @@ class TestPlasmaClient(unittest.TestCase):
         fake_object_ids = [random_object_id() for _ in range(100)]
         real_object_ids = [random_object_id() for _ in range(100)]
         for object_id in real_object_ids:
-            self.assertFalse(self.plasma_client.contains(object_id))
+            assert self.plasma_client.contains(object_id) == False
             self.plasma_client.create(object_id, 100)
             self.plasma_client.seal(object_id)
-            self.assertTrue(self.plasma_client.contains(object_id))
+            assert self.plasma_client.contains(object_id)
         for object_id in fake_object_ids:
-            self.assertFalse(self.plasma_client.contains(object_id))
+            assert not self.plasma_client.contains(object_id)
         for object_id in real_object_ids:
-            self.assertTrue(self.plasma_client.contains(object_id))
+            assert self.plasma_client.contains(object_id)
 
     def test_hash(self):
         # Check the hash of an object that doesn't exist.
@@ -390,7 +389,7 @@ class TestPlasmaClient(unittest.TestCase):
         except pa.lib.ArrowException as e:
             pass
         else:
-            self.assertTrue(False)
+            assert False
 
         length = 1000
         # Create a random object, and check that the hash function always
@@ -403,8 +402,8 @@ class TestPlasmaClient(unittest.TestCase):
         for i in range(length):
             memory_buffer[i] = i % 256
         self.plasma_client.seal(object_id1)
-        self.assertEqual(self.plasma_client.hash(object_id1),
-                         self.plasma_client.hash(object_id1))
+        assert (self.plasma_client.hash(object_id1) ==
+                self.plasma_client.hash(object_id1))
 
         # Create a second object with the same value as the first, and check
         # that their hashes are equal.
@@ -416,8 +415,8 @@ class TestPlasmaClient(unittest.TestCase):
         for i in range(length):
             memory_buffer[i] = i % 256
         self.plasma_client.seal(object_id2)
-        self.assertEqual(self.plasma_client.hash(object_id1),
-                         self.plasma_client.hash(object_id2))
+        assert (self.plasma_client.hash(object_id1) ==
+                self.plasma_client.hash(object_id2))
 
         # Create a third object with a different value from the first two, and
         # check that its hash is different.
@@ -430,8 +429,8 @@ class TestPlasmaClient(unittest.TestCase):
         for i in range(length):
             memory_buffer[i] = (i + 1) % 256
         self.plasma_client.seal(object_id3)
-        self.assertNotEqual(self.plasma_client.hash(object_id1),
-                            self.plasma_client.hash(object_id3))
+        assert (self.plasma_client.hash(object_id1) !=
+                self.plasma_client.hash(object_id3))
 
         # Create a fourth object with the same value as the third, but
         # different metadata. Check that its hash is different from any of the
@@ -445,10 +444,10 @@ class TestPlasmaClient(unittest.TestCase):
         for i in range(length):
             memory_buffer[i] = (i + 1) % 256
         self.plasma_client.seal(object_id4)
-        self.assertNotEqual(self.plasma_client.hash(object_id1),
-                            self.plasma_client.hash(object_id4))
-        self.assertNotEqual(self.plasma_client.hash(object_id3),
-                            self.plasma_client.hash(object_id4))
+        assert (self.plasma_client.hash(object_id1) !=
+                self.plasma_client.hash(object_id4))
+        assert (self.plasma_client.hash(object_id3) !=
+                self.plasma_client.hash(object_id4))
 
     def test_many_hashes(self):
         hashes = []
@@ -488,7 +487,7 @@ class TestPlasmaClient(unittest.TestCase):
             hashes.append(self.plasma_client.hash(object_id))
 
         # Check that all hashes were unique.
-        self.assertEqual(len(set(hashes)), 256 + length + length)
+        assert len(set(hashes)) == 256 + length + length
 
     # def test_individual_delete(self):
     #     length = 100
@@ -504,7 +503,7 @@ class TestPlasmaClient(unittest.TestCase):
     #     # Seal the object.
     #     self.plasma_client.seal(object_id)
     #     # Check that the object is present.
-    #     self.assertTrue(self.plasma_client.contains(object_id))
+    #     assert self.plasma_client.contains(object_id)
     #     # Delete the object.
     #     self.plasma_client.delete(object_id)
     #     # Make sure the object is no longer present.
@@ -525,7 +524,7 @@ class TestPlasmaClient(unittest.TestCase):
     #         # Seal the object.
     #         self.plasma_client.seal(object_id)
     #         # Check that the object is present.
-    #         self.assertTrue(self.plasma_client.contains(object_id))
+    #         assert self.plasma_client.contains(object_id)
     #
     #     # Delete the objects and make sure they are no longer present.
     #     for object_id in object_ids:
@@ -541,21 +540,24 @@ class TestPlasmaClient(unittest.TestCase):
         length = 1000
         memory_buffer = self.plasma_client.create(object_id, length)
         # Make sure we cannot access memory out of bounds.
-        self.assertRaises(Exception, lambda: memory_buffer[length])
+        with pytest.raises(Exception):
+            memory_buffer[length]
         # Seal the object.
         self.plasma_client.seal(object_id)
         # This test is commented out because it currently fails.
         # # Make sure the object is ready only now.
         # def illegal_assignment():
         #     memory_buffer[0] = chr(0)
-        # self.assertRaises(Exception, illegal_assignment)
+        # with pytest.raises(Exception):
+        # illegal_assignment()
         # Get the object.
         memory_buffer = self.plasma_client.get([object_id])[0]
 
         # Make sure the object is read only.
         def illegal_assignment():
             memory_buffer[0] = chr(0)
-        self.assertRaises(Exception, illegal_assignment)
+        with pytest.raises(Exception):
+            illegal_assignment()
 
     def test_evict(self):
         client = self.plasma_client2
@@ -563,7 +565,7 @@ class TestPlasmaClient(unittest.TestCase):
         b1 = client.create(object_id1, 1000)
         client.seal(object_id1)
         del b1
-        self.assertEqual(client.evict(1), 1000)
+        assert client.evict(1) == 1000
 
         object_id2 = random_object_id()
         object_id3 = random_object_id()
@@ -571,7 +573,7 @@ class TestPlasmaClient(unittest.TestCase):
         b3 = client.create(object_id3, 998)
         client.seal(object_id3)
         del b3
-        self.assertEqual(client.evict(1000), 998)
+        assert client.evict(1000) == 998
 
         object_id4 = random_object_id()
         b4 = client.create(object_id4, 997)
@@ -579,8 +581,8 @@ class TestPlasmaClient(unittest.TestCase):
         del b4
         client.seal(object_id2)
         del b2
-        self.assertEqual(client.evict(1), 997)
-        self.assertEqual(client.evict(1), 999)
+        assert client.evict(1) == 997
+        assert client.evict(1) == 999
 
         object_id5 = random_object_id()
         object_id6 = random_object_id()
@@ -594,7 +596,7 @@ class TestPlasmaClient(unittest.TestCase):
         del b5
         del b6
         del b7
-        self.assertEqual(client.evict(2000), 996 + 995 + 994)
+        assert client.evict(2000) == 996 + 995 + 994
 
     def test_subscribe(self):
         # Subscribe to notifications from the Plasma Store.
@@ -612,9 +614,9 @@ class TestPlasmaClient(unittest.TestCase):
             for j in range(i):
                 notification_info = self.plasma_client.get_next_notification()
                 recv_objid, recv_dsize, recv_msize = notification_info
-                self.assertEqual(object_ids[j], recv_objid)
-                self.assertEqual(data_sizes[j], recv_dsize)
-                self.assertEqual(metadata_sizes[j], recv_msize)
+                assert object_ids[j] == recv_objid
+                assert data_sizes[j] == recv_dsize
+                assert metadata_sizes[j] == recv_msize
 
     def test_subscribe_deletions(self):
         # Subscribe to notifications from the Plasma Store. We use
@@ -637,20 +639,20 @@ class TestPlasmaClient(unittest.TestCase):
             for j in range(i):
                 notification_info = self.plasma_client2.get_next_notification()
                 recv_objid, recv_dsize, recv_msize = notification_info
-                self.assertEqual(object_ids[j], recv_objid)
-                self.assertEqual(data_sizes[j], recv_dsize)
-                self.assertEqual(metadata_sizes[j], recv_msize)
+                assert object_ids[j] == recv_objid
+                assert data_sizes[j] == recv_dsize
+                assert metadata_sizes[j] == recv_msize
 
             # Check that we receive notifications for deleting all objects, as
             # we evict them.
             for j in range(i):
-                self.assertEqual(self.plasma_client2.evict(1),
-                                 data_sizes[j] + metadata_sizes[j])
+                assert (self.plasma_client2.evict(1) ==
+                        data_sizes[j] + metadata_sizes[j])
                 notification_info = self.plasma_client2.get_next_notification()
                 recv_objid, recv_dsize, recv_msize = notification_info
-                self.assertEqual(object_ids[j], recv_objid)
-                self.assertEqual(-1, recv_dsize)
-                self.assertEqual(-1, recv_msize)
+                assert object_ids[j] == recv_objid
+                assert -1 == recv_dsize
+                assert -1 == recv_msize
 
         # Test multiple deletion notifications. The first 9 object IDs have
         # size 0, and the last has a nonzero size. When Plasma evicts 1 byte,
@@ -671,25 +673,14 @@ class TestPlasmaClient(unittest.TestCase):
         for i in range(num_object_ids):
             notification_info = self.plasma_client2.get_next_notification()
             recv_objid, recv_dsize, recv_msize = notification_info
-            self.assertEqual(object_ids[i], recv_objid)
-            self.assertEqual(data_sizes[i], recv_dsize)
-            self.assertEqual(metadata_sizes[i], recv_msize)
-        self.assertEqual(self.plasma_client2.evict(1),
-                         data_sizes[-1] + metadata_sizes[-1])
+            assert object_ids[i] == recv_objid
+            assert data_sizes[i] == recv_dsize
+            assert metadata_sizes[i] == recv_msize
+        assert (self.plasma_client2.evict(1) ==
+                data_sizes[-1] + metadata_sizes[-1])
         for i in range(num_object_ids):
             notification_info = self.plasma_client2.get_next_notification()
             recv_objid, recv_dsize, recv_msize = notification_info
-            self.assertEqual(object_ids[i], recv_objid)
-            self.assertEqual(-1, recv_dsize)
-            self.assertEqual(-1, recv_msize)
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        # Pop the argument so we don't mess with unittest's own argument
-        # parser.
-        if sys.argv[-1] == "valgrind":
-            arg = sys.argv.pop()
-            USE_VALGRIND = True
-            print("Using valgrind for tests")
-    unittest.main(verbosity=2)
+            assert object_ids[i] == recv_objid
+            assert -1 == recv_dsize
+            assert -1 == recv_msize

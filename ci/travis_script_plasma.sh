@@ -81,8 +81,9 @@ python_version_tests() {
   popd
 
   # Run Plasma tests
-  pushd $TRAVIS_BUILD_DIR/cpp/src/plasma
-    python test/test.py
+  pushd $TRAVIS_BUILD_DIR/python
+    python -m pytest pyarrow/tests/test_plasma.py
+    VALGRIND=1 python -m pytest pyarrow/tests/test_plasma.py
   popd
 }
 
