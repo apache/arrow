@@ -1,0 +1,8 @@
+*_generated*
+*windows_compatibility.h
+*pyarrow_api.h
+*python/config.h
+*python/platform.h
+*thirdparty/ae/*
+*xxhash.cc
+*xxhash.h
