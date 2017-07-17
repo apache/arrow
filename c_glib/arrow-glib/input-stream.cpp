@@ -32,9 +32,6 @@
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/tensor.hpp>
 
-#include <iostream>
-#include <sstream>
-
 G_BEGIN_DECLS
 
 /**
@@ -52,6 +49,9 @@ G_BEGIN_DECLS
  *
  * #GArrowMemoryMappedFile is a class to read data in file by mapping
  * the file on memory. It supports zero copy.
+ *
+ * #GArrowGIOInputStream is a class for `GInputStream` based input
+ * stream.
  */
 
 typedef struct GArrowInputStreamPrivate_ {
@@ -399,7 +399,9 @@ namespace garrow {
       if (g_input_stream_close(input_stream_, NULL, &error)) {
         return arrow::Status::OK();
       } else {
-        return io_error_to_status(error, "[gio-input-stream][close]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][close]");
       }
     }
 
@@ -426,7 +428,9 @@ namespace garrow {
                                           NULL,
                                           &error);
       if (*n_read_bytes == -1) {
-        return io_error_to_status(error, "[gio-input-stream][read]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read]");
       } else {
         return arrow::Status::OK();
       }
@@ -445,7 +449,9 @@ namespace garrow {
                                               NULL,
                                               &error);
       if (n_read_bytes == -1) {
-        return io_error_to_status(error, "[gio-input-stream][read][buffer]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read][buffer]");
       } else {
         if (n_read_bytes < n_bytes) {
           ARROW_RETURN_NOT_OK(buffer->Resize(n_read_bytes));
@@ -472,7 +478,9 @@ namespace garrow {
                           &error)) {
         return arrow::Status::OK();
       } else {
-        return io_error_to_status(error, "[gio-input-stream][seek]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][seek]");
       }
     }
 
@@ -492,7 +500,9 @@ namespace garrow {
                            G_SEEK_END,
                            NULL,
                            &error)) {
-        return io_error_to_status(error, "[gio-input-stream][size][seek]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][size][seek]");
       }
       *size = g_seekable_tell(G_SEEKABLE(input_stream_));
       if (!g_seekable_seek(G_SEEKABLE(input_stream_),
@@ -500,8 +510,9 @@ namespace garrow {
                            G_SEEK_SET,
                            NULL,
                            &error)) {
-        return io_error_to_status(error,
-                                  "[gio-input-stream][size][seek][restore]");
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][size][seek][restore]");
       }
       return arrow::Status::OK();
     }
@@ -512,15 +523,6 @@ namespace garrow {
 
   private:
     GInputStream *input_stream_;
-
-    arrow::Status io_error_to_status(GError *error, const char *context) {
-      std::stringstream message;
-      message << context << ": " << g_quark_to_string(error->domain);
-      message << "(" << error->code << "): ";
-      message << error->message;
-      g_error_free(error);
-      return arrow::Status::IOError(message.str());
-    }
   };
 };
 
@@ -544,7 +546,7 @@ garrow_gio_input_stream_class_init(GArrowGIOInputStreamClass *klass)
  * garrow_gio_input_stream_new:
  * @gio_input_stream: The stream to be read.
  *
- * Returns: A newly created #GArrowGIOInputStream.
+ * Returns: (transfer full): A newly created #GArrowGIOInputStream.
  *
  * Since: 0.5.0
  */

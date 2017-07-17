@@ -23,6 +23,9 @@
 
 #include <arrow-glib/error.hpp>
 
+#include <iostream>
+#include <sstream>
+
 G_BEGIN_DECLS
 
 /**
@@ -79,4 +82,17 @@ garrow_error_check(GError **error,
                 status.ToString().c_str());
     return FALSE;
   }
+}
+
+arrow::Status
+garrow_error_to_status(GError *error,
+                       arrow::StatusCode code,
+                       const char *context)
+{
+  std::stringstream message;
+  message << context << ": " << g_quark_to_string(error->domain);
+  message << "(" << error->code << "): ";
+  message << error->message;
+  g_error_free(error);
+  return arrow::Status(code, message.str());
 }

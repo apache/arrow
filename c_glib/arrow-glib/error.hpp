@@ -26,3 +26,6 @@
 gboolean garrow_error_check(GError **error,
                             const arrow::Status &status,
                             const char *context);
+arrow::Status garrow_error_to_status(GError *error,
+                                     arrow::StatusCode code,
+                                     const char *context);
