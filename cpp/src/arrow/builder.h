@@ -38,6 +38,12 @@ namespace arrow {
 
 class Array;
 
+namespace internal {
+
+struct ArrayData;
+
+}  // namespace internal
+
 namespace decimal {
 
 template <typename T>
@@ -127,12 +133,20 @@ class ARROW_EXPORT ArrayBuilder {
   // Child value array builders. These are owned by this class
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
-  //
+  void Reset();
+
   // Unsafe operations (don't check capacity/don't resize)
-  //
 
   // Append to null bitmap.
-  void UnsafeAppendToBitmap(bool is_valid);
+  void UnsafeAppendToBitmap(bool is_valid) {
+    if (is_valid) {
+      BitUtil::SetBit(null_bitmap_data_, length_);
+    } else {
+      ++null_count_;
+    }
+    ++length_;
+  }
+
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
@@ -494,7 +508,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 // ----------------------------------------------------------------------
 // List builder
 
-/// Builder class for variable-length list array value types
+/// \class ListBuilder
+/// \brief Builder class for variable-length list array value types
 ///
 /// To use this class, you must append values to the child array builder and use
 /// the Append function to delimit each distinct list value (once the values
@@ -513,22 +528,18 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
       const std::shared_ptr<DataType>& type = nullptr);
 
-  /// Use this constructor to build the list with a pre-existing values array
-  ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
-      const std::shared_ptr<DataType>& type = nullptr);
-
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
 
-  /// Vector append
+  /// \brief Vector append
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(
       const int32_t* offsets, int64_t length, const uint8_t* valid_bytes = nullptr);
 
-  /// Start a new variable-length list slot
+  /// \brief Start a new variable-length list slot
   ///
   /// This function should be called before beginning to append elements to the
   /// value builder
@@ -539,9 +550,11 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ArrayBuilder* value_builder() const;
 
  protected:
-  BufferBuilder offset_builder_;
+  TypedBufferBuilder<int32_t> offsets_builder_;
   std::unique_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
+
+  Status AppendNextOffset();
 
   void Reset();
 };
@@ -549,15 +562,14 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 // ----------------------------------------------------------------------
 // Binary and String
 
-class ARROW_EXPORT BinaryBuilder : public ListBuilder {
+/// \class BinaryBuilder
+/// \brief Builder class for variable-length binary data
+class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
  public:
   explicit BinaryBuilder(MemoryPool* pool);
   explicit BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
-  Status Append(const uint8_t* value, int32_t length) {
-    RETURN_NOT_OK(ListBuilder::Append());
-    return byte_builder_->Append(value, length);
-  }
+  Status Append(const uint8_t* value, int32_t length);
 
   Status Append(const char* value, int32_t length) {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
@@ -567,6 +579,10 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
     return Append(value.c_str(), static_cast<int32_t>(value.size()));
   }
 
+  Status AppendNull();
+
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
 
   /// Temporary access to a value.
@@ -575,10 +591,18 @@ class ARROW_EXPORT BinaryBuilder : public ListBuilder {
   const uint8_t* GetValue(int64_t i, int32_t* out_length) const;
 
  protected:
-  UInt8Builder* byte_builder_;
+  TypedBufferBuilder<int32_t> offsets_builder_;
+  TypedBufferBuilder<uint8_t> value_data_builder_;
+
+  static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max() - 1;
+
+  Status AppendNextOffset();
+  Status FinishInternal(std::shared_ptr<internal::ArrayData>* out);
+  void Reset();
 };
 
-// String builder
+/// \class StringBuilder
+/// \brief Builder class for UTF8 strings
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   using BinaryBuilder::BinaryBuilder;

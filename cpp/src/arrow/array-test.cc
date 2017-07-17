@@ -71,13 +71,14 @@ Status MakeArrayFromValidBytes(
   std::shared_ptr<Buffer> null_buf;
   RETURN_NOT_OK(BitUtil::BytesToBits(v, &null_buf));
 
-  BufferBuilder value_builder(pool);
+  TypedBufferBuilder<int32_t> value_builder(pool);
   for (size_t i = 0; i < v.size(); ++i) {
-    RETURN_NOT_OK(value_builder.Append<int32_t>(0));
+    RETURN_NOT_OK(value_builder.Append(0));
   }
 
-  *out = std::make_shared<Int32Array>(
-      v.size(), value_builder.Finish(), null_buf, null_count);
+  std::shared_ptr<Buffer> values;
+  RETURN_NOT_OK(value_builder.Finish(&values));
+  *out = std::make_shared<Int32Array>(v.size(), values, null_buf, null_count);
   return Status::OK();
 }
 
@@ -996,7 +997,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   vector<uint8_t> is_null = {0, 0, 0, 1, 0};
 
   int N = static_cast<int>(strings.size());
-  int reps = 1000;
+  int reps = 10;
 
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {

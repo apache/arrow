@@ -139,9 +139,16 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
     std::replace_if(offsets.begin(), offsets.end(),
         [child_length](int32_t offset) { return offset > child_length; }, child_length);
   }
-  ListBuilder builder(pool, child_array);
-  RETURN_NOT_OK(builder.Append(offsets.data(), num_lists, valid_lists.data()));
-  RETURN_NOT_OK(builder.Finish(out));
+
+  offsets[num_lists] = static_cast<int32_t>(child_array->length());
+
+  /// TODO(wesm): Implement support for nulls in ListArray::FromArrays
+  std::shared_ptr<Buffer> null_bitmap, offsets_buffer;
+  RETURN_NOT_OK(test::GetBitmapFromVector(valid_lists, &null_bitmap));
+  RETURN_NOT_OK(test::CopyBufferFromVector(offsets, pool, &offsets_buffer));
+
+  *out = std::make_shared<ListArray>(list(child_array->type()), num_lists, offsets_buffer,
+      child_array, null_bitmap, kUnknownNullCount);
   return ValidateArray(**out);
 }
 
@@ -398,7 +405,8 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Buffer> type_ids_buffer;
   std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
-  RETURN_NOT_OK(test::CopyBufferFromVector(type_ids, &type_ids_buffer));
+  RETURN_NOT_OK(
+      test::CopyBufferFromVector(type_ids, default_memory_pool(), &type_ids_buffer));
 
   std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
   ArrayFromVector<Int32Type, int32_t>(u0_values, &sparse_children[0]);
@@ -415,7 +423,8 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Buffer> offsets_buffer;
   std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
-  RETURN_NOT_OK(test::CopyBufferFromVector(offsets, &offsets_buffer));
+  RETURN_NOT_OK(
+      test::CopyBufferFromVector(offsets, default_memory_pool(), &offsets_buffer));
 
   std::vector<uint8_t> null_bytes(length, 1);
   null_bytes[2] = 0;
@@ -479,7 +488,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Int8Type, int8_t>(is_valid3, indices3_values, &indices3);
 
   std::shared_ptr<Buffer> null_bitmap;
-  RETURN_NOT_OK(test::GetBitmapFromBoolVector(is_valid, &null_bitmap));
+  RETURN_NOT_OK(test::GetBitmapFromVector(is_valid, &null_bitmap));
 
   std::shared_ptr<Array> a3 = std::make_shared<ListArray>(f3_type, length,
       std::static_pointer_cast<PrimitiveArray>(offsets)->values(),

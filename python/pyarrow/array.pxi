@@ -40,7 +40,6 @@ cdef maybe_coerce_datetime64(values, dtype, DataType type,
     return values, type
 
 
-
 def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
           size=None):
     """
@@ -302,6 +301,19 @@ cdef class Array:
         """
         return [x.as_py() for x in self]
 
+    def validate(self):
+        """
+        Perform any validation checks implemented by
+        arrow::ValidateArray. Raises exception with error message if array does
+        not validate
+
+        Raises
+        ------
+        ArrowInvalid
+        """
+        with nogil:
+            check_status(ValidateArray(deref(self.ap)))
+
 
 cdef class Tensor:
 
@@ -478,7 +490,27 @@ cdef class DecimalArray(FixedSizeBinaryArray):
 
 
 cdef class ListArray(Array):
-    pass
+
+    @staticmethod
+    def from_arrays(Array offsets, Array values, MemoryPool pool=None):
+        """
+        Construct ListArray from arrays of int32 offsets and values
+
+        Parameters
+        ----------
+        offset : Array (int32 type)
+        values : Array (any type)
+
+        Returns
+        -------
+        list_array : ListArray
+        """
+        cdef shared_ptr[CArray] out
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        with nogil:
+            check_status(CListArray.FromArrays(
+                deref(offsets.ap), deref(values.ap), cpool, &out))
+        return pyarrow_wrap_array(out)
 
 
 cdef class StringArray(Array):

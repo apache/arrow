@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <sstream>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -99,19 +101,15 @@ Status ArrayBuilder::Reserve(int64_t elements) {
   return Status::OK();
 }
 
+void ArrayBuilder::Reset() {
+  capacity_ = length_ = null_count_ = 0;
+  null_bitmap_ = nullptr;
+}
+
 Status ArrayBuilder::SetNotNull(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeSetNotNull(length);
   return Status::OK();
-}
-
-void ArrayBuilder::UnsafeAppendToBitmap(bool is_valid) {
-  if (is_valid) {
-    BitUtil::SetBit(null_bitmap_data_, length_);
-  } else {
-    ++null_count_;
-  }
-  ++length_;
 }
 
 void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
@@ -971,7 +969,8 @@ Status DecimalBuilder::Resize(int64_t capacity) {
 }
 
 Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> data = byte_builder_.Finish();
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(byte_builder_.Finish(&data));
 
   /// TODO(phillipc): not sure where to get the offset argument here
   *out = std::make_shared<DecimalArray>(
@@ -987,65 +986,66 @@ ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_b
     : ArrayBuilder(pool,
           type ? type : std::static_pointer_cast<DataType>(
                             std::make_shared<ListType>(value_builder->type()))),
-      offset_builder_(pool),
+      offsets_builder_(pool),
       value_builder_(std::move(value_builder)) {}
-
-ListBuilder::ListBuilder(MemoryPool* pool, std::shared_ptr<Array> values,
-    const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(pool,
-          type ? type : std::static_pointer_cast<DataType>(
-                            std::make_shared<ListType>(values->type()))),
-      offset_builder_(pool),
-      values_(values) {}
 
 Status ListBuilder::Append(
     const int32_t* offsets, int64_t length, const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
-  offset_builder_.UnsafeAppend<int32_t>(offsets, length);
+  offsets_builder_.UnsafeAppend(offsets, length);
   return Status::OK();
+}
+
+Status ListBuilder::AppendNextOffset() {
+  int64_t num_values = value_builder_->length();
+  if (ARROW_PREDICT_FALSE(num_values >= std::numeric_limits<int32_t>::max())) {
+    std::stringstream ss;
+    ss << "ListArray cannot contain more then INT32_MAX - 1 child elements,"
+       << " have " << num_values;
+    return Status::Invalid(ss.str());
+  }
+  return offsets_builder_.Append(static_cast<int32_t>(num_values));
 }
 
 Status ListBuilder::Append(bool is_valid) {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(is_valid);
-  RETURN_NOT_OK(
-      offset_builder_.Append<int32_t>(static_cast<int32_t>(value_builder_->length())));
-  return Status::OK();
+  return AppendNextOffset();
 }
 
 Status ListBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
-  return offset_builder_.Resize((elements + 1) * sizeof(int64_t));
+  return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
-  RETURN_NOT_OK(offset_builder_.Resize((capacity + 1) * sizeof(int64_t)));
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
 }
 
 Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
+  RETURN_NOT_OK(AppendNextOffset());
+
+  std::shared_ptr<Buffer> offsets;
+  RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+
   std::shared_ptr<Array> items = values_;
   if (!items) { RETURN_NOT_OK(value_builder_->Finish(&items)); }
-
-  RETURN_NOT_OK(offset_builder_.Append<int64_t>(items->length()));
-  std::shared_ptr<Buffer> offsets = offset_builder_.Finish();
 
   *out = std::make_shared<ListArray>(
       type_, length_, offsets, items, null_bitmap_, null_count_);
 
   Reset();
-
   return Status::OK();
 }
 
 void ListBuilder::Reset() {
-  capacity_ = length_ = null_count_ = 0;
-  null_bitmap_ = nullptr;
+  ArrayBuilder::Reset();
   values_ = nullptr;
 }
 
@@ -1057,52 +1057,97 @@ ArrayBuilder* ListBuilder::value_builder() const {
 // ----------------------------------------------------------------------
 // String and binary
 
-BinaryBuilder::BinaryBuilder(MemoryPool* pool)
-    : ListBuilder(pool, std::unique_ptr<ArrayBuilder>(new UInt8Builder(pool, uint8())),
-          binary()) {
-  byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
-}
-
 BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : ListBuilder(
-          pool, std::unique_ptr<ArrayBuilder>(new UInt8Builder(pool, uint8())), type) {
-  byte_builder_ = static_cast<UInt8Builder*>(value_builder_.get());
+    : ArrayBuilder(pool, type), offsets_builder_(pool), value_data_builder_(pool) {}
+
+BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(pool, binary()) {}
+
+Status BinaryBuilder::Init(int64_t elements) {
+  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
+  // one more then requested for offsets
+  return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
 }
 
-Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<Array> result;
-  RETURN_NOT_OK(ListBuilder::Finish(&result));
+Status BinaryBuilder::Resize(int64_t capacity) {
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
+  // one more then requested for offsets
+  RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
+  return ArrayBuilder::Resize(capacity);
+}
 
-  const auto list = std::dynamic_pointer_cast<ListArray>(result);
-  auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
+Status BinaryBuilder::AppendNextOffset() {
+  const int64_t num_bytes = value_data_builder_.length();
+  if (ARROW_PREDICT_FALSE(num_bytes > kMaximumCapacity)) {
+    std::stringstream ss;
+    ss << "BinaryArray cannot contain more than " << kMaximumCapacity << " bytes, have "
+       << num_bytes;
+    return Status::Invalid(ss.str());
+  }
+  return offsets_builder_.Append(static_cast<int32_t>(num_bytes));
+}
 
-  *out = std::make_shared<BinaryArray>(list->length(), list->value_offsets(),
-      values->values(), list->null_bitmap(), list->null_count());
+Status BinaryBuilder::Append(const uint8_t* value, int32_t length) {
+  RETURN_NOT_OK(Reserve(1));
+  RETURN_NOT_OK(AppendNextOffset());
+  RETURN_NOT_OK(value_data_builder_.Append(value, length));
+  UnsafeAppendToBitmap(true);
   return Status::OK();
 }
 
+Status BinaryBuilder::AppendNull() {
+  RETURN_NOT_OK(AppendNextOffset());
+  RETURN_NOT_OK(Reserve(1));
+  UnsafeAppendToBitmap(false);
+  return Status::OK();
+}
+
+Status BinaryBuilder::FinishInternal(std::shared_ptr<internal::ArrayData>* out) {
+  // Write final offset (values length)
+  RETURN_NOT_OK(AppendNextOffset());
+  std::shared_ptr<Buffer> offsets, value_data;
+
+  RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+  RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
+
+  BufferVector buffers = {null_bitmap_, offsets, value_data};
+  *out = std::make_shared<internal::ArrayData>(
+      type_, length_, std::move(buffers), null_count_, 0);
+  return Status::OK();
+}
+
+Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
+  std::shared_ptr<internal::ArrayData> data;
+  RETURN_NOT_OK(FinishInternal(&data));
+  *out = std::make_shared<BinaryArray>(data);
+  Reset();
+  return Status::OK();
+}
+
+void BinaryBuilder::Reset() {
+  ArrayBuilder::Reset();
+  offsets_builder_.Reset();
+  value_data_builder_.Reset();
+}
+
 const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
-  const int32_t* offsets = reinterpret_cast<const int32_t*>(offset_builder_.data());
+  const int32_t* offsets = offsets_builder_.data();
   int32_t offset = offsets[i];
   if (i == (length_ - 1)) {
-    *out_length = static_cast<int32_t>(value_builder_->length()) - offset;
+    *out_length = static_cast<int32_t>(value_data_builder_.length()) - offset;
   } else {
     *out_length = offsets[i + 1] - offset;
   }
-  return byte_builder_->data()->data() + offset;
+  return value_data_builder_.data() + offset;
 }
 
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(pool, utf8()) {}
 
 Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<Array> result;
-  RETURN_NOT_OK(ListBuilder::Finish(&result));
-
-  const auto list = std::dynamic_pointer_cast<ListArray>(result);
-  auto values = std::dynamic_pointer_cast<UInt8Array>(list->values());
-
-  *out = std::make_shared<StringArray>(list->length(), list->value_offsets(),
-      values->values(), list->null_bitmap(), list->null_count());
+  std::shared_ptr<internal::ArrayData> data;
+  RETURN_NOT_OK(FinishInternal(&data));
+  *out = std::make_shared<StringArray>(data);
+  Reset();
   return Status::OK();
 }
 
@@ -1139,19 +1184,18 @@ Status FixedSizeBinaryBuilder::AppendNull() {
 }
 
 Status FixedSizeBinaryBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   return byte_builder_.Resize(elements * byte_width_);
 }
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }
 
 Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<Buffer> data = byte_builder_.Finish();
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(byte_builder_.Finish(&data));
   *out = std::make_shared<FixedSizeBinaryArray>(
       type_, length_, data, null_bitmap_, null_count_);
   return Status::OK();
