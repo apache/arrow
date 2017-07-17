@@ -55,10 +55,8 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    List<Field> fields = root.getSchema().getFields();
-    for (Field field: fields) {
-      FieldVector fieldVector = root.getVector(field.getName());
-      loadBuffers(fieldVector, field, buffers, nodes);
+    for (FieldVector fieldVector: root.getFieldVectors()) {
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
