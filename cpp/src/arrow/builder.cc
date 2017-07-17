@@ -1015,14 +1015,14 @@ Status ListBuilder::Append(bool is_valid) {
 }
 
 Status ListBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
   return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1063,14 +1063,14 @@ BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(pool, binary()) {}
 
 Status BinaryBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(elements, std::numeric_limits<int32_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   // one more then requested for offsets
   return offsets_builder_.Resize((elements + 1) * sizeof(int64_t));
 }
 
 Status BinaryBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
+  DCHECK_LT(capacity, std::numeric_limits<int32_t>::max());
   // one more then requested for offsets
   RETURN_NOT_OK(offsets_builder_.Resize((capacity + 1) * sizeof(int64_t)));
   return ArrayBuilder::Resize(capacity);
@@ -1184,13 +1184,11 @@ Status FixedSizeBinaryBuilder::AppendNull() {
 }
 
 Status FixedSizeBinaryBuilder::Init(int64_t elements) {
-  DCHECK_LT(elements, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
   return byte_builder_.Resize(elements * byte_width_);
 }
 
 Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
-  DCHECK_LT(capacity, std::numeric_limits<int64_t>::max());
   RETURN_NOT_OK(byte_builder_.Resize(capacity * byte_width_));
   return ArrayBuilder::Resize(capacity);
 }
