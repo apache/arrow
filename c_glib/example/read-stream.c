@@ -118,7 +118,7 @@ main(int argc, char **argv)
       GArrowRecordBatch *record_batch;
 
       record_batch =
-        garrow_record_batch_reader_get_next_record_batch(reader, &error);
+        garrow_record_batch_reader_read_next_record_batch(reader, &error);
       if (error) {
         g_print("failed to get record batch: %s\n", error->message);
         g_error_free(error);

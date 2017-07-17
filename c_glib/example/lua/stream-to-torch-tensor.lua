@@ -81,7 +81,7 @@ local reader = Arrow.RecordBatchStreamReader.new(input)
 
 local i = 0
 while true do
-   local record_batch = reader:get_next_record_batch()
+   local record_batch = reader:read_next_record_batch()
    if not record_batch then
       break
    end
