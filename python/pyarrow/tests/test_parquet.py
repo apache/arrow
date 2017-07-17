@@ -36,9 +36,14 @@ import pandas.util.testing as tm
 parquet = pytest.mark.parquet
 
 
-def _write_table(*args, **kwargs):
+def _write_table(table, path, **kwargs):
     import pyarrow.parquet as pq
-    return pq.write_table(*args, **kwargs)
+
+    if isinstance(table, pd.DataFrame):
+        table = pa.Table.from_pandas(table)
+
+    pq.write_table(table, path, **kwargs)
+    return table
 
 
 def _read_table(*args, **kwargs):
@@ -849,6 +854,32 @@ def test_read_multiple_files(tmpdir):
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
+
+
+@parquet
+def test_ignore_private_directories(tmpdir):
+    import pyarrow.parquet as pq
+
+    nfiles = 10
+    size = 5
+
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
+    test_data = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(size, seed=i)
+        path = pjoin(dirpath, '{0}.parquet'.format(i))
+
+        test_data.append(_write_table(df, path))
+        paths.append(path)
+
+    # private directory
+    os.mkdir(pjoin(dirpath, '_impala_staging'))
+
+    dataset = pq.ParquetDataset(dirpath)
+    assert set(paths) == set(x.path for x in dataset.pieces)
 
 
 @parquet
