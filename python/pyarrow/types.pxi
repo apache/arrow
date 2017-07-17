@@ -43,7 +43,9 @@ cdef dict _pandas_type_map = {
 
 
 cdef class DataType:
-
+    """
+    Base type for Apache Arrow data type instances. Wraps C++ arrow::DataType
+    """
     def __cinit__(self):
         pass
 
@@ -475,42 +477,72 @@ cdef set PRIMITIVE_TYPES = set([
 
 
 def null():
+    """
+    Create instance of null type
+    """
     return primitive_type(_Type_NA)
 
 
 def bool_():
+    """
+    Create instance of boolean type
+    """
     return primitive_type(_Type_BOOL)
 
 
 def uint8():
+    """
+    Create instance of boolean type
+    """
     return primitive_type(_Type_UINT8)
 
 
 def int8():
+    """
+    Create instance of signed int8 type
+    """
     return primitive_type(_Type_INT8)
 
 
 def uint16():
+    """
+    Create instance of unsigned uint16 type
+    """
     return primitive_type(_Type_UINT16)
 
 
 def int16():
+    """
+    Create instance of signed int16 type
+    """
     return primitive_type(_Type_INT16)
 
 
 def uint32():
+    """
+    Create instance of unsigned uint32 type
+    """
     return primitive_type(_Type_UINT32)
 
 
 def int32():
+    """
+    Create instance of signed int32 type
+    """
     return primitive_type(_Type_INT32)
 
 
 def uint64():
+    """
+    Create instance of unsigned uint64 type
+    """
     return primitive_type(_Type_UINT64)
 
 
 def int64():
+    """
+    Create instance of signed int64 type
+    """
     return primitive_type(_Type_INT64)
 
 
@@ -529,104 +561,183 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
-def timestamp(unit_str, tz=None):
+def timestamp(unit, tz=None):
+    """
+    Create instance of timestamp type with resolution and optional time zone
+
+    Parameters
+    ----------
+    unit : string
+        one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
+        [nanosecond]
+    tz : string, default None
+        Time zone name. None indicates time zone naive
+
+    Examples
+    --------
+    ::
+
+        t1 = pa.timestamp('us')
+        t2 = pa.timestamp('s', tz='America/New_York')
+
+    Returns
+    -------
+    timestamp_type : TimestampType
+    """
     cdef:
-        TimeUnit unit
+        TimeUnit unit_code
         c_string c_timezone
 
-    if unit_str == "s":
-        unit = TimeUnit_SECOND
-    elif unit_str == 'ms':
-        unit = TimeUnit_MILLI
-    elif unit_str == 'us':
-        unit = TimeUnit_MICRO
-    elif unit_str == 'ns':
-        unit = TimeUnit_NANO
+    if unit == "s":
+        unit_code = TimeUnit_SECOND
+    elif unit == 'ms':
+        unit_code = TimeUnit_MILLI
+    elif unit == 'us':
+        unit_code = TimeUnit_MICRO
+    elif unit == 'ns':
+        unit_code = TimeUnit_NANO
     else:
         raise ValueError('Invalid TimeUnit string')
 
     cdef TimestampType out = TimestampType()
 
     if tz is None:
-        out.init(ctimestamp(unit))
-        if unit in _timestamp_type_cache:
-            return _timestamp_type_cache[unit]
-        _timestamp_type_cache[unit] = out
+        out.init(ctimestamp(unit_code))
+        if unit_code in _timestamp_type_cache:
+            return _timestamp_type_cache[unit_code]
+        _timestamp_type_cache[unit_code] = out
     else:
         if not isinstance(tz, six.string_types):
             tz = tz.zone
 
         c_timezone = tobytes(tz)
-        out.init(ctimestamp(unit, c_timezone))
+        out.init(ctimestamp(unit_code, c_timezone))
 
     return out
 
 
-def time32(unit_str):
+def time32(unit):
+    """
+    Create instance of 32-bit time (time of day) type with unit resolution
+
+    Parameters
+    ----------
+    unit : string
+        one of 's' [second], or 'ms' [millisecond]
+
+    Examples
+    --------
+    ::
+
+        t1 = pa.time32('s')
+        t2 = pa.time32('ms')
+    """
     cdef:
-        TimeUnit unit
+        TimeUnit unit_code
         c_string c_timezone
 
-    if unit_str == "s":
-        unit = TimeUnit_SECOND
-    elif unit_str == 'ms':
-        unit = TimeUnit_MILLI
+    if unit == "s":
+        unit_code = TimeUnit_SECOND
+    elif unit == 'ms':
+        unit_code = TimeUnit_MILLI
     else:
-        raise ValueError('Invalid TimeUnit for time32: {}'.format(unit_str))
+        raise ValueError('Invalid TimeUnit for time32: {}'.format(unit))
 
     cdef Time32Type out
-    if unit in _time_type_cache:
-        return _time_type_cache[unit]
+    if unit_code in _time_type_cache:
+        return _time_type_cache[unit_code]
     else:
         out = Time32Type()
-        out.init(ctime32(unit))
-        _time_type_cache[unit] = out
+        out.init(ctime32(unit_code))
+        _time_type_cache[unit_code] = out
         return out
 
 
-def time64(unit_str):
+def time64(unit):
+    """
+    Create instance of 64-bit time (time of day) type with unit resolution
+
+    Parameters
+    ----------
+    unit : string
+        one of 'us' [microsecond], or 'ns' [nanosecond]
+
+    Examples
+    --------
+    ::
+
+        t1 = pa.time64('us')
+        t2 = pa.time64('ns')
+    """
     cdef:
-        TimeUnit unit
+        TimeUnit unit_code
         c_string c_timezone
 
-    if unit_str == "us":
-        unit = TimeUnit_MICRO
-    elif unit_str == 'ns':
-        unit = TimeUnit_NANO
+    if unit == "us":
+        unit_code = TimeUnit_MICRO
+    elif unit == 'ns':
+        unit_code = TimeUnit_NANO
     else:
-        raise ValueError('Invalid TimeUnit for time64: {}'.format(unit_str))
+        raise ValueError('Invalid TimeUnit for time64: {}'.format(unit))
 
     cdef Time64Type out
-    if unit in _time_type_cache:
-        return _time_type_cache[unit]
+    if unit_code in _time_type_cache:
+        return _time_type_cache[unit_code]
     else:
         out = Time64Type()
-        out.init(ctime64(unit))
-        _time_type_cache[unit] = out
+        out.init(ctime64(unit_code))
+        _time_type_cache[unit_code] = out
         return out
 
 
 def date32():
+    """
+    Create instance of 32-bit date (days since UNIX epoch 1970-01-01)
+    """
     return primitive_type(_Type_DATE32)
 
 
 def date64():
+    """
+    Create instance of 64-bit date (milliseconds since UNIX epoch 1970-01-01)
+    """
     return primitive_type(_Type_DATE64)
 
 
 def float16():
+    """
+    Create half-precision floating point type
+    """
     return primitive_type(_Type_HALF_FLOAT)
 
 
 def float32():
+    """
+    Create single-precision floating point type
+    """
     return primitive_type(_Type_FLOAT)
 
 
 def float64():
+    """
+    Create double-precision floating point type
+    """
     return primitive_type(_Type_DOUBLE)
 
 
 cpdef DataType decimal(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale
+
+    Parameters
+    ----------
+    precision : int
+    scale : int
+
+    Returns
+    -------
+    decimal_type : DecimalType
+    """
     cdef shared_ptr[CDataType] decimal_type
     decimal_type.reset(new CDecimalType(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
@@ -634,13 +745,14 @@ cpdef DataType decimal(int precision, int scale=0):
 
 def string():
     """
-    UTF8 string
+    Create UTF8 variable-length string type
     """
     return primitive_type(_Type_STRING)
 
 
 def binary(int length=-1):
-    """Binary (PyBytes-like) type
+    """
+    Create variable-length binary type
 
     Parameters
     ----------
@@ -717,12 +829,14 @@ def struct(fields):
 
     Examples
     --------
-    import pyarrow as pa
-    fields = [
-        pa.field('f1', pa.int32()),
-        pa.field('f2', pa.string())
-    ]
-    struct_type = pa.struct(fields)
+    ::
+
+        import pyarrow as pa
+        fields = [
+            pa.field('f1', pa.int32()),
+            pa.field('f2', pa.string())
+        ]
+        struct_type = pa.struct(fields)
 
     Returns
     -------

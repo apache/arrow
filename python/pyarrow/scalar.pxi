@@ -20,7 +20,9 @@ NA = None
 
 
 cdef class NAType(Scalar):
-
+    """
+    Null (NA) value singleton
+    """
     def __cinit__(self):
         global NA
         if NA is not None:
