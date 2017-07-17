@@ -63,7 +63,7 @@ class MessagingTest(object):
             batches.append(batch)
 
         writer.close()
-        return batches
+        return frames, batches
 
 
 class TestFile(MessagingTest, unittest.TestCase):
@@ -78,7 +78,7 @@ class TestFile(MessagingTest, unittest.TestCase):
             pa.open_file(buf)
 
     def test_simple_roundtrip(self):
-        batches = self.write_batches()
+        _, batches = self.write_batches()
         file_contents = pa.BufferReader(self._get_source())
 
         reader = pa.open_file(file_contents)
@@ -92,7 +92,7 @@ class TestFile(MessagingTest, unittest.TestCase):
             assert reader.schema.equals(batches[0].schema)
 
     def test_read_all(self):
-        batches = self.write_batches()
+        _, batches = self.write_batches()
         file_contents = pa.BufferReader(self._get_source())
 
         reader = pa.open_file(file_contents)
@@ -100,6 +100,16 @@ class TestFile(MessagingTest, unittest.TestCase):
         result = reader.read_all()
         expected = pa.Table.from_batches(batches)
         assert result.equals(expected)
+
+    def test_read_pandas(self):
+        frames, _ = self.write_batches()
+
+        file_contents = pa.BufferReader(self._get_source())
+        reader = pa.open_file(file_contents)
+        result = reader.read_pandas()
+
+        expected = pd.concat(frames)
+        assert_frame_equal(result, expected)
 
 
 class TestStream(MessagingTest, unittest.TestCase):
@@ -113,7 +123,7 @@ class TestStream(MessagingTest, unittest.TestCase):
             pa.open_stream(buf)
 
     def test_simple_roundtrip(self):
-        batches = self.write_batches()
+        _, batches = self.write_batches()
         file_contents = pa.BufferReader(self._get_source())
         reader = pa.open_stream(file_contents)
 
@@ -130,7 +140,7 @@ class TestStream(MessagingTest, unittest.TestCase):
             reader.get_next_batch()
 
     def test_read_all(self):
-        batches = self.write_batches()
+        _, batches = self.write_batches()
         file_contents = pa.BufferReader(self._get_source())
         reader = pa.open_stream(file_contents)
 
@@ -142,7 +152,7 @@ class TestStream(MessagingTest, unittest.TestCase):
 class TestMessageReader(MessagingTest, unittest.TestCase):
 
     def _get_example_messages(self):
-        batches = self.write_batches()
+        _, batches = self.write_batches()
         file_contents = self._get_source()
         buf_reader = pa.BufferReader(file_contents)
         reader = pa.MessageReader.open_stream(buf_reader)
@@ -186,6 +196,15 @@ class TestMessageReader(MessagingTest, unittest.TestCase):
         for batch, message in zip(batches, messages[1:]):
             read_batch = pa.read_record_batch(message, batch.schema)
             assert read_batch.equals(batch)
+
+    def test_read_pandas(self):
+        frames, _ = self.write_batches()
+        file_contents = pa.BufferReader(self._get_source())
+        reader = pa.open_stream(file_contents)
+        result = reader.read_pandas()
+
+        expected = pd.concat(frames)
+        assert_frame_equal(result, expected)
 
 
 class TestSocket(MessagingTest, unittest.TestCase):
@@ -249,7 +268,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
 
     def test_simple_roundtrip(self):
         self.start_server(do_read_all=False)
-        writer_batches = self.write_batches()
+        _, writer_batches = self.write_batches()
         reader_schema, reader_batches = self.stop_and_get_result()
 
         assert reader_schema.equals(writer_batches[0].schema)
@@ -259,7 +278,7 @@ class TestSocket(MessagingTest, unittest.TestCase):
 
     def test_read_all(self):
         self.start_server(do_read_all=True)
-        writer_batches = self.write_batches()
+        _, writer_batches = self.write_batches()
         _, result = self.stop_and_get_result()
 
         expected = pa.Table.from_batches(writer_batches)
