@@ -103,9 +103,6 @@ install(FILES
   protocol.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
-# Plasma store
-install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
-
 # pkg-config support
 configure_file(plasma.pc.in
   "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
