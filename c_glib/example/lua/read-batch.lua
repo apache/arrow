@@ -24,7 +24,7 @@ local input = Arrow.MemoryMappedInputStream.new(input_path)
 local reader = Arrow.RecordBatchFileReader.new(input)
 
 for i = 0, reader:get_n_record_batches() - 1 do
-   local record_batch = reader:get_record_batch(i)
+   local record_batch = reader:read_record_batch(i)
    print(string.rep("=", 40))
    print("record-batch["..i.."]:")
    for j = 0, record_batch:get_n_columns() - 1 do

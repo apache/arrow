@@ -121,7 +121,7 @@ main(int argc, char **argv)
         GArrowRecordBatch *record_batch;
 
         record_batch =
-          garrow_record_batch_file_reader_get_record_batch(reader, i, &error);
+          garrow_record_batch_file_reader_read_record_batch(reader, i, &error);
         if (!record_batch) {
           g_print("failed to open file reader: %s\n", error->message);
           g_error_free(error);

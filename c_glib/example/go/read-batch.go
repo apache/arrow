@@ -89,9 +89,9 @@ func main() {
 	var i uint32
 	nRecordBatches := reader.GetNRecordBatches()
 	for i = 0; i < nRecordBatches; i++ {
-		recordBatch, err := reader.GetRecordBatch(i)
+		recordBatch, err := reader.ReadRecordBatch(i)
 		if err != nil {
-			log.Fatalf("Failed to get record batch[%d]: %v", i, err)
+			log.Fatalf("Failed to read record batch[%d]: %v", i, err)
 		}
 		fmt.Println(strings.Repeat("=", 40))
 		fmt.Printf("record-batch[%d]:\n", i)
