@@ -31,6 +31,9 @@
 #include <arrow-glib/tensor.hpp>
 #include <arrow-glib/writeable.hpp>
 
+#include <iostream>
+#include <sstream>
+
 G_BEGIN_DECLS
 
 /**
@@ -45,6 +48,9 @@ G_BEGIN_DECLS
  * #GArrowFileOutputStream is a class for file output stream.
  *
  * #GArrowBufferOutputStream is a class for buffer output stream.
+ *
+ * #GArrowGIOOutputStream is a class for `GOutputStream` based output
+ * stream.
  */
 
 typedef struct GArrowOutputStreamPrivate_ {
@@ -275,7 +281,143 @@ garrow_buffer_output_stream_new(GArrowResizableBuffer *buffer)
     std::make_shared<arrow::io::BufferOutputStream>(arrow_resizable_buffer);
   return garrow_buffer_output_stream_new_raw(&arrow_buffer_output_stream);
 }
+
 G_END_DECLS
+
+
+namespace garrow {
+  class GIOOutputStream : public arrow::io::OutputStream {
+  public:
+    GIOOutputStream(GOutputStream *output_stream) :
+      output_stream_(output_stream) {
+      g_object_ref(output_stream_);
+    }
+
+    ~GIOOutputStream() {
+      g_object_unref(output_stream_);
+    }
+
+    GOutputStream *get_output_stream() {
+      return output_stream_;
+    }
+
+    arrow::Status Close() override {
+      GError *error = NULL;
+      if (g_output_stream_close(output_stream_, NULL, &error)) {
+        return arrow::Status::OK();
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-output-stream][close]");
+      }
+    }
+
+    arrow::Status Tell(int64_t *position) override {
+      if (!G_IS_SEEKABLE(output_stream_)) {
+        std::string message("[gio-output-stream][tell] "
+                            "not seekable output stream: <");
+        message += G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(output_stream_));
+        message += ">";
+        return arrow::Status::NotImplemented(message);
+      }
+
+      *position = g_seekable_tell(G_SEEKABLE(output_stream_));
+      return arrow::Status::OK();
+    }
+
+    arrow::Status Write(const uint8_t *data,
+                        int64_t n_bytes) override {
+      GError *error = NULL;
+      gsize n_written_bytes;
+      auto successed = g_output_stream_write_all(output_stream_,
+                                                 data,
+                                                 n_bytes,
+                                                 &n_written_bytes,
+                                                 NULL,
+                                                 &error);
+      if (successed) {
+        return arrow::Status::OK();
+      } else {
+        std::stringstream message("[gio-output-stream][write]");
+        message << "[" << n_written_bytes << "/" << n_bytes << "]";
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      message.str().c_str());
+      }
+    }
+
+    arrow::Status Flush() override {
+      GError *error = NULL;
+      auto successed = g_output_stream_flush(output_stream_, NULL, &error);
+      if (successed) {
+        return arrow::Status::OK();
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-output-stream][flush]");
+      }
+    }
+
+  private:
+    GOutputStream *output_stream_;
+  };
+};
+
+G_BEGIN_DECLS
+
+G_DEFINE_TYPE(GArrowGIOOutputStream,
+              garrow_gio_output_stream,
+              GARROW_TYPE_OUTPUT_STREAM);
+
+static void
+garrow_gio_output_stream_init(GArrowGIOOutputStream *gio_output_stream)
+{
+}
+
+static void
+garrow_gio_output_stream_class_init(GArrowGIOOutputStreamClass *klass)
+{
+}
+
+/**
+ * garrow_gio_output_stream_new:
+ * @gio_output_stream: The stream to be output.
+ *
+ * Returns: (transfer full): A newly created #GArrowGIOOutputStream.
+ */
+GArrowGIOOutputStream *
+garrow_gio_output_stream_new(GOutputStream *gio_output_stream)
+{
+  auto arrow_output_stream =
+    std::make_shared<garrow::GIOOutputStream>(gio_output_stream);
+  auto object = g_object_new(GARROW_TYPE_GIO_OUTPUT_STREAM,
+                             "output-stream", &arrow_output_stream,
+                             NULL);
+  auto output_stream = GARROW_GIO_OUTPUT_STREAM(object);
+  return output_stream;
+}
+
+/**
+ * garrow_gio_output_stream_get_raw:
+ * @output_stream: A #GArrowGIOOutputStream.
+ *
+ * Returns: (transfer none): The wrapped #GOutputStream.
+ *
+ * Since: 0.5.0
+ */
+GOutputStream *
+garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream)
+{
+  auto arrow_output_stream =
+    garrow_output_stream_get_raw(GARROW_OUTPUT_STREAM(output_stream));
+  auto arrow_gio_output_stream =
+    std::static_pointer_cast<garrow::GIOOutputStream>(arrow_output_stream);
+  auto gio_output_stream = arrow_gio_output_stream->get_output_stream();
+  return gio_output_stream;
+}
+
+G_END_DECLS
+
 
 GArrowOutputStream *
 garrow_output_stream_new_raw(std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream)

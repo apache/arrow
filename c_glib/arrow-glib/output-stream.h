@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <glib-object.h>
+#include <gio/gio.h>
 
 #include <arrow-glib/buffer.h>
 #include <arrow-glib/tensor.h>
@@ -175,5 +175,55 @@ struct _GArrowBufferOutputStreamClass
 GType garrow_buffer_output_stream_get_type(void) G_GNUC_CONST;
 
 GArrowBufferOutputStream *garrow_buffer_output_stream_new(GArrowResizableBuffer *buffer);
+
+
+#define GARROW_TYPE_GIO_OUTPUT_STREAM           \
+  (garrow_gio_output_stream_get_type())
+#define GARROW_GIO_OUTPUT_STREAM(obj)                           \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_GIO_OUTPUT_STREAM,    \
+                              GArrowGIOOutputStream))
+#define GARROW_GIO_OUTPUT_STREAM_CLASS(klass)                   \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_GIO_OUTPUT_STREAM,       \
+                           GArrowGIOOutputStreamClass))
+#define GARROW_IS_GIO_OUTPUT_STREAM(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_GIO_OUTPUT_STREAM))
+#define GARROW_IS_GIO_OUTPUT_STREAM_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_GIO_OUTPUT_STREAM))
+#define GARROW_GIO_OUTPUT_STREAM_GET_CLASS(obj)                 \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_GIO_OUTPUT_STREAM,     \
+                             GArrowGIOOutputStreamClass))
+
+typedef struct _GArrowGIOOutputStream         GArrowGIOOutputStream;
+#ifndef __GTK_DOC_IGNORE__
+typedef struct _GArrowGIOOutputStreamClass    GArrowGIOOutputStreamClass;
+#endif
+
+/**
+ * GArrowGIOOutputStream:
+ *
+ * It's an output stream for `GOutputStream`.
+ */
+struct _GArrowGIOOutputStream
+{
+  /*< private >*/
+  GArrowOutputStream parent_instance;
+};
+
+#ifndef __GTK_DOC_IGNORE__
+struct _GArrowGIOOutputStreamClass
+{
+  GArrowOutputStreamClass parent_class;
+};
+#endif
+
+GType garrow_gio_output_stream_get_type(void) G_GNUC_CONST;
+
+GArrowGIOOutputStream *garrow_gio_output_stream_new(GOutputStream *gio_output_stream);
+GOutputStream *garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream);
 
 G_END_DECLS
