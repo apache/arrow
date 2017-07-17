@@ -121,11 +121,10 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     """
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
-    prefix = os.environ.get("ARROW_HOME")
-    if prefix:
-        plasma_store_executable = os.path.join(prefix, "bin", "plasma_store")
-    else:
-        plasma_store_executable = "plasma_store"
+    module_dir = site.getsitepackages()
+    [plasma_dir] = glob.glob(os.path.join(module_dir[0], "plasma*"))
+    plasma_store_executable = os.path.join(os.path.abspath(plasma_dir),
+	                                       "plasma/plasma_store")
     plasma_store_name = "/tmp/plasma_store{}".format(random_name())
     command = [plasma_store_executable,
                "-s", plasma_store_name,
