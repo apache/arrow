@@ -41,7 +41,7 @@ if ("$ENV{ARROW_HOME}" STREQUAL "")
 else()
   set(PLASMA_HOME "$ENV{ARROW_HOME}")
 
-  set(PLASMA_EXECUTABLE ${PLASMA_HOME}/bin)
+  set(PLASMA_EXECUTABLE ${PLASMA_HOME}/bin/plasma_store)
 
   set(PLASMA_SEARCH_HEADER_PATHS
     ${PLASMA_HOME}/include
