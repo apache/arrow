@@ -190,6 +190,32 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
+Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+    std::shared_ptr<Array>* out) {
+  if (ARROW_PREDICT_FALSE(offsets.length() == 0)) {
+    return Status::Invalid("List offsets must have non-zero length");
+  }
+
+  if (ARROW_PREDICT_FALSE(offsets.null_count() > 0)) {
+    return Status::Invalid("Null offsets in ListArray::FromArrays not yet implemented");
+  }
+
+  if (ARROW_PREDICT_FALSE(offsets.type_id() != Type::INT32)) {
+    return Status::Invalid("List offsets must be signed int32");
+  }
+
+  BufferVector buffers = {
+      offsets.null_bitmap(), static_cast<const Int32Array&>(offsets).values()};
+
+  auto list_type = list(values.type());
+  auto internal_data = std::make_shared<internal::ArrayData>(list_type,
+      offsets.length() - 1, std::move(buffers), offsets.null_count(), offsets.offset());
+  internal_data->child_data.push_back(values.data());
+
+  *out = std::make_shared<ListArray>(internal_data);
+  return Status::OK();
+}
+
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto value_offsets = data->buffers[1];

@@ -283,6 +283,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string FormatValue(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const CArray& offsets, const CArray& values,
+                           CMemoryPool* pool, shared_ptr[CArray]* out)
+
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
         int32_t value_length(int i)
@@ -303,6 +307,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CArray] field(int pos)
         const vector[shared_ptr[CArray]] fields()
+
+    CStatus ValidateArray(const CArray& array)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
         int64_t length()

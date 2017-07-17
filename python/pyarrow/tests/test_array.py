@@ -199,6 +199,18 @@ def test_dictionary_with_pandas():
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
+def test_list_from_arrays():
+    offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
+    offsets = pa.Array.from_pandas(offsets_arr, type=pa.int32())
+    pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
+    values = pa.array(pyvalues, type=pa.binary())
+
+    result = pa.ListArray.from_arrays(offsets, values)
+    expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]])
+
+    assert result.equals(expected)
+
+
 def test_simple_type_construction():
     result = pa.lib.TimestampType()
     with pytest.raises(TypeError):

@@ -371,6 +371,19 @@ class ARROW_EXPORT ListArray : public Array {
       const std::shared_ptr<Buffer>& null_bitmap = nullptr, int64_t null_count = 0,
       int64_t offset = 0);
 
+  /// \brief Construct ListArray from array of offsets and child value array
+  ///
+  /// Note: does not validate input beyond sanity checks. Use
+  /// arrow::ValidateArray if you need stronger validation of inputs
+  ///
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and size
+  /// \param[in] values Array containing
+  /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// allocated because of null values
+  /// \param[out] out Will have length equal to offsets.length() - 1
+  static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+      std::shared_ptr<Array>* out);
+
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;
 

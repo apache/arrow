@@ -102,10 +102,10 @@ std::shared_ptr<Buffer> GetBufferFromVector(const std::vector<T>& values) {
 
 template <typename T>
 inline Status CopyBufferFromVector(
-    const std::vector<T>& values, std::shared_ptr<Buffer>* result) {
+    const std::vector<T>& values, MemoryPool* pool, std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
 
-  auto buffer = std::make_shared<PoolBuffer>(default_memory_pool());
+  auto buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(buffer->Resize(nbytes));
   memcpy(buffer->mutable_data(), values.data(), nbytes);
 
@@ -113,8 +113,9 @@ inline Status CopyBufferFromVector(
   return Status::OK();
 }
 
-static inline Status GetBitmapFromBoolVector(
-    const std::vector<bool>& is_valid, std::shared_ptr<Buffer>* result) {
+template <typename T>
+static inline Status GetBitmapFromVector(
+    const std::vector<T>& is_valid, std::shared_ptr<Buffer>* result) {
   size_t length = is_valid.size();
 
   std::shared_ptr<MutableBuffer> buffer;

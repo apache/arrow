@@ -343,7 +343,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto union_type = union_({field("f0", a0->type())}, {0});
   std::vector<int32_t> type_ids(a0->length());
   std::shared_ptr<Buffer> ids_buffer;
-  ASSERT_OK(test::CopyBufferFromVector(type_ids, &ids_buffer));
+  ASSERT_OK(test::CopyBufferFromVector(type_ids, default_memory_pool(), &ids_buffer));
   a1 =
       std::make_shared<UnionArray>(union_type, a0->length(), struct_children, ids_buffer);
   CheckArray(a1);
@@ -355,7 +355,8 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
     type_offsets.push_back(i);
   }
   std::shared_ptr<Buffer> offsets_buffer;
-  ASSERT_OK(test::CopyBufferFromVector(type_offsets, &offsets_buffer));
+  ASSERT_OK(
+      test::CopyBufferFromVector(type_offsets, default_memory_pool(), &offsets_buffer));
   a1 = std::make_shared<UnionArray>(
       dense_union_type, a0->length(), struct_children, ids_buffer, offsets_buffer);
   CheckArray(a1);
