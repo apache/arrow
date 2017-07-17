@@ -83,7 +83,7 @@ class ScalarVisitor {
         binary_count_(0),
         unicode_count_(0) {}
 
-  void Visit(PyObject* obj) {
+  Status Visit(PyObject* obj) {
     ++total_count_;
     if (obj == Py_None) {
       ++none_count_;
@@ -103,7 +103,14 @@ class ScalarVisitor {
       ++unicode_count_;
     } else {
       // TODO(wesm): accumulate error information somewhere
+      static std::string supported_types =
+        "bool, float, integer, date, datetime, bytes, unicode";
+      std::stringstream ss;
+      ss << "Error inferring Arrow data type for collection of Python objects. ";
+      RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
+      return Status::Invalid(ss.str());
     }
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> GetType() {
@@ -256,7 +263,7 @@ class SeqVisitor {
         // TODO
       } else {
         ++nesting_histogram_[level];
-        scalars_.Visit(item_ref.obj());
+        return scalars_.Visit(item_ref.obj());
       }
     }
     return Status::OK();

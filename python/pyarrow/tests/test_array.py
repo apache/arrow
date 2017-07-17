@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import pytest
 import sys
 
@@ -140,6 +141,12 @@ def test_array_slice():
 
     with pytest.raises(IndexError):
         arr[::2]
+
+
+def test_array_factory_invalid_type():
+    arr = np.array([datetime.timedelta(1), datetime.timedelta(2)])
+    with pytest.raises(ValueError):
+        pa.array(arr)
 
 
 def test_dictionary_from_numpy():
