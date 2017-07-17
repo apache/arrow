@@ -275,7 +275,7 @@ class build_ext(_build_ext):
         # Move the plasma store
         build_py = self.get_finalized_command('build_py')
         source = os.path.join(self.build_type, "plasma_store")
-        target = os.path.join(build_lib, build_py.get_package_dir('plasma'), "plasma_store")
+        target = os.path.join(build_lib, build_py.get_package_dir('pyarrow'), "plasma_store")
         shutil.move(source, target)
 
         os.chdir(saved_cwd)

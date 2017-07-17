@@ -25,7 +25,6 @@ import os
 import pytest
 import random
 import signal
-import site
 import subprocess
 import sys
 import time
@@ -121,10 +120,7 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     """
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
-    module_dir = site.getsitepackages()
-    [plasma_dir] = glob.glob(os.path.join(module_dir[0], "pyarrow*"))
-    plasma_store_executable = os.path.join(os.path.abspath(plasma_dir),
-	                                       "pyarrow/plasma_store")
+    plasma_store_executable = os.path.join(pa.__path__[0], "plasma_store")
     plasma_store_name = "/tmp/plasma_store{}".format(random_name())
     command = [plasma_store_executable,
                "-s", plasma_store_name,

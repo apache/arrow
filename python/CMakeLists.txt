@@ -386,3 +386,5 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)
+
+file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
