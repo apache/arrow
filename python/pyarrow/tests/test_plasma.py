@@ -155,7 +155,7 @@ class TestPlasmaClient(object):
     def setup_method(self, test_method):
         # Start Plasma store.
         plasma_store_name, self.p = start_plasma_store(
-            use_valgrind=os.getenv("VALGRIND") == "1")
+            use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
         # Connect to Plasma.
         self.plasma_client = plasma.PlasmaClient()
         self.plasma_client.connect(plasma_store_name, "", 64)
@@ -167,7 +167,7 @@ class TestPlasmaClient(object):
         # Check that the Plasma store is still alive.
         assert self.p.poll() == None
         # Kill the plasma store process.
-        if os.getenv("VALGRIND") == "1":
+        if os.getenv("PLASMA_VALGRIND") == "1":
             self.p.send_signal(signal.SIGTERM)
             self.p.wait()
             if self.p.returncode != 0:

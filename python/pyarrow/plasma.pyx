@@ -125,6 +125,9 @@ def make_object_id(object_id):
 
 
 cdef class ObjectID:
+    """
+    An ObjectID represents a string of bytes used to identify Plasma objects.
+    """
 
     cdef:
         CUniqueID data
@@ -147,6 +150,14 @@ cdef class ObjectID:
         return (make_object_id, (self.data.binary(),))
 
     def binary(self):
+        """
+        Return the binary representation of this ObjectID.
+
+        Returns
+        -------
+        bytes
+            Binary representation of the ObjectID.
+        """
         return self.data.binary()
 
 

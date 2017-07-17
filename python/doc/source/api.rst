@@ -222,7 +222,10 @@ In-Memory Object Store
 .. autosummary::
    :toctree: generated/
 
+   ObjectID
    PlasmaClient
+   PlasmaBuffer
+   MutablePlasmaBufferMutablePlasmaBuffer
 
 .. currentmodule:: pyarrow.parquet
 

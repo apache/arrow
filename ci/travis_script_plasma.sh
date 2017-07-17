@@ -83,7 +83,9 @@ python_version_tests() {
   # Run Plasma tests
   pushd $TRAVIS_BUILD_DIR/python
     python -m pytest pyarrow/tests/test_plasma.py
-    VALGRIND=1 python -m pytest pyarrow/tests/test_plasma.py
+    if [ $TRAVIS_OS_NAME == "linux" ]; then
+      PLASMA_VALGRIND=1 python -m pytest pyarrow/tests/test_plasma.py
+    fi
   popd
 }
 
