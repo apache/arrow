@@ -87,9 +87,9 @@ func main() {
 		log.Fatalf("Failed to parse data: %v", err)
 	}
 	for i := 0; true; i++ {
-		recordBatch, err := reader.GetNextRecordBatch()
+		recordBatch, err := reader.ReadNextRecordBatch()
 		if err != nil {
-			log.Fatalf("Failed to get next record batch: %v", err)
+			log.Fatalf("Failed to read next record batch: %v", err)
 		}
 		if recordBatch == nil {
 			break

@@ -166,10 +166,30 @@ garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader)
  *   The next record batch in the stream or %NULL on end of stream.
  *
  * Since: 0.4.0
+ *
+ * Deprecated: 0.5.0:
+ *   Use garrow_record_batch_reader_read_next_record_batch() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader,
                                                  GError **error)
+{
+  return garrow_record_batch_reader_read_next_record_batch(reader, error);
+}
+
+/**
+ * garrow_record_batch_reader_read_next_record_batch:
+ * @reader: A #GArrowRecordBatchReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The next record batch in the stream or %NULL on end of stream.
+ *
+ * Since: 0.5.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reader,
+                                                  GError **error)
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
@@ -177,7 +197,7 @@ garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader
 
   if (garrow_error_check(error,
                          status,
-                         "[record-batch-reader][get-next-record-batch]")) {
+                         "[record-batch-reader][read-next-record-batch]")) {
     if (arrow_record_batch == nullptr) {
       return NULL;
     } else {
@@ -402,11 +422,33 @@ garrow_record_batch_file_reader_get_version(GArrowRecordBatchFileReader *reader)
  *   The i-th record batch in the file or %NULL on error.
  *
  * Since: 0.4.0
+ *
+ * Deprecated: 0.5.0:
+ *   Use garrow_record_batch_file_reader_read_record_batch() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_file_reader_get_record_batch(GArrowRecordBatchFileReader *reader,
                                                  guint i,
                                                  GError **error)
+{
+  return garrow_record_batch_file_reader_read_record_batch(reader, i, error);
+}
+
+/**
+ * garrow_record_batch_file_reader_read_record_batch:
+ * @reader: A #GArrowRecordBatchFileReader.
+ * @i: The index of the target record batch.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The i-th record batch in the file or %NULL on error.
+ *
+ * Since: 0.5.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *reader,
+                                                  guint i,
+                                                  GError **error)
 {
   auto arrow_reader = garrow_record_batch_file_reader_get_raw(reader);
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
@@ -414,7 +456,7 @@ garrow_record_batch_file_reader_get_record_batch(GArrowRecordBatchFileReader *re
 
   if (garrow_error_check(error,
                          status,
-                         "[record-batch-file-reader][get-record-batch]")) {
+                         "[record-batch-file-reader][read-record-batch]")) {
     return garrow_record_batch_new_raw(&arrow_record_batch);
   } else {
     return NULL;

@@ -76,7 +76,13 @@ GType garrow_record_batch_reader_get_type(void) G_GNUC_CONST;
 
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next_record_batch)
 GArrowRecordBatch *garrow_record_batch_reader_get_next_record_batch(
+  GArrowRecordBatchReader *reader,
+  GError **error);
+#endif
+GArrowRecordBatch *garrow_record_batch_reader_read_next_record_batch(
   GArrowRecordBatchReader *reader,
   GError **error);
 
@@ -188,7 +194,14 @@ guint garrow_record_batch_file_reader_get_n_record_batches(
   GArrowRecordBatchFileReader *reader);
 GArrowMetadataVersion garrow_record_batch_file_reader_get_version(
   GArrowRecordBatchFileReader *reader);
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED_FOR(garrow_record_batch_file_reader_read_record_batch)
 GArrowRecordBatch *garrow_record_batch_file_reader_get_record_batch(
+  GArrowRecordBatchFileReader *reader,
+  guint i,
+  GError **error);
+#endif
+GArrowRecordBatch *garrow_record_batch_file_reader_read_record_batch(
   GArrowRecordBatchFileReader *reader,
   guint i,
   GError **error);
