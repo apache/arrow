@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 public class UnionListReader extends AbstractFieldReader {
 
@@ -37,6 +38,11 @@ public class UnionListReader extends AbstractFieldReader {
     this.vector = vector;
     this.data = vector.getDataVector();
     this.offsets = vector.getOffsetVector();
+  }
+
+  @Override
+  public Field getField() {
+    return vector.getField();
   }
 
   @Override

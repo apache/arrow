@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 
 import com.google.common.collect.Maps;
 
@@ -43,6 +44,11 @@ public class SingleMapReaderImpl extends AbstractFieldReader{
     for(FieldReader r : fields.values()){
       r.setPosition(index);
     }
+  }
+
+  @Override
+  public Field getField() {
+    return vector.getField();
   }
 
   @Override
