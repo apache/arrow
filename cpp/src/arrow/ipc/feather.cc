@@ -497,6 +497,19 @@ fbs::Type ToFlatbufferType(Type::type type) {
   return fbs::Type_MIN;
 }
 
+static Status SanitizeUnsupportedTypes(
+    const Array& values, std::shared_ptr<Array>* out) {
+  if (values.type_id() == Type::NA) {
+    // As long as R doesn't support NA, we write this as a StringColumn
+    // to ensure stable roundtrips.
+    *out = std::make_shared<StringArray>(
+        values.length(), nullptr, nullptr, values.null_bitmap(), values.null_count());
+    return Status::OK();
+  } else {
+    return MakeArray(values.data(), out);
+  }
+}
+
 class TableWriter::TableWriterImpl : public ArrayVisitor {
  public:
   TableWriterImpl() : initialized_stream_(false), metadata_(0) {}
@@ -622,11 +635,9 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   }
 
   Status Visit(const NullArray& values) override {
-    // As long as R doesn't support NA, we write this as a StringColumn
-    // to ensure stable roundtrips.
-    StringArray str_values(
-        values.length(), nullptr, nullptr, values.null_bitmap(), values.null_count());
-    return WritePrimitiveValues(str_values);
+    std::shared_ptr<Array> sanitized_nulls;
+    RETURN_NOT_OK(SanitizeUnsupportedTypes(values, &sanitized_nulls));
+    return WritePrimitiveValues(*sanitized_nulls);
   }
 
 #define VISIT_PRIMITIVE(TYPE) \
@@ -658,7 +669,10 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     RETURN_NOT_OK(WritePrimitiveValues(*values.indices()));
 
     ArrayMetadata levels_meta;
-    RETURN_NOT_OK(WriteArray(*dict_type.dictionary(), &levels_meta));
+    std::shared_ptr<Array> sanitized_dictionary;
+    RETURN_NOT_OK(
+        SanitizeUnsupportedTypes(*dict_type.dictionary(), &sanitized_dictionary));
+    RETURN_NOT_OK(WriteArray(*sanitized_dictionary, &levels_meta));
     current_column_->SetCategory(levels_meta, dict_type.ordered());
     return Status::OK();
   }
