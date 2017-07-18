@@ -602,8 +602,11 @@ class ParquetDataset(object):
             # so that Table.to_pandas will construct pandas.DataFrame with the
             # right index
             common_metadata = self._get_common_pandas_metadata()
-            if common_metadata:
-                all_data = all_data.replace_schema_metadata(common_metadata)
+            current_metadata = all_data.schema.metadata or {}
+
+            if common_metadata and b'pandas' not in current_metadata:
+                all_data = all_data.replace_schema_metadata({
+                    b'pandas': common_metadata})
 
         return all_data
 
