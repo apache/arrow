@@ -809,9 +809,6 @@ def test_read_multiple_files(tmpdir):
 
     assert result.equals(expected)
 
-    with pytest.raises(NotImplementedError):
-        pq.read_pandas(dirpath)
-
     # Read with provided metadata
     metadata = pq.ParquetFile(paths[0]).metadata
 
@@ -854,6 +851,88 @@ def test_read_multiple_files(tmpdir):
 
     with pytest.raises(ValueError):
         read_multiple_files(mixed_paths)
+
+
+@parquet
+def test_dataset_read_pandas(tmpdir):
+    import pyarrow.parquet as pq
+
+    nfiles = 5
+    size = 5
+
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
+    test_data = []
+    frames = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(size, seed=i)
+        df.index = np.arange(i * size, (i + 1) * size)
+        df.index.name = 'index'
+
+        path = pjoin(dirpath, '{0}.parquet'.format(i))
+
+        table = pa.Table.from_pandas(df)
+        _write_table(table, path)
+        test_data.append(table)
+        frames.append(df)
+        paths.append(path)
+
+    dataset = pq.ParquetDataset(dirpath)
+    columns = ['uint8', 'strings']
+    result = dataset.read_pandas(columns=columns).to_pandas()
+    expected = pd.concat([x[columns] for x in frames])
+
+    tm.assert_frame_equal(result, expected)
+
+
+@parquet
+def test_dataset_read_pandas_common_metadata(tmpdir):
+    # ARROW-1103
+    import pyarrow.parquet as pq
+
+    nfiles = 5
+    size = 5
+
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
+    test_data = []
+    frames = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(size, seed=i)
+        df.index = pd.Index(np.arange(i * size, (i + 1) * size))
+        df.index.name = 'index'
+
+        path = pjoin(dirpath, '{0}.parquet'.format(i))
+
+        df_ex_index = df.reset_index(drop=True)
+        df_ex_index['index'] = df.index
+        table = pa.Table.from_pandas(df_ex_index,
+                                     preserve_index=False)
+
+        # Obliterate metadata
+        table = table.replace_schema_metadata(None)
+        assert table.schema.metadata is None
+
+        _write_table(table, path)
+        test_data.append(table)
+        frames.append(df)
+        paths.append(path)
+
+    # Write _metadata common file
+    table_for_metadata = pa.Table.from_pandas(df)
+    pq.write_metadata(table_for_metadata.schema,
+                      pjoin(dirpath, '_metadata'))
+
+    dataset = pq.ParquetDataset(dirpath)
+    columns = ['uint8', 'strings']
+    result = dataset.read_pandas(columns=columns).to_pandas()
+    expected = pd.concat([x[columns] for x in frames])
+
+    tm.assert_frame_equal(result, expected)
 
 
 @parquet

@@ -197,8 +197,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                c_bool nullable, const shared_ptr[CKeyValueMetadata]& metadata)
 
         # Removed const in Cython so don't have to cast to get code to generate
-        CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
-                            shared_ptr[CField]* out)
+        shared_ptr[CField] AddMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CField] RemoveMetadata()
 
 
@@ -224,8 +224,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToString()
 
         # Removed const in Cython so don't have to cast to get code to generate
-        CStatus AddMetadata(const shared_ptr[CKeyValueMetadata]& metadata,
-                            shared_ptr[CSchema]* out)
+        shared_ptr[CSchema] AddMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
@@ -346,6 +346,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
+        shared_ptr[CRecordBatch] ReplaceSchemaMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
+
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
@@ -369,6 +372,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus AddColumn(int i, const shared_ptr[CColumn]& column,
                           shared_ptr[CTable]* out)
         CStatus RemoveColumn(int i, shared_ptr[CTable]* out)
+
+        shared_ptr[CTable] ReplaceSchemaMetadata(
+            const shared_ptr[CKeyValueMetadata]& metadata)
 
     cdef cppclass CTensor" arrow::Tensor":
         shared_ptr[CDataType] type()

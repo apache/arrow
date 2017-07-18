@@ -164,6 +164,10 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
     std::vector<std::shared_ptr<internal::ArrayData>>&& columns)
     : schema_(schema), num_rows_(num_rows), columns_(std::move(columns)) {}
 
+RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+    const std::vector<std::shared_ptr<internal::ArrayData>>& columns)
+    : schema_(schema), num_rows_(num_rows), columns_(columns) {}
+
 std::shared_ptr<Array> RecordBatch::column(int i) const {
   std::shared_ptr<Array> result;
   DCHECK(MakeArray(columns_[i], &result).ok());
@@ -196,6 +200,12 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   }
 
   return true;
+}
+
+std::shared_ptr<RecordBatch> RecordBatch::ReplaceSchemaMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  auto new_schema = schema_->AddMetadata(metadata);
+  return std::make_shared<RecordBatch>(new_schema, num_rows_, columns_);
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
@@ -255,6 +265,12 @@ Table::Table(const std::shared_ptr<Schema>& schema,
 Table::Table(const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
     : schema_(schema), columns_(columns), num_rows_(num_rows) {}
+
+std::shared_ptr<Table> Table::ReplaceSchemaMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  auto new_schema = schema_->AddMetadata(metadata);
+  return std::make_shared<Table>(new_schema, columns_);
+}
 
 Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>& batches,
     std::shared_ptr<Table>* table) {

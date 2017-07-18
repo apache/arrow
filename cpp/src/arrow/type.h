@@ -210,9 +210,12 @@ class ARROW_EXPORT Field {
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
+  /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
       std::shared_ptr<Field>* out) const;
 
+  std::shared_ptr<Field> AddMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
   std::shared_ptr<Field> RemoveMetadata() const;
 
   bool Equals(const Field& other) const;
@@ -690,39 +693,56 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 // ----------------------------------------------------------------------
 // Schema
 
+/// \class Schema
+/// \brief Sequence of arrow::Field objects describing the columns of a record
+/// batch or table data structure
 class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
   virtual ~Schema() = default;
 
-  // Returns true if all of the schema fields are equal
+  /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other) const;
 
-  // Return the ith schema element. Does not boundscheck
+  /// Return the ith schema element. Does not boundscheck
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }
 
-  // Returns nullptr if name not found
+  /// Returns nullptr if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
-  // Returns -1 if name not found
+  /// Returns -1 if name not found
   int64_t GetFieldIndex(const std::string& name) const;
 
   const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
+
+  /// \brief The custom key-value metadata, if any
+  ///
+  /// \return metadata may be nullptr
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
-  // Render a string representation of the schema suitable for debugging
+  /// \brief Render a string representation of the schema suitable for debugging
   std::string ToString() const;
 
   Status AddField(
       int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
+  /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
       std::shared_ptr<Schema>* out) const;
 
+  /// \brief Replace key-value metadata with new metadata
+  ///
+  /// \param[in] metadata new KeyValueMetadata
+  /// \return new Schema
+  std::shared_ptr<Schema> AddMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  /// \brief Return copy of Schema without the KeyValueMetadata
   std::shared_ptr<Schema> RemoveMetadata() const;
 
+  /// \brief Return the number of fields (columns) in the schema
   int num_fields() const { return static_cast<int>(fields_.size()); }
 
  private:

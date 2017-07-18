@@ -388,6 +388,30 @@ cdef class RecordBatch:
         self._check_nullptr()
         return self.batch.num_rows()
 
+    def replace_schema_metadata(self, dict metadata=None):
+        """
+        EXPERIMENTAL: Create shallow copy of record batch by replacing schema
+        key-value metadata with the indicated new metadata (which may be None,
+        which deletes any existing metadata
+
+        Parameters
+        ----------
+        metadata : dict, default None
+
+        Returns
+        -------
+        shallow_copy : RecordBatch
+        """
+        cdef shared_ptr[CKeyValueMetadata] c_meta
+        if metadata is not None:
+            convert_metadata(metadata, &c_meta)
+
+        cdef shared_ptr[CRecordBatch] new_batch
+        with nogil:
+            new_batch = self.batch.ReplaceSchemaMetadata(c_meta)
+
+        return pyarrow_wrap_batch(new_batch)
+
     @property
     def num_columns(self):
         """
@@ -623,6 +647,30 @@ cdef class Table:
                 "Table object references a NULL pointer. Not initialized."
             )
         return 0
+
+    def replace_schema_metadata(self, dict metadata=None):
+        """
+        EXPERIMENTAL: Create shallow copy of table by replacing schema
+        key-value metadata with the indicated new metadata (which may be None,
+        which deletes any existing metadata
+
+        Parameters
+        ----------
+        metadata : dict, default None
+
+        Returns
+        -------
+        shallow_copy : Table
+        """
+        cdef shared_ptr[CKeyValueMetadata] c_meta
+        if metadata is not None:
+            convert_metadata(metadata, &c_meta)
+
+        cdef shared_ptr[CTable] new_table
+        with nogil:
+            new_table = self.table.ReplaceSchemaMetadata(c_meta)
+
+        return pyarrow_wrap_table(new_table)
 
     def equals(self, Table other):
         """
