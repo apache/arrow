@@ -298,6 +298,12 @@ class TestFeatherReader(unittest.TestCase):
         df = pd.DataFrame({'all_none': [None] * 10})
         self._check_pandas_roundtrip(df, null_counts=[10])
 
+    def test_all_null_category(self):
+        # ARROW-1188
+        df = pd.DataFrame({"A": (1, 2, 3), "B": (None, None, None)})
+        df = df.assign(B=df.B.astype("category"))
+        self._check_pandas_roundtrip(df, null_counts=[0, 3])
+
     def test_multithreaded_read(self):
         data = {'c{0}'.format(i): [''] * 10
                 for i in range(100)}
