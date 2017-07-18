@@ -259,7 +259,7 @@ class ARROW_EXPORT Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Array& x) {
+static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
   return os;
 }
