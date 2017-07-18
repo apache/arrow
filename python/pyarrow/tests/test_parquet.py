@@ -458,7 +458,7 @@ def test_date_time_types():
 
     t7_us = pa.timestamp('us')
     start = pd.Timestamp('2001-01-01').value
-    data7_us = np.array([start, start + 1, start + 2], dtype='int64') / 1000
+    data7_us = np.array([start, start + 1, start + 2], dtype='int64') // 1000
     a7_us = pa.Array.from_pandas(data7_us, type=t7_us)
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
