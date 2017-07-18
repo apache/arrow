@@ -15,51 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Functions for converting between pandas's NumPy-based data representation
-// and Arrow data structures
+// Converting from pandas memory representation to Arrow data structures
 
-#ifndef ARROW_PYTHON_ADAPTERS_PANDAS_H
-#define ARROW_PYTHON_ADAPTERS_PANDAS_H
+#ifndef ARROW_PYTHON_PANDAS_TO_ARROW_H
+#define ARROW_PYTHON_PANDAS_TO_ARROW_H
 
 #include "arrow/python/platform.h"
 
 #include <memory>
-#include <string>
 
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
-class Column;
+class ChunkedArray;
 class DataType;
 class MemoryPool;
 class Status;
-class Table;
 
 namespace py {
-
-ARROW_EXPORT
-Status ConvertArrayToPandas(
-    const std::shared_ptr<Array>& arr, PyObject* py_ref, PyObject** out);
-
-ARROW_EXPORT
-Status ConvertColumnToPandas(
-    const std::shared_ptr<Column>& col, PyObject* py_ref, PyObject** out);
-
-struct PandasOptions {
-  bool strings_to_categorical;
-};
-
-// Convert a whole table as efficiently as possible to a pandas.DataFrame.
-//
-// The returned Python object is a list of tuples consisting of the exact 2D
-// BlockManager structure of the pandas.DataFrame used as of pandas 0.19.x.
-//
-// tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
-ARROW_EXPORT
-Status ConvertTableToPandas(
-    const std::shared_ptr<Table>& table, int nthreads, PyObject** out);
 
 ARROW_EXPORT
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
@@ -67,11 +42,17 @@ Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 
 /// Convert dtype=object arrays. If target data type is not known, pass a type
 /// with nullptr
+///
+/// \param[in] pool Memory pool for any memory allocations
+/// \param[in] ao an ndarray with the array data
+/// \param[in] mo an ndarray with a null mask (True is null), optional
+/// \param[in] type
+/// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_EXPORT
 Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+    const std::shared_ptr<DataType>& type, std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py
 }  // namespace arrow
 
-#endif  // ARROW_PYTHON_ADAPTERS_PANDAS_H
+#endif  // ARROW_PYTHON_PANDAS_TO_ARROW_H

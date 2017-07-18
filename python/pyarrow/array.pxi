@@ -154,7 +154,8 @@ cdef class Array:
 
         Returns
         -------
-        pyarrow.array.Array
+        array : pyarrow.Array or pyarrow.ChunkedArray (if object data
+        overflowed binary storage)
         """
         cdef:
             shared_ptr[CArray] out

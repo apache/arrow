@@ -42,6 +42,7 @@ set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 # ----------------------------------------------------------------------
 
 set(ARROW_PYTHON_SRCS
+  arrow_to_pandas.cc
   builtin_convert.cc
   common.cc
   config.cc
@@ -49,7 +50,7 @@ set(ARROW_PYTHON_SRCS
   init.cc
   io.cc
   numpy_convert.cc
-  pandas_convert.cc
+  pandas_to_arrow.cc
   pyarrow.cc
 )
 
