@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import json
 
 import six
@@ -414,6 +415,9 @@ class ParquetManifest(object):
             elif fs.isdir(path):
                 directories.append(path)
 
+        # ARROW-1079: Filter out "private" directories starting with underscore
+        directories = [x for x in directories if not _is_private_directory(x)]
+
         if len(files) > 0 and len(directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
@@ -454,6 +458,11 @@ def _parse_hive_partition(value):
         raise ValueError('Directory name did not appear to be a '
                          'partition: {0}'.format(value))
     return value.split('=', 1)
+
+
+def _is_private_directory(x):
+    _, tail = os.path.split(x)
+    return tail.startswith('_') and '=' not in tail
 
 
 def _path_split(path, sep):
