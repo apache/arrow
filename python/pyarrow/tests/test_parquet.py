@@ -809,9 +809,6 @@ def test_read_multiple_files(tmpdir):
 
     assert result.equals(expected)
 
-    with pytest.raises(NotImplementedError):
-        pq.read_pandas(dirpath)
-
     # Read with provided metadata
     metadata = pq.ParquetFile(paths[0]).metadata
 

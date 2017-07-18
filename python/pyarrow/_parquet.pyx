@@ -423,10 +423,13 @@ cdef class ParquetReader:
     def set_num_threads(self, int nthreads):
         self.reader.get().set_num_threads(nthreads)
 
-    def read_row_group(self, int i, column_indices=None):
+    def read_row_group(self, int i, column_indices=None, nthreads=None):
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
+
+        if nthreads:
+            self.set_num_threads(nthreads)
 
         if column_indices is not None:
             for index in column_indices:
@@ -442,10 +445,13 @@ cdef class ParquetReader:
                              .ReadRowGroup(i, &ctable))
         return pyarrow_wrap_table(ctable)
 
-    def read_all(self, column_indices=None):
+    def read_all(self, column_indices=None, nthreads=None):
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
+
+        if nthreads:
+            self.set_num_threads(nthreads)
 
         if column_indices is not None:
             for index in column_indices:
