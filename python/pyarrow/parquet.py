@@ -249,11 +249,14 @@ class ParquetDatasetPiece(object):
             # try to read the local path
             reader = ParquetFile(self.path)
 
+        options = dict(columns=columns,
+                       nthreads=nthreads,
+                       use_pandas_metadata=use_pandas_metadata)
+
         if self.row_group is not None:
-            table = reader.read_row_group(self.row_group, columns=columns,
-                                          nthreads=nthreads)
+            table = reader.read_row_group(self.row_group, **options)
         else:
-            table = reader.read(columns=columns, nthreads=nthreads)
+            table = reader.read(**options)
 
         if len(self.partition_keys) > 0:
             if partitions is None:
@@ -600,9 +603,21 @@ class ParquetDataset(object):
             # right index
             common_metadata = self._get_common_pandas_metadata()
             if common_metadata:
-                all_data = all_data.add_schema_metadata(common_metadata)
+                all_data = all_data.replace_schema_metadata(common_metadata)
 
         return all_data
+
+    def read_pandas(self, **kwargs):
+        """
+        Read dataset including pandas metadata, if any. Other arguments passed
+        through to ParquetDataset.read, see docstring for further details
+
+        Returns
+        -------
+        pyarrow.Table
+            Content of the file as a table (of columns)
+        """
+        return self.read(use_pandas_metadata=True, **kwargs)
 
     def _get_common_pandas_metadata(self):
         if self.common_metadata is None:

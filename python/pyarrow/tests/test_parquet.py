@@ -854,6 +854,47 @@ def test_read_multiple_files(tmpdir):
 
 
 @parquet
+def test_dataset_read_pandas(tmpdir):
+    import pyarrow.parquet as pq
+
+    nfiles = 5
+    size = 5
+
+    dirpath = tmpdir.join(guid()).strpath
+    os.mkdir(dirpath)
+
+    test_data = []
+    frames = []
+    paths = []
+    for i in range(nfiles):
+        df = _test_dataframe(size, seed=i)
+        df.index = np.arange(i * size, (i + 1) * size)
+        df.index.name = 'index'
+
+        path = pjoin(dirpath, '{0}.parquet'.format(i))
+
+        # Write index, but obliterate the metadata
+        table = pa.Table.from_pandas(df)
+        _write_table(table, path)
+        test_data.append(table)
+        frames.append(df)
+        paths.append(path)
+
+    dataset = pq.ParquetDataset(dirpath)
+    columns = ['uint8', 'strings']
+    result = dataset.read_pandas(columns=columns).to_pandas()
+    expected = pd.concat([x[columns] for x in frames])
+
+    tm.assert_frame_equal(result, expected)
+
+
+# @parquet
+# def test_dataset_pandas_common_metadata(tmpdir):
+#     table_for_metadata = pa.Table.from_pandas(df)
+#     pq.write_metadata(table_for_metadata.schema, pjoin(dirpath, '_metadata'))
+
+
+@parquet
 def test_ignore_private_directories(tmpdir):
     import pyarrow.parquet as pq
 

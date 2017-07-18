@@ -200,13 +200,20 @@ class ARROW_EXPORT Message {
 ARROW_EXPORT std::string FormatMessageType(Message::Type type);
 
 /// \brief Abstract interface for a sequence of messages
+/// \since 0.5.0
 class ARROW_EXPORT MessageReader {
  public:
   virtual ~MessageReader() = default;
 
+  /// \brief Read next Message from the interface
+  ///
+  /// \param[out] message an arrow::ipc::Message instance
+  /// \return Status
   virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
 };
 
+/// \brief Implementation of MessageReader that reads from InputStream
+/// \since 0.5.0
 class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
  public:
   explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& stream)
