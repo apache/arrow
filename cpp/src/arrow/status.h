@@ -176,7 +176,10 @@ class ARROW_EXPORT Status {
   void CopyFrom(const State* s);
 };
 
-std::ostream& operator<<(std::ostream& os, const Status& x);
+static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
+  os << x.ToString();
+  return os;
+}
 
 inline Status::Status(const Status& s)
     : state_((s.state_ == NULL) ? NULL : new State(*s.state_)) {}

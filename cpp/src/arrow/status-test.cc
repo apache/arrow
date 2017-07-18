@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "gtest/gtest.h"
 
 #include "arrow/status.h"
@@ -33,6 +35,10 @@ TEST(StatusTest, TestCodeAndMessage) {
 TEST(StatusTest, TestToString) {
   Status file_error = Status::IOError("file error");
   ASSERT_EQ("IOError: file error", file_error.ToString());
+
+  std::stringstream ss;
+  ss << file_error;
+  ASSERT_EQ(file_error.ToString(), ss.str());
 }
 
 }  // namespace arrow

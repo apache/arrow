@@ -49,6 +49,10 @@ void CheckArray(const Array& arr, int indent, const char* expected) {
   ASSERT_OK(PrettyPrint(arr, indent, &sink));
   std::string result = sink.str();
   ASSERT_EQ(std::string(expected, strlen(expected)), result);
+
+  std::stringstream ss;
+  ss << arr;
+  ASSERT_EQ(result, ss.str());
 }
 
 template <typename TYPE, typename C_TYPE>

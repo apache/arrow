@@ -107,9 +107,10 @@ std::shared_ptr<Array> Array::Slice(int64_t offset) const {
   return Slice(offset, slice_length);
 }
 
-std::ostream& operator<<(std::ostream& os, const Array& x) {
-  DCHECK(PrettyPrint(x, 0, &os).ok());
-  return os;
+std::string Array::ToString() const {
+  std::stringstream ss;
+  DCHECK(PrettyPrint(*this, 0, &ss).ok());
+  return ss.str();
 }
 
 static inline std::shared_ptr<ArrayData> SliceData(
