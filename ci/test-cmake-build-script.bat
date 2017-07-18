@@ -18,13 +18,17 @@
 @echo on
 
 conda update --yes --quiet conda
-conda create -n arrow-cmake-script-tests -q -y
-conda install -n arrow-cmake-script-tests -q -y -c conda-forge ^
-cmake git boost-cpp
-call activate arrow-cmake-script-tests
 
-mkdir cpp\build-cmake-test
-pushd cpp\build-cmake-test
+@rem Validate cmake script behaviour on missed lib in toolchain
+set CONDA_ENV=arrow-cmake-tests-libs
+conda create -n %CONDA_ENV% -q -y
+conda install -n %CONDA_ENV% -q -y -c conda-forge ^
+cmake git boost-cpp
+call activate %CONDA_ENV%
+
+set BUILD_DIR=cpp\build-cmake-test
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
 
 echo Test cmake script errors out on flatbuffers missed
 set FLATBUFFERS_HOME=WrongPath
@@ -111,3 +115,32 @@ FINDSTR /M /C:"Could NOT find ZSTD" error.txt || exit /B
 set ZSTD_HOME=
 
 popd
+rmdir /S /Q %BUILD_DIR%
+call deactivate
+
+@rem Validate libs availability in conda toolchain
+mkdir %BUILD_DIR%
+pushd %BUILD_DIR%
+
+set CONDA_ENV=arrow-cmake-tests-toolchain
+conda create -n %CONDA_ENV% -q -y
+conda install -n %CONDA_ENV% -q -y -c conda-forge ^
+      flatbuffers rapidjson cmake git boost-cpp ^
+      thrift-cpp snappy zlib brotli gflags lz4-c zstd
+call activate %CONDA_ENV%
+
+set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+cmake -G "%GENERATOR%" ^
+      -DARROW_BOOST_USE_SHARED=OFF ^
+      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DARROW_CXXFLAGS="/MP" ^
+      .. 2>output.txt
+
+set LIBRARY_FOUND_MSG=Added static library dependency
+for %%x in (snappy gflags zlib brotli_enc brotli_dec brotli_common lz4_static zstd_static) do (
+    echo Checking %%x library path
+    FINDSTR /C:"%LIBRARY_FOUND_MSG% %%x: %CONDA_PREFIX:\=/%" output.txt || exit /B
+)
+
+popd
+rmdir /S /Q %BUILD_DIR%
