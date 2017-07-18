@@ -456,19 +456,44 @@ def test_date_time_types():
     ex_t6 = pa.time32('ms')
     ex_a6 = pa.Array.from_pandas(data4 * 1000, type=ex_t6)
 
-    table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6],
+    t7 = pa.timestamp('ns')
+    start = pd.Timestamp('2001-01-01').value
+    data7 = np.array([start, start + 1, start + 2], dtype='int64')
+    a7 = pa.Array.from_pandas(data7, type=t7)
+
+    t7_us = pa.timestamp('us')
+    start = pd.Timestamp('2001-01-01').value
+    data7_us = np.array([start, start + 1, start + 2], dtype='int64') // 1000
+    a7_us = pa.Array.from_pandas(data7_us, type=t7_us)
+
+    table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
                                  ['date32', 'date64', 'timestamp[us]',
                                   'time32[s]', 'time64[us]',
-                                  'time32_from64[s]'])
+                                  'time32_from64[s]',
+                                  'timestamp[ns]'])
 
     # date64 as date32
     # time32[s] to time32[ms]
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6],
+    # 'timestamp[ns]' to 'timestamp[us]'
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7_us],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
-                                     'time32_from64[s]'])
+                                     'time32_from64[s]',
+                                     'timestamp[ns]'])
 
     _check_roundtrip(table, expected=expected, version='2.0')
+
+    # date64 as date32
+    # time32[s] to time32[ms]
+    # 'timestamp[ns]' is saved as INT96 timestamp
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
+                                    ['date32', 'date64', 'timestamp[us]',
+                                     'time32[s]', 'time64[us]',
+                                     'time32_from64[s]',
+                                     'timestamp[ns]'])
+
+    _check_roundtrip(table, expected=expected, version='2.0',
+                     use_deprecated_int96_timestamps=True)
 
     # Unsupported stuff
     def _assert_unsupported(array):
