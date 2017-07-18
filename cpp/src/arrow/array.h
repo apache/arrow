@@ -236,6 +236,9 @@ class ARROW_EXPORT Array {
 
   int num_fields() const { return static_cast<int>(data_->child_data.size()); }
 
+  /// \return PrettyPrint representation of array suitable for debugging
+  std::string ToString() const;
+
  protected:
   Array() {}
 
@@ -256,7 +259,10 @@ class ARROW_EXPORT Array {
   DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
-ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Array& x);
+static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
+  os << x.ToString();
+  return os;
+}
 
 class ARROW_EXPORT FlatArray : public Array {
  protected:
