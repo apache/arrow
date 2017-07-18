@@ -743,7 +743,8 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
 
 
 def write_table(table, where, row_group_size=None, version='1.0',
-                use_dictionary=True, compression='snappy', **kwargs):
+                use_dictionary=True, compression='snappy',
+                use_deprecated_int96_timestamps=False, **kwargs):
     """
     Write a Table to Parquet format
 
@@ -766,12 +767,13 @@ def write_table(table, where, row_group_size=None, version='1.0',
     writer = ParquetWriter(where, table.schema,
                            use_dictionary=use_dictionary,
                            compression=compression,
-                           version=version)
+                           version=version,
+                           use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
     writer.write_table(table, row_group_size=row_group_size)
     writer.close()
 
 
-def write_metadata(schema, where, version='1.0'):
+def write_metadata(schema, where, version='1.0', use_deprecated_int96_timestamps=False):
     """
     Write metadata-only Parquet file from schema
 
@@ -782,5 +784,6 @@ def write_metadata(schema, where, version='1.0'):
     version : {"1.0", "2.0"}, default "1.0"
         The Parquet format version, defaults to 1.0
     """
-    writer = ParquetWriter(where, schema, version=version)
+    writer = ParquetWriter(where, schema, version=version,
+                           use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
     writer.close()
