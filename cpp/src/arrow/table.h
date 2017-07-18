@@ -41,13 +41,13 @@ class Status;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
-// A data structure managing a list of primitive Arrow arrays logically as one
-// large array
+/// \brief A data structure managing a list of primitive Arrow arrays logically
+/// as one large array
 class ARROW_EXPORT ChunkedArray {
  public:
   explicit ChunkedArray(const ArrayVector& chunks);
 
-  // @returns: the total length of the chunked array; computed on construction
+  // \return the total length of the chunked array; computed on construction
   int64_t length() const { return length_; }
 
   int64_t null_count() const { return null_count_; }
@@ -67,9 +67,8 @@ class ARROW_EXPORT ChunkedArray {
   int64_t null_count_;
 };
 
-// An immutable column data structure consisting of a field (type metadata) and
-// a logical chunked data array (which can be validated as all being the same
-// type).
+/// \brief An immutable column data structure consisting of a field (type
+/// metadata) and a logical chunked data array
 class ARROW_EXPORT Column {
  public:
   Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks);
@@ -86,13 +85,13 @@ class ARROW_EXPORT Column {
 
   std::shared_ptr<Field> field() const { return field_; }
 
-  // @returns: the column's name in the passed metadata
+  // \return the column's name in the passed metadata
   const std::string& name() const { return field_->name(); }
 
-  // @returns: the column's type according to the metadata
+  // \return the column's type according to the metadata
   std::shared_ptr<DataType> type() const { return field_->type(); }
 
-  // @returns: the column's data as a chunked logical array
+  // \return the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
 
   bool Equals(const Column& other) const;
@@ -107,9 +106,11 @@ class ARROW_EXPORT Column {
   std::shared_ptr<ChunkedArray> data_;
 };
 
-// A record batch is a simpler and more rigid table data structure intended for
-// use primarily in shared memory IPC. It contains a schema (metadata) and a
-// corresponding sequence of equal-length Arrow arrays
+/// \class RecordBatch
+/// \brief Collection of equal-length arrays matching a particular Schema
+///
+/// A record batch is table-like data structure consisting of an internal
+/// sequence of fields, each a contiguous Arrow array
 class ARROW_EXPORT RecordBatch {
  public:
   /// num_rows is a parameter to allow for record batches of a particular size not
@@ -124,6 +125,7 @@ class ARROW_EXPORT RecordBatch {
       std::vector<std::shared_ptr<Array>>&& columns);
 
   /// \brief Construct record batch from vector of internal data structures
+  /// \since 0.5.0
   ///
   /// This class is only provided with an rvalue-reference for the input data,
   /// and is intended for internal use, or advanced users.
@@ -135,14 +137,19 @@ class ARROW_EXPORT RecordBatch {
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
       std::vector<std::shared_ptr<internal::ArrayData>>&& columns);
 
+  /// \brief Construct record batch by copying vector of array data
+  /// \since 0.5.0
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      const std::vector<std::shared_ptr<internal::ArrayData>>& columns);
+
   bool Equals(const RecordBatch& other) const;
 
   bool ApproxEquals(const RecordBatch& other) const;
 
-  // @returns: the table's schema
+  // \return the table's schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  // @returns: the i-th column
+  // \return the i-th column
   // Note: Does not boundscheck
   std::shared_ptr<Array> column(int i) const;
 
@@ -150,18 +157,27 @@ class ARROW_EXPORT RecordBatch {
 
   const std::string& column_name(int i) const;
 
-  // @returns: the number of columns in the table
+  // \return the number of columns in the table
   int num_columns() const { return static_cast<int>(columns_.size()); }
 
-  // @returns: the number of rows (the corresponding length of each column)
+  // \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
+
+  /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
+  /// \since 0.5.0
+  ///
+  /// \param[in] metadata new KeyValueMetadata
+  /// \return new RecordBatch
+  std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
 
   /// Slice each of the arrays in the record batch and construct a new RecordBatch object
   std::shared_ptr<RecordBatch> Slice(int64_t offset) const;
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const;
 
-  /// Returns error status is there is something wrong with the record batch
-  /// contents, like a schema/array mismatch or inconsistent lengths
+  /// \brief Check for schema or length inconsistencies
+  ///
+  /// \return Status
   Status Validate() const;
 
  private:
@@ -190,11 +206,11 @@ class ARROW_EXPORT Table {
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
-  // @returns: the table's schema
+  // \return the table's schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
   // Note: Does not boundscheck
-  // @returns: the i-th column
+  // \return the i-th column
   std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
   /// Remove column from the table, producing a new Table (because tables and
@@ -205,10 +221,18 @@ class ARROW_EXPORT Table {
   Status AddColumn(
       int i, const std::shared_ptr<Column>& column, std::shared_ptr<Table>* out) const;
 
-  // @returns: the number of columns in the table
+  /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
+  /// \since 0.5.0
+  ///
+  /// \param[in] metadata new KeyValueMetadata
+  /// \return new Table
+  std::shared_ptr<Table> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+
+  // \return the number of columns in the table
   int num_columns() const { return static_cast<int>(columns_.size()); }
 
-  // @returns: the number of rows (the corresponding length of each column)
+  // \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
 
   bool Equals(const Table& other) const;

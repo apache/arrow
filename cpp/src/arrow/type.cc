@@ -31,9 +31,14 @@
 
 namespace arrow {
 
+std::shared_ptr<Field> Field::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return std::make_shared<Field>(name_, type_, nullable_, metadata);
+}
+
 Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
     std::shared_ptr<Field>* out) const {
-  *out = std::make_shared<Field>(name_, type_, nullable_, metadata);
+  *out = AddMetadata(metadata);
   return Status::OK();
 }
 
@@ -294,9 +299,14 @@ Status Schema::AddField(
   return Status::OK();
 }
 
+std::shared_ptr<Schema> Schema::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return std::make_shared<Schema>(fields_, metadata);
+}
+
 Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
     std::shared_ptr<Schema>* out) const {
-  *out = std::make_shared<Schema>(fields_, metadata);
+  *out = AddMetadata(metadata);
   return Status::OK();
 }
 

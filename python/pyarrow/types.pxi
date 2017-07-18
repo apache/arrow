@@ -255,7 +255,7 @@ cdef class Field:
 
         cdef shared_ptr[CField] new_field
         with nogil:
-            check_status(self.field.AddMetadata(c_meta, &new_field))
+            new_field = self.field.AddMetadata(c_meta)
 
         return pyarrow_wrap_field(new_field)
 
@@ -368,7 +368,7 @@ cdef class Schema:
 
         cdef shared_ptr[CSchema] new_schema
         with nogil:
-            check_status(self.schema.AddMetadata(c_meta, &new_schema))
+            new_schema = self.schema.AddMetadata(c_meta)
 
         return pyarrow_wrap_schema(new_schema)
 

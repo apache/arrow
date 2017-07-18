@@ -44,8 +44,8 @@ static inline bool IsPyInteger(PyObject* obj) {
 #endif
 }
 
-Status InvalidConversion(PyObject* obj, const std::string& expected_types,
-    std::ostream* out) {
+Status InvalidConversion(
+    PyObject* obj, const std::string& expected_types, std::ostream* out) {
   OwnedRef type(PyObject_Type(obj));
   RETURN_IF_PYERROR();
   DCHECK_NE(type.obj(), nullptr);
@@ -65,8 +65,7 @@ Status InvalidConversion(PyObject* obj, const std::string& expected_types,
   std::string cpp_type_name(bytes, size);
 
   (*out) << "Got Python object of type " << cpp_type_name
-         << " but can only handle these types: "
-         << expected_types;
+         << " but can only handle these types: " << expected_types;
   return Status::OK();
 }
 
@@ -104,7 +103,7 @@ class ScalarVisitor {
     } else {
       // TODO(wesm): accumulate error information somewhere
       static std::string supported_types =
-        "bool, float, integer, date, datetime, bytes, unicode";
+          "bool, float, integer, date, datetime, bytes, unicode";
       std::stringstream ss;
       ss << "Error inferring Arrow data type for collection of Python objects. ";
       RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
