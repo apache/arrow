@@ -209,3 +209,34 @@ class HdfsClient(lib._HdfsClient, Filesystem):
         result : list of dicts (full_info=True) or strings (full_info=False)
         """
         return lib._HdfsClient.ls(self, path, full_info)
+
+
+class DaskFilesystemWrapper(Filesystem):
+    """
+    Wraps a Dask filesystem implementation like s3fs, gcsfs, etc.
+    """
+
+    def __init__(self, fs):
+        self.fs = fs
+
+    @implements(Filesystem.isdir)
+    def isdir(self, path):
+        return lib._HdfsClient.isdir(self, path)
+
+    @implements(Filesystem.isfile)
+    def isfile(self, path):
+        return lib._HdfsClient.isfile(self, path)
+
+    @implements(Filesystem.delete)
+    def delete(self, path, recursive=False):
+        return lib._HdfsClient.delete(self, path, recursive)
+
+    @implements(Filesystem.mkdir)
+    def mkdir(self, path, create_parents=True):
+        return lib._HdfsClient.mkdir(self, path)
+
+    def ls(self, path):
+        pass
+
+    def walk(self, path):
+        pass

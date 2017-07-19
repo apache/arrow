@@ -34,6 +34,7 @@ import pandas.util.testing as tm
 
 # Ignore these with pytest ... -m 'not parquet'
 parquet = pytest.mark.parquet
+s3 = pytest.mark.s3
 
 
 def _write_table(table, path, **kwargs):
@@ -700,6 +701,38 @@ def test_partition_set_dictionary_type():
 
 @parquet
 def test_read_partitioned_directory(tmpdir):
+    fs = LocalFilesystem.get_instance()
+    base_path = str(tmpdir)
+
+    _partition_test_for_filesystem(fs, base_path)
+
+
+@pytest.yield_fixture
+def s3_example():
+    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
+    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
+    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
+
+    import s3fs
+    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+
+    test_dir = guid()
+
+    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
+    fs.mkdir(bucket_uri)
+    yield fs, bucket_uri
+    fs.rm(bucket_uri, recursive=True)
+
+
+@s3
+@parquet
+def test_read_partitioned_directory_amazon_s3(s3_example):
+    fs, bucket_uri = s3_example
+    wrapper = pa.DaskFilesystemWrapper(fs)
+    _partition_test_for_filesystem(wrapper, bucket_uri)
+
+
+def _partition_test_for_filesystem(fs, base_path):
     import pyarrow.parquet as pq
 
     foo_keys = [0, 1]
@@ -717,8 +750,7 @@ def test_read_partitioned_directory(tmpdir):
         'values': np.random.randn(N)
     }, columns=['index', 'foo', 'bar', 'values'])
 
-    base_path = str(tmpdir)
-    _generate_partition_directories(base_path, partition_spec, df)
+    _generate_partition_directories(fs, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(base_path)
     table = dataset.read()
@@ -737,12 +769,11 @@ def test_read_partitioned_directory(tmpdir):
     tm.assert_frame_equal(result_df, expected_df)
 
 
-def _generate_partition_directories(base_dir, partition_spec, df):
+def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     DEPTH = len(partition_spec)
-    fs = LocalFilesystem.get_instance()
 
     def _visit_level(base_dir, level, part_keys):
         name, values = partition_spec[level]
