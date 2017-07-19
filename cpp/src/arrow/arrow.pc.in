@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/include
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
 so_version=@ARROW_SO_VERSION@
 abi_version=@ARROW_ABI_VERSION@
