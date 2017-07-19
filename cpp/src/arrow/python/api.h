@@ -18,11 +18,12 @@
 #ifndef ARROW_PYTHON_API_H
 #define ARROW_PYTHON_API_H
 
+#include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/io.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/pandas_convert.h"
+#include "arrow/python/pandas_to_arrow.h"
 
 #endif  // ARROW_PYTHON_API_H

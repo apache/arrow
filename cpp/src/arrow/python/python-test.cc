@@ -26,10 +26,10 @@
 #include "arrow/table.h"
 #include "arrow/test-util.h"
 
+#include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/pandas_convert.h"
 
 #include "arrow/util/decimal.h"
 

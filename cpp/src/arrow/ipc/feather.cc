@@ -497,8 +497,7 @@ fbs::Type ToFlatbufferType(Type::type type) {
   return fbs::Type_MIN;
 }
 
-static Status SanitizeUnsupportedTypes(
-    const Array& values, std::shared_ptr<Array>* out) {
+static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Array>* out) {
   if (values.type_id() == Type::NA) {
     // As long as R doesn't support NA, we write this as a StringColumn
     // to ensure stable roundtrips.

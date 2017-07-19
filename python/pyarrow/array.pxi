@@ -154,10 +154,12 @@ cdef class Array:
 
         Returns
         -------
-        pyarrow.array.Array
+        array : pyarrow.Array or pyarrow.ChunkedArray (if object data
+        overflowed binary storage)
         """
         cdef:
             shared_ptr[CArray] out
+            shared_ptr[CChunkedArray] chunked_out
             shared_ptr[CDataType] c_type
             CMemoryPool* pool
 
@@ -178,7 +180,12 @@ cdef class Array:
                 c_type = type.sp_type
             with nogil:
                 check_status(PandasObjectsToArrow(
-                    pool, values, mask, c_type, &out))
+                    pool, values, mask, c_type, &chunked_out))
+
+            if chunked_out.get().num_chunks() > 1:
+                return pyarrow_wrap_chunked_array(chunked_out)
+            else:
+                out = chunked_out.get().chunk(0)
         else:
             values, type = maybe_coerce_datetime64(
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
