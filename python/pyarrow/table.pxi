@@ -44,6 +44,11 @@ cdef class ChunkedArray:
         self.sp_chunked_array = chunked_array
         self.chunked_array = chunked_array.get()
 
+    property type:
+
+        def __get__(self):
+            return pyarrow_wrap_data_type(self.sp_chunked_array.get().type())
+
     cdef int _check_nullptr(self) except -1:
         if self.chunked_array == NULL:
             raise ReferenceError(
@@ -277,7 +282,6 @@ cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
 cdef int _schema_from_arrays(
         arrays, names, dict metadata, shared_ptr[CSchema]* schema) except -1:
     cdef:
-        Array arr
         Column col
         c_string c_name
         vector[shared_ptr[CField]] fields
@@ -289,23 +293,25 @@ cdef int _schema_from_arrays(
     if len(arrays) == 0:
         raise ValueError('Must pass at least one array')
 
-    if isinstance(arrays[0], Array):
-        if names is None:
-            raise ValueError('Must pass names when constructing '
-                             'from Array objects')
-        for i in range(K):
-            arr = arrays[i]
-            type_ = arr.type.sp_type
-            c_name = tobytes(names[i])
-            fields[i].reset(new CField(c_name, type_, True))
-    elif isinstance(arrays[0], Column):
+    if isinstance(arrays[0], Column):
         for i in range(K):
             col = arrays[i]
             type_ = col.sp_column.get().type()
             c_name = tobytes(col.name)
             fields[i].reset(new CField(c_name, type_, True))
     else:
-        raise TypeError(type(arrays[0]))
+        if names is None:
+            raise ValueError('Must pass names when constructing '
+                             'from Array objects')
+        for i in range(K):
+            val = arrays[i]
+            if isinstance(val, (Array, ChunkedArray)):
+                type_ = (<DataType> val.type).sp_type
+            else:
+                raise TypeError(type(val))
+
+            c_name = tobytes(names[i])
+            fields[i].reset(new CField(c_name, type_, True))
 
     schema.reset(new CSchema(fields, unbox_metadata(metadata)))
     return 0
@@ -323,7 +329,6 @@ cdef tuple _dataframe_to_arrays(
         list index_columns = []
         list types = []
         DataType type = None
-        Array array
         dict metadata
         Py_ssize_t i
         Py_ssize_t n
@@ -780,6 +785,13 @@ cdef class Table:
                     make_shared[CColumn](
                         schema.get().field(i),
                         (<Array> arrays[i]).sp_array
+                    )
+                )
+            elif isinstance(arrays[i], ChunkedArray):
+                columns.push_back(
+                    make_shared[CColumn](
+                        schema.get().field(i),
+                        (<ChunkedArray> arrays[i]).sp_chunked_array
                     )
                 )
             elif isinstance(arrays[i], Column):

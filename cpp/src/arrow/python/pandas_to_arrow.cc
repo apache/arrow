@@ -175,31 +175,32 @@ static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64
   }
 
   for (; offset < objects.size(); ++offset) {
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() > kBinaryMemoryLimit)) { break; }
-
+    OwnedRef tmp_obj;
     obj = objects[offset];
     if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
+      continue;
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
         PyErr_Clear();
         return Status::Invalid("failed converting unicode to UTF8");
       }
-      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-      Status s = builder->Append(PyBytes_AS_STRING(obj), length);
-      Py_DECREF(obj);
-      if (!s.ok()) { return s; }
+      tmp_obj.reset(obj);
     } else if (PyBytes_Check(obj)) {
       *have_bytes = true;
-      const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
-      RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
     } else {
       std::stringstream ss;
       ss << "Error converting to Python objects to String/UTF8: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
+
+    const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
+    if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+      break;
+    }
+    RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
   }
 
   // If we consumed the whole array, this will be the length of arr
@@ -222,11 +223,11 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
   }
 
   for (; offset < objects.size(); ++offset) {
-    if (ARROW_PREDICT_FALSE(builder->value_data_length() > kBinaryMemoryLimit)) { break; }
-
+    OwnedRef tmp_obj;
     obj = objects[offset];
     if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
+      continue;
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
       if (obj == NULL) {
@@ -234,21 +235,21 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
         return Status::Invalid("failed converting unicode to UTF8");
       }
 
-      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
-      Status s =
-          builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj)));
-      Py_DECREF(obj);
-      RETURN_NOT_OK(s);
-    } else if (PyBytes_Check(obj)) {
-      RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
-      RETURN_NOT_OK(
-          builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
-    } else {
+      tmp_obj.reset(obj);
+    } else if (!PyBytes_Check(obj)) {
       std::stringstream ss;
       ss << "Error converting to Python objects to FixedSizeBinary: ";
       RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
       return Status::Invalid(ss.str());
     }
+
+    RETURN_NOT_OK(CheckPythonBytesAreFixedLength(obj, byte_width));
+    if (ARROW_PREDICT_FALSE(
+            builder->value_data_length() + byte_width > kBinaryMemoryLimit)) {
+      break;
+    }
+    RETURN_NOT_OK(
+        builder->Append(reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(obj))));
   }
 
   // If we consumed the whole array, this will be the length of arr

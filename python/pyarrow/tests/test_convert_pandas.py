@@ -284,6 +284,20 @@ class TestPandasConversion(unittest.TestCase):
         expected = pd.DataFrame({'strings': values2})
         self._check_pandas_roundtrip(df, expected)
 
+    @pytest.mark.large_memory
+    def test_bytes_exceed_2gb(self):
+        val = 'x' * (1 << 20)
+        df = pd.DataFrame({
+            'strings': np.array([val] * 4000, dtype=object)
+        })
+        arr = pa.Array.from_pandas(df['strings'])
+        assert isinstance(arr, pa.ChunkedArray)
+        assert arr.num_chunks == 2
+        arr = None
+
+        table = pa.Table.from_pandas(df)
+        assert table[0].data.num_chunks == 2
+
     def test_fixed_size_bytes(self):
         values = [b'foo', None, b'bar', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
