@@ -148,6 +148,21 @@ cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
     return arr
 
 
+cdef public api object pyarrow_wrap_chunked_array(
+    const shared_ptr[CChunkedArray]& sp_array):
+    if sp_array.get() == NULL:
+        raise ValueError('ChunkedArray was NULL')
+
+    cdef CDataType* data_type = sp_array.get().type().get()
+
+    if data_type == NULL:
+        raise ValueError('ChunkedArray data type was NULL')
+
+    cdef ChunkedArray arr = ChunkedArray()
+    arr.init(sp_array)
+    return arr
+
+
 cdef public api bint pyarrow_is_tensor(object tensor):
     return isinstance(tensor, Tensor)
 

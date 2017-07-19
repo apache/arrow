@@ -585,6 +585,9 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
 
+  /// \return size of values buffer so far
+  int64_t value_data_length() const { return value_data_builder_.length(); }
+
   /// Temporary access to a value.
   ///
   /// This pointer becomes invalid on the next modifying operation.
@@ -631,6 +634,9 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
+
+  /// \return size of values buffer so far
+  int64_t value_data_length() const { return byte_builder_.length(); }
 
  protected:
   int32_t byte_width_;

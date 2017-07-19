@@ -152,8 +152,17 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
   return Status::OK();
 }
 
-static Status AppendObjectStrings(
-    PyArrayObject* arr, PyArrayObject* mask, StringBuilder* builder, bool* have_bytes) {
+constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max();
+
+/// Append as many string objects from NumPy arrays to a `StringBuilder` as we
+/// can fit
+///
+/// \param[in] offset starting offset for appending
+/// \param[out] values_consumed ending offset where we stopped appending. Will
+/// be length of arr if fully consumed
+/// \param[out] have_bytes true if we encountered any PyBytes object
+static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
+    StringBuilder* builder, int64_t* end_offset, bool* have_bytes) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -165,9 +174,11 @@ static Status AppendObjectStrings(
     have_mask = true;
   }
 
-  for (int64_t i = 0; i < objects.size(); ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+  for (; offset < objects.size(); ++offset) {
+    if (ARROW_PREDICT_FALSE(builder->value_data_length() > kBinaryMemoryLimit)) { break; }
+
+    obj = objects[offset];
+    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -191,11 +202,14 @@ static Status AppendObjectStrings(
     }
   }
 
+  // If we consumed the whole array, this will be the length of arr
+  *end_offset = offset;
   return Status::OK();
 }
 
 static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mask,
-    int byte_width, FixedSizeBinaryBuilder* builder) {
+    int byte_width, int64_t offset, FixedSizeBinaryBuilder* builder,
+    int64_t* end_offset) {
   PyObject* obj;
 
   Ndarray1DIndexer<PyObject*> objects(arr);
@@ -207,9 +221,11 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
     have_mask = true;
   }
 
-  for (int64_t i = 0; i < objects.size(); ++i) {
-    obj = objects[i];
-    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
+  for (; offset < objects.size(); ++offset) {
+    if (ARROW_PREDICT_FALSE(builder->value_data_length() > kBinaryMemoryLimit)) { break; }
+
+    obj = objects[offset];
+    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder->AppendNull());
     } else if (PyUnicode_Check(obj)) {
       obj = PyUnicode_AsUTF8String(obj);
@@ -235,6 +251,8 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
     }
   }
 
+  // If we consumed the whole array, this will be the length of arr
+  *end_offset = offset;
   return Status::OK();
 }
 
@@ -311,7 +329,7 @@ class PandasConverter {
 
     BufferVector buffers = {null_bitmap_, data};
     return PushArray(std::make_shared<internal::ArrayData>(
-            type_, length_, std::move(buffers), null_count, 0));
+        type_, length_, std::move(buffers), null_count, 0));
   }
 
   template <typename T>
@@ -366,7 +384,7 @@ class PandasConverter {
 
   template <int ITEM_TYPE, typename ArrowType>
   Status ConvertTypedLists(
-      const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list);
+      const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list);
 
   template <typename ArrowType>
   Status ConvertDates();
@@ -378,7 +396,7 @@ class PandasConverter {
   Status ConvertObjectIntegers();
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertLists(
-      const std::shared_ptr<DataType>& type, ListBuilder& list_builder, PyObject* list);
+      const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list);
   Status ConvertObjects();
   Status ConvertDecimals();
   Status ConvertTimes();
@@ -610,19 +628,29 @@ Status PandasConverter::ConvertObjectStrings() {
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
-
   StringBuilder builder(pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  Status s;
-  bool have_bytes = false;
-  RETURN_NOT_OK(AppendObjectStrings(arr_, mask_, &builder, &have_bytes));
-  RETURN_NOT_OK(builder.Finish(&out_));
+  bool global_have_bytes = false;
+  int64_t offset = 0;
+  while (offset < length_) {
+    bool chunk_have_bytes = false;
+    RETURN_NOT_OK(
+        AppendObjectStrings(arr_, mask_, offset, &builder, &offset, &chunk_have_bytes));
 
-  if (have_bytes) {
-    auto binary_data = out_->data()->ShallowCopy();
-    binary_data->type = ::arrow::binary();
-    out_ = std::make_shared<BinaryArray>(binary_data);
+    global_have_bytes = global_have_bytes | chunk_have_bytes;
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder.Finish(&chunk));
+    out_arrays_.emplace_back(std::move(chunk));
+  }
+
+  // If we saw PyBytes, convert everything to BinaryArray
+  if (global_have_bytes) {
+    for (size_t i = 0; i < out_arrays_.size(); ++i) {
+      auto binary_data = out_arrays_[i]->data()->ShallowCopy();
+      binary_data->type = ::arrow::binary();
+      out_arrays_[i] = std::make_shared<BinaryArray>(binary_data);
+    }
   }
   return Status::OK();
 }
@@ -701,14 +729,22 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
 
-  Ndarray1DIndexer<PyObject*> objects(arr_);
+  int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
-  int32_t value_size = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
-
+  // The output type at this point is inconclusive because there may be bytes
+  // and unicode mixed in the object array
   FixedSizeBinaryBuilder builder(pool_, type);
   RETURN_NOT_OK(builder.Resize(length_));
-  RETURN_NOT_OK(AppendObjectFixedWidthBytes(arr_, mask_, value_size, &builder));
-  RETURN_NOT_OK(builder.Finish(&out_));
+
+  int64_t offset = 0;
+  while (offset < length_) {
+    RETURN_NOT_OK(
+        AppendObjectFixedWidthBytes(arr_, mask_, byte_width, offset, &builder, &offset));
+
+    std::shared_ptr<Array> chunk;
+    RETURN_NOT_OK(builder.Finish(&chunk));
+    out_arrays_.emplace_back(std::move(chunk));
+  }
   return Status::OK();
 }
 
@@ -963,7 +999,13 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
 
-      return AppendObjectStrings(numpy_array, nullptr, value_builder, &have_bytes);
+      int64_t offset = 0;
+      RETURN_NOT_OK(AppendObjectStrings(
+          numpy_array, nullptr, 0, value_builder, &offset, &have_bytes));
+      if (offset < PyArray_SIZE(numpy_array)) {
+        return Status::Invalid("Array cell value exceeded 2GB");
+      }
+      return Status::OK();
     } else if (PyList_Check(object)) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
@@ -983,9 +1025,9 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   return LoopPySequence(list, foreach_item);
 }
 
-#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                                 \
-  case Type::TYPE: {                                                           \
-    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type, list_builder, list); \
+#define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
+  case Type::TYPE: {                                                      \
+    return ConvertTypedLists<NUMPY_TYPE, ArrowType>(type, builder, list); \
   }
 
 Status PandasConverter::ConvertLists(
@@ -1012,7 +1054,7 @@ Status PandasConverter::ConvertLists(
           return builder->AppendNull();
         } else {
           RETURN_NOT_OK(builder->Append(true));
-          return ConvertLists(list_type.value_type(), *value_builder, object);
+          return ConvertLists(list_type.value_type(), value_builder, object);
         }
       };
 
@@ -1032,7 +1074,7 @@ Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
   RETURN_NOT_OK(MakeBuilder(pool_, arrow::list(type), &array_builder));
   ListBuilder* list_builder = static_cast<ListBuilder*>(array_builder.get());
   RETURN_NOT_OK(ConvertLists(type, list_builder, reinterpret_cast<PyObject*>(arr_)));
-  return list_builder.Finish(&out_);
+  return PushBuilderResult(list_builder);
 }
 
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,

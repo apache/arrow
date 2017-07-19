@@ -82,6 +82,7 @@ endif()
 
 install(FILES
   api.h
+  arrow_to_pandas.h
   builtin_convert.h
   common.h
   config.h
@@ -90,7 +91,7 @@ install(FILES
   io.h
   numpy_convert.h
   numpy_interop.h
-  pandas_convert.h
+  pandas_to_arrow.h
   platform.h
   pyarrow.h
   type_traits.h

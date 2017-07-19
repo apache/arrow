@@ -764,16 +764,18 @@ def write_table(table, where, row_group_size=None, version='1.0',
         Specify the compression codec, either on a general basis or per-column.
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
-    writer = ParquetWriter(where, table.schema,
-                           use_dictionary=use_dictionary,
-                           compression=compression,
-                           version=version,
-                           use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
+    options = dict(
+        use_dictionary=use_dictionary,
+        compression=compression,
+        version=version,
+        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
+    writer = ParquetWriter(where, table.schema, **options)
     writer.write_table(table, row_group_size=row_group_size)
     writer.close()
 
 
-def write_metadata(schema, where, version='1.0', use_deprecated_int96_timestamps=False):
+def write_metadata(schema, where, version='1.0',
+                   use_deprecated_int96_timestamps=False):
     """
     Write metadata-only Parquet file from schema
 
@@ -784,6 +786,9 @@ def write_metadata(schema, where, version='1.0', use_deprecated_int96_timestamps
     version : {"1.0", "2.0"}, default "1.0"
         The Parquet format version, defaults to 1.0
     """
-    writer = ParquetWriter(where, schema, version=version,
-                           use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
+    options = dict(
+        version=version,
+        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps
+    )
+    writer = ParquetWriter(where, schema, **options)
     writer.close()
