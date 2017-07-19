@@ -99,13 +99,16 @@ class build_ext(_build_ext):
 
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
+        self.with_plasma = strtobool(
+            os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        if self.with_plasma:
+            self.CYTHON_MODULE_NAMES.append("plasma")
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        '_parquet',
-        'plasma']
+        '_parquet']
 
     def _run_cmake(self):
         # The directory containing this setup.py
@@ -243,7 +246,8 @@ class build_ext(_build_ext):
             shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
-            move_lib("plasma")
+            if self.with_plasma:
+                move_lib("plasma")
             if self.with_parquet:
                 move_lib("parquet")
 
@@ -273,10 +277,11 @@ class build_ext(_build_ext):
                             pjoin(os.path.dirname(ext_path), name + '_api.h'))
 
         # Move the plasma store
-        build_py = self.get_finalized_command('build_py')
-        source = os.path.join(self.build_type, "plasma_store")
-        target = os.path.join(build_lib, build_py.get_package_dir('pyarrow'), "plasma_store")
-        shutil.move(source, target)
+        if self.with_plasma:
+            build_py = self.get_finalized_command('build_py')
+            source = os.path.join(self.build_type, "plasma_store")
+            target = os.path.join(build_lib, build_py.get_package_dir('pyarrow'), "plasma_store")
+            shutil.move(source, target)
 
         os.chdir(saved_cwd)
 

@@ -222,7 +222,9 @@ include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
 ## Plasma
 find_package(Plasma)
-include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+if (PLASMA_FOUND)
+  include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+endif()
 
 function(bundle_arrow_lib library_path)
   get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
@@ -256,7 +258,9 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
-  bundle_arrow_lib(PLASMA_SHARED_LIB)
+  if (PLASMA_FOUND)
+    bundle_arrow_lib(PLASMA_SHARED_LIB)
+  endif()
 endif()
 
 if (MSVC)
@@ -281,8 +285,11 @@ endif()
 
 set(CYTHON_EXTENSIONS
   lib
-  plasma
 )
+
+if (PLASMA_FOUND)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
+endif()
 
 set(LINK_LIBS
   arrow_shared
@@ -387,4 +394,6 @@ foreach(module ${CYTHON_EXTENSIONS})
     target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)
 
-file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+if (PLASMA_FOUND)
+  file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()

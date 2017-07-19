@@ -31,7 +31,6 @@ import time
 import unittest
 
 import pyarrow as pa
-import pyarrow.plasma as plasma
 import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
@@ -41,6 +40,7 @@ def random_name():
 
 
 def random_object_id():
+    import pyarrow.plasma as plasma
     return plasma.ObjectID(np.random.bytes(20))
 
 
@@ -83,6 +83,7 @@ def create_object(client, data_size, metadata_size, seal=True):
 
 def assert_get_object_equal(unit_test, client1, client2, object_id,
                             memory_buffer=None, metadata=None):
+    import pyarrow.plasma as plasma
     client1_buff = client1.get([object_id])[0]
     client2_buff = client2.get([object_id])[0]
     client1_metadata = client1.get_metadata([object_id])[0]
@@ -148,6 +149,7 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
 class TestPlasmaClient(object):
 
     def setup_method(self, test_method):
+        import pyarrow.plasma as plasma
         # Start Plasma store.
         plasma_store_name, self.p = start_plasma_store(
             use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
@@ -270,6 +272,7 @@ class TestPlasmaClient(object):
                     assert results[i] is None
 
     def test_store_arrow_objects(self):
+        import pyarrow.plasma as plasma
         data = np.random.randn(10, 4)
         # Write an arrow object.
         object_id = random_object_id()
@@ -287,6 +290,7 @@ class TestPlasmaClient(object):
         np.testing.assert_equal(data, array)
 
     def test_store_pandas_dataframe(self):
+        import pyarrow.plasma as plasma
         d = {'one': pd.Series([1., 2., 3.], index=['a', 'b', 'c']),
              'two': pd.Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}
         df = pd.DataFrame(d)

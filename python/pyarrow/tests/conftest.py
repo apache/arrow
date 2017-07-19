@@ -23,7 +23,7 @@ groups = ['hdfs', 'parquet', 'plasma', 'large_memory']
 defaults = {
     'hdfs': False,
     'parquet': False,
-    'plasma': False
+    'plasma': False,
     'large_memory': False
 }
 

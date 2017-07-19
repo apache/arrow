@@ -17,6 +17,7 @@ set -e
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 export ARROW_HOME=$ARROW_CPP_INSTALL
+export PYARROW_WITH_PLASMA=1
 
 pushd $ARROW_PYTHON_DIR
 
