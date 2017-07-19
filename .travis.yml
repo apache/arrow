@@ -77,7 +77,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh
   - language: java
     os: linux
-    jdk: openjdk7
+    jdk: openjdk8
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
   - language: java
