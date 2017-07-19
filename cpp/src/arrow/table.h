@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
@@ -57,6 +58,8 @@ class ARROW_EXPORT ChunkedArray {
   std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
 
   const ArrayVector& chunks() const { return chunks_; }
+
+  std::shared_ptr<DataType> type() const { return chunks_[0]->type(); }
 
   bool Equals(const ChunkedArray& other) const;
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;

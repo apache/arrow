@@ -315,6 +315,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t null_count()
         int num_chunks()
         shared_ptr[CArray] chunk(int i)
+        shared_ptr[CDataType] type()
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,
@@ -711,7 +712,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     CStatus PandasObjectsToArrow(CMemoryPool* pool, object ao, object mo,
                                  const shared_ptr[CDataType]& type,
-                                 shared_ptr[CArray]* out)
+                                 shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out);
