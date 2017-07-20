@@ -17,6 +17,7 @@
  */
 package org.apache.arrow.vector;
 
+import java.util.Collections;
 import java.util.Iterator;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -98,9 +99,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   @Override
-  public Iterator<ValueVector> iterator() {
-    return Iterators.emptyIterator();
-  }
+  public Iterator<ValueVector> iterator() {  return Collections.emptyIterator();  }
 
   public static boolean checkBufRefs(final ValueVector vv) {
     for(final ArrowBuf buffer : vv.getBuffers(false)) {
