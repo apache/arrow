@@ -701,12 +701,20 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public void setLastSet(int value) {
-      <#if type.major = "VarLen">lastSet = value;</#if>
+      <#if type.major = "VarLen">
+        lastSet = value;
+      <#else>
+        throw new UnsupportedOperationException();
+      </#if>
     }
-  }
 
-  public void setLastSet(int value) {
-    this.getMutator().setLastSet(value);
+    public int getLastSet() {
+      <#if type.major != "VarLen">
+        throw new UnsupportedOperationException();
+      <#else>
+        return lastSet;
+      </#if>
+    }
   }
 }
 </#list>
