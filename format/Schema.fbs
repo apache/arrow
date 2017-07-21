@@ -70,7 +70,7 @@ table FixedSizeList {
 /// for Map can make Map an alias for List. The "layout" attribute for the Map
 /// field must have the same contents as a List.
 table Map {
-  /// Set to true if the keys with each value are sorted
+  /// Set to true if the keys within each value are sorted
   keysSorted: bool;
 }
 
