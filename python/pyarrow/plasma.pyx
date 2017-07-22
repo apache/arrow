@@ -110,6 +110,8 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Wait(int64_t num_object_requests, CObjectRequest* object_requests,
            int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
 
+        CStatus Transfer(const char* addr, int port, const CUniqueID& object_id)
+
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -230,10 +232,14 @@ cdef class PlasmaClient:
     cdef:
         shared_ptr[CPlasmaClient] client
         int notification_fd
+        c_string store_socket_name
+        c_string manager_socket_name
 
     def __cinit__(self):
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
+        self.store_socket_name = ""
+        self.manager_socket_name = ""
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
@@ -262,6 +268,14 @@ cdef class PlasmaClient:
         result.init_mutable(buffer)
         return result
 
+    @property
+    def store_socket_name(self):
+        return self.store_socket_name.decode()
+
+    @property
+    def manager_socket_name(self):
+        return self.manager_socket_name.decode()
+
     def connect(self, store_socket_name, manager_socket_name, int release_delay):
         """
         Conect the PlasmaClient to a plasma store and optionally a manager.
@@ -276,11 +290,11 @@ cdef class PlasmaClient:
             The maximum number of objects that the client will keep and
             delay releasing (for caching reasons).
         """
-        cdef c_string store_sock_name = store_socket_name.encode()
-        cdef c_string manager_sock_name = manager_socket_name.encode()
+        self.store_socket_name = store_socket_name.encode()
+        self.manager_socket_name = manager_socket_name.encode()
         with nogil:
-            check_status(self.client.get().Connect(store_sock_name,
-                         manager_sock_name, release_delay))
+            check_status(self.client.get().Connect(self.store_socket_name,
+                         self.manager_socket_name, release_delay))
 
     def create(self, ObjectID object_id, int64_t data_size, c_string metadata=b""):
         """
@@ -458,6 +472,23 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
         return num_bytes_evicted
+
+    def transfer(self, address, int port, ObjectID object_id):
+        """
+        Transfer local object with id object_id to another plasma instance
+
+        Parameters
+        ----------
+        addr : str
+            IPv4 address of the plasma instance the object is sent to.
+        port : int
+            Port number of the plasma instance the object is sent to.
+        object_id : str
+            A string used to identify an object.
+        """
+        cdef c_string addr = address.encode()
+        with nogil:
+            check_status(self.client.get().Transfer(addr.c_str(), port, object_id.data))
 
     def fetch(self, object_ids):
         """
