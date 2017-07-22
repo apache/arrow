@@ -44,7 +44,7 @@ ubuntu:~$ python -c "import plasma; print(plasma.__path__)"
 
 ```
 
-Cd into your plasma directory. To start running the plasma object store, you can 
+`cd` into your plasma directory. To start running the plasma object store, you can 
 run the `plasma_store` process in the foreground with a terminal command similar 
 to below:
 
@@ -54,8 +54,8 @@ to below:
 ```
 
 This command only works from inside the plasma directory where the `plasma_store` 
-executable is located. This command takes in two flags-- the -m flag specifies 
-the size of the object store in bytes, and the -s flag specifies the filepath of 
+executable is located. This command takes in two flags-- the `-m` flag specifies 
+the size of the object store in bytes, and the `-s` flag specifies the filepath of 
 the UNIX domain socket that the store will listen at.
 
 Therefore, the above command initializes a Plasma store up to 1 GB of memory, and 
@@ -197,7 +197,7 @@ Now that we've specified the pointer to our object's data, we can
 write our data to it:
 
 ```
-// Write the data for the Plasma object.
+// Write some data for the Plasma object. Writes the values '012301230123...'
 for (int64_t i = 0; i < data_size; i++) {
     data[i] = static_cast<uint8_t>(i % 4);
 }
@@ -223,6 +223,9 @@ sealed:
 // Check if an object has been created and sealed.
 bool has_object;
 client_.Contains(object_id, &has_object);
+if (has_object) {
+    // Object has been created and sealed, proceed
+}
 
 ```
 
@@ -265,7 +268,7 @@ without a timeout, just pass in -1 like in the previous example calls:
 // Make the function call give up fetching the object if it takes 
 // more than 100 milliseconds.
 int64_t timeout = 100;
-client_.Get(object_id, 1, timeout, object_buffer);
+client_.Get(&object_id, 1, timeout, &object_buffer);
 
 ```
 
@@ -295,7 +298,7 @@ local Plasma store instance. This is enough if we want to share our
 data among processes on the same node/machine. However, if we want 
 to share data across networks, we'll have to expand our API a little.
 
-*   ** Transfer Objects to a Remote Plasma Instance**
+*   **Transfer Objects to a Remote Plasma Instance**
 
     If we know the IP address and port of a remote Plasma manager, we can
     transfer a local object over to the remote Plasma store as follows:
@@ -308,7 +311,7 @@ to share data across networks, we'll have to expand our API a little.
 
     ```
 
-*   ** Fetching Objects from Remote Plasma Stores**
+*   **Fetching Objects from Remote Plasma Stores**
     
     If we know their Object IDs, we can attempt to fetch objects from remote 
     Plasma managers into our local Plasma store by calling `PlasmaClient::Fetch().` 
@@ -458,6 +461,17 @@ coordinate among different Plasma clients.
 
     ```
 
+    Similar to `PlasmaClient.Get()`, since `PlasmaClient.Wait()` is a blocking function 
+    call, you can specify a timeout in milliseconds for when the function should 
+    return regardless of success. Otherwise, pass in -1 to have no timeout:
+
+    ```
+    // Wait. Timeout if it takes more than 100 milliseconds.
+    int64_t timeout = 100;
+    client_.Wait(num_of_desired_objects, requests, num_of_objects_min, timeout, &num_of_objects_satisfied);
+
+    ```
+
 Finish Using Objects in Plasma
 ------------------------------
 
@@ -534,7 +548,7 @@ Shutting Down Plasma
 
     ```
 
-*    **Shut Down the Plasma Object Store**
+*   **Shut Down the Plasma Object Store**
 
     Finally, to shut down the Plasma object store itself, you can terminate the 
     `plasma_store` process from within your C++ program as follows:
