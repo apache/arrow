@@ -206,11 +206,28 @@ cdef class PlasmaClient:
         c_string store_socket_name
         c_string manager_socket_name
 
-    def __cinit__(self):
+    def __cinit__(self, store_socket_name, manager_socket_name, int release_delay):
+        """
+        Create a new PlasmaClient that is connected to a plasma store
+        and optionally a plasma manager.
+
+        Parameters
+        ----------
+        store_socket_name : str
+            Name of the socket the plasma store is listening at.
+        manager_socket_name : str
+            Name of the socket the plasma manager is listening at.
+        release_delay : int
+            The maximum number of objects that the client will keep and
+            delay releasing (for caching reasons).
+        """
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
-        self.store_socket_name = ""
-        self.manager_socket_name = ""
+        self.store_socket_name = store_socket_name.encode()
+        self.manager_socket_name = manager_socket_name.encode()
+        with nogil:
+            check_status(self.client.get().Connect(self.store_socket_name,
+                         self.manager_socket_name, release_delay))
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
@@ -246,26 +263,6 @@ cdef class PlasmaClient:
     @property
     def manager_socket_name(self):
         return self.manager_socket_name.decode()
-
-    def connect(self, store_socket_name, manager_socket_name, int release_delay):
-        """
-        Conect the PlasmaClient to a plasma store and optionally a manager.
-
-        Parameters
-        ----------
-        store_socket_name : str
-            Name of the socket the plasma store is listening at.
-        manager_socket_name : str
-            Name of the socket the plasma manager is listening at.
-        release_delay : int
-            The maximum number of objects that the client will keep and
-            delay releasing (for caching reasons).
-        """
-        self.store_socket_name = store_socket_name.encode()
-        self.manager_socket_name = manager_socket_name.encode()
-        with nogil:
-            check_status(self.client.get().Connect(self.store_socket_name,
-                         self.manager_socket_name, release_delay))
 
     def create(self, ObjectID object_id, int64_t data_size, c_string metadata=b""):
         """
