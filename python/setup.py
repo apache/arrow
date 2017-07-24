@@ -101,7 +101,7 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
-        if self.with_plasma:
+        if self.with_plasma and "plasma" not in self.CYTHON_MODULE_NAMES:
             self.CYTHON_MODULE_NAMES.append("plasma")
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
@@ -287,6 +287,8 @@ class build_ext(_build_ext):
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
+            return True
+        if name == 'plasma' and not self.with_plasma:
             return True
         return False
 
