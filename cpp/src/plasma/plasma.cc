@@ -24,6 +24,8 @@
 #include "plasma/common.h"
 #include "plasma/protocol.h"
 
+namespace plasma {
+
 int warn_if_sigpipe(int status, int client_sock) {
   if (status >= 0) { return 0; }
   if (errno == EPIPE || errno == EBADF || errno == ECONNRESET) {
@@ -62,3 +64,5 @@ ObjectTableEntry* get_object_table_entry(
   if (it == store_info->objects.end()) { return NULL; }
   return it->second.get();
 }
+
+} // namespace plasma

@@ -25,6 +25,8 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
+namespace plasma {
+
 /**
  * Create a temporary file. Needs to be closed by the caller.
  *
@@ -386,3 +388,5 @@ TEST(PlasmaSerialization, DataReply) {
   ASSERT_EQ(object_size1, object_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
 }
+
+} // namespace plasma

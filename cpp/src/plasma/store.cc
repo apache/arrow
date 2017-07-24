@@ -49,11 +49,13 @@
 #include <unordered_set>
 #include <vector>
 
-#include "format/common_generated.h"
+#include "plasma/common_generated.h"
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+
+namespace plasma {
 
 extern "C" {
 void* dlmalloc(size_t bytes);
@@ -625,8 +627,10 @@ void start_server(char* socket_name, int64_t system_memory) {
   loop.run();
 }
 
+} // namespace plasma
+
 int main(int argc, char* argv[]) {
-  signal(SIGTERM, signal_handler);
+  signal(SIGTERM, plasma::signal_handler);
   char* socket_name = NULL;
   int64_t system_memory = -1;
   int c;
@@ -677,7 +681,7 @@ int main(int argc, char* argv[]) {
 #endif
   // Make it so dlmalloc fails if we try to request more memory than is
   // available.
-  dlmalloc_set_footprint_limit((size_t)system_memory);
+  plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  start_server(socket_name, system_memory);
+  plasma::start_server(socket_name, system_memory);
 }

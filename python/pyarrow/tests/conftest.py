@@ -18,11 +18,12 @@
 from pytest import skip
 
 
-groups = ['hdfs', 'parquet', 'large_memory']
+groups = ['hdfs', 'parquet', 'plasma', 'large_memory']
 
 defaults = {
     'hdfs': False,
     'parquet': False,
+    'plasma': False,
     'large_memory': False
 }
 
@@ -32,6 +33,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyarrow.plasma as plasma
+    defaults['plasma'] = True
+except ImportError:
+    pass
 
 def pytest_configure(config):
     pass

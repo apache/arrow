@@ -51,10 +51,30 @@
 
 #define XXH64_DEFAULT_SEED 0
 
+namespace plasma {
+
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
 static std::vector<std::thread> threadpool_(kThreadPoolSize);
+
+struct ObjectInUseEntry {
+  /// A count of the number of times this client has called PlasmaClient::Create
+  /// or
+  /// PlasmaClient::Get on this object ID minus the number of calls to
+  /// PlasmaClient::Release.
+  /// When this count reaches zero, we remove the entry from the ObjectsInUse
+  /// and decrement a count in the relevant ClientMmapTableEntry.
+  int count;
+  /// Cached information to read the object.
+  PlasmaObject object;
+  /// A flag representing whether the object has been sealed.
+  bool is_sealed;
+};
+
+PlasmaClient::PlasmaClient() {}
+
+PlasmaClient::~PlasmaClient() {}
 
 // If the file descriptor fd has been mmapped in this client process before,
 // return the pointer that was returned by mmap, otherwise mmap it and store the
@@ -300,6 +320,10 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Release(const ObjectID& object_id) {
+  // If the client is already disconnected, ignore release requests.
+  if (store_conn_ < 0) {
+    return Status::OK();
+  }
   // Add the new object to the release history.
   release_history_.push_front(object_id);
   // If there are too many bytes in use by the client or if there are too many
@@ -386,22 +410,6 @@ static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
   return XXH64_digest(&hash_state);
 }
 
-bool plasma_compute_object_hash(
-    PlasmaClient* conn, ObjectID object_id, unsigned char* digest) {
-  // Get the plasma object data. We pass in a timeout of 0 to indicate that
-  // the operation should timeout immediately.
-  ObjectBuffer object_buffer;
-  ARROW_CHECK_OK(conn->Get(&object_id, 1, 0, &object_buffer));
-  // If the object was not retrieved, return false.
-  if (object_buffer.data_size == -1) { return false; }
-  // Compute the hash.
-  uint64_t hash = compute_object_hash(object_buffer);
-  memcpy(digest, &hash, sizeof(hash));
-  // Release the plasma object.
-  ARROW_CHECK_OK(conn->Release(object_id));
-  return true;
-}
-
 Status PlasmaClient::Seal(const ObjectID& object_id) {
   // Make sure this client has a reference to the object before sending the
   // request to Plasma.
@@ -413,7 +421,7 @@ Status PlasmaClient::Seal(const ObjectID& object_id) {
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
   static unsigned char digest[kDigestSize];
-  ARROW_CHECK(plasma_compute_object_hash(this, object_id, &digest[0]));
+  RETURN_NOT_OK(Hash(object_id, &digest[0]));
   RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
@@ -439,6 +447,22 @@ Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
   return ReadEvictReply(buffer.data(), num_bytes_evicted);
 }
 
+Status PlasmaClient::Hash(const ObjectID& object_id, uint8_t* digest) {
+  // Get the plasma object data. We pass in a timeout of 0 to indicate that
+  // the operation should timeout immediately.
+  ObjectBuffer object_buffer;
+  RETURN_NOT_OK(Get(&object_id, 1, 0, &object_buffer));
+  // If the object was not retrieved, return false.
+  if (object_buffer.data_size == -1) {
+    return Status::PlasmaObjectNonexistent("Object not found");
+  }
+  // Compute the hash.
+  uint64_t hash = compute_object_hash(object_buffer);
+  memcpy(digest, &hash, sizeof(hash));
+  // Release the plasma object.
+  return Release(object_id);
+}
+
 Status PlasmaClient::Subscribe(int* fd) {
   int sock[2];
   // Create a non-blocking socket pair. This will only be used to send
@@ -456,6 +480,26 @@ Status PlasmaClient::Subscribe(int* fd) {
   // Return the file descriptor that the client should use to read notifications
   // about sealed objects.
   *fd = sock[0];
+  return Status::OK();
+}
+
+Status PlasmaClient::GetNotification(
+    int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size) {
+  uint8_t* notification = read_message_async(fd);
+  if (notification == NULL) {
+    return Status::IOError("Failed to read object notification from Plasma socket");
+  }
+  auto object_info = flatbuffers::GetRoot<ObjectInfo>(notification);
+  ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
+  memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
+  if (object_info->is_deletion()) {
+    *data_size = -1;
+    *metadata_size = -1;
+  } else {
+    *data_size = object_info->data_size();
+    *metadata_size = object_info->metadata_size();
+  }
+  delete[] notification;
   return Status::OK();
 }
 
@@ -485,7 +529,11 @@ Status PlasmaClient::Disconnect() {
   // Close the connections to Plasma. The Plasma store will release the objects
   // that were in use by us when handling the SIGPIPE.
   close(store_conn_);
-  if (manager_conn_ >= 0) { close(manager_conn_); }
+  store_conn_ = -1;
+  if (manager_conn_ >= 0) {
+    close(manager_conn_);
+    manager_conn_ = -1;
+  }
   return Status::OK();
 }
 
@@ -555,3 +603,5 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
   }
   return Status::OK();
 }
+
+} // namespace plasma

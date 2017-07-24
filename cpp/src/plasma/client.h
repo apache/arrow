@@ -22,11 +22,17 @@
 #include <time.h>
 
 #include <deque>
+#include <memory>
 #include <string>
+#include <unordered_map>
 
-#include "plasma/plasma.h"
+#include "arrow/status.h"
+#include "arrow/util/visibility.h"
+#include "plasma/common.h"
 
 using arrow::Status;
+
+namespace plasma {
 
 #define PLASMA_DEFAULT_RELEASE_DELAY 64
 
@@ -63,22 +69,16 @@ struct ClientMmapTableEntry {
   int count;
 };
 
-struct ObjectInUseEntry {
-  /// A count of the number of times this client has called PlasmaClient::Create
-  /// or
-  /// PlasmaClient::Get on this object ID minus the number of calls to
-  /// PlasmaClient::Release.
-  /// When this count reaches zero, we remove the entry from the ObjectsInUse
-  /// and decrement a count in the relevant ClientMmapTableEntry.
-  int count;
-  /// Cached information to read the object.
-  PlasmaObject object;
-  /// A flag representing whether the object has been sealed.
-  bool is_sealed;
-};
+struct ObjectInUseEntry;
+struct ObjectRequest;
+struct PlasmaObject;
 
-class PlasmaClient {
+class ARROW_EXPORT PlasmaClient {
  public:
+  PlasmaClient();
+
+  ~PlasmaClient();
+
   /// Connect to the local plasma store and plasma manager. Return
   /// the resulting connection.
   ///
@@ -177,16 +177,34 @@ class PlasmaClient {
   /// @return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
+  /// Compute the hash of an object in the object store.
+  ///
+  /// @param conn The object containing the connection state.
+  /// @param object_id The ID of the object we want to hash.
+  /// @param digest A pointer at which to return the hash digest of the object.
+  ///        The pointer must have at least kDigestSize bytes allocated.
+  /// @return The return status.
+  Status Hash(const ObjectID& object_id, uint8_t* digest);
+
   /// Subscribe to notifications when objects are sealed in the object store.
   /// Whenever an object is sealed, a message will be written to the client
-  /// socket
-  /// that is returned by this method.
+  /// socket that is returned by this method.
   ///
   /// @param fd Out parameter for the file descriptor the client should use to
   /// read notifications
   ///         from the object store about sealed objects.
   /// @return The return status.
   Status Subscribe(int* fd);
+
+  /// Receive next object notification for this client if Subscribe has been called.
+  ///
+  /// @param fd The file descriptor we are reading the notification from.
+  /// @param object_id Out parameter, the object_id of the object that was sealed.
+  /// @param data_size Out parameter, the data size of the object that was sealed.
+  /// @param metadata_size Out parameter, the metadata size of the object that was sealed.
+  /// @return The return status.
+  Status GetNotification(
+      int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
@@ -330,14 +348,6 @@ class PlasmaClient {
   int64_t store_capacity_;
 };
 
-/// Compute the hash of an object in the object store.
-///
-/// @param conn The object containing the connection state.
-/// @param object_id The ID of the object we want to hash.
-/// @param digest A pointer at which to return the hash digest of the object.
-///        The pointer must have at least DIGEST_SIZE bytes allocated.
-/// @return A boolean representing whether the hash operation succeeded.
-bool plasma_compute_object_hash(
-    PlasmaClient* conn, ObjectID object_id, unsigned char* digest);
+} // namespace plasma
 
 #endif  // PLASMA_CLIENT_H

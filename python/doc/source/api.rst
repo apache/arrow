@@ -212,6 +212,21 @@ Type Classes
    Field
    Schema
 
+.. currentmodule:: pyarrow.plasma
+
+.. _api.plasma:
+
+In-Memory Object Store
+----------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   ObjectID
+   PlasmaClient
+   PlasmaBuffer
+   MutablePlasmaBuffer
+
 .. currentmodule:: pyarrow.parquet
 
 .. _api.parquet:

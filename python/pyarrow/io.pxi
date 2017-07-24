@@ -473,6 +473,15 @@ cdef class OSFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
 
 
+cdef class FixedSizeBufferOutputStream(NativeFile):
+
+    def __cinit__(self, Buffer buffer):
+        self.wr_file.reset(new CFixedSizeBufferWriter(buffer.buffer))
+        self.is_readable = 0
+        self.is_writeable = 1
+        self.is_open = True
+
+
 # ----------------------------------------------------------------------
 # Arrow buffers
 
@@ -523,7 +532,10 @@ cdef class Buffer:
         buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
-        buffer.readonly = 1
+        if self.buffer.get().is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
@@ -534,6 +546,15 @@ cdef class Buffer:
         return 1
 
     def __getreadbuffer__(self, Py_ssize_t idx, void **p):
+        if idx != 0:
+            raise SystemError("accessing non-existent buffer segment")
+        if p != NULL:
+            p[0] = <void*> self.buffer.get().data()
+        return self.size
+
+    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        if not self.buffer.get().is_mutable():
+            raise SystemError("trying to write an immutable buffer")
         if idx != 0:
             raise SystemError("accessing non-existent buffer segment")
         if p != NULL:

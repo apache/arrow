@@ -21,8 +21,10 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
 #include "plasma/plasma.h"
+
+namespace plasma {
 
 using arrow::Status;
 
@@ -166,5 +168,7 @@ Status SendDataReply(
 
 Status ReadDataReply(
     uint8_t* data, ObjectID* object_id, int64_t* object_size, int64_t* metadata_size);
+
+} // namespace plasma
 
 #endif /* PLASMA_PROTOCOL */

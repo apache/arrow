@@ -29,9 +29,11 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+namespace plasma {
+
 constexpr int64_t kUniqueIDSize = 20;
 
-class UniqueID {
+class ARROW_EXPORT UniqueID {
  public:
   static UniqueID from_random();
   static UniqueID from_binary(const std::string& binary);
@@ -59,5 +61,40 @@ struct UniqueIDHasher {
 typedef UniqueID ObjectID;
 
 arrow::Status plasma_error_status(int plasma_error);
+
+/// Size of object hash digests.
+constexpr int64_t kDigestSize = sizeof(uint64_t);
+
+/// Object request data structure. Used for Wait.
+struct ObjectRequest {
+  /// The ID of the requested object. If ID_NIL request any object.
+  ObjectID object_id;
+  /// Request associated to the object. It can take one of the following values:
+  ///  - PLASMA_QUERY_LOCAL: return if or when the object is available in the
+  ///    local Plasma Store.
+  ///  - PLASMA_QUERY_ANYWHERE: return if or when the object is available in
+  ///    the system (i.e., either in the local or a remote Plasma Store).
+  int type;
+  /// Object status. Same as the status returned by plasma_status() function
+  /// call. This is filled in by plasma_wait_for_objects1():
+  ///  - ObjectStatus_Local: object is ready at the local Plasma Store.
+  ///  - ObjectStatus_Remote: object is ready at a remote Plasma Store.
+  ///  - ObjectStatus_Nonexistent: object does not exist in the system.
+  ///  - PLASMA_CLIENT_IN_TRANSFER, if the object is currently being scheduled
+  ///    for being transferred or it is transferring.
+  int status;
+};
+
+enum ObjectRequestType {
+  /// Query for object in the local plasma store.
+  PLASMA_QUERY_LOCAL = 1,
+  /// Query for object in the local plasma store or in a remote plasma store.
+  PLASMA_QUERY_ANYWHERE
+};
+
+extern int ObjectStatusLocal;
+extern int ObjectStatusRemote;
+
+} // namespace plasma
 
 #endif  // PLASMA_COMMON_H
