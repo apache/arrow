@@ -30,7 +30,7 @@
   <properties>
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
     <dep.junit.version>4.11</dep.junit.version>
-    <dep.slf4j.version>1.7.6</dep.slf4j.version>
+    <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>18.0</dep.guava.version>
     <forkCount>2</forkCount>
     <jackson.version>2.7.1</jackson.version>
@@ -520,7 +520,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.0.13</version>
+      <version>1.2.3</version>
       <scope>test</scope>
     </dependency>
     <dependency>
