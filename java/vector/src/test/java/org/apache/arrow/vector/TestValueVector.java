@@ -26,11 +26,15 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.ArrayList;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+
+import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
@@ -56,6 +60,9 @@ public class TestValueVector {
   private final static byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
   private final static byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
   private final static byte[] STR3 = "CCCC3".getBytes(utf8Charset);
+  private final static byte[] STR4 = "DDDDDDDD4".getBytes(utf8Charset);
+  private final static byte[] STR5 = "EEE5".getBytes(utf8Charset);
+  private final static byte[] STR6 = "FFFFF6".getBytes(utf8Charset);
 
   @After
   public void terminate() throws Exception {
@@ -509,11 +516,134 @@ public class TestValueVector {
         } else {
           assertEquals(Integer.toString(i), vector2.getAccessor().getObject(i).toString());
         }
-
       }
-
-
     }
   }
 
+  @Test
+  public void testSetLastSetUsage() {
+    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+
+      final NullableVarCharVector.Mutator mutator = vector.getMutator();
+
+      vector.allocateNew(1024 * 10, 1024);
+
+      setBytes(0, STR1, vector);
+      setBytes(1, STR2, vector);
+      setBytes(2, STR3, vector);
+      setBytes(3, STR4, vector);
+      setBytes(4, STR5, vector);
+      setBytes(5, STR6, vector);
+
+      /* Check current lastSet */
+      assertEquals(Integer.toString(-1), Integer.toString(mutator.getLastSet()));
+
+      /* Check the vector output */
+      final NullableVarCharVector.Accessor accessor = vector.getAccessor();
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+
+      /*
+       * If we don't do setLastSe(5) before setValueCount(), then the latter will corrupt
+       * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
+       * Run the test by commenting out next line and we should see incorrect vector output.
+       */
+      mutator.setLastSet(5);
+      mutator.setValueCount(20);
+
+      /* Check the vector output again */
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+    }
+  }
+
+  @Test
+  public void testVectorLoadUnload() {
+
+    try (final NullableVarCharVector vector1 = new NullableVarCharVector("myvector", allocator)) {
+
+      final NullableVarCharVector.Mutator mutator1 = vector1.getMutator();
+
+      vector1.allocateNew(1024 * 10, 1024);
+
+      mutator1.set(0, STR1);
+      mutator1.set(1, STR2);
+      mutator1.set(2, STR3);
+      mutator1.set(3, STR4);
+      mutator1.set(4, STR5);
+      mutator1.set(5, STR6);
+      assertEquals(Integer.toString(5), Integer.toString(mutator1.getLastSet()));
+      mutator1.setValueCount(15);
+      assertEquals(Integer.toString(14), Integer.toString(mutator1.getLastSet()));
+
+      /* Check the vector output */
+      final NullableVarCharVector.Accessor accessor1 = vector1.getAccessor();
+      assertArrayEquals(STR1, accessor1.get(0));
+      assertArrayEquals(STR2, accessor1.get(1));
+      assertArrayEquals(STR3, accessor1.get(2));
+      assertArrayEquals(STR4, accessor1.get(3));
+      assertArrayEquals(STR5, accessor1.get(4));
+      assertArrayEquals(STR6, accessor1.get(5));
+
+      Field field = vector1.getField();
+      String fieldName = field.getName();
+
+      List<Field> fields = new ArrayList<Field>();
+      List<FieldVector> fieldVectors = new ArrayList<FieldVector>();
+
+      fields.add(field);
+      fieldVectors.add(vector1);
+
+      Schema schema = new Schema(fields);
+
+      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, accessor1.getValueCount());
+      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
+
+      try (
+              ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+              BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+              VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
+
+        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
+        vectorLoader.load(recordBatch);
+
+        NullableVarCharVector vector2 = (NullableVarCharVector)schemaRoot2.getVector(fieldName);
+        NullableVarCharVector.Mutator mutator2 = vector2.getMutator();
+
+        /*
+         * lastSet would have internally been set by VectorLoader.load() when it invokes
+         * loadFieldBuffers.
+         */
+        assertEquals(Integer.toString(14), Integer.toString(mutator2.getLastSet()));
+        mutator2.setValueCount(25);
+        assertEquals(Integer.toString(24), Integer.toString(mutator2.getLastSet()));
+
+        /* Check the vector output */
+        final NullableVarCharVector.Accessor accessor2 = vector2.getAccessor();
+        assertArrayEquals(STR1, accessor2.get(0));
+        assertArrayEquals(STR2, accessor2.get(1));
+        assertArrayEquals(STR3, accessor2.get(2));
+        assertArrayEquals(STR4, accessor2.get(3));
+        assertArrayEquals(STR5, accessor2.get(4));
+        assertArrayEquals(STR6, accessor2.get(5));
+      }
+    }
+  }
+
+  public static void setBytes(int index, byte[] bytes, NullableVarCharVector vector) {
+    final int currentOffset = vector.values.offsetVector.getAccessor().get(index);
+
+    vector.bits.getMutator().setToOne(index);
+    vector.values.offsetVector.getMutator().set(index + 1, currentOffset + bytes.length);
+    vector.values.data.setBytes(currentOffset, bytes, 0, bytes.length);
+  }
 }
