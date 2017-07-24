@@ -74,6 +74,7 @@ def format_changelog_website(issues, out):
     CATEGORIES = {
         'New Feature': NEW_FEATURE,
         'Improvement': NEW_FEATURE,
+        'Wish': NEW_FEATURE,
         'Task': NEW_FEATURE,
         'Test': NEW_FEATURE,
         'Bug': BUGFIX
