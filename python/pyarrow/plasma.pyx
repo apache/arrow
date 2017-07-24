@@ -26,7 +26,7 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 
-from pyarrow.lib cimport Buffer, MutableBuffer, NativeFile, check_status
+from pyarrow.lib cimport Buffer, NativeFile, check_status
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -191,26 +191,6 @@ cdef class PlasmaBuffer(Buffer):
         self.client.release(self.object_id)
 
 
-cdef class MutablePlasmaBuffer(MutableBuffer):
-
-    cdef:
-        ObjectID object_id
-        PlasmaClient client
-
-    def __cinit__(self, ObjectID object_id, PlasmaClient client):
-        """Initialize a PlasmaBuffer."""
-        self.object_id = object_id
-        self.client = client
-
-    def __dealloc__(self):
-        """
-        Notify Plasma that the object is no longer needed.
-
-        If the plasma client has been shut down, then don't do anything.
-        """
-        self.client.release(self.object_id)
-
-
 cdef class PlasmaClient:
     """
     The PlasmaClient is used to interface with a plasma store and manager.
@@ -253,10 +233,10 @@ cdef class PlasmaClient:
 
     cdef _make_mutable_plasma_buffer(self, ObjectID object_id, uint8_t* data,
                                      int64_t size):
-        cdef shared_ptr[CMutableBuffer] buffer
+        cdef shared_ptr[CBuffer] buffer
         buffer.reset(new CMutableBuffer(data, size))
-        result = MutablePlasmaBuffer(object_id, self)
-        result.init_mutable(buffer)
+        result = PlasmaBuffer(object_id, self)
+        result.init(buffer)
         return result
 
     @property

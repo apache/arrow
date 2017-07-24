@@ -532,7 +532,10 @@ cdef class Buffer:
         buffer.len = self.size
         buffer.ndim = 1
         buffer.obj = self
-        buffer.readonly = 1
+        if self.buffer.get().is_mutable():
+            buffer.readonly = 0
+        else:
+            buffer.readonly = 1
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
@@ -549,35 +552,13 @@ cdef class Buffer:
             p[0] = <void*> self.buffer.get().data()
         return self.size
 
-
-cdef class MutableBuffer(Buffer):
-
-    def __cinit__(self):
-        pass
-
-    cdef void init_mutable(self, const shared_ptr[CMutableBuffer]& buffer):
-        Buffer.init(self, <shared_ptr[CBuffer]>(buffer))
-        self.mutable_buffer = buffer
-
-    def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
-
-        buffer.buf = <char *>self.mutable_buffer.get().mutable_data()
-        buffer.format = 'b'
-        buffer.internal = NULL
-        buffer.itemsize = 1
-        buffer.len = self.size
-        buffer.ndim = 1
-        buffer.obj = self
-        buffer.readonly = 0
-        buffer.shape = self.shape
-        buffer.strides = self.strides
-        buffer.suboffsets = NULL
-
     def __getwritebuffer__(self, Py_ssize_t idx, void **p):
+        if not self.buffer.get().is_mutable():
+            raise SystemError("trying to write an immutable buffer")
         if idx != 0:
             raise SystemError("accessing non-existent buffer segment")
         if p != NULL:
-            p[0] = <void*> self.mutable_buffer.get().data()
+            p[0] = <void*> self.buffer.get().data()
         return self.size
 
 

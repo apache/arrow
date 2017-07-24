@@ -152,6 +152,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         uint8_t* data()
         int64_t size()
         shared_ptr[CBuffer] parent()
+        c_bool is_mutable() const
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
