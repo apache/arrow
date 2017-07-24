@@ -61,26 +61,30 @@ static int64_t GetOutputLength(int64_t nbytes) {
 }
 
 static Status WritePadded(io::OutputStream* stream, const uint8_t* data, int64_t length,
-    int64_t* bytes_written) {
+                          int64_t* bytes_written) {
   RETURN_NOT_OK(stream->Write(data, length));
 
   int64_t remainder = PaddedLength(length) - length;
-  if (remainder != 0) { RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder)); }
+  if (remainder != 0) {
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
+  }
   *bytes_written = length + remainder;
   return Status::OK();
 }
 
 /// For compability, we need to write any data sometimes just to keep producing
 /// files that can be read with an older reader.
-static Status WritePaddedBlank(
-    io::OutputStream* stream, int64_t length, int64_t* bytes_written) {
+static Status WritePaddedBlank(io::OutputStream* stream, int64_t length,
+                               int64_t* bytes_written) {
   const uint8_t null = 0;
   for (int64_t i = 0; i < length; i++) {
     RETURN_NOT_OK(stream->Write(&null, 1));
   }
 
   int64_t remainder = PaddedLength(length) - length;
-  if (remainder != 0) { RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder)); }
+  if (remainder != 0) {
+    RETURN_NOT_OK(stream->Write(kPaddingBytes, remainder));
+  }
   *bytes_written = length + remainder;
   return Status::OK();
 }
@@ -90,20 +94,22 @@ static Status WritePaddedBlank(
 
 TableBuilder::TableBuilder(int64_t num_rows) : finished_(false), num_rows_(num_rows) {}
 
-FBB& TableBuilder::fbb() {
-  return fbb_;
-}
+FBB& TableBuilder::fbb() { return fbb_; }
 
 Status TableBuilder::Finish() {
-  if (finished_) { return Status::Invalid("can only call this once"); }
+  if (finished_) {
+    return Status::Invalid("can only call this once");
+  }
 
   FBString desc = 0;
-  if (!description_.empty()) { desc = fbb_.CreateString(description_); }
+  if (!description_.empty()) {
+    desc = fbb_.CreateString(description_);
+  }
 
   flatbuffers::Offset<flatbuffers::String> metadata = 0;
 
-  auto root = fbs::CreateCTable(
-      fbb_, desc, num_rows_, fbb_.CreateVector(columns_), kFeatherVersion, metadata);
+  auto root = fbs::CreateCTable(fbb_, desc, num_rows_, fbb_.CreateVector(columns_),
+                                kFeatherVersion, metadata);
   fbb_.Finish(root);
   finished_ = true;
 
@@ -111,17 +117,15 @@ Status TableBuilder::Finish() {
 }
 
 std::shared_ptr<Buffer> TableBuilder::GetBuffer() const {
-  return std::make_shared<Buffer>(
-      fbb_.GetBufferPointer(), static_cast<int64_t>(fbb_.GetSize()));
+  return std::make_shared<Buffer>(fbb_.GetBufferPointer(),
+                                  static_cast<int64_t>(fbb_.GetSize()));
 }
 
 void TableBuilder::SetDescription(const std::string& description) {
   description_ = description;
 }
 
-void TableBuilder::SetNumRows(int64_t num_rows) {
-  num_rows_ = num_rows;
-}
+void TableBuilder::SetNumRows(int64_t num_rows) { num_rows_ = num_rows; }
 
 void TableBuilder::add_column(const flatbuffers::Offset<fbs::Column>& col) {
   columns_.push_back(col);
@@ -177,21 +181,17 @@ Status ColumnBuilder::Finish() {
   flatbuffers::Offset<void> metadata = CreateColumnMetadata();
 
   auto column = fbs::CreateColumn(buf, buf.CreateString(name_), values,
-      ToFlatbufferEnum(type_),  // metadata_type
-      metadata, buf.CreateString(user_metadata_));
+                                  ToFlatbufferEnum(type_),  // metadata_type
+                                  metadata, buf.CreateString(user_metadata_));
 
   // bad coupling, but OK for now
   parent_->add_column(column);
   return Status::OK();
 }
 
-void ColumnBuilder::SetValues(const ArrayMetadata& values) {
-  values_ = values;
-}
+void ColumnBuilder::SetValues(const ArrayMetadata& values) { values_ = values; }
 
-void ColumnBuilder::SetUserMetadata(const std::string& data) {
-  user_metadata_ = data;
-}
+void ColumnBuilder::SetUserMetadata(const std::string& data) { user_metadata_ = data; }
 
 void ColumnBuilder::SetCategory(const ArrayMetadata& levels, bool ordered) {
   type_ = ColumnType::CATEGORY;
@@ -209,18 +209,14 @@ void ColumnBuilder::SetTimestamp(TimeUnit::type unit, const std::string& timezon
   meta_timestamp_.timezone = timezone;
 }
 
-void ColumnBuilder::SetDate() {
-  type_ = ColumnType::DATE;
-}
+void ColumnBuilder::SetDate() { type_ = ColumnType::DATE; }
 
 void ColumnBuilder::SetTime(TimeUnit::type unit) {
   type_ = ColumnType::TIME;
   meta_time_.unit = unit;
 }
 
-FBB& ColumnBuilder::fbb() {
-  return *fbb_;
-}
+FBB& ColumnBuilder::fbb() { return *fbb_; }
 
 std::unique_ptr<ColumnBuilder> TableBuilder::AddColumn(const std::string& name) {
   return std::unique_ptr<ColumnBuilder>(new ColumnBuilder(this, name));
@@ -272,7 +268,7 @@ class TableReader::TableReaderImpl {
   }
 
   Status GetDataType(const fbs::PrimitiveArray* values, fbs::TypeMetadata metadata_type,
-      const void* metadata, std::shared_ptr<DataType>* out) {
+                     const void* metadata, std::shared_ptr<DataType>* out) {
 #define PRIMITIVE_CASE(CAP_TYPE, FACTORY_FUNC) \
   case fbs::Type_##CAP_TYPE:                   \
     *out = FACTORY_FUNC();                     \
@@ -342,7 +338,7 @@ class TableReader::TableReaderImpl {
   // @returns: a Buffer instance, the precise type will depend on the kind of
   // input data source (which may or may not have memory-map like semantics)
   Status LoadValues(const fbs::PrimitiveArray* meta, fbs::TypeMetadata metadata_type,
-      const void* metadata, std::shared_ptr<Array>* out) {
+                    const void* metadata, std::shared_ptr<Array>* out) {
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(GetDataType(meta, metadata_type, metadata, &type));
 
@@ -394,8 +390,8 @@ class TableReader::TableReaderImpl {
     // if (user_meta->size() > 0) { user_metadata_ = user_meta->str(); }
 
     std::shared_ptr<Array> values;
-    RETURN_NOT_OK(LoadValues(
-        col_meta->values(), col_meta->metadata_type(), col_meta->metadata(), &values));
+    RETURN_NOT_OK(LoadValues(col_meta->values(), col_meta->metadata_type(),
+                             col_meta->metadata(), &values));
     out->reset(new Column(col_meta->name()->str(), values));
     return Status::OK();
   }
@@ -410,41 +406,27 @@ class TableReader::TableReaderImpl {
 // ----------------------------------------------------------------------
 // TableReader public API
 
-TableReader::TableReader() {
-  impl_.reset(new TableReaderImpl());
-}
+TableReader::TableReader() { impl_.reset(new TableReaderImpl()); }
 
 TableReader::~TableReader() {}
 
 Status TableReader::Open(const std::shared_ptr<io::RandomAccessFile>& source,
-    std::unique_ptr<TableReader>* out) {
+                         std::unique_ptr<TableReader>* out) {
   out->reset(new TableReader());
   return (*out)->impl_->Open(source);
 }
 
-bool TableReader::HasDescription() const {
-  return impl_->HasDescription();
-}
+bool TableReader::HasDescription() const { return impl_->HasDescription(); }
 
-std::string TableReader::GetDescription() const {
-  return impl_->GetDescription();
-}
+std::string TableReader::GetDescription() const { return impl_->GetDescription(); }
 
-int TableReader::version() const {
-  return impl_->version();
-}
+int TableReader::version() const { return impl_->version(); }
 
-int64_t TableReader::num_rows() const {
-  return impl_->num_rows();
-}
+int64_t TableReader::num_rows() const { return impl_->num_rows(); }
 
-int64_t TableReader::num_columns() const {
-  return impl_->num_columns();
-}
+int64_t TableReader::num_columns() const { return impl_->num_columns(); }
 
-std::string TableReader::GetColumnName(int i) const {
-  return impl_->GetColumnName(i);
-}
+std::string TableReader::GetColumnName(int i) const { return impl_->GetColumnName(i); }
 
 Status TableReader::GetColumn(int i, std::shared_ptr<Column>* out) {
   return impl_->GetColumn(i, out);
@@ -501,8 +483,8 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
   if (values.type_id() == Type::NA) {
     // As long as R doesn't support NA, we write this as a StringColumn
     // to ensure stable roundtrips.
-    *out = std::make_shared<StringArray>(
-        values.length(), nullptr, nullptr, values.null_bitmap(), values.null_count());
+    *out = std::make_shared<StringArray>(values.length(), nullptr, nullptr,
+                                         values.null_bitmap(), values.null_count());
     return Status::OK();
   } else {
     return MakeArray(values.data(), out);
@@ -537,8 +519,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     // Footer: metadata length, magic bytes
     RETURN_NOT_OK(
         stream_->Write(reinterpret_cast<const uint8_t*>(&buffer_size), sizeof(uint32_t)));
-    return stream_->Write(
-        reinterpret_cast<const uint8_t*>(kFeatherMagicBytes), strlen(kFeatherMagicBytes));
+    return stream_->Write(reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
+                          strlen(kFeatherMagicBytes));
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {
@@ -571,7 +553,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
       // byte boundary, and we write this much data into the stream
       if (values.null_bitmap()) {
         RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-            values.null_bitmap()->size(), &bytes_written));
+                                  values.null_bitmap()->size(), &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(
             stream_.get(), BitUtil::BytesForBits(values.length()), &bytes_written));
@@ -592,15 +574,17 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = bin_values.raw_value_offsets()[values.length()];
 
         // Write the variable-length offsets
-        RETURN_NOT_OK(WritePadded(stream_.get(),
-            reinterpret_cast<const uint8_t*>(bin_values.raw_value_offsets()),
-            offset_bytes, &bytes_written));
+        RETURN_NOT_OK(WritePadded(stream_.get(), reinterpret_cast<const uint8_t*>(
+                                                     bin_values.raw_value_offsets()),
+                                  offset_bytes, &bytes_written));
       } else {
         RETURN_NOT_OK(WritePaddedBlank(stream_.get(), offset_bytes, &bytes_written));
       }
       meta->total_bytes += bytes_written;
 
-      if (bin_values.value_data()) { values_buffer = bin_values.value_data()->data(); }
+      if (bin_values.value_data()) {
+        values_buffer = bin_values.value_data()->data();
+      }
     } else {
       const auto& prim_values = static_cast<const PrimitiveArray&>(values);
       const auto& fw_type = static_cast<const FixedWidthType&>(*values.type());
@@ -612,7 +596,9 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
         values_bytes = values.length() * fw_type.bit_width() / 8;
       }
 
-      if (prim_values.values()) { values_buffer = prim_values.values()->data(); }
+      if (prim_values.values()) {
+        values_buffer = prim_values.values()->data();
+      }
     }
     if (values_buffer) {
       RETURN_NOT_OK(
@@ -710,9 +696,9 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status CheckStarted() {
     if (!initialized_stream_) {
       int64_t bytes_written_unused;
-      RETURN_NOT_OK(
-          WritePadded(stream_.get(), reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
-              strlen(kFeatherMagicBytes), &bytes_written_unused));
+      RETURN_NOT_OK(WritePadded(stream_.get(),
+                                reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
+                                strlen(kFeatherMagicBytes), &bytes_written_unused));
       initialized_stream_ = true;
     }
     return Status::OK();
@@ -728,33 +714,25 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
   Status AppendPrimitive(const PrimitiveArray& values, ArrayMetadata* out);
 };
 
-TableWriter::TableWriter() {
-  impl_.reset(new TableWriterImpl());
-}
+TableWriter::TableWriter() { impl_.reset(new TableWriterImpl()); }
 
 TableWriter::~TableWriter() {}
 
-Status TableWriter::Open(
-    const std::shared_ptr<io::OutputStream>& stream, std::unique_ptr<TableWriter>* out) {
+Status TableWriter::Open(const std::shared_ptr<io::OutputStream>& stream,
+                         std::unique_ptr<TableWriter>* out) {
   out->reset(new TableWriter());
   return (*out)->impl_->Open(stream);
 }
 
-void TableWriter::SetDescription(const std::string& desc) {
-  impl_->SetDescription(desc);
-}
+void TableWriter::SetDescription(const std::string& desc) { impl_->SetDescription(desc); }
 
-void TableWriter::SetNumRows(int64_t num_rows) {
-  impl_->SetNumRows(num_rows);
-}
+void TableWriter::SetNumRows(int64_t num_rows) { impl_->SetNumRows(num_rows); }
 
 Status TableWriter::Append(const std::string& name, const Array& values) {
   return impl_->Append(name, values);
 }
 
-Status TableWriter::Finalize() {
-  return impl_->Finalize();
-}
+Status TableWriter::Finalize() { return impl_->Finalize(); }
 
 }  // namespace feather
 }  // namespace ipc

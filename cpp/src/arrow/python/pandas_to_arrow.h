@@ -38,7 +38,7 @@ namespace py {
 
 ARROW_EXPORT
 Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
-    const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+                     const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
 
 /// Convert dtype=object arrays. If target data type is not known, pass a type
 /// with nullptr
@@ -50,7 +50,8 @@ Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
 /// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_EXPORT
 Status PandasObjectsToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
-    const std::shared_ptr<DataType>& type, std::shared_ptr<ChunkedArray>* out);
+                            const std::shared_ptr<DataType>& type,
+                            std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py
 }  // namespace arrow

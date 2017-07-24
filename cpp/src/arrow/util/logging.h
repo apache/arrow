@@ -50,32 +50,25 @@ namespace arrow {
 
 #define DCHECK(condition)      \
   ARROW_IGNORE_EXPR(condition) \
-  while (false)                \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_EQ(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_NE(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_LE(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_LT(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_GE(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 #define DCHECK_GT(val1, val2) \
   ARROW_IGNORE_EXPR(val1)     \
-  while (false)               \
-  ::arrow::internal::NullLog()
+  while (false) ::arrow::internal::NullLog()
 
 #else
 #define ARROW_DFATAL ARROW_FATAL
@@ -107,8 +100,12 @@ class CerrLog {
         has_logged_(false) {}
 
   virtual ~CerrLog() {
-    if (has_logged_) { std::cerr << std::endl; }
-    if (severity_ == ARROW_FATAL) { std::exit(1); }
+    if (has_logged_) {
+      std::cerr << std::endl;
+    }
+    if (severity_ == ARROW_FATAL) {
+      std::exit(1);
+    }
   }
 
   template <class T>
@@ -133,7 +130,9 @@ class FatalLog : public CerrLog {
       : CerrLog(ARROW_FATAL){}           // NOLINT
 
             [[noreturn]] ~FatalLog() {
-    if (has_logged_) { std::cerr << std::endl; }
+    if (has_logged_) {
+      std::cerr << std::endl;
+    }
     std::exit(1);
   }
 };

@@ -198,11 +198,11 @@ class TestTable : public TestBase {
     schema_ = std::make_shared<Schema>(fields);
 
     arrays_ = {MakePrimitive<Int32Array>(length), MakePrimitive<UInt8Array>(length),
-        MakePrimitive<Int16Array>(length)};
+               MakePrimitive<Int16Array>(length)};
 
     columns_ = {std::make_shared<Column>(schema_->field(0), arrays_[0]),
-        std::make_shared<Column>(schema_->field(1), arrays_[1]),
-        std::make_shared<Column>(schema_->field(2), arrays_[2])};
+                std::make_shared<Column>(schema_->field(1), arrays_[1]),
+                std::make_shared<Column>(schema_->field(2), arrays_[2])};
   }
 
  protected:
@@ -412,8 +412,8 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_OK(table.AddColumn(0, columns_[0], &result));
   auto ex_schema = std::shared_ptr<Schema>(new Schema(
       {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)}));
-  std::vector<std::shared_ptr<Column>> ex_columns = {
-      table.column(0), table.column(0), table.column(1), table.column(2)};
+  std::vector<std::shared_ptr<Column>> ex_columns = {table.column(0), table.column(0),
+                                                     table.column(1), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.AddColumn(1, columns_[0], &result));

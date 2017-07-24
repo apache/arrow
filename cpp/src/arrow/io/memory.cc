@@ -46,7 +46,7 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
       mutable_data_(buffer->mutable_data()) {}
 
 Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
-    std::shared_ptr<BufferOutputStream>* out) {
+                                  std::shared_ptr<BufferOutputStream>* out) {
   std::shared_ptr<ResizableBuffer> buffer;
   RETURN_NOT_OK(AllocateResizableBuffer(pool, initial_capacity, &buffer));
   *out = std::make_shared<BufferOutputStream>(buffer);
@@ -55,7 +55,9 @@ Status BufferOutputStream::Create(int64_t initial_capacity, MemoryPool* pool,
 
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
-  if (buffer_) { DCHECK(Close().ok()); }
+  if (buffer_) {
+    DCHECK(Close().ok());
+  }
 }
 
 Status BufferOutputStream::Close() {
@@ -102,9 +104,7 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // OutputStream that doesn't write anything
 
-Status MockOutputStream::Close() {
-  return Status::OK();
-}
+Status MockOutputStream::Close() { return Status::OK(); }
 
 Status MockOutputStream::Tell(int64_t* position) {
   *position = extent_bytes_written_;
@@ -158,7 +158,7 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) {
 Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
   if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
     parallel_memcopy(mutable_data_ + position_, data, nbytes, memcopy_blocksize_,
-        memcopy_num_threads_);
+                     memcopy_num_threads_);
   } else {
     memcpy(mutable_data_ + position_, data, nbytes);
   }
@@ -166,8 +166,8 @@ Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
   return Status::OK();
 }
 
-Status FixedSizeBufferWriter::WriteAt(
-    int64_t position, const uint8_t* data, int64_t nbytes) {
+Status FixedSizeBufferWriter::WriteAt(int64_t position, const uint8_t* data,
+                                      int64_t nbytes) {
   std::lock_guard<std::mutex> guard(lock_);
   RETURN_NOT_OK(Seek(position));
   return Write(data, nbytes);
@@ -206,9 +206,7 @@ Status BufferReader::Tell(int64_t* position) {
   return Status::OK();
 }
 
-bool BufferReader::supports_zero_copy() const {
-  return true;
-}
+bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   memcpy(buffer, data_ + position_, nbytes);

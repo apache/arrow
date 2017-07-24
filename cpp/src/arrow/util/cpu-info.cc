@@ -66,7 +66,9 @@ static struct {
   string name;
   int64_t flag;
 } flag_mappings[] = {
-    {"ssse3", CpuInfo::SSSE3}, {"sse4_1", CpuInfo::SSE4_1}, {"sse4_2", CpuInfo::SSE4_2},
+    {"ssse3", CpuInfo::SSSE3},
+    {"sse4_1", CpuInfo::SSE4_1},
+    {"sse4_2", CpuInfo::SSE4_2},
     {"popcnt", CpuInfo::POPCNT},
 };
 static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);
@@ -78,14 +80,18 @@ static const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]
 int64_t ParseCPUFlags(const string& values) {
   int64_t flags = 0;
   for (int i = 0; i < num_flags; ++i) {
-    if (contains(values, flag_mappings[i].name)) { flags |= flag_mappings[i].flag; }
+    if (contains(values, flag_mappings[i].name)) {
+      flags |= flag_mappings[i].flag;
+    }
   }
   return flags;
 }
 
 #ifdef _WIN32
 bool RetrieveCacheSize(int64_t* cache_sizes) {
-  if (!cache_sizes) { return false; }
+  if (!cache_sizes) {
+    return false;
+  }
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
   PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer_position = nullptr;
   DWORD buffer_size = 0;
@@ -95,7 +101,9 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
       (GetLogicalProcessorInformationFuncPointer)GetProcAddress(
           GetModuleHandle("kernel32"), "GetLogicalProcessorInformation");
 
-  if (!func_pointer) { return false; }
+  if (!func_pointer) {
+    return false;
+  }
 
   // Get buffer size
   if (func_pointer(buffer, &buffer_size) && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
@@ -103,7 +111,9 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
 
   buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(buffer_size);
 
-  if (!buffer || !func_pointer(buffer, &buffer_size)) { return false; }
+  if (!buffer || !func_pointer(buffer, &buffer_size)) {
+    return false;
+  }
 
   buffer_position = buffer;
   while (offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= buffer_size) {
@@ -117,7 +127,9 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
     buffer_position++;
   }
 
-  if (buffer) { free(buffer); }
+  if (buffer) {
+    free(buffer);
+  }
   return true;
 }
 #endif
@@ -125,7 +137,9 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
 void CpuInfo::Init() {
   std::lock_guard<std::mutex> cpuinfo_lock(cpuinfo_mutex);
 
-  if (initialized()) { return; }
+  if (initialized()) {
+    return;
+  }
 
   string line;
   string name;
@@ -186,7 +200,9 @@ void CpuInfo::Init() {
     cache_sizes_[i] = data[i];
   }
 #elif _WIN32
-  if (!RetrieveCacheSize(cache_sizes_)) { SetDefaultCacheSize(); }
+  if (!RetrieveCacheSize(cache_sizes_)) {
+    SetDefaultCacheSize();
+  }
 #else
   SetDefaultCacheSize();
 #endif

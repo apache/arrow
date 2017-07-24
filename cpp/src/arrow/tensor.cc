@@ -35,7 +35,8 @@
 namespace arrow {
 
 static void ComputeRowMajorStrides(const FixedWidthType& type,
-    const std::vector<int64_t>& shape, std::vector<int64_t>* strides) {
+                                   const std::vector<int64_t>& shape,
+                                   std::vector<int64_t>* strides) {
   int64_t remaining = type.bit_width() / 8;
   for (int64_t dimsize : shape) {
     remaining *= dimsize;
@@ -53,7 +54,8 @@ static void ComputeRowMajorStrides(const FixedWidthType& type,
 }
 
 static void ComputeColumnMajorStrides(const FixedWidthType& type,
-    const std::vector<int64_t>& shape, std::vector<int64_t>* strides) {
+                                      const std::vector<int64_t>& shape,
+                                      std::vector<int64_t>* strides) {
   int64_t total = type.bit_width() / 8;
   for (int64_t dimsize : shape) {
     if (dimsize == 0) {
@@ -69,8 +71,8 @@ static void ComputeColumnMajorStrides(const FixedWidthType& type,
 
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
-    const std::vector<std::string>& dim_names)
+               const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+               const std::vector<std::string>& dim_names)
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   DCHECK(is_tensor_supported(type->id()));
   if (shape.size() > 0 && strides.size() == 0) {
@@ -79,11 +81,11 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
 }
 
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
+               const std::vector<int64_t>& shape, const std::vector<int64_t>& strides)
     : Tensor(type, data, shape, strides, {}) {}
 
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-    const std::vector<int64_t>& shape)
+               const std::vector<int64_t>& shape)
     : Tensor(type, data, shape, {}, {}) {}
 
 const std::string& Tensor::dim_name(int i) const {
@@ -100,9 +102,7 @@ int64_t Tensor::size() const {
   return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
 }
 
-bool Tensor::is_contiguous() const {
-  return is_row_major() || is_column_major();
-}
+bool Tensor::is_contiguous() const { return is_row_major() || is_column_major(); }
 
 bool Tensor::is_row_major() const {
   std::vector<int64_t> c_strides;
@@ -118,14 +118,14 @@ bool Tensor::is_column_major() const {
   return strides_ == f_strides;
 }
 
-Type::type Tensor::type_id() const {
-  return type_->id();
-}
+Type::type Tensor::type_id() const { return type_->id(); }
 
 bool Tensor::Equals(const Tensor& other) const {
   bool are_equal = false;
   Status error = TensorEquals(*this, other, &are_equal);
-  if (!error.ok()) { DCHECK(false) << "Tensors not comparable: " << error.ToString(); }
+  if (!error.ok()) {
+    DCHECK(false) << "Tensors not comparable: " << error.ToString();
+  }
   return are_equal;
 }
 

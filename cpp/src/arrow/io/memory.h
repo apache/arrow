@@ -45,7 +45,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
-      std::shared_ptr<BufferOutputStream>* out);
+                       std::shared_ptr<BufferOutputStream>* out);
 
   ~BufferOutputStream();
 

@@ -49,7 +49,7 @@ struct ARROW_EXPORT ArrayMetadata {
   ArrayMetadata() {}
 
   ArrayMetadata(fbs::Type type, int64_t offset, int64_t length, int64_t null_count,
-      int64_t total_bytes)
+                int64_t total_bytes)
       : type(type),
         offset(offset),
         length(length),
@@ -135,7 +135,9 @@ class ARROW_EXPORT TableMetadata {
   bool HasDescription() const { return table_->description() != 0; }
 
   std::string GetDescription() const {
-    if (!HasDescription()) { return std::string(""); }
+    if (!HasDescription()) {
+      return std::string("");
+    }
     return table_->description()->str();
   }
 
@@ -153,7 +155,7 @@ class ARROW_EXPORT TableMetadata {
 static inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
     FBB& fbb, const ArrayMetadata& array) {
   return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding_PLAIN, array.offset,
-      array.length, array.null_count, array.total_bytes);
+                                   array.length, array.null_count, array.total_bytes);
 }
 
 static inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit::type unit) {

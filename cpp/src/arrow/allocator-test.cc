@@ -48,7 +48,7 @@ TEST(stl_allocator, FreeLargeMemory) {
 
 #ifndef NDEBUG
   EXPECT_EXIT(alloc.deallocate(data, 120), ::testing::ExitedWithCode(1),
-      ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
+              ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
 #endif
 
   alloc.deallocate(data, 100);

@@ -127,7 +127,7 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ASSERT_EQ(object_buffer[1].data[0], 2);
 }
 
-} // namespace plasma
+}  // namespace plasma
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

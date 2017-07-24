@@ -27,7 +27,9 @@ class Random {
  public:
   explicit Random(uint32_t s) : seed_(s & 0x7fffffffu) {
     // Avoid bad seeds.
-    if (seed_ == 0 || seed_ == random_internal::M) { seed_ = 1; }
+    if (seed_ == 0 || seed_ == random_internal::M) {
+      seed_ = 1;
+    }
   }
 
   // Next pseudo-random 32-bit unsigned integer.
@@ -48,7 +50,9 @@ class Random {
     // The first reduction may overflow by 1 bit, so we may need to
     // repeat.  mod == M is not possible; using > allows the faster
     // sign-bit-based test.
-    if (seed_ > random_internal::M) { seed_ -= random_internal::M; }
+    if (seed_ > random_internal::M) {
+      seed_ -= random_internal::M;
+    }
     return seed_;
   }
 
@@ -97,9 +101,9 @@ class Random {
   double Normal(double mean, double std_dev) {
     double uniform1 = (Next() + 1.0) / (random_internal::M + 1.0);
     double uniform2 = (Next() + 1.0) / (random_internal::M + 1.0);
-    return (
-        mean +
-        std_dev * sqrt(-2 * ::log(uniform1)) * cos(random_internal::kTwoPi * uniform2));
+    return (mean +
+            std_dev * sqrt(-2 * ::log(uniform1)) *
+                cos(random_internal::kTwoPi * uniform2));
   }
 
   // Return a random number between 0.0 and 1.0 inclusive.

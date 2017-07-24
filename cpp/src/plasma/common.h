@@ -95,6 +95,6 @@ enum ObjectRequestType {
 extern int ObjectStatusLocal;
 extern int ObjectStatusRemote;
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif  // PLASMA_COMMON_H

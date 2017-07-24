@@ -34,21 +34,22 @@ class Tensor;
 /// Returns true if the arrays are exactly equal
 Status ARROW_EXPORT ArrayEquals(const Array& left, const Array& right, bool* are_equal);
 
-Status ARROW_EXPORT TensorEquals(
-    const Tensor& left, const Tensor& right, bool* are_equal);
+Status ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right,
+                                 bool* are_equal);
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
-Status ARROW_EXPORT ArrayApproxEquals(
-    const Array& left, const Array& right, bool* are_equal);
+Status ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
+                                      bool* are_equal);
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
 Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
-    int64_t start_idx, int64_t end_idx, int64_t other_start_idx, bool* are_equal);
+                                     int64_t start_idx, int64_t end_idx,
+                                     int64_t other_start_idx, bool* are_equal);
 
 /// Returns true if the type metadata are exactly equal
-Status ARROW_EXPORT TypeEquals(
-    const DataType& left, const DataType& right, bool* are_equal);
+Status ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
+                               bool* are_equal);
 
 }  // namespace arrow
 
