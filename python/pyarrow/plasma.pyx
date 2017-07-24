@@ -28,19 +28,10 @@ from cpython.pycapsule cimport *
 
 from pyarrow.lib cimport Buffer, MutableBuffer, NativeFile, check_status
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
-                                        CFixedSizeBufferWrite, CStatus)
+                                        CFixedSizeBufferWriter, CStatus)
 
 
 PLASMA_WAIT_TIMEOUT = 2 ** 30
-
-
-cdef class FixedSizeBufferOutputStream(NativeFile):
-
-    def __cinit__(self, Buffer buffer):
-        self.wr_file.reset(new CFixedSizeBufferWrite(buffer.buffer))
-        self.is_readable = 0
-        self.is_writeable = 1
-        self.is_open = True
 
 
 cdef extern from "plasma/common.h" nogil:

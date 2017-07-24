@@ -473,6 +473,15 @@ cdef class OSFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
 
 
+cdef class FixedSizeBufferOutputStream(NativeFile):
+
+    def __cinit__(self, Buffer buffer):
+        self.wr_file.reset(new CFixedSizeBufferWriter(buffer.buffer))
+        self.is_readable = 0
+        self.is_writeable = 1
+        self.is_open = True
+
+
 # ----------------------------------------------------------------------
 # Arrow buffers
 
