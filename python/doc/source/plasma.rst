@@ -130,11 +130,11 @@ If you encounter an ImportError when running the above, see `ImportError After I
 
 Congratulations! Plasma is now set up and you can look at `The Plasma API`_.
 
-Installation on Mac OS X (TODO)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Installation on Mac OS X
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following install instructions have been tested for Mac OS X 10.9 
-Mavericks.
+The following install instructions have been tested for Mac OS X 10.11 
+El Capitan.
 
 
 First, install Anaconda as follows. Download the Graphical MacOS
@@ -159,8 +159,7 @@ The next step is to install the following dependency packages as below:
 
 Plasma also requires the build-essential, curl, unzip, libboost-all-dev, 
 and libjemalloc-dev packages. MacOS should already come with curl, unzip, 
-and the compilation tools found in build-essential. Ldconfig is not supported
-on Mac.
+and the compilation tools found in build-essential.
 
 Now, install arrow as follows. Open your terminal window and download the 
 arrow package from github with the following commands:
@@ -175,7 +174,6 @@ Create a directory for the arrow build:
 .. code-block:: bash
 
   cd arrow/cpp
-  git checkout plasma-cython
   mkdir build
   cd build
 
@@ -188,13 +186,30 @@ make to build Arrow.
   make
   sudo make install
 
-TODO:
+After installing arrow, you need to install pyarrow with the Plasma client as follows:
 
-* Install Pyarrow
-* Verify Pyarrow
-* Install Plasma
+.. code-block:: bash
 
+  cd ~/arrow/python
+  PYARROW_WITH_PLASMA=1 python setup.py install
 
+Once you've installed pyarrow, you should verify that you are able to 
+import it when running python in the terminal. Also make sure you can import
+the Plasma client library. Make sure to try this from
+outside of the ``~/arrow/cpp/src/plasma`` directory, otherwise you may 
+encounter a ModuleNotFoundError.
+
+.. code-block:: shell
+
+  $ cd ~
+  $ python
+  Python 3.6.1 |Anaconda custom (64-bit)| (default, May 11 2017, 13:09:58) 
+  [GCC 4.4.7 20120313 (Red Hat 4.4.7-1)] on linux
+  Type "help", "copyright", "credits" or "license" for more information.
+  >>> import pyarrow
+  >>> import pyarrow.plasma
+
+Congratulations! Plasma is now set up and you can look at `The Plasma API`_.
 
 Troubleshooting Installation Issues
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
