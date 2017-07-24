@@ -540,7 +540,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     <#if type.major == "VarLen">
 
-    private void fillEmpties(int index){
+    public void fillEmpties(int index){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       for (int i = lastSet + 1; i < index; i++) {
         valuesMutator.setSafe(i, emptyByteArray);
