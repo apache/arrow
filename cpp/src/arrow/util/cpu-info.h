@@ -78,6 +78,9 @@ class ARROW_EXPORT CpuInfo {
   static bool initialized() { return initialized_; }
 
  private:
+  /// Inits CPU cache size variables with default values
+  static void SetDefaultCacheSize();
+
   static bool initialized_;
   static int64_t hardware_flags_;
   static int64_t original_hardware_flags_;

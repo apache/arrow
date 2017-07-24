@@ -30,6 +30,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
@@ -79,6 +83,45 @@ int64_t ParseCPUFlags(const string& values) {
   return flags;
 }
 
+#ifdef _WIN32
+bool RetrieveCacheSize(int64_t* cache_sizes) {
+  if (!cache_sizes) { return false; }
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer_position = nullptr;
+  DWORD buffer_size = 0;
+  DWORD offset = 0;
+  typedef BOOL(WINAPI * GetLogicalProcessorInformationFuncPointer)(void*, void*);
+  GetLogicalProcessorInformationFuncPointer func_pointer =
+      (GetLogicalProcessorInformationFuncPointer)GetProcAddress(
+          GetModuleHandle("kernel32"), "GetLogicalProcessorInformation");
+
+  if (!func_pointer) { return false; }
+
+  // Get buffer size
+  if (func_pointer(buffer, &buffer_size) && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    return false;
+
+  buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(buffer_size);
+
+  if (!buffer || !func_pointer(buffer, &buffer_size)) { return false; }
+
+  buffer_position = buffer;
+  while (offset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= buffer_size) {
+    if (RelationCache == buffer_position->Relationship) {
+      PCACHE_DESCRIPTOR cache = &buffer_position->Cache;
+      if (cache->Level >= 1 && cache->Level <= 3) {
+        cache_sizes[cache->Level - 1] += cache->Size;
+      }
+    }
+    offset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+    buffer_position++;
+  }
+
+  if (buffer) { free(buffer); }
+  return true;
+}
+#endif
+
 void CpuInfo::Init() {
   std::lock_guard<std::mutex> cpuinfo_lock(cpuinfo_mutex);
 
@@ -93,6 +136,16 @@ void CpuInfo::Init() {
 
   memset(&cache_sizes_, 0, sizeof(cache_sizes_));
 
+#ifdef _WIN32
+  SYSTEM_INFO system_info;
+  GetSystemInfo(&system_info);
+  num_cores = system_info.dwNumberOfProcessors;
+
+  LARGE_INTEGER performance_frequency;
+  if (QueryPerformanceFrequency(&performance_frequency)) {
+    max_mhz = static_cast<float>(performance_frequency.QuadPart);
+  }
+#else
   // Read from /proc/cpuinfo
   std::ifstream cpuinfo("/proc/cpuinfo", std::ios::in);
   while (cpuinfo) {
@@ -120,6 +173,7 @@ void CpuInfo::Init() {
     }
   }
   if (cpuinfo.is_open()) cpuinfo.close();
+#endif
 
 #ifdef __APPLE__
   // On Mac OS X use sysctl() to get the cache sizes
@@ -131,22 +185,17 @@ void CpuInfo::Init() {
   for (size_t i = 0; i < 3; ++i) {
     cache_sizes_[i] = data[i];
   }
+#elif _WIN32
+  if (!RetrieveCacheSize(cache_sizes_)) { SetDefaultCacheSize(); }
 #else
-#ifndef _SC_LEVEL1_DCACHE_SIZE
-  // Provide reasonable default values if no info
-  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
-  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
-  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
-#else
-  // Call sysconf to query for the cache sizes
-  cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
-  cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);
-  cache_sizes_[2] = sysconf(_SC_LEVEL3_CACHE_SIZE);
-#endif
+  SetDefaultCacheSize();
 #endif
 
   if (max_mhz != 0) {
-    cycles_per_ms_ = static_cast<int64_t>(max_mhz) * 1000;
+    cycles_per_ms_ = static_cast<int64_t>(max_mhz);
+#ifndef _WIN32
+    cycles_per_ms_ *= 1000;
+#endif
   } else {
     cycles_per_ms_ = 1000000;
   }
@@ -201,6 +250,20 @@ int CpuInfo::num_cores() {
 std::string CpuInfo::model_name() {
   DCHECK(initialized_);
   return model_name_;
+}
+
+void CpuInfo::SetDefaultCacheSize() {
+#ifndef _SC_LEVEL1_DCACHE_SIZE
+  // Provide reasonable default values if no info
+  cache_sizes_[0] = 32 * 1024;    // Level 1: 32k
+  cache_sizes_[1] = 256 * 1024;   // Level 2: 256k
+  cache_sizes_[2] = 3072 * 1024;  // Level 3: 3M
+#else
+  // Call sysconf to query for the cache sizes
+  cache_sizes_[0] = sysconf(_SC_LEVEL1_DCACHE_SIZE);
+  cache_sizes_[1] = sysconf(_SC_LEVEL2_CACHE_SIZE);
+  cache_sizes_[2] = sysconf(_SC_LEVEL3_CACHE_SIZE);
+#endif
 }
 
 }  // namespace arrow
