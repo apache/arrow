@@ -20,49 +20,6 @@ export ARROW_HOME=$ARROW_CPP_INSTALL
 export PYARROW_WITH_PLASMA=1
 
 pushd $ARROW_PYTHON_DIR
-export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
-
-build_parquet_cpp() {
-  export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
-  conda create -y -q -p $PARQUET_HOME python=3.6 cmake curl
-  source activate $PARQUET_HOME
-
-  # In case some package wants to download the MKL
-  conda install -y -q nomkl
-
-  conda install -y -q thrift-cpp snappy zlib brotli boost
-
-  export BOOST_ROOT=$PARQUET_HOME
-  export SNAPPY_HOME=$PARQUET_HOME
-  export THRIFT_HOME=$PARQUET_HOME
-  export ZLIB_HOME=$PARQUET_HOME
-  export BROTLI_HOME=$PARQUET_HOME
-
-  PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
-  mkdir -p $PARQUET_DIR
-
-  git clone https://github.com/apache/parquet-cpp.git $PARQUET_DIR
-
-  pushd $PARQUET_DIR
-  mkdir build-dir
-  cd build-dir
-
-  cmake \
-      -DCMAKE_BUILD_TYPE=debug \
-      -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
-      -DPARQUET_BUILD_BENCHMARKS=off \
-      -DPARQUET_BUILD_EXECUTABLES=off \
-      -DPARQUET_ZLIB_VENDORED=off \
-      -DPARQUET_BUILD_TESTS=on \
-      ..
-
-  make -j${CPU_COUNT}
-  make install
-
-  popd
-}
-
-build_parquet_cpp
 
 function build_arrow_libraries() {
   CPP_BUILD_DIR=$1
@@ -72,8 +29,8 @@ function build_arrow_libraries() {
   pushd $CPP_BUILD_DIR
 
   cmake -DARROW_BUILD_TESTS=off \
-        -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
+        -DARROW_PLASMA=on \
         -DCMAKE_INSTALL_PREFIX=$2 \
         $CPP_DIR
 
@@ -108,11 +65,9 @@ python_version_tests() {
   # Other stuff pip install
   pip install -r requirements.txt
 
-  python setup.py build_ext --inplace --with-parquet
+  python setup.py build_ext --inplace
 
-  python -c "import pyarrow.parquet"
-
-  python -m pytest -vv -r sxX pyarrow --parquet
+  python -m pytest -vv -r sxX pyarrow
 
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
@@ -120,6 +75,19 @@ python_version_tests() {
       conda install -y -q --file=doc/requirements.txt
       python setup.py build_sphinx -s doc/source
   fi
+
+  # Build and install pyarrow
+  pushd $TRAVIS_BUILD_DIR/python
+    python setup.py install
+  popd
+
+  # Run Plasma tests
+  pushd $TRAVIS_BUILD_DIR/python
+    python -m pytest pyarrow/tests/test_plasma.py
+    if [ $TRAVIS_OS_NAME == "linux" ]; then
+      PLASMA_VALGRIND=1 python -m pytest pyarrow/tests/test_plasma.py
+    fi
+  popd
 }
 
 # run tests for python 2.7 and 3.6

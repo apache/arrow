@@ -19,7 +19,9 @@
 
 #include <random>
 
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
+
+namespace plasma {
 
 using arrow::Status;
 
@@ -81,3 +83,8 @@ Status plasma_error_status(int plasma_error) {
   }
   return Status::OK();
 }
+
+ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
+ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
+
+} // namespace plasma

@@ -18,10 +18,12 @@
 #include "plasma/protocol.h"
 
 #include "flatbuffers/flatbuffers.h"
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
+
+namespace plasma {
 
 using flatbuffers::uoffset_t;
 
@@ -500,3 +502,5 @@ Status ReadDataReply(
   *metadata_size = (int64_t)message->metadata_size();
   return Status::OK();
 }
+
+} // namespace plasma

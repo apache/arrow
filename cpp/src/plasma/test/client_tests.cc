@@ -29,7 +29,9 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
-std::string g_test_executable;  // NOLINT
+namespace plasma {
+
+std::string test_executable;  // NOLINT
 
 class TestPlasmaStore : public ::testing::Test {
  public:
@@ -37,7 +39,7 @@ class TestPlasmaStore : public ::testing::Test {
   // stdout of the object store. Consider changing that.
   void SetUp() {
     std::string plasma_directory =
-        g_test_executable.substr(0, g_test_executable.find_last_of("/"));
+        test_executable.substr(0, test_executable.find_last_of("/"));
     std::string plasma_command =
         plasma_directory +
         "/plasma_store -m 1000000000 -s /tmp/store 1> /dev/null 2> /dev/null &";
@@ -125,8 +127,10 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ASSERT_EQ(object_buffer[1].data[0], 2);
 }
 
+} // namespace plasma
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-  g_test_executable = std::string(argv[0]);
+  plasma::test_executable = std::string(argv[0]);
   return RUN_ALL_TESTS();
 }

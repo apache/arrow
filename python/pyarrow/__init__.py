@@ -68,6 +68,7 @@ from pyarrow.lib import (null, bool_,
                          Date32Value, Date64Value, TimestampValue)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+                         FixedSizeBufferOutputStream,
                          Buffer, BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          frombuffer,
@@ -98,7 +99,6 @@ from pyarrow.ipc import (Message, MessageReader,
                          open_stream,
                          open_file,
                          serialize_pandas, deserialize_pandas)
-
 
 localfs = LocalFilesystem.get_instance()
 

@@ -19,6 +19,8 @@
 
 #include <errno.h>
 
+namespace plasma {
+
 void EventLoop::file_event_callback(
     aeEventLoop* loop, int fd, void* context, int events) {
   FileCallback* callback = reinterpret_cast<FileCallback*>(context);
@@ -79,3 +81,5 @@ int EventLoop::remove_timer(int64_t timer_id) {
   timer_callbacks_.erase(timer_id);
   return err;
 }
+
+} // namespace plasma
