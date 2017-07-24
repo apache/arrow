@@ -393,6 +393,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       vector.getMutator().setValueCount(childValueCount);
       bits.getMutator().setValueCount(valueCount);
     }
+
+    public void setLastSet(int value) {
+      lastSet = value;
+    }
+
+    public int getLastSet() { return lastSet; }
   }
 
 }
