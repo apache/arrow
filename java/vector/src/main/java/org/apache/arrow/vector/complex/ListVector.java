@@ -397,6 +397,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     public void setLastSet(int value) {
       lastSet = value;
     }
+
+    public int getLastSet() { return lastSet; }
   }
 
 }
