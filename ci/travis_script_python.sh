@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -17,26 +16,14 @@ set -e
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 export ARROW_HOME=$ARROW_CPP_INSTALL
-export PYARROW_WITH_PLASMA=1
-
-pushd $ARROW_PYTHON_DIR
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
+export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
 
 build_parquet_cpp() {
   export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
-  conda create -y -q -p $PARQUET_HOME python=3.6 cmake curl
-  source activate $PARQUET_HOME
 
-  # In case some package wants to download the MKL
-  conda install -y -q nomkl
-
-  conda install -y -q thrift-cpp snappy zlib brotli boost
-
-  export BOOST_ROOT=$PARQUET_HOME
-  export SNAPPY_HOME=$PARQUET_HOME
-  export THRIFT_HOME=$PARQUET_HOME
-  export ZLIB_HOME=$PARQUET_HOME
-  export BROTLI_HOME=$PARQUET_HOME
+  # $CPP_TOOLCHAIN set up in before_script_cpp
+  export PARQUET_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
 
   PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
   mkdir -p $PARQUET_DIR
@@ -48,37 +35,39 @@ build_parquet_cpp() {
   cd build-dir
 
   cmake \
+      -GNinja \
       -DCMAKE_BUILD_TYPE=debug \
       -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+      -DPARQUET_BOOST_USE_SHARED=off \
       -DPARQUET_BUILD_BENCHMARKS=off \
       -DPARQUET_BUILD_EXECUTABLES=off \
-      -DPARQUET_ZLIB_VENDORED=off \
-      -DPARQUET_BUILD_TESTS=on \
+      -DPARQUET_BUILD_TESTS=off \
       ..
 
-  make -j${CPU_COUNT}
-  make install
+  ninja
+  ninja install
 
   popd
 }
 
 build_parquet_cpp
 
-function build_arrow_libraries() {
-  CPP_BUILD_DIR=$1
-  CPP_DIR=$TRAVIS_BUILD_DIR/cpp
+function rebuild_arrow_libraries() {
+  pushd $ARROW_CPP_BUILD_DIR
 
-  mkdir $CPP_BUILD_DIR
-  pushd $CPP_BUILD_DIR
+  # Clear out prior build files
+  rm -rf *
 
-  cmake -DARROW_BUILD_TESTS=off \
+  cmake -GNinja \
+        -DARROW_BUILD_TESTS=off \
+        -DARROW_BUILD_UTILITIES=off \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
-        -DCMAKE_INSTALL_PREFIX=$2 \
-        $CPP_DIR
+        -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+        $ARROW_CPP_DIR
 
-  make -j4
-  make install
+  ninja
+  ninja install
 
   popd
 }
@@ -86,9 +75,6 @@ function build_arrow_libraries() {
 python_version_tests() {
   PYTHON_VERSION=$1
   CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
-
-  export ARROW_HOME=$TRAVIS_BUILD_DIR/arrow-install-$PYTHON_VERSION
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib
 
   conda create -y -q -p $CONDA_ENV_DIR python=$PYTHON_VERSION cmake curl
   source activate $CONDA_ENV_DIR
@@ -103,27 +89,35 @@ python_version_tests() {
   conda install -y -q pip numpy pandas cython
 
   # Build C++ libraries
-  build_arrow_libraries arrow-build-$PYTHON_VERSION $ARROW_HOME
+  rebuild_arrow_libraries
 
   # Other stuff pip install
+  pushd $ARROW_PYTHON_DIR
   pip install -r requirements.txt
-
-  python setup.py build_ext --inplace --with-parquet
+  python setup.py build_ext --with-parquet --with-plasma \
+         install --single-version-externally-managed --record=record.text
+  popd
 
   python -c "import pyarrow.parquet"
+  python -c "import pyarrow.plasma"
 
-  python -m pytest -vv -r sxX pyarrow --parquet
+  if [ $TRAVIS_OS_NAME == "linux" ]; then
+    export PLASMA_VALGRIND=1
+  fi
 
+  PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
+  python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
+
+  pushd $ARROW_PYTHON_DIR
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
       conda install -y -q --file=doc/requirements.txt
       python setup.py build_sphinx -s doc/source
   fi
+  popd
 }
 
 # run tests for python 2.7 and 3.6
 python_version_tests 2.7
 python_version_tests 3.6
-
-popd

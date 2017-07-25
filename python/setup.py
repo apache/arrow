@@ -82,6 +82,7 @@ class build_ext(_build_ext):
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-plasma', None, 'build the Plasma extension'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -101,14 +102,13 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
-        if self.with_plasma and "plasma" not in self.CYTHON_MODULE_NAMES:
-            self.CYTHON_MODULE_NAMES.append("plasma")
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        '_parquet']
+        '_parquet',
+        'plasma']
 
     def _run_cmake(self):
         # The directory containing this setup.py

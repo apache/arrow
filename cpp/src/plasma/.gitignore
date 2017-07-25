@@ -15,25 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-thirdparty/
-CMakeFiles/
-CMakeCache.txt
-CTestTestfile.cmake
-Makefile
-cmake_install.cmake
-build/
-*-build/
-Testing/
-
-#########################################
-# Editor temporary/working/backup files #
-.#*
-*\#*\#
-[#]*#
-*~
-*$
-*.bak
-*flymake*
-*.kdev4
-*.log
-*.swp
+*_generated.h
