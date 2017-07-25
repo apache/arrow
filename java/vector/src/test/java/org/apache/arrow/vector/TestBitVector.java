@@ -112,8 +112,10 @@ public class TestBitVector {
        */
       final int[][] transferLengths = {  {0, 8},     /* (1) */
                                          {8, 10},    /* (1) */
+                                         {18, 0},    /* zero length scenario */
                                          {18, 8},    /* (2.1) */
-                                         {26, 14},   /* (2.2) */
+                                         {26, 0},    /* zero length scenario */
+                                         {26, 14}    /* (2.2) */
                                       };
 
       for (final int[] transferLength : transferLengths) {
