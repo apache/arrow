@@ -206,28 +206,11 @@ cdef class PlasmaClient:
         c_string store_socket_name
         c_string manager_socket_name
 
-    def __cinit__(self, store_socket_name, manager_socket_name, int release_delay):
-        """
-        Create a new PlasmaClient that is connected to a plasma store
-        and optionally a plasma manager.
-
-        Parameters
-        ----------
-        store_socket_name : str
-            Name of the socket the plasma store is listening at.
-        manager_socket_name : str
-            Name of the socket the plasma manager is listening at.
-        release_delay : int
-            The maximum number of objects that the client will keep and
-            delay releasing (for caching reasons).
-        """
+    def __cinit__(self):
         self.client.reset(new CPlasmaClient())
         self.notification_fd = -1
-        self.store_socket_name = store_socket_name.encode()
-        self.manager_socket_name = manager_socket_name.encode()
-        with nogil:
-            check_status(self.client.get().Connect(self.store_socket_name,
-                         self.manager_socket_name, release_delay))
+        self.store_socket_name = ""
+        self.manager_socket_name = ""
 
     cdef _get_object_buffers(self, object_ids, int64_t timeout_ms,
                              c_vector[CObjectBuffer]* result):
@@ -558,3 +541,26 @@ cdef class PlasmaClient:
         """
         with nogil:
             check_status(self.client.get().Disconnect())
+
+def connect(store_socket_name, manager_socket_name, int release_delay):
+    """
+    Return a new PlasmaClient that is connected a plasma store and
+    optionally a manager.
+
+    Parameters
+    ----------
+    store_socket_name : str
+        Name of the socket the plasma store is listening at.
+    manager_socket_name : str
+        Name of the socket the plasma manager is listening at.
+    release_delay : int
+        The maximum number of objects that the client will keep and
+        delay releasing (for caching reasons).
+    """
+    cdef PlasmaClient result = PlasmaClient()
+    result.store_socket_name = store_socket_name.encode()
+    result.manager_socket_name = manager_socket_name.encode()
+    with nogil:
+        check_status(result.client.get().Connect(result.store_socket_name,
+                     result.manager_socket_name, release_delay))
+    return result
