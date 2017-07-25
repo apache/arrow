@@ -21,8 +21,10 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "format/plasma_generated.h"
 #include "plasma/plasma.h"
+#include "plasma/plasma_generated.h"
+
+namespace plasma {
 
 using arrow::Status;
 
@@ -38,11 +40,11 @@ Status PlasmaReceive(int sock, int64_t message_type, std::vector<uint8_t>* buffe
 
 /* Plasma Create message functions. */
 
-Status SendCreateRequest(
-    int sock, ObjectID object_id, int64_t data_size, int64_t metadata_size);
+Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
+                         int64_t metadata_size);
 
-Status ReadCreateRequest(
-    uint8_t* data, size_t size, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
+Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
+                         int64_t* data_size, int64_t* metadata_size);
 
 Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error);
 
@@ -60,18 +62,19 @@ Status ReadSealReply(uint8_t* data, size_t size, ObjectID* object_id);
 
 /* Plasma Get message functions. */
 
-Status SendGetRequest(
-    int sock, const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms);
+Status SendGetRequest(int sock, const ObjectID* object_ids, int64_t num_objects,
+                      int64_t timeout_ms);
 
-Status ReadGetRequest(
-    uint8_t* data, size_t size, std::vector<ObjectID>& object_ids, int64_t* timeout_ms);
+Status ReadGetRequest(uint8_t* data, size_t size,
+                      std::vector<ObjectID>& object_ids, int64_t* timeout_ms);
 
-Status SendGetReply(int sock, ObjectID object_ids[],
+Status SendGetReply(
+    int sock, ObjectID object_ids[],
     std::unordered_map<ObjectID, PlasmaObject, UniqueIDHasher>& plasma_objects,
     int64_t num_objects);
 
-Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[], PlasmaObject plasma_objects[],
-    int64_t num_objects);
+Status ReadGetReply(uint8_t* data, size_t size, ObjectID object_ids[],
+                    PlasmaObject plasma_objects[], int64_t num_objects);
 
 /* Plasma Release message functions. */
 
@@ -99,13 +102,13 @@ Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objec
 
 Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[], int64_t num_objects);
 
-Status SendStatusReply(
-    int sock, ObjectID object_ids[], int object_status[], int64_t num_objects);
+Status SendStatusReply(int sock, ObjectID object_ids[], int object_status[],
+                       int64_t num_objects);
 
 int64_t ReadStatusReply_num_objects(uint8_t* data, size_t size);
 
-Status ReadStatusReply(
-    uint8_t* data, size_t size, ObjectID object_ids[], int object_status[], int64_t num_objects);
+Status ReadStatusReply(uint8_t* data, size_t size, ObjectID object_ids[],
+                       int object_status[], int64_t num_objects);
 
 /* Plasma Constains message functions. */
 
@@ -146,16 +149,17 @@ Status ReadFetchRequest(uint8_t* data, size_t size, std::vector<ObjectID>& objec
 /* Plasma Wait message functions. */
 
 Status SendWaitRequest(int sock, ObjectRequest object_requests[], int64_t num_requests,
-    int num_ready_objects, int64_t timeout_ms);
+                       int num_ready_objects, int64_t timeout_ms);
 
-Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requests,
-    int64_t* timeout_ms, int* num_ready_objects);
+Status ReadWaitRequest(uint8_t* data, size_t size,
+                       ObjectRequestMap& object_requests,
+                       int64_t* timeout_ms, int* num_ready_objects);
 
-Status SendWaitReply(
-    int sock, const ObjectRequestMap& object_requests, int num_ready_objects);
+Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
+                     int num_ready_objects);
 
-Status ReadWaitReply(
-    uint8_t* data, size_t size, ObjectRequest object_requests[], int* num_ready_objects);
+Status ReadWaitReply(uint8_t* data, size_t size,
+                     ObjectRequest object_requests[], int* num_ready_objects);
 
 /* Plasma Subscribe message functions. */
 
@@ -167,10 +171,13 @@ Status SendDataRequest(int sock, ObjectID object_id, const char* address, int po
 
 Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address, int* port);
 
-Status SendDataReply(
-    int sock, ObjectID object_id, int64_t object_size, int64_t metadata_size);
+Status SendDataReply(int sock, ObjectID object_id, int64_t object_size,
+                     int64_t metadata_size);
 
-Status ReadDataReply(
-    uint8_t* data, size_t size, ObjectID* object_id, int64_t* object_size, int64_t* metadata_size);
+Status ReadDataReply(uint8_t* data, size_t size,
+                     ObjectID* object_id, int64_t* object_size,
+                     int64_t* metadata_size);
+
+}  // namespace plasma
 
 #endif /* PLASMA_PROTOCOL */

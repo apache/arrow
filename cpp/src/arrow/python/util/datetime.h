@@ -18,8 +18,8 @@
 #ifndef PYARROW_UTIL_DATETIME_H
 #define PYARROW_UTIL_DATETIME_H
 
-#include "arrow/python/platform.h"
 #include <datetime.h>
+#include "arrow/python/platform.h"
 
 namespace arrow {
 namespace py {
@@ -31,8 +31,8 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
-static inline Status PyTime_from_int(
-    int64_t val, const TimeUnit::type unit, PyObject** out) {
+static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
+                                     PyObject** out) {
   int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
   switch (unit) {
     case TimeUnit::NANO:
@@ -65,7 +65,7 @@ static inline Status PyTime_from_int(
       break;
   }
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
-      static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
+                         static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
   return Status::OK();
 }
 

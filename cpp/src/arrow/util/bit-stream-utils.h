@@ -20,9 +20,9 @@
 #ifndef ARROW_UTIL_BIT_STREAM_UTILS_H
 #define ARROW_UTIL_BIT_STREAM_UTILS_H
 
+#include <string.h>
 #include <algorithm>
 #include <cstdint>
-#include <string.h>
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/bpacking.h"
@@ -229,13 +229,13 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
 
 template <typename T>
 inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
-    int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
+                      int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800)
 #endif
-  *v = static_cast<T>(
-      BitUtil::TrailingBits(*buffered_values, *bit_offset + num_bits) >> *bit_offset);
+  *v = static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
+                      *bit_offset);
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -292,13 +292,14 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   if (UNLIKELY(bit_offset != 0)) {
     for (; i < batch_size && bit_offset != 0; ++i) {
       GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-          &buffered_values);
+                &buffered_values);
     }
   }
 
   if (sizeof(T) == 4) {
-    int num_unpacked = unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-        reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+    int num_unpacked =
+        unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                 reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else {
@@ -307,8 +308,10 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
       int num_unpacked = unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-          unpack_buffer, unpack_size, num_bits);
-      if (num_unpacked == 0) { break; }
+                                  unpack_buffer, unpack_size, num_bits);
+      if (num_unpacked == 0) {
+        break;
+      }
       for (int k = 0; k < num_unpacked; ++k) {
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -332,8 +335,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   }
 
   for (; i < batch_size; ++i) {
-    GetValue_(
-        num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset, &buffered_values);
+    GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+              &buffered_values);
   }
 
   bit_offset_ = bit_offset;

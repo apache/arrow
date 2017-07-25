@@ -148,9 +148,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CLoggingMemoryPool(CMemoryPool*)
 
     cdef cppclass CBuffer" arrow::Buffer":
+        CBuffer(const uint8_t* data, int64_t size)
         uint8_t* data()
         int64_t size()
         shared_ptr[CBuffer] parent()
+        c_bool is_mutable() const
+
+    cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
+        CMutableBuffer(const uint8_t* data, int64_t size)
+        uint8_t* mutable_data()
 
     cdef cppclass ResizableBuffer(CBuffer):
         CStatus Resize(int64_t nbytes)
@@ -557,6 +563,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         (OutputStream):
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
+
+    cdef cppclass CFixedSizeBufferWriter" arrow::io::FixedSizeBufferWriter"(WriteableFile):
+        CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:

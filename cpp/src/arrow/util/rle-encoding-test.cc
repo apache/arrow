@@ -178,7 +178,7 @@ TEST(BitArray, TestMixed) {
 // exactly 'expected_encoding'.
 // if expected_len is not -1, it will validate the encoded size is correct.
 void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_encoding,
-    int expected_len) {
+                 int expected_len) {
   const int len = 64 * 1024;
   uint8_t buffer[len];
   EXPECT_LE(expected_len, len);
@@ -190,7 +190,9 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
   }
   int encoded_len = encoder.Flush();
 
-  if (expected_len != -1) { EXPECT_EQ(encoded_len, expected_len); }
+  if (expected_len != -1) {
+    EXPECT_EQ(encoded_len, expected_len);
+  }
   if (expected_encoding != NULL) {
     EXPECT_EQ(memcmp(buffer, expected_encoding, expected_len), 0);
   }
@@ -211,7 +213,7 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
     RleDecoder decoder(buffer, len, bit_width);
     vector<int> values_read(values.size());
     ASSERT_EQ(values.size(),
-        decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
+              decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
     EXPECT_EQ(values, values_read);
   }
 }
@@ -224,7 +226,9 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
   RleEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
-    if (!result) { return false; }
+    if (!result) {
+      return false;
+    }
   }
   int encoded_len = encoder.Flush();
   int out = 0;
@@ -233,7 +237,9 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
     RleDecoder decoder(buffer, encoded_len, bit_width);
     for (size_t i = 0; i < values.size(); ++i) {
       EXPECT_TRUE(decoder.Get(&out));
-      if (values[i] != out) { return false; }
+      if (values[i] != out) {
+        return false;
+      }
     }
   }
 
@@ -245,7 +251,9 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
         decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
       return false;
     }
-    if (values != values_read) { return false; }
+    if (values != values_read) {
+      return false;
+    }
   }
 
   return true;
@@ -294,8 +302,8 @@ TEST(Rle, SpecificSequences) {
   ValidateRle(values, 1, expected_buffer, 1 + num_groups);
   for (int width = 2; width <= MAX_WIDTH; ++width) {
     int num_values = static_cast<int>(BitUtil::Ceil(100, 8)) * 8;
-    ValidateRle(
-        values, width, NULL, 1 + static_cast<int>(BitUtil::Ceil(width * num_values, 8)));
+    ValidateRle(values, width, NULL,
+                1 + static_cast<int>(BitUtil::Ceil(width * num_values, 8)));
   }
 }
 
@@ -352,8 +360,7 @@ TEST(Rle, BitWidthZeroLiteral) {
 // group but flush before finishing.
 TEST(BitRle, Flush) {
   vector<int> values;
-  for (int i = 0; i < 16; ++i)
-    values.push_back(1);
+  for (int i = 0; i < 16; ++i) values.push_back(1);
   values.push_back(0);
   ValidateRle(values, 1, NULL, -1);
   values.push_back(1);
@@ -385,7 +392,9 @@ TEST(BitRle, Random) {
 
     for (int i = 0; i < ngroups; ++i) {
       int group_size = dist(gen);
-      if (group_size > max_group_size) { group_size = 1; }
+      if (group_size > max_group_size) {
+        group_size = 1;
+      }
       for (int i = 0; i < group_size; ++i) {
         values.push_back(parity);
       }

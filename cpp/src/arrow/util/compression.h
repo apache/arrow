@@ -37,10 +37,11 @@ class ARROW_EXPORT Codec {
   static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
 
   virtual Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-      uint8_t* output_buffer) = 0;
+                            uint8_t* output_buffer) = 0;
 
   virtual Status Compress(int64_t input_len, const uint8_t* input,
-      int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) = 0;
+                          int64_t output_buffer_len, uint8_t* output_buffer,
+                          int64_t* output_length) = 0;
 
   virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
 

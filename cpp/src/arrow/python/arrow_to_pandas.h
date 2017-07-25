@@ -40,12 +40,12 @@ class Table;
 namespace py {
 
 ARROW_EXPORT
-Status ConvertArrayToPandas(
-    const std::shared_ptr<Array>& arr, PyObject* py_ref, PyObject** out);
+Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
+                            PyObject** out);
 
 ARROW_EXPORT
-Status ConvertColumnToPandas(
-    const std::shared_ptr<Column>& col, PyObject* py_ref, PyObject** out);
+Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+                             PyObject** out);
 
 struct PandasOptions {
   bool strings_to_categorical;
@@ -58,8 +58,8 @@ struct PandasOptions {
 //
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
 ARROW_EXPORT
-Status ConvertTableToPandas(
-    const std::shared_ptr<Table>& table, int nthreads, PyObject** out);
+Status ConvertTableToPandas(const std::shared_ptr<Table>& table, int nthreads,
+                            PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

@@ -69,8 +69,8 @@ static inline void CompareBatch(const RecordBatch& left, const RecordBatch& righ
   }
 }
 
-static inline void CompareArraysDetailed(
-    int index, const Array& result, const Array& expected) {
+static inline void CompareArraysDetailed(int index, const Array& result,
+                                         const Array& expected) {
   if (!expected.Equals(result)) {
     std::stringstream pp_result;
     std::stringstream pp_expected;
@@ -83,8 +83,8 @@ static inline void CompareArraysDetailed(
   }
 }
 
-static inline void CompareBatchColumnsDetailed(
-    const RecordBatch& result, const RecordBatch& expected) {
+static inline void CompareBatchColumnsDetailed(const RecordBatch& result,
+                                               const RecordBatch& expected) {
   for (int i = 0; i < expected.num_columns(); ++i) {
     auto left = result.column(i);
     auto right = expected.column(i);
@@ -95,16 +95,16 @@ static inline void CompareBatchColumnsDetailed(
 const auto kListInt32 = list(int32());
 const auto kListListInt32 = list(kListInt32);
 
-Status MakeRandomInt32Array(
-    int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
+Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
+                            std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
   Int32Builder builder(pool, int32());
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
-    RETURN_NOT_OK(builder.Append(
-        reinterpret_cast<const int32_t*>(data->data()), length, valid_bytes->data()));
+    RETURN_NOT_OK(builder.Append(reinterpret_cast<const int32_t*>(data->data()), length,
+                                 valid_bytes->data()));
     return builder.Finish(out);
   }
   RETURN_NOT_OK(builder.Append(reinterpret_cast<const int32_t*>(data->data()), length));
@@ -112,7 +112,8 @@ Status MakeRandomInt32Array(
 }
 
 Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_lists,
-    bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
+                           bool include_nulls, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
   // Create the null list values
   std::vector<uint8_t> valid_lists(num_lists);
   const double null_percent = include_nulls ? 0.1 : 0;
@@ -129,15 +130,16 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
     test::rand_uniform_int(num_lists, seed, 0, max_list_size, list_sizes.data());
     // make sure sizes are consistent with null
     std::transform(list_sizes.begin(), list_sizes.end(), valid_lists.begin(),
-        list_sizes.begin(),
-        [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
+                   list_sizes.begin(),
+                   [](int32_t size, int32_t valid) { return valid == 0 ? 0 : size; });
     std::partial_sum(list_sizes.begin(), list_sizes.end(), ++offsets.begin());
 
     // Force invariants
     const int32_t child_length = static_cast<int32_t>(child_array->length());
     offsets[0] = 0;
     std::replace_if(offsets.begin(), offsets.end(),
-        [child_length](int32_t offset) { return offset > child_length; }, child_length);
+                    [child_length](int32_t offset) { return offset > child_length; },
+                    child_length);
   }
 
   offsets[num_lists] = static_cast<int32_t>(child_array->length());
@@ -148,14 +150,14 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   RETURN_NOT_OK(test::CopyBufferFromVector(offsets, pool, &offsets_buffer));
 
   *out = std::make_shared<ListArray>(list(child_array->type()), num_lists, offsets_buffer,
-      child_array, null_bitmap, kUnknownNullCount);
+                                     child_array, null_bitmap, kUnknownNullCount);
   return ValidateArray(**out);
 }
 
 typedef Status MakeRecordBatch(std::shared_ptr<RecordBatch>* out);
 
-Status MakeRandomBooleanArray(
-    const int length, bool include_nulls, std::shared_ptr<Array>* out) {
+Status MakeRandomBooleanArray(const int length, bool include_nulls,
+                              std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   test::random_null_bytes(length, 0.5, values.data());
   std::shared_ptr<Buffer> data;
@@ -210,10 +212,10 @@ Status MakeIntRecordBatch(std::shared_ptr<RecordBatch>* out) {
 }
 
 template <class Builder, class RawType>
-Status MakeRandomBinaryArray(
-    int64_t length, bool include_nulls, MemoryPool* pool, std::shared_ptr<Array>* out) {
-  const std::vector<std::string> values = {
-      "", "", "abc", "123", "efg", "456!@#!@#", "12312"};
+Status MakeRandomBinaryArray(int64_t length, bool include_nulls, MemoryPool* pool,
+                             std::shared_ptr<Array>* out) {
+  const std::vector<std::string> values = {"",    "",          "abc",  "123",
+                                           "efg", "456!@#!@#", "12312"};
   Builder builder(pool);
   const size_t values_len = values.size();
   for (int64_t i = 0; i < length; ++i) {
@@ -223,7 +225,7 @@ Status MakeRandomBinaryArray(
     } else {
       const std::string& value = values[values_index];
       RETURN_NOT_OK(builder.Append(reinterpret_cast<const RawType*>(value.data()),
-          static_cast<int32_t>(value.size())));
+                                   static_cast<int32_t>(value.size())));
     }
   }
   return builder.Finish(out);
@@ -434,11 +436,12 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // construct individual nullable/non-nullable struct arrays
   auto sparse_no_nulls =
       std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
-  auto sparse = std::make_shared<UnionArray>(
-      sparse_type, length, sparse_children, type_ids_buffer, nullptr, null_bitmask, 1);
+  auto sparse = std::make_shared<UnionArray>(sparse_type, length, sparse_children,
+                                             type_ids_buffer, nullptr, null_bitmask, 1);
 
-  auto dense = std::make_shared<UnionArray>(dense_type, length, dense_children,
-      type_ids_buffer, offsets_buffer, null_bitmask, 1);
+  auto dense =
+      std::make_shared<UnionArray>(dense_type, length, dense_children, type_ids_buffer,
+                                   offsets_buffer, null_bitmask, 1);
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
@@ -480,8 +483,8 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<int32_t> list_offsets = {0, 0, 2, 2, 5, 6, 9};
   std::shared_ptr<Array> offsets, indices3;
-  ArrayFromVector<Int32Type, int32_t>(
-      std::vector<bool>(list_offsets.size(), true), list_offsets, &offsets);
+  ArrayFromVector<Int32Type, int32_t>(std::vector<bool>(list_offsets.size(), true),
+                                      list_offsets, &offsets);
 
   std::vector<int8_t> indices3_values = {0, 1, 2, 0, 1, 2, 0, 1, 2};
   std::vector<bool> is_valid3(9, true);
@@ -490,8 +493,8 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(test::GetBitmapFromVector(is_valid, &null_bitmap));
 
-  std::shared_ptr<Array> a3 = std::make_shared<ListArray>(f3_type, length,
-      std::static_pointer_cast<PrimitiveArray>(offsets)->values(),
+  std::shared_ptr<Array> a3 = std::make_shared<ListArray>(
+      f3_type, length, std::static_pointer_cast<PrimitiveArray>(offsets)->values(),
       std::make_shared<DictionaryArray>(f1_type, indices3), null_bitmap, 1);
 
   // Dictionary-encoded list of integer
@@ -500,14 +503,15 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> offsets4, values4, indices4;
 
   std::vector<int32_t> list_offsets4 = {0, 2, 2, 3};
-  ArrayFromVector<Int32Type, int32_t>(
-      std::vector<bool>(4, true), list_offsets4, &offsets4);
+  ArrayFromVector<Int32Type, int32_t>(std::vector<bool>(4, true), list_offsets4,
+                                      &offsets4);
 
   std::vector<int8_t> list_values4 = {0, 1, 2};
   ArrayFromVector<Int8Type, int8_t>(std::vector<bool>(3, true), list_values4, &values4);
 
-  auto dict3 = std::make_shared<ListArray>(f4_value_type, 3,
-      std::static_pointer_cast<PrimitiveArray>(offsets4)->values(), values4);
+  auto dict3 = std::make_shared<ListArray>(
+      f4_value_type, 3, std::static_pointer_cast<PrimitiveArray>(offsets4)->values(),
+      values4);
 
   std::vector<int8_t> indices4_values = {0, 1, 2, 0, 1, 2};
   ArrayFromVector<Int8Type, int8_t>(is_valid, indices4_values, &indices4);
@@ -516,9 +520,9 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4);
 
   // construct batch
-  std::shared_ptr<Schema> schema(new Schema({field("dict1", f0_type),
-      field("sparse", f1_type), field("dense", f2_type),
-      field("list of encoded string", f3_type), field("encoded list<int8>", f4_type)}));
+  std::shared_ptr<Schema> schema(new Schema(
+      {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type),
+       field("list of encoded string", f3_type), field("encoded list<int8>", f4_type)}));
 
   std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
 
@@ -575,7 +579,8 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
   std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000, 1489274000000};
+                                        1489272000000, 1489272000000, 1489273000000,
+                                        1489274000000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
@@ -592,7 +597,7 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
 
   std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
+                                    1489272000000, 1489272000000, 1489273000000};
 
   std::shared_ptr<Array> a0, a1, a2;
   ArrayFromVector<TimestampType, int64_t>(f0->type(), is_valid, ts_values, &a0);
@@ -612,10 +617,10 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   auto f3 = field("f3", time64(TimeUnit::NANO));
   std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));
 
-  std::vector<int32_t> t32_values = {
-      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
+  std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
+                                     1489272000, 1489272000, 1489273000};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
+                                     1489272000000, 1489272000000, 1489273000000};
 
   std::shared_ptr<Array> a0, a1, a2, a3;
   ArrayFromVector<Time32Type, int32_t>(f0->type(), is_valid, t32_values, &a0);
@@ -630,7 +635,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
 
 template <typename BuilderType, typename T>
 void AppendValues(const std::vector<bool>& is_valid, const std::vector<T>& values,
-    BuilderType* builder) {
+                  BuilderType* builder) {
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder->Append(values[i]));

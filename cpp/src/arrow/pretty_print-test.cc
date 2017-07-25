@@ -57,7 +57,7 @@ void CheckArray(const Array& arr, int indent, const char* expected) {
 
 template <typename TYPE, typename C_TYPE>
 void CheckPrimitive(int indent, const std::vector<bool>& is_valid,
-    const std::vector<C_TYPE>& values, const char* expected) {
+                    const std::vector<C_TYPE>& values, const char* expected) {
   std::shared_ptr<Array> array;
   ArrayFromVector<TYPE, C_TYPE>(is_valid, values, &array);
   CheckArray(*array, indent, expected);

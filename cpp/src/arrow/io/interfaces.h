@@ -107,8 +107,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// be overridden
   ///
   /// Default implementation is thread-safe
-  virtual Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out);
+  virtual Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                        uint8_t* out);
 
   /// Default implementation is thread-safe
   virtual Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);

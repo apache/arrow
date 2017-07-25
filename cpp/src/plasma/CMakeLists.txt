@@ -19,16 +19,13 @@ cmake_minimum_required(VERSION 2.8)
 
 project(plasma)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/../python/cmake_modules")
+
 find_package(PythonLibsNew REQUIRED)
 find_package(Threads)
 
-option(PLASMA_PYTHON
-  "Build the Plasma Python extensions"
-  OFF)
-
-if(APPLE)
-  SET(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
-endif(APPLE)
+set(PLASMA_SO_VERSION "0")
+set(PLASMA_ABI_VERSION "${PLASMA_SO_VERSION}.0.0")
 
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS})
 include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
@@ -40,7 +37,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/format/)
+set(OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/)
 
 set(PLASMA_FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/common_generated.h"
@@ -69,8 +66,6 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set_source_files_properties(extension.cc PROPERTIES COMPILE_FLAGS -Wno-strict-aliasing)
-
 set(PLASMA_SRCS
   client.cc
   common.cc
@@ -97,17 +92,33 @@ set_source_files_properties(malloc.cc PROPERTIES COMPILE_FLAGS "-Wno-error -O3")
 add_executable(plasma_store store.cc)
 target_link_libraries(plasma_store plasma_static)
 
+# Headers: top level
+install(FILES
+  common.h
+  common_generated.h
+  client.h
+  events.h
+  plasma.h
+  plasma_generated.h
+  protocol.h
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
+
+# Plasma store
+install(TARGETS plasma_store DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# pkg-config support
+configure_file(plasma.pc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
+  @ONLY)
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/plasma.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
+#######################################
+# Unit tests
+#######################################
+
 ADD_ARROW_TEST(test/serialization_tests)
 ARROW_TEST_LINK_LIBRARIES(test/serialization_tests plasma_static)
 ADD_ARROW_TEST(test/client_tests)
 ARROW_TEST_LINK_LIBRARIES(test/client_tests plasma_static)
-
-if(PLASMA_PYTHON)
-  add_library(plasma_extension SHARED extension.cc)
-
-  if(APPLE)
-    target_link_libraries(plasma_extension plasma_static "-undefined dynamic_lookup")
-  else(APPLE)
-    target_link_libraries(plasma_extension plasma_static -Wl,--whole-archive ${FLATBUFFERS_STATIC_LIB} -Wl,--no-whole-archive)
-  endif(APPLE)
-endif()
