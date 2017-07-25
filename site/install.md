@@ -143,4 +143,4 @@ send it to the project instead of Apache Arrow project.
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
 [10]: http://arrow.apache.org/release/0.5.0.html
-[11]: http://arrow.apache.org/blog/2017/07/24/0.5.0-release/
+[11]: http://arrow.apache.org/blog/2017/07/25/0.5.0-release/
