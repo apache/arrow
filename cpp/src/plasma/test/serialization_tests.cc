@@ -167,11 +167,11 @@ TEST(PlasmaSerialization, GetReply) {
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
-                sizeof(PlasmaObject)),
-      0);
+                   sizeof(PlasmaObject)),
+            0);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
-                sizeof(PlasmaObject)),
-      0);
+                   sizeof(PlasmaObject)),
+            0);
   close(fd);
 }
 
@@ -303,15 +303,15 @@ TEST(PlasmaSerialization, WaitRequest) {
   const int num_ready_objects_in = 1;
   int64_t timeout_ms = 1000;
 
-  ARROW_CHECK_OK(SendWaitRequest(
-      fd, &object_requests_in[0], num_objects_in, num_ready_objects_in, timeout_ms));
+  ARROW_CHECK_OK(SendWaitRequest(fd, &object_requests_in[0], num_objects_in,
+                                 num_ready_objects_in, timeout_ms));
   /* Read message back. */
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaWaitRequest);
   int num_ready_objects_out;
   int64_t timeout_ms_read;
   ObjectRequestMap object_requests_out;
-  ARROW_CHECK_OK(ReadWaitRequest(
-      data.data(), object_requests_out, &timeout_ms_read, &num_ready_objects_out));
+  ARROW_CHECK_OK(ReadWaitRequest(data.data(), object_requests_out, &timeout_ms_read,
+                                 &num_ready_objects_out));
   ASSERT_EQ(num_objects_in, object_requests_out.size());
   ASSERT_EQ(num_ready_objects_out, num_ready_objects_in);
   for (int i = 0; i < num_objects_in; i++) {
@@ -389,4 +389,4 @@ TEST(PlasmaSerialization, DataReply) {
   ASSERT_EQ(metadata_size1, metadata_size2);
 }
 
-} // namespace plasma
+}  // namespace plasma

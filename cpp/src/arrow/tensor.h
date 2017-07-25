@@ -62,16 +62,16 @@ class ARROW_EXPORT Tensor {
 
   /// Constructor with no dimension names or strides, data assumed to be row-major
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      const std::vector<int64_t>& shape);
+         const std::vector<int64_t>& shape);
 
   /// Constructor with non-negative strides
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides);
+         const std::vector<int64_t>& shape, const std::vector<int64_t>& strides);
 
   /// Constructor with strides and dimension names
   Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
-      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
-      const std::vector<std::string>& dim_names);
+         const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+         const std::vector<std::string>& dim_names);
 
   std::shared_ptr<DataType> type() const { return type_; }
   std::shared_ptr<Buffer> data() const { return data_; }

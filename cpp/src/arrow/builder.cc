@@ -69,7 +69,9 @@ Status ArrayBuilder::Init(int64_t capacity) {
 }
 
 Status ArrayBuilder::Resize(int64_t new_bits) {
-  if (!null_bitmap_) { return Init(new_bits); }
+  if (!null_bitmap_) {
+    return Init(new_bits);
+  }
   int64_t new_bytes = BitUtil::CeilByte(new_bits) / 8;
   int64_t old_bytes = null_bitmap_->size();
   RETURN_NOT_OK(null_bitmap_->Resize(new_bytes));
@@ -78,8 +80,8 @@ Status ArrayBuilder::Resize(int64_t new_bits) {
   const int64_t byte_capacity = null_bitmap_->capacity();
   capacity_ = new_bits;
   if (old_bytes < new_bytes) {
-    memset(
-        null_bitmap_data_ + old_bytes, 0, static_cast<size_t>(byte_capacity - old_bytes));
+    memset(null_bitmap_data_ + old_bytes, 0,
+           static_cast<size_t>(byte_capacity - old_bytes));
   }
   return Status::OK();
 }
@@ -140,7 +142,9 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
 
     bit_offset++;
   }
-  if (bit_offset != 0) { null_bitmap_data_[byte_offset] = bitset; }
+  if (bit_offset != 0) {
+    null_bitmap_data_[byte_offset] = bitset;
+  }
   length_ += length;
 }
 
@@ -149,7 +153,9 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 
   // Fill up the bytes until we have a byte alignment
   int64_t pad_to_byte = std::min<int64_t>(8 - (length_ % 8), length);
-  if (pad_to_byte == 8) { pad_to_byte = 0; }
+  if (pad_to_byte == 8) {
+    pad_to_byte = 0;
+  }
   for (int64_t i = length_; i < length_ + pad_to_byte; ++i) {
     BitUtil::SetBit(null_bitmap_data_, i);
   }
@@ -157,7 +163,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   // Fast bitsetting
   int64_t fast_length = (length - pad_to_byte) / 8;
   memset(null_bitmap_data_ + ((length_ + pad_to_byte) / 8), 0xFF,
-      static_cast<size_t>(fast_length));
+         static_cast<size_t>(fast_length));
 
   // Trailing bytes
   for (int64_t i = length_ + pad_to_byte + (fast_length * 8); i < new_length; ++i) {
@@ -184,7 +190,9 @@ Status PrimitiveBuilder<T>::Init(int64_t capacity) {
 template <typename T>
 Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
   // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+  if (capacity < kMinBuilderCapacity) {
+    capacity = kMinBuilderCapacity;
+  }
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(Init(capacity));
@@ -195,20 +203,20 @@ Status PrimitiveBuilder<T>::Resize(int64_t capacity) {
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
     // TODO(emkornfield) valgrind complains without this
-    memset(
-        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
+    memset(data_->mutable_data() + old_bytes, 0,
+           static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
 
 template <typename T>
-Status PrimitiveBuilder<T>::Append(
-    const value_type* values, int64_t length, const uint8_t* valid_bytes) {
+Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
+                                   const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
     std::memcpy(raw_data_ + length_, values,
-        static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
+                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
   }
 
   // length_ is update by these
@@ -224,8 +232,8 @@ Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
-  *out = std::make_shared<typename TypeTraits<T>::ArrayType>(
-      type_, length_, data_, null_bitmap_, null_count_);
+  *out = std::make_shared<typename TypeTraits<T>::ArrayType>(type_, length_, data_,
+                                                             null_bitmap_, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -267,7 +275,9 @@ Status AdaptiveIntBuilderBase::Init(int64_t capacity) {
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
   // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+  if (capacity < kMinBuilderCapacity) {
+    capacity = kMinBuilderCapacity;
+  }
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(Init(capacity));
@@ -278,8 +288,8 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = data_->mutable_data();
     // TODO(emkornfield) valgrind complains without this
-    memset(
-        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
+    memset(data_->mutable_data() + old_bytes, 0,
+           static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -298,16 +308,16 @@ Status AdaptiveIntBuilder::Finish(std::shared_ptr<Array>* out) {
           std::make_shared<Int8Array>(int8(), length_, data_, null_bitmap_, null_count_);
       break;
     case 2:
-      *out = std::make_shared<Int16Array>(
-          int16(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<Int16Array>(int16(), length_, data_, null_bitmap_,
+                                          null_count_);
       break;
     case 4:
-      *out = std::make_shared<Int32Array>(
-          int32(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<Int32Array>(int32(), length_, data_, null_bitmap_,
+                                          null_count_);
       break;
     case 8:
-      *out = std::make_shared<Int64Array>(
-          int64(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<Int64Array>(int64(), length_, data_, null_bitmap_,
+                                          null_count_);
       break;
     default:
       DCHECK(false);
@@ -319,8 +329,8 @@ Status AdaptiveIntBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status AdaptiveIntBuilder::Append(
-    const int64_t* values, int64_t length, const uint8_t* valid_bytes) {
+Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
+                                  const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
@@ -331,13 +341,15 @@ Status AdaptiveIntBuilder::Append(
           new_int_size = expanded_int_size(values[i], new_int_size);
         }
       }
-      if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+      if (new_int_size != int_size_) {
+        RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      }
     }
   }
 
   if (int_size_ == 8) {
     std::memcpy(reinterpret_cast<int64_t*>(raw_data_) + length_, values,
-        sizeof(int64_t) * length);
+                sizeof(int64_t) * length);
   } else {
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -348,17 +360,17 @@ Status AdaptiveIntBuilder::Append(
       case 1: {
         int8_t* data_ptr = reinterpret_cast<int8_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](int64_t x) { return static_cast<int8_t>(x); });
+                       [](int64_t x) { return static_cast<int8_t>(x); });
       } break;
       case 2: {
         int16_t* data_ptr = reinterpret_cast<int16_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](int64_t x) { return static_cast<int16_t>(x); });
+                       [](int64_t x) { return static_cast<int16_t>(x); });
       } break;
       case 4: {
         int32_t* data_ptr = reinterpret_cast<int32_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](int64_t x) { return static_cast<int32_t>(x); });
+                       [](int64_t x) { return static_cast<int32_t>(x); });
       } break;
       default:
         DCHECK(false);
@@ -449,20 +461,20 @@ Status AdaptiveUIntBuilder::Finish(std::shared_ptr<Array>* out) {
   }
   switch (int_size_) {
     case 1:
-      *out = std::make_shared<UInt8Array>(
-          uint8(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<UInt8Array>(uint8(), length_, data_, null_bitmap_,
+                                          null_count_);
       break;
     case 2:
-      *out = std::make_shared<UInt16Array>(
-          uint16(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<UInt16Array>(uint16(), length_, data_, null_bitmap_,
+                                           null_count_);
       break;
     case 4:
-      *out = std::make_shared<UInt32Array>(
-          uint32(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<UInt32Array>(uint32(), length_, data_, null_bitmap_,
+                                           null_count_);
       break;
     case 8:
-      *out = std::make_shared<UInt64Array>(
-          uint64(), length_, data_, null_bitmap_, null_count_);
+      *out = std::make_shared<UInt64Array>(uint64(), length_, data_, null_bitmap_,
+                                           null_count_);
       break;
     default:
       DCHECK(false);
@@ -474,8 +486,8 @@ Status AdaptiveUIntBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status AdaptiveUIntBuilder::Append(
-    const uint64_t* values, int64_t length, const uint8_t* valid_bytes) {
+Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
+                                   const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
@@ -486,13 +498,15 @@ Status AdaptiveUIntBuilder::Append(
           new_int_size = expanded_uint_size(values[i], new_int_size);
         }
       }
-      if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+      if (new_int_size != int_size_) {
+        RETURN_NOT_OK(ExpandIntSize(new_int_size));
+      }
     }
   }
 
   if (int_size_ == 8) {
     std::memcpy(reinterpret_cast<uint64_t*>(raw_data_) + length_, values,
-        sizeof(uint64_t) * length);
+                sizeof(uint64_t) * length);
   } else {
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -503,17 +517,17 @@ Status AdaptiveUIntBuilder::Append(
       case 1: {
         uint8_t* data_ptr = reinterpret_cast<uint8_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](uint64_t x) { return static_cast<uint8_t>(x); });
+                       [](uint64_t x) { return static_cast<uint8_t>(x); });
       } break;
       case 2: {
         uint16_t* data_ptr = reinterpret_cast<uint16_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](uint64_t x) { return static_cast<uint16_t>(x); });
+                       [](uint64_t x) { return static_cast<uint16_t>(x); });
       } break;
       case 4: {
         uint32_t* data_ptr = reinterpret_cast<uint32_t*>(raw_data_) + length_;
         std::transform(values, values + length, data_ptr,
-            [](uint64_t x) { return static_cast<uint32_t>(x); });
+                       [](uint64_t x) { return static_cast<uint32_t>(x); });
       } break;
       default:
         DCHECK(false);
@@ -616,7 +630,9 @@ Status BooleanBuilder::Init(int64_t capacity) {
 
 Status BooleanBuilder::Resize(int64_t capacity) {
   // XXX: Set floor size for now
-  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+  if (capacity < kMinBuilderCapacity) {
+    capacity = kMinBuilderCapacity;
+  }
 
   if (capacity_ == 0) {
     RETURN_NOT_OK(Init(capacity));
@@ -627,8 +643,8 @@ Status BooleanBuilder::Resize(int64_t capacity) {
 
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    memset(
-        data_->mutable_data() + old_bytes, 0, static_cast<size_t>(new_bytes - old_bytes));
+    memset(data_->mutable_data() + old_bytes, 0,
+           static_cast<size_t>(new_bytes - old_bytes));
   }
   return Status::OK();
 }
@@ -647,8 +663,8 @@ Status BooleanBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
-Status BooleanBuilder::Append(
-    const uint8_t* values, int64_t length, const uint8_t* valid_bytes) {
+Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
+                              const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
@@ -673,14 +689,16 @@ Status BooleanBuilder::Append(
 // DictionaryBuilder
 
 template <typename T>
-DictionaryBuilder<T>::DictionaryBuilder(
-    MemoryPool* pool, const std::shared_ptr<DataType>& type)
+DictionaryBuilder<T>::DictionaryBuilder(MemoryPool* pool,
+                                        const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool, type),
       hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(pool, type),
       values_builder_(pool) {
-  if (!::arrow::CpuInfo::initialized()) { ::arrow::CpuInfo::Init(); }
+  if (!::arrow::CpuInfo::initialized()) {
+    ::arrow::CpuInfo::Init();
+  }
 }
 
 template <typename T>
@@ -699,7 +717,9 @@ Status DictionaryBuilder<T>::Init(int64_t elements) {
 
 template <typename T>
 Status DictionaryBuilder<T>::Resize(int64_t capacity) {
-  if (capacity < kMinBuilderCapacity) { capacity = kMinBuilderCapacity; }
+  if (capacity < kMinBuilderCapacity) {
+    capacity = kMinBuilderCapacity;
+  }
 
   if (capacity_ == 0) {
     return Init(capacity);
@@ -732,7 +752,9 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
   while (kHashSlotEmpty != index && SlotDifferent(index, value)) {
     // Linear probing
     ++j;
-    if (j == hash_table_size_) { j = 0; }
+    if (j == hash_table_size_) {
+      j = 0;
+    }
     index = hash_slots_[j];
   }
 
@@ -784,7 +806,9 @@ Status DictionaryBuilder<T>::DoubleTableSize() {
   for (int i = 0; i < hash_table_size_; ++i) {
     hash_slot_t index = hash_slots_[i];
 
-    if (index == kHashSlotEmpty) { continue; }
+    if (index == kHashSlotEmpty) {
+      continue;
+    }
 
     // Compute the hash value mod the new table size to start looking for an
     // empty slot
@@ -796,7 +820,9 @@ Status DictionaryBuilder<T>::DoubleTableSize() {
 
     while (kHashSlotEmpty != slot && SlotDifferent(slot, value)) {
       ++j;
-      if (j == new_size) { j = 0; }
+      if (j == new_size) {
+        j = 0;
+      }
       slot = new_hash_slots[j];
     }
 
@@ -870,8 +896,8 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   }                                                                                    \
                                                                                        \
   template <>                                                                          \
-  bool DictionaryBuilder<Type>::SlotDifferent(                                         \
-      hash_slot_t index, const internal::WrappedBinary& value) {                       \
+  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                       \
+                                              const internal::WrappedBinary& value) {  \
     int32_t other_length;                                                              \
     const uint8_t* other_value =                                                       \
         dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);            \
@@ -951,7 +977,9 @@ Status DecimalBuilder::Init(int64_t capacity) {
 
 Status DecimalBuilder::Resize(int64_t capacity) {
   int64_t old_bytes = null_bitmap_ != nullptr ? null_bitmap_->size() : 0;
-  if (sign_bitmap_ == nullptr) { return Init(capacity); }
+  if (sign_bitmap_ == nullptr) {
+    return Init(capacity);
+  }
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Resize(capacity));
 
   if (byte_width_ == 16) {
@@ -962,7 +990,7 @@ Status DecimalBuilder::Resize(int64_t capacity) {
     // The buffer might be overpadded to deal with padding according to the spec
     if (old_bytes < new_bytes) {
       memset(sign_bitmap_data_ + old_bytes, 0,
-          static_cast<size_t>(sign_bitmap_->capacity() - old_bytes));
+             static_cast<size_t>(sign_bitmap_->capacity() - old_bytes));
     }
   }
   return Status::OK();
@@ -973,8 +1001,8 @@ Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
   /// TODO(phillipc): not sure where to get the offset argument here
-  *out = std::make_shared<DecimalArray>(
-      type_, length_, data, null_bitmap_, null_count_, 0, sign_bitmap_);
+  *out = std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_,
+                                        0, sign_bitmap_);
   return Status::OK();
 }
 
@@ -982,15 +1010,15 @@ Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
 // ListBuilder
 
 ListBuilder::ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
-    const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(
-          pool, type ? type : std::static_pointer_cast<DataType>(
-                                  std::make_shared<ListType>(value_builder->type()))),
+                         const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(pool,
+                   type ? type : std::static_pointer_cast<DataType>(
+                                     std::make_shared<ListType>(value_builder->type()))),
       offsets_builder_(pool),
       value_builder_(std::move(value_builder)) {}
 
-Status ListBuilder::Append(
-    const int32_t* offsets, int64_t length, const uint8_t* valid_bytes) {
+Status ListBuilder::Append(const int32_t* offsets, int64_t length,
+                           const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   offsets_builder_.UnsafeAppend(offsets, length);
@@ -1035,10 +1063,12 @@ Status ListBuilder::Finish(std::shared_ptr<Array>* out) {
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
 
   std::shared_ptr<Array> items = values_;
-  if (!items) { RETURN_NOT_OK(value_builder_->Finish(&items)); }
+  if (!items) {
+    RETURN_NOT_OK(value_builder_->Finish(&items));
+  }
 
-  *out = std::make_shared<ListArray>(
-      type_, length_, offsets, items, null_bitmap_, null_count_);
+  *out = std::make_shared<ListArray>(type_, length_, offsets, items, null_bitmap_,
+                                     null_count_);
 
   Reset();
   return Status::OK();
@@ -1111,8 +1141,8 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<internal::ArrayData>* out) 
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
 
   BufferVector buffers = {null_bitmap_, offsets, value_data};
-  *out = std::make_shared<internal::ArrayData>(
-      type_, length_, std::move(buffers), null_count_, 0);
+  *out = std::make_shared<internal::ArrayData>(type_, length_, std::move(buffers),
+                                               null_count_, 0);
   return Status::OK();
 }
 
@@ -1154,8 +1184,8 @@ Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
 // ----------------------------------------------------------------------
 // Fixed width binary
 
-FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(
-    MemoryPool* pool, const std::shared_ptr<DataType>& type)
+FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(MemoryPool* pool,
+                                               const std::shared_ptr<DataType>& type)
     : ArrayBuilder(pool, type),
       byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
@@ -1166,8 +1196,8 @@ Status FixedSizeBinaryBuilder::Append(const uint8_t* value) {
   return byte_builder_.Append(value, byte_width_);
 }
 
-Status FixedSizeBinaryBuilder::Append(
-    const uint8_t* data, int64_t length, const uint8_t* valid_bytes) {
+Status FixedSizeBinaryBuilder::Append(const uint8_t* data, int64_t length,
+                                      const uint8_t* valid_bytes) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
   return byte_builder_.Append(data, length * byte_width_);
@@ -1196,8 +1226,8 @@ Status FixedSizeBinaryBuilder::Resize(int64_t capacity) {
 Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
-  *out = std::make_shared<FixedSizeBinaryArray>(
-      type_, length_, data, null_bitmap_, null_count_);
+  *out = std::make_shared<FixedSizeBinaryArray>(type_, length_, data, null_bitmap_,
+                                                null_count_);
   return Status::OK();
 }
 
@@ -1205,7 +1235,7 @@ Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
 // Struct
 
 StructBuilder::StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders)
+                             std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders)
     : ArrayBuilder(pool, type) {
   field_builders_ = std::move(field_builders);
 }
@@ -1237,7 +1267,7 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
 //
 // TODO(wesm): come up with a less monolithic strategy
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::unique_ptr<ArrayBuilder>* out) {
+                   std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
     BUILDER_CASE(UINT8, UInt8Builder);
     BUILDER_CASE(INT8, Int8Builder);
@@ -1292,7 +1322,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     return Status::OK();
 
 Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::shared_ptr<ArrayBuilder>* out) {
+                             std::shared_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
     DICTIONARY_BUILDER_CASE(UINT8, DictionaryBuilder<UInt8Type>);
     DICTIONARY_BUILDER_CASE(INT8, DictionaryBuilder<Int8Type>);

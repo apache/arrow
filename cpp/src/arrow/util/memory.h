@@ -31,7 +31,7 @@ uint8_t* pointer_logical_and(const uint8_t* address, uintptr_t bits) {
 // A helper function for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
 void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
-    uintptr_t block_size, int num_threads) {
+                      uintptr_t block_size, int num_threads) {
   std::vector<std::thread> threadpool(num_threads);
   uint8_t* left = pointer_logical_and(src + block_size - 1, ~(block_size - 1));
   uint8_t* right = pointer_logical_and(src + nbytes, ~(block_size - 1));
@@ -52,15 +52,17 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
 
   // Start all threads first and handle leftovers while threads run.
   for (int i = 0; i < num_threads; i++) {
-    threadpool[i] = std::thread(
-        memcpy, dst + prefix + i * chunk_size, left + i * chunk_size, chunk_size);
+    threadpool[i] = std::thread(memcpy, dst + prefix + i * chunk_size,
+                                left + i * chunk_size, chunk_size);
   }
 
   memcpy(dst, src, prefix);
   memcpy(dst + prefix + num_threads * chunk_size, right, suffix);
 
   for (auto& t : threadpool) {
-    if (t.joinable()) { t.join(); }
+    if (t.joinable()) {
+      t.join();
+    }
   }
 }
 

@@ -88,7 +88,9 @@ uint8_t* PlasmaClient::lookup_or_mmap(int fd, int store_fd_val, int64_t map_size
     uint8_t* result = reinterpret_cast<uint8_t*>(
         mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     // TODO(pcm): Don't fail here, instead return a Status.
-    if (result == MAP_FAILED) { ARROW_LOG(FATAL) << "mmap failed"; }
+    if (result == MAP_FAILED) {
+      ARROW_LOG(FATAL) << "mmap failed";
+    }
     close(fd);
     ClientMmapTableEntry& entry = mmap_table_[store_fd_val];
     entry.pointer = result;
@@ -106,8 +108,8 @@ uint8_t* PlasmaClient::lookup_mmapped_file(int store_fd_val) {
   return entry->second.pointer;
 }
 
-void PlasmaClient::increment_object_count(
-    const ObjectID& object_id, PlasmaObject* object, bool is_sealed) {
+void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObject* object,
+                                          bool is_sealed) {
   // Increment the count of the object to track the fact that it is being used.
   // The corresponding decrement should happen in PlasmaClient::Release.
   auto elem = objects_in_use_.find(object_id);
@@ -142,7 +144,7 @@ void PlasmaClient::increment_object_count(
 }
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
-    uint8_t* metadata, int64_t metadata_size, uint8_t** data) {
+                            uint8_t* metadata, int64_t metadata_size, uint8_t** data) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
@@ -183,7 +185,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 }
 
 Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
-    int64_t timeout_ms, ObjectBuffer* object_buffers) {
+                         int64_t timeout_ms, ObjectBuffer* object_buffers) {
   // Fill out the info for the objects that are already in use locally.
   bool all_present = true;
   for (int i = 0; i < num_objects; ++i) {
@@ -213,7 +215,9 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
     }
   }
 
-  if (all_present) { return Status::OK(); }
+  if (all_present) {
+    return Status::OK();
+  }
 
   // If we get here, then the objects aren't all currently in use by this
   // client, so we need to send a request to the plasma store.
@@ -223,8 +227,8 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
-  RETURN_NOT_OK(ReadGetReply(
-      buffer.data(), received_object_ids.data(), object_data.data(), num_objects));
+  RETURN_NOT_OK(ReadGetReply(buffer.data(), received_object_ids.data(),
+                             object_data.data(), num_objects));
 
   for (int i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
@@ -330,7 +334,7 @@ Status PlasmaClient::Release(const ObjectID& object_id) {
   // pending release calls, and there are at least some pending release calls in
   // the release_history list, then release some objects.
   while ((in_use_object_bytes_ > std::min(kL3CacheSizeBytes, store_capacity_ / 100) ||
-             release_history_.size() > config_.release_delay) &&
+          release_history_.size() > config_.release_delay) &&
          release_history_.size() > 0) {
     // Perform a release for the object ID for the first pending release.
     RETURN_NOT_OK(PerformRelease(release_history_.back()));
@@ -364,8 +368,9 @@ static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t
   *hash = XXH64_digest(&hash_state);
 }
 
-static inline bool compute_object_hash_parallel(
-    XXH64_state_t* hash_state, const unsigned char* data, int64_t nbytes) {
+static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
+                                                const unsigned char* data,
+                                                int64_t nbytes) {
   // Note that this function will likely be faster if the address of data is
   // aligned on a 64-byte boundary.
   const int num_threads = kThreadPoolSize;
@@ -380,16 +385,18 @@ static inline bool compute_object_hash_parallel(
   // Each thread gets a "chunk" of k blocks, except the suffix thread.
 
   for (int i = 0; i < num_threads; i++) {
-    threadpool_[i] = std::thread(ComputeBlockHash,
-        reinterpret_cast<uint8_t*>(data_address) + i * chunk_size, chunk_size,
-        &threadhash[i]);
+    threadpool_[i] = std::thread(
+        ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
+        chunk_size, &threadhash[i]);
   }
-  ComputeBlockHash(
-      reinterpret_cast<uint8_t*>(right_address), suffix, &threadhash[num_threads]);
+  ComputeBlockHash(reinterpret_cast<uint8_t*>(right_address), suffix,
+                   &threadhash[num_threads]);
 
   // Join the threads.
   for (auto& t : threadpool_) {
-    if (t.joinable()) { t.join(); }
+    if (t.joinable()) {
+      t.join();
+    }
   }
 
   XXH64_update(hash_state, (unsigned char*)threadhash, sizeof(threadhash));
@@ -400,13 +407,13 @@ static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (obj_buffer.data_size >= kBytesInMB) {
-    compute_object_hash_parallel(
-        &hash_state, (unsigned char*)obj_buffer.data, obj_buffer.data_size);
+    compute_object_hash_parallel(&hash_state, (unsigned char*)obj_buffer.data,
+                                 obj_buffer.data_size);
   } else {
     XXH64_update(&hash_state, (unsigned char*)obj_buffer.data, obj_buffer.data_size);
   }
-  XXH64_update(
-      &hash_state, (unsigned char*)obj_buffer.metadata, obj_buffer.metadata_size);
+  XXH64_update(&hash_state, (unsigned char*)obj_buffer.metadata,
+               obj_buffer.metadata_size);
   return XXH64_digest(&hash_state);
 }
 
@@ -483,8 +490,8 @@ Status PlasmaClient::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::GetNotification(
-    int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size) {
+Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
+                                     int64_t* metadata_size) {
   uint8_t* notification = read_message_async(fd);
   if (notification == NULL) {
     return Status::IOError("Failed to read object notification from Plasma socket");
@@ -504,7 +511,7 @@ Status PlasmaClient::GetNotification(
 }
 
 Status PlasmaClient::Connect(const std::string& store_socket_name,
-    const std::string& manager_socket_name, int release_delay) {
+                             const std::string& manager_socket_name, int release_delay) {
   store_conn_ = connect_ipc_sock_retry(store_socket_name, -1, -1);
   if (manager_socket_name != "") {
     manager_conn_ = connect_ipc_sock_retry(manager_socket_name, -1, -1);
@@ -548,9 +555,7 @@ Status PlasmaClient::Fetch(int num_object_ids, const ObjectID* object_ids) {
   return SendFetchRequest(manager_conn_, object_ids, num_object_ids);
 }
 
-int PlasmaClient::get_manager_fd() {
-  return manager_conn_;
-}
+int PlasmaClient::get_manager_fd() { return manager_conn_; }
 
 Status PlasmaClient::Info(const ObjectID& object_id, int* object_status) {
   ARROW_CHECK(manager_conn_ >= 0);
@@ -565,7 +570,8 @@ Status PlasmaClient::Info(const ObjectID& object_id, int* object_status) {
 }
 
 Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_requests,
-    int num_ready_objects, int64_t timeout_ms, int* num_objects_ready) {
+                          int num_ready_objects, int64_t timeout_ms,
+                          int* num_objects_ready) {
   ARROW_CHECK(manager_conn_ >= 0);
   ARROW_CHECK(num_object_requests > 0);
   ARROW_CHECK(num_ready_objects > 0);
@@ -577,7 +583,7 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
   }
 
   RETURN_NOT_OK(SendWaitRequest(manager_conn_, object_requests, num_object_requests,
-      num_ready_objects, timeout_ms));
+                                num_ready_objects, timeout_ms));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaWaitReply, &buffer));
   RETURN_NOT_OK(ReadWaitReply(buffer.data(), object_requests, &num_ready_objects));
@@ -588,7 +594,9 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
     int status = object_requests[i].status;
     switch (type) {
       case PLASMA_QUERY_LOCAL:
-        if (status == ObjectStatus_Local) { *num_objects_ready += 1; }
+        if (status == ObjectStatus_Local) {
+          *num_objects_ready += 1;
+        }
         break;
       case PLASMA_QUERY_ANYWHERE:
         if (status == ObjectStatus_Local || status == ObjectStatus_Remote) {
@@ -604,4 +612,4 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
   return Status::OK();
 }
 
-} // namespace plasma
+}  // namespace plasma

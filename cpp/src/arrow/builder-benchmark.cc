@@ -38,8 +38,8 @@ static void BM_BuildPrimitiveArrayNoNulls(
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(
-      state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
+  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t) *
+                          kFinalSize);
 }
 
 static void BM_BuildVectorNoNulls(
@@ -53,8 +53,8 @@ static void BM_BuildVectorNoNulls(
       builder.insert(builder.end(), data.cbegin(), data.cend());
     }
   }
-  state.SetBytesProcessed(
-      state.iterations() * data.size() * sizeof(int64_t) * kFinalSize);
+  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t) *
+                          kFinalSize);
 }
 
 static void BM_BuildAdaptiveIntNoNulls(
@@ -127,8 +127,8 @@ static void BM_BuildDictionary(benchmark::State& state) {  // NOLINT non-const r
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(
-      state.iterations() * iterations * (iterations + 1) / 2 * sizeof(int64_t));
+  state.SetBytesProcessed(state.iterations() * iterations * (iterations + 1) / 2 *
+                          sizeof(int64_t));
 }
 
 static void BM_BuildStringDictionary(
@@ -152,8 +152,8 @@ static void BM_BuildStringDictionary(
     ABORT_NOT_OK(builder.Finish(&out));
   }
   // Assuming a string here needs on average 2 bytes
-  state.SetBytesProcessed(
-      state.iterations() * iterations * (iterations + 1) / 2 * sizeof(int32_t));
+  state.SetBytesProcessed(state.iterations() * iterations * (iterations + 1) / 2 *
+                          sizeof(int32_t));
 }
 
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);

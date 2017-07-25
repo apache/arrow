@@ -138,8 +138,8 @@ struct PlasmaStoreInfo {
 /// @param object_id The object_id of the entry we are looking for.
 /// @return The entry associated with the object_id or NULL if the object_id
 ///         is not present.
-ObjectTableEntry* get_object_table_entry(
-    PlasmaStoreInfo* store_info, const ObjectID& object_id);
+ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
+                                         const ObjectID& object_id);
 
 /// Print a warning if the status is less than zero. This should be used to check
 /// the success of messages sent to plasma clients. We print a warning instead of
@@ -159,6 +159,6 @@ int warn_if_sigpipe(int status, int client_sock);
 
 uint8_t* create_object_info_buffer(ObjectInfoT* object_info);
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif  // PLASMA_PLASMA_H

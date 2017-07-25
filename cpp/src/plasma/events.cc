@@ -21,8 +21,8 @@
 
 namespace plasma {
 
-void EventLoop::file_event_callback(
-    aeEventLoop* loop, int fd, void* context, int events) {
+void EventLoop::file_event_callback(aeEventLoop* loop, int fd, void* context,
+                                    int events) {
   FileCallback* callback = reinterpret_cast<FileCallback*>(context);
   (*callback)(events);
 }
@@ -34,12 +34,12 @@ int EventLoop::timer_event_callback(aeEventLoop* loop, TimerID timer_id, void* c
 
 constexpr int kInitialEventLoopSize = 1024;
 
-EventLoop::EventLoop() {
-  loop_ = aeCreateEventLoop(kInitialEventLoopSize);
-}
+EventLoop::EventLoop() { loop_ = aeCreateEventLoop(kInitialEventLoopSize); }
 
 bool EventLoop::add_file_event(int fd, int events, const FileCallback& callback) {
-  if (file_callbacks_.find(fd) != file_callbacks_.end()) { return false; }
+  if (file_callbacks_.find(fd) != file_callbacks_.end()) {
+    return false;
+  }
   auto data = std::unique_ptr<FileCallback>(new FileCallback(callback));
   void* context = reinterpret_cast<void*>(data.get());
   // Try to add the file descriptor.
@@ -47,7 +47,9 @@ bool EventLoop::add_file_event(int fd, int events, const FileCallback& callback)
   // If it cannot be added, increase the size of the event loop.
   if (err == AE_ERR && errno == ERANGE) {
     err = aeResizeSetSize(loop_, 3 * aeGetSetSize(loop_) / 2);
-    if (err != AE_OK) { return false; }
+    if (err != AE_OK) {
+      return false;
+    }
     err = aeCreateFileEvent(loop_, fd, events, EventLoop::file_event_callback, context);
   }
   // In any case, test if there were errors.
@@ -63,9 +65,7 @@ void EventLoop::remove_file_event(int fd) {
   file_callbacks_.erase(fd);
 }
 
-void EventLoop::run() {
-  aeMain(loop_);
-}
+void EventLoop::run() { aeMain(loop_); }
 
 int64_t EventLoop::add_timer(int64_t timeout, const TimerCallback& callback) {
   auto data = std::unique_ptr<TimerCallback>(new TimerCallback(callback));
@@ -82,4 +82,4 @@ int EventLoop::remove_timer(int64_t timer_id) {
   return err;
 }
 
-} // namespace plasma
+}  // namespace plasma

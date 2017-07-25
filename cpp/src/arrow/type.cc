@@ -37,7 +37,7 @@ std::shared_ptr<Field> Field::AddMetadata(
 }
 
 Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-    std::shared_ptr<Field>* out) const {
+                          std::shared_ptr<Field>* out) const {
   *out = AddMetadata(metadata);
   return Status::OK();
 }
@@ -47,7 +47,9 @@ std::shared_ptr<Field> Field::RemoveMetadata() const {
 }
 
 bool Field::Equals(const Field& other) const {
-  if (this == &other) { return true; }
+  if (this == &other) {
+    return true;
+  }
   if (this->name_ == other.name_ && this->nullable_ == other.nullable_ &&
       this->type_->Equals(*other.type_.get())) {
     if (metadata_ == nullptr && other.metadata_ == nullptr) {
@@ -68,7 +70,9 @@ bool Field::Equals(const std::shared_ptr<Field>& other) const {
 std::string Field::ToString() const {
   std::stringstream ss;
   ss << this->name_ << ": " << this->type_->ToString();
-  if (!this->nullable_) { ss << " not null"; }
+  if (!this->nullable_) {
+    ss << " not null";
+  }
   return ss.str();
 }
 
@@ -77,34 +81,28 @@ DataType::~DataType() {}
 bool DataType::Equals(const DataType& other) const {
   bool are_equal = false;
   Status error = TypeEquals(*this, other, &are_equal);
-  if (!error.ok()) { DCHECK(false) << "Types not comparable: " << error.ToString(); }
+  if (!error.ok()) {
+    DCHECK(false) << "Types not comparable: " << error.ToString();
+  }
   return are_equal;
 }
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
-  if (!other) { return false; }
+  if (!other) {
+    return false;
+  }
   return Equals(*other.get());
 }
 
-std::string BooleanType::ToString() const {
-  return name();
-}
+std::string BooleanType::ToString() const { return name(); }
 
-FloatingPoint::Precision HalfFloatType::precision() const {
-  return FloatingPoint::HALF;
-}
+FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
 
-FloatingPoint::Precision FloatType::precision() const {
-  return FloatingPoint::SINGLE;
-}
+FloatingPoint::Precision FloatType::precision() const { return FloatingPoint::SINGLE; }
 
-FloatingPoint::Precision DoubleType::precision() const {
-  return FloatingPoint::DOUBLE;
-}
+FloatingPoint::Precision DoubleType::precision() const { return FloatingPoint::DOUBLE; }
 
-std::string StringType::ToString() const {
-  return std::string("string");
-}
+std::string StringType::ToString() const { return std::string("string"); }
 
 std::string ListType::ToString() const {
   std::stringstream s;
@@ -112,13 +110,9 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
-std::string BinaryType::ToString() const {
-  return std::string("binary");
-}
+std::string BinaryType::ToString() const { return std::string("binary"); }
 
-int FixedSizeBinaryType::bit_width() const {
-  return CHAR_BIT * byte_width();
-}
+int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
 
 std::string FixedSizeBinaryType::ToString() const {
   std::stringstream ss;
@@ -130,7 +124,9 @@ std::string StructType::ToString() const {
   std::stringstream s;
   s << "struct<";
   for (int i = 0; i < this->num_children(); ++i) {
-    if (i > 0) { s << ", "; }
+    if (i > 0) {
+      s << ", ";
+    }
     std::shared_ptr<Field> field = this->child(i);
     s << field->name() << ": " << field->type()->ToString();
   }
@@ -148,13 +144,9 @@ Date32Type::Date32Type() : DateType(Type::DATE32, DateUnit::DAY) {}
 
 Date64Type::Date64Type() : DateType(Type::DATE64, DateUnit::MILLI) {}
 
-std::string Date64Type::ToString() const {
-  return std::string("date64[ms]");
-}
+std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
 
-std::string Date32Type::ToString() const {
-  return std::string("date32[day]");
-}
+std::string Date32Type::ToString() const { return std::string("date32[day]"); }
 
 // ----------------------------------------------------------------------
 // Time types
@@ -190,7 +182,9 @@ std::string Time64Type::ToString() const {
 std::string TimestampType::ToString() const {
   std::stringstream ss;
   ss << "timestamp[" << this->unit_;
-  if (this->timezone_.size() > 0) { ss << ", tz=" << this->timezone_; }
+  if (this->timezone_.size() > 0) {
+    ss << ", tz=" << this->timezone_;
+  }
   ss << "]";
   return ss.str();
 }
@@ -199,7 +193,7 @@ std::string TimestampType::ToString() const {
 // Union type
 
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-    const std::vector<uint8_t>& type_codes, UnionMode mode)
+                     const std::vector<uint8_t>& type_codes, UnionMode mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   children_ = fields;
 }
@@ -214,7 +208,9 @@ std::string UnionType::ToString() const {
   }
 
   for (size_t i = 0; i < children_.size(); ++i) {
-    if (i) { s << ", "; }
+    if (i) {
+      s << ", ";
+    }
     s << children_[i]->ToString() << "=" << static_cast<int>(type_codes_[i]);
   }
   s << ">";
@@ -225,7 +221,7 @@ std::string UnionType::ToString() const {
 // DictionaryType
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
-    const std::shared_ptr<Array>& dictionary, bool ordered)
+                               const std::shared_ptr<Array>& dictionary, bool ordered)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
       dictionary_(dictionary),
@@ -235,9 +231,7 @@ int DictionaryType::bit_width() const {
   return static_cast<const FixedWidthType*>(index_type_.get())->bit_width();
 }
 
-std::shared_ptr<Array> DictionaryType::dictionary() const {
-  return dictionary_;
-}
+std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
 
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
@@ -249,23 +243,27 @@ std::string DictionaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Null type
 
-std::string NullType::ToString() const {
-  return name();
-}
+std::string NullType::ToString() const { return name(); }
 
 // ----------------------------------------------------------------------
 // Schema implementation
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
-    const std::shared_ptr<const KeyValueMetadata>& metadata)
+               const std::shared_ptr<const KeyValueMetadata>& metadata)
     : fields_(fields), metadata_(metadata) {}
 
 bool Schema::Equals(const Schema& other) const {
-  if (this == &other) { return true; }
+  if (this == &other) {
+    return true;
+  }
 
-  if (num_fields() != other.num_fields()) { return false; }
+  if (num_fields() != other.num_fields()) {
+    return false;
+  }
   for (int i = 0; i < num_fields(); ++i) {
-    if (!field(i)->Equals(*other.field(i).get())) { return false; }
+    if (!field(i)->Equals(*other.field(i).get())) {
+      return false;
+    }
   }
   return true;
 }
@@ -290,8 +288,8 @@ int64_t Schema::GetFieldIndex(const std::string& name) const {
   }
 }
 
-Status Schema::AddField(
-    int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const {
+Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
+                        std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
@@ -305,7 +303,7 @@ std::shared_ptr<Schema> Schema::AddMetadata(
 }
 
 Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-    std::shared_ptr<Schema>* out) const {
+                           std::shared_ptr<Schema>* out) const {
   *out = AddMetadata(metadata);
   return Status::OK();
 }
@@ -327,7 +325,9 @@ std::string Schema::ToString() const {
 
   int i = 0;
   for (auto field : fields_) {
-    if (i > 0) { buffer << std::endl; }
+    if (i > 0) {
+      buffer << std::endl;
+    }
     buffer << field->ToString();
     ++i;
   }
@@ -422,18 +422,18 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-    const std::vector<uint8_t>& type_codes, UnionMode mode) {
+                                 const std::vector<uint8_t>& type_codes, UnionMode mode) {
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-    const std::shared_ptr<Array>& dict_values) {
+                                     const std::shared_ptr<Array>& dict_values) {
   return std::make_shared<DictionaryType>(index_type, dict_values);
 }
 
 std::shared_ptr<Field> field(const std::string& name,
-    const std::shared_ptr<DataType>& type, bool nullable,
-    const std::shared_ptr<const KeyValueMetadata>& metadata) {
+                             const std::shared_ptr<DataType>& type, bool nullable,
+                             const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Field>(name, type, nullable, metadata);
 }
 
@@ -454,9 +454,7 @@ std::vector<BufferDescr> FixedWidthType::GetBufferLayout() const {
   return {kValidityBuffer, BufferDescr(BufferType::DATA, bit_width())};
 }
 
-std::vector<BufferDescr> NullType::GetBufferLayout() const {
-  return {};
-}
+std::vector<BufferDescr> NullType::GetBufferLayout() const { return {}; }
 
 std::vector<BufferDescr> BinaryType::GetBufferLayout() const {
   return {kValidityBuffer, kOffsetBuffer, kValues8};
@@ -474,9 +472,7 @@ std::vector<BufferDescr> ListType::GetBufferLayout() const {
   return {kValidityBuffer, kOffsetBuffer};
 }
 
-std::vector<BufferDescr> StructType::GetBufferLayout() const {
-  return {kValidityBuffer};
-}
+std::vector<BufferDescr> StructType::GetBufferLayout() const { return {kValidityBuffer}; }
 
 std::vector<BufferDescr> UnionType::GetBufferLayout() const {
   if (mode_ == UnionMode::SPARSE) {

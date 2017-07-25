@@ -91,7 +91,7 @@ class ARROW_EXPORT PlasmaClient {
   ///        and not evicted to avoid too many munmaps.
   /// @return The return status.
   Status Connect(const std::string& store_socket_name,
-      const std::string& manager_socket_name, int release_delay);
+                 const std::string& manager_socket_name, int release_delay);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
@@ -108,7 +108,7 @@ class ARROW_EXPORT PlasmaClient {
   /// @param data The address of the newly created object will be written here.
   /// @return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
-      int64_t metadata_size, uint8_t** data);
+                int64_t metadata_size, uint8_t** data);
 
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
@@ -126,7 +126,7 @@ class ARROW_EXPORT PlasmaClient {
   ///        size field is -1, then the object was not retrieved.
   /// @return The return status.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
-      ObjectBuffer* object_buffers);
+             ObjectBuffer* object_buffers);
 
   /// Tell Plasma that the client no longer needs the object. This should be
   /// called
@@ -203,8 +203,8 @@ class ARROW_EXPORT PlasmaClient {
   /// @param data_size Out parameter, the data size of the object that was sealed.
   /// @param metadata_size Out parameter, the metadata size of the object that was sealed.
   /// @return The return status.
-  Status GetNotification(
-      int fd, ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
+  Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
+                         int64_t* metadata_size);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
@@ -271,7 +271,7 @@ class ARROW_EXPORT PlasmaClient {
   ///        min_num_ready_objects this means that timeout expired.
   /// @return The return status.
   Status Wait(int64_t num_object_requests, ObjectRequest* object_requests,
-      int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
+              int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
 
   /// Transfer local object to a different plasma manager.
   ///
@@ -315,8 +315,8 @@ class ARROW_EXPORT PlasmaClient {
 
   uint8_t* lookup_mmapped_file(int store_fd_val);
 
-  void increment_object_count(
-      const ObjectID& object_id, PlasmaObject* object, bool is_sealed);
+  void increment_object_count(const ObjectID& object_id, PlasmaObject* object,
+                              bool is_sealed);
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
@@ -348,6 +348,6 @@ class ARROW_EXPORT PlasmaClient {
   int64_t store_capacity_;
 };
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif  // PLASMA_CLIENT_H

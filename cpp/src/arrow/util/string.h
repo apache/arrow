@@ -46,7 +46,9 @@ static inline Status ParseHexValue(const char* data, uint8_t* out) {
   const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
 
   // Error checking
-  if (*pos1 != c1 || *pos2 != c2) { return Status::Invalid("Encountered non-hex digit"); }
+  if (*pos1 != c1 || *pos2 != c2) {
+    return Status::Invalid("Encountered non-hex digit");
+  }
 
   *out = static_cast<uint8_t>((pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable));
   return Status::OK();
