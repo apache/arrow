@@ -154,9 +154,9 @@ class TestPlasmaClient(object):
         plasma_store_name, self.p = start_plasma_store(
             use_valgrind=os.getenv("PLASMA_VALGRIND") == "1")
         # Connect to Plasma.
-        self.plasma_client = plasma.PlasmaClient(plasma_store_name, "", 64)
+        self.plasma_client = plasma.connect(plasma_store_name, "", 64)
         # For the eviction test
-        self.plasma_client2 = plasma.PlasmaClient(plasma_store_name, "", 0)
+        self.plasma_client2 = plasma.connect(plasma_store_name, "", 0)
 
     def teardown_method(self, test_method):
         # Check that the Plasma store is still alive.
