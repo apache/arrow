@@ -63,8 +63,7 @@ table FixedSizeList {
 ///     - child[0] key: K
 ///     - child[1] value: V
 ///
-/// As a matter of convention, neither values of the "entry" nor "key" fields
-/// may be nullable.
+/// Neither the "entry" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
 /// for Map can make Map an alias for List. The "layout" attribute for the Map
