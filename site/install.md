@@ -20,36 +20,40 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Current Version: 0.4.1
+## Current Version: 0.5.0
 
-### Released: 9 June 2017
+### Released: 23 July 2017
 
 See the [release notes][10] and [blog post][11] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.4.1.tar.gz][6]
+* **Source Release**: [apache-arrow-0.5.0.tar.gz][6]
 * **Verification**: [md5][3], [asc][7]
-* [Git tag 46315431][2]
+* [Git tag e9f76e1][2]
 
 ### Java Packages
 
 [Java Artifacts on Maven Central][4]
+
+## Binary Installers for C, C++, Python
+
+It may take a little time for the binary packages to get updated
 
 ### C++ and Python Conda Packages (Unofficial)
 
 We have provided binary conda packages on [conda-forge][5] for the following
 platforms:
 
-* Linux and OS X (Python 2.7, 3.5, and 3.6)
+* Linux and macOS (Python 2.7, 3.5, and 3.6)
 * Windows (Python 3.5 and 3.6)
 
 Install them with:
 
 
 ```shell
-conda install arrow-cpp -c conda-forge
-conda install pyarrow -c conda-forge
+conda install arrow-cpp=0.5.0 -c conda-forge
+conda install pyarrow=0.5.0 -c conda-forge
 ```
 
 ### Python Wheels on PyPI (Unofficial)
@@ -57,7 +61,7 @@ conda install pyarrow -c conda-forge
 We have provided binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
-pip install pyarrow
+pip install pyarrow==0.5.0
 ```
 
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
@@ -129,14 +133,14 @@ These repositories are managed at
 [red-data-tools/arrow-packages][9]. If you have any feedback, please
 send it to the project instead of Apache Arrow project.
 
-[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/
-[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.4.1
-[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz.md5
-[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.4.1%22
+[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.5.0/
+[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.5.0
+[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.5.0/apache-arrow-0.5.0.tar.gz.md5
+[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.5.0%22
 [5]: http://conda-forge.github.io
-[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz
-[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.4.1/apache-arrow-0.4.1.tar.gz.asc
+[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.5.0/apache-arrow-0.5.0.tar.gz
+[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.5.0/apache-arrow-0.5.0.tar.gz.asc
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
-[10]: http://arrow.apache.org/release/0.4.1.html
-[11]: http://arrow.apache.org/blog/2017/06/14/0.4.1-release/
+[10]: http://arrow.apache.org/release/0.5.0.html
+[11]: http://arrow.apache.org/blog/2017/07/24/0.5.0-release/
