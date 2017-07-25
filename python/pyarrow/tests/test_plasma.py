@@ -598,7 +598,7 @@ class TestPlasmaClient(object):
     def test_subscribe(self):
         # Subscribe to notifications from the Plasma Store.
         self.plasma_client.subscribe()
-        for i in [1, 10, 100, 1000, 10000, 100000]:
+        for i in [1, 10, 100, 1000, 10000]:
             object_ids = [random_object_id() for _ in range(i)]
             metadata_sizes = [np.random.randint(1000) for _ in range(i)]
             data_sizes = [np.random.randint(1000) for _ in range(i)]
@@ -620,7 +620,7 @@ class TestPlasmaClient(object):
         # plasma_client2 to make sure that all used objects will get evicted
         # properly.
         self.plasma_client2.subscribe()
-        for i in [1, 10, 100, 1000, 10000, 100000]:
+        for i in [1, 10, 100, 1000, 10000]:
             object_ids = [random_object_id() for _ in range(i)]
             # Add 1 to the sizes to make sure we have nonzero object sizes.
             metadata_sizes = [np.random.randint(1000) + 1 for _ in range(i)]
