@@ -96,8 +96,9 @@ python_version_tests() {
   # Other stuff pip install
   pushd $ARROW_PYTHON_DIR
   pip install -r requirements.txt
-  python setup.py build_ext --inplace --with-parquet --with-plasma \
-         install
+  python setup.py build_ext --with-parquet --with-plasma \
+         install --single-version-externally-managed --record=record.text
+  popd
 
   python -c "import pyarrow.parquet"
   python -c "import pyarrow.plasma"
@@ -106,8 +107,10 @@ python_version_tests() {
     export PLASMA_VALGRIND=1
   fi
 
-  python -m pytest -vv -r sxX -s pyarrow --parquet
+  PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
+  python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
 
+  pushd $ARROW_PYTHON_DIR
   # Build documentation once
   if [[ "$PYTHON_VERSION" == "3.6" ]]
   then
