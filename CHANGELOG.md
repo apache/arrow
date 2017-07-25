@@ -12,6 +12,144 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 
+# Apache Arrow 0.5.0 (23 July 2017)
+
+## Bug
+
+* ARROW-1074 - from_pandas doesnt convert ndarray to list
+* ARROW-1079 - [Python] Empty "private" directories should be ignored by Parquet interface
+* ARROW-1081 - C++: arrow::test::TestBase::MakePrimitive doesn't fill null_bitmap
+* ARROW-1096 - [C++] Memory mapping file over 4GB fails on Windows
+* ARROW-1097 - Reading tensor needs file to be opened in writeable mode
+* ARROW-1098 - Document Error?
+* ARROW-1101 - UnionListWriter is not implementing all methods on interface ScalarWriter
+* ARROW-1103 - [Python] Utilize pandas metadata from common _metadata Parquet file if it exists
+* ARROW-1107 - [JAVA] NullableMapVector getField() should return nullable type
+* ARROW-1108 - Check if ArrowBuf is empty buffer in getActualConsumedMemory() and getPossibleConsumedMemory()
+* ARROW-1109 - [JAVA] transferOwnership fails when readerIndex is not 0
+* ARROW-1110 - [JAVA] make union vector naming consistent
+* ARROW-1111 - [JAVA] Make aligning buffers optional, and allow -1 for unknown null count
+* ARROW-1112 - [JAVA] Set lastSet for VarLength and List vectors when loading
+* ARROW-1113 - [C++] gflags EP build gets triggered (as a no-op) on subsequent calls to make or ninja build
+* ARROW-1115 - [C++] Use absolute path for ccache
+* ARROW-1117 - [Docs] Minor issues in GLib README
+* ARROW-1124 - [Python] pyarrow needs to depend on numpy>=1.10 (not 1.9)
+* ARROW-1125 - Python: Table.from_pandas doesn't work anymore on partial schemas
+* ARROW-1128 - [Docs] command to build a wheel is not properly rendered
+* ARROW-1129 - [C++] Fix Linux toolchain build regression from ARROW-742
+* ARROW-1131 - Python: Parquet unit tests are always skipped
+* ARROW-1132 - [Python] Unable to write pandas DataFrame w/MultiIndex containing duplicate values to parquet
+* ARROW-1136 - [C++/Python] Segfault on empty stream
+* ARROW-1138 - Travis: Use OpenJDK7 instead of OracleJDK7
+* ARROW-1139 - [C++] dlmalloc doesn't allow arrow to be built with clang 4 or gcc 7.1.1
+* ARROW-1141 - on import get libjemalloc.so.2: cannot allocate memory in static TLS block
+* ARROW-1143 - C++: Fix comparison of NullArray
+* ARROW-1144 - [C++] Remove unused variable
+* ARROW-1150 - [C++] AdaptiveIntBuilder compiler warning on MSVC
+* ARROW-1152 - [Cython] read_tensor should work with a readable file
+* ARROW-1155 - segmentation fault when run pa.Int16Value()
+* ARROW-1157 - C++/Python: Decimal templates are not correctly exported on OSX
+* ARROW-1159 - [C++] Static data members cannot be accessed from inline functions in Arrow headers by thirdparty users
+* ARROW-1162 - Transfer Between Empty Lists Should Not Invoke Callback
+* ARROW-1166 - Errors in Struct type's example and missing reference in Layout.md
+* ARROW-1167 - [Python] Create chunked BinaryArray in Table.from_pandas when a column's data exceeds 2GB
+* ARROW-1168 - [Python] pandas metadata may contain "mixed" data types
+* ARROW-1169 - C++: jemalloc externalproject doesn't build with CMake's ninja generator
+* ARROW-1170 - C++: ARROW_JEMALLOC=OFF breaks linking on unittest
+* ARROW-1174 - [GLib] Investigate root cause of ListArray glib test failure
+* ARROW-1177 - [C++] Detect int32 overflow in ListBuilder::Append
+* ARROW-1179 - C++: Add missing virtual destructors
+* ARROW-1180 - [GLib] garrow_tensor_get_dimension_name() returns invalid address
+* ARROW-1181 - [Python] Parquet test fail if not enabled
+* ARROW-1182 - C++: Specify BUILD_BYPRODUCTS for zlib and zstd
+* ARROW-1186 - [C++] Enable option to build arrow with minimal dependencies needed to build Parquet library
+* ARROW-1188 - Segfault when trying to serialize a DataFrame with Null-only Categorical Column
+* ARROW-1190 - VectorLoader corrupts vectors with duplicate names
+* ARROW-1191 - [JAVA] Implement getField() method for the complex readers
+* ARROW-1194 - Getting record batch size with pa.get_record_batch_size returns a size that is too small for pandas DataFrame.
+* ARROW-1197 - [GLib] record_batch.hpp Inclusion is missing
+* ARROW-1200 - [C++] DictionaryBuilder should use signed integers for indices
+* ARROW-1201 - [Python] Incomplete Python types cause a core dump when repr-ing
+* ARROW-1203 - [C++] Disallow BinaryBuilder to append byte strings larger than the maximum value of int32_t
+* ARROW-1205 - C++: Reference to type objects in ArrayLoader may cause segmentation faults.
+* ARROW-1206 - [C++] Enable MSVC builds to work with some compression library support disabled
+* ARROW-1208 - [C++] Toolchain build with ZSTD library from conda-forge failure
+* ARROW-1215 - [Python] Class methods in API reference
+* ARROW-1216 - Numpy arrays cannot be created from Arrow Buffers on Python 2
+* ARROW-1218 - Arrow doesn't compile if all compression libraries are deactivated
+* ARROW-1222 - [Python] pyarrow.array returns NullArray for array of unsupported Python objects
+* ARROW-1223 - [GLib] Fix function name that returns wrapped object
+* ARROW-1235 - [C++] macOS linker failure with operator<< and std::ostream
+* ARROW-1236 - Library paths in exported pkg-config file are incorrect
+* ARROW-601 - Some logical types not supported when loading Parquet
+* ARROW-784 - Cleaning up thirdparty toolchain support in Arrow on Windows
+* ARROW-992 - [Python] In place development builds do not have a __version__
+
+## Improvement
+
+* ARROW-1041 - [Python] Support read_pandas on a directory of Parquet files
+* ARROW-1100 - [Python] Add "mode" property to NativeFile instances
+* ARROW-1102 - Make MessageSerializer.serializeMessage() public
+* ARROW-1120 - [Python] Write support for int96
+* ARROW-1137 - Python: Ensure Pandas roundtrip of all-None column
+* ARROW-1148 - [C++] Raise minimum CMake version to 3.2
+* ARROW-1151 - [C++] Add gcc branch prediction to status check macro
+* ARROW-1160 - C++: Implement DictionaryBuilder
+* ARROW-1165 - [C++] Refactor PythonDecimalToArrowDecimal to not use templates
+* ARROW-1185 - [C++] Clean up arrow::Status implementation, add warn_unused_result attribute for clang
+* ARROW-1187 - Serialize a DataFrame with None column
+* ARROW-1193 - [C++] Support pkg-config forarrow_python.so
+* ARROW-1196 - [C++] Appveyor separate jobs for Debug/Release builds from sources; Build with conda toolchain; Build with NMake Makefiles Generator
+* ARROW-1199 - [C++] Introduce mutable POD struct for generic array data
+* ARROW-1202 - Remove semicolons from status macros
+* ARROW-1217 - [GLib] Add GInputStream based arrow::io::RandomAccessFile
+* ARROW-1220 - [C++] Standartize usage of *_HOME cmake script variables for 3rd party libs
+* ARROW-1221 - [C++] Pin clang-format version
+* ARROW-1229 - [GLib] Follow Reader API change (get -> read)
+* ARROW-742 - Handling exceptions during execution of std::wstring_convert
+* ARROW-834 - [Python] Support creating Arrow arrays from Python iterables
+* ARROW-915 - Struct Array reads limited support
+* ARROW-935 - [Java] Build Javadoc in Travis CI
+* ARROW-960 - [Python] Add source build guide for macOS + Homebrew
+* ARROW-962 - [Python] Add schema attribute to FileReader
+* ARROW-966 - [Python] pyarrow.list_ should also accept Field instance
+* ARROW-978 - [Python] Use sphinx-bootstrap-theme for Sphinx documentation
+
+## New Feature
+
+* ARROW-1048 - Allow user LD_LIBRARY_PATH to be used with source release script
+* ARROW-1073 - C++: Adapative integer builder
+* ARROW-1095 - [Website] Add Arrow icon asset
+* ARROW-111 - [C++] Add static analyzer to tool chain to verify checking of Status returns
+* ARROW-1122 - [Website] Guest blog post on Arrow + ODBC from turbodbc
+* ARROW-1123 - C++: Make jemalloc the default allocator
+* ARROW-1135 - Upgrade Travis CI clang builds to use LLVM 4.0
+* ARROW-1142 - [C++] Move over compression library toolchain from parquet-cpp
+* ARROW-1145 - [GLib] Add get_values()
+* ARROW-1154 - [C++] Migrate more computational utility code from parquet-cpp
+* ARROW-1183 - [Python] Implement time type conversions in to_pandas
+* ARROW-1198 - Python: Add public C++ API to unwrap PyArrow object
+* ARROW-1212 - [GLib] Add garrow_binary_array_get_offsets_buffer()
+* ARROW-1214 - [Python] Add classes / functions to enable stream message components to be handled outside of the stream reader class
+* ARROW-1227 - [GLib] Support GOutputStream
+* ARROW-460 - [C++] Implement JSON round trip for DictionaryArray
+* ARROW-462 - [C++] Implement in-memory conversions between non-nested primitive types and DictionaryArray equivalent
+* ARROW-575 - Python: Auto-detect nested lists and nested numpy arrays in Pandas
+* ARROW-597 - [Python] Add convenience function to yield DataFrame from any object that a StreamReader or FileReader can read from
+* ARROW-599 - [C++] Add LZ4 codec to 3rd-party toolchain
+* ARROW-600 - [C++] Add ZSTD codec to 3rd-party toolchain
+* ARROW-692 - Java<->C++ Integration tests for dictionary-encoded vectors
+* ARROW-693 - [Java] Add JSON support for dictionary vectors
+
+## Task
+
+* ARROW-1052 - Arrow 0.5.0 release
+
+## Test
+
+* ARROW-1228 - [GLib] Test file name should be the same name as target class
+* ARROW-1233 - [C++] Validate cmake script resolving of 3rd party linked libs from correct location in toolchain build
+
 # Apache Arrow 0.4.1 (9 June 2017)
 
 ## Bug
