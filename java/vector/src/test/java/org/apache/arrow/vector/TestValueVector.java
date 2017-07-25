@@ -639,6 +639,103 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testFillEmptiesUsage() {
+    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+
+      final NullableVarCharVector.Mutator mutator = vector.getMutator();
+
+      vector.allocateNew(1024 * 10, 1024);
+
+      setBytes(0, STR1, vector);
+      setBytes(1, STR2, vector);
+      setBytes(2, STR3, vector);
+      setBytes(3, STR4, vector);
+      setBytes(4, STR5, vector);
+      setBytes(5, STR6, vector);
+
+      /* Check current lastSet */
+      assertEquals(Integer.toString(-1), Integer.toString(mutator.getLastSet()));
+
+      /* Check the vector output */
+      final NullableVarCharVector.Accessor accessor = vector.getAccessor();
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+
+      mutator.setLastSet(5);
+      /* fill empty byte arrays from index [6, 9] */
+      mutator.fillEmpties(10);
+
+      /* Check current lastSet */
+      assertEquals(Integer.toString(9), Integer.toString(mutator.getLastSet()));
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(6)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(7)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(8)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(9)));
+
+      setBytes(10, STR1, vector);
+      setBytes(11, STR2, vector);
+
+      mutator.setLastSet(11);
+      /* fill empty byte arrays from index [12, 14] */
+      mutator.setValueCount(15);
+
+      /* Check current lastSet */
+      assertEquals(Integer.toString(14), Integer.toString(mutator.getLastSet()));
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(6)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(7)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(8)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(9)));
+      assertArrayEquals(STR1, accessor.get(10));
+      assertArrayEquals(STR2, accessor.get(11));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(12)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(13)));
+      assertEquals(Integer.toString(0), Integer.toString(accessor.getValueLength(14)));
+
+      /* Check offsets */
+      final UInt4Vector.Accessor offsetAccessor = vector.values.offsetVector.getAccessor();
+      assertEquals(Integer.toString(0), Integer.toString(offsetAccessor.get(0)));
+      assertEquals(Integer.toString(6), Integer.toString(offsetAccessor.get(1)));
+      assertEquals(Integer.toString(16), Integer.toString(offsetAccessor.get(2)));
+      assertEquals(Integer.toString(21), Integer.toString(offsetAccessor.get(3)));
+      assertEquals(Integer.toString(30), Integer.toString(offsetAccessor.get(4)));
+      assertEquals(Integer.toString(34), Integer.toString(offsetAccessor.get(5)));
+
+      assertEquals(Integer.toString(40), Integer.toString(offsetAccessor.get(6)));
+      assertEquals(Integer.toString(40), Integer.toString(offsetAccessor.get(7)));
+      assertEquals(Integer.toString(40), Integer.toString(offsetAccessor.get(8)));
+      assertEquals(Integer.toString(40), Integer.toString(offsetAccessor.get(9)));
+      assertEquals(Integer.toString(40), Integer.toString(offsetAccessor.get(10)));
+
+      assertEquals(Integer.toString(46), Integer.toString(offsetAccessor.get(11)));
+      assertEquals(Integer.toString(56), Integer.toString(offsetAccessor.get(12)));
+
+      assertEquals(Integer.toString(56), Integer.toString(offsetAccessor.get(13)));
+      assertEquals(Integer.toString(56), Integer.toString(offsetAccessor.get(14)));
+      assertEquals(Integer.toString(56), Integer.toString(offsetAccessor.get(15)));
+    }
+  }
+
   public static void setBytes(int index, byte[] bytes, NullableVarCharVector vector) {
     final int currentOffset = vector.values.offsetVector.getAccessor().get(index);
 
