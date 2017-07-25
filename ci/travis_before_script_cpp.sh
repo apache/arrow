@@ -15,22 +15,33 @@
 
 set -ex
 
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
 if [ "$1" == "--only-library" ]; then
   only_library_mode=yes
 else
   only_library_mode=no
+  source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 fi
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-if [ $only_library_mode == "no" ]; then
-  # C++ toolchain
-  export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-  export RAPIDJSON_HOME=$CPP_TOOLCHAIN
-
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # Set up C++ toolchain from conda-forge packages for faster builds
-  source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 rapidjson
+  conda create -y -q -p $CPP_TOOLCHAIN python=2.7 \
+        jemalloc=4.4.0 \
+        nomkl \
+        boost-cpp \
+        rapidjson \
+        flatbuffers \
+        gflags \
+        lz4-c \
+        snappy \
+        zstd \
+        brotli \
+        zlib \
+        cmake \
+        curl \
+        thrift-cpp \
+        ninja
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
@@ -45,7 +56,6 @@ pushd $ARROW_CPP_BUILD_DIR
 CMAKE_COMMON_FLAGS="\
 -DARROW_BUILD_BENCHMARKS=ON \
 -DCMAKE_INSTALL_PREFIX=$ARROW_CPP_INSTALL \
--DARROW_PLASMA=ON \
 -DARROW_NO_DEPRECATED_API=ON"
 CMAKE_LINUX_FLAGS=""
 CMAKE_OSX_FLAGS=""
@@ -60,8 +70,20 @@ else
   # also in the manylinux1 image.
   CMAKE_LINUX_FLAGS="\
 $CMAKE_LINUX_FLAGS \
--DARROW_JEMALLOC=ON \
--DARROW_TEST_MEMCHECK=ON"
+-DARROW_JEMALLOC=ON"
+fi
+
+# Use Ninja for faster builds when using toolchain
+if [ $ARROW_TRAVIS_USE_TOOLCHAIN == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
+fi
+
+if [ $ARROW_TRAVIS_PLASMA == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PLASMA=ON"
+fi
+
+if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_TEST_MEMCHECK=ON"
 fi
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
@@ -76,7 +98,7 @@ else
           $ARROW_CPP_DIR
 fi
 
-make VERBOSE=1 -j4
-make install
+$TRAVIS_MAKE -j4
+$TRAVIS_MAKE install
 
 popd

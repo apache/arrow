@@ -582,20 +582,6 @@ if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_MIN_TEST_LIBS
-  arrow_static
-  ${ARROW_STATIC_LINK_LIBS}
-  gtest
-  gtest_main)
-
-if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
-    ${CMAKE_DL_LIBS})
-endif()
-
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
@@ -617,6 +603,20 @@ if (NOT MSVC)
     ${ARROW_LINK_LIBS}
     ${CMAKE_DL_LIBS})
 endif()
+
+set(ARROW_MIN_TEST_LIBS
+  arrow_static
+  ${ARROW_STATIC_LINK_LIBS}
+  gtest
+  gtest_main)
+
+if(NOT MSVC)
+  set(ARROW_MIN_TEST_LIBS
+    ${ARROW_MIN_TEST_LIBS}
+    ${CMAKE_DL_LIBS})
+endif()
+
+set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
