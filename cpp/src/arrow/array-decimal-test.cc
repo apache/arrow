@@ -28,12 +28,12 @@ namespace decimal {
 template <typename T>
 class DecimalTestBase {
  public:
-  virtual std::vector<uint8_t> data(
-      const std::vector<T>& input, size_t byte_width) const = 0;
+  virtual std::vector<uint8_t> data(const std::vector<T>& input,
+                                    size_t byte_width) const = 0;
 
   void test(int precision, const std::vector<T>& draw,
-      const std::vector<uint8_t>& valid_bytes,
-      const std::vector<uint8_t>& sign_bitmap = {}, int64_t offset = 0) const {
+            const std::vector<uint8_t>& valid_bytes,
+            const std::vector<uint8_t>& sign_bitmap = {}, int64_t offset = 0) const {
     auto type = std::make_shared<DecimalType>(precision, 4);
     int byte_width = type->byte_width();
     auto pool = default_memory_pool();
@@ -63,8 +63,9 @@ class DecimalTestBase {
     ASSERT_OK(BitUtil::BytesToBits(valid_bytes, &expected_null_bitmap));
 
     int64_t expected_null_count = test::null_count(valid_bytes);
-    auto expected = std::make_shared<DecimalArray>(type, size, expected_data,
-        expected_null_bitmap, expected_null_count, offset, expected_sign_bitmap);
+    auto expected =
+        std::make_shared<DecimalArray>(type, size, expected_data, expected_null_bitmap,
+                                       expected_null_count, offset, expected_sign_bitmap);
 
     std::shared_ptr<Array> out;
     ASSERT_OK(builder->Finish(&out));
@@ -75,8 +76,8 @@ class DecimalTestBase {
 template <typename T>
 class DecimalTest : public DecimalTestBase<T> {
  public:
-  std::vector<uint8_t> data(
-      const std::vector<T>& input, size_t byte_width) const override {
+  std::vector<uint8_t> data(const std::vector<T>& input,
+                            size_t byte_width) const override {
     std::vector<uint8_t> result(input.size() * byte_width);
     // TODO(phillipc): There's probably a better way to do this
     constexpr static const size_t bytes_per_element = sizeof(T);
@@ -90,8 +91,8 @@ class DecimalTest : public DecimalTestBase<T> {
 template <>
 class DecimalTest<Decimal128> : public DecimalTestBase<Decimal128> {
  public:
-  std::vector<uint8_t> data(
-      const std::vector<Decimal128>& input, size_t byte_width) const override {
+  std::vector<uint8_t> data(const std::vector<Decimal128>& input,
+                            size_t byte_width) const override {
     std::vector<uint8_t> result;
     result.reserve(input.size() * byte_width);
     constexpr static const size_t bytes_per_element = 16;
@@ -120,24 +121,24 @@ class Decimal128BuilderTest : public ::testing::TestWithParam<int>,
 
 TEST_P(Decimal32BuilderTest, NoNulls) {
   int precision = GetParam();
-  std::vector<Decimal32> draw = {
-      Decimal32(1), Decimal32(2), Decimal32(2389), Decimal32(4), Decimal32(-12348)};
+  std::vector<Decimal32> draw = {Decimal32(1), Decimal32(2), Decimal32(2389),
+                                 Decimal32(4), Decimal32(-12348)};
   std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
   this->test(precision, draw, valid_bytes);
 }
 
 TEST_P(Decimal64BuilderTest, NoNulls) {
   int precision = GetParam();
-  std::vector<Decimal64> draw = {
-      Decimal64(1), Decimal64(2), Decimal64(2389), Decimal64(4), Decimal64(-12348)};
+  std::vector<Decimal64> draw = {Decimal64(1), Decimal64(2), Decimal64(2389),
+                                 Decimal64(4), Decimal64(-12348)};
   std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
   this->test(precision, draw, valid_bytes);
 }
 
 TEST_P(Decimal128BuilderTest, NoNulls) {
   int precision = GetParam();
-  std::vector<Decimal128> draw = {
-      Decimal128(1), Decimal128(-2), Decimal128(2389), Decimal128(4), Decimal128(-12348)};
+  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(-2), Decimal128(2389),
+                                  Decimal128(4), Decimal128(-12348)};
   std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
   std::vector<uint8_t> sign_bitmap = {false, true, false, false, true};
   this->test(precision, draw, valid_bytes, sign_bitmap);
@@ -145,41 +146,47 @@ TEST_P(Decimal128BuilderTest, NoNulls) {
 
 TEST_P(Decimal32BuilderTest, WithNulls) {
   int precision = GetParam();
-  std::vector<Decimal32> draw = {
-      Decimal32(1), Decimal32(2), Decimal32(-1), Decimal32(4), Decimal32(-1)};
+  std::vector<Decimal32> draw = {Decimal32(1), Decimal32(2), Decimal32(-1), Decimal32(4),
+                                 Decimal32(-1)};
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false};
   this->test(precision, draw, valid_bytes);
 }
 
 TEST_P(Decimal64BuilderTest, WithNulls) {
   int precision = GetParam();
-  std::vector<Decimal64> draw = {
-      Decimal64(-1), Decimal64(2), Decimal64(-1), Decimal64(4), Decimal64(-1)};
+  std::vector<Decimal64> draw = {Decimal64(-1), Decimal64(2), Decimal64(-1), Decimal64(4),
+                                 Decimal64(-1)};
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false};
   this->test(precision, draw, valid_bytes);
 }
 
 TEST_P(Decimal128BuilderTest, WithNulls) {
   int precision = GetParam();
-  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(2), Decimal128(-1),
-      Decimal128(4), Decimal128(-1), Decimal128(1), Decimal128(2),
-      Decimal128("230342903942.234234"), Decimal128("-23049302932.235234")};
-  std::vector<uint8_t> valid_bytes = {
-      true, true, false, true, false, true, true, true, true};
-  std::vector<uint8_t> sign_bitmap = {
-      false, false, false, false, false, false, false, false, true};
+  std::vector<Decimal128> draw = {Decimal128(1),
+                                  Decimal128(2),
+                                  Decimal128(-1),
+                                  Decimal128(4),
+                                  Decimal128(-1),
+                                  Decimal128(1),
+                                  Decimal128(2),
+                                  Decimal128("230342903942.234234"),
+                                  Decimal128("-23049302932.235234")};
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  std::vector<uint8_t> sign_bitmap = {false, false, false, false, false,
+                                      false, false, false, true};
   this->test(precision, draw, valid_bytes, sign_bitmap);
 }
 
 INSTANTIATE_TEST_CASE_P(Decimal32BuilderTest, Decimal32BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int32_t>::minimum, DecimalPrecision<int32_t>::maximum));
+                        ::testing::Range(DecimalPrecision<int32_t>::minimum,
+                                         DecimalPrecision<int32_t>::maximum));
 INSTANTIATE_TEST_CASE_P(Decimal64BuilderTest, Decimal64BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int64_t>::minimum, DecimalPrecision<int64_t>::maximum));
+                        ::testing::Range(DecimalPrecision<int64_t>::minimum,
+                                         DecimalPrecision<int64_t>::maximum));
 INSTANTIATE_TEST_CASE_P(Decimal128BuilderTest, Decimal128BuilderTest,
-    ::testing::Range(
-        DecimalPrecision<int128_t>::minimum, DecimalPrecision<int128_t>::maximum));
+                        ::testing::Range(DecimalPrecision<int128_t>::minimum,
+                                         DecimalPrecision<int128_t>::maximum));
 
 }  // namespace decimal
 }  // namespace arrow

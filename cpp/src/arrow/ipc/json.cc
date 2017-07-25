@@ -79,15 +79,13 @@ JsonWriter::JsonWriter(const std::shared_ptr<Schema>& schema) {
 
 JsonWriter::~JsonWriter() {}
 
-Status JsonWriter::Open(
-    const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* writer) {
+Status JsonWriter::Open(const std::shared_ptr<Schema>& schema,
+                        std::unique_ptr<JsonWriter>* writer) {
   *writer = std::unique_ptr<JsonWriter>(new JsonWriter(schema));
   return (*writer)->impl_->Start();
 }
 
-Status JsonWriter::Finish(std::string* result) {
-  return impl_->Finish(result);
-}
+Status JsonWriter::Finish(std::string* result) { return impl_->Finish(result); }
 
 Status JsonWriter::WriteRecordBatch(const RecordBatch& batch) {
   return impl_->WriteRecordBatch(batch);
@@ -103,8 +101,10 @@ class JsonReader::JsonReaderImpl {
 
   Status ParseAndReadSchema() {
     doc_.Parse(reinterpret_cast<const rj::Document::Ch*>(data_->data()),
-        static_cast<size_t>(data_->size()));
-    if (doc_.HasParseError()) { return Status::IOError("JSON parsing failed"); }
+               static_cast<size_t>(data_->size()));
+    if (doc_.HasParseError()) {
+      return Status::IOError("JSON parsing failed");
+    }
 
     RETURN_NOT_OK(json::internal::ReadSchema(doc_, pool_, &schema_));
 
@@ -120,8 +120,8 @@ class JsonReader::JsonReaderImpl {
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
 
-    return json::internal::ReadRecordBatch(
-        record_batches_->GetArray()[i], schema_, pool_, batch);
+    return json::internal::ReadRecordBatch(record_batches_->GetArray()[i], schema_, pool_,
+                                           batch);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -145,24 +145,20 @@ JsonReader::JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data) {
 
 JsonReader::~JsonReader() {}
 
-Status JsonReader::Open(
-    const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader) {
+Status JsonReader::Open(const std::shared_ptr<Buffer>& data,
+                        std::unique_ptr<JsonReader>* reader) {
   return Open(default_memory_pool(), data, reader);
 }
 
 Status JsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
-    std::unique_ptr<JsonReader>* reader) {
+                        std::unique_ptr<JsonReader>* reader) {
   *reader = std::unique_ptr<JsonReader>(new JsonReader(pool, data));
   return (*reader)->impl_->ParseAndReadSchema();
 }
 
-std::shared_ptr<Schema> JsonReader::schema() const {
-  return impl_->schema();
-}
+std::shared_ptr<Schema> JsonReader::schema() const { return impl_->schema(); }
 
-int JsonReader::num_record_batches() const {
-  return impl_->num_record_batches();
-}
+int JsonReader::num_record_batches() const { return impl_->num_record_batches(); }
 
 Status JsonReader::ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
   return impl_->ReadRecordBatch(i, batch);

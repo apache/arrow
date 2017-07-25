@@ -61,8 +61,8 @@ static constexpr int kDefaultHdfsBufferSize = 1 << 16;
 
 class HdfsAnyFileImpl {
  public:
-  void set_members(
-      const std::string& path, LibHdfsShim* driver, hdfsFS fs, hdfsFile handle) {
+  void set_members(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+                   hdfsFile handle) {
     path_ = path;
     driver_ = driver;
     fs_ = fs;
@@ -118,7 +118,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     tSize ret;
     if (driver_->HasPread()) {
       ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
-          reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
+                           reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
     } else {
       std::lock_guard<std::mutex> guard(lock_);
       RETURN_NOT_OK(Seek(position));
@@ -136,7 +136,9 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     int64_t bytes_read = 0;
     RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
 
-    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+    }
 
     *out = buffer;
     return Status::OK();
@@ -145,11 +147,14 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
-      tSize ret = driver_->Read(fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
+      tSize ret = driver_->Read(
+          fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
           static_cast<tSize>(std::min<int64_t>(buffer_size_, nbytes - total_bytes)));
       RETURN_NOT_OK(CheckReadResult(ret));
       total_bytes += ret;
-      if (ret == 0) { break; }
+      if (ret == 0) {
+        break;
+      }
     }
 
     *bytes_read = total_bytes;
@@ -162,7 +167,9 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+    }
 
     *out = buffer;
     return Status::OK();
@@ -170,7 +177,9 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   Status GetSize(int64_t* size) {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
-    if (entry == nullptr) { return Status::IOError("HDFS: GetPathInfo failed"); }
+    if (entry == nullptr) {
+      return Status::IOError("HDFS: GetPathInfo failed");
+    }
 
     *size = entry->mSize;
     driver_->FreeFileInfo(entry, 1);
@@ -187,31 +196,27 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 };
 
 HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
-  if (pool == nullptr) { pool = default_memory_pool(); }
+  if (pool == nullptr) {
+    pool = default_memory_pool();
+  }
   impl_.reset(new HdfsReadableFileImpl(pool));
 }
 
-HdfsReadableFile::~HdfsReadableFile() {
-  DCHECK(impl_->Close().ok());
-}
+HdfsReadableFile::~HdfsReadableFile() { DCHECK(impl_->Close().ok()); }
 
-Status HdfsReadableFile::Close() {
-  return impl_->Close();
-}
+Status HdfsReadableFile::Close() { return impl_->Close(); }
 
-Status HdfsReadableFile::ReadAt(
-    int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                                uint8_t* buffer) {
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
 }
 
-Status HdfsReadableFile::ReadAt(
-    int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes,
+                                std::shared_ptr<Buffer>* out) {
   return impl_->ReadAt(position, nbytes, out);
 }
 
-bool HdfsReadableFile::supports_zero_copy() const {
-  return false;
-}
+bool HdfsReadableFile::supports_zero_copy() const { return false; }
 
 Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
@@ -221,17 +226,11 @@ Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* buffer) {
   return impl_->Read(nbytes, buffer);
 }
 
-Status HdfsReadableFile::GetSize(int64_t* size) {
-  return impl_->GetSize(size);
-}
+Status HdfsReadableFile::GetSize(int64_t* size) { return impl_->GetSize(size); }
 
-Status HdfsReadableFile::Seek(int64_t position) {
-  return impl_->Seek(position);
-}
+Status HdfsReadableFile::Seek(int64_t position) { return impl_->Seek(position); }
 
-Status HdfsReadableFile::Tell(int64_t* position) {
-  return impl_->Tell(position);
-}
+Status HdfsReadableFile::Tell(int64_t* position) { return impl_->Tell(position); }
 
 // ----------------------------------------------------------------------
 // File writing
@@ -259,28 +258,22 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
 
   Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
     std::lock_guard<std::mutex> guard(lock_);
-    tSize ret = driver_->Write(
-        fs_, file_, reinterpret_cast<const void*>(buffer), static_cast<tSize>(nbytes));
+    tSize ret = driver_->Write(fs_, file_, reinterpret_cast<const void*>(buffer),
+                               static_cast<tSize>(nbytes));
     CHECK_FAILURE(ret, "Write");
     *bytes_written = ret;
     return Status::OK();
   }
 };
 
-HdfsOutputStream::HdfsOutputStream() {
-  impl_.reset(new HdfsOutputStreamImpl());
-}
+HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
 
-HdfsOutputStream::~HdfsOutputStream() {
-  DCHECK(impl_->Close().ok());
-}
+HdfsOutputStream::~HdfsOutputStream() { DCHECK(impl_->Close().ok()); }
 
-Status HdfsOutputStream::Close() {
-  return impl_->Close();
-}
+Status HdfsOutputStream::Close() { return impl_->Close(); }
 
-Status HdfsOutputStream::Write(
-    const uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
+Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes,
+                               int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);
 }
 
@@ -289,13 +282,9 @@ Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes) {
   return Write(buffer, nbytes, &bytes_written_dummy);
 }
 
-Status HdfsOutputStream::Flush() {
-  return impl_->Flush();
-}
+Status HdfsOutputStream::Flush() { return impl_->Flush(); }
 
-Status HdfsOutputStream::Tell(int64_t* position) {
-  return impl_->Tell(position);
-}
+Status HdfsOutputStream::Tell(int64_t* position) { return impl_->Tell(position); }
 
 // ----------------------------------------------------------------------
 // HDFS client
@@ -344,7 +333,9 @@ class HdfsClient::HdfsClientImpl {
     }
     fs_ = driver_->BuilderConnect(builder);
 
-    if (fs_ == nullptr) { return Status::IOError("HDFS connection failed"); }
+    if (fs_ == nullptr) {
+      return Status::IOError("HDFS connection failed");
+    }
     namenode_host_ = config->host;
     port_ = config->port;
     user_ = config->user;
@@ -395,7 +386,9 @@ class HdfsClient::HdfsClientImpl {
   Status GetPathInfo(const std::string& path, HdfsPathInfo* info) {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path.c_str());
 
-    if (entry == nullptr) { return Status::IOError("HDFS: GetPathInfo failed"); }
+    if (entry == nullptr) {
+      return Status::IOError("HDFS: GetPathInfo failed");
+    }
 
     SetPathInfo(entry, info);
     driver_->FreeFileInfo(entry, 1);
@@ -435,7 +428,7 @@ class HdfsClient::HdfsClientImpl {
   }
 
   Status OpenReadable(const std::string& path, int32_t buffer_size,
-      std::shared_ptr<HdfsReadableFile>* file) {
+                      std::shared_ptr<HdfsReadableFile>* file) {
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
@@ -454,13 +447,14 @@ class HdfsClient::HdfsClientImpl {
   }
 
   Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-      int16_t replication, int64_t default_block_size,
-      std::shared_ptr<HdfsOutputStream>* file) {
+                       int16_t replication, int64_t default_block_size,
+                       std::shared_ptr<HdfsOutputStream>* file) {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
-    hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), flags, buffer_size,
-        replication, static_cast<tSize>(default_block_size));
+    hdfsFile handle =
+        driver_->OpenFile(fs_, path.c_str(), flags, buffer_size, replication,
+                          static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
       // TODO(wesm): determine cause of failure
@@ -496,14 +490,12 @@ class HdfsClient::HdfsClientImpl {
 // ----------------------------------------------------------------------
 // Public API for HDFSClient
 
-HdfsClient::HdfsClient() {
-  impl_.reset(new HdfsClientImpl());
-}
+HdfsClient::HdfsClient() { impl_.reset(new HdfsClientImpl()); }
 
 HdfsClient::~HdfsClient() {}
 
-Status HdfsClient::Connect(
-    const HdfsConnectionConfig* config, std::shared_ptr<HdfsClient>* fs) {
+Status HdfsClient::Connect(const HdfsConnectionConfig* config,
+                           std::shared_ptr<HdfsClient>* fs) {
   // ctor is private, make_shared will not work
   *fs = std::shared_ptr<HdfsClient>(new HdfsClient());
 
@@ -519,50 +511,43 @@ Status HdfsClient::Delete(const std::string& path, bool recursive) {
   return impl_->Delete(path, recursive);
 }
 
-Status HdfsClient::Disconnect() {
-  return impl_->Disconnect();
-}
+Status HdfsClient::Disconnect() { return impl_->Disconnect(); }
 
-bool HdfsClient::Exists(const std::string& path) {
-  return impl_->Exists(path);
-}
+bool HdfsClient::Exists(const std::string& path) { return impl_->Exists(path); }
 
 Status HdfsClient::GetPathInfo(const std::string& path, HdfsPathInfo* info) {
   return impl_->GetPathInfo(path, info);
 }
 
-Status HdfsClient::GetCapacity(int64_t* nbytes) {
-  return impl_->GetCapacity(nbytes);
-}
+Status HdfsClient::GetCapacity(int64_t* nbytes) { return impl_->GetCapacity(nbytes); }
 
-Status HdfsClient::GetUsed(int64_t* nbytes) {
-  return impl_->GetUsed(nbytes);
-}
+Status HdfsClient::GetUsed(int64_t* nbytes) { return impl_->GetUsed(nbytes); }
 
-Status HdfsClient::ListDirectory(
-    const std::string& path, std::vector<HdfsPathInfo>* listing) {
+Status HdfsClient::ListDirectory(const std::string& path,
+                                 std::vector<HdfsPathInfo>* listing) {
   return impl_->ListDirectory(path, listing);
 }
 
 Status HdfsClient::OpenReadable(const std::string& path, int32_t buffer_size,
-    std::shared_ptr<HdfsReadableFile>* file) {
+                                std::shared_ptr<HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, buffer_size, file);
 }
 
-Status HdfsClient::OpenReadable(
-    const std::string& path, std::shared_ptr<HdfsReadableFile>* file) {
+Status HdfsClient::OpenReadable(const std::string& path,
+                                std::shared_ptr<HdfsReadableFile>* file) {
   return OpenReadable(path, kDefaultHdfsBufferSize, file);
 }
 
 Status HdfsClient::OpenWriteable(const std::string& path, bool append,
-    int32_t buffer_size, int16_t replication, int64_t default_block_size,
-    std::shared_ptr<HdfsOutputStream>* file) {
-  return impl_->OpenWriteable(
-      path, append, buffer_size, replication, default_block_size, file);
+                                 int32_t buffer_size, int16_t replication,
+                                 int64_t default_block_size,
+                                 std::shared_ptr<HdfsOutputStream>* file) {
+  return impl_->OpenWriteable(path, append, buffer_size, replication, default_block_size,
+                              file);
 }
 
-Status HdfsClient::OpenWriteable(
-    const std::string& path, bool append, std::shared_ptr<HdfsOutputStream>* file) {
+Status HdfsClient::OpenWriteable(const std::string& path, bool append,
+                                 std::shared_ptr<HdfsOutputStream>* file) {
   return OpenWriteable(path, append, 0, 0, 0, file);
 }
 

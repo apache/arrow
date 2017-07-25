@@ -319,9 +319,10 @@ GET_ATTR(TypeClass, void);
 
 #undef GET_ATTR
 
-#define PRIMITIVE_TRAITS(T)                                                           \
-  using TypeClass = typename std::conditional<std::is_base_of<DataType, T>::value, T, \
-      typename GetAttr_TypeClass<T>::type>::type;                                     \
+#define PRIMITIVE_TRAITS(T)                                                 \
+  using TypeClass =                                                         \
+      typename std::conditional<std::is_base_of<DataType, T>::value, T,     \
+                                typename GetAttr_TypeClass<T>::type>::type; \
   using c_type = typename GetAttr_c_type<TypeClass>::type;
 
 template <typename T>

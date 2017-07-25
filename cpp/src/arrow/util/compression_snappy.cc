@@ -37,10 +37,11 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Snappy implementation
 
-Status SnappyCodec::Decompress(
-    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
+Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
+                               int64_t output_len, uint8_t* output_buffer) {
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
-          static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer))) {
+                             static_cast<size_t>(input_len),
+                             reinterpret_cast<char*>(output_buffer))) {
     return Status::IOError("Corrupt snappy compressed data.");
   }
   return Status::OK();
@@ -51,11 +52,12 @@ int64_t SnappyCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
 }
 
 Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) {
+                             int64_t output_buffer_len, uint8_t* output_buffer,
+                             int64_t* output_length) {
   size_t output_len;
   snappy::RawCompress(reinterpret_cast<const char*>(input),
-      static_cast<size_t>(input_len), reinterpret_cast<char*>(output_buffer),
-      &output_len);
+                      static_cast<size_t>(input_len),
+                      reinterpret_cast<char*>(output_buffer), &output_len);
   *output_length = static_cast<int64_t>(output_len);
   return Status::OK();
 }

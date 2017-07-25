@@ -99,6 +99,10 @@ class build_ext(_build_ext):
 
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
+        self.with_plasma = strtobool(
+            os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        if self.with_plasma and "plasma" not in self.CYTHON_MODULE_NAMES:
+            self.CYTHON_MODULE_NAMES.append("plasma")
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
@@ -242,6 +246,8 @@ class build_ext(_build_ext):
             shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
+            if self.with_plasma:
+                move_lib("plasma")
             if self.with_parquet:
                 move_lib("parquet")
 
@@ -270,10 +276,19 @@ class build_ext(_build_ext):
                 shutil.move(self.get_ext_built_api_header(name),
                             pjoin(os.path.dirname(ext_path), name + '_api.h'))
 
+        # Move the plasma store
+        if self.with_plasma:
+            build_py = self.get_finalized_command('build_py')
+            source = os.path.join(self.build_type, "plasma_store")
+            target = os.path.join(build_lib, build_py.get_package_dir('pyarrow'), "plasma_store")
+            shutil.move(source, target)
+
         os.chdir(saved_cwd)
 
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
+            return True
+        if name == 'plasma' and not self.with_plasma:
             return True
         return False
 

@@ -58,11 +58,11 @@ class TestHdfsClient : public ::testing::Test {
   }
 
   Status WriteDummyFile(const std::string& path, const uint8_t* buffer, int64_t size,
-      bool append = false, int buffer_size = 0, int16_t replication = 0,
-      int default_block_size = 0) {
+                        bool append = false, int buffer_size = 0, int16_t replication = 0,
+                        int default_block_size = 0) {
     std::shared_ptr<HdfsOutputStream> file;
-    RETURN_NOT_OK(client_->OpenWriteable(
-        path, append, buffer_size, replication, default_block_size, &file));
+    RETURN_NOT_OK(client_->OpenWriteable(path, append, buffer_size, replication,
+                                         default_block_size, &file));
 
     RETURN_NOT_OK(file->Write(buffer, size));
     RETURN_NOT_OK(file->Close());
@@ -87,9 +87,10 @@ class TestHdfsClient : public ::testing::Test {
     LibHdfsShim* driver_shim;
 
     client_ = nullptr;
-    scratch_dir_ = boost::filesystem::unique_path(
-        boost::filesystem::temp_directory_path() / "arrow-hdfs/scratch-%%%%")
-                       .string();
+    scratch_dir_ =
+        boost::filesystem::unique_path(boost::filesystem::temp_directory_path() /
+                                       "arrow-hdfs/scratch-%%%%")
+            .string();
 
     loaded_driver_ = false;
 
@@ -175,7 +176,9 @@ TYPED_TEST(TestHdfsClient, MakeDirectory) {
 
   std::string path = this->ScratchPath("create-directory");
 
-  if (this->client_->Exists(path)) { ASSERT_OK(this->client_->Delete(path, true)); }
+  if (this->client_->Exists(path)) {
+    ASSERT_OK(this->client_->Delete(path, true));
+  }
 
   ASSERT_OK(this->client_->MakeDirectory(path));
   ASSERT_TRUE(this->client_->Exists(path));
@@ -396,7 +399,7 @@ TYPED_TEST(TestHdfsClient, ThreadSafety) {
 
   std::string data = "foobar";
   ASSERT_OK(this->WriteDummyFile(src_path, reinterpret_cast<const uint8_t*>(data.c_str()),
-      static_cast<int64_t>(data.size())));
+                                 static_cast<int64_t>(data.size())));
 
   std::shared_ptr<HdfsReadableFile> file;
   ASSERT_OK(this->client_->OpenReadable(src_path, &file));
@@ -409,10 +412,14 @@ TYPED_TEST(TestHdfsClient, ThreadSafety) {
       std::shared_ptr<Buffer> buffer;
       if (i % 2 == 0) {
         ASSERT_OK(file->ReadAt(3, 3, &buffer));
-        if (0 == memcmp(data.c_str() + 3, buffer->data(), 3)) { correct_count += 1; }
+        if (0 == memcmp(data.c_str() + 3, buffer->data(), 3)) {
+          correct_count += 1;
+        }
       } else {
         ASSERT_OK(file->ReadAt(0, 4, &buffer));
-        if (0 == memcmp(data.c_str() + 0, buffer->data(), 4)) { correct_count += 1; }
+        if (0 == memcmp(data.c_str() + 0, buffer->data(), 4)) {
+          correct_count += 1;
+        }
       }
     }
   };

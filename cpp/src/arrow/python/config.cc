@@ -16,8 +16,6 @@
 // under the License.
 
 #include "arrow/python/platform.h"
-#include <datetime.h>
-
 #include "arrow/python/config.h"
 
 namespace arrow {

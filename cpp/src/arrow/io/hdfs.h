@@ -75,8 +75,8 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // @param config (in): configuration for connecting
   // @param fs (out): the created client
   // @returns Status
-  static Status Connect(
-      const HdfsConnectionConfig* config, std::shared_ptr<HdfsClient>* fs);
+  static Status Connect(const HdfsConnectionConfig* config,
+                        std::shared_ptr<HdfsClient>* fs);
 
   // Create directory and all parents
   //
@@ -132,7 +132,7 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   //
   // @param path complete file path
   Status OpenReadable(const std::string& path, int32_t buffer_size,
-      std::shared_ptr<HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
 
@@ -142,11 +142,11 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // @param replication, 0 for default
   // @param default_block_size, 0 for default
   Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-      int16_t replication, int64_t default_block_size,
-      std::shared_ptr<HdfsOutputStream>* file);
+                       int16_t replication, int64_t default_block_size,
+                       std::shared_ptr<HdfsOutputStream>* file);
 
-  Status OpenWriteable(
-      const std::string& path, bool append, std::shared_ptr<HdfsOutputStream>* file);
+  Status OpenWriteable(const std::string& path, bool append,
+                       std::shared_ptr<HdfsOutputStream>* file);
 
  private:
   friend class HdfsReadableFile;
@@ -173,8 +173,8 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* buffer) override;
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 

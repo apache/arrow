@@ -69,13 +69,9 @@ std::unordered_map<void*, mmap_record> mmap_records;
 
 constexpr int GRANULARITY_MULTIPLIER = 2;
 
-static void* pointer_advance(void* p, ptrdiff_t n) {
-  return (unsigned char*)p + n;
-}
+static void* pointer_advance(void* p, ptrdiff_t n) { return (unsigned char*)p + n; }
 
-static void* pointer_retreat(void* p, ptrdiff_t n) {
-  return (unsigned char*)p - n;
-}
+static void* pointer_retreat(void* p, ptrdiff_t n) { return (unsigned char*)p - n; }
 
 static ptrdiff_t pointer_distance(void const* pfrom, void const* pto) {
   return (unsigned char const*)pto - (unsigned char const*)pfrom;
@@ -87,8 +83,8 @@ int create_buffer(int64_t size) {
   int fd;
 #ifdef _WIN32
   if (!CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-          (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))), (DWORD)(uint64_t)size,
-          NULL)) {
+                         (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))),
+                         (DWORD)(uint64_t)size, NULL)) {
     fd = -1;
   }
 #else
@@ -127,7 +123,9 @@ void* fake_mmap(size_t size) {
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
   void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  if (pointer == MAP_FAILED) { return pointer; }
+  if (pointer == MAP_FAILED) {
+    return pointer;
+  }
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;
@@ -156,7 +154,9 @@ int fake_munmap(void* addr, int64_t size) {
   }
 
   int r = munmap(addr, size);
-  if (r == 0) { close(entry->second.fd); }
+  if (r == 0) {
+    close(entry->second.fd);
+  }
 
   mmap_records.erase(entry);
   return r;

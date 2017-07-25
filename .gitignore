@@ -28,3 +28,4 @@ MANIFEST
 cpp/.idea/
 python/.eggs/
 .vscode
+.idea/

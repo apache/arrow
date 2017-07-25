@@ -14,7 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
----
-BasedOnStyle:  Google
-DerivePointerAlignment: false
-ColumnLimit: 90
+
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/include
+
+so_version=@PLASMA_SO_VERSION@
+abi_version=@PLASMA_ABI_VERSION@
+executable=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma_store
+
+Name: Plasma
+Description: Plasma is an in-memory object store and cache for big data.
+Version: @PLASMA_VERSION@
+Libs: -L${libdir} -lplasma
+Cflags: -I${includedir}

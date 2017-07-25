@@ -45,8 +45,9 @@ namespace ipc {
 // Record batch write path
 
 static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
-    const std::shared_ptr<Buffer> input, MemoryPool* pool,
-    std::shared_ptr<Buffer>* buffer) {
+                                        const std::shared_ptr<Buffer> input,
+                                        MemoryPool* pool,
+                                        std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
     return Status::OK();
@@ -63,8 +64,8 @@ static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
 
 template <typename T>
 inline Status GetTruncatedBuffer(int64_t offset, int64_t length,
-    const std::shared_ptr<Buffer> input, MemoryPool* pool,
-    std::shared_ptr<Buffer>* buffer) {
+                                 const std::shared_ptr<Buffer> input, MemoryPool* pool,
+                                 std::shared_ptr<Buffer>* buffer) {
   if (!input) {
     *buffer = input;
     return Status::OK();
@@ -80,17 +81,19 @@ inline Status GetTruncatedBuffer(int64_t offset, int64_t length,
   return Status::OK();
 }
 
-static inline bool NeedTruncate(
-    int64_t offset, const Buffer* buffer, int64_t min_length) {
+static inline bool NeedTruncate(int64_t offset, const Buffer* buffer,
+                                int64_t min_length) {
   // buffer can be NULL
-  if (buffer == nullptr) { return false; }
+  if (buffer == nullptr) {
+    return false;
+  }
   return offset != 0 || min_length < buffer->size();
 }
 
 class RecordBatchSerializer : public ArrayVisitor {
  public:
   RecordBatchSerializer(MemoryPool* pool, int64_t buffer_start_offset,
-      int max_recursion_depth, bool allow_64bit)
+                        int max_recursion_depth, bool allow_64bit)
       : pool_(pool),
         max_recursion_depth_(max_recursion_depth),
         buffer_start_offset_(buffer_start_offset),
@@ -114,8 +117,8 @@ class RecordBatchSerializer : public ArrayVisitor {
 
     if (arr.null_count() > 0) {
       std::shared_ptr<Buffer> bitmap;
-      RETURN_NOT_OK(GetTruncatedBitmap(
-          arr.offset(), arr.length(), arr.null_bitmap(), pool_, &bitmap));
+      RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
+                                       pool_, &bitmap));
       buffers_.push_back(bitmap);
     } else {
       // Push a dummy zero-length buffer, not to be copied
@@ -175,14 +178,14 @@ class RecordBatchSerializer : public ArrayVisitor {
   }
 
   // Override this for writing dictionary metadata
-  virtual Status WriteMetadataMessage(
-      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) {
-    return WriteRecordBatchMessage(
-        num_rows, body_length, field_nodes_, buffer_meta_, out);
+  virtual Status WriteMetadataMessage(int64_t num_rows, int64_t body_length,
+                                      std::shared_ptr<Buffer>* out) {
+    return WriteRecordBatchMessage(num_rows, body_length, field_nodes_, buffer_meta_,
+                                   out);
   }
 
   Status Write(const RecordBatch& batch, io::OutputStream* dst, int32_t* metadata_length,
-      int64_t* body_length) {
+               int64_t* body_length) {
     RETURN_NOT_OK(Assemble(batch, body_length));
 
 #ifndef NDEBUG
@@ -216,9 +219,13 @@ class RecordBatchSerializer : public ArrayVisitor {
         padding = BitUtil::RoundUpToMultipleOf64(size) - size;
       }
 
-      if (size > 0) { RETURN_NOT_OK(dst->Write(buffer->data(), size)); }
+      if (size > 0) {
+        RETURN_NOT_OK(dst->Write(buffer->data(), size));
+      }
 
-      if (padding > 0) { RETURN_NOT_OK(dst->Write(kPaddingBytes, padding)); }
+      if (padding > 0) {
+        RETURN_NOT_OK(dst->Write(kPaddingBytes, padding));
+      }
     }
 
 #ifndef NDEBUG
@@ -245,7 +252,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       // Send padding if it's available
       const int64_t buffer_length =
           std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
-              data->size() - byte_offset);
+                   data->size() - byte_offset);
       data = SliceBuffer(data, byte_offset, buffer_length);
     }
     buffers_.push_back(data);
@@ -253,8 +260,8 @@ class RecordBatchSerializer : public ArrayVisitor {
   }
 
   template <typename ArrayType>
-  Status GetZeroBasedValueOffsets(
-      const ArrayType& array, std::shared_ptr<Buffer>* value_offsets) {
+  Status GetZeroBasedValueOffsets(const ArrayType& array,
+                                  std::shared_ptr<Buffer>* value_offsets) {
     // Share slicing logic between ListArray and BinaryArray
 
     auto offsets = array.value_offsets();
@@ -265,8 +272,8 @@ class RecordBatchSerializer : public ArrayVisitor {
       // b) slice the values array accordingly
 
       std::shared_ptr<MutableBuffer> shifted_offsets;
-      RETURN_NOT_OK(AllocateBuffer(
-          pool_, sizeof(int32_t) * (array.length() + 1), &shifted_offsets));
+      RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int32_t) * (array.length() + 1),
+                                   &shifted_offsets));
 
       int32_t* dest_offsets = reinterpret_cast<int32_t*>(shifted_offsets->mutable_data());
       const int32_t start_offset = array.value_offset(0);
@@ -392,13 +399,15 @@ class RecordBatchSerializer : public ArrayVisitor {
       const auto& type = static_cast<const UnionType&>(*array.type());
 
       std::shared_ptr<Buffer> value_offsets;
-      RETURN_NOT_OK(GetTruncatedBuffer<int32_t>(
-          offset, length, array.value_offsets(), pool_, &value_offsets));
+      RETURN_NOT_OK(GetTruncatedBuffer<int32_t>(offset, length, array.value_offsets(),
+                                                pool_, &value_offsets));
 
       // The Union type codes are not necessary 0-indexed
       uint8_t max_code = 0;
       for (uint8_t code : type.type_codes()) {
-        if (code > max_code) { max_code = code; }
+        if (code > max_code) {
+          max_code = code;
+        }
       }
 
       // Allocate an array of child offsets. Set all to -1 to indicate that we
@@ -424,7 +433,9 @@ class RecordBatchSerializer : public ArrayVisitor {
         for (int64_t i = 0; i < length; ++i) {
           const uint8_t code = type_ids[i];
           int32_t shift = child_offsets[code];
-          if (shift == -1) { child_offsets[code] = shift = unshifted_offsets[i]; }
+          if (shift == -1) {
+            child_offsets[code] = shift = unshifted_offsets[i];
+          }
           shifted_offsets[i] = unshifted_offsets[i] - shift;
 
           // Update the child length to account for observed value
@@ -486,14 +497,14 @@ class DictionaryWriter : public RecordBatchSerializer {
  public:
   using RecordBatchSerializer::RecordBatchSerializer;
 
-  Status WriteMetadataMessage(
-      int64_t num_rows, int64_t body_length, std::shared_ptr<Buffer>* out) override {
-    return WriteDictionaryMessage(
-        dictionary_id_, num_rows, body_length, field_nodes_, buffer_meta_, out);
+  Status WriteMetadataMessage(int64_t num_rows, int64_t body_length,
+                              std::shared_ptr<Buffer>* out) override {
+    return WriteDictionaryMessage(dictionary_id_, num_rows, body_length, field_nodes_,
+                                  buffer_meta_, out);
   }
 
   Status Write(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-      io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
+               io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length) {
     dictionary_id_ = dictionary_id;
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
@@ -516,27 +527,30 @@ Status AlignStreamPosition(io::OutputStream* stream) {
   int64_t position;
   RETURN_NOT_OK(stream->Tell(&position));
   int64_t remainder = PaddedLength(position) - position;
-  if (remainder > 0) { return stream->Write(kPaddingBytes, remainder); }
+  if (remainder > 0) {
+    return stream->Write(kPaddingBytes, remainder);
+  }
   return Status::OK();
 }
 
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool, int max_recursion_depth, bool allow_64bit) {
-  RecordBatchSerializer writer(
-      pool, buffer_start_offset, max_recursion_depth, allow_64bit);
+                        io::OutputStream* dst, int32_t* metadata_length,
+                        int64_t* body_length, MemoryPool* pool, int max_recursion_depth,
+                        bool allow_64bit) {
+  RecordBatchSerializer writer(pool, buffer_start_offset, max_recursion_depth,
+                               allow_64bit);
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-    io::OutputStream* dst, int32_t* metadata_length, int64_t* body_length,
-    MemoryPool* pool) {
+                             io::OutputStream* dst, int32_t* metadata_length,
+                             int64_t* body_length, MemoryPool* pool) {
   return WriteRecordBatch(batch, buffer_start_offset, dst, metadata_length, body_length,
-      pool, kMaxNestingDepth, true);
+                          pool, kMaxNestingDepth, true);
 }
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length) {
+                   int64_t* body_length) {
   if (!tensor.is_contiguous()) {
     return Status::Invalid("No support yet for writing non-contiguous tensors");
   }
@@ -556,8 +570,8 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 }
 
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, MemoryPool* pool) {
+                       int64_t buffer_start_offset, io::OutputStream* dst,
+                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
   DictionaryWriter writer(pool, buffer_start_offset, kMaxNestingDepth, false);
   return writer.Write(dictionary_id, dictionary, dst, metadata_length, body_length);
 }
@@ -568,7 +582,7 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
   int64_t body_length = 0;
   io::MockOutputStream dst;
   RETURN_NOT_OK(WriteRecordBatch(batch, 0, &dst, &metadata_length, &body_length,
-      default_memory_pool(), kMaxNestingDepth, true));
+                                 default_memory_pool(), kMaxNestingDepth, true));
   *size = dst.GetExtentBytesWritten();
   return Status::OK();
 }
@@ -632,7 +646,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
   }
 
   Status CheckStarted() {
-    if (!started_) { return Start(); }
+    if (!started_) {
+      return Start();
+    }
     return Status::OK();
   }
 
@@ -653,7 +669,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
       // Frame of reference in file format is 0, see ARROW-384
       const int64_t buffer_start_offset = 0;
       RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, buffer_start_offset, sink_,
-          &block->metadata_length, &block->body_length, pool_));
+                                    &block->metadata_length, &block->body_length, pool_));
       RETURN_NOT_OK(UpdatePosition());
       DCHECK(position_ % 8 == 0) << "WriteDictionary did not perform aligned writes";
     }
@@ -668,9 +684,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
 
     // Frame of reference in file format is 0, see ARROW-384
     const int64_t buffer_start_offset = 0;
-    RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(batch, buffer_start_offset, sink_,
-        &block->metadata_length, &block->body_length, pool_, kMaxNestingDepth,
-        allow_64bit));
+    RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
+        batch, buffer_start_offset, sink_, &block->metadata_length, &block->body_length,
+        pool_, kMaxNestingDepth, allow_64bit));
     RETURN_NOT_OK(UpdatePosition());
 
     DCHECK(position_ % 8 == 0) << "WriteRecordBatch did not perform aligned writes";
@@ -681,15 +697,17 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit) {
     // Push an empty FileBlock. Can be written in the footer later
     record_batches_.push_back({0, 0, 0});
-    return WriteRecordBatch(
-        batch, allow_64bit, &record_batches_[record_batches_.size() - 1]);
+    return WriteRecordBatch(batch, allow_64bit,
+                            &record_batches_[record_batches_.size() - 1]);
   }
 
   // Adds padding bytes if necessary to ensure all memory blocks are written on
   // 64-byte (or other alignment) boundaries.
   Status Align(int64_t alignment = kArrowAlignment) {
     int64_t remainder = PaddedLength(position_, alignment) - position_;
-    if (remainder > 0) { return Write(kPaddingBytes, remainder); }
+    if (remainder > 0) {
+      return Write(kPaddingBytes, remainder);
+    }
     return Status::OK();
   }
 
@@ -725,8 +743,8 @@ RecordBatchStreamWriter::RecordBatchStreamWriter() {
 
 RecordBatchStreamWriter::~RecordBatchStreamWriter() {}
 
-Status RecordBatchStreamWriter::WriteRecordBatch(
-    const RecordBatch& batch, bool allow_64bit) {
+Status RecordBatchStreamWriter::WriteRecordBatch(const RecordBatch& batch,
+                                                 bool allow_64bit) {
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
@@ -735,16 +753,14 @@ void RecordBatchStreamWriter::set_memory_pool(MemoryPool* pool) {
 }
 
 Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
-    const std::shared_ptr<Schema>& schema,
-    std::shared_ptr<RecordBatchStreamWriter>* out) {
+                                     const std::shared_ptr<Schema>& schema,
+                                     std::shared_ptr<RecordBatchStreamWriter>* out) {
   // ctor is private
   *out = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
   return (*out)->impl_->Open(sink, schema);
 }
 
-Status RecordBatchStreamWriter::Close() {
-  return impl_->Close();
-}
+Status RecordBatchStreamWriter::Close() { return impl_->Close(); }
 
 // ----------------------------------------------------------------------
 // File writer implementation
@@ -756,8 +772,8 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
 
   Status Start() override {
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(
-        reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
+                        strlen(kArrowMagicBytes)));
     RETURN_NOT_OK(Align(8));
 
     // We write the schema at the start of the file (and the end). This also
@@ -768,21 +784,23 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
   Status Close() override {
     // Write metadata
     int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(
-        *schema_, dictionaries_, record_batches_, &dictionary_memo_, sink_));
+    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_,
+                                  &dictionary_memo_, sink_));
     RETURN_NOT_OK(UpdatePosition());
 
     // Write footer length
     int32_t footer_length = static_cast<int32_t>(position_ - initial_position);
 
-    if (footer_length <= 0) { return Status::Invalid("Invalid file footer"); }
+    if (footer_length <= 0) {
+      return Status::Invalid("Invalid file footer");
+    }
 
     RETURN_NOT_OK(
         Write(reinterpret_cast<const uint8_t*>(&footer_length), sizeof(int32_t)));
 
     // Write magic bytes to end file
-    return Write(
-        reinterpret_cast<const uint8_t*>(kArrowMagicBytes), strlen(kArrowMagicBytes));
+    return Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
+                 strlen(kArrowMagicBytes));
   }
 };
 
@@ -793,20 +811,19 @@ RecordBatchFileWriter::RecordBatchFileWriter() {
 RecordBatchFileWriter::~RecordBatchFileWriter() {}
 
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
-    const std::shared_ptr<Schema>& schema, std::shared_ptr<RecordBatchFileWriter>* out) {
+                                   const std::shared_ptr<Schema>& schema,
+                                   std::shared_ptr<RecordBatchFileWriter>* out) {
   *out = std::shared_ptr<RecordBatchFileWriter>(
       new RecordBatchFileWriter());  // ctor is private
   return (*out)->impl_->Open(sink, schema);
 }
 
-Status RecordBatchFileWriter::WriteRecordBatch(
-    const RecordBatch& batch, bool allow_64bit) {
+Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
+                                               bool allow_64bit) {
   return impl_->WriteRecordBatch(batch, allow_64bit);
 }
 
-Status RecordBatchFileWriter::Close() {
-  return impl_->Close();
-}
+Status RecordBatchFileWriter::Close() { return impl_->Close(); }
 
 }  // namespace ipc
 }  // namespace arrow
