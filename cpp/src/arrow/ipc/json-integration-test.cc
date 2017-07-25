@@ -40,7 +40,8 @@
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");
-DEFINE_string(mode, "VALIDATE",
+DEFINE_string(
+    mode, "VALIDATE",
     "Mode of integration testing tool (ARROW_TO_JSON, JSON_TO_ARROW, VALIDATE)");
 DEFINE_bool(integration, false, "Run in integration test mode");
 DEFINE_bool(verbose, true, "Verbose output");
@@ -55,8 +56,8 @@ bool file_exists(const char* path) {
 }
 
 // Convert JSON file to IPC binary format
-static Status ConvertJsonToArrow(
-    const std::string& json_path, const std::string& arrow_path) {
+static Status ConvertJsonToArrow(const std::string& json_path,
+                                 const std::string& arrow_path) {
   std::shared_ptr<io::ReadableFile> in_file;
   std::shared_ptr<io::FileOutputStream> out_file;
 
@@ -89,8 +90,8 @@ static Status ConvertJsonToArrow(
 }
 
 // Convert IPC binary format to JSON
-static Status ConvertArrowToJson(
-    const std::string& arrow_path, const std::string& json_path) {
+static Status ConvertArrowToJson(const std::string& arrow_path,
+                                 const std::string& json_path) {
   std::shared_ptr<io::ReadableFile> in_file;
   std::shared_ptr<io::FileOutputStream> out_file;
 
@@ -116,11 +117,11 @@ static Status ConvertArrowToJson(
   std::string result;
   RETURN_NOT_OK(writer->Finish(&result));
   return out_file->Write(reinterpret_cast<const uint8_t*>(result.c_str()),
-      static_cast<int64_t>(result.size()));
+                         static_cast<int64_t>(result.size()));
 }
 
-static Status ValidateArrowVsJson(
-    const std::string& arrow_path, const std::string& json_path) {
+static Status ValidateArrowVsJson(const std::string& arrow_path,
+                                  const std::string& json_path) {
   // Construct JSON reader
   std::shared_ptr<io::ReadableFile> json_file;
   RETURN_NOT_OK(io::ReadableFile::Open(json_path, &json_file));
@@ -151,7 +152,9 @@ static Status ValidateArrowVsJson(
        << "Arrow schema: \n"
        << arrow_schema->ToString();
 
-    if (FLAGS_verbose) { std::cout << ss.str() << std::endl; }
+    if (FLAGS_verbose) {
+      std::cout << ss.str() << std::endl;
+    }
     return Status::Invalid("Schemas did not match");
   }
 
@@ -188,10 +191,14 @@ static Status ValidateArrowVsJson(
 }
 
 Status RunCommand(const std::string& json_path, const std::string& arrow_path,
-    const std::string& command) {
-  if (json_path == "") { return Status::Invalid("Must specify json file name"); }
+                  const std::string& command) {
+  if (json_path == "") {
+    return Status::Invalid("Must specify json file name");
+  }
 
-  if (arrow_path == "") { return Status::Invalid("Must specify arrow file name"); }
+  if (arrow_path == "") {
+    return Status::Invalid("Must specify arrow file name");
+  }
 
   if (command == "ARROW_TO_JSON") {
     if (!file_exists(arrow_path.c_str())) {
@@ -240,8 +247,8 @@ class TestJSONIntegration : public ::testing::Test {
     do {
       std::shared_ptr<io::FileOutputStream> out;
       RETURN_NOT_OK(io::FileOutputStream::Open(path, &out));
-      RETURN_NOT_OK(out->Write(
-          reinterpret_cast<const uint8_t*>(data), static_cast<int64_t>(strlen(data))));
+      RETURN_NOT_OK(out->Write(reinterpret_cast<const uint8_t*>(data),
+                               static_cast<int64_t>(strlen(data))));
     } while (0);
     return Status::OK();
   }

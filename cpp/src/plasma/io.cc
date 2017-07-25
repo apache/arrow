@@ -38,7 +38,9 @@ Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
      * advance the cursor, and decrease the amount left to write. */
     nbytes = write(fd, cursor + offset, bytesleft);
     if (nbytes < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) { continue; }
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      }
       return Status::IOError(std::string(strerror(errno)));
     } else if (nbytes == 0) {
       return Status::IOError("Encountered unexpected EOF");
@@ -67,7 +69,9 @@ Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
   while (bytesleft > 0) {
     nbytes = read(fd, cursor + offset, bytesleft);
     if (nbytes < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) { continue; }
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      }
       return Status::IOError(std::string(strerror(errno)));
     } else if (0 == nbytes) {
       return Status::IOError("Encountered unexpected EOF");
@@ -83,14 +87,16 @@ Status ReadBytes(int fd, uint8_t* cursor, size_t length) {
 Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
   int64_t version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&version), sizeof(version)),
-      *type = DISCONNECT_CLIENT);
+                     *type = DISCONNECT_CLIENT);
   ARROW_CHECK(version == PLASMA_PROTOCOL_VERSION) << "version = " << version;
   size_t length;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
-      *type = DISCONNECT_CLIENT);
+                     *type = DISCONNECT_CLIENT);
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&length), sizeof(length)),
-      *type = DISCONNECT_CLIENT);
-  if (length > buffer->size()) { buffer->resize(length); }
+                     *type = DISCONNECT_CLIENT);
+  if (length > buffer->size()) {
+    buffer->resize(length);
+  }
   RETURN_NOT_OK_ELSE(ReadBytes(fd, buffer->data(), length), *type = DISCONNECT_CLIENT);
   return Status::OK();
 }
@@ -105,7 +111,7 @@ int bind_ipc_sock(const std::string& pathname, bool shall_listen) {
   /* Tell the system to allow the port to be reused. */
   int on = 1;
   if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&on),
-          sizeof(on)) < 0) {
+                 sizeof(on)) < 0) {
     ARROW_LOG(ERROR) << "setsockopt failed for pathname " << pathname;
     close(socket_fd);
     return -1;
@@ -134,16 +140,22 @@ int bind_ipc_sock(const std::string& pathname, bool shall_listen) {
   return socket_fd;
 }
 
-int connect_ipc_sock_retry(
-    const std::string& pathname, int num_retries, int64_t timeout) {
+int connect_ipc_sock_retry(const std::string& pathname, int num_retries,
+                           int64_t timeout) {
   /* Pick the default values if the user did not specify. */
-  if (num_retries < 0) { num_retries = NUM_CONNECT_ATTEMPTS; }
-  if (timeout < 0) { timeout = CONNECT_TIMEOUT_MS; }
+  if (num_retries < 0) {
+    num_retries = NUM_CONNECT_ATTEMPTS;
+  }
+  if (timeout < 0) {
+    timeout = CONNECT_TIMEOUT_MS;
+  }
 
   int fd = -1;
   for (int num_attempts = 0; num_attempts < num_retries; ++num_attempts) {
     fd = connect_ipc_sock(pathname);
-    if (fd >= 0) { break; }
+    if (fd >= 0) {
+      break;
+    }
     if (num_attempts == 0) {
       ARROW_LOG(ERROR) << "Connection to socket failed for pathname " << pathname;
     }
@@ -151,7 +163,9 @@ int connect_ipc_sock_retry(
     usleep(static_cast<int>(timeout * 1000));
   }
   /* If we could not connect to the socket, exit. */
-  if (fd == -1) { ARROW_LOG(FATAL) << "Could not connect to socket " << pathname; }
+  if (fd == -1) {
+    ARROW_LOG(FATAL) << "Could not connect to socket " << pathname;
+  }
   return fd;
 }
 

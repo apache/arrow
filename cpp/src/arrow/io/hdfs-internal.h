@@ -45,22 +45,22 @@ struct LibHdfsShim {
   void (*hdfsBuilderSetNameNode)(hdfsBuilder* bld, const char* nn);
   void (*hdfsBuilderSetNameNodePort)(hdfsBuilder* bld, tPort port);
   void (*hdfsBuilderSetUserName)(hdfsBuilder* bld, const char* userName);
-  void (*hdfsBuilderSetKerbTicketCachePath)(
-      hdfsBuilder* bld, const char* kerbTicketCachePath);
+  void (*hdfsBuilderSetKerbTicketCachePath)(hdfsBuilder* bld,
+                                            const char* kerbTicketCachePath);
   hdfsFS (*hdfsBuilderConnect)(hdfsBuilder* bld);
 
   int (*hdfsDisconnect)(hdfsFS fs);
 
   hdfsFile (*hdfsOpenFile)(hdfsFS fs, const char* path, int flags, int bufferSize,
-      short replication, tSize blocksize);  // NOLINT
+                           short replication, tSize blocksize);  // NOLINT
 
   int (*hdfsCloseFile)(hdfsFS fs, hdfsFile file);
   int (*hdfsExists)(hdfsFS fs, const char* path);
   int (*hdfsSeek)(hdfsFS fs, hdfsFile file, tOffset desiredPos);
   tOffset (*hdfsTell)(hdfsFS fs, hdfsFile file);
   tSize (*hdfsRead)(hdfsFS fs, hdfsFile file, void* buffer, tSize length);
-  tSize (*hdfsPread)(
-      hdfsFS fs, hdfsFile file, tOffset position, void* buffer, tSize length);
+  tSize (*hdfsPread)(hdfsFS fs, hdfsFile file, tOffset position, void* buffer,
+                     tSize length);
   tSize (*hdfsWrite)(hdfsFS fs, hdfsFile file, const void* buffer, tSize length);
   int (*hdfsFlush)(hdfsFS fs, hdfsFile file);
   int (*hdfsAvailable)(hdfsFS fs, hdfsFile file);
@@ -139,7 +139,7 @@ struct LibHdfsShim {
   int Disconnect(hdfsFS fs);
 
   hdfsFile OpenFile(hdfsFS fs, const char* path, int flags, int bufferSize,
-      short replication, tSize blocksize);  // NOLINT
+                    short replication, tSize blocksize);  // NOLINT
 
   int CloseFile(hdfsFS fs, hdfsFile file);
 

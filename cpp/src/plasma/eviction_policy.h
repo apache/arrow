@@ -42,8 +42,8 @@ class LRUCache {
 
   void remove(const ObjectID& key);
 
-  int64_t choose_objects_to_evict(
-      int64_t num_bytes_required, std::vector<ObjectID>* objects_to_evict);
+  int64_t choose_objects_to_evict(int64_t num_bytes_required,
+                                  std::vector<ObjectID>* objects_to_evict);
 
  private:
   /// A doubly-linked list containing the items in the cache and
@@ -95,8 +95,8 @@ class EvictionPolicy {
   /// @param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
   /// @return Void.
-  void begin_object_access(
-      const ObjectID& object_id, std::vector<ObjectID>* objects_to_evict);
+  void begin_object_access(const ObjectID& object_id,
+                           std::vector<ObjectID>* objects_to_evict);
 
   /// This method will be called whenever an object in the Plasma store that was
   /// being used is no longer being used. When this method is called, the
@@ -107,8 +107,8 @@ class EvictionPolicy {
   /// @param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
   /// @return Void.
-  void end_object_access(
-      const ObjectID& object_id, std::vector<ObjectID>* objects_to_evict);
+  void end_object_access(const ObjectID& object_id,
+                         std::vector<ObjectID>* objects_to_evict);
 
   /// Choose some objects to evict from the Plasma store. When this method is
   /// called, the eviction policy will assume that the objects chosen to be
@@ -121,8 +121,8 @@ class EvictionPolicy {
   /// @param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
   /// @return The total number of bytes of space chosen to be evicted.
-  int64_t choose_objects_to_evict(
-      int64_t num_bytes_required, std::vector<ObjectID>* objects_to_evict);
+  int64_t choose_objects_to_evict(int64_t num_bytes_required,
+                                  std::vector<ObjectID>* objects_to_evict);
 
  private:
   /// The amount of memory (in bytes) currently being used.
@@ -133,6 +133,6 @@ class EvictionPolicy {
   LRUCache cache_;
 };
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif  // PLASMA_EVICTION_POLICY_H

@@ -85,7 +85,7 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<RecordBatchStreamWriter>* out);
+                     std::shared_ptr<RecordBatchStreamWriter>* out);
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
@@ -113,7 +113,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      std::shared_ptr<RecordBatchFileWriter>* out);
+                     std::shared_ptr<RecordBatchFileWriter>* out);
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
@@ -145,14 +145,16 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
 Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
-    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, MemoryPool* pool, int max_recursion_depth = kMaxNestingDepth,
-    bool allow_64bit = false);
+                                     int64_t buffer_start_offset, io::OutputStream* dst,
+                                     int32_t* metadata_length, int64_t* body_length,
+                                     MemoryPool* pool,
+                                     int max_recursion_depth = kMaxNestingDepth,
+                                     bool allow_64bit = false);
 
 // Write Array as a DictionaryBatch message
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, MemoryPool* pool);
+                       int64_t buffer_start_offset, io::OutputStream* dst,
+                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
@@ -166,13 +168,14 @@ Status ARROW_EXPORT GetTensorSize(const Tensor& tensor, int64_t* size);
 /// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
 /// may not be readable by all Arrow implementations
 Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
-    int64_t buffer_start_offset, io::OutputStream* dst, int32_t* metadata_length,
-    int64_t* body_length, MemoryPool* pool);
+                                          int64_t buffer_start_offset,
+                                          io::OutputStream* dst, int32_t* metadata_length,
+                                          int64_t* body_length, MemoryPool* pool);
 
 /// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 /// <metadata size><metadata><tensor data>
 Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
-    int32_t* metadata_length, int64_t* body_length);
+                                int32_t* metadata_length, int64_t* body_length);
 
 /// Backwards-compatibility for Arrow < 0.4.0
 ///

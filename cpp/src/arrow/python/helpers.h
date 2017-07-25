@@ -36,16 +36,17 @@ class OwnedRef;
 ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
 Status ARROW_EXPORT ImportModule(const std::string& module_name, OwnedRef* ref);
-Status ARROW_EXPORT ImportFromModule(
-    const OwnedRef& module, const std::string& module_name, OwnedRef* ref);
+Status ARROW_EXPORT ImportFromModule(const OwnedRef& module,
+                                     const std::string& module_name, OwnedRef* ref);
 
 Status ARROW_EXPORT PythonDecimalToString(PyObject* python_decimal, std::string* out);
 
-Status ARROW_EXPORT InferDecimalPrecisionAndScale(
-    PyObject* python_decimal, int* precision = nullptr, int* scale = nullptr);
+Status ARROW_EXPORT InferDecimalPrecisionAndScale(PyObject* python_decimal,
+                                                  int* precision = nullptr,
+                                                  int* scale = nullptr);
 
-Status ARROW_EXPORT DecimalFromString(
-    PyObject* decimal_constructor, const std::string& decimal_string, PyObject** out);
+Status ARROW_EXPORT DecimalFromString(PyObject* decimal_constructor,
+                                      const std::string& decimal_string, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

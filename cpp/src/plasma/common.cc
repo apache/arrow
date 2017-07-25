@@ -41,13 +41,9 @@ UniqueID UniqueID::from_binary(const std::string& binary) {
   return id;
 }
 
-const uint8_t* UniqueID::data() const {
-  return id_;
-}
+const uint8_t* UniqueID::data() const { return id_; }
 
-uint8_t* UniqueID::mutable_data() {
-  return id_;
-}
+uint8_t* UniqueID::mutable_data() { return id_; }
 
 std::string UniqueID::binary() const {
   return std::string(reinterpret_cast<const char*>(id_), kUniqueIDSize);
@@ -87,4 +83,4 @@ Status plasma_error_status(int plasma_error) {
 ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
 ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
 
-} // namespace plasma
+}  // namespace plasma

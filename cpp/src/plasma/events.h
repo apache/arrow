@@ -98,6 +98,6 @@ class EventLoop {
   std::unordered_map<int64_t, std::unique_ptr<TimerCallback>> timer_callbacks_;
 };
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif  // PLASMA_EVENTS

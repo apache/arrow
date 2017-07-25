@@ -69,7 +69,7 @@ class GZipCodec::GZipCodecImpl {
       window_bits += GZIP_CODEC;
     }
     if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits, 9,
-             Z_DEFAULT_STRATEGY)) != Z_OK) {
+                            Z_DEFAULT_STRATEGY)) != Z_OK) {
       std::stringstream ss;
       ss << "zlib deflateInit failed: " << std::string(stream_.msg);
       return Status::IOError(ss.str());
@@ -79,7 +79,9 @@ class GZipCodec::GZipCodecImpl {
   }
 
   void EndCompressor() {
-    if (compressor_initialized_) { (void)deflateEnd(&stream_); }
+    if (compressor_initialized_) {
+      (void)deflateEnd(&stream_);
+    }
     compressor_initialized_ = false;
   }
 
@@ -100,13 +102,17 @@ class GZipCodec::GZipCodecImpl {
   }
 
   void EndDecompressor() {
-    if (decompressor_initialized_) { (void)inflateEnd(&stream_); }
+    if (decompressor_initialized_) {
+      (void)inflateEnd(&stream_);
+    }
     decompressor_initialized_ = false;
   }
 
   Status Decompress(int64_t input_length, const uint8_t* input, int64_t output_length,
-      uint8_t* output) {
-    if (!decompressor_initialized_) { RETURN_NOT_OK(InitDecompressor()); }
+                    uint8_t* output) {
+    if (!decompressor_initialized_) {
+      RETURN_NOT_OK(InitDecompressor());
+    }
     if (output_length == 0) {
       // The zlib library does not allow *output to be NULL, even when output_length
       // is 0 (inflate() will return Z_STREAM_ERROR). We don't consider this an
@@ -168,8 +174,10 @@ class GZipCodec::GZipCodecImpl {
   }
 
   Status Compress(int64_t input_length, const uint8_t* input, int64_t output_buffer_len,
-      uint8_t* output, int64_t* output_length) {
-    if (!compressor_initialized_) { RETURN_NOT_OK(InitCompressor()); }
+                  uint8_t* output, int64_t* output_length) {
+    if (!compressor_initialized_) {
+      RETURN_NOT_OK(InitCompressor());
+    }
     stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
     stream_.avail_in = static_cast<uInt>(input_length);
     stream_.next_out = reinterpret_cast<Bytef*>(output);
@@ -218,14 +226,12 @@ class GZipCodec::GZipCodecImpl {
   bool decompressor_initialized_;
 };
 
-GZipCodec::GZipCodec(Format format) {
-  impl_.reset(new GZipCodecImpl(format));
-}
+GZipCodec::GZipCodec(Format format) { impl_.reset(new GZipCodecImpl(format)); }
 
 GZipCodec::~GZipCodec() {}
 
 Status GZipCodec::Decompress(int64_t input_length, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output) {
+                             int64_t output_buffer_len, uint8_t* output) {
   return impl_->Decompress(input_length, input, output_buffer_len, output);
 }
 
@@ -234,12 +240,11 @@ int64_t GZipCodec::MaxCompressedLen(int64_t input_length, const uint8_t* input) 
 }
 
 Status GZipCodec::Compress(int64_t input_length, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output, int64_t* output_length) {
+                           int64_t output_buffer_len, uint8_t* output,
+                           int64_t* output_length) {
   return impl_->Compress(input_length, input, output_buffer_len, output, output_length);
 }
 
-const char* GZipCodec::name() const {
-  return "gzip";
-}
+const char* GZipCodec::name() const { return "gzip"; }
 
 }  // namespace arrow

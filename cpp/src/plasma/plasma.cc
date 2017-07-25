@@ -27,7 +27,9 @@
 namespace plasma {
 
 int warn_if_sigpipe(int status, int client_sock) {
-  if (status >= 0) { return 0; }
+  if (status >= 0) {
+    return 0;
+  }
   if (errno == EPIPE || errno == EBADF || errno == ECONNRESET) {
     ARROW_LOG(WARNING) << "Received SIGPIPE, BAD FILE DESCRIPTOR, or ECONNRESET when "
                           "sending a message to client on fd "
@@ -58,11 +60,13 @@ uint8_t* create_object_info_buffer(ObjectInfoT* object_info) {
   return notification;
 }
 
-ObjectTableEntry* get_object_table_entry(
-    PlasmaStoreInfo* store_info, const ObjectID& object_id) {
+ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
+                                         const ObjectID& object_id) {
   auto it = store_info->objects.find(object_id);
-  if (it == store_info->objects.end()) { return NULL; }
+  if (it == store_info->objects.end()) {
+    return NULL;
+  }
   return it->second.get();
 }
 
-} // namespace plasma
+}  // namespace plasma

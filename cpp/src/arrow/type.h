@@ -204,15 +204,15 @@ class NoExtraMeta {};
 class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
-      bool nullable = true,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
+        bool nullable = true,
+        const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
   /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-      std::shared_ptr<Field>* out) const;
+                     std::shared_ptr<Field>* out) const;
 
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -489,7 +489,7 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+            const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
   static std::string name() { return "union"; }
@@ -669,7 +669,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DICTIONARY;
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
-      const std::shared_ptr<Array>& dictionary, bool ordered = false);
+                 const std::shared_ptr<Array>& dictionary, bool ordered = false);
 
   int bit_width() const override;
 
@@ -699,7 +699,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
   virtual ~Schema() = default;
 
   /// Returns true if all of the schema fields are equal
@@ -724,13 +724,13 @@ class ARROW_EXPORT Schema {
   /// \brief Render a string representation of the schema suitable for debugging
   std::string ToString() const;
 
-  Status AddField(
-      int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const;
+  Status AddField(int i, const std::shared_ptr<Field>& field,
+                  std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
   /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-      std::shared_ptr<Schema>* out) const;
+                     std::shared_ptr<Schema>* out) const;
 
   /// \brief Replace key-value metadata with new metadata
   ///
@@ -761,8 +761,8 @@ std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
 
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(
-    TimeUnit::type unit, const std::string& timezone);
+std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit,
+                                                 const std::string& timezone);
 
 /// Unit can be either SECOND or MILLI
 std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
@@ -770,18 +770,18 @@ std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 /// Unit can be either MICRO or NANO
 std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
-std::shared_ptr<DataType> ARROW_EXPORT struct_(
-    const std::vector<std::shared_ptr<Field>>& fields);
+std::shared_ptr<DataType> ARROW_EXPORT
+struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-std::shared_ptr<DataType> ARROW_EXPORT union_(
-    const std::vector<std::shared_ptr<Field>>& child_fields,
-    const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
 std::shared_ptr<DataType> ARROW_EXPORT dictionary(
     const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
 
-std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
-    const std::shared_ptr<DataType>& type, bool nullable = true,
+std::shared_ptr<Field> ARROW_EXPORT field(
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------

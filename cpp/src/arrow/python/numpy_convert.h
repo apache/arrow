@@ -63,8 +63,8 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
 ARROW_EXPORT
 Status GetNumPyType(const DataType& type, int* type_num);
 
-ARROW_EXPORT Status NdarrayToTensor(
-    MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* out);
+ARROW_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
+                                    std::shared_ptr<Tensor>* out);
 
 ARROW_EXPORT Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out);
 

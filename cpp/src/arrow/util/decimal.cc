@@ -21,8 +21,8 @@ namespace arrow {
 namespace decimal {
 
 template <typename T>
-ARROW_EXPORT Status FromString(
-    const std::string& s, Decimal<T>* out, int* precision, int* scale) {
+ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* precision,
+                               int* scale) {
   // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?";
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
@@ -34,7 +34,9 @@ ARROW_EXPORT Status FromString(
 
   char first_char = *charp;
   if (first_char == '+' || first_char == '-') {
-    if (first_char == '-') { sign = -1; }
+    if (first_char == '-') {
+      sign = -1;
+    }
     ++charp;
   }
 
@@ -55,7 +57,9 @@ ARROW_EXPORT Status FromString(
 
   // all zeros and no decimal point
   if (charp == end) {
-    if (out != nullptr) { out->value = static_cast<T>(0); }
+    if (out != nullptr) {
+      out->value = static_cast<T>(0);
+    }
 
     // Not sure what other libraries assign precision to for this case (this case of
     // a string consisting only of one or more zeros)
@@ -63,7 +67,9 @@ ARROW_EXPORT Status FromString(
       *precision = static_cast<int>(charp - numeric_string_start);
     }
 
-    if (scale != nullptr) { *scale = 0; }
+    if (scale != nullptr) {
+      *scale = 0;
+    }
 
     return Status::OK();
   }
@@ -127,22 +133,26 @@ ARROW_EXPORT Status FromString(
     *precision = static_cast<int>(whole_part.size() + fractional_part.size());
   }
 
-  if (scale != nullptr) { *scale = static_cast<int>(fractional_part.size()); }
+  if (scale != nullptr) {
+    *scale = static_cast<int>(fractional_part.size());
+  }
 
-  if (out != nullptr) { StringToInteger(whole_part, fractional_part, sign, &out->value); }
+  if (out != nullptr) {
+    StringToInteger(whole_part, fractional_part, sign, &out->value);
+  }
 
   return Status::OK();
 }
 
-template ARROW_EXPORT Status FromString(
-    const std::string& s, Decimal32* out, int* precision, int* scale);
-template ARROW_EXPORT Status FromString(
-    const std::string& s, Decimal64* out, int* precision, int* scale);
-template ARROW_EXPORT Status FromString(
-    const std::string& s, Decimal128* out, int* precision, int* scale);
+template ARROW_EXPORT Status FromString(const std::string& s, Decimal32* out,
+                                        int* precision, int* scale);
+template ARROW_EXPORT Status FromString(const std::string& s, Decimal64* out,
+                                        int* precision, int* scale);
+template ARROW_EXPORT Status FromString(const std::string& s, Decimal128* out,
+                                        int* precision, int* scale);
 
-void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int32_t* out) {
+void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
+                     int32_t* out) {
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
@@ -150,12 +160,14 @@ void StringToInteger(
     *out = std::stoi(whole, nullptr, 10) *
            static_cast<int32_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
-  if (!fractional.empty()) { *out += std::stoi(fractional, nullptr, 10); }
+  if (!fractional.empty()) {
+    *out += std::stoi(fractional, nullptr, 10);
+  }
   *out *= sign;
 }
 
-void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int64_t* out) {
+void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
+                     int64_t* out) {
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
@@ -163,12 +175,14 @@ void StringToInteger(
     *out = static_cast<int64_t>(std::stoll(whole, nullptr, 10)) *
            static_cast<int64_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
-  if (!fractional.empty()) { *out += std::stoll(fractional, nullptr, 10); }
+  if (!fractional.empty()) {
+    *out += std::stoll(fractional, nullptr, 10);
+  }
   *out *= sign;
 }
 
-void StringToInteger(
-    const std::string& whole, const std::string& fractional, int8_t sign, int128_t* out) {
+void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
+                     int128_t* out) {
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
@@ -200,7 +214,9 @@ void FromBytes(const uint8_t* bytes, bool is_negative, Decimal128* decimal) {
   int128_t::backend_type& backend(decimal_value.backend());
   backend.resize(LIMBS_IN_INT128, LIMBS_IN_INT128);
   std::memcpy(backend.limbs(), bytes, BYTES_IN_128_BITS);
-  if (is_negative) { decimal->value = -decimal->value; }
+  if (is_negative) {
+    decimal->value = -decimal->value;
+  }
 }
 
 void ToBytes(const Decimal32& value, uint8_t** bytes) {

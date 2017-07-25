@@ -35,7 +35,9 @@
 namespace arrow {
 
 static void EnsureCpuInfoInitialized() {
-  if (!CpuInfo::initialized()) { CpuInfo::Init(); }
+  if (!CpuInfo::initialized()) {
+    CpuInfo::Init();
+  }
 }
 
 TEST(BitUtilTests, TestIsMultipleOf64) {
@@ -68,11 +70,13 @@ TEST(BitUtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
 }
 
-static inline int64_t SlowCountBits(
-    const uint8_t* data, int64_t bit_offset, int64_t length) {
+static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
+                                    int64_t length) {
   int64_t count = 0;
   for (int64_t i = bit_offset; i < bit_offset + length; ++i) {
-    if (BitUtil::GetBit(data, i)) { ++count; }
+    if (BitUtil::GetBit(data, i)) {
+      ++count;
+    }
   }
   return count;
 }
@@ -175,9 +179,9 @@ TEST(BitUtil, TrailingBits) {
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 0), 0);
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 1), 1);
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 64),
-      BOOST_BINARY(1 1 1 1 1 1 1 1));
+            BOOST_BINARY(1 1 1 1 1 1 1 1));
   EXPECT_EQ(BitUtil::TrailingBits(BOOST_BINARY(1 1 1 1 1 1 1 1), 100),
-      BOOST_BINARY(1 1 1 1 1 1 1 1));
+            BOOST_BINARY(1 1 1 1 1 1 1 1));
   EXPECT_EQ(BitUtil::TrailingBits(0, 1), 0);
   EXPECT_EQ(BitUtil::TrailingBits(0, 64), 0);
   EXPECT_EQ(BitUtil::TrailingBits(1LL << 63, 0), 0);
@@ -193,12 +197,12 @@ TEST(BitUtil, ByteSwap) {
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<int32_t>(0x11223344)), 0x44332211);
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint64_t>(0)), 0);
-  EXPECT_EQ(
-      BitUtil::ByteSwap(static_cast<uint64_t>(0x1122334455667788)), 0x8877665544332211);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint64_t>(0x1122334455667788)),
+            0x8877665544332211);
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<int64_t>(0)), 0);
-  EXPECT_EQ(
-      BitUtil::ByteSwap(static_cast<int64_t>(0x1122334455667788)), 0x8877665544332211);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int64_t>(0x1122334455667788)),
+            0x8877665544332211);
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<int16_t>(0)), 0);
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<int16_t>(0x1122)), 0x2211);
