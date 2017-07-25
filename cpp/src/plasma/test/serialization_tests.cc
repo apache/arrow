@@ -246,7 +246,7 @@ TEST(PlasmaSerialization, StatusReply) {
   int object_statuses[2] = {42, 43};
   ARROW_CHECK_OK(SendStatusReply(fd, object_ids, object_statuses, 2));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaStatusReply);
-  int64_t num_objects = ReadStatusReply_num_objects(data.data());
+  int64_t num_objects = ReadStatusReply_num_objects(data.data(), data.size());
   ObjectID object_ids_read[num_objects];
   int object_statuses_read[num_objects];
   ARROW_CHECK_OK(
