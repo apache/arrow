@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <Python.h>
+#include <datetime.h>
 
 // Work around C2528 error
 #if _MSC_VER >= 1900

@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <datetime.h>
 #include "arrow/python/platform.h"
-
 #include "arrow/python/config.h"
 
 namespace arrow {
