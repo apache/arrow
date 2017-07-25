@@ -225,7 +225,6 @@ In-Memory Object Store
    ObjectID
    PlasmaClient
    PlasmaBuffer
-   MutablePlasmaBuffer
 
 .. currentmodule:: pyarrow.parquet
 
