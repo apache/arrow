@@ -544,7 +544,8 @@ cdef class PlasmaClient:
 
 def connect(store_socket_name, manager_socket_name, int release_delay):
     """
-    Conect the PlasmaClient to a plasma store and optionally a manager.
+    Return a new PlasmaClient that is connected a plasma store and
+    optionally a manager.
 
     Parameters
     ----------
@@ -557,12 +558,9 @@ def connect(store_socket_name, manager_socket_name, int release_delay):
         delay releasing (for caching reasons).
     """
     cdef PlasmaClient result = PlasmaClient()
-    cdef shared_ptr[CPlasmaClient] client = result.client
-    cdef c_string store_socket_name_str = store_socket_name.encode()
-    cdef c_string manager_socket_name_str = manager_socket_name.encode()
-    result.store_socket_name = store_socket_name_str
-    result.manager_socket_name = manager_socket_name_str
+    result.store_socket_name = store_socket_name.encode()
+    result.manager_socket_name = manager_socket_name.encode()
     with nogil:
-        check_status(client.get().Connect(store_socket_name_str,
-                     manager_socket_name_str, release_delay))
+        check_status(result.client.get().Connect(result.store_socket_name,
+                     result.manager_socket_name, release_delay))
     return result
