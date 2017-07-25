@@ -81,7 +81,7 @@ TEST(PlasmaSerialization, CreateRequest) {
   int64_t data_size2;
   int64_t metadata_size2;
   ARROW_CHECK_OK(
-      ReadCreateRequest(data.data(), &object_id2, &data_size2, &metadata_size2));
+      ReadCreateRequest(data.data(), data.size(), &object_id2, &data_size2, &metadata_size2));
   ASSERT_EQ(data_size1, data_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
   ASSERT_EQ(object_id1, object_id2);
@@ -97,7 +97,7 @@ TEST(PlasmaSerialization, CreateReply) {
   ObjectID object_id2;
   PlasmaObject object2;
   memset(&object2, 0, sizeof(object2));
-  ARROW_CHECK_OK(ReadCreateReply(data.data(), &object_id2, &object2));
+  ARROW_CHECK_OK(ReadCreateReply(data.data(), data.size(), &object_id2, &object2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(memcmp(&object1, &object2, sizeof(object1)), 0);
   close(fd);
@@ -112,7 +112,7 @@ TEST(PlasmaSerialization, SealRequest) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaSealRequest);
   ObjectID object_id2;
   unsigned char digest2[kDigestSize];
-  ARROW_CHECK_OK(ReadSealRequest(data.data(), &object_id2, &digest2[0]));
+  ARROW_CHECK_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0]));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(memcmp(&digest1[0], &digest2[0], kDigestSize), 0);
   close(fd);
@@ -124,7 +124,7 @@ TEST(PlasmaSerialization, SealReply) {
   ARROW_CHECK_OK(SendSealReply(fd, object_id1, PlasmaError_ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaSealReply);
   ObjectID object_id2;
-  Status s = ReadSealReply(data.data(), &object_id2);
+  Status s = ReadSealReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_TRUE(s.IsPlasmaObjectExists());
   close(fd);
@@ -140,7 +140,7 @@ TEST(PlasmaSerialization, GetRequest) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaGetRequest);
   std::vector<ObjectID> object_ids_return;
   int64_t timeout_ms_return;
-  ARROW_CHECK_OK(ReadGetRequest(data.data(), object_ids_return, &timeout_ms_return));
+  ARROW_CHECK_OK(ReadGetRequest(data.data(), data.size(), object_ids_return, &timeout_ms_return));
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(timeout_ms, timeout_ms_return);
@@ -161,7 +161,7 @@ TEST(PlasmaSerialization, GetReply) {
   PlasmaObject plasma_objects_return[2];
   memset(&plasma_objects_return, 0, sizeof(plasma_objects_return));
   ARROW_CHECK_OK(
-      ReadGetReply(data.data(), object_ids_return, &plasma_objects_return[0], 2));
+      ReadGetReply(data.data(), data.size(), object_ids_return, &plasma_objects_return[0], 2));
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
@@ -180,7 +180,7 @@ TEST(PlasmaSerialization, ReleaseRequest) {
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType_PlasmaReleaseRequest);
   ObjectID object_id2;
-  ARROW_CHECK_OK(ReadReleaseRequest(data.data(), &object_id2));
+  ARROW_CHECK_OK(ReadReleaseRequest(data.data(), data.size(), &object_id2));
   ASSERT_EQ(object_id1, object_id2);
   close(fd);
 }
@@ -191,7 +191,7 @@ TEST(PlasmaSerialization, ReleaseReply) {
   ARROW_CHECK_OK(SendReleaseReply(fd, object_id1, PlasmaError_ObjectExists));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaReleaseReply);
   ObjectID object_id2;
-  Status s = ReadReleaseReply(data.data(), &object_id2);
+  Status s = ReadReleaseReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_TRUE(s.IsPlasmaObjectExists());
   close(fd);
@@ -203,7 +203,7 @@ TEST(PlasmaSerialization, DeleteRequest) {
   ARROW_CHECK_OK(SendDeleteRequest(fd, object_id1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaDeleteRequest);
   ObjectID object_id2;
-  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), &object_id2));
+  ARROW_CHECK_OK(ReadDeleteRequest(data.data(), data.size(), &object_id2));
   ASSERT_EQ(object_id1, object_id2);
   close(fd);
 }
@@ -215,7 +215,7 @@ TEST(PlasmaSerialization, DeleteReply) {
   ARROW_CHECK_OK(SendDeleteReply(fd, object_id1, error1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaDeleteReply);
   ObjectID object_id2;
-  Status s = ReadDeleteReply(data.data(), &object_id2);
+  Status s = ReadDeleteReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_TRUE(s.IsPlasmaObjectExists());
   close(fd);
@@ -230,7 +230,7 @@ TEST(PlasmaSerialization, StatusRequest) {
   ARROW_CHECK_OK(SendStatusRequest(fd, object_ids, num_objects));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaStatusRequest);
   ObjectID object_ids_read[num_objects];
-  ARROW_CHECK_OK(ReadStatusRequest(data.data(), object_ids_read, num_objects));
+  ARROW_CHECK_OK(ReadStatusRequest(data.data(), data.size(), object_ids_read, num_objects));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   close(fd);
@@ -248,7 +248,7 @@ TEST(PlasmaSerialization, StatusReply) {
   ObjectID object_ids_read[num_objects];
   int object_statuses_read[num_objects];
   ARROW_CHECK_OK(
-      ReadStatusReply(data.data(), object_ids_read, object_statuses_read, num_objects));
+      ReadStatusReply(data.data(), data.size(), object_ids_read, object_statuses_read, num_objects));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   ASSERT_EQ(object_statuses[0], object_statuses_read[0]);
@@ -262,7 +262,7 @@ TEST(PlasmaSerialization, EvictRequest) {
   ARROW_CHECK_OK(SendEvictRequest(fd, num_bytes));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaEvictRequest);
   int64_t num_bytes_received;
-  ARROW_CHECK_OK(ReadEvictRequest(data.data(), &num_bytes_received));
+  ARROW_CHECK_OK(ReadEvictRequest(data.data(), data.size(), &num_bytes_received));
   ASSERT_EQ(num_bytes, num_bytes_received);
   close(fd);
 }
@@ -273,7 +273,7 @@ TEST(PlasmaSerialization, EvictReply) {
   ARROW_CHECK_OK(SendEvictReply(fd, num_bytes));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaEvictReply);
   int64_t num_bytes_received;
-  ARROW_CHECK_OK(ReadEvictReply(data.data(), num_bytes_received));
+  ARROW_CHECK_OK(ReadEvictReply(data.data(), data.size(), num_bytes_received));
   ASSERT_EQ(num_bytes, num_bytes_received);
   close(fd);
 }
@@ -286,7 +286,7 @@ TEST(PlasmaSerialization, FetchRequest) {
   ARROW_CHECK_OK(SendFetchRequest(fd, object_ids, 2));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaFetchRequest);
   std::vector<ObjectID> object_ids_read;
-  ARROW_CHECK_OK(ReadFetchRequest(data.data(), object_ids_read));
+  ARROW_CHECK_OK(ReadFetchRequest(data.data(), data.size(), object_ids_read));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   close(fd);
@@ -309,7 +309,7 @@ TEST(PlasmaSerialization, WaitRequest) {
   int64_t timeout_ms_read;
   ObjectRequestMap object_requests_out;
   ARROW_CHECK_OK(ReadWaitRequest(
-      data.data(), object_requests_out, &timeout_ms_read, &num_ready_objects_out));
+      data.data(), data.size(), object_requests_out, &timeout_ms_read, &num_ready_objects_out));
   ASSERT_EQ(num_objects_in, object_requests_out.size());
   ASSERT_EQ(num_ready_objects_out, num_ready_objects_in);
   for (int i = 0; i < num_objects_in; i++) {
@@ -338,7 +338,7 @@ TEST(PlasmaSerialization, WaitReply) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaWaitReply);
   ObjectRequest objects_out[2];
   int num_objects_out;
-  ARROW_CHECK_OK(ReadWaitReply(data.data(), &objects_out[0], &num_objects_out));
+  ARROW_CHECK_OK(ReadWaitReply(data.data(), data.size(), &objects_out[0], &num_objects_out));
   ASSERT_EQ(num_objects_in, num_objects_out);
   for (int i = 0; i < num_objects_out; i++) {
     /* Each object request must appear exactly once. */
@@ -362,7 +362,7 @@ TEST(PlasmaSerialization, DataRequest) {
   ObjectID object_id2;
   char* address2;
   int port2;
-  ARROW_CHECK_OK(ReadDataRequest(data.data(), &object_id2, &address2, &port2));
+  ARROW_CHECK_OK(ReadDataRequest(data.data(), data.size(), &object_id2, &address2, &port2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(strcmp(address1, address2), 0);
   ASSERT_EQ(port1, port2);
@@ -381,7 +381,7 @@ TEST(PlasmaSerialization, DataReply) {
   ObjectID object_id2;
   int64_t object_size2;
   int64_t metadata_size2;
-  ARROW_CHECK_OK(ReadDataReply(data.data(), &object_id2, &object_size2, &metadata_size2));
+  ARROW_CHECK_OK(ReadDataReply(data.data(), data.size(), &object_id2, &object_size2, &metadata_size2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(object_size1, object_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
