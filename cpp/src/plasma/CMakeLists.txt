@@ -88,13 +88,20 @@ ADD_ARROW_LIB(plasma
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
 set_source_files_properties(malloc.cc PROPERTIES
-  COMPILE_FLAGS "-Wno-error -O3")
+  COMPILE_FLAGS "-O3")
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE malloc.cc
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
     " -Wno-parentheses-equality -Wno-shorten-64-to-32")
+endif()
+
+if ("${COMPILER_FAMILY}" STREQUAL "gcc")
+  set_property(SOURCE malloc.cc
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS
+    " -Wno-conversion")
 endif()
 
 add_executable(plasma_store store.cc)
