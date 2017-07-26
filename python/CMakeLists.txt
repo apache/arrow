@@ -90,79 +90,16 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Cython warnings in clang
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality -Wno-constant-logical-operand")
-endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
 
-set(PYARROW_LINK "a")
+  # We have public Cython APIs which return C++ types, which are in an extern
+  # "C" blog (no symbol mangling) and clang doesn't like this
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+endif()
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
-
-# Code coverage
-if ("${PYARROW_GENERATE_COVERAGE}")
-  if("${CMAKE_CXX_COMPILER}" MATCHES ".*clang.*")
-    # There appears to be some bugs in clang 3.3 which cause code coverage
-    # to have link errors, not locating the llvm_gcda_* symbols.
-    # This should be fixed in llvm 3.4 with http://llvm.org/viewvc/llvm-project?view=revision&revision=184666
-    message(SEND_ERROR "Cannot currently generate coverage with clang")
-  endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
-
-  # For coverage to work properly, we need to use static linkage. Otherwise,
-  # __gcov_flush() doesn't properly flush coverage from every module.
-  # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if("${PYARROW_LINK}" STREQUAL "a")
-    message("Using static linking for coverage build")
-    set(PYARROW_LINK "s")
-  elseif("${PYARROW_LINK}" STREQUAL "d")
-    message(SEND_ERROR "Cannot use coverage with static linking")
-  endif()
-endif()
-
-# If we still don't know what kind of linking to perform, choose based on
-# build type (developers like fast builds).
-if ("${PYARROW_LINK}" STREQUAL "a")
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR
-      "${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-    message("Using dynamic linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "d")
-  else()
-    message("Using static linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "s")
-  endif()
-endif()
-
-# Are we using the gold linker? It doesn't work with dynamic linking as
-# weak symbols aren't properly overridden, causing tcmalloc to be omitted.
-# Let's flag this as an error in RELEASE builds (we shouldn't release a
-# product like this).
-#
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=16979 for details.
-#
-# The gold linker is only for ELF binaries, which OSX doesn't use. We can
-# just skip.
-if (NOT APPLE AND NOT MSVC)
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -Wl,--version OUTPUT_VARIABLE LINKER_OUTPUT)
-endif ()
-
-if (LINKER_OUTPUT MATCHES "gold")
-  if ("${PYARROW_LINK}" STREQUAL "d" AND
-      "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    message(SEND_ERROR "Cannot use gold with dynamic linking in a RELEASE build "
-      "as it would cause tcmalloc symbols to get dropped")
-  else()
-    message("Using gold linker")
-  endif()
-  set(PYARROW_USING_GOLD 1)
-else()
-  message("Using ld linker")
-endif()
-
-# Having set PYARROW_LINK due to build type and/or sanitizer, it's now safe to
-# act on its value.
-if ("${PYARROW_LINK}" STREQUAL "d")
-  set(BUILD_SHARED_LIBS ON)
-endif()
 
 # set compile output directory
 string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
