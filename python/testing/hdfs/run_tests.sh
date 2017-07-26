@@ -28,7 +28,14 @@ source $HERE/../functions.sh
 git clone https://github.com/apache/arrow.git $ARROW_CHECKOUT
 
 use_clang
+
+bootstrap_python_env 3.6
+
 build_arrow
 build_parquet
 
+build_pyarrow
+
 $ARROW_CPP_BUILD_DIR/debug/io-hdfs-test
+
+python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet --hdfs

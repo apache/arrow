@@ -22,3 +22,4 @@ set -ex
 docker build -t arrow-hdfs-test -f hdfs/Dockerfile .
 bash hdfs/restart_docker_container.sh
 docker exec -it arrow-hdfs /io/hdfs/run_tests.sh
+docker stop arrow-hdfs

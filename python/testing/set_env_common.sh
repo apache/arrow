@@ -48,7 +48,6 @@ export PARQUET_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
 export BOOST_ROOT=$CPP_TOOLCHAIN
 export PATH=$CPP_TOOLCHAIN/bin:$PATH
 export LD_LIBRARY_PATH=$CPP_TOOLCHAIN/lib:$LD_LIBRARY_PATH
-export MAKE=ninja
 
 export VALGRIND="valgrind --tool=memcheck"
 

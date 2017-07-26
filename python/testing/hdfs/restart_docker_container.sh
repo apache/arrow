@@ -29,6 +29,7 @@ docker rm $ARROW_TEST_NN_HOST
 docker run -d -it --name $ARROW_TEST_NN_HOST \
        -v $PWD:/io \
        --hostname $ARROW_TEST_NN_HOST \
+       --shm-size=2gb \
        -p $ARROW_TEST_WEBHDFS_PORT -p $ARROW_TEST_IMPALA_PORT \
        arrow-hdfs-test
 
