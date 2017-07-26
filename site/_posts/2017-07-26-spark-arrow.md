@@ -24,7 +24,7 @@ limitations under the License.
 {% endcomment %}
 -->
 
-* [Bryan Cutler][11] is a software engineer at IBM's Spark Technology Center [STC][12] *
+*[Bryan Cutler][11] is a software engineer at IBM's Spark Technology Center [STC][12]*
 
 Beginning with [Apache Spark][1] version 2.3, [Apache Arrow][2] will be a supported
 dependency and begin to offer increased performance with columnar data transfer.
@@ -42,8 +42,8 @@ format and sent to a Python worker process. This child process unpickles each ro
 a huge list of tuples. Finally, a Pandas DataFrame is created from the list using
 `pandas.DataFrame.from_records()`.
 
-This all might seem like standard procedure, but suffers from 2 glaring issues:
-1) even using CPickle, Python serialization is a slow process and 2) creating
+This all might seem like standard procedure, but suffers from 2 glaring issues: 1)
+even using CPickle, Python serialization is a slow process and 2) creating
 a `pandas.DataFrame` using `from_records` must slowly iterate over the list of pure
 Python data and convert each value to Pandas format. See [here][4] for a detailed
 analysis.
@@ -52,7 +52,7 @@ Here is where Arrow really shines to help optimize these steps: 1) Once the data
 in Arrow memory format, there is no need to serialize/pickle anymore as Arrow data can
 be sent directly to the Python process, 2) When the Arrow data is received in Python,
 then pyarrow can utilize zero-copy methods to create a `pandas.DataFrame` from entire
-chunks of data at once instead of processing individual scalar values. Additionaly,
+chunks of data at once instead of processing individual scalar values. Additionally,
 the conversion to Arrow data can be done on the JVM and pushed back for the Spark
 executors to perform in parallel, drastically reducing the load on the driver.
 
@@ -105,7 +105,7 @@ max    4.194303e+06  9.999996e-01
 
 This example was run locally on my laptop using Spark defaults so the times
 shown should not be taken precisely. Even though, it is clear there is a huge
-performance boost and using Arrow took something that was excrutiatingly slow
+performance boost and using Arrow took something that was excruciatingly slow
 and speeds it up to be barely noticeable.
 
 # Notes on Usage
