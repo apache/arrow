@@ -28,7 +28,7 @@ public class StateTool {
         return;
       }
     }
-    throw new IllegalArgumentException(String.format("Expected to be in one of these states %s but was actuall in state %s", Arrays.toString(expectedStates), currentState));
+    throw new IllegalArgumentException(String.format("Expected to be in one of these states %s but was actually in state %s", Arrays.toString(expectedStates), currentState));
   }
 
 }
