@@ -164,7 +164,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_VERBOSE_THIRDPARTY_BUILD
     "If off, output from ExternalProjects will be logged to files rather than shown"
-    OFF)
+    ON)
 
   if (MSVC)
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
