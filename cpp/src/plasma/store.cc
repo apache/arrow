@@ -553,6 +553,7 @@ Status PlasmaStore::process_message(Client* client) {
   ARROW_CHECK(s.ok() || s.IsIOError());
 
   uint8_t* input = input_buffer_.data();
+  size_t input_size = input_buffer_.size();
   ObjectID object_id;
   PlasmaObject object;
   // TODO(pcm): Get rid of the following.
@@ -563,7 +564,8 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
-      RETURN_NOT_OK(ReadCreateRequest(input, &object_id, &data_size, &metadata_size));
+      RETURN_NOT_OK(
+          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
       HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
@@ -575,15 +577,15 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
       int64_t timeout_ms;
-      RETURN_NOT_OK(ReadGetRequest(input, object_ids_to_get, &timeout_ms));
+      RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       process_get_request(client, object_ids_to_get, timeout_ms);
     } break;
     case MessageType_PlasmaReleaseRequest:
-      RETURN_NOT_OK(ReadReleaseRequest(input, &object_id));
+      RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       release_object(object_id, client);
       break;
     case MessageType_PlasmaContainsRequest:
-      RETURN_NOT_OK(ReadContainsRequest(input, &object_id));
+      RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (contains_object(object_id) == OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
@@ -592,13 +594,13 @@ Status PlasmaStore::process_message(Client* client) {
       break;
     case MessageType_PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, &object_id, &digest[0]));
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
       seal_object(object_id, &digest[0]);
     } break;
     case MessageType_PlasmaEvictRequest: {
       // This code path should only be used for testing.
       int64_t num_bytes;
-      RETURN_NOT_OK(ReadEvictRequest(input, &num_bytes));
+      RETURN_NOT_OK(ReadEvictRequest(input, input_size, &num_bytes));
       std::vector<ObjectID> objects_to_evict;
       int64_t num_bytes_evicted =
           eviction_policy_.choose_objects_to_evict(num_bytes, &objects_to_evict);
@@ -688,9 +690,8 @@ int main(int argc, char* argv[]) {
   close(shm_fd);
   if (system_memory > shm_mem_avail) {
     ARROW_LOG(FATAL) << "System memory request exceeds memory available in /dev/shm. The "
-                        "request is for "
-                     << system_memory << " bytes, and the amount available is "
-                     << shm_mem_avail
+                        "request is for " << system_memory
+                     << " bytes, and the amount available is " << shm_mem_avail
                      << " bytes. You may be able to free up space by deleting files in "
                         "/dev/shm. If you are inside a Docker container, you may need to "
                         "pass "
