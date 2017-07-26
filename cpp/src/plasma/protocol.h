@@ -48,13 +48,15 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
 
 Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int error);
 
-Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id, PlasmaObject* object);
+Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
+                       PlasmaObject* object);
 
 /* Plasma Seal message functions. */
 
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest);
 
-Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id, unsigned char* digest);
+Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
+                       unsigned char* digest);
 
 Status SendSealReply(int sock, ObjectID object_id, int error);
 
@@ -65,8 +67,8 @@ Status ReadSealReply(uint8_t* data, size_t size, ObjectID* object_id);
 Status SendGetRequest(int sock, const ObjectID* object_ids, int64_t num_objects,
                       int64_t timeout_ms);
 
-Status ReadGetRequest(uint8_t* data, size_t size,
-                      std::vector<ObjectID>& object_ids, int64_t* timeout_ms);
+Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
+                      int64_t* timeout_ms);
 
 Status SendGetReply(
     int sock, ObjectID object_ids[],
@@ -100,7 +102,8 @@ Status ReadDeleteReply(uint8_t* data, size_t size, ObjectID* object_id);
 
 Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
 
-Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[], int64_t num_objects);
+Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[],
+                         int64_t num_objects);
 
 Status SendStatusReply(int sock, ObjectID object_ids[], int object_status[],
                        int64_t num_objects);
@@ -118,7 +121,8 @@ Status ReadContainsRequest(uint8_t* data, size_t size, ObjectID* object_id);
 
 Status SendContainsReply(int sock, ObjectID object_id, bool has_object);
 
-Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id, bool* has_object);
+Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id,
+                         bool* has_object);
 
 /* Plasma Connect message functions. */
 
@@ -151,15 +155,14 @@ Status ReadFetchRequest(uint8_t* data, size_t size, std::vector<ObjectID>& objec
 Status SendWaitRequest(int sock, ObjectRequest object_requests[], int64_t num_requests,
                        int num_ready_objects, int64_t timeout_ms);
 
-Status ReadWaitRequest(uint8_t* data, size_t size,
-                       ObjectRequestMap& object_requests,
+Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requests,
                        int64_t* timeout_ms, int* num_ready_objects);
 
 Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
                      int num_ready_objects);
 
-Status ReadWaitReply(uint8_t* data, size_t size,
-                     ObjectRequest object_requests[], int* num_ready_objects);
+Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[],
+                     int* num_ready_objects);
 
 /* Plasma Subscribe message functions. */
 
@@ -169,14 +172,14 @@ Status SendSubscribeRequest(int sock);
 
 Status SendDataRequest(int sock, ObjectID object_id, const char* address, int port);
 
-Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address, int* port);
+Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address,
+                       int* port);
 
 Status SendDataReply(int sock, ObjectID object_id, int64_t object_size,
                      int64_t metadata_size);
 
-Status ReadDataReply(uint8_t* data, size_t size,
-                     ObjectID* object_id, int64_t* object_size,
-                     int64_t* metadata_size);
+Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
+                     int64_t* object_size, int64_t* metadata_size);
 
 }  // namespace plasma
 

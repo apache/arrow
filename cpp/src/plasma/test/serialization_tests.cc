@@ -82,8 +82,8 @@ TEST(PlasmaSerialization, CreateRequest) {
   ObjectID object_id2;
   int64_t data_size2;
   int64_t metadata_size2;
-  ARROW_CHECK_OK(
-      ReadCreateRequest(data.data(), data.size(), &object_id2, &data_size2, &metadata_size2));
+  ARROW_CHECK_OK(ReadCreateRequest(data.data(), data.size(), &object_id2, &data_size2,
+                                   &metadata_size2));
   ASSERT_EQ(data_size1, data_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
   ASSERT_EQ(object_id1, object_id2);
@@ -142,7 +142,8 @@ TEST(PlasmaSerialization, GetRequest) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaGetRequest);
   std::vector<ObjectID> object_ids_return;
   int64_t timeout_ms_return;
-  ARROW_CHECK_OK(ReadGetRequest(data.data(), data.size(), object_ids_return, &timeout_ms_return));
+  ARROW_CHECK_OK(
+      ReadGetRequest(data.data(), data.size(), object_ids_return, &timeout_ms_return));
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(timeout_ms, timeout_ms_return);
@@ -162,8 +163,8 @@ TEST(PlasmaSerialization, GetReply) {
   ObjectID object_ids_return[2];
   PlasmaObject plasma_objects_return[2];
   memset(&plasma_objects_return, 0, sizeof(plasma_objects_return));
-  ARROW_CHECK_OK(
-      ReadGetReply(data.data(), data.size(), object_ids_return, &plasma_objects_return[0], 2));
+  ARROW_CHECK_OK(ReadGetReply(data.data(), data.size(), object_ids_return,
+                              &plasma_objects_return[0], 2));
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
   ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
@@ -232,7 +233,8 @@ TEST(PlasmaSerialization, StatusRequest) {
   ARROW_CHECK_OK(SendStatusRequest(fd, object_ids, num_objects));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaStatusRequest);
   ObjectID object_ids_read[num_objects];
-  ARROW_CHECK_OK(ReadStatusRequest(data.data(), data.size(), object_ids_read, num_objects));
+  ARROW_CHECK_OK(
+      ReadStatusRequest(data.data(), data.size(), object_ids_read, num_objects));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   close(fd);
@@ -249,8 +251,8 @@ TEST(PlasmaSerialization, StatusReply) {
   int64_t num_objects = ReadStatusReply_num_objects(data.data(), data.size());
   ObjectID object_ids_read[num_objects];
   int object_statuses_read[num_objects];
-  ARROW_CHECK_OK(
-      ReadStatusReply(data.data(), data.size(), object_ids_read, object_statuses_read, num_objects));
+  ARROW_CHECK_OK(ReadStatusReply(data.data(), data.size(), object_ids_read,
+                                 object_statuses_read, num_objects));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   ASSERT_EQ(object_statuses[0], object_statuses_read[0]);
@@ -340,7 +342,8 @@ TEST(PlasmaSerialization, WaitReply) {
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaWaitReply);
   ObjectRequest objects_out[2];
   int num_objects_out;
-  ARROW_CHECK_OK(ReadWaitReply(data.data(), data.size(), &objects_out[0], &num_objects_out));
+  ARROW_CHECK_OK(
+      ReadWaitReply(data.data(), data.size(), &objects_out[0], &num_objects_out));
   ASSERT_EQ(num_objects_in, num_objects_out);
   for (int i = 0; i < num_objects_out; i++) {
     /* Each object request must appear exactly once. */
@@ -364,7 +367,8 @@ TEST(PlasmaSerialization, DataRequest) {
   ObjectID object_id2;
   char* address2;
   int port2;
-  ARROW_CHECK_OK(ReadDataRequest(data.data(), data.size(), &object_id2, &address2, &port2));
+  ARROW_CHECK_OK(
+      ReadDataRequest(data.data(), data.size(), &object_id2, &address2, &port2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(strcmp(address1, address2), 0);
   ASSERT_EQ(port1, port2);
@@ -383,7 +387,8 @@ TEST(PlasmaSerialization, DataReply) {
   ObjectID object_id2;
   int64_t object_size2;
   int64_t metadata_size2;
-  ARROW_CHECK_OK(ReadDataReply(data.data(), data.size(), &object_id2, &object_size2, &metadata_size2));
+  ARROW_CHECK_OK(ReadDataReply(data.data(), data.size(), &object_id2, &object_size2,
+                               &metadata_size2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(object_size1, object_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);

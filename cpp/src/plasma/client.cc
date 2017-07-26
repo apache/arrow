@@ -227,9 +227,8 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   std::vector<ObjectID> received_object_ids(num_objects);
   std::vector<PlasmaObject> object_data(num_objects);
   PlasmaObject* object;
-  RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(),
-                             received_object_ids.data(), object_data.data(),
-                             num_objects));
+  RETURN_NOT_OK(ReadGetReply(buffer.data(), buffer.size(), received_object_ids.data(),
+                             object_data.data(), num_objects));
 
   for (int i = 0; i < num_objects; ++i) {
     DCHECK(received_object_ids[i] == object_ids[i]);
@@ -357,7 +356,8 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
     std::vector<uint8_t> buffer;
     RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaContainsReply, &buffer));
     ObjectID object_id2;
-    RETURN_NOT_OK(ReadContainsReply(buffer.data(), buffer.size(), &object_id2, has_object));
+    RETURN_NOT_OK(
+        ReadContainsReply(buffer.data(), buffer.size(), &object_id2, has_object));
   }
   return Status::OK();
 }
@@ -587,7 +587,8 @@ Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_req
                                 num_ready_objects, timeout_ms));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType_PlasmaWaitReply, &buffer));
-  RETURN_NOT_OK(ReadWaitReply(buffer.data(), buffer.size(), object_requests, &num_ready_objects));
+  RETURN_NOT_OK(
+      ReadWaitReply(buffer.data(), buffer.size(), object_requests, &num_ready_objects));
 
   *num_objects_ready = 0;
   for (int i = 0; i < num_object_requests; ++i) {

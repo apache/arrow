@@ -84,7 +84,8 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
   return PlasmaSend(sock, MessageType_PlasmaCreateReply, &fbb, message);
 }
 
-Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id, PlasmaObject* object) {
+Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
+                       PlasmaObject* object) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaCreateReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -108,7 +109,8 @@ Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
   return PlasmaSend(sock, MessageType_PlasmaSealRequest, &fbb, message);
 }
 
-Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id, unsigned char* digest) {
+Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
+                       unsigned char* digest) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaSealRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -204,7 +206,8 @@ Status SendStatusRequest(int sock, const ObjectID* object_ids, int64_t num_objec
   return PlasmaSend(sock, MessageType_PlasmaStatusRequest, &fbb, message);
 }
 
-Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[], int64_t num_objects) {
+Status ReadStatusRequest(uint8_t* data, size_t size, ObjectID object_ids[],
+                         int64_t num_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaStatusRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -267,7 +270,8 @@ Status SendContainsReply(int sock, ObjectID object_id, bool has_object) {
   return PlasmaSend(sock, MessageType_PlasmaContainsReply, &fbb, message);
 }
 
-Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id, bool* has_object) {
+Status ReadContainsReply(uint8_t* data, size_t size, ObjectID* object_id,
+                         bool* has_object) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaContainsReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -340,8 +344,8 @@ Status SendGetRequest(int sock, const ObjectID* object_ids, int64_t num_objects,
   return PlasmaSend(sock, MessageType_PlasmaGetRequest, &fbb, message);
 }
 
-Status ReadGetRequest(uint8_t* data, size_t size,
-                      std::vector<ObjectID>& object_ids, int64_t* timeout_ms) {
+Status ReadGetRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids,
+                      int64_t* timeout_ms) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaGetRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -429,9 +433,8 @@ Status SendWaitRequest(int sock, ObjectRequest object_requests[], int64_t num_re
   return PlasmaSend(sock, MessageType_PlasmaWaitRequest, &fbb, message);
 }
 
-Status ReadWaitRequest(uint8_t* data, size_t size,
-                       ObjectRequestMap& object_requests, int64_t* timeout_ms,
-                       int* num_ready_objects) {
+Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requests,
+                       int64_t* timeout_ms, int* num_ready_objects) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaWaitRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
@@ -464,8 +467,8 @@ Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
   return PlasmaSend(sock, MessageType_PlasmaWaitReply, &fbb, message);
 }
 
-Status ReadWaitReply(uint8_t* data, size_t size,
-                     ObjectRequest object_requests[], int* num_ready_objects) {
+Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[],
+                     int* num_ready_objects) {
   DCHECK(data);
 
   auto message = flatbuffers::GetRoot<PlasmaWaitReply>(data);
@@ -497,7 +500,8 @@ Status SendDataRequest(int sock, ObjectID object_id, const char* address, int po
   return PlasmaSend(sock, MessageType_PlasmaDataRequest, &fbb, message);
 }
 
-Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address, int* port) {
+Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address,
+                       int* port) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaDataRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));

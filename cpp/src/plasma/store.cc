@@ -564,7 +564,8 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
-      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
+      RETURN_NOT_OK(
+          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
       HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
@@ -689,9 +690,8 @@ int main(int argc, char* argv[]) {
   close(shm_fd);
   if (system_memory > shm_mem_avail) {
     ARROW_LOG(FATAL) << "System memory request exceeds memory available in /dev/shm. The "
-                        "request is for "
-                     << system_memory << " bytes, and the amount available is "
-                     << shm_mem_avail
+                        "request is for " << system_memory
+                     << " bytes, and the amount available is " << shm_mem_avail
                      << " bytes. You may be able to free up space by deleting files in "
                         "/dev/shm. If you are inside a Docker container, you may need to "
                         "pass "
