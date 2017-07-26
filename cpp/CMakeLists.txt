@@ -165,7 +165,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   if (MSVC)
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default _static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
     set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
       "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
