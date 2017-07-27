@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Spark, Meet Arrow"
+title: "Speeding up PySpark with Apache Arrow"
 date: "2017-07-26 08:00:00 -0800"
 author: BryanCutler
 categories: [application]
@@ -134,16 +134,25 @@ Just as Arrow helped in converting a Spark to Pandas, it can also work in the
 other direction when creating a Spark DataFrame from an existing Pandas
 DataFrame ([SPARK-20791][10]). Stay tuned for more!
 
+# Collaborators
+
+Reaching this first milestone was a group effort from both the Apache Arrow and
+Spark communities. Thanks to the hard work of [Wes McKinney][13], [Li Jin][14],
+[Holden Karau][15], Reynold Xin, Wenchen Fan, Shane Knapp and many others that
+helped push this effort forwards.
+
 [1]: https://spark.apache.org/
 [2]: https://arrow.apache.org/
 [3]: https://issues.apache.org/jira/issues/?filter=12335725&jql=project%20%3D%20SPARK%20AND%20status%20in%20(Open%2C%20%22In%20Progress%22%2C%20Reopened)%20AND%20text%20~%20%22arrow%22%20ORDER%20BY%20createdDate%20DESC
 [4]: https://gist.github.com/wesm/0cb5531b1c2e346a0007
 [5]: https://issues.apache.org/jira/browse/SPARK-13534
-[6]: https://github.com/apache/arrow/blob/apache-arrow-0.4.1/site/install.md
+[6]: https://github.com/apache/arrow/blob/master/site/install.md
 [7]: https://issues.apache.org/jira/browse/SPARK-21190
 [8]: https://issues.apache.org/jira/browse/SPARK-21404
 [9]: https://issues.apache.org/jira/browse/SPARK-20396
 [10]: https://issues.apache.org/jira/browse/SPARK-20791
 [11]: https://github.com/BryanCutler
 [12]: http://www.spark.tc/
-
+[13]: https://github.com/wesm
+[14]: https://github.com/icexelloss
+[15]: https://github.com/holdenk
