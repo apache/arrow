@@ -93,7 +93,7 @@
           </execution>
         </executions>
         <configuration>
-          <excludeSubprojects>false</excludeSubprojects>
+          <excludeSubProjects>false</excludeSubProjects>
           <excludes>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>
