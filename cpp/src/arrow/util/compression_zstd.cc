@@ -32,10 +32,11 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // ZSTD implementation
 
-Status ZSTDCodec::Decompress(
-    int64_t input_len, const uint8_t* input, int64_t output_len, uint8_t* output_buffer) {
-  int64_t decompressed_size = ZSTD_decompress(output_buffer,
-      static_cast<size_t>(output_len), input, static_cast<size_t>(input_len));
+Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
+                             uint8_t* output_buffer) {
+  int64_t decompressed_size =
+      ZSTD_decompress(output_buffer, static_cast<size_t>(output_len), input,
+                      static_cast<size_t>(input_len));
   if (decompressed_size != output_len) {
     return Status::IOError("Corrupt ZSTD compressed data.");
   }
@@ -47,9 +48,10 @@ int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
 }
 
 Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
-    int64_t output_buffer_len, uint8_t* output_buffer, int64_t* output_length) {
+                           int64_t output_buffer_len, uint8_t* output_buffer,
+                           int64_t* output_length) {
   *output_length = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
-      input, static_cast<size_t>(input_len), 1);
+                                 input, static_cast<size_t>(input_len), 1);
   if (ZSTD_isError(*output_length)) {
     return Status::IOError("ZSTD compression failure.");
   }

@@ -45,6 +45,13 @@ environment:
       PYTHON: "3.5"
       ARCH: "64"
       CONFIGURATION: "Release"
+    - JOB: "Build"
+      GENERATOR: Visual Studio 15 2017 Win64
+      PYTHON: "3.5"
+      ARCH: "64"
+      CONFIGURATION: "Release"
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      BOOST_ROOT: C:\Libraries\boost_1_64_0
 
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0

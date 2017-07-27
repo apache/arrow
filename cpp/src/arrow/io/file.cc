@@ -123,8 +123,8 @@ constexpr const char* kRangeExceptionError =
     "Range exception during wide-char string conversion";
 #endif
 
-static inline Status CheckOpenResult(
-    int ret, int errno_actual, const char* filename, size_t filename_length) {
+static inline Status CheckOpenResult(int ret, int errno_actual, const char* filename,
+                                     size_t filename_length) {
   if (ret == -1) {
     // TODO: errno codes to strings
     std::stringstream ss;
@@ -134,12 +134,14 @@ static inline Status CheckOpenResult(
 
     // this requires c++11
     std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-    std::wstring wide_string(
-        reinterpret_cast<const wchar_t*>(filename), filename_length / sizeof(wchar_t));
+    std::wstring wide_string(reinterpret_cast<const wchar_t*>(filename),
+                             filename_length / sizeof(wchar_t));
     try {
       std::string byte_string = converter.to_bytes(wide_string);
       ss << byte_string;
-    } catch (const std::range_error&) { ss << kRangeExceptionError; }
+    } catch (const std::range_error&) {
+      ss << kRangeExceptionError;
+    }
 #else
     ss << filename;
 #endif
@@ -161,7 +163,9 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 
 #if defined(_MSC_VER)
 static inline Status ConvertToUtf16(const std::string& input, std::wstring* result) {
-  if (result == nullptr) { return Status::Invalid("Pointer to result is not valid"); }
+  if (result == nullptr) {
+    return Status::Invalid("Pointer to result is not valid");
+  }
 
   if (input.empty()) {
     *result = std::wstring();
@@ -171,7 +175,9 @@ static inline Status ConvertToUtf16(const std::string& input, std::wstring* resu
   std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
   try {
     *result = utf16_converter.from_bytes(input);
-  } catch (const std::range_error&) { return Status::Invalid(kRangeExceptionError); }
+  } catch (const std::range_error&) {
+    return Status::Invalid(kRangeExceptionError);
+  }
   return Status::OK();
 }
 #endif
@@ -194,8 +200,8 @@ static inline Status FileOpenReadable(const std::string& filename, int* fd) {
   return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
 }
 
-static inline Status FileOpenWriteable(
-    const std::string& filename, bool write_only, bool truncate, int* fd) {
+static inline Status FileOpenWriteable(const std::string& filename, bool write_only,
+                                       bool truncate, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 
@@ -205,9 +211,13 @@ static inline Status FileOpenWriteable(
 
   int oflag = _O_CREAT | _O_BINARY;
   int pmode = _S_IWRITE;
-  if (!write_only) { pmode |= _S_IREAD; }
+  if (!write_only) {
+    pmode |= _S_IREAD;
+  }
 
-  if (truncate) { oflag |= _O_TRUNC; }
+  if (truncate) {
+    oflag |= _O_TRUNC;
+  }
 
   if (write_only) {
     oflag |= _O_WRONLY;
@@ -221,7 +231,9 @@ static inline Status FileOpenWriteable(
 #else
   int oflag = O_CREAT | O_BINARY;
 
-  if (truncate) { oflag |= O_TRUNC; }
+  if (truncate) {
+    oflag |= O_TRUNC;
+  }
 
   if (write_only) {
     oflag |= O_WRONLY;
@@ -239,7 +251,9 @@ static inline Status FileTell(int fd, int64_t* pos) {
 
 #if defined(_MSC_VER)
   current_pos = _telli64(fd);
-  if (current_pos == -1) { return Status::IOError("_telli64 failed"); }
+  if (current_pos == -1) {
+    return Status::IOError("_telli64 failed");
+  }
 #else
   current_pos = lseek64_compat(fd, 0, SEEK_CUR);
   CHECK_LSEEK(current_pos);
@@ -255,10 +269,12 @@ static inline Status FileSeek(int fd, int64_t pos) {
   return Status::OK();
 }
 
-static inline Status FileRead(
-    int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
+static inline Status FileRead(int fd, uint8_t* buffer, int64_t nbytes,
+                              int64_t* bytes_read) {
 #if defined(_MSC_VER)
-  if (nbytes > INT32_MAX) { return Status::IOError("Unable to read > 2GB blocks yet"); }
+  if (nbytes > INT32_MAX) {
+    return Status::IOError("Unable to read > 2GB blocks yet");
+  }
   *bytes_read = static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(nbytes)));
 #else
   *bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(nbytes)));
@@ -323,7 +339,9 @@ static inline Status FileClose(int fd) {
   ret = static_cast<int>(close(fd));
 #endif
 
-  if (ret == -1) { return Status::IOError("error closing file"); }
+  if (ret == -1) {
+    return Status::IOError("error closing file");
+  }
   return Status::OK();
 }
 
@@ -371,7 +389,9 @@ class OSFile {
   }
 
   Status Seek(int64_t pos) {
-    if (pos < 0) { return Status::Invalid("Invalid position"); }
+    if (pos < 0) {
+      return Status::Invalid("Invalid position");
+    }
     return FileSeek(fd_, pos);
   }
 
@@ -379,7 +399,9 @@ class OSFile {
 
   Status Write(const uint8_t* data, int64_t length) {
     std::lock_guard<std::mutex> guard(lock_);
-    if (length < 0) { return Status::IOError("Length must be non-negative"); }
+    if (length < 0) {
+      return Status::IOError("Length must be non-negative");
+    }
     return FileWrite(fd_, data, length);
   }
 
@@ -421,7 +443,9 @@ class ReadableFile::ReadableFileImpl : public OSFile {
 
     int64_t bytes_read = 0;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-    if (bytes_read < nbytes) { RETURN_NOT_OK(buffer->Resize(bytes_read)); }
+    if (bytes_read < nbytes) {
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
+    }
     *out = buffer;
     return Status::OK();
   }
@@ -430,13 +454,9 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   MemoryPool* pool_;
 };
 
-ReadableFile::ReadableFile(MemoryPool* pool) {
-  impl_.reset(new ReadableFileImpl(pool));
-}
+ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(pool)); }
 
-ReadableFile::~ReadableFile() {
-  DCHECK(impl_->Close().ok());
-}
+ReadableFile::~ReadableFile() { DCHECK(impl_->Close().ok()); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
   *file = std::shared_ptr<ReadableFile>(new ReadableFile(default_memory_pool()));
@@ -444,18 +464,14 @@ Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>
 }
 
 Status ReadableFile::Open(const std::string& path, MemoryPool* memory_pool,
-    std::shared_ptr<ReadableFile>* file) {
+                          std::shared_ptr<ReadableFile>* file) {
   *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
   return (*file)->impl_->Open(path);
 }
 
-Status ReadableFile::Close() {
-  return impl_->Close();
-}
+Status ReadableFile::Close() { return impl_->Close(); }
 
-Status ReadableFile::Tell(int64_t* pos) {
-  return impl_->Tell(pos);
-}
+Status ReadableFile::Tell(int64_t* pos) { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   return impl_->Read(nbytes, bytes_read, out);
@@ -470,17 +486,11 @@ Status ReadableFile::GetSize(int64_t* size) {
   return Status::OK();
 }
 
-Status ReadableFile::Seek(int64_t pos) {
-  return impl_->Seek(pos);
-}
+Status ReadableFile::Seek(int64_t pos) { return impl_->Seek(pos); }
 
-bool ReadableFile::supports_zero_copy() const {
-  return false;
-}
+bool ReadableFile::supports_zero_copy() const { return false; }
 
-int ReadableFile::file_descriptor() const {
-  return impl_->fd();
-}
+int ReadableFile::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // FileOutputStream
@@ -492,42 +502,34 @@ class FileOutputStream::FileOutputStreamImpl : public OSFile {
   }
 };
 
-FileOutputStream::FileOutputStream() {
-  impl_.reset(new FileOutputStreamImpl());
-}
+FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); }
 
 FileOutputStream::~FileOutputStream() {
   // This can fail; better to explicitly call close
   DCHECK(impl_->Close().ok());
 }
 
-Status FileOutputStream::Open(
-    const std::string& path, std::shared_ptr<FileOutputStream>* file) {
+Status FileOutputStream::Open(const std::string& path,
+                              std::shared_ptr<FileOutputStream>* file) {
   return Open(path, false, file);
 }
 
-Status FileOutputStream::Open(
-    const std::string& path, bool append, std::shared_ptr<FileOutputStream>* file) {
+Status FileOutputStream::Open(const std::string& path, bool append,
+                              std::shared_ptr<FileOutputStream>* file) {
   // private ctor
   *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
   return (*file)->impl_->Open(path, append);
 }
 
-Status FileOutputStream::Close() {
-  return impl_->Close();
-}
+Status FileOutputStream::Close() { return impl_->Close(); }
 
-Status FileOutputStream::Tell(int64_t* pos) {
-  return impl_->Tell(pos);
-}
+Status FileOutputStream::Tell(int64_t* pos) { return impl_->Tell(pos); }
 
 Status FileOutputStream::Write(const uint8_t* data, int64_t length) {
   return impl_->Write(data, length);
 }
 
-int FileOutputStream::file_descriptor() const {
-  return impl_->fd();
-}
+int FileOutputStream::file_descriptor() const { return impl_->fd(); }
 
 // ----------------------------------------------------------------------
 // Implement MemoryMappedFile
@@ -567,7 +569,7 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
     }
 
     void* result = mmap(nullptr, static_cast<size_t>(file_->size()), prot_flags, map_mode,
-        file_->fd(), 0);
+                        file_->fd(), 0);
     if (result == MAP_FAILED) {
       std::stringstream ss;
       ss << "Memory mapping file failed, errno: " << errno;
@@ -585,7 +587,9 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   int64_t size() const { return size_; }
 
   Status Seek(int64_t position) {
-    if (position < 0) { return Status::Invalid("position is out of bounds"); }
+    if (position < 0) {
+      return Status::Invalid("position is out of bounds");
+    }
     position_ = position;
     return Status::OK();
   }
@@ -610,8 +614,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 MemoryMappedFile::MemoryMappedFile() {}
 MemoryMappedFile::~MemoryMappedFile() {}
 
-Status MemoryMappedFile::Create(
-    const std::string& path, int64_t size, std::shared_ptr<MemoryMappedFile>* out) {
+Status MemoryMappedFile::Create(const std::string& path, int64_t size,
+                                std::shared_ptr<MemoryMappedFile>* out) {
   std::shared_ptr<FileOutputStream> file;
   RETURN_NOT_OK(FileOutputStream::Open(path, &file));
 #ifdef _MSC_VER
@@ -624,7 +628,7 @@ Status MemoryMappedFile::Create(
 }
 
 Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
-    std::shared_ptr<MemoryMappedFile>* out) {
+                              std::shared_ptr<MemoryMappedFile>* out) {
   std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
 
   result->memory_map_.reset(new MemoryMap());
@@ -644,9 +648,7 @@ Status MemoryMappedFile::Tell(int64_t* position) {
   return Status::OK();
 }
 
-Status MemoryMappedFile::Seek(int64_t position) {
-  return memory_map_->Seek(position);
-}
+Status MemoryMappedFile::Seek(int64_t position) { return memory_map_->Seek(position); }
 
 Status MemoryMappedFile::Close() {
   // munmap handled in pimpl dtor
@@ -656,7 +658,9 @@ Status MemoryMappedFile::Close() {
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   nbytes = std::max<int64_t>(
       0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
-  if (nbytes > 0) { std::memcpy(out, memory_map_->head(), static_cast<size_t>(nbytes)); }
+  if (nbytes > 0) {
+    std::memcpy(out, memory_map_->head(), static_cast<size_t>(nbytes));
+  }
   *bytes_read = nbytes;
   memory_map_->advance(nbytes);
   return Status::OK();
@@ -675,9 +679,7 @@ Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return Status::OK();
 }
 
-bool MemoryMappedFile::supports_zero_copy() const {
-  return true;
-}
+bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
   std::lock_guard<std::mutex> guard(lock_);
@@ -708,9 +710,7 @@ Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
   return Status::OK();
 }
 
-int MemoryMappedFile::file_descriptor() const {
-  return memory_map_->fd();
-}
+int MemoryMappedFile::file_descriptor() const { return memory_map_->fd(); }
 
 }  // namespace io
 }  // namespace arrow

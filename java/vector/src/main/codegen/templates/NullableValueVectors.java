@@ -540,7 +540,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     <#if type.major == "VarLen">
 
-    private void fillEmpties(int index){
+    public void fillEmpties(int index){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       for (int i = lastSet + 1; i < index; i++) {
         valuesMutator.setSafe(i, emptyByteArray);
@@ -698,6 +698,22 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public void reset(){
       setCount = 0;
       <#if type.major = "VarLen">lastSet = -1;</#if>
+    }
+
+    public void setLastSet(int value) {
+      <#if type.major = "VarLen">
+        lastSet = value;
+      <#else>
+        throw new UnsupportedOperationException();
+      </#if>
+    }
+
+    public int getLastSet() {
+      <#if type.major != "VarLen">
+        throw new UnsupportedOperationException();
+      <#else>
+        return lastSet;
+      </#if>
     }
   }
 }

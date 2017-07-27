@@ -17,12 +17,12 @@
 
 #include "arrow/memory_pool.h"
 
+#include <stdlib.h>
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <sstream>
-#include <stdlib.h>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -60,8 +60,8 @@ Status AllocateAligned(int64_t size, uint8_t** out) {
     return Status::OutOfMemory(ss.str());
   }
 #else
-  const int result = posix_memalign(
-      reinterpret_cast<void**>(out), kAlignment, static_cast<size_t>(size));
+  const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment,
+                                    static_cast<size_t>(size));
   if (result == ENOMEM) {
     std::stringstream ss;
     ss << "malloc of size " << size << " failed";
@@ -82,13 +82,9 @@ MemoryPool::MemoryPool() {}
 
 MemoryPool::~MemoryPool() {}
 
-int64_t MemoryPool::max_memory() const {
-  return -1;
-}
+int64_t MemoryPool::max_memory() const { return -1; }
 
-DefaultMemoryPool::DefaultMemoryPool() : bytes_allocated_(0) {
-  max_memory_ = 0;
-}
+DefaultMemoryPool::DefaultMemoryPool() : bytes_allocated_(0) { max_memory_ = 0; }
 
 Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
   RETURN_NOT_OK(AllocateAligned(size, out));
@@ -96,7 +92,9 @@ Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
 
   {
     std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+    if (bytes_allocated_ > max_memory_) {
+      max_memory_ = bytes_allocated_.load();
+    }
   }
   return Status::OK();
 }
@@ -128,15 +126,15 @@ Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t
   bytes_allocated_ += new_size - old_size;
   {
     std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) { max_memory_ = bytes_allocated_.load(); }
+    if (bytes_allocated_ > max_memory_) {
+      max_memory_ = bytes_allocated_.load();
+    }
   }
 
   return Status::OK();
 }
 
-int64_t DefaultMemoryPool::bytes_allocated() const {
-  return bytes_allocated_.load();
-}
+int64_t DefaultMemoryPool::bytes_allocated() const { return bytes_allocated_.load(); }
 
 void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
   DCHECK_GE(bytes_allocated_, size);
@@ -150,9 +148,7 @@ void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
   bytes_allocated_ -= size;
 }
 
-int64_t DefaultMemoryPool::max_memory() const {
-  return max_memory_.load();
-}
+int64_t DefaultMemoryPool::max_memory() const { return max_memory_.load(); }
 
 DefaultMemoryPool::~DefaultMemoryPool() {}
 

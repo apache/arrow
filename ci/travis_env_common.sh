@@ -29,6 +29,19 @@ export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 export ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install
 
+if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
+  # C++ toolchain
+  export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
+  export ARROW_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
+  export BOOST_ROOT=$CPP_TOOLCHAIN
+
+  export PATH=$CPP_TOOLCHAIN/bin:$PATH
+  export LD_LIBRARY_PATH=$CPP_TOOLCHAIN/lib:$LD_LIBRARY_PATH
+  export TRAVIS_MAKE=ninja
+else
+  export TRAVIS_MAKE=make
+fi
+
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   export GOPATH=$TRAVIS_BUILD_DIR/gopath
 fi
