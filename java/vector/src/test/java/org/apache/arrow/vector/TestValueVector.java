@@ -516,4 +516,14 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testMultipleClose() {
+    BufferAllocator vectorAllocator = allocator.newChildAllocator("vector_allocator", 0, Long.MAX_VALUE);
+    NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, vectorAllocator);
+    vector.close();
+    vectorAllocator.close();
+    vector.close();
+    vectorAllocator.close();
+  }
+
 }
