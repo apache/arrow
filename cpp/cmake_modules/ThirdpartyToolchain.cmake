@@ -648,6 +648,7 @@ if (ARROW_WITH_LZ4)
     if (MSVC)
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+      set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_wholeprogramoptimization_param.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
@@ -657,7 +658,7 @@ if (ARROW_WITH_LZ4)
         URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
         ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
-        PATCH_COMMAND ""
+        ${LZ4_PATCH_COMMAND}
         CONFIGURE_COMMAND ""
         INSTALL_COMMAND ""
         BINARY_DIR ${LZ4_BUILD_DIR}
@@ -691,6 +692,7 @@ if (ARROW_WITH_ZSTD)
     if (MSVC)
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
       set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
+      set(ZSTD_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose ${CMAKE_SOURCE_DIR}/build-support/zstd_msbuild_wholeprogramoptimization_param.patch)
     else()
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
       set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
@@ -700,7 +702,7 @@ if (ARROW_WITH_ZSTD)
         URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz"
         ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
-        PATCH_COMMAND ""
+        ${ZSTD_PATCH_COMMAND}
         CONFIGURE_COMMAND ""
         INSTALL_COMMAND ""
         BINARY_DIR ${ZSTD_BUILD_DIR}
