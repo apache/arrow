@@ -39,7 +39,7 @@ KDC -->
 	<property>
 		<name>dfs.ha.namenodes.phdcluster</name>
 		<value>nn1,nn2</value>
-	</property>
+	</property>6
 
 	<property>
 		<name>dfs.namenode.rpc-address.phdcluster.nn1</name>
