@@ -1348,4 +1348,40 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
   }
 }
 
+#define DICTIONARY_ARRAY_CASE(ENUM, BuilderType)                           \
+  case Type::ENUM:                                                         \
+    builder = std::make_shared<BuilderType>(pool, type);                   \
+    RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(input)); \
+    RETURN_NOT_OK(builder->Finish(out));                                   \
+    return Status::OK();
+
+Status MakeDictionaryArray(MemoryPool* pool, const Array& input,
+                           std::shared_ptr<Array>* out) {
+  const std::shared_ptr<DataType>& type = input.data()->type;
+  std::shared_ptr<ArrayBuilder> builder;
+  switch (type->id()) {
+    DICTIONARY_ARRAY_CASE(UINT8, DictionaryBuilder<UInt8Type>);
+    DICTIONARY_ARRAY_CASE(INT8, DictionaryBuilder<Int8Type>);
+    DICTIONARY_ARRAY_CASE(UINT16, DictionaryBuilder<UInt16Type>);
+    DICTIONARY_ARRAY_CASE(INT16, DictionaryBuilder<Int16Type>);
+    DICTIONARY_ARRAY_CASE(UINT32, DictionaryBuilder<UInt32Type>);
+    DICTIONARY_ARRAY_CASE(INT32, DictionaryBuilder<Int32Type>);
+    DICTIONARY_ARRAY_CASE(UINT64, DictionaryBuilder<UInt64Type>);
+    DICTIONARY_ARRAY_CASE(INT64, DictionaryBuilder<Int64Type>);
+    DICTIONARY_ARRAY_CASE(DATE32, DictionaryBuilder<Date32Type>);
+    DICTIONARY_ARRAY_CASE(DATE64, DictionaryBuilder<Date64Type>);
+    DICTIONARY_ARRAY_CASE(TIME32, DictionaryBuilder<Time32Type>);
+    DICTIONARY_ARRAY_CASE(TIME64, DictionaryBuilder<Time64Type>);
+    DICTIONARY_ARRAY_CASE(TIMESTAMP, DictionaryBuilder<TimestampType>);
+    DICTIONARY_ARRAY_CASE(FLOAT, DictionaryBuilder<FloatType>);
+    DICTIONARY_ARRAY_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
+    DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
+    DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
+    // DICTIONARY_ARRAY_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
+    // DICTIONARY_ARRAY_CASE(DECIMAL, DecimalBuilder);
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+}
+
 }  // namespace arrow

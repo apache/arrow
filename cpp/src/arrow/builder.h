@@ -847,6 +847,8 @@ Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
                                           const std::shared_ptr<DataType>& type,
                                           std::shared_ptr<ArrayBuilder>* out);
 
+Status ARROW_EXPORT MakeDictionaryArray(MemoryPool* pool, const Array& input,
+                                        std::shared_ptr<Array>* out);
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_
