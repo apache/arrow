@@ -84,7 +84,7 @@ from conda-forge:
    conda create -y -q -n pyarrow-dev \
          python=3.6 numpy six setuptools cython pandas pytest \
          cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-         brotli jemalloc -c conda-forge
+         brotli jemalloc lz4-c zstd -c conda-forge
    source activate pyarrow-dev
 
 
