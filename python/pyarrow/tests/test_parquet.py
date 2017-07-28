@@ -124,9 +124,8 @@ def test_pandas_parquet_custom_metadata(tmpdir):
     assert b'pandas' in arrow_table.schema.metadata
 
     _write_table(arrow_table, filename.strpath, version="2.0")
-    pf = pq.ParquetFile(filename.strpath)
 
-    md = pf.metadata.metadata
+    md = pq.read_metadata(filename.strpath).metadata
     assert b'pandas' in md
 
     js = json.loads(md[b'pandas'].decode('utf8'))
@@ -592,7 +591,7 @@ def test_pass_separate_metadata():
     _write_table(a_table, buf, compression='snappy', version='2.0')
 
     buf.seek(0)
-    metadata = pq.ParquetFile(buf).metadata
+    metadata = pq.read_metadata(buf)
 
     buf.seek(0)
 
@@ -788,12 +787,30 @@ def test_read_common_metadata_files(tmpdir):
     dataset = pq.ParquetDataset(base_path)
     assert dataset.metadata_path == metadata_path
 
-    pf = pq.ParquetFile(data_path)
-    assert dataset.schema.equals(pf.schema)
+    common_schema = pq.read_metadata(data_path).schema
+    assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
     dataset2 = pq.ParquetDataset([base_path])
     assert dataset2.schema.equals(dataset.schema)
+
+
+@parquet
+def test_read_schema(tmpdir):
+    import pyarrow.parquet as pq
+
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    data_path = pjoin(str(tmpdir), 'test.parquet')
+
+    table = pa.Table.from_pandas(df)
+    _write_table(table, data_path)
+
+    assert table.schema.equals(pq.read_schema(data_path))
 
 
 def _filter_partition(df, part_keys):
@@ -847,7 +864,7 @@ def test_read_multiple_files(tmpdir):
     assert result.equals(expected)
 
     # Read with provided metadata
-    metadata = pq.ParquetFile(paths[0]).metadata
+    metadata = pq.read_metadata(paths[0])
 
     result2 = read_multiple_files(paths, metadata=metadata)
     assert result2.equals(expected)
@@ -873,7 +890,7 @@ def test_read_multiple_files(tmpdir):
     t = pa.Table.from_pandas(bad_apple)
     _write_table(t, bad_apple_path)
 
-    bad_meta = pq.ParquetFile(bad_apple_path).metadata
+    bad_meta = pq.read_metadata(bad_apple_path)
 
     with pytest.raises(ValueError):
         read_multiple_files(paths + [bad_apple_path])
