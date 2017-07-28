@@ -261,32 +261,34 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     int firstByte = getByteIndex(startIndex);
     int byteSize = getSizeFromCount(length);
     int offset = startIndex % 8;
-    if (offset == 0) {
-      target.clear();
-      // slice
-      if (target.data != null) {
-        target.data.release();
-      }
-      target.data = data.slice(firstByte, byteSize);
-      target.data.retain(1);
-    } else {
-      // Copy data
-      // When the first bit starts from the middle of a byte (offset != 0), copy data from src BitVector.
-      // Each byte in the target is composed by a part in i-th byte, another part in (i+1)-th byte.
-      // The last byte copied to target is a bit tricky :
-      //   1) if length requires partly byte (length % 8 !=0), copy the remaining bits only.
-      //   2) otherwise, copy the last byte in the same way as to the prior bytes.
-      target.clear();
-      target.allocateNew(length);
-      // TODO maybe do this one word at a time, rather than byte?
-      for(int i = 0; i < byteSize - 1; i++) {
-        target.data.setByte(i, (((this.data.getByte(firstByte + i) & 0xFF) >>> offset) + (this.data.getByte(firstByte + i + 1) <<  (8 - offset))));
-      }
-      if (length % 8 != 0) {
-        target.data.setByte(byteSize - 1, ((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset));
+    if (length > 0) {
+      if (offset == 0) {
+        target.clear();
+        // slice
+        if (target.data != null) {
+          target.data.release();
+        }
+        target.data = data.slice(firstByte, byteSize);
+        target.data.retain(1);
       } else {
-        target.data.setByte(byteSize - 1,
-            (((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset) + (this.data.getByte(firstByte + byteSize) <<  (8 - offset))));
+        // Copy data
+        // When the first bit starts from the middle of a byte (offset != 0), copy data from src BitVector.
+        // Each byte in the target is composed by a part in i-th byte, another part in (i+1)-th byte.
+        // The last byte copied to target is a bit tricky :
+        //   1) if length requires partly byte (length % 8 !=0), copy the remaining bits only.
+        //   2) otherwise, copy the last byte in the same way as to the prior bytes.
+        target.clear();
+        target.allocateNew(length);
+        // TODO maybe do this one word at a time, rather than byte?
+        for (int i = 0; i < byteSize - 1; i++) {
+          target.data.setByte(i, (((this.data.getByte(firstByte + i) & 0xFF) >>> offset) + (this.data.getByte(firstByte + i + 1) << (8 - offset))));
+        }
+        if (length % 8 != 0) {
+          target.data.setByte(byteSize - 1, ((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset));
+        } else {
+          target.data.setByte(byteSize - 1,
+                  (((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset) + (this.data.getByte(firstByte + byteSize) << (8 - offset))));
+        }
       }
     }
     target.getMutator().setValueCount(length);
