@@ -156,6 +156,22 @@ static void BM_BuildStringDictionary(
                           sizeof(int32_t));
 }
 
+static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
+  const int64_t iterations = 1 << 20;
+
+  std::string value = "1234567890";
+  while (state.KeepRunning()) {
+    BinaryBuilder builder(default_memory_pool());
+    for (int64_t i = 0; i < iterations; i++) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+  // Assuming a string here needs on average 2 bytes
+  state.SetBytesProcessed(state.iterations() * iterations * value.size());
+}
+
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildVectorNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
@@ -165,5 +181,7 @@ BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
 BENCHMARK(BM_BuildAdaptiveUIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildStringDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_BuildBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 
 }  // namespace arrow
