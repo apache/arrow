@@ -1006,3 +1006,28 @@ def test_multiindex_duplicate_values(tmpdir):
 
     result_df = result_table.to_pandas()
     tm.assert_frame_equal(result_df, df)
+
+
+@parquet
+def test_write_error_deletes_incomplete_file(tmpdir):
+    # ARROW-1285
+    df = pd.DataFrame({'a': list('abc'),
+                       'b': list(range(1, 4)),
+                       'c': np.arange(3, 6).astype('u1'),
+                       'd': np.arange(4.0, 7.0, dtype='float64'),
+                       'e': [True, False, True],
+                       'f': pd.Categorical(list('abc')),
+                       'g': pd.date_range('20130101', periods=3),
+                       'h': pd.date_range('20130101', periods=3,
+                                          tz='US/Eastern'),
+                       'i': pd.date_range('20130101', periods=3, freq='ns')})
+
+    pdf = pa.Table.from_pandas(df)
+
+    filename = tmpdir.join('tmp_file').strpath
+    try:
+        _write_table(pdf, filename)
+    except pa.ArrowException:
+        pass
+
+    assert not os.path.exists(filename)
