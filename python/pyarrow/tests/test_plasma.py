@@ -19,21 +19,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import glob
 import numpy as np
 import os
 import pytest
 import random
 import signal
 import subprocess
-import sys
 import time
-import unittest
 
 import pyarrow as pa
 import pandas as pd
 
 DEFAULT_PLASMA_STORE_MEMORY = 10 ** 9
+
 
 def random_name():
     return str(random.randint(0, 99999999))
@@ -160,7 +158,7 @@ class TestPlasmaClient(object):
 
     def teardown_method(self, test_method):
         # Check that the Plasma store is still alive.
-        assert self.p.poll() == None
+        assert self.p.poll() is None
         # Kill the plasma store process.
         if os.getenv("PLASMA_VALGRIND") == "1":
             self.p.send_signal(signal.SIGTERM)
@@ -227,7 +225,7 @@ class TestPlasmaClient(object):
                 self.plasma_client.create(object_id, length,
                                           generate_metadata(length))
             # TODO(pcm): Introduce a more specific error type here.
-            except pa.lib.ArrowException as e:
+            except pa.lib.ArrowException:
                 pass
             else:
                 assert False
@@ -270,7 +268,6 @@ class TestPlasmaClient(object):
                     assert results[i] is None
 
     def test_store_arrow_objects(self):
-        import pyarrow.plasma as plasma
         data = np.random.randn(10, 4)
         # Write an arrow object.
         object_id = random_object_id()
@@ -334,7 +331,7 @@ class TestPlasmaClient(object):
                                                     partial_size,
                                                     size - partial_size)
             # TODO(pcm): More specific error here.
-            except pa.lib.ArrowException as e:
+            except pa.lib.ArrowException:
                 pass
             else:
                 # For some reason the above didn't throw an exception, so fail.
@@ -368,7 +365,7 @@ class TestPlasmaClient(object):
         fake_object_ids = [random_object_id() for _ in range(100)]
         real_object_ids = [random_object_id() for _ in range(100)]
         for object_id in real_object_ids:
-            assert self.plasma_client.contains(object_id) == False
+            assert self.plasma_client.contains(object_id) is False
             self.plasma_client.create(object_id, 100)
             self.plasma_client.seal(object_id)
             assert self.plasma_client.contains(object_id)
@@ -383,7 +380,7 @@ class TestPlasmaClient(object):
         try:
             self.plasma_client.hash(object_id1)
             # TODO(pcm): Introduce a more specific error type here
-        except pa.lib.ArrowException as e:
+        except pa.lib.ArrowException:
             pass
         else:
             assert False

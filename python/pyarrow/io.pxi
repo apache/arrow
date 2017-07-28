@@ -106,6 +106,9 @@ cdef class NativeFile:
             raise IOError("file not open")
 
     def size(self):
+        """
+        Return file size
+        """
         cdef int64_t size
         self._assert_readable()
         with nogil:
@@ -113,6 +116,9 @@ cdef class NativeFile:
         return size
 
     def tell(self):
+        """
+        Return current stream position
+        """
         cdef int64_t position
         with nogil:
             if self.is_readable:
@@ -121,10 +127,46 @@ cdef class NativeFile:
                 check_status(self.wr_file.get().Tell(&position))
         return position
 
-    def seek(self, int64_t position):
+    def seek(self, int64_t position, int whence=0):
+        """
+        Change current file stream position
+
+        Parameters
+        ----------
+        position : int
+            Byte offset, interpreted relative to value of whence argument
+        whence : int, default 0
+            Point of reference for seek offset
+
+        Notes
+        -----
+        Values of whence:
+        * 0 -- start of stream (the default); offset should be zero or positive
+        * 1 -- current stream position; offset may be negative
+        * 2 -- end of stream; offset is usually negative
+
+        Returns
+        -------
+        new_position : the new absolute stream position
+        """
+        cdef int64_t offset
         self._assert_readable()
         with nogil:
-            check_status(self.rd_file.get().Seek(position))
+            if whence == 0:
+                offset = position
+            elif whence == 1:
+                check_status(self.rd_file.get().Tell(&offset))
+                offset = offset + position
+            elif whence == 2:
+                check_status(self.rd_file.get().GetSize(&offset))
+                offset = offset + position
+            else:
+                with gil:
+                    raise ValueError("Invalid value of whence: {0}"
+                                     .format(whence))
+            check_status(self.rd_file.get().Seek(offset))
+
+        return self.tell()
 
     def write(self, data):
         """
@@ -144,6 +186,18 @@ cdef class NativeFile:
             check_status(self.wr_file.get().Write(buf, bufsize))
 
     def read(self, nbytes=None):
+        """
+        Read indicated number of bytes from file, or read all remaining bytes
+        if no argument passed
+
+        Parameters
+        ----------
+        nbytes : int, default None
+
+        Returns
+        -------
+        data : bytes
+        """
         cdef:
             int64_t c_nbytes
             int64_t bytes_read = 0
