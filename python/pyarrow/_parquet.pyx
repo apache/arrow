@@ -542,6 +542,7 @@ cdef ParquetCompression compression_from_name(str name):
 cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
+        shared_ptr[OutputStream] sink
 
     cdef readonly:
         object use_dictionary
@@ -555,14 +556,13 @@ cdef class ParquetWriter:
                   MemoryPool memory_pool=None, use_deprecated_int96_timestamps=False):
         cdef:
             shared_ptr[FileOutputStream] filestream
-            shared_ptr[OutputStream] sink
             shared_ptr[WriterProperties] properties
 
         if isinstance(where, six.string_types):
             check_status(FileOutputStream.Open(tobytes(where), &filestream))
-            sink = <shared_ptr[OutputStream]> filestream
+            self.sink = <shared_ptr[OutputStream]> filestream
         else:
-            get_writer(where, &sink)
+            get_writer(where, &self.sink)
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -582,7 +582,7 @@ cdef class ParquetWriter:
         check_status(
             FileWriter.Open(deref(schema.schema),
                             maybe_unbox_memory_pool(memory_pool),
-                            sink, properties, arrow_properties,
+                            self.sink, properties, arrow_properties,
                             &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
