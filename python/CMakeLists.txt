@@ -51,6 +51,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
+  option(PYARROW_BUILD_PLASMA
+    "Build the PyArrow Plasma integration"
+    OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
@@ -157,12 +160,6 @@ include_directories(SYSTEM
 find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
-## Plasma
-find_package(Plasma)
-if (PLASMA_FOUND)
-  include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
-endif()
-
 function(bundle_arrow_lib library_path)
   get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
@@ -195,9 +192,6 @@ if (PYARROW_BUNDLE_ARROW_CPP)
   file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB)
   bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
-  if (PLASMA_FOUND)
-    bundle_arrow_lib(PLASMA_SHARED_LIB)
-  endif()
 endif()
 
 if (MSVC)
@@ -224,14 +218,9 @@ set(CYTHON_EXTENSIONS
   lib
 )
 
-if (PLASMA_FOUND)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
-endif()
-
 set(LINK_LIBS
   arrow_shared
   arrow_python_shared
-  ${PLASMA_SHARED_LIB}
 )
 
 if (PYARROW_BUILD_PARQUET)
@@ -284,6 +273,29 @@ if (PYARROW_BUILD_PARQUET)
     _parquet)
 endif()
 
+## Plasma
+if (PYARROW_BUILD_PLASMA)
+  find_package(Plasma)
+
+  if(NOT PLASMA_FOUND)
+    message(FATAL_ERROR "Unable to locate Plasma libraries")
+  endif()
+
+  include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(libplasma
+    SHARED_LIB ${PLASMA_SHARED_LIB})
+
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(PLASMA_SHARED_LIB)
+  endif()
+  set(LINK_LIBS
+    ${LINK_LIBS}
+    libplasma_shared)
+
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
+  file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()
+
 ############################################################
 # Setup and build Cython modules
 ############################################################
@@ -330,7 +342,3 @@ foreach(module ${CYTHON_EXTENSIONS})
 
     target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)
-
-if (PLASMA_FOUND)
-  file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-endif()
