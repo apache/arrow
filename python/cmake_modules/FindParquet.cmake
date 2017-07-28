@@ -60,6 +60,8 @@ if(PARQUET_HOME)
         PATHS ${PARQUET_HOME} NO_DEFAULT_PATH
         PATH_SUFFIXES "lib")
     get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH )
+    set(PARQUET_ABI_VERSION "1.0.0")
+    set(PARQUET_SO_VERSION "1")
 else()
     pkg_check_modules(PARQUET parquet)
     if (PARQUET_FOUND)
