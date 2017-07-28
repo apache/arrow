@@ -629,7 +629,10 @@ cdef class ParquetWriter:
         cdef CTable* ctable = table.table
 
         if row_group_size is None or row_group_size == -1:
-            row_group_size = ctable.num_rows()
+            if ctable.num_rows() > 0:
+                row_group_size = ctable.num_rows()
+            else:
+                row_group_size = 1
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
 
