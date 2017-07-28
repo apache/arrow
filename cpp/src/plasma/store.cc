@@ -690,8 +690,9 @@ int main(int argc, char* argv[]) {
   close(shm_fd);
   if (system_memory > shm_mem_avail) {
     ARROW_LOG(FATAL) << "System memory request exceeds memory available in /dev/shm. The "
-                        "request is for " << system_memory
-                     << " bytes, and the amount available is " << shm_mem_avail
+                        "request is for "
+                     << system_memory << " bytes, and the amount available is "
+                     << shm_mem_avail
                      << " bytes. You may be able to free up space by deleting files in "
                         "/dev/shm. If you are inside a Docker container, you may need to "
                         "pass "
