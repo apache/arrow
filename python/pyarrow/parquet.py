@@ -805,3 +805,33 @@ def write_metadata(schema, where, version='1.0',
     )
     writer = ParquetWriter(where, schema, **options)
     writer.close()
+
+
+def read_metadata(where):
+    """
+    Read FileMetadata from footer of a single Parquet file
+
+    Parameters
+    ----------
+    where : string (filepath) or file-like object
+
+    Returns
+    -------
+    metadata : FileMetadata
+    """
+    return ParquetFile(where).metadata
+
+
+def read_schema(where):
+    """
+    Read effective Arrow schema from Parquet file metadata
+
+    Parameters
+    ----------
+    where : string (filepath) or file-like object
+
+    Returns
+    -------
+    schema : pyarrow.Schema
+    """
+    return ParquetFile(where).schema.to_arrow_schema()

@@ -239,5 +239,8 @@ Apache Parquet
    ParquetDataset
    ParquetFile
    read_table
+   read_metadata
+   read_pandas
+   read_schema
    write_metadata
    write_table
