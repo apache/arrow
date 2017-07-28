@@ -769,9 +769,22 @@ def write_table(table, where, row_group_size=None, version='1.0',
         compression=compression,
         version=version,
         use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
-    writer = ParquetWriter(where, table.schema, **options)
-    writer.write_table(table, row_group_size=row_group_size)
-    writer.close()
+
+    writer = None
+    try:
+        writer = ParquetWriter(where, table.schema, **options)
+        writer.write_table(table, row_group_size=row_group_size)
+    except:
+        if writer is not None:
+            writer.close()
+        if isinstance(where, six.string_types):
+            try:
+                os.remove(where)
+            except os.error:
+                pass
+        raise
+    else:
+        writer.close()
 
 
 def write_metadata(schema, where, version='1.0',
