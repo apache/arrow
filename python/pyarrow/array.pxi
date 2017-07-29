@@ -89,6 +89,23 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     return pyarrow_wrap_array(sp_array)
 
 
+def _normalize_slice(object arrow_obj, slice key):
+    cdef Py_ssize_t n = len(arrow_obj)
+
+    start = key.start or 0
+    while start < 0:
+        start += n
+
+    stop = key.stop if key.stop is not None else n
+    while stop < 0:
+        stop += n
+
+    step = key.step or 1
+    if step != 1:
+        raise IndexError('only slices with step 1 supported')
+    else:
+        return arrow_obj.slice(start, stop - start)
+
 
 cdef class Array:
 
@@ -230,23 +247,10 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef:
-            Py_ssize_t n = len(self)
+        cdef Py_ssize_t n = len(self)
 
         if PySlice_Check(key):
-            start = key.start or 0
-            while start < 0:
-                start += n
-
-            stop = key.stop if key.stop is not None else n
-            while stop < 0:
-                stop += n
-
-            step = key.step or 1
-            if step != 1:
-                raise IndexError('only slices with step 1 supported')
-            else:
-                return self.slice(start, stop - start)
+            return _normalize_slice(self, key)
 
         while key < 0:
             key += len(self)

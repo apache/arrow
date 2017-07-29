@@ -475,8 +475,13 @@ cdef class RecordBatch:
             )
         return pyarrow_wrap_array(self.batch.column(i))
 
-    def __getitem__(self, i):
-        return self.column(i)
+    def __getitem__(self, key):
+        cdef:
+            Py_ssize_t start, stop
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+        else:
+            return self.column(key)
 
     def slice(self, offset=0, length=None):
         """
