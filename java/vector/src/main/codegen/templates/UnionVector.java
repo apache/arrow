@@ -321,10 +321,8 @@ public class UnionVector implements FieldVector {
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      to.allocateNew();
-      for (int i = 0; i < length; i++) {
-        to.copyFromSafe(startIndex + i, i, org.apache.arrow.vector.complex.UnionVector.this);
-      }
+      internalMapVectorTransferPair.splitAndTransfer(startIndex, length);
+      typeVectorTransferPair.splitAndTransfer(startIndex, length);
       to.getMutator().setValueCount(length);
     }
 

@@ -24,6 +24,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -117,6 +118,179 @@ public class TestUnionVector {
     }
   }
 
+  @Test
+  public void testSplitAndTransfer() throws Exception {
+    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      final UnionVector.Mutator sourceMutator = sourceVector.getMutator();
+      final UnionVector.Accessor sourceAccessor = sourceVector.getAccessor();
+
+      sourceVector.allocateNew();
+
+      /* populate the UnionVector */
+      sourceMutator.setType(0, MinorType.INT);
+      sourceMutator.setSafe(0, newIntHolder(5));
+      sourceMutator.setType(1, MinorType.INT);
+      sourceMutator.setSafe(1, newIntHolder(10));
+      sourceMutator.setType(2, MinorType.INT);
+      sourceMutator.setSafe(2, newIntHolder(15));
+      sourceMutator.setType(3, MinorType.INT);
+      sourceMutator.setSafe(3, newIntHolder(20));
+      sourceMutator.setType(4, MinorType.INT);
+      sourceMutator.setSafe(4, newIntHolder(25));
+      sourceMutator.setType(5, MinorType.INT);
+      sourceMutator.setSafe(5, newIntHolder(30));
+      sourceMutator.setType(6, MinorType.INT);
+      sourceMutator.setSafe(6, newIntHolder(35));
+      sourceMutator.setType(7, MinorType.INT);
+      sourceMutator.setSafe(7, newIntHolder(40));
+      sourceMutator.setType(8, MinorType.INT);
+      sourceMutator.setSafe(8, newIntHolder(45));
+      sourceMutator.setType(9, MinorType.INT);
+      sourceMutator.setSafe(9, newIntHolder(50));
+      sourceMutator.setValueCount(10);
+
+      /* check the vector output */
+      assertEquals(10, sourceAccessor.getValueCount());
+      assertEquals(false, sourceAccessor.isNull(0));
+      assertEquals(5, sourceAccessor.getObject(0));
+      assertEquals(false, sourceAccessor.isNull(1));
+      assertEquals(10, sourceAccessor.getObject(1));
+      assertEquals(false, sourceAccessor.isNull(2));
+      assertEquals(15, sourceAccessor.getObject(2));
+      assertEquals(false, sourceAccessor.isNull(3));
+      assertEquals(20, sourceAccessor.getObject(3));
+      assertEquals(false, sourceAccessor.isNull(4));
+      assertEquals(25, sourceAccessor.getObject(4));
+      assertEquals(false, sourceAccessor.isNull(5));
+      assertEquals(30, sourceAccessor.getObject(5));
+      assertEquals(false, sourceAccessor.isNull(6));
+      assertEquals(35, sourceAccessor.getObject(6));
+      assertEquals(false, sourceAccessor.isNull(7));
+      assertEquals(40, sourceAccessor.getObject(7));
+      assertEquals(false, sourceAccessor.isNull(8));
+      assertEquals(45, sourceAccessor.getObject(8));
+      assertEquals(false, sourceAccessor.isNull(9));
+      assertEquals(50, sourceAccessor.getObject(9));
+
+      try(UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+
+        final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
+        final UnionVector.Accessor toAccessor = toVector.getAccessor();
+
+        final int[][] transferLengths = { {0, 3},
+                                          {3, 1},
+                                          {4, 2},
+                                          {6, 1},
+                                          {7, 1},
+                                          {8, 2}
+                                        };
+
+        for (final int[] transferLength : transferLengths) {
+          final int start = transferLength[0];
+          final int length = transferLength[1];
+
+          transferPair.splitAndTransfer(start, length);
+
+          /* check the toVector output after doing the splitAndTransfer */
+          for (int i = 0; i < length; i++) {
+            assertEquals("Different data at indexes: " + (start + i) + "and " + i, sourceAccessor.getObject(start + i),
+                         toAccessor.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferWithMixedVectors() throws Exception {
+    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      final UnionVector.Mutator sourceMutator = sourceVector.getMutator();
+      final UnionVector.Accessor sourceAccessor = sourceVector.getAccessor();
+
+      sourceVector.allocateNew();
+
+      /* populate the UnionVector */
+      sourceMutator.setType(0, MinorType.INT);
+      sourceMutator.setSafe(0, newIntHolder(5));
+
+      sourceMutator.setType(1, MinorType.FLOAT4);
+      sourceMutator.setSafe(1, newFloat4Holder(5.5f));
+
+      sourceMutator.setType(2, MinorType.INT);
+      sourceMutator.setSafe(2, newIntHolder(10));
+
+      sourceMutator.setType(3, MinorType.FLOAT4);
+      sourceMutator.setSafe(3, newFloat4Holder(10.5f));
+
+      sourceMutator.setType(4, MinorType.INT);
+      sourceMutator.setSafe(4, newIntHolder(15));
+
+      sourceMutator.setType(5, MinorType.FLOAT4);
+      sourceMutator.setSafe(5, newFloat4Holder(15.5f));
+
+      sourceMutator.setType(6, MinorType.INT);
+      sourceMutator.setSafe(6, newIntHolder(20));
+
+      sourceMutator.setType(7, MinorType.FLOAT4);
+      sourceMutator.setSafe(7, newFloat4Holder(20.5f));
+
+      sourceMutator.setType(8, MinorType.INT);
+      sourceMutator.setSafe(8, newIntHolder(30));
+
+      sourceMutator.setType(9, MinorType.FLOAT4);
+      sourceMutator.setSafe(9, newFloat4Holder(30.5f));
+      sourceMutator.setValueCount(10);
+
+      /* check the vector output */
+      assertEquals(10, sourceAccessor.getValueCount());
+      assertEquals(false, sourceAccessor.isNull(0));
+      assertEquals(5, sourceAccessor.getObject(0));
+      assertEquals(false, sourceAccessor.isNull(1));
+      assertEquals(5.5f, sourceAccessor.getObject(1));
+      assertEquals(false, sourceAccessor.isNull(2));
+      assertEquals(10, sourceAccessor.getObject(2));
+      assertEquals(false, sourceAccessor.isNull(3));
+      assertEquals(10.5f, sourceAccessor.getObject(3));
+      assertEquals(false, sourceAccessor.isNull(4));
+      assertEquals(15, sourceAccessor.getObject(4));
+      assertEquals(false, sourceAccessor.isNull(5));
+      assertEquals(15.5f, sourceAccessor.getObject(5));
+      assertEquals(false, sourceAccessor.isNull(6));
+      assertEquals(20, sourceAccessor.getObject(6));
+      assertEquals(false, sourceAccessor.isNull(7));
+      assertEquals(20.5f, sourceAccessor.getObject(7));
+      assertEquals(false, sourceAccessor.isNull(8));
+      assertEquals(30, sourceAccessor.getObject(8));
+      assertEquals(false, sourceAccessor.isNull(9));
+      assertEquals(30.5f, sourceAccessor.getObject(9));
+
+      try(UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+
+        final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
+        final UnionVector.Accessor toAccessor = toVector.getAccessor();
+
+        final int[][] transferLengths = { {0, 2},
+                                          {2, 1},
+                                          {3, 2},
+                                          {5, 3},
+                                          {8, 2}
+                                        };
+
+        for (final int[] transferLength : transferLengths) {
+          final int start = transferLength[0];
+          final int length = transferLength[1];
+
+          transferPair.splitAndTransfer(start, length);
+
+          /* check the toVector output after doing the splitAndTransfer */
+          for (int i = 0; i < length; i++) {
+            assertEquals("Different values at index: " + i, sourceAccessor.getObject(start + i), toAccessor.getObject(i));
+          }
+        }
+      }
+    }
+  }
+
   private static NullableIntHolder newIntHolder(int value) {
     final NullableIntHolder holder = new NullableIntHolder();
     holder.isSet = 1;
@@ -128,6 +302,13 @@ public class TestUnionVector {
     final NullableBitHolder holder = new NullableBitHolder();
     holder.isSet = 1;
     holder.value = value ? 1 : 0;
+    return holder;
+  }
+
+  private static NullableFloat4Holder newFloat4Holder(float value) {
+    final NullableFloat4Holder holder = new NullableFloat4Holder();
+    holder.isSet = 1;
+    holder.value = value;
     return holder;
   }
 }
