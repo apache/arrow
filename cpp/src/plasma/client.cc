@@ -512,10 +512,12 @@ Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_
 }
 
 Status PlasmaClient::Connect(const std::string& store_socket_name,
-                             const std::string& manager_socket_name, int release_delay) {
-  store_conn_ = connect_ipc_sock_retry(store_socket_name, -1, -1);
+                             const std::string& manager_socket_name, int release_delay,
+                             int num_retries) {
+  RETURN_NOT_OK(ConnectIpcSocketRetry(store_socket_name, num_retries, -1, &store_conn_));
   if (manager_socket_name != "") {
-    manager_conn_ = connect_ipc_sock_retry(manager_socket_name, -1, -1);
+    RETURN_NOT_OK(
+        ConnectIpcSocketRetry(manager_socket_name, num_retries, -1, &manager_conn_));
   } else {
     manager_conn_ = -1;
   }
