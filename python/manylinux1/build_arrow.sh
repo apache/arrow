@@ -80,7 +80,10 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
-    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
+
+    # ARROW-1264; for some reason the test case added causes a segfault inside
+    # the Docker container when writing and error message to stderr
+    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v -s --disable-plasma
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
