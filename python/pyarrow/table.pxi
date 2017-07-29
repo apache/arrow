@@ -317,51 +317,6 @@ cdef int _schema_from_arrays(
     return 0
 
 
-cdef tuple _dataframe_to_arrays(
-    df,
-    bint timestamps_to_ms,
-    Schema schema,
-    bint preserve_index
-):
-    cdef:
-        list names = []
-        list arrays = []
-        list index_columns = []
-        list types = []
-        DataType type = None
-        dict metadata
-        Py_ssize_t i
-        Py_ssize_t n
-
-    if preserve_index:
-        n = len(getattr(df.index, 'levels', [df.index]))
-        index_columns.extend(df.index.get_level_values(i) for i in range(n))
-
-    for name in df.columns:
-        col = df[name]
-        if schema is not None:
-            field = schema.field_by_name(name)
-            type = getattr(field, "type", None)
-
-        array = Array.from_pandas(
-            col, type=type, timestamps_to_ms=timestamps_to_ms
-        )
-        arrays.append(array)
-        names.append(name)
-        types.append(array.type)
-
-    for i, column in enumerate(index_columns):
-        array = Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
-        arrays.append(array)
-        names.append(pdcompat.index_level_name(column, i))
-        types.append(array.type)
-
-    metadata = pdcompat.construct_metadata(
-        df, index_columns, preserve_index, types
-    )
-    return names, arrays, metadata
-
-
 cdef class RecordBatch:
     """
     Batch of rows of columns of equal length
@@ -570,7 +525,7 @@ cdef class RecordBatch:
         -------
         pyarrow.RecordBatch
         """
-        names, arrays, metadata = _dataframe_to_arrays(
+        names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df, False, schema, preserve_index
         )
         return cls.from_arrays(arrays, names, metadata)
@@ -748,7 +703,7 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays, metadata = _dataframe_to_arrays(
+        names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df,
             timestamps_to_ms=timestamps_to_ms,
             schema=schema,

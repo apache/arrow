@@ -155,7 +155,7 @@ def index_level_name(index, i):
         return '__index_level_{:d}__'.format(i)
 
 
-def construct_metadata(df, index_levels, preserve_index, types):
+def construct_metadata(df, column_names, index_levels, preserve_index, types):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
 
@@ -170,39 +170,75 @@ def construct_metadata(df, index_levels, preserve_index, types):
     -------
     dict
     """
-    ncolumns = len(df.columns)
+    ncolumns = len(column_names)
     df_types = types[:ncolumns]
     index_types = types[ncolumns:ncolumns + len(index_levels)]
+
+    column_metadata = [
+        get_column_metadata(df[col_name], name=sanitized_name,
+                            arrow_type=arrow_type)
+        for col_name, sanitized_name, arrow_type in
+        zip(df.columns, column_names, df_types)
+    ]
+
+    if preserve_index:
+        index_column_names = [index_level_name(level, i)
+                              for i, level in enumerate(index_levels)]
+        index_column_metadata = [
+            get_column_metadata(level, name=index_level_name(level, i),
+                                arrow_type=arrow_type)
+            for i, (level, arrow_type) in enumerate(zip(index_levels,
+                                                        index_types))
+        ]
+    else:
+        index_column_names = index_column_metadata = []
+
     return {
-        b'pandas': json.dumps(
-            {
-                'index_columns': [
-                    index_level_name(level, i)
-                    for i, level in enumerate(index_levels)
-                ] if preserve_index else [],
-                'columns': [
-                    get_column_metadata(
-                        df[name],
-                        name=name,
-                        arrow_type=arrow_type
-                    )
-                    for name, arrow_type in zip(df.columns, df_types)
-                ] + (
-                    [
-                        get_column_metadata(
-                            level,
-                            name=index_level_name(level, i),
-                            arrow_type=arrow_type
-                        )
-                        for i, (level, arrow_type) in enumerate(
-                            zip(index_levels, index_types)
-                        )
-                    ] if preserve_index else []
-                ),
-                'pandas_version': pd.__version__,
-            }
-        ).encode('utf8')
+        b'pandas': json.dumps({
+            'index_columns': index_column_names,
+            'columns': column_metadata + index_column_metadata,
+            'pandas_version': pd.__version__
+        }).encode('utf8')
     }
+
+
+def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
+    names = []
+    arrays = []
+    index_columns = []
+    types = []
+    type = None
+
+    if preserve_index:
+        n = len(getattr(df.index, 'levels', [df.index]))
+        index_columns.extend(df.index.get_level_values(i) for i in range(n))
+
+    for name in df.columns:
+        col = df[name]
+        if not isinstance(name, six.string_types):
+            name = str(name)
+
+        if schema is not None:
+            field = schema.field_by_name(name)
+            type = getattr(field, "type", None)
+
+        array = pa.Array.from_pandas(
+            col, type=type, timestamps_to_ms=timestamps_to_ms
+        )
+        arrays.append(array)
+        names.append(name)
+        types.append(array.type)
+
+    for i, column in enumerate(index_columns):
+        array = pa.Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
+        arrays.append(array)
+        names.append(index_level_name(column, i))
+        types.append(array.type)
+
+    metadata = construct_metadata(
+        df, names, index_columns, preserve_index, types
+    )
+    return names, arrays, metadata
 
 
 def table_to_blockmanager(table, nthreads=1):
