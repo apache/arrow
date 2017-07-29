@@ -115,7 +115,7 @@ popd
 
 pushd python
 
-set PYARROW_CXXFLAGS="/WX"
+set PYARROW_CXXFLAGS=/WX
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
 py.test pyarrow -v -s --parquet || exit /B
 
