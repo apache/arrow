@@ -267,7 +267,6 @@ Now, we build and install Arrow C++ libraries
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=off ^
-         -DARROW_ZLIB_VENDORED=off ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..

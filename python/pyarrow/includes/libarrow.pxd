@@ -369,7 +369,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CTable]* table)
 
         int num_columns()
-        int num_rows()
+        int64_t num_rows()
 
         c_bool Equals(const CTable& other)
 
