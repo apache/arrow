@@ -82,6 +82,9 @@ if (NOT MSVC)
 
   # Suppress Cython warnings
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+else()
+  # MSVC version of -Wno-return-type-c-linkage
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
