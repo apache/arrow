@@ -33,11 +33,13 @@ try:
 except ImportError:
     pass
 
+
 try:
-    import pyarrow.plasma as plasma
+    import pyarrow.plasma as plasma  # noqa
     defaults['plasma'] = True
 except ImportError:
     pass
+
 
 def pytest_configure(config):
     pass
