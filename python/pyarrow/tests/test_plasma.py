@@ -168,6 +168,12 @@ class TestPlasmaClient(object):
         else:
             self.p.kill()
 
+    def test_connection_failure_raises_exception(self):
+        import pyarrow.plasma as plasma
+        # ARROW-1264
+        with pytest.raises(IOError):
+            plasma.connect('unknown-store-name', '', 0, 1)
+
     def test_create(self):
         # Create an object id string.
         object_id = random_object_id()
