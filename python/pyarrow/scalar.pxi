@@ -169,7 +169,6 @@ cdef class Time64Value(ArrayValue):
             CTime64Type* dtype = <CTime64Type*> ap.type().get()
 
         cdef int64_t val = ap.Value(self.index)
-        print(val)
         if dtype.unit() == TimeUnit_MICRO:
             return (datetime.datetime(1970, 1, 1) +
                     datetime.timedelta(microseconds=val)).time()

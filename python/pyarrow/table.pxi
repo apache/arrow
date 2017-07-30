@@ -286,7 +286,7 @@ cdef int _schema_from_arrays(
         c_string c_name
         vector[shared_ptr[CField]] fields
         shared_ptr[CDataType] type_
-        int K = len(arrays)
+        Py_ssize_t K = len(arrays)
 
     fields.resize(K)
 
@@ -733,7 +733,7 @@ cdef class Table:
             vector[shared_ptr[CColumn]] columns
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
-            size_t K = len(arrays)
+            int i, K = <int> len(arrays)
 
         _schema_from_arrays(arrays, names, metadata, &schema)
 
@@ -841,7 +841,7 @@ cdef class Table:
         self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
-    def column(self, int64_t i):
+    def column(self, int i):
         """
         Select a column by its numeric index.
 
@@ -855,8 +855,8 @@ cdef class Table:
         """
         cdef:
             Column column = Column()
-            int64_t num_columns = self.num_columns
-            int64_t index
+            int num_columns = self.num_columns
+            int index
 
         self._check_nullptr()
         if not -num_columns <= i < num_columns:

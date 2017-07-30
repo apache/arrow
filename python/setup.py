@@ -92,6 +92,8 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
 
+        self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
+
         if sys.platform == 'win32':
             # Cannot do debug builds in Windows unless Python itself is a debug
             # build
@@ -145,6 +147,10 @@ class build_ext(_build_ext):
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+        if len(self.cmake_cxxflags) > 0:
+            cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
+                                 .format(self.cmake_cxxflags))
 
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')

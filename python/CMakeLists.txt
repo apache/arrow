@@ -57,6 +57,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
+  set(PYARROW_CXXFLAGS "" CACHE STRING
+    "Compiler flags to append when compiling Arrow")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -75,6 +77,7 @@ include(CompilerInfo)
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
 if (NOT MSVC)
   # Enable perf and other tools to work properly
@@ -82,6 +85,13 @@ if (NOT MSVC)
 
   # Suppress Cython warnings
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+else()
+  # MSVC version of -Wno-return-type-c-linkage
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
+
+  # Cython generates some bitshift expressions that MSVC does not like in
+  # __Pyx_PyFloat_DivideObjC
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -95,6 +105,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Cython warnings in clang
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
 
   # We have public Cython APIs which return C++ types, which are in an extern
   # "C" blog (no symbol mangling) and clang doesn't like this

@@ -636,7 +636,7 @@ cdef class ParquetWriter:
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
 
-        cdef int c_row_group_size = row_group_size
+        cdef int64_t c_row_group_size = row_group_size
 
         with nogil:
             check_status(self.writer.get()
