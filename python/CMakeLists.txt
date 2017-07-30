@@ -105,6 +105,7 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Cython warnings in clang
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing_declarations")
 
   # We have public Cython APIs which return C++ types, which are in an extern
   # "C" blog (no symbol mangling) and clang doesn't like this
