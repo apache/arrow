@@ -44,6 +44,12 @@ class Filesystem(object):
         """
         raise NotImplementedError
 
+    def rm(self, path, recursive=False):
+        """
+        Alias for Filesystem.delete
+        """
+        return self.delete(path, recursive=recursive)
+
     def mkdir(self, path, create_parents=True):
         raise NotImplementedError
 
@@ -96,6 +102,12 @@ class Filesystem(object):
         return dataset.read(columns=columns, nthreads=nthreads,
                             use_pandas_metadata=use_pandas_metadata)
 
+    def open(self, path, mode='rb'):
+        """
+        Open file for reading or writing
+        """
+        raise NotImplementedError
+
     @property
     def pathsep(self):
         return '/'
@@ -134,6 +146,7 @@ class LocalFilesystem(Filesystem):
     def exists(self, path):
         return os.path.exists(path)
 
+    @implements(Filesystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -151,9 +164,9 @@ class LocalFilesystem(Filesystem):
         return os.walk(top_dir)
 
 
-class DaskFilesystemWrapper(Filesystem):
+class DaskFilesystem(Filesystem):
     """
-    Wraps a Dask filesystem implementation like s3fs, gcsfs, etc.
+    Wraps s3fs Dask filesystem implementation like s3fs, gcsfs, etc.
     """
 
     def __init__(self, fs):
@@ -161,22 +174,74 @@ class DaskFilesystemWrapper(Filesystem):
 
     @implements(Filesystem.isdir)
     def isdir(self, path):
-        return lib._HdfsClient.isdir(self, path)
+        if hasattr(self.fs, 'info'):
+            try:
+                contents = self.fs.ls(path)
+                if len(contents) == 1 and contents[0] == path:
+                    return False
+                else:
+                    return True
+            except FileNotFoundError:
+                return False
+
+        raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.isfile)
     def isfile(self, path):
-        return lib._HdfsClient.isfile(self, path)
+        if hasattr(self.fs, 'info'):
+            try:
+                self.fs.info(path)
+                return True
+            except FileNotFoundError:
+                return False
+
+        raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.delete)
     def delete(self, path, recursive=False):
-        return lib._HdfsClient.delete(self, path, recursive)
+        return self.fs.rm(path, recursive=recursive)
 
     @implements(Filesystem.mkdir)
-    def mkdir(self, path, create_parents=True):
-        return lib._HdfsClient.mkdir(self, path)
+    def mkdir(self, path):
+        return self.fs.mkdir(path)
+
+    @implements(Filesystem.open)
+    def open(self, path, mode='rb'):
+        """
+        Open file for reading or writing
+        """
+        return self.fs.open(path, mode=mode)
 
     def ls(self, path, detail=False):
         return self.fs.ls(path, detail=detail)
+
+    def walk(self, top_path):
+        """
+        Directory tree generator, like os.walk
+        """
+        return self.fs.walk(top_path)
+
+
+class S3FSWrapper(DaskFilesystem):
+
+    @implements(Filesystem.isdir)
+    def isdir(self, path):
+        try:
+            contents = self.fs.ls(path)
+            if len(contents) == 1 and contents[0] == path:
+                return False
+            else:
+                return True
+        except FileNotFoundError:
+            return False
+
+    @implements(Filesystem.isfile)
+    def isfile(self, path):
+        try:
+            contents = self.fs.ls(path)
+            return len(contents) == 1 and contents[0] == path
+        except FileNotFoundError:
+            return False
 
     def walk(self, top_path):
         """

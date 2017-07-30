@@ -34,7 +34,6 @@ import pandas.util.testing as tm
 
 # Ignore these with pytest ... -m 'not parquet'
 parquet = pytest.mark.parquet
-s3 = pytest.mark.s3
 
 
 def _write_table(table, path, **kwargs):
@@ -724,11 +723,12 @@ def s3_example():
     fs.rm(bucket_uri, recursive=True)
 
 
-@s3
+@pytest.mark.s3
 @parquet
-def test_read_partitioned_directory_amazon_s3(s3_example):
+def test_read_partitioned_directory_s3fs(s3_example):
+    from pyarrow.filesystem import S3FSWrapper
     fs, bucket_uri = s3_example
-    wrapper = pa.DaskFilesystemWrapper(fs)
+    wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, bucket_uri)
 
 
@@ -752,7 +752,7 @@ def _partition_test_for_filesystem(fs, base_path):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.ParquetDataset(base_path)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
     table = dataset.read()
     result_df = (table.to_pandas()
                  .sort_values(by='index')
@@ -789,7 +789,8 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
-                _write_table(part_table, file_path)
+                with fs.open(file_path, 'wb') as f:
+                    _write_table(part_table, f)
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
 

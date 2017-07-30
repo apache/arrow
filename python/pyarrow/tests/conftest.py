@@ -18,7 +18,13 @@
 from pytest import skip
 
 
-groups = ['hdfs', 'parquet', 'plasma', 'large_memory', 's3']
+groups = [
+    'hdfs',
+    'parquet',
+    'plasma',
+    'large_memory',
+    's3',
+]
 
 
 defaults = {
@@ -27,7 +33,7 @@ defaults = {
     'parquet': False,
     'plasma': False,
     'large_memory': False,
-    's3': False
+    's3': False,
 }
 
 try:
