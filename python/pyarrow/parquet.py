@@ -416,36 +416,41 @@ class ParquetManifest(object):
         self._visit_level(0, self.dirpath, [])
 
     def _visit_level(self, level, base_path, part_keys):
-        directories = []
-        files = []
         fs = self.filesystem
 
         _, directories, files = next(fs.walk(base_path))
 
+        filtered_files = []
         for path in files:
+            full_path = self.pathsep.join((base_path, path))
             if _is_parquet_file(path):
-                files.append(path)
+                filtered_files.append(full_path)
             elif path.endswith('_common_metadata'):
-                self.common_metadata_path = path
+                self.common_metadata_path = full_path
             elif path.endswith('_metadata'):
-                self.metadata_path = path
+                self.metadata_path = full_path
             elif not self._should_silently_exclude(path):
-                print('Ignoring path: {0}'.format(path))
+                print('Ignoring path: {0}'.format(full_path))
 
         # ARROW-1079: Filter out "private" directories starting with underscore
-        directories = [x for x in directories if not _is_private_directory(x)]
+        filtered_directories = [self.pathsep.join((base_path, x))
+                                for x in directories
+                                if not _is_private_directory(x)]
 
-        if len(files) > 0 and len(directories) > 0:
+        filtered_files.sort()
+        filtered_directories.sort()
+
+        if len(files) > 0 and len(filtered_directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
-        elif len(directories) > 0:
-            self._visit_directories(level, directories, part_keys)
+        elif len(filtered_directories) > 0:
+            self._visit_directories(level, filtered_directories, part_keys)
         else:
-            self._push_pieces(files, part_keys)
+            self._push_pieces(filtered_files, part_keys)
 
-    def _should_silently_exclude(self, path):
-        _, tail = path.rsplit(self.pathsep, 1)
-        return tail.endswith('.crc') or tail in EXCLUDED_PARQUET_PATHS
+    def _should_silently_exclude(self, file_name):
+        return (file_name.endswith('.crc') or
+                file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
         for path in directories:

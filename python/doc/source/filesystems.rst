@@ -31,12 +31,13 @@ System. You connect like so:
 .. code-block:: python
 
    import pyarrow as pa
-   hdfs = pa.HdfsClient(host, port, user=user, kerb_ticket=ticket_cache_path)
+   hdfs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
+   type(hdfs)
 
-By default, ``pyarrow.HdfsClient`` uses libhdfs, a JNI-based interface to the
-Java Hadoop client. This library is loaded **at runtime** (rather than at link
-/ library load time, since the library may not be in your LD_LIBRARY_PATH), and
-relies on some environment variables.
+By default, ``pyarrow.hdfs.HadoopFilesystem`` uses libhdfs, a JNI-based
+interface to the Java Hadoop client. This library is loaded **at runtime**
+(rather than at link / library load time, since the library may not be in your
+LD_LIBRARY_PATH), and relies on some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
   `lib/native/libhdfs.so`.
@@ -56,5 +57,5 @@ You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
 
 .. code-block:: python
 
-   hdfs3 = pa.HdfsClient(host, port, user=user, kerb_ticket=ticket_cache_path,
-                         driver='libhdfs3')
+   hdfs3 = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
+                           driver='libhdfs3')

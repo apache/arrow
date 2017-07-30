@@ -144,71 +144,11 @@ class LocalFilesystem(Filesystem):
     def pathsep(self):
         return os.path.sep
 
-
-class HdfsClient(lib._HdfsClient, Filesystem):
-    """
-    Connect to an HDFS cluster. All parameters are optional and should
-    only be set if the defaults need to be overridden.
-
-    Authentication should be automatic if the HDFS cluster uses Kerberos.
-    However, if a username is specified, then the ticket cache will likely
-    be required.
-
-    Parameters
-    ----------
-    host : NameNode. Set to "default" for fs.defaultFS from core-site.xml.
-    port : NameNode's port. Set to 0 for default or logical (HA) nodes.
-    user : Username when connecting to HDFS; None implies login user.
-    kerb_ticket : Path to Kerberos ticket cache.
-    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-      Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
-      library from Pivotal Labs)
-
-    Notes
-    -----
-    The first time you call this method, it will take longer than usual due
-    to JNI spin-up time.
-
-    Returns
-    -------
-    client : HDFSClient
-    """
-
-    def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
-                 driver='libhdfs'):
-        self._connect(host, port, user, kerb_ticket, driver)
-
-    @implements(Filesystem.isdir)
-    def isdir(self, path):
-        return lib._HdfsClient.isdir(self, path)
-
-    @implements(Filesystem.isfile)
-    def isfile(self, path):
-        return lib._HdfsClient.isfile(self, path)
-
-    @implements(Filesystem.delete)
-    def delete(self, path, recursive=False):
-        return lib._HdfsClient.delete(self, path, recursive)
-
-    @implements(Filesystem.mkdir)
-    def mkdir(self, path, create_parents=True):
-        return lib._HdfsClient.mkdir(self, path)
-
-    def ls(self, path, full_info=False):
+    def walk(self, top_dir):
         """
-        Retrieve directory contents and metadata, if requested.
-
-        Parameters
-        ----------
-        path : HDFS path
-        full_info : boolean, default False
-            If False, only return list of paths
-
-        Returns
-        -------
-        result : list of dicts (full_info=True) or strings (full_info=False)
+        Directory tree generator, see os.walk
         """
-        return lib._HdfsClient.ls(self, path, full_info)
+        return os.walk(top_dir)
 
 
 class DaskFilesystemWrapper(Filesystem):
@@ -235,8 +175,11 @@ class DaskFilesystemWrapper(Filesystem):
     def mkdir(self, path, create_parents=True):
         return lib._HdfsClient.mkdir(self, path)
 
-    def ls(self, path):
-        pass
+    def ls(self, path, detail=False):
+        return self.fs.ls(path, detail=detail)
 
-    def walk(self, path):
-        pass
+    def walk(self, top_path):
+        """
+        Directory tree generator, like os.walk
+        """
+        return self.fs.walk(top_path)

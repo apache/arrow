@@ -88,7 +88,10 @@ from pyarrow.lib import (ArrowException,
                          ArrowTypeError)
 
 
-from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
+from pyarrow.filesystem import Filesystem, LocalFilesystem
+
+from pyarrow.hdfs import HdfsClient, HadoopFilesystem
+import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import (Message, MessageReader,
                          RecordBatchFileReader, RecordBatchFileWriter,
