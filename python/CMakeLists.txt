@@ -307,6 +307,13 @@ if (PYARROW_BUILD_PLASMA)
     ${LINK_LIBS}
     libplasma_shared)
 
+  # ARROW-1295
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(LINK_LIBS
+      ${LINK_LIBS}
+      -static-libstdc++)
+  endif()
+
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
