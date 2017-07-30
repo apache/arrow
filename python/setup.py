@@ -148,8 +148,9 @@ class build_ext(_build_ext):
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
 
-        cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
-                             .format(self.cmake_cxxflags))
+        if len(self.cmake_cxxflags) > 0:
+            cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
+                                 .format(self.cmake_cxxflags))
 
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
