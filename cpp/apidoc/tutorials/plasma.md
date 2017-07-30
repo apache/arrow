@@ -165,25 +165,24 @@ constructed from. At this point, the client can still modify the contents
 of the data array.
 
 To create an object for Plasma, you need to create an object id, as well as
-give the object's maximum data size in bytes. All metadata for the object
-should be passed in at point of creation as well:
+give the object's maximum data size in bytes.
 
 ```
-// Create the Plasma object by specifying its size and metadata.
+// Create the Plasma object by specifying its size.
 int64_t data_size = 100;
-uint8_t metadata[] = {5};
-int64_t metadata_size = sizeof(metadata);
 uint8_t* data;
-ARROW_CHECK_OK(client.Create(object_id, data_size, metadata, metadata_size, &data));
+ARROW_CHECK_OK(client.Create(object_id, data_size, NULL, 0, &data));
 ```
 
-If there is no metadata for the object, you should pass in NULL instead:
+You can also specify metadata for the object; the third argument is the
+metadata (as raw bytes) and the forth argument is the size of the metadata.
 
 ```
 // Create a Plasma object without metadata.
 int64_t data_size = 100;
+std::string metadata = "{'author': 'john'}";
 uint8_t* data;
-client.Create(object_id, data_size, NULL, 0, &data);
+client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data);
 ```
 
 Now that we've specified the pointer to our object's data, we can
@@ -202,6 +201,39 @@ immutable, and making it available to other Plasma clients:
 ```
 // Seal the object. This makes it available for all clients.
 client.Seal(object_id);
+```
+
+Here is an example that combines all these features:
+
+```
+#include <plasma/client.h>
+
+using namespace plasma;
+
+int main(int argc, char** argv) {
+  // Start up and connect a Plasma client.
+  PlasmaClient client;
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  // Create an object with a random ObjectID.
+  ObjectID object_id = ObjectID::from_binary("00000000000000000000");
+  int64_t data_size = 1000;
+  uint8_t *data;
+  std::string metadata = "{'author': 'john'}";
+  ARROW_CHECK_OK(client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data));
+  // Write some data into the object.
+  for (int64_t i = 0; i < data_size; i++) {
+    data[i] = static_cast<uint8_t>(i % 4);
+  }
+  // Seal the object.
+  ARROW_CHECK_OK(client.Seal(object_id));
+  // Disconnect the client.
+  ARROW_CHECK_OK(client.Disconnect());
+}
+```
+
+This example can be compiled with
+```
+g++ create.cc `pkg-config --cflags --libs plasma` --std=c++11 -o create
 ```
 
 To verify that an object exists in the Plasma object store, you can
@@ -224,7 +256,7 @@ Getting an Object
 
 After an object has been sealed, any client who knows the Object ID can get
 the object. To store the retrieved object contents, you should create an
-`ObjectBuffer,` then call `PlasmaClient::Get()` as follows:
+`ObjectBuffer`, then call `PlasmaClient::Get()` as follows:
 
 ```
 // Get from the Plasma store by Object ID.
@@ -242,8 +274,7 @@ number of objects being fetched:
 // call will block until both objects have been fetched.
 ObjectBuffer multiple_buffers[2];
 ObjectID multiple_ids[2] = {object_id1, object_id2};
-int64_t number_of_objects = 2;
-client.Get(multiple_ids, number_of_objects, -1, multiple_buffers);
+client.Get(multiple_ids, 2, -1, multiple_buffers);
 ```
 
 Since `PlasmaClient::Get()` is a blocking function call, it may be
@@ -259,273 +290,146 @@ int64_t timeout = 100;
 client.Get(&object_id, 1, timeout, &object_buffer);
 ```
 
-Finally, to reconstruct the object, you can access the `data` and
-`metadata` attributes of the `ObjectBuffer.` The `data` can be indexed
+Finally, to access the object, you can access the `data` and
+`metadata` attributes of the `ObjectBuffer`. The `data` can be indexed
 like any array:
 
 ```
-// Reconstruct object data
-uint8_t* retrieved_data = object_buffer.data;
-uint8_t retrieved_data_length = object_buffer.data_size;
+// Access object data.
+uint8_t* data = object_buffer.data;
+int64_t data_size = object_buffer.data_size;
 
-// Reconstruct object metadata
-uint8_t* retrieved_metadata = object_buffer.metadata;
-uint8_t retrieved_metadata_length = object_buffer.metadata_size;
+// Access object metadata.
+uint8_t* metadata = object_buffer.metadata;
+uint8_t metadata_size = object_buffer.metadata_size;
 
-// Index into data array
-uint8_t first_data_byte = retrieved_data[0];
+// Index into data array.
+uint8_t first_data_byte = data[0];
 ```
 
-Working with Remote Plasma Stores
----------------------------------
+Here is a longer example that shows these capabilities:
 
-So far, we've worked with making our client store and get from the
-local Plasma store instance. This is enough if we want to share our
-data among processes on the same node/machine. However, if we want
-to share data across networks, we'll have to expand our API a little.
+```
+#include <plasma/client.h>
 
-*   **Transfer Objects to a Remote Plasma Instance**
+using namespace plasma;
 
-    If we know the IP address and port of a remote Plasma manager, we can
-    transfer a local object over to the remote Plasma store as follows:
+int main(int argc, char** argv) {
+  // Start up and connect a Plasma client.
+  PlasmaClient client;
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+  ObjectID object_id = ObjectID::from_binary("00000000000000000000");
+  ObjectBuffer object_buffer;
+  ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
 
-    ```
-    // Transferring an object to a remote Plasma manager.
-    const char* addr = "192.168.0.25";  // Dummy value
-    int port = 50108;  // Dummy value
-    client.Transfer(addr, port, &object_id);
-    ```
+  // Retrieve object data.
+  uint8_t* data = object_buffer.data;
+  int64_t data_size = object_buffer.data_size;
 
-*   **Fetching Objects from Remote Plasma Stores**
+  // Check that the data agrees with what was written in the other process.
+  for (int64_t i = 0; i < data_size; i++) {
+    ARROW_CHECK(data[i] == static_cast<uint8_t>(i % 4));
+  }
 
-    If we know their Object IDs, we can attempt to fetch objects from remote
-    Plasma managers into our local Plasma store by calling `PlasmaClient::Fetch().`
-    This method is safe in that it is non-blocking, checks if the object is in the
-    local object store already, and can be called multiple times without side effects.
+  // Disconnect the client.
+  ARROW_CHECK_OK(client.Disconnect());
+}
+```
 
-    ```
-    // Fetching an object from remote Plasma managers.
-    int number_of_ids = 5;
-    ObjectID obj_ids[5] = {obj_id1, obj_id2, obj_id3, obj_id4, obj_id5};
-    client.Fetch(number_of_ids, obj_ids);
-    ```
+If you compile it with
 
-    Of course, since `PlasmaClient::Fetch()` is non-blocking, the objects won't
-    necessarily be ready right after you call the function. This is where the next
-    section of this tutorial comes in.
+```
+g++ get.cc `pkg-config --cflags --libs plasma` --std=c++11 -o get
+```
+
+and run it with `./get`, all the assertions will pass if you run the `create`
+example from above on the same Plasma store.
 
 
-Querying Status from Plasma
----------------------------
+Object Lifetime Management
+--------------------------
 
-The power of Plasma is that we are able to share our data structures
-between different processes and even different nodes. However, it may
-be difficult for your process to know what is going with the other processes,
-have objects been stored into Plasma yet, etc.
+The Plasma store internally does reference counting to make sure objects that
+are mapped into the address space of one of the clients with `PlasmaClient::Get`
+are accessible. To unmap objects from a client, call `PlasmaClient::Release`.
+All objects that are mapped into a clients address space will automatically
+be released when the client is disconnected from the store.
 
-Plasma provides the following API to query the status of objects and to
-coordinate among different Plasma clients.
+If a new object is created and there is not enough space in the Plasma store,
+the store will evict the least recently used released object. If all objects
+are mapped into the address space of some client, the
 
-*   **Object Location and Status**
-
-    You can find out the current status of an object in the Plasma store by
-    querying using its Object ID. From the status, you can find out if the
-    object doesn't exist, if the object is in a local vs. a remote Plasma
-    store, and if the object is in the middle of being transferred:
-
-    ```
-    // Query the object's status
-    int object_status;
-    client.Info(object_id, &object_status);
-
-    switch(object_status) {
-        case PLASMA_CLIENT_LOCAL :
-            // Object is in a local Plasma store
-            break;
-        case PLASMA_CLIENT_TRANSFER :
-            // Object is being transferred
-            break;
-        case PLASMA_CLIENT_REMOTE :
-            // Object is in a remote Plasma store
-            break;
-        case PLASMA_CLIENT_DOES_NOT_EXIST :
-            // Object does not exist in the system
-            break;
-    }
-    ```
-*   **Sealed Object Notifications**
-
-    Additionally, you can arrange Plasma to notify you when objects are
-    sealed in the object store. This may especially be handy when your
-    program is collaborating with other Plasma clients, and needs to know
-    when they make objects available.
-
-    First, you can subscribe your current Plasma client to such notifications
-    by getting a file descriptor:
-
-    ```
-    // Start receiving notifications into file_descriptor.
-    int file_descriptor;
-    client.Subscribe(&fd);
-    ```
-
-    Once you have the file descriptor, you can have your current Plasma client
-    wait to receive the next object notification. Object notifications
-    include information such as Object ID, data size, and metadata size of
-    the next newly available object:
-
-    ```
-    // Receive notification of the next newly available object.
-    // Notification information is stored in new_object_id, new_data_size, and new_metadata_size
-    ObjectID new_object_id;
-    int64_t new_data_size;
-    int64_t new_metadata_size;
-    client.GetNotification(file_descriptor, &new_object_id, &new_data_size, &new_metadata_size);
-
-    // Fetch the newly available object.
-    ObjectBuffer object_buffer;
-    client.Get(&new_object_id, 1, -1, &object_buffer);
-    ```
-
-*   **Waiting for Objects to be Ready**
-
-    If your program already has the Object IDs from other clients that it wants to
-    process (whether they be in a local or remote store), however said objects have
-    yet to be sealed, you can instead call `PlasmaClient::Wait()` to block your program's
-    control flow until the objects have been sealed.
-
-    For each object desired, you have to form an `ObjectRequest` from its Object ID
-    as follows:
-
-    ```
-    // Request the objects by Object ID by forming ObjectRequests
-    ObjectRequest obj1;
-    obj1.object_id = obj_ID_1;
-    obj1.type = PLASMA_QUERY_ANYWHERE;
-    ```
-
-    You can specify an `ObjectRequest` to wait for an object anywhere, or to
-    wait for an object from its local object store. The latter would be
-    created instead as follows:
-
-    ```
-    ObjectRequest obj2;
-    obj2.object_id = obj_ID_2;
-    obj2.type = PLASMA_QUERY_LOCAL;
-    ```
-
-    You can also form an `ObjectRequest` to wait for any object in general, and
-    not for a particular Object ID as follows:
-
-    ```
-    ObjectRequest obj3;
-    obj3.object_id = ID_NIL;
-    obj3.type = PLASMA_QUERY_ANYWHERE;
-    ```
-
-    Once you have formed your `ObjectRequests,` you can call `PlasmaClient.Wait()`:
-
-    ```
-    ObjectRequest requests[3] = {obj1, obj2, obj3};
-
-    // Block until 2 of 3 desired objects become available.
-    int64_t num_of_desired_objects = 3;
-    int64_t num_of_objects_min = 2;
-
-    // Where to return how many objects did successfully become available.
-    int64_t num_of_objects_satisfied;
-
-    client.Wait(num_of_desired_objects, requests, num_of_objects_min, -1, &num_of_objects_satisfied);
-    ```
-
-    Similar to `PlasmaClient.Get()`, since `PlasmaClient.Wait()` is a blocking function
-    call, you can specify a timeout in milliseconds for when the function should
-    return regardless of success. Otherwise, pass in -1 to have no timeout:
-
-    ```
-    // Wait. Timeout if it takes more than 100 milliseconds.
-    int64_t timeout = 100;
-    client.Wait(num_of_desired_objects, requests, num_of_objects_min, timeout, &num_of_objects_satisfied);
-    ```
-
-Finish Using Objects in Plasma
-------------------------------
-
-*   **Releasing Objects from Get**
-
-    Once your client is done with using an object in the Plasma store, you should
-    call `PlasmaClient::Release()` to notify Plasma. `PlasmaClient::Release()`
-    should be called once for every call made to `PlasmaClient::Get()` for this
-    specific Object ID. Note that after calling this function, the address
-    returned by `PlasmaClient::Get()` will no longer be valid.
-
-    ```
-    // Free the fetched object from the client.
-    client.Release(object_id);
-    ```
-
-*   **Delete Objects from the Plasma Store**
-
-    You can also choose to delete an object from the Plasma object store entirely.
-    This should only be done for objects that are present and sealed:
-
-    ```
-    // Verify object is present and sealed first
-    bool has_object;
-    client.Contains(object_id, &has_object);
-
-    if (has_object) {
-        // Delete object by Object ID
-        client.Delete(object_id);
-    }
-    ```
-
-*   **Clearing Memory from the Plasma Store**
-
-    Occasionally, the Plasma store may become too full if not allocated enough
-    memory, and creating new objects in Plasma will fail. You can check if
-    the Plasma store is full by checking the `arrow::Status` that `PlasmaClient::Create`
-    returns.
-
-    If the Plasma store is too full, you can force Plasma to try to clear up
-    a given amount of memory (in bytes) by asking it to delete objects that
-    haven't been used in a while:
-
-    ```
-    // Attempt to create a new object
-    int64_t data_size2 = 100;
-    uint8_t* metadata2 = NULL;
-    int64_t metadata_size2 = 0;
-    uint8_t* data2;
-    Status returnStatus = client.Create(object_id2, data_size2, metadata2, metadata_size2, &data2);
-
-    // If Plasma is too full, evict to make more room
-    if (returnStatus.IsPlasmaStoreFull()) {
-        num_bytes = data_size2 + metadata_size2;
-        int64_t bytes_successfully_evicted;
-        client.Evict(num_bytes, &bytes_successfully_evicted);
-    }
-    ```
-
-Shutting Down Plasma
+Object notifications
 --------------------
 
-*   **Disconnecting the Client from the Local Plasma Store**
+Additionally, you can arrange Plasma to notify you when objects are
+sealed in the object store. This may especially be handy when your
+program is collaborating with other Plasma clients, and needs to know
+when they make objects available.
 
-    Once your program finishes using the Plasma object store, you should disconnect
-    your client as follows:
+First, you can subscribe your current Plasma client to such notifications
+by getting a file descriptor:
 
-    ```
-    // Disconnect the client from the Plasma store's socket.
-    client.Disconnect();
-    ```
+```
+// Start receiving notifications into file_descriptor.
+int fd;
+ARROW_CHECK_OK(client.Subscribe(&fd));
+```
 
-*   **Shut Down the Plasma Object Store**
+Once you have the file descriptor, you can have your current Plasma client
+wait to receive the next object notification. Object notifications
+include information such as Object ID, data size, and metadata size of
+the next newly available object:
 
-    Finally, to shut down the Plasma object store itself, you can terminate the
-    `plasma_store` process from within your C++ program as follows:
+```
+// Receive notification of the next newly available object.
+// Notification information is stored in object_id, data_size, and metadata_size
+ObjectID new_object_id;
+int64_t data_size;
+int64_t metadata_size;
+ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
 
-    ```
-    // Shut down the Plasma object store.
-    system("killall plasma_store &");
-    ```
+// Fetch the newly available object.
+ObjectBuffer object_buffer;
+ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
+```
+
+Here is a full program that shows this capability:
+
+```
+#include <plasma/client.h>
+
+using namespace plasma;
+
+int main(int argc, char** argv) {
+  // Start up and connect a Plasma client.
+  PlasmaClient client;
+  ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
+
+  int fd;
+  ARROW_CHECK_OK(client.Subscribe(&fd));
+
+  ObjectID object_id;
+  int64_t data_size;
+  int64_t metadata_size;
+  while (true) {
+    ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
+
+    std::cout << "Received object notification for object_id = "
+              << object_id.hex() << ", with data_size = " << data_size
+              << ", and metadata_size = " << metadata_size << std::endl;
+  }
+
+  // Disconnect the client.
+  ARROW_CHECK_OK(client.Disconnect());
+}
+```
+
+If you compile it with
+
+```
+g++ subscribe.cc `pkg-config --cflags --libs plasma` --std=c++11 -o subscribe
+```
+
+and invoke `./create` and `./subscribe` while the Plasma store is running,
+you can observe the new object arriving.
