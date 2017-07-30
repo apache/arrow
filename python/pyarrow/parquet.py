@@ -420,21 +420,17 @@ class ParquetManifest(object):
         files = []
         fs = self.filesystem
 
-        if not fs.isdir(base_path):
-            raise ValueError('"{0}" is not a directory'.format(base_path))
+        _, directories, files = next(fs.walk(base_path))
 
-        for path in sorted(fs.ls(base_path)):
-            if fs.isfile(path):
-                if _is_parquet_file(path):
-                    files.append(path)
-                elif path.endswith('_common_metadata'):
-                    self.common_metadata_path = path
-                elif path.endswith('_metadata'):
-                    self.metadata_path = path
-                elif not self._should_silently_exclude(path):
-                    print('Ignoring path: {0}'.format(path))
-            elif fs.isdir(path):
-                directories.append(path)
+        for path in files:
+            if _is_parquet_file(path):
+                files.append(path)
+            elif path.endswith('_common_metadata'):
+                self.common_metadata_path = path
+            elif path.endswith('_metadata'):
+                self.metadata_path = path
+            elif not self._should_silently_exclude(path):
+                print('Ignoring path: {0}'.format(path))
 
         # ARROW-1079: Filter out "private" directories starting with underscore
         directories = [x for x in directories if not _is_private_directory(x)]
