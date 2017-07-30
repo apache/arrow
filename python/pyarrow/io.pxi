@@ -923,7 +923,7 @@ cdef class _HdfsClient:
         cdef c_string c_path = tobytes(path)
         with nogil:
             check_status(self.client.get()
-                         .Delete(c_path, recursive))
+                         .Delete(c_path, recursive == 1))
 
     def open(self, path, mode='rb', buffer_size=None, replication=None,
              default_block_size=None):

@@ -23,6 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 export ARROW_HOME=$ARROW_CPP_INSTALL
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
+export PYARROW_CXXFLAGS="-Werror"
 
 build_parquet_cpp() {
   export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
