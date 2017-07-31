@@ -162,6 +162,9 @@ class ARROW_EXPORT DataType {
   DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+// TODO(wesm): Remove this from parquet-cpp
+using TypePtr = std::shared_ptr<DataType>
+
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
   using DataType::DataType;
