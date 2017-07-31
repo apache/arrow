@@ -260,7 +260,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   }
   // Remove the get request.
   if (get_req->timer != -1) {
-    ARROW_CHECK(loop_->remove_timer(get_req->timer) == AE_OK);
+    ARROW_CHECK(loop_->RemoveTimer(get_req->timer) == AE_OK);
   }
   delete get_req;
 }
@@ -330,7 +330,7 @@ void PlasmaStore::process_get_request(Client* client,
   } else if (timeout_ms != -1) {
     // Set a timer that will cause the get request to return to the client. Note
     // that a timeout of -1 is used to indicate that no timer should be set.
-    get_req->timer = loop_->add_timer(timeout_ms, [this, get_req](int64_t timer_id) {
+    get_req->timer = loop_->AddTimer(timeout_ms, [this, get_req](int64_t timer_id) {
       return_from_get(get_req);
       return kEventLoopTimerDone;
     });
@@ -418,7 +418,7 @@ void PlasmaStore::connect_client(int listener_sock) {
 
   // Add a callback to handle events on this socket.
   // TODO(pcm): Check return value.
-  loop_->add_file_event(client_fd, kEventLoopRead, [this, client](int events) {
+  loop_->AddFileEvent(client_fd, kEventLoopRead, [this, client](int events) {
     Status s = process_message(client);
     if (!s.ok()) {
       ARROW_LOG(FATAL) << "Failed to process file event: " << s;
@@ -431,7 +431,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
   ARROW_CHECK(client_fd > 0);
   auto it = connected_clients_.find(client_fd);
   ARROW_CHECK(it != connected_clients_.end());
-  loop_->remove_file_event(client_fd);
+  loop_->RemoveFileEvent(client_fd);
   // Close the socket.
   close(client_fd);
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
@@ -482,7 +482,7 @@ void PlasmaStore::send_notifications(int client_fd) {
       // at the end of the method.
       // TODO(pcm): Introduce status codes and check in case the file descriptor
       // is added twice.
-      loop_->add_file_event(client_fd, kEventLoopWrite, [this, client_fd](int events) {
+      loop_->AddFileEvent(client_fd, kEventLoopWrite, [this, client_fd](int events) {
         send_notifications(client_fd);
       });
       break;
@@ -511,7 +511,7 @@ void PlasmaStore::send_notifications(int client_fd) {
 
   // If we have sent all notifications, remove the fd from the event loop.
   if (it->second.object_notifications.empty()) {
-    loop_->remove_file_event(client_fd);
+    loop_->RemoveFileEvent(client_fd);
   }
 }
 
@@ -641,10 +641,10 @@ class PlasmaStoreRunner {
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
 
-    loop_->add_file_event(socket, kEventLoopRead, [this, socket](int events) {
+    loop_->AddFileEvent(socket, kEventLoopRead, [this, socket](int events) {
       this->store_->connect_client(socket);
     });
-    loop_->run();
+    loop_->Start();
   }
 
   void Shutdown() {
