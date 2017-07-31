@@ -162,7 +162,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
   @Override
   public void reset() {
-    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION * ${type.width};
     allocationMonitor = 0;
     zeroVector();
     super.reset();
