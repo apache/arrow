@@ -82,11 +82,24 @@ Benchmark logs will be placed in the build directory under `build/benchmark-logs
 To set up your own specific build toolchain, here are the relevant environment
 variables
 
+* Boost: `BOOST_ROOT`
 * Googletest: `GTEST_HOME` (only required to build the unit tests)
+* gflags: `GFLAGS_HOME` (only required to build the unit tests)
 * Google Benchmark: `GBENCHMARK_HOME` (only required if building benchmarks)
 * Flatbuffers: `FLATBUFFERS_HOME` (only required for the IPC extensions)
 * Hadoop: `HADOOP_HOME` (only required for the HDFS I/O extensions)
-* jemalloc: `JEMALLOC_HOME` (only required for the jemalloc-based memory pool)
+* jemalloc: `JEMALLOC_HOME`
+* brotli: `BROTLI_HOME`, can be disabled with `-DARROW_WITH_BROTLI=off`
+* lz4: `LZ4_HOME`, can be disabled with `-DARROW_WITH_LZ4=off`
+* snappy: `SNAPPY_HOME`, can be disabled with `-DARROW_WITH_SNAPPY=off`
+* zlib: `ZLIB_HOME`, can be disabled with `-DARROW_WITH_ZLIB=off`
+* zstd: `ZSTD_HOME`, can be disabled with `-DARROW_WITH_ZSTD=off`
+
+If you have all of your toolchain libraries installed at the same prefix, you
+can use the environment variable `$ARROW_BUILD_TOOLCHAIN` to automatically set
+all of these variables. Note that `ARROW_BUILD_TOOLCHAIN` will not set
+`BOOST_ROOT`, so if you have custom Boost installation, you must set this
+environment variable separately.
 
 ### Building Python integration library
 
