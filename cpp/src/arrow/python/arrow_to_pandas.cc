@@ -56,6 +56,8 @@
 namespace arrow {
 namespace py {
 
+using namespace internal;
+
 // ----------------------------------------------------------------------
 // Utility code
 

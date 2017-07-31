@@ -23,6 +23,7 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+namespace internal {
 
 template <typename T>
 inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
@@ -55,6 +56,7 @@ inline std::vector<T> AddVectorElement(const std::vector<T>& values, size_t inde
   return out;
 }
 
+}  // namespace internal
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_STL_H

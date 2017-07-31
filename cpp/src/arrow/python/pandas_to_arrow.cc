@@ -50,7 +50,13 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::ArrayData;
+using internal::MakeArray;
+
 namespace py {
+
+using namespace internal;
 
 // ----------------------------------------------------------------------
 // Conversion utilities
@@ -306,9 +312,9 @@ class PandasConverter {
     return Status::OK();
   }
 
-  Status PushArray(const std::shared_ptr<internal::ArrayData>& data) {
+  Status PushArray(const std::shared_ptr<ArrayData>& data) {
     std::shared_ptr<Array> result;
-    RETURN_NOT_OK(internal::MakeArray(data, &result));
+    RETURN_NOT_OK(MakeArray(data, &result));
     out_arrays_.emplace_back(std::move(result));
     return Status::OK();
   }
@@ -334,8 +340,8 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    return PushArray(std::make_shared<internal::ArrayData>(
-        type_, length_, std::move(buffers), null_count, 0));
+    return PushArray(
+        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0));
   }
 
   template <typename T>
@@ -454,7 +460,7 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   // Handle LONGLONG->INT64 and other fun things
   int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
 
-  if (numpy_type_size(traits::npy_type) != numpy_type_size(type_num_compat)) {
+  if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
     return Status::NotImplemented("NumPy type casts not yet implemented");
   }
 

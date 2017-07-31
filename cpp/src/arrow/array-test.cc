@@ -2042,9 +2042,9 @@ class TestStructBuilder : public TestBuilder {
     auto list_type = list(char_type);
 
     vector<std::shared_ptr<DataType>> types = {list_type, int32_type};
-    vector<FieldPtr> fields;
-    fields.push_back(FieldPtr(new Field("list", list_type)));
-    fields.push_back(FieldPtr(new Field("int", int32_type)));
+    vector<std::shared_ptr<Field>> fields;
+    fields.push_back(field("list", list_type));
+    fields.push_back(field("int", int32_type));
 
     type_ = struct_(fields);
     value_fields_ = fields;
@@ -2062,7 +2062,7 @@ class TestStructBuilder : public TestBuilder {
   }
 
  protected:
-  vector<FieldPtr> value_fields_;
+  vector<std::shared_ptr<Field>> value_fields_;
   std::shared_ptr<DataType> type_;
 
   std::shared_ptr<StructBuilder> builder_;

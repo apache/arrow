@@ -32,6 +32,7 @@ namespace arrow {
 class Status;
 
 namespace io {
+namespace internal {
 
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
@@ -205,6 +206,7 @@ struct LibHdfsShim {
 Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
 Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver);
 
+}  // namespace internal
 }  // namespace io
 }  // namespace arrow
 
