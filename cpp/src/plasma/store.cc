@@ -663,7 +663,7 @@ static PlasmaStoreRunner* g_runner = nullptr;
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
     if (g_runner != nullptr) {
-      g_runner ->Shutdown();
+      g_runner->Shutdown();
     }
     // Report "success" to valgrind.
     exit(0);
