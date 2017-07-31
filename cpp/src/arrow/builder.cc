@@ -497,7 +497,7 @@ Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
       uint8_t new_int_size = int_size_;
       for (int64_t i = 0; i < length; i++) {
         if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = ExpandedUintSize(values[i], new_int_size);
+          new_int_size = ExpandedUIntSize(values[i], new_int_size);
         }
       }
       if (new_int_size != int_size_) {

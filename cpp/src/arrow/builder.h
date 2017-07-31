@@ -319,7 +319,7 @@ inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
 }
 
 // Check if we would need to expand the underlying storage type
-inline uint8_t ExpandedUintSize(uint64_t val, uint8_t current_int_size) {
+inline uint8_t ExpandedUIntSize(uint64_t val, uint8_t current_int_size) {
   if (current_int_size == 8 ||
       (current_int_size < 8 &&
        (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
@@ -350,7 +350,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
-    uint8_t new_int_size = internal::ExpandedUintSize(val, int_size_);
+    uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
     if (new_int_size != int_size_) {
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
