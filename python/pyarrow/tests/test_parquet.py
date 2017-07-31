@@ -727,9 +727,15 @@ def s3_example():
 @parquet
 def test_read_partitioned_directory_s3fs(s3_example):
     from pyarrow.filesystem import S3FSWrapper
+    import pyarrow.parquet as pq
+
     fs, bucket_uri = s3_example
     wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, bucket_uri)
+
+    # Check that we can auto-wrap
+    dataset = pq.ParquetDataset(bucket_uri, filesystem=fs)
+    dataset.read()
 
 
 def _partition_test_for_filesystem(fs, base_path):

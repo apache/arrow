@@ -22,7 +22,7 @@ import six
 
 import numpy as np
 
-from pyarrow.filesystem import LocalFilesystem
+from pyarrow.filesystem import Filesystem, LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
@@ -524,7 +524,7 @@ class ParquetDataset(object):
         if filesystem is None:
             self.fs = LocalFilesystem.get_instance()
         else:
-            self.fs = filesystem
+            self.fs = _ensure_filesystem(filesystem)
 
         self.paths = path_or_paths
 
@@ -641,6 +641,18 @@ class ParquetDataset(object):
                                    metadata=meta,
                                    common_metadata=self.common_metadata)
         return open_file
+
+
+def _ensure_filesystem(fs):
+    if not isinstance(fs, Filesystem):
+        if type(fs).__name__ == 'S3FileSystem':
+            from pyarrow.filesystem import S3FSWrapper
+            return S3FSWrapper(fs)
+        else:
+            raise IOError('Unrecognized filesystem: {0}'
+                          .format(type(fs)))
+    else:
+        return fs
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/'):
