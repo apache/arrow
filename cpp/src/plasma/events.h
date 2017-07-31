@@ -83,10 +83,13 @@ class EventLoop {
   /// @return The ae.c error code. TODO(pcm): needs to be standardized
   int remove_timer(int64_t timer_id);
 
-  /// Run the event loop.
+  /// \brief Run the event loop.
   ///
   /// @return Void.
   void run();
+
+  /// \brief Stop the event loop
+  void Stop();
 
  private:
   static void file_event_callback(aeEventLoop* loop, int fd, void* context, int events);

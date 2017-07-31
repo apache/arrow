@@ -67,6 +67,11 @@ void EventLoop::remove_file_event(int fd) {
 
 void EventLoop::run() { aeMain(loop_); }
 
+void EventLoop::Stop() {
+  aeStop(loop_);
+  aeDeleteEventLoop(loop_);
+}
+
 int64_t EventLoop::add_timer(int64_t timeout, const TimerCallback& callback) {
   auto data = std::unique_ptr<TimerCallback>(new TimerCallback(callback));
   void* context = reinterpret_cast<void*>(data.get());

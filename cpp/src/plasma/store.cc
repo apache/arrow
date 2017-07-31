@@ -412,8 +412,10 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
 
 void PlasmaStore::connect_client(int listener_sock) {
   int client_fd = AcceptClient(listener_sock);
-  // This is freed in disconnect_client.
+
   Client* client = new Client(client_fd);
+  connected_clients_[client_fd] = std::unique_ptr<Client>(client);
+
   // Add a callback to handle events on this socket.
   // TODO(pcm): Check return value.
   loop_->add_file_event(client_fd, kEventLoopRead, [this, client](int events) {
@@ -425,23 +427,25 @@ void PlasmaStore::connect_client(int listener_sock) {
   ARROW_LOG(DEBUG) << "New connection with fd " << client_fd;
 }
 
-void PlasmaStore::disconnect_client(Client* client) {
-  ARROW_CHECK(client != NULL);
-  ARROW_CHECK(client->fd > 0);
-  loop_->remove_file_event(client->fd);
+void PlasmaStore::disconnect_client(int client_fd) {
+  ARROW_CHECK(client_fd > 0);
+  auto it = connected_clients_.find(client_fd);
+  ARROW_CHECK(it != connected_clients_.end());
+  loop_->remove_file_event(client_fd);
   // Close the socket.
-  close(client->fd);
-  ARROW_LOG(INFO) << "Disconnecting client on fd " << client->fd;
+  close(client_fd);
+  ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // If this client was using any objects, remove it from the appropriate
   // lists.
   for (const auto& entry : store_info_.objects) {
-    remove_client_from_object_clients(entry.second.get(), client);
+    remove_client_from_object_clients(entry.second.get(), it->second.get());
   }
+
   // Note, the store may still attempt to send a message to the disconnected
   // client (for example, when an object ID that the client was waiting for
   // is ready). In these cases, the attempt to send the message will fail, but
   // the store should just ignore the failure.
-  delete client;
+  connected_clients_.erase(it);
 }
 
 /// Send notifications about sealed objects to the subscribers. This is called
@@ -616,7 +620,7 @@ Status PlasmaStore::process_message(Client* client) {
     } break;
     case DISCONNECT_CLIENT:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
-      disconnect_client(client);
+      disconnect_client(client->fd);
       break;
     default:
       // This code should be unreachable.
@@ -625,9 +629,43 @@ Status PlasmaStore::process_message(Client* client) {
   return Status::OK();
 }
 
-// Report "success" to valgrind.
-void signal_handler(int signal) {
+class PlasmaStoreRunner {
+ public:
+  PlasmaStoreRunner() {}
+
+  void Start(char* socket_name, int64_t system_memory) {
+    // Create the event loop.
+    loop_.reset(new EventLoop);
+    store_.reset(new PlasmaStore(loop_.get(), system_memory));
+    int socket = bind_ipc_sock(socket_name, true);
+    // TODO(pcm): Check return value.
+    ARROW_CHECK(socket >= 0);
+
+    loop_->add_file_event(socket, kEventLoopRead, [this, socket](int events) {
+      this->store_->connect_client(socket);
+    });
+    loop_->run();
+  }
+
+  void Shutdown() {
+    loop_->Stop();
+    loop_ = nullptr;
+    store_ = nullptr;
+  }
+
+ private:
+  std::unique_ptr<EventLoop> loop_;
+  std::unique_ptr<PlasmaStore> store_;
+};
+
+static PlasmaStoreRunner* g_runner = nullptr;
+
+void HandleSignal(int signal) {
   if (signal == SIGTERM) {
+    if (g_runner != nullptr) {
+      g_runner ->Shutdown();
+    }
+    // Report "success" to valgrind.
     exit(0);
   }
 }
@@ -636,21 +674,16 @@ void start_server(char* socket_name, int64_t system_memory) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
-  // Create the event loop.
-  EventLoop loop;
-  PlasmaStore store(&loop, system_memory);
-  int socket = bind_ipc_sock(socket_name, true);
-  ARROW_CHECK(socket >= 0);
-  // TODO(pcm): Check return value.
-  loop.add_file_event(socket, kEventLoopRead,
-                      [&store, socket](int events) { store.connect_client(socket); });
-  loop.run();
+
+  PlasmaStoreRunner runner;
+  g_runner = &runner;
+  signal(SIGTERM, HandleSignal);
+  runner.Start(socket_name, system_memory);
 }
 
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
-  signal(SIGTERM, plasma::signal_handler);
   char* socket_name = NULL;
   int64_t system_memory = -1;
   int c;
