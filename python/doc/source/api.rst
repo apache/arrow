@@ -164,6 +164,16 @@ Input / Output and Shared Memory
    create_memory_map
    PythonFile
 
+Filesystems
+-----------
+
+.. autosummary::
+   :toctree: generated/
+
+   hdfs.connect
+   HadoopFilesystem
+   LocalFilesystem
+
 .. _api.ipc:
 
 Interprocess Communication and Messaging

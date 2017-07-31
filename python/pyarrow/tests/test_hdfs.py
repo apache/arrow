@@ -43,7 +43,7 @@ def hdfs_test_client(driver='libhdfs'):
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return pa.HdfsClient(host, port, user, driver=driver)
+    return pa.hdfs.connect(host, port, user, driver=driver)
 
 
 @pytest.mark.hdfs

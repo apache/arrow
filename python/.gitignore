@@ -34,3 +34,9 @@ coverage.xml
 # benchmark working dir
 .asv
 pyarrow/_table_api.h
+
+# manylinux1 temporary files
+manylinux1/arrow
+
+# plasma store
+pyarrow/plasma_store
