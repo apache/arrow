@@ -107,6 +107,35 @@ directoy:
 
 This requires [Doxygen](http://www.doxygen.org) to be installed.
 
+## Development
+
+This project follows [Google's C++ Style Guide][3] with minor exceptions. We do
+not encourage anonymous namespaces and we relax the line length restriction to
+90 characters.
+
+### Error Handling and Exceptions
+
+For error handling, we use `arrow::Status` values instead of throwing C++
+exceptions. Since the Arrow C++ libraries are intended to be useful as a
+component in larger C++ projects, using `Status` objects can help with good
+code hygiene by making explicit when a function is expected to be able to fail.
+
+For expressing invariants and "cannot fail" errors, we use DCHECK macros
+defined in `arrow/util/logging.h`. These checks are disabled in release builds
+and are intended to catch internal development errors, particularly when
+refactoring. These macros are not to be included in any public header files.
+
+Since we do not use exceptions, we avoid doing expensive work in object
+constructors. Objects that are expensive to construct may often have private
+constructors, with public static factory methods that return `Status`.
+
+There are a number of object constructors, like `arrow::Schema` and
+`arrow::RecordBatch` where larger STL container objects like `std::vector` may
+be created. While it is possible for `std::bad_alloc` to be thrown in these
+constructors, the circumstances where they would are somewhat esoteric, and it
+is likely that an application would have encountered other more serious
+problems prior to having `std::bad_alloc` thrown in a constructor.
+
 ## Continuous Integration
 
 Pull requests are run through travis-ci for continuous integration.  You can avoid
@@ -114,9 +143,8 @@ build failures by running the following checks before submitting your pull reque
 
     make unittest
     make lint
-    # The next two commands may change your code.  It is recommended you commit
-    # before running them.
-    make clang-tidy # requires clang-tidy is installed
+    # The next command may change your code.  It is recommended you commit
+    # before running it.
     make format # requires clang-format is installed
 
 Note that the clang-tidy target may take a while to run.  You might consider
@@ -132,3 +160,4 @@ both of these options would be used rarely.  Current known uses-cases whent hey 
 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
+[3]: https://google.github.io/styleguide/cppguide.html
