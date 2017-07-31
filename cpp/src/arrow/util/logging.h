@@ -97,7 +97,9 @@ class CerrLog {
  public:
   CerrLog(int severity)  // NOLINT(runtime/explicit)
       : severity_(severity),
-        has_logged_(false) {}
+        has_logged_(false) {
+    std::cerr.unsetf(std::ios_base::unitbuf); // ARROW-1295
+  }
 
   virtual ~CerrLog() {
     if (has_logged_) {
