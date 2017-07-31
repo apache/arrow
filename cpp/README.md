@@ -144,7 +144,7 @@ build failures by running the following checks before submitting your pull reque
     make unittest
     make lint
     # The next command may change your code.  It is recommended you commit
-    # before running them.
+    # before running it.
     make format # requires clang-format is installed
 
 Note that the clang-tidy target may take a while to run.  You might consider
