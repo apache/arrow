@@ -131,7 +131,3 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     fs = HadoopFilesystem(host=host, port=port, user=user,
                           kerb_ticket=kerb_ticket, driver=driver)
     return fs
-
-
-# Backwards compatibility with pyarrow < 0.6.0
-HdfsClient = HadoopFilesystem
