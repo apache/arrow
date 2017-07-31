@@ -49,7 +49,9 @@ int main(int argc, char** argv) {
       }
     } else if ((param = std::strstr(argv[i], BATCH_SIZE_PREFIX.c_str()))) {
       value = std::strtok(param + BATCH_SIZE_PREFIX.length(), " ");
-      if (value) { batch_size = std::atoi(value); }
+      if (value) {
+        batch_size = std::atoi(value);
+      }
     } else {
       filename = argv[i];
     }
@@ -84,8 +86,9 @@ int main(int argc, char** argv) {
 
         int64_t values_read = 0;
         while (col_reader->HasNext()) {
-          total_rows[col] += ScanAllValues(batch_size, def_levels.data(),
-              rep_levels.data(), values.data(), &values_read, col_reader.get());
+          total_rows[col] +=
+              ScanAllValues(batch_size, def_levels.data(), rep_levels.data(),
+                            values.data(), &values_read, col_reader.get());
         }
         col++;
       }
