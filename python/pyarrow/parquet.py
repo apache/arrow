@@ -22,7 +22,7 @@ import six
 
 import numpy as np
 
-from pyarrow.filesystem import LocalFilesystem
+from pyarrow.filesystem import Filesystem, LocalFilesystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
@@ -416,40 +416,41 @@ class ParquetManifest(object):
         self._visit_level(0, self.dirpath, [])
 
     def _visit_level(self, level, base_path, part_keys):
-        directories = []
-        files = []
         fs = self.filesystem
 
-        if not fs.isdir(base_path):
-            raise ValueError('"{0}" is not a directory'.format(base_path))
+        _, directories, files = next(fs.walk(base_path))
 
-        for path in sorted(fs.ls(base_path)):
-            if fs.isfile(path):
-                if _is_parquet_file(path):
-                    files.append(path)
-                elif path.endswith('_common_metadata'):
-                    self.common_metadata_path = path
-                elif path.endswith('_metadata'):
-                    self.metadata_path = path
-                elif not self._should_silently_exclude(path):
-                    print('Ignoring path: {0}'.format(path))
-            elif fs.isdir(path):
-                directories.append(path)
+        filtered_files = []
+        for path in files:
+            full_path = self.pathsep.join((base_path, path))
+            if _is_parquet_file(path):
+                filtered_files.append(full_path)
+            elif path.endswith('_common_metadata'):
+                self.common_metadata_path = full_path
+            elif path.endswith('_metadata'):
+                self.metadata_path = full_path
+            elif not self._should_silently_exclude(path):
+                print('Ignoring path: {0}'.format(full_path))
 
         # ARROW-1079: Filter out "private" directories starting with underscore
-        directories = [x for x in directories if not _is_private_directory(x)]
+        filtered_directories = [self.pathsep.join((base_path, x))
+                                for x in directories
+                                if not _is_private_directory(x)]
 
-        if len(files) > 0 and len(directories) > 0:
+        filtered_files.sort()
+        filtered_directories.sort()
+
+        if len(files) > 0 and len(filtered_directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
-        elif len(directories) > 0:
-            self._visit_directories(level, directories, part_keys)
+        elif len(filtered_directories) > 0:
+            self._visit_directories(level, filtered_directories, part_keys)
         else:
-            self._push_pieces(files, part_keys)
+            self._push_pieces(filtered_files, part_keys)
 
-    def _should_silently_exclude(self, path):
-        _, tail = path.rsplit(self.pathsep, 1)
-        return tail.endswith('.crc') or tail in EXCLUDED_PARQUET_PATHS
+    def _should_silently_exclude(self, file_name):
+        return (file_name.endswith('.crc') or
+                file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
         for path in directories:
@@ -523,7 +524,7 @@ class ParquetDataset(object):
         if filesystem is None:
             self.fs = LocalFilesystem.get_instance()
         else:
-            self.fs = filesystem
+            self.fs = _ensure_filesystem(filesystem)
 
         self.paths = path_or_paths
 
@@ -640,6 +641,18 @@ class ParquetDataset(object):
                                    metadata=meta,
                                    common_metadata=self.common_metadata)
         return open_file
+
+
+def _ensure_filesystem(fs):
+    if not isinstance(fs, Filesystem):
+        if type(fs).__name__ == 'S3FileSystem':
+            from pyarrow.filesystem import S3FSWrapper
+            return S3FSWrapper(fs)
+        else:
+            raise IOError('Unrecognized filesystem: {0}'
+                          .format(type(fs)))
+    else:
+        return fs
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/'):

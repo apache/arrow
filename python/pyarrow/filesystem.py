@@ -17,9 +17,9 @@
 
 from os.path import join as pjoin
 import os
+import posixpath
 
 from pyarrow.util import implements
-import pyarrow.lib as lib
 
 
 class Filesystem(object):
@@ -43,6 +43,12 @@ class Filesystem(object):
             If True, also delete child paths for directories
         """
         raise NotImplementedError
+
+    def rm(self, path, recursive=False):
+        """
+        Alias for Filesystem.delete
+        """
+        return self.delete(path, recursive=recursive)
 
     def mkdir(self, path, create_parents=True):
         raise NotImplementedError
@@ -96,6 +102,12 @@ class Filesystem(object):
         return dataset.read(columns=columns, nthreads=nthreads,
                             use_pandas_metadata=use_pandas_metadata)
 
+    def open(self, path, mode='rb'):
+        """
+        Open file for reading or writing
+        """
+        raise NotImplementedError
+
     @property
     def pathsep(self):
         return '/'
@@ -134,6 +146,7 @@ class LocalFilesystem(Filesystem):
     def exists(self, path):
         return os.path.exists(path)
 
+    @implements(Filesystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -144,68 +157,103 @@ class LocalFilesystem(Filesystem):
     def pathsep(self):
         return os.path.sep
 
+    def walk(self, top_dir):
+        """
+        Directory tree generator, see os.walk
+        """
+        return os.walk(top_dir)
 
-class HdfsClient(lib._HdfsClient, Filesystem):
+
+class DaskFilesystem(Filesystem):
     """
-    Connect to an HDFS cluster. All parameters are optional and should
-    only be set if the defaults need to be overridden.
-
-    Authentication should be automatic if the HDFS cluster uses Kerberos.
-    However, if a username is specified, then the ticket cache will likely
-    be required.
-
-    Parameters
-    ----------
-    host : NameNode. Set to "default" for fs.defaultFS from core-site.xml.
-    port : NameNode's port. Set to 0 for default or logical (HA) nodes.
-    user : Username when connecting to HDFS; None implies login user.
-    kerb_ticket : Path to Kerberos ticket cache.
-    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
-      Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++
-      library from Pivotal Labs)
-
-    Notes
-    -----
-    The first time you call this method, it will take longer than usual due
-    to JNI spin-up time.
-
-    Returns
-    -------
-    client : HDFSClient
+    Wraps s3fs Dask filesystem implementation like s3fs, gcsfs, etc.
     """
 
-    def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
-                 driver='libhdfs'):
-        self._connect(host, port, user, kerb_ticket, driver)
+    def __init__(self, fs):
+        self.fs = fs
 
     @implements(Filesystem.isdir)
     def isdir(self, path):
-        return lib._HdfsClient.isdir(self, path)
+        raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.isfile)
     def isfile(self, path):
-        return lib._HdfsClient.isfile(self, path)
+        raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.delete)
     def delete(self, path, recursive=False):
-        return lib._HdfsClient.delete(self, path, recursive)
+        return self.fs.rm(path, recursive=recursive)
 
     @implements(Filesystem.mkdir)
-    def mkdir(self, path, create_parents=True):
-        return lib._HdfsClient.mkdir(self, path)
+    def mkdir(self, path):
+        return self.fs.mkdir(path)
 
-    def ls(self, path, full_info=False):
+    @implements(Filesystem.open)
+    def open(self, path, mode='rb'):
         """
-        Retrieve directory contents and metadata, if requested.
-
-        Parameters
-        ----------
-        path : HDFS path
-        full_info : boolean, default False
-            If False, only return list of paths
-
-        Returns
-        -------
-        result : list of dicts (full_info=True) or strings (full_info=False)
+        Open file for reading or writing
         """
-        return lib._HdfsClient.ls(self, path, full_info)
+        return self.fs.open(path, mode=mode)
+
+    def ls(self, path, detail=False):
+        return self.fs.ls(path, detail=detail)
+
+    def walk(self, top_path):
+        """
+        Directory tree generator, like os.walk
+        """
+        return self.fs.walk(top_path)
+
+
+class S3FSWrapper(DaskFilesystem):
+
+    @implements(Filesystem.isdir)
+    def isdir(self, path):
+        try:
+            contents = self.fs.ls(path)
+            if len(contents) == 1 and contents[0] == path:
+                return False
+            else:
+                return True
+        except OSError:
+            return False
+
+    @implements(Filesystem.isfile)
+    def isfile(self, path):
+        try:
+            contents = self.fs.ls(path)
+            return len(contents) == 1 and contents[0] == path
+        except OSError:
+            return False
+
+    def walk(self, path, refresh=False):
+        """
+        Directory tree generator, like os.walk
+
+        Generator version of what is in s3fs, which yields a flattened list of
+        files
+        """
+        path = path.replace('s3://', '')
+        directories = set()
+        files = set()
+
+        for key in list(self.fs._ls(path, refresh=refresh)):
+            path = key['Key']
+            if key['StorageClass'] == 'DIRECTORY':
+                directories.add(path)
+            elif key['StorageClass'] == 'BUCKET':
+                pass
+            else:
+                files.add(path)
+
+        # s3fs creates duplicate 'DIRECTORY' entries
+        files = sorted([posixpath.split(f)[1] for f in files
+                        if f not in directories])
+        directories = sorted([posixpath.split(x)[1]
+                              for x in directories])
+
+        yield path, directories, files
+
+        for directory in directories:
+            for tup in self.walk(directory, refresh=refresh):
+                yield tup

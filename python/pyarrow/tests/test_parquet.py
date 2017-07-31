@@ -700,6 +700,45 @@ def test_partition_set_dictionary_type():
 
 @parquet
 def test_read_partitioned_directory(tmpdir):
+    fs = LocalFilesystem.get_instance()
+    base_path = str(tmpdir)
+
+    _partition_test_for_filesystem(fs, base_path)
+
+
+@pytest.yield_fixture
+def s3_example():
+    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
+    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
+    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
+
+    import s3fs
+    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+
+    test_dir = guid()
+
+    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
+    fs.mkdir(bucket_uri)
+    yield fs, bucket_uri
+    fs.rm(bucket_uri, recursive=True)
+
+
+@pytest.mark.s3
+@parquet
+def test_read_partitioned_directory_s3fs(s3_example):
+    from pyarrow.filesystem import S3FSWrapper
+    import pyarrow.parquet as pq
+
+    fs, bucket_uri = s3_example
+    wrapper = S3FSWrapper(fs)
+    _partition_test_for_filesystem(wrapper, bucket_uri)
+
+    # Check that we can auto-wrap
+    dataset = pq.ParquetDataset(bucket_uri, filesystem=fs)
+    dataset.read()
+
+
+def _partition_test_for_filesystem(fs, base_path):
     import pyarrow.parquet as pq
 
     foo_keys = [0, 1]
@@ -717,10 +756,9 @@ def test_read_partitioned_directory(tmpdir):
         'values': np.random.randn(N)
     }, columns=['index', 'foo', 'bar', 'values'])
 
-    base_path = str(tmpdir)
-    _generate_partition_directories(base_path, partition_spec, df)
+    _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.ParquetDataset(base_path)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
     table = dataset.read()
     result_df = (table.to_pandas()
                  .sort_values(by='index')
@@ -737,12 +775,11 @@ def test_read_partitioned_directory(tmpdir):
     tm.assert_frame_equal(result_df, expected_df)
 
 
-def _generate_partition_directories(base_dir, partition_spec, df):
+def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     DEPTH = len(partition_spec)
-    fs = LocalFilesystem.get_instance()
 
     def _visit_level(base_dir, level, part_keys):
         name, values = partition_spec[level]
@@ -758,7 +795,8 @@ def _generate_partition_directories(base_dir, partition_spec, df):
 
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
-                _write_table(part_table, file_path)
+                with fs.open(file_path, 'wb') as f:
+                    _write_table(part_table, f)
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
 
