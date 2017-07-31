@@ -126,7 +126,7 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
 
     Returns
     -------
-    client : HDFSClient
+    filesystem : HadoopFilesystem
     """
     fs = HadoopFilesystem(host=host, port=port, user=user,
                           kerb_ticket=kerb_ticket, driver=driver)
