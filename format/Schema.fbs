@@ -27,6 +27,10 @@ enum MetadataVersion:short {
 
 /// These are stored in the flatbuffer in the Type union below
 
+/// A scalar null type for data that cannot be classified as any other
+/// type. For example, if a CSV or JSON file were parsed and a particular field
+/// had all null values, then we could choose Null for this field. In some
+/// systems, Null can be casted to any other type
 table Null {
 }
 
@@ -36,6 +40,8 @@ table Null {
 table Struct_ {
 }
 
+/// Variable-length list value type. List lengths are encoded in the offsets
+/// buffer. See Layout.md for more detail
 table List {
 }
 
@@ -95,11 +101,12 @@ table FloatingPoint {
   precision: Precision;
 }
 
-/// Unicode with UTF-8 encoding
-table Utf8 {
+/// Variable-length binary type
+table Binary {
 }
 
-table Binary {
+/// Variable-length Unicode with UTF-8 encoding
+table Utf8 {
 }
 
 table FixedSizeBinary {
@@ -107,6 +114,7 @@ table FixedSizeBinary {
   byteWidth: int;
 }
 
+/// Boolean type, 1 bit per value
 table Bool {
 }
 
@@ -175,8 +183,39 @@ table Timestamp {
 }
 
 enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
+
+
+/// A type representing an absolute time difference, also called "timedelta" in
+/// some systems.
+///
+/// SQL systems support many varieties of interval types. The PostgreSQL
+/// interval type is a 16-byte type with microsecond resolution. Microsoft SQL
+/// Server has yet different interval type representations. Some other
+/// libraries, like NumPy, have a 64-bit integer-based timedelta type with time
+/// resolution metadata
+///
+/// We support two styles of intervals encoded in a 64-bit integer
+///
+/// - YEAR_MONTH, value indicates number of elapsed whole months
+///
+/// - DAY_TIME, value indicate absolute time offset according to the difference
+///   in UNIX time (i.e. excluding leap seconds). The resolution defaults to
+///   millisecond, but can be any of the other supported TimeUnit values as
+///   with Timestamp and Time types
+///
+/// References
+/// - https://www.postgresql.org/docs/9.6/static/datatype-datetime.html
+/// - https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/interval-data-types
 table Interval {
+  /// The kind of interval, YEAR_MONTH or DAY_TIME
+  ///
+  /// TODO(wesm): Should this be renamed to kind and change resolution to be
+  /// "unit" for consistency with the other temporal types?
   unit: IntervalUnit;
+
+  /// The unit of time resolution for DAY_TIME. If null, assumed to be
+  /// milliseconds
+  resolution: TimeUnit = MILLISECOND;
 }
 
 /// ----------------------------------------------------------------------
