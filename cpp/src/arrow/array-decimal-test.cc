@@ -37,7 +37,7 @@ class DecimalTestBase {
     auto type = std::make_shared<DecimalType>(precision, 4);
     int byte_width = type->byte_width();
     auto pool = default_memory_pool();
-    auto builder = std::make_shared<DecimalBuilder>(pool, type);
+    auto builder = std::make_shared<DecimalBuilder>(type, pool);
     size_t null_count = 0;
 
     size_t size = draw.size();

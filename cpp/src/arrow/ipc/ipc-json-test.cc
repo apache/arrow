@@ -225,7 +225,7 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   static const int kBufferSize = 10;
   static uint8_t buffer[kBufferSize];
   static uint32_t seed = 0;
-  StringBuilder string_builder(default_memory_pool());
+  StringBuilder string_builder;
   for (int i = 0; i < num_rows; ++i) {
     if (!is_valid[i]) {
       ASSERT_OK(string_builder.AppendNull());

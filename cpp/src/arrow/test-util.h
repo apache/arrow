@@ -221,8 +221,7 @@ template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
-  MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool, type);
+  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder.Append(values[i]));
@@ -236,8 +235,7 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
-  MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool);
+  typename TypeTraits<TYPE>::BuilderType builder;
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ASSERT_OK(builder.Append(values[i]));
@@ -250,8 +248,7 @@ void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE
 
 template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool);
+  typename TypeTraits<TYPE>::BuilderType builder;
   for (size_t i = 0; i < values.size(); ++i) {
     ASSERT_OK(builder.Append(values[i]));
   }

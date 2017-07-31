@@ -977,7 +977,7 @@ class ArrayReader {
           std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value,
       Status>::type
   Visit(const T& type) {
-    typename TypeTraits<T>::BuilderType builder(pool_, type_);
+    typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     const auto& json_data = obj_->FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, *obj_);
@@ -1046,7 +1046,7 @@ class ArrayReader {
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, Status>::type
   Visit(const T& type) {
-    FixedSizeBinaryBuilder builder(pool_, type_);
+    FixedSizeBinaryBuilder builder(type_, pool_);
 
     const auto& json_data = obj_->FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, *obj_);
