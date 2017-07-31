@@ -48,8 +48,8 @@ class PARQUET_EXPORT ReaderProperties {
 
   ::arrow::MemoryPool* memory_pool() const { return pool_; }
 
-  std::unique_ptr<InputStream> GetStream(
-      RandomAccessSource* source, int64_t start, int64_t num_bytes) {
+  std::unique_ptr<InputStream> GetStream(RandomAccessSource* source, int64_t start,
+                                         int64_t num_bytes) {
     std::unique_ptr<InputStream> stream;
     if (buffered_stream_enabled_) {
       stream.reset(
@@ -92,9 +92,9 @@ static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOM
 class PARQUET_EXPORT ColumnProperties {
  public:
   ColumnProperties(Encoding::type encoding = DEFAULT_ENCODING,
-      Compression::type codec = DEFAULT_COMPRESSION_TYPE,
-      bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
-      bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED)
+                   Compression::type codec = DEFAULT_COMPRESSION_TYPE,
+                   bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
+                   bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED)
       : encoding(encoding),
         codec(codec),
         dictionary_enabled(dictionary_enabled),
@@ -215,8 +215,8 @@ class PARQUET_EXPORT WriterProperties {
      * This either apply if dictionary encoding is disabled or if we fallback
      * as the dictionary grew too large.
      */
-    Builder* encoding(
-        const std::shared_ptr<schema::ColumnPath>& path, Encoding::type encoding_type) {
+    Builder* encoding(const std::shared_ptr<schema::ColumnPath>& path,
+                      Encoding::type encoding_type) {
       return this->encoding(path->ToDotString(), encoding_type);
     }
 
@@ -230,8 +230,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    Builder* compression(
-        const std::shared_ptr<schema::ColumnPath>& path, Compression::type codec) {
+    Builder* compression(const std::shared_ptr<schema::ColumnPath>& path,
+                         Compression::type codec) {
       return this->compression(path->ToDotString(), codec);
     }
 
@@ -273,18 +273,16 @@ class PARQUET_EXPORT WriterProperties {
           return it->second;
       };
 
-      for (const auto& item : encodings_)
-        get(item.first).encoding = item.second;
-      for (const auto& item : codecs_)
-        get(item.first).codec = item.second;
+      for (const auto& item : encodings_) get(item.first).encoding = item.second;
+      for (const auto& item : codecs_) get(item.first).codec = item.second;
       for (const auto& item : dictionary_enabled_)
         get(item.first).dictionary_enabled = item.second;
       for (const auto& item : statistics_enabled_)
         get(item.first).statistics_enabled = item.second;
 
-      return std::shared_ptr<WriterProperties>(new WriterProperties(pool_,
-          dictionary_pagesize_limit_, write_batch_size_, pagesize_, version_, created_by_,
-          default_column_properties_, column_properties));
+      return std::shared_ptr<WriterProperties>(new WriterProperties(
+          pool_, dictionary_pagesize_limit_, write_batch_size_, pagesize_, version_,
+          created_by_, default_column_properties_, column_properties));
     }
 
    private:
@@ -355,7 +353,8 @@ class PARQUET_EXPORT WriterProperties {
   }
 
  private:
-  explicit WriterProperties(::arrow::MemoryPool* pool, int64_t dictionary_pagesize_limit,
+  explicit WriterProperties(
+      ::arrow::MemoryPool* pool, int64_t dictionary_pagesize_limit,
       int64_t write_batch_size, int64_t pagesize, ParquetVersion::type version,
       const std::string& created_by, const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties)

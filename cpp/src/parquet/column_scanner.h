@@ -18,10 +18,10 @@
 #ifndef PARQUET_COLUMN_SCANNER_H
 #define PARQUET_COLUMN_SCANNER_H
 
+#include <stdio.h>
 #include <cstdint>
 #include <memory>
 #include <ostream>
-#include <stdio.h>
 #include <string>
 #include <vector>
 
@@ -39,8 +39,8 @@ static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 class PARQUET_EXPORT Scanner {
  public:
   explicit Scanner(std::shared_ptr<ColumnReader> reader,
-      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                   int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
+                   ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : batch_size_(batch_size),
         level_offset_(0),
         levels_buffered_(0),
@@ -54,7 +54,8 @@ class PARQUET_EXPORT Scanner {
 
   virtual ~Scanner() {}
 
-  static std::shared_ptr<Scanner> Make(std::shared_ptr<ColumnReader> col_reader,
+  static std::shared_ptr<Scanner> Make(
+      std::shared_ptr<ColumnReader> col_reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
@@ -90,8 +91,8 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
   typedef typename DType::c_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
-      int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+                        int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
+                        ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Scanner(reader, batch_size, pool) {
     typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
@@ -103,13 +104,15 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
 
   bool NextLevels(int16_t* def_level, int16_t* rep_level) {
     if (level_offset_ == levels_buffered_) {
-      levels_buffered_ =
-          static_cast<int>(typed_reader_->ReadBatch(static_cast<int>(batch_size_),
-              def_levels_.data(), rep_levels_.data(), values_, &values_buffered_));
+      levels_buffered_ = static_cast<int>(
+          typed_reader_->ReadBatch(static_cast<int>(batch_size_), def_levels_.data(),
+                                   rep_levels_.data(), values_, &values_buffered_));
 
       value_offset_ = 0;
       level_offset_ = 0;
-      if (!levels_buffered_) { return false; }
+      if (!levels_buffered_) {
+        return false;
+      }
     }
     *def_level = descr()->max_definition_level() > 0 ? def_levels_[level_offset_] : 0;
     *rep_level = descr()->max_repetition_level() > 0 ? rep_levels_[level_offset_] : 0;
@@ -128,7 +131,9 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
     NextLevels(def_level, rep_level);
     *is_null = *def_level < descr()->max_definition_level();
 
-    if (*is_null) { return true; }
+    if (*is_null) {
+      return true;
+    }
 
     if (value_offset_ == values_buffered_) {
       throw ParquetException("Value was non-null, but has not been buffered");
@@ -152,7 +157,9 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
     NextLevels(&def_level, &rep_level);
     *is_null = def_level < descr()->max_definition_level();
 
-    if (*is_null) { return true; }
+    if (*is_null) {
+      return true;
+    }
 
     if (value_offset_ == values_buffered_) {
       throw ParquetException("Value was non-null, but has not been buffered");
@@ -166,7 +173,9 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
     bool is_null = false;
     char buffer[25];
 
-    if (!NextValue(&val, &is_null)) { throw ParquetException("No more values buffered"); }
+    if (!NextValue(&val, &is_null)) {
+      throw ParquetException("No more values buffered");
+    }
 
     if (is_null) {
       std::string null_fmt = format_fwf<ByteArrayType>(width);
@@ -187,31 +196,31 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
 };
 
 template <typename DType>
-inline void TypedScanner<DType>::FormatValue(
-    void* val, char* buffer, int bufsize, int width) {
+inline void TypedScanner<DType>::FormatValue(void* val, char* buffer, int bufsize,
+                                             int width) {
   std::string fmt = format_fwf<DType>(width);
   snprintf(buffer, bufsize, fmt.c_str(), *reinterpret_cast<T*>(val));
 }
 
 template <>
-inline void TypedScanner<Int96Type>::FormatValue(
-    void* val, char* buffer, int bufsize, int width) {
+inline void TypedScanner<Int96Type>::FormatValue(void* val, char* buffer, int bufsize,
+                                                 int width) {
   std::string fmt = format_fwf<Int96Type>(width);
   std::string result = Int96ToString(*reinterpret_cast<Int96*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
-inline void TypedScanner<ByteArrayType>::FormatValue(
-    void* val, char* buffer, int bufsize, int width) {
+inline void TypedScanner<ByteArrayType>::FormatValue(void* val, char* buffer, int bufsize,
+                                                     int width) {
   std::string fmt = format_fwf<ByteArrayType>(width);
   std::string result = ByteArrayToString(*reinterpret_cast<ByteArray*>(val));
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
-inline void TypedScanner<FLBAType>::FormatValue(
-    void* val, char* buffer, int bufsize, int width) {
+inline void TypedScanner<FLBAType>::FormatValue(void* val, char* buffer, int bufsize,
+                                                int width) {
   std::string fmt = format_fwf<FLBAType>(width);
   std::string result = FixedLenByteArrayToString(
       *reinterpret_cast<FixedLenByteArray*>(val), descr()->type_length());
@@ -229,17 +238,19 @@ typedef TypedScanner<FLBAType> FixedLenByteArrayScanner;
 
 template <typename RType>
 int64_t ScanAll(int32_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-    uint8_t* values, int64_t* values_buffered, parquet::ColumnReader* reader) {
+                uint8_t* values, int64_t* values_buffered,
+                parquet::ColumnReader* reader) {
   typedef typename RType::T Type;
   auto typed_reader = static_cast<RType*>(reader);
   auto vals = reinterpret_cast<Type*>(&values[0]);
-  return typed_reader->ReadBatch(
-      batch_size, def_levels, rep_levels, vals, values_buffered);
+  return typed_reader->ReadBatch(batch_size, def_levels, rep_levels, vals,
+                                 values_buffered);
 }
 
 int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
-    int16_t* rep_levels, uint8_t* values, int64_t* values_buffered,
-    parquet::ColumnReader* reader);
+                                     int16_t* rep_levels, uint8_t* values,
+                                     int64_t* values_buffered,
+                                     parquet::ColumnReader* reader);
 
 }  // namespace parquet
 

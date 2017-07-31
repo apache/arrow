@@ -414,7 +414,7 @@ class PARQUET_EXPORT InMemoryInputStream : public InputStream {
 class PARQUET_EXPORT BufferedInputStream : public InputStream {
  public:
   BufferedInputStream(::arrow::MemoryPool* pool, int64_t buffer_size,
-      RandomAccessSource* source, int64_t start, int64_t end);
+                      RandomAccessSource* source, int64_t start, int64_t end);
   virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
   virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
 
@@ -429,11 +429,11 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
   int64_t buffer_size_;
 };
 
-std::shared_ptr<PoolBuffer> PARQUET_EXPORT AllocateBuffer(
-    ::arrow::MemoryPool* pool, int64_t size = 0);
+std::shared_ptr<PoolBuffer> PARQUET_EXPORT AllocateBuffer(::arrow::MemoryPool* pool,
+                                                          int64_t size = 0);
 
-std::unique_ptr<PoolBuffer> PARQUET_EXPORT AllocateUniqueBuffer(
-    ::arrow::MemoryPool* pool, int64_t size = 0);
+std::unique_ptr<PoolBuffer> PARQUET_EXPORT AllocateUniqueBuffer(::arrow::MemoryPool* pool,
+                                                                int64_t size = 0);
 
 }  // namespace parquet
 

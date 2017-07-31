@@ -59,8 +59,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   Type::type type_num() { return TestType::type_num; }
 
-  void BuildReader(
-      int64_t num_rows, Compression::type compression = Compression::UNCOMPRESSED) {
+  void BuildReader(int64_t num_rows,
+                   Compression::type compression = Compression::UNCOMPRESSED) {
     auto buffer = sink_->GetBuffer();
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
     std::unique_ptr<SerializedPageReader> page_reader(
@@ -93,8 +93,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED) {
     BuildReader(static_cast<int64_t>(this->values_out_.size()), compression);
     reader_->ReadBatch(static_cast<int>(this->values_out_.size()),
-        definition_levels_out_.data(), repetition_levels_out_.data(),
-        this->values_out_ptr_, &values_read_);
+                       definition_levels_out_.data(), repetition_levels_out_.data(),
+                       this->values_out_ptr_, &values_read_);
     this->SyncValuesOut();
   }
 
@@ -105,22 +105,24 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void TestRequiredWithSettings(Encoding::type encoding, Compression::type compression,
-      bool enable_dictionary, bool enable_statistics, int64_t num_rows = SMALL_SIZE) {
+                                bool enable_dictionary, bool enable_statistics,
+                                int64_t num_rows = SMALL_SIZE) {
     this->GenerateData(num_rows);
 
-    this->WriteRequiredWithSettings(
-        encoding, compression, enable_dictionary, enable_statistics, num_rows);
+    this->WriteRequiredWithSettings(encoding, compression, enable_dictionary,
+                                    enable_statistics, num_rows);
     this->ReadAndCompare(compression, num_rows);
 
-    this->WriteRequiredWithSettingsSpaced(
-        encoding, compression, enable_dictionary, enable_statistics, num_rows);
+    this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
+                                          enable_statistics, num_rows);
     this->ReadAndCompare(compression, num_rows);
   }
 
   void WriteRequiredWithSettings(Encoding::type encoding, Compression::type compression,
-      bool enable_dictionary, bool enable_statistics, int64_t num_rows) {
-    ColumnProperties column_properties(
-        encoding, compression, enable_dictionary, enable_statistics);
+                                 bool enable_dictionary, bool enable_statistics,
+                                 int64_t num_rows) {
+    ColumnProperties column_properties(encoding, compression, enable_dictionary,
+                                       enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(num_rows, column_properties);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
@@ -130,16 +132,17 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   }
 
   void WriteRequiredWithSettingsSpaced(Encoding::type encoding,
-      Compression::type compression, bool enable_dictionary, bool enable_statistics,
-      int64_t num_rows) {
+                                       Compression::type compression,
+                                       bool enable_dictionary, bool enable_statistics,
+                                       int64_t num_rows) {
     std::vector<uint8_t> valid_bits(
         BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
-    ColumnProperties column_properties(
-        encoding, compression, enable_dictionary, enable_statistics);
+    ColumnProperties column_properties(encoding, compression, enable_dictionary,
+                                       enable_statistics);
     std::shared_ptr<TypedColumnWriter<TestType>> writer =
         this->BuildWriter(num_rows, column_properties);
-    writer->WriteBatchSpaced(
-        this->values_.size(), nullptr, nullptr, valid_bits.data(), 0, this->values_ptr_);
+    writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
+                             this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
@@ -234,7 +237,7 @@ void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compressio
     uint8_t* data_ptr = data.data();
     for (int64_t i = 0; i < values_read_recently; i++) {
       memcpy(data_ptr + this->descr_->type_length() * i,
-          this->values_out_[i + values_read_].ptr, this->descr_->type_length());
+             this->values_out_[i + values_read_].ptr, this->descr_->type_length());
       this->values_out_[i + values_read_].ptr =
           data_ptr + this->descr_->type_length() * i;
     }
@@ -246,7 +249,7 @@ void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compressio
 }
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    BooleanType, ByteArrayType, FLBAType>
+                         BooleanType, ByteArrayType, FLBAType>
     TestTypes;
 
 TYPED_TEST_CASE(TestPrimitiveWriter, TestTypes);
@@ -288,38 +291,38 @@ TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
 */
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithSnappyCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::SNAPPY, false, false, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, false,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::BROTLI, false, false, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, false,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::GZIP, false, false, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::UNCOMPRESSED, false, true, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::SNAPPY, false, true, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, true,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::BROTLI, false, true, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, true,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
-  this->TestRequiredWithSettings(
-      Encoding::PLAIN, Compression::GZIP, false, true, LARGE_SIZE);
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true,
+                                 LARGE_SIZE);
 }
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
@@ -332,8 +335,8 @@ TYPED_TEST(TestPrimitiveWriter, Optional) {
   definition_levels[1] = 0;
 
   auto writer = this->BuildWriter();
-  writer->WriteBatch(
-      this->values_.size(), definition_levels.data(), nullptr, this->values_ptr_);
+  writer->WriteBatch(this->values_.size(), definition_levels.data(), nullptr,
+                     this->values_ptr_);
   writer->Close();
 
   // PARQUET-703
@@ -362,7 +365,7 @@ TYPED_TEST(TestPrimitiveWriter, OptionalSpaced) {
 
   auto writer = this->BuildWriter();
   writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(), nullptr,
-      valid_bits.data(), 0, this->values_ptr_);
+                           valid_bits.data(), 0, this->values_ptr_);
   writer->Close();
 
   // PARQUET-703
@@ -387,7 +390,7 @@ TYPED_TEST(TestPrimitiveWriter, Repeated) {
 
   auto writer = this->BuildWriter();
   writer->WriteBatch(this->values_.size(), definition_levels.data(),
-      repetition_levels.data(), this->values_ptr_);
+                     repetition_levels.data(), this->values_ptr_);
   writer->Close();
 
   this->ReadColumn();
@@ -426,7 +429,7 @@ TYPED_TEST(TestPrimitiveWriter, RepeatedTooFewRows) {
 
   auto writer = this->BuildWriter();
   writer->WriteBatch(this->values_.size(), definition_levels.data(),
-      repetition_levels.data(), this->values_ptr_);
+                     repetition_levels.data(), this->values_ptr_);
   ASSERT_THROW(writer->Close(), ParquetException);
 }
 
@@ -485,8 +488,8 @@ TEST_F(TestNullValuesWriter, OptionalNullValueChunk) {
 
   auto writer = this->BuildWriter(LARGE_SIZE);
   // All values being written are NULL
-  writer->WriteBatch(
-      this->values_.size(), definition_levels.data(), repetition_levels.data(), NULL);
+  writer->WriteBatch(this->values_.size(), definition_levels.data(),
+                     repetition_levels.data(), NULL);
   writer->Close();
 
   // Just read the first SMALL_SIZE rows to ensure we could read it back in
@@ -512,7 +515,7 @@ TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
 }
 
 void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,
-    std::vector<int16_t>& input_levels) {
+                    std::vector<int16_t>& input_levels) {
   // for each repetition count upto max_repeat_factor
   for (int repeat = min_repeat_factor; repeat <= max_repeat_factor; repeat++) {
     // repeat count increases by a factor of 2 for every iteration
@@ -531,7 +534,7 @@ void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,
 }
 
 void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
-    const int16_t* input_levels, std::vector<uint8_t>& bytes) {
+                  const int16_t* input_levels, std::vector<uint8_t>& bytes) {
   LevelEncoder encoder;
   int levels_count = 0;
   bytes.resize(2 * num_levels);
@@ -540,20 +543,21 @@ void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
   if (encoding == Encoding::RLE) {
     // leave space to write the rle length value
     encoder.Init(encoding, max_level, num_levels, bytes.data() + sizeof(int32_t),
-        static_cast<int>(bytes.size()));
+                 static_cast<int>(bytes.size()));
 
     levels_count = encoder.Encode(num_levels, input_levels);
     (reinterpret_cast<int32_t*>(bytes.data()))[0] = encoder.len();
   } else {
-    encoder.Init(
-        encoding, max_level, num_levels, bytes.data(), static_cast<int>(bytes.size()));
+    encoder.Init(encoding, max_level, num_levels, bytes.data(),
+                 static_cast<int>(bytes.size()));
     levels_count = encoder.Encode(num_levels, input_levels);
   }
   ASSERT_EQ(num_levels, levels_count);
 }
 
 void VerifyDecodingLevels(Encoding::type encoding, int max_level,
-    std::vector<int16_t>& input_levels, std::vector<uint8_t>& bytes) {
+                          std::vector<int16_t>& input_levels,
+                          std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
   std::vector<int16_t> output_levels;
@@ -590,7 +594,8 @@ void VerifyDecodingLevels(Encoding::type encoding, int max_level,
 }
 
 void VerifyDecodingMultipleSetData(Encoding::type encoding, int max_level,
-    std::vector<int16_t>& input_levels, std::vector<std::vector<uint8_t>>& bytes) {
+                                   std::vector<int16_t>& input_levels,
+                                   std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
   std::vector<int16_t> output_levels;
@@ -634,7 +639,7 @@ TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
       // Generate levels
       GenerateLevels(min_repeat_factor, max_repeat_factor, max_level, input_levels);
       EncodeLevels(encoding, max_level, static_cast<int>(input_levels.size()),
-          input_levels.data(), bytes);
+                   input_levels.data(), bytes);
       VerifyDecodingLevels(encoding, max_level, input_levels, bytes);
       input_levels.clear();
     }
@@ -662,7 +667,7 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
     for (int rf = 0; rf < setdata_factor; rf++) {
       int offset = rf * split_level_size;
       EncodeLevels(encoding, max_level, split_level_size,
-          reinterpret_cast<int16_t*>(input_levels.data()) + offset, bytes[rf]);
+                   reinterpret_cast<int16_t*>(input_levels.data()) + offset, bytes[rf]);
     }
     VerifyDecodingMultipleSetData(encoding, max_level, input_levels, bytes);
   }
@@ -685,8 +690,8 @@ TEST(TestLevelEncoder, MinimumBufferSize) {
       LevelEncoder::MaxBufferSize(Encoding::RLE, 1, kNumToEncode));
 
   LevelEncoder encoder;
-  encoder.Init(
-      Encoding::RLE, 1, kNumToEncode, output.data(), static_cast<int>(output.size()));
+  encoder.Init(Encoding::RLE, 1, kNumToEncode, output.data(),
+               static_cast<int>(output.size()));
   int encode_count = encoder.Encode(kNumToEncode, levels.data());
 
   ASSERT_EQ(kNumToEncode, encode_count);
@@ -718,7 +723,7 @@ TEST(TestLevelEncoder, MinimumBufferSize2) {
 
     LevelEncoder encoder;
     encoder.Init(Encoding::RLE, bit_width, kNumToEncode, output.data(),
-        static_cast<int>(output.size()));
+                 static_cast<int>(output.size()));
     int encode_count = encoder.Encode(kNumToEncode, levels.data());
 
     ASSERT_EQ(kNumToEncode, encode_count);

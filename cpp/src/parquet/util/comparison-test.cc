@@ -67,8 +67,9 @@ TEST(Comparison, FLBA) {
   auto arr1 = FLBAFromString(a);
   auto arr2 = FLBAFromString(b);
 
-  NodePtr node = PrimitiveNode::Make("FLBA", Repetition::REQUIRED,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, static_cast<int>(a.size()));
+  NodePtr node =
+      PrimitiveNode::Make("FLBA", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::NONE, static_cast<int>(a.size()));
   ColumnDescriptor descr(node, 0, 0);
   Compare<parquet::FixedLenByteArray> less(&descr);
   ASSERT_TRUE(less(arr1, arr2));

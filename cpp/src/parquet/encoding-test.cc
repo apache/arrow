@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <gtest/gtest.h>
 #include <string>
 #include <vector>
 
@@ -59,8 +59,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   vector<uint8_t> decode_buffer(nbytes);
   const uint8_t* decode_data = &decode_buffer[0];
 
-  decoder.SetData(
-      nvalues, encode_buffer->data(), static_cast<int>(encode_buffer->size()));
+  decoder.SetData(nvalues, encode_buffer->data(),
+                  static_cast<int>(encode_buffer->size()));
   int values_decoded = decoder.Decode(&decode_buffer[0], nvalues);
   ASSERT_EQ(nvalues, values_decoded);
 
@@ -75,8 +75,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
 template <typename T>
 void GenerateData(int num_values, T* out, vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
-  random_numbers(
-      num_values, 0, std::numeric_limits<T>::min(), std::numeric_limits<T>::max(), out);
+  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
+                 std::numeric_limits<T>::max(), out);
 }
 
 template <>
@@ -89,7 +89,7 @@ template <>
 void GenerateData<Int96>(int num_values, Int96* out, vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
-      std::numeric_limits<int32_t>::max(), out);
+                       std::numeric_limits<int32_t>::max(), out);
 }
 
 template <>
@@ -135,7 +135,8 @@ std::shared_ptr<ColumnDescriptor> ExampleDescr() {
 template <>
 std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
   auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, flba_length, 10, 2);
+                                          Type::FIXED_LEN_BYTE_ARRAY,
+                                          LogicalType::DECIMAL, flba_length, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 
@@ -220,8 +221,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
     encoder.Put(draws_, num_values_);
     encode_buffer_ = encoder.FlushValues();
 
-    decoder.SetData(
-        num_values_, encode_buffer_->data(), static_cast<int>(encode_buffer_->size()));
+    decoder.SetData(num_values_, encode_buffer_->data(),
+                    static_cast<int>(encode_buffer_->size()));
     int values_decoded = decoder.Decode(decode_buf_, num_values_);
     ASSERT_EQ(num_values_, values_decoded);
     VerifyResults<T>(decode_buf_, draws_, num_values_);
@@ -233,15 +234,13 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
 
 TYPED_TEST_CASE(TestPlainEncoding, ParquetTypes);
 
-TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
-  this->Execute(10000, 1);
-}
+TYPED_TEST(TestPlainEncoding, BasicRoundTrip) { this->Execute(10000, 1); }
 
 // ----------------------------------------------------------------------
 // Dictionary encoding tests
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType>
+                         ByteArrayType, FLBAType>
     DictEncodedTypes;
 
 template <typename Type>
@@ -267,7 +266,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
     PlainDecoder<Type> dict_decoder(descr_.get());
     dict_decoder.SetData(encoder.num_entries(), dict_buffer_->data(),
-        static_cast<int>(dict_buffer_->size()));
+                         static_cast<int>(dict_buffer_->size()));
 
     DictionaryDecoder<Type> decoder(descr_.get());
     decoder.SetDict(&dict_decoder);
@@ -296,9 +295,7 @@ class TestDictionaryEncoding : public TestEncodingBase<Type> {
 
 TYPED_TEST_CASE(TestDictionaryEncoding, DictEncodedTypes);
 
-TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) {
-  this->Execute(2500, 2);
-}
+TYPED_TEST(TestDictionaryEncoding, BasicRoundTrip) { this->Execute(2500, 2); }
 
 TEST(TestDictionaryEncoding, CannotDictDecodeBoolean) {
   PlainDecoder<BooleanType> dict_decoder(nullptr);

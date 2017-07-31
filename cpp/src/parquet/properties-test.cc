@@ -52,12 +52,12 @@ TEST(TestWriterProperties, AdvancedHandling) {
   std::shared_ptr<WriterProperties> props = builder.build();
 
   ASSERT_EQ(Compression::GZIP, props->compression(ColumnPath::FromDotString("gzip")));
-  ASSERT_EQ(
-      Compression::SNAPPY, props->compression(ColumnPath::FromDotString("delta-length")));
-  ASSERT_EQ(
-      Encoding::DELTA_BINARY_PACKED, props->encoding(ColumnPath::FromDotString("gzip")));
+  ASSERT_EQ(Compression::SNAPPY,
+            props->compression(ColumnPath::FromDotString("delta-length")));
+  ASSERT_EQ(Encoding::DELTA_BINARY_PACKED,
+            props->encoding(ColumnPath::FromDotString("gzip")));
   ASSERT_EQ(Encoding::DELTA_LENGTH_BYTE_ARRAY,
-      props->encoding(ColumnPath::FromDotString("delta-length")));
+            props->encoding(ColumnPath::FromDotString("delta-length")));
 }
 
 }  // namespace test

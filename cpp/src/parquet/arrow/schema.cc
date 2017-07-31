@@ -202,21 +202,25 @@ Status FromPrimitive(const PrimitiveNode* primitive, TypePtr* out) {
 
 // Forward declaration
 Status NodeToFieldInternal(const NodePtr& node,
-    const std::unordered_set<NodePtr>* included_leaf_nodes, std::shared_ptr<Field>* out);
+                           const std::unordered_set<NodePtr>* included_leaf_nodes,
+                           std::shared_ptr<Field>* out);
 
 /*
  * Auxilary function to test if a parquet schema node is a leaf node
  * that should be included in a resulting arrow schema
  */
-inline bool IsIncludedLeaf(
-    const NodePtr& node, const std::unordered_set<NodePtr>* included_leaf_nodes) {
-  if (included_leaf_nodes == nullptr) { return true; }
+inline bool IsIncludedLeaf(const NodePtr& node,
+                           const std::unordered_set<NodePtr>* included_leaf_nodes) {
+  if (included_leaf_nodes == nullptr) {
+    return true;
+  }
   auto search = included_leaf_nodes->find(node);
   return (search != included_leaf_nodes->end());
 }
 
 Status StructFromGroup(const GroupNode* group,
-    const std::unordered_set<NodePtr>* included_leaf_nodes, TypePtr* out) {
+                       const std::unordered_set<NodePtr>* included_leaf_nodes,
+                       TypePtr* out) {
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
 
@@ -224,14 +228,18 @@ Status StructFromGroup(const GroupNode* group,
 
   for (int i = 0; i < group->field_count(); i++) {
     RETURN_NOT_OK(NodeToFieldInternal(group->field(i), included_leaf_nodes, &field));
-    if (field != nullptr) { fields.push_back(field); }
+    if (field != nullptr) {
+      fields.push_back(field);
+    }
   }
-  if (fields.size() > 0) { *out = std::make_shared<::arrow::StructType>(fields); }
+  if (fields.size() > 0) {
+    *out = std::make_shared<::arrow::StructType>(fields);
+  }
   return Status::OK();
 }
 
 Status NodeToList(const GroupNode* group,
-    const std::unordered_set<NodePtr>* included_leaf_nodes, TypePtr* out) {
+                  const std::unordered_set<NodePtr>* included_leaf_nodes, TypePtr* out) {
   *out = nullptr;
   if (group->field_count() == 1) {
     // This attempts to resolve the preferred 3-level list encoding.
@@ -247,7 +255,9 @@ Status NodeToList(const GroupNode* group,
         RETURN_NOT_OK(
             NodeToFieldInternal(list_group->field(0), included_leaf_nodes, &item_field));
 
-        if (item_field != nullptr) { *out = ::arrow::list(item_field); }
+        if (item_field != nullptr) {
+          *out = ::arrow::list(item_field);
+        }
       } else {
         // List of struct
         std::shared_ptr<::arrow::DataType> inner_type;
@@ -283,7 +293,8 @@ Status NodeToField(const NodePtr& node, std::shared_ptr<Field>* out) {
 }
 
 Status NodeToFieldInternal(const NodePtr& node,
-    const std::unordered_set<NodePtr>* included_leaf_nodes, std::shared_ptr<Field>* out) {
+                           const std::unordered_set<NodePtr>* included_leaf_nodes,
+                           std::shared_ptr<Field>* out) {
   std::shared_ptr<::arrow::DataType> type = nullptr;
   bool nullable = !node->is_required();
 
@@ -318,11 +329,14 @@ Status NodeToFieldInternal(const NodePtr& node,
       RETURN_NOT_OK(FromPrimitive(primitive, &type));
     }
   }
-  if (type != nullptr) { *out = std::make_shared<Field>(node->name(), type, nullable); }
+  if (type != nullptr) {
+    *out = std::make_shared<Field>(node->name(), type, nullable);
+  }
   return Status::OK();
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   const GroupNode* schema_node = parquet_schema->group_node();
@@ -337,8 +351,8 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
   return Status::OK();
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices,
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const std::vector<int>& column_indices,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
@@ -356,14 +370,18 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
     included_leaf_nodes.insert(column_desc->schema_node());
     auto column_root = parquet_schema->GetColumnRoot(column_indices[i]);
     auto insertion = top_nodes.insert(column_root);
-    if (insertion.second) { base_nodes.push_back(column_root); }
+    if (insertion.second) {
+      base_nodes.push_back(column_root);
+    }
   }
 
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
   for (auto node : base_nodes) {
     RETURN_NOT_OK(NodeToFieldInternal(node, &included_leaf_nodes, &field));
-    if (field != nullptr) { fields.push_back(field); }
+    if (field != nullptr) {
+      fields.push_back(field);
+    }
   }
 
   *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
@@ -371,18 +389,19 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
 }
 
 Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-    const std::vector<int>& column_indices, std::shared_ptr<::arrow::Schema>* out) {
+                         const std::vector<int>& column_indices,
+                         std::shared_ptr<::arrow::Schema>* out) {
   return FromParquetSchema(parquet_schema, column_indices, nullptr, out);
 }
 
-Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                         std::shared_ptr<::arrow::Schema>* out) {
   return FromParquetSchema(parquet_schema, nullptr, out);
 }
 
 Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,
-    bool nullable, bool support_int96_nanoseconds, const WriterProperties& properties,
-    NodePtr* out) {
+                  bool nullable, bool support_int96_nanoseconds,
+                  const WriterProperties& properties, NodePtr* out) {
   Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   NodePtr element;
@@ -395,8 +414,9 @@ Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::str
 }
 
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
-    const std::string& name, bool nullable, bool support_int96_nanoseconds,
-    const WriterProperties& properties, NodePtr* out) {
+                    const std::string& name, bool nullable,
+                    bool support_int96_nanoseconds, const WriterProperties& properties,
+                    NodePtr* out) {
   Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   std::vector<NodePtr> children(type->num_children());
@@ -410,7 +430,8 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
 }
 
 Status FieldToNode(const std::shared_ptr<Field>& field,
-    const WriterProperties& properties, NodePtr* out, bool support_int96_nanoseconds) {
+                   const WriterProperties& properties, NodePtr* out,
+                   bool support_int96_nanoseconds) {
   LogicalType::type logical_type = LogicalType::NONE;
   ParquetType::type type;
   Repetition::type repetition =
@@ -524,12 +545,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowType::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, field->name(), field->nullable(),
-          support_int96_nanoseconds, properties, out);
+                          support_int96_nanoseconds, properties, out);
     } break;
     case ArrowType::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type());
       return ListToNode(list_type, field->name(), field->nullable(),
-          support_int96_nanoseconds, properties, out);
+                        support_int96_nanoseconds, properties, out);
     } break;
     default:
       // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
@@ -540,12 +561,13 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
 }
 
 Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
-    const WriterProperties& properties, std::shared_ptr<SchemaDescriptor>* out,
-    bool support_int96_nanoseconds) {
+                       const WriterProperties& properties,
+                       std::shared_ptr<SchemaDescriptor>* out,
+                       bool support_int96_nanoseconds) {
   std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
-    RETURN_NOT_OK(FieldToNode(
-        arrow_schema->field(i), properties, &nodes[i], support_int96_nanoseconds));
+    RETURN_NOT_OK(FieldToNode(arrow_schema->field(i), properties, &nodes[i],
+                              support_int96_nanoseconds));
   }
 
   NodePtr schema = GroupNode::Make("schema", Repetition::REQUIRED, nodes);

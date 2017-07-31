@@ -36,7 +36,7 @@ LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 LevelDecoder::~LevelDecoder() {}
 
 int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
-    int num_buffered_values, const uint8_t* data) {
+                          int num_buffered_values, const uint8_t* data) {
   int32_t num_bytes = 0;
   encoding_ = encoding;
   num_values_remaining_ = num_buffered_values;
@@ -86,8 +86,8 @@ ReaderProperties default_reader_properties() {
   return default_reader_properties;
 }
 
-ColumnReader::ColumnReader(
-    const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager, MemoryPool* pool)
+ColumnReader::ColumnReader(const ColumnDescriptor* descr,
+                           std::unique_ptr<PageReader> pager, MemoryPool* pool)
     : descr_(descr),
       pager_(std::move(pager)),
       num_buffered_values_(0),
@@ -193,7 +193,9 @@ bool TypedColumnReader<DType>::ReadNewPage() {
       // first page with this encoding.
       Encoding::type encoding = page->encoding();
 
-      if (IsDictionaryIndexEncoding(encoding)) { encoding = Encoding::RLE_DICTIONARY; }
+      if (IsDictionaryIndexEncoding(encoding)) {
+        encoding = Encoding::RLE_DICTIONARY;
+      }
 
       auto it = decoders_.find(static_cast<int>(encoding));
       if (it != decoders_.end()) {
@@ -221,8 +223,8 @@ bool TypedColumnReader<DType>::ReadNewPage() {
             throw ParquetException("Unknown encoding type.");
         }
       }
-      current_decoder_->SetData(
-          static_cast<int>(num_buffered_values_), buffer, static_cast<int>(data_size));
+      current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
+                                static_cast<int>(data_size));
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
@@ -237,20 +239,25 @@ bool TypedColumnReader<DType>::ReadNewPage() {
 // Batch read APIs
 
 int64_t ColumnReader::ReadDefinitionLevels(int64_t batch_size, int16_t* levels) {
-  if (descr_->max_definition_level() == 0) { return 0; }
+  if (descr_->max_definition_level() == 0) {
+    return 0;
+  }
   return definition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
 }
 
 int64_t ColumnReader::ReadRepetitionLevels(int64_t batch_size, int16_t* levels) {
-  if (descr_->max_repetition_level() == 0) { return 0; }
+  if (descr_->max_repetition_level() == 0) {
+    return 0;
+  }
   return repetition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
 }
 
 // ----------------------------------------------------------------------
 // Dynamic column reader constructor
 
-std::shared_ptr<ColumnReader> ColumnReader::Make(
-    const ColumnDescriptor* descr, std::unique_ptr<PageReader> pager, MemoryPool* pool) {
+std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
+                                                 std::unique_ptr<PageReader> pager,
+                                                 MemoryPool* pool) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<BoolReader>(descr, std::move(pager), pool);

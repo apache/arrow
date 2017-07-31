@@ -84,7 +84,9 @@ Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
           int task_id;
           while (!error_occurred) {
             task_id = task_counter.fetch_add(1);
-            if (task_id >= num_tasks) { break; }
+            if (task_id >= num_tasks) {
+              break;
+            }
             Status s = func(task_id);
             if (!s.ok()) {
               std::lock_guard<std::mutex> lock(error_mtx);
@@ -98,7 +100,9 @@ Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
   for (auto&& thread : thread_pool) {
     thread.join();
   }
-  if (error_occurred) { return error; }
+  if (error_occurred) {
+    return error;
+  }
   return Status::OK();
 }
 
@@ -154,14 +158,16 @@ class AllRowGroupsIterator : public FileColumnIterator {
 
 class SingleRowGroupIterator : public FileColumnIterator {
  public:
-  explicit SingleRowGroupIterator(
-      int column_index, int row_group_number, ParquetFileReader* reader)
+  explicit SingleRowGroupIterator(int column_index, int row_group_number,
+                                  ParquetFileReader* reader)
       : FileColumnIterator(column_index, reader),
         row_group_number_(row_group_number),
         done_(false) {}
 
   std::shared_ptr<::parquet::ColumnReader> Next() override {
-    if (done_) { return nullptr; }
+    if (done_) {
+      return nullptr;
+    }
 
     auto result = reader_->RowGroup(row_group_number_)->Column(column_index_);
     done_ = true;
@@ -185,16 +191,16 @@ class FileReader::Impl {
 
   Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
   Status ReadSchemaField(int i, std::shared_ptr<Array>* out);
-  Status ReadSchemaField(
-      int i, const std::vector<int>& indices, std::shared_ptr<Array>* out);
+  Status ReadSchemaField(int i, const std::vector<int>& indices,
+                         std::shared_ptr<Array>* out);
   Status GetReaderForNode(int index, const NodePtr& node, const std::vector<int>& indices,
-      int16_t def_level, std::unique_ptr<ColumnReader::Impl>* out);
+                          int16_t def_level, std::unique_ptr<ColumnReader::Impl>* out);
   Status ReadColumn(int i, std::shared_ptr<Array>* out);
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
-  Status GetSchema(
-      const std::vector<int>& indices, std::shared_ptr<::arrow::Schema>* out);
+  Status GetSchema(const std::vector<int>& indices,
+                   std::shared_ptr<::arrow::Schema>* out);
   Status ReadRowGroup(int row_group_index, const std::vector<int>& indices,
-      std::shared_ptr<::arrow::Table>* out);
+                      std::shared_ptr<::arrow::Table>* out);
   Status ReadTable(const std::vector<int>& indices, std::shared_ptr<Table>* table);
   Status ReadTable(std::shared_ptr<Table>* table);
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table);
@@ -258,13 +264,13 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::Impl {
   Status InitValidBits(int batch_size);
   template <typename ArrowType, typename ParquetType>
   Status ReadNullableBatch(TypedColumnReader<ParquetType>* reader, int16_t* def_levels,
-      int16_t* rep_levels, int64_t values_to_read, int64_t* levels_read,
-      int64_t* values_read);
+                           int16_t* rep_levels, int64_t values_to_read,
+                           int64_t* levels_read, int64_t* values_read);
   template <typename ArrowType, typename ParquetType>
   Status ReadNonNullableBatch(TypedColumnReader<ParquetType>* reader,
-      int64_t values_to_read, int64_t* levels_read);
+                              int64_t values_to_read, int64_t* levels_read);
   Status WrapIntoListArray(const int16_t* def_levels, const int16_t* rep_levels,
-      int64_t total_values_read, std::shared_ptr<Array>* array);
+                           int64_t total_values_read, std::shared_ptr<Array>* array);
 
   Status GetDefLevels(ValueLevelsPtr* data, size_t* length) override;
   Status GetRepLevels(ValueLevelsPtr* data, size_t* length) override;
@@ -279,7 +285,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::Impl {
     static constexpr bool value =
         std::is_same<InType, OutType>::value ||
         (std::is_integral<InType>{} && std::is_integral<OutType>{} &&
-            (sizeof(InType) == sizeof(OutType)));
+         (sizeof(InType) == sizeof(OutType)));
   };
 
   MemoryPool* pool_;
@@ -304,7 +310,7 @@ class PARQUET_NO_EXPORT PrimitiveImpl : public ColumnReader::Impl {
 class PARQUET_NO_EXPORT StructImpl : public ColumnReader::Impl {
  public:
   explicit StructImpl(const std::vector<std::shared_ptr<Impl>>& children,
-      int16_t struct_def_level, MemoryPool* pool, const NodePtr& node)
+                      int16_t struct_def_level, MemoryPool* pool, const NodePtr& node)
       : children_(children),
         struct_def_level_(struct_def_level),
         pool_(pool),
@@ -326,8 +332,8 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::Impl {
   std::shared_ptr<Field> field_;
   PoolBuffer def_levels_buffer_;
 
-  Status DefLevelsToNullArray(
-      std::shared_ptr<MutableBuffer>* null_bitmap, int64_t* null_count);
+  Status DefLevelsToNullArray(std::shared_ptr<MutableBuffer>* null_bitmap,
+                              int64_t* null_count);
   void InitField(const NodePtr& node, const std::vector<std::shared_ptr<Impl>>& children);
 };
 
@@ -345,8 +351,9 @@ Status FileReader::Impl::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
 }
 
 Status FileReader::Impl::GetReaderForNode(int index, const NodePtr& node,
-    const std::vector<int>& indices, int16_t def_level,
-    std::unique_ptr<ColumnReader::Impl>* out) {
+                                          const std::vector<int>& indices,
+                                          int16_t def_level,
+                                          std::unique_ptr<ColumnReader::Impl>* out) {
   *out = nullptr;
 
   if (IsSimpleStruct(node)) {
@@ -357,9 +364,11 @@ Status FileReader::Impl::GetReaderForNode(int index, const NodePtr& node,
       // TODO(itaiin): Remove the -1 index hack when all types of nested reads
       // are supported. This currently just signals the lower level reader resolution
       // to abort
-      RETURN_NOT_OK(GetReaderForNode(
-          index, group->field(i), indices, def_level + 1, &child_reader));
-      if (child_reader != nullptr) { children.push_back(std::move(child_reader)); }
+      RETURN_NOT_OK(GetReaderForNode(index, group->field(i), indices, def_level + 1,
+                                     &child_reader));
+      if (child_reader != nullptr) {
+        children.push_back(std::move(child_reader));
+      }
     }
 
     if (children.size() > 0) {
@@ -402,8 +411,8 @@ Status FileReader::Impl::ReadSchemaField(int i, std::shared_ptr<Array>* out) {
   return ReadSchemaField(i, indices, out);
 }
 
-Status FileReader::Impl::ReadSchemaField(
-    int i, const std::vector<int>& indices, std::shared_ptr<Array>* out) {
+Status FileReader::Impl::ReadSchemaField(int i, const std::vector<int>& indices,
+                                         std::shared_ptr<Array>* out) {
   auto parquet_schema = reader_->metadata()->schema();
 
   auto node = parquet_schema->group_node()->field(i);
@@ -437,15 +446,16 @@ Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<Array>* out) {
   return flat_column_reader->NextBatch(static_cast<int>(batch_size), out);
 }
 
-Status FileReader::Impl::GetSchema(
-    const std::vector<int>& indices, std::shared_ptr<::arrow::Schema>* out) {
+Status FileReader::Impl::GetSchema(const std::vector<int>& indices,
+                                   std::shared_ptr<::arrow::Schema>* out) {
   auto descr = reader_->metadata()->schema();
   auto parquet_key_value_metadata = reader_->metadata()->key_value_metadata();
   return FromParquetSchema(descr, indices, parquet_key_value_metadata, out);
 }
 
 Status FileReader::Impl::ReadRowGroup(int row_group_index,
-    const std::vector<int>& indices, std::shared_ptr<::arrow::Table>* out) {
+                                      const std::vector<int>& indices,
+                                      std::shared_ptr<::arrow::Table>* out) {
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
@@ -458,7 +468,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   // TODO(wesm): Refactor to share more code with ReadTable
 
   auto ReadColumnFunc = [&indices, &row_group_index, &schema, &columns, &rg_metadata,
-      this](int i) {
+                         this](int i) {
     int column_index = indices[i];
     int64_t batch_size = rg_metadata->ColumnChunk(column_index)->num_values();
 
@@ -486,16 +496,16 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   return Status::OK();
 }
 
-Status FileReader::Impl::ReadTable(
-    const std::vector<int>& indices, std::shared_ptr<Table>* table) {
+Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
+                                   std::shared_ptr<Table>* table) {
   std::shared_ptr<::arrow::Schema> schema;
   RETURN_NOT_OK(GetSchema(indices, &schema));
 
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
-  if (!ColumnIndicesToFieldIndices(
-          *reader_->metadata()->schema(), indices, &field_indices)) {
+  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                   &field_indices)) {
     return Status::Invalid("Invalid column index");
   }
 
@@ -541,20 +551,21 @@ Status FileReader::Impl::ReadRowGroup(int i, std::shared_ptr<Table>* table) {
 
 // Static ctor
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    MemoryPool* allocator, const ReaderProperties& props,
-    const std::shared_ptr<FileMetaData>& metadata, std::unique_ptr<FileReader>* reader) {
+                MemoryPool* allocator, const ReaderProperties& props,
+                const std::shared_ptr<FileMetaData>& metadata,
+                std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
   std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(
-      pq_reader = ParquetReader::Open(std::move(io_wrapper), props, metadata));
+  PARQUET_CATCH_NOT_OK(pq_reader =
+                           ParquetReader::Open(std::move(io_wrapper), props, metadata));
   reader->reset(new FileReader(allocator, std::move(pq_reader)));
   return Status::OK();
 }
 
 Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
-  return OpenFile(
-      file, allocator, ::parquet::default_reader_properties(), nullptr, reader);
+                MemoryPool* allocator, std::unique_ptr<FileReader>* reader) {
+  return OpenFile(file, allocator, ::parquet::default_reader_properties(), nullptr,
+                  reader);
 }
 
 Status FileReader::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
@@ -585,8 +596,8 @@ Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
   }
 }
 
-Status FileReader::ReadTable(
-    const std::vector<int>& indices, std::shared_ptr<Table>* out) {
+Status FileReader::ReadTable(const std::vector<int>& indices,
+                             std::shared_ptr<Table>* out) {
   try {
     return impl_->ReadTable(indices, out);
   } catch (const ::parquet::ParquetException& e) {
@@ -602,8 +613,8 @@ Status FileReader::ReadRowGroup(int i, std::shared_ptr<Table>* out) {
   }
 }
 
-Status FileReader::ReadRowGroup(
-    int i, const std::vector<int>& indices, std::shared_ptr<Table>* out) {
+Status FileReader::ReadRowGroup(int i, const std::vector<int>& indices,
+                                std::shared_ptr<Table>* out) {
   try {
     return impl_->ReadRowGroup(i, indices, out);
   } catch (const ::parquet::ParquetException& e) {
@@ -611,13 +622,9 @@ Status FileReader::ReadRowGroup(
   }
 }
 
-int FileReader::num_row_groups() const {
-  return impl_->num_row_groups();
-}
+int FileReader::num_row_groups() const { return impl_->num_row_groups(); }
 
-void FileReader::set_num_threads(int num_threads) {
-  impl_->set_num_threads(num_threads);
-}
+void FileReader::set_num_threads(int num_threads) { impl_->set_num_threads(num_threads); }
 
 const ParquetFileReader* FileReader::parquet_reader() const {
   return impl_->parquet_reader();
@@ -625,15 +632,16 @@ const ParquetFileReader* FileReader::parquet_reader() const {
 
 template <typename ArrowType, typename ParquetType>
 Status PrimitiveImpl::ReadNonNullableBatch(TypedColumnReader<ParquetType>* reader,
-    int64_t values_to_read, int64_t* levels_read) {
+                                           int64_t values_to_read, int64_t* levels_read) {
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
 
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(ParquetCType), false));
   auto values = reinterpret_cast<ParquetCType*>(values_buffer_.mutable_data());
   int64_t values_read;
-  PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(static_cast<int>(values_to_read),
-                           nullptr, nullptr, values, &values_read));
+  PARQUET_CATCH_NOT_OK(*levels_read =
+                           reader->ReadBatch(static_cast<int>(values_to_read), nullptr,
+                                             nullptr, values, &values_read));
 
   ArrowCType* out_ptr = reinterpret_cast<ArrowCType*>(data_buffer_ptr_);
   std::copy(values, values + values_read, out_ptr + valid_bits_idx_);
@@ -673,8 +681,9 @@ Status PrimitiveImpl::ReadNonNullableBatch<::arrow::TimestampType, Int96Type>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96), false));
   auto values = reinterpret_cast<Int96*>(values_buffer_.mutable_data());
   int64_t values_read;
-  PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(static_cast<int>(values_to_read),
-                           nullptr, nullptr, values, &values_read));
+  PARQUET_CATCH_NOT_OK(*levels_read =
+                           reader->ReadBatch(static_cast<int>(values_to_read), nullptr,
+                                             nullptr, values, &values_read));
 
   int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_) + valid_bits_idx_;
   for (int64_t i = 0; i < values_read; i++) {
@@ -691,8 +700,9 @@ Status PrimitiveImpl::ReadNonNullableBatch<::arrow::Date64Type, Int32Type>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
   auto values = reinterpret_cast<int32_t*>(values_buffer_.mutable_data());
   int64_t values_read;
-  PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(static_cast<int>(values_to_read),
-                           nullptr, nullptr, values, &values_read));
+  PARQUET_CATCH_NOT_OK(*levels_read =
+                           reader->ReadBatch(static_cast<int>(values_to_read), nullptr,
+                                             nullptr, values, &values_read));
 
   int64_t* out_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_) + valid_bits_idx_;
   for (int64_t i = 0; i < values_read; i++) {
@@ -710,11 +720,14 @@ Status PrimitiveImpl::ReadNonNullableBatch<::arrow::BooleanType, BooleanType>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(bool), false));
   auto values = reinterpret_cast<bool*>(values_buffer_.mutable_data());
   int64_t values_read;
-  PARQUET_CATCH_NOT_OK(*levels_read = reader->ReadBatch(static_cast<int>(values_to_read),
-                           nullptr, nullptr, values, &values_read));
+  PARQUET_CATCH_NOT_OK(*levels_read =
+                           reader->ReadBatch(static_cast<int>(values_to_read), nullptr,
+                                             nullptr, values, &values_read));
 
   for (int64_t i = 0; i < values_read; i++) {
-    if (values[i]) { ::arrow::BitUtil::SetBit(data_buffer_ptr_, valid_bits_idx_); }
+    if (values[i]) {
+      ::arrow::BitUtil::SetBit(data_buffer_ptr_, valid_bits_idx_);
+    }
     valid_bits_idx_++;
   }
 
@@ -723,17 +736,18 @@ Status PrimitiveImpl::ReadNonNullableBatch<::arrow::BooleanType, BooleanType>(
 
 template <typename ArrowType, typename ParquetType>
 Status PrimitiveImpl::ReadNullableBatch(TypedColumnReader<ParquetType>* reader,
-    int16_t* def_levels, int16_t* rep_levels, int64_t values_to_read,
-    int64_t* levels_read, int64_t* values_read) {
+                                        int16_t* def_levels, int16_t* rep_levels,
+                                        int64_t values_to_read, int64_t* levels_read,
+                                        int64_t* values_read) {
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
 
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(ParquetCType), false));
   auto values = reinterpret_cast<ParquetCType*>(values_buffer_.mutable_data());
   int64_t null_count;
-  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(static_cast<int>(values_to_read),
-      def_levels, rep_levels, values, valid_bits_ptr_, valid_bits_idx_, levels_read,
-      values_read, &null_count));
+  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(
+      static_cast<int>(values_to_read), def_levels, rep_levels, values, valid_bits_ptr_,
+      valid_bits_idx_, levels_read, values_read, &null_count));
 
   auto data_ptr = reinterpret_cast<ArrowCType*>(data_buffer_ptr_);
   INIT_BITSET(valid_bits_ptr_, static_cast<int>(valid_bits_idx_));
@@ -758,9 +772,10 @@ Status PrimitiveImpl::ReadNullableBatch(TypedColumnReader<ParquetType>* reader,
       int64_t * values_read) {                                                     \
     auto data_ptr = reinterpret_cast<CType*>(data_buffer_ptr_);                    \
     int64_t null_count;                                                            \
-    PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(static_cast<int>(values_to_read), \
-        def_levels, rep_levels, data_ptr + valid_bits_idx_, valid_bits_ptr_,       \
-        valid_bits_idx_, levels_read, values_read, &null_count));                  \
+    PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(                                  \
+        static_cast<int>(values_to_read), def_levels, rep_levels,                  \
+        data_ptr + valid_bits_idx_, valid_bits_ptr_, valid_bits_idx_, levels_read, \
+        values_read, &null_count));                                                \
                                                                                    \
     valid_bits_idx_ += *values_read;                                               \
     null_count_ += null_count;                                                     \
@@ -784,9 +799,9 @@ Status PrimitiveImpl::ReadNullableBatch<::arrow::TimestampType, Int96Type>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(Int96), false));
   auto values = reinterpret_cast<Int96*>(values_buffer_.mutable_data());
   int64_t null_count;
-  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(static_cast<int>(values_to_read),
-      def_levels, rep_levels, values, valid_bits_ptr_, valid_bits_idx_, levels_read,
-      values_read, &null_count));
+  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(
+      static_cast<int>(values_to_read), def_levels, rep_levels, values, valid_bits_ptr_,
+      valid_bits_idx_, levels_read, values_read, &null_count));
 
   auto data_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
   INIT_BITSET(valid_bits_ptr_, static_cast<int>(valid_bits_idx_));
@@ -809,9 +824,9 @@ Status PrimitiveImpl::ReadNullableBatch<::arrow::Date64Type, Int32Type>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(int32_t), false));
   auto values = reinterpret_cast<int32_t*>(values_buffer_.mutable_data());
   int64_t null_count;
-  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(static_cast<int>(values_to_read),
-      def_levels, rep_levels, values, valid_bits_ptr_, valid_bits_idx_, levels_read,
-      values_read, &null_count));
+  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(
+      static_cast<int>(values_to_read), def_levels, rep_levels, values, valid_bits_ptr_,
+      valid_bits_idx_, levels_read, values_read, &null_count));
 
   auto data_ptr = reinterpret_cast<int64_t*>(data_buffer_ptr_);
   INIT_BITSET(valid_bits_ptr_, static_cast<int>(valid_bits_idx_));
@@ -834,14 +849,16 @@ Status PrimitiveImpl::ReadNullableBatch<::arrow::BooleanType, BooleanType>(
   RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(bool), false));
   auto values = reinterpret_cast<bool*>(values_buffer_.mutable_data());
   int64_t null_count;
-  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(static_cast<int>(values_to_read),
-      def_levels, rep_levels, values, valid_bits_ptr_, valid_bits_idx_, levels_read,
-      values_read, &null_count));
+  PARQUET_CATCH_NOT_OK(reader->ReadBatchSpaced(
+      static_cast<int>(values_to_read), def_levels, rep_levels, values, valid_bits_ptr_,
+      valid_bits_idx_, levels_read, values_read, &null_count));
 
   INIT_BITSET(valid_bits_ptr_, static_cast<int>(valid_bits_idx_));
   for (int64_t i = 0; i < *values_read; i++) {
     if (bitset_valid_bits_ptr_ & (1 << bit_offset_valid_bits_ptr_)) {
-      if (values[i]) { ::arrow::BitUtil::SetBit(data_buffer_ptr_, valid_bits_idx_ + i); }
+      if (values[i]) {
+        ::arrow::BitUtil::SetBit(data_buffer_ptr_, valid_bits_idx_ + i);
+      }
     }
     READ_NEXT_BITSET(valid_bits_ptr_);
   }
@@ -886,10 +903,13 @@ Status PrimitiveImpl::InitValidBits(int batch_size) {
 }
 
 Status PrimitiveImpl::WrapIntoListArray(const int16_t* def_levels,
-    const int16_t* rep_levels, int64_t total_levels_read, std::shared_ptr<Array>* array) {
+                                        const int16_t* rep_levels,
+                                        int64_t total_levels_read,
+                                        std::shared_ptr<Array>* array) {
   std::shared_ptr<::arrow::Schema> arrow_schema;
   RETURN_NOT_OK(FromParquetSchema(input_->schema(), {input_->column_index()},
-      input_->metadata()->key_value_metadata(), &arrow_schema));
+                                  input_->metadata()->key_value_metadata(),
+                                  &arrow_schema));
   std::shared_ptr<Field> current_field = arrow_schema->field(0);
 
   if (descr_->max_repetition_level() > 0) {
@@ -920,14 +940,18 @@ Status PrimitiveImpl::WrapIntoListArray(const int16_t* def_levels,
     // This describes the minimal definition that describes a level that
     // reflects a value in the primitive values array.
     int16_t values_def_level = descr_->max_definition_level();
-    if (nullable[nullable.size() - 1]) { values_def_level--; }
+    if (nullable[nullable.size() - 1]) {
+      values_def_level--;
+    }
 
     // The definition levels that are needed so that a list is declared
     // as empty and not null.
     std::vector<int16_t> empty_def_level(list_depth);
     int def_level = 0;
     for (int i = 0; i < list_depth; i++) {
-      if (nullable[i]) { def_level++; }
+      if (nullable[i]) {
+        def_level++;
+      }
       empty_def_level[i] = def_level;
       def_level++;
     }
@@ -951,11 +975,15 @@ Status PrimitiveImpl::WrapIntoListArray(const int16_t* def_levels,
             break;
           } else {
             RETURN_NOT_OK(valid_bits_builders[j]->Append(true));
-            if (empty_def_level[j] == def_levels[i]) { break; }
+            if (empty_def_level[j] == def_levels[i]) {
+              break;
+            }
           }
         }
       }
-      if (def_levels[i] >= values_def_level) { values_offset++; }
+      if (def_levels[i] >= values_def_level) {
+        values_offset++;
+      }
     }
     // Add the final offset to all lists
     for (int64_t j = 0; j < list_depth; j++) {
@@ -1013,18 +1041,20 @@ Status PrimitiveImpl::TypedReadBatch(int batch_size, std::shared_ptr<Array>* out
     int64_t values_read;
     int64_t levels_read;
     if (descr_->max_definition_level() == 0) {
-      RETURN_NOT_OK((ReadNonNullableBatch<ArrowType, ParquetType>(
-          reader, values_to_read, &values_read)));
+      RETURN_NOT_OK((ReadNonNullableBatch<ArrowType, ParquetType>(reader, values_to_read,
+                                                                  &values_read)));
     } else {
       // As per the defintion and checks for flat (list) columns:
       // descr_->max_definition_level() > 0, <= 3
-      RETURN_NOT_OK((ReadNullableBatch<ArrowType, ParquetType>(reader,
-          def_levels + total_levels_read, rep_levels + total_levels_read, values_to_read,
-          &levels_read, &values_read)));
+      RETURN_NOT_OK((ReadNullableBatch<ArrowType, ParquetType>(
+          reader, def_levels + total_levels_read, rep_levels + total_levels_read,
+          values_to_read, &levels_read, &values_read)));
       total_levels_read += static_cast<int>(levels_read);
     }
     values_to_read -= static_cast<int>(values_read);
-    if (!column_reader_->HasNext()) { NextRowGroup(); }
+    if (!column_reader_->HasNext()) {
+      NextRowGroup();
+    }
   }
 
   // Shrink arrays as they may be larger than the output.
@@ -1039,8 +1069,8 @@ Status PrimitiveImpl::TypedReadBatch(int batch_size, std::shared_ptr<Array>* out
     // Relase the ownership as the Buffer is now part of a new Array
     valid_bits_buffer_.reset();
   } else {
-    *out = std::make_shared<ArrayType<ArrowType>>(
-        field_->type(), valid_bits_idx_, data_buffer_);
+    *out = std::make_shared<ArrayType<ArrowType>>(field_->type(), valid_bits_idx_,
+                                                  data_buffer_);
   }
   // Relase the ownership as the Buffer is now part of a new Array
   data_buffer_.reset();
@@ -1076,13 +1106,15 @@ Status PrimitiveImpl::TypedReadBatch<::arrow::BooleanType, BooleanType>(
     } else {
       // As per the defintion and checks for flat columns:
       // descr_->max_definition_level() == 1
-      RETURN_NOT_OK((ReadNullableBatch<::arrow::BooleanType, BooleanType>(reader,
-          def_levels + total_levels_read, rep_levels + total_levels_read, values_to_read,
-          &levels_read, &values_read)));
+      RETURN_NOT_OK((ReadNullableBatch<::arrow::BooleanType, BooleanType>(
+          reader, def_levels + total_levels_read, rep_levels + total_levels_read,
+          values_to_read, &levels_read, &values_read)));
       total_levels_read += static_cast<int>(levels_read);
     }
     values_to_read -= static_cast<int>(values_read);
-    if (!column_reader_->HasNext()) { NextRowGroup(); }
+    if (!column_reader_->HasNext()) {
+      NextRowGroup();
+    }
   }
 
   if (descr_->max_definition_level() > 0) {
@@ -1102,11 +1134,11 @@ Status PrimitiveImpl::TypedReadBatch<::arrow::BooleanType, BooleanType>(
       RETURN_NOT_OK(
           valid_bits_buffer->Resize(::arrow::BitUtil::CeilByte(valid_bits_idx_) / 8));
       memcpy(valid_bits_buffer->mutable_data(), valid_bits_buffer_->data(),
-          valid_bits_buffer->size());
+             valid_bits_buffer->size());
       valid_bits_buffer_ = valid_bits_buffer;
     }
-    *out = std::make_shared<BooleanArray>(
-        field_->type(), valid_bits_idx_, data_buffer_, valid_bits_buffer_, null_count_);
+    *out = std::make_shared<BooleanArray>(field_->type(), valid_bits_idx_, data_buffer_,
+                                          valid_bits_buffer_, null_count_);
     // Relase the ownership
     data_buffer_.reset();
     valid_bits_buffer_.reset();
@@ -1141,9 +1173,9 @@ Status PrimitiveImpl::ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>*
     int64_t values_read;
     int64_t levels_read;
     auto values = reinterpret_cast<ByteArray*>(values_buffer_.mutable_data());
-    PARQUET_CATCH_NOT_OK(
-        levels_read = reader->ReadBatch(values_to_read, def_levels + total_levels_read,
-            rep_levels + total_levels_read, values, &values_read));
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
+                             values_to_read, def_levels + total_levels_read,
+                             rep_levels + total_levels_read, values, &values_read));
     values_to_read -= static_cast<int>(levels_read);
     if (descr_->max_definition_level() == 0) {
       for (int64_t i = 0; i < levels_read; i++) {
@@ -1161,13 +1193,15 @@ Status PrimitiveImpl::ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>*
         } else if (def_levels[i + total_levels_read] == descr_->max_definition_level()) {
           RETURN_NOT_OK(
               builder.Append(reinterpret_cast<const char*>(values[values_idx].ptr),
-                  values[values_idx].len));
+                             values[values_idx].len));
           values_idx++;
         }
       }
       total_levels_read += static_cast<int>(levels_read);
     }
-    if (!column_reader_->HasNext()) { NextRowGroup(); }
+    if (!column_reader_->HasNext()) {
+      NextRowGroup();
+    }
   }
 
   RETURN_NOT_OK(builder.Finish(out));
@@ -1176,8 +1210,8 @@ Status PrimitiveImpl::ReadByteArrayBatch(int batch_size, std::shared_ptr<Array>*
 }
 
 template <typename ArrowType>
-Status PrimitiveImpl::ReadFLBABatch(
-    int batch_size, int byte_width, std::shared_ptr<Array>* out) {
+Status PrimitiveImpl::ReadFLBABatch(int batch_size, int byte_width,
+                                    std::shared_ptr<Array>* out) {
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
   int total_levels_read = 0;
   if (descr_->max_definition_level() > 0) {
@@ -1197,9 +1231,9 @@ Status PrimitiveImpl::ReadFLBABatch(
     int64_t values_read;
     int64_t levels_read;
     auto values = reinterpret_cast<FLBA*>(values_buffer_.mutable_data());
-    PARQUET_CATCH_NOT_OK(
-        levels_read = reader->ReadBatch(values_to_read, def_levels + total_levels_read,
-            rep_levels + total_levels_read, values, &values_read));
+    PARQUET_CATCH_NOT_OK(levels_read = reader->ReadBatch(
+                             values_to_read, def_levels + total_levels_read,
+                             rep_levels + total_levels_read, values, &values_read));
     values_to_read -= static_cast<int>(levels_read);
     if (descr_->max_definition_level() == 0) {
       for (int64_t i = 0; i < levels_read; i++) {
@@ -1219,7 +1253,9 @@ Status PrimitiveImpl::ReadFLBABatch(
       }
       total_levels_read += static_cast<int>(levels_read);
     }
-    if (!column_reader_->HasNext()) { NextRowGroup(); }
+    if (!column_reader_->HasNext()) {
+      NextRowGroup();
+    }
   }
 
   RETURN_NOT_OK(builder.Finish(out));
@@ -1304,9 +1340,7 @@ Status PrimitiveImpl::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
   }
 }
 
-void PrimitiveImpl::NextRowGroup() {
-  column_reader_ = input_->Next();
-}
+void PrimitiveImpl::NextRowGroup() { column_reader_ = input_->Next(); }
 
 Status PrimitiveImpl::GetDefLevels(ValueLevelsPtr* data, size_t* length) {
   *data = reinterpret_cast<ValueLevelsPtr>(def_levels_buffer_.data());
@@ -1330,8 +1364,8 @@ Status ColumnReader::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
 
 // StructImpl methods
 
-Status StructImpl::DefLevelsToNullArray(
-    std::shared_ptr<MutableBuffer>* null_bitmap_out, int64_t* null_count_out) {
+Status StructImpl::DefLevelsToNullArray(std::shared_ptr<MutableBuffer>* null_bitmap_out,
+                                        int64_t* null_count_out) {
   std::shared_ptr<MutableBuffer> null_bitmap;
   auto null_count = 0;
   ValueLevelsPtr def_levels_data;
@@ -1387,7 +1421,7 @@ Status StructImpl::GetDefLevels(ValueLevelsPtr* data, size_t* length) {
       // Check that value is either uninitialized, or current
       // and previous children def levels agree on the struct level
       DCHECK((result_levels[i] == -1) || ((result_levels[i] >= struct_def_level_) ==
-                                             (child_def_levels[i] >= struct_def_level_)));
+                                          (child_def_levels[i] >= struct_def_level_)));
       result_levels[i] =
           std::max(result_levels[i], std::min(child_def_levels[i], struct_def_level_));
     }
@@ -1397,8 +1431,8 @@ Status StructImpl::GetDefLevels(ValueLevelsPtr* data, size_t* length) {
   return Status::OK();
 }
 
-void StructImpl::InitField(
-    const NodePtr& node, const std::vector<std::shared_ptr<Impl>>& children) {
+void StructImpl::InitField(const NodePtr& node,
+                           const std::vector<std::shared_ptr<Impl>>& children) {
   // Make a shallow node to field conversion from the children fields
   std::vector<std::shared_ptr<::arrow::Field>> fields(children.size());
   for (size_t i = 0; i < children.size(); i++) {
@@ -1428,8 +1462,8 @@ Status StructImpl::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
 
   RETURN_NOT_OK(DefLevelsToNullArray(&null_bitmap, &null_count));
 
-  *out = std::make_shared<StructArray>(
-      field()->type(), batch_size, children_arrays, null_bitmap, null_count);
+  *out = std::make_shared<StructArray>(field()->type(), batch_size, children_arrays,
+                                       null_bitmap, null_count);
 
   return Status::OK();
 }

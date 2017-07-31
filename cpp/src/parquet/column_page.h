@@ -62,9 +62,9 @@ class Page {
 class DataPage : public Page {
  public:
   DataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
-      Encoding::type encoding, Encoding::type definition_level_encoding,
-      Encoding::type repetition_level_encoding,
-      const EncodedStatistics& statistics = EncodedStatistics())
+           Encoding::type encoding, Encoding::type definition_level_encoding,
+           Encoding::type repetition_level_encoding,
+           const EncodedStatistics& statistics = EncodedStatistics())
       : Page(buffer, PageType::DATA_PAGE),
         num_values_(num_values),
         encoding_(encoding),
@@ -93,11 +93,11 @@ class DataPage : public Page {
 class CompressedDataPage : public DataPage {
  public:
   CompressedDataPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
-      Encoding::type encoding, Encoding::type definition_level_encoding,
-      Encoding::type repetition_level_encoding, int64_t uncompressed_size,
-      const EncodedStatistics& statistics = EncodedStatistics())
+                     Encoding::type encoding, Encoding::type definition_level_encoding,
+                     Encoding::type repetition_level_encoding, int64_t uncompressed_size,
+                     const EncodedStatistics& statistics = EncodedStatistics())
       : DataPage(buffer, num_values, encoding, definition_level_encoding,
-            repetition_level_encoding, statistics),
+                 repetition_level_encoding, statistics),
         uncompressed_size_(uncompressed_size) {}
 
   int64_t uncompressed_size() const { return uncompressed_size_; }
@@ -109,8 +109,9 @@ class CompressedDataPage : public DataPage {
 class DataPageV2 : public Page {
  public:
   DataPageV2(const std::shared_ptr<Buffer>& buffer, int32_t num_values, int32_t num_nulls,
-      int32_t num_rows, Encoding::type encoding, int32_t definition_levels_byte_length,
-      int32_t repetition_levels_byte_length, bool is_compressed = false)
+             int32_t num_rows, Encoding::type encoding,
+             int32_t definition_levels_byte_length, int32_t repetition_levels_byte_length,
+             bool is_compressed = false)
       : Page(buffer, PageType::DATA_PAGE_V2),
         num_values_(num_values),
         num_nulls_(num_nulls),
@@ -149,7 +150,7 @@ class DataPageV2 : public Page {
 class DictionaryPage : public Page {
  public:
   DictionaryPage(const std::shared_ptr<Buffer>& buffer, int32_t num_values,
-      Encoding::type encoding, bool is_sorted = false)
+                 Encoding::type encoding, bool is_sorted = false)
       : Page(buffer, PageType::DICTIONARY_PAGE),
         num_values_(num_values),
         encoding_(encoding),

@@ -40,8 +40,8 @@ namespace parquet {
 class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(OutputStream* sink, Compression::type codec,
-      ColumnChunkMetaDataBuilder* metadata,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                       ColumnChunkMetaDataBuilder* metadata,
+                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   virtual ~SerializedPageWriter() {}
 
@@ -76,7 +76,8 @@ class SerializedPageWriter : public PageWriter {
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
   RowGroupSerializer(int64_t num_rows, OutputStream* sink,
-      RowGroupMetaDataBuilder* metadata, const WriterProperties* properties)
+                     RowGroupMetaDataBuilder* metadata,
+                     const WriterProperties* properties)
       : num_rows_(num_rows),
         sink_(sink),
         metadata_(metadata),
@@ -126,7 +127,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
   virtual ~FileSerializer();
 
  private:
-  explicit FileSerializer(const std::shared_ptr<OutputStream>& sink,
+  explicit FileSerializer(
+      const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);

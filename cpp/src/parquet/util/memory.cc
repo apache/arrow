@@ -140,9 +140,7 @@ uint8_t* ChunkedAllocator::Allocate(int size) {
   return result;
 }
 
-uint8_t* ChunkedAllocator::Allocate(int size) {
-  return Allocate<false>(size);
-}
+uint8_t* ChunkedAllocator::Allocate(int size) { return Allocate<false>(size); }
 
 void ChunkedAllocator::Clear() {
   current_chunk_idx_ = -1;
@@ -335,9 +333,7 @@ ArrowInputFile::ArrowInputFile(
     const std::shared_ptr<::arrow::io::ReadableFileInterface>& file)
     : file_(file) {}
 
-::arrow::io::FileInterface* ArrowInputFile::file_interface() {
-  return file_.get();
-}
+::arrow::io::FileInterface* ArrowInputFile::file_interface() { return file_.get(); }
 
 int64_t ArrowInputFile::Size() const {
   int64_t size;
@@ -374,9 +370,7 @@ ArrowOutputStream::ArrowOutputStream(
     const std::shared_ptr<::arrow::io::OutputStream> file)
     : file_(file) {}
 
-::arrow::io::FileInterface* ArrowOutputStream::file_interface() {
-  return file_.get();
-}
+::arrow::io::FileInterface* ArrowOutputStream::file_interface() { return file_.get(); }
 
 // Copy bytes into the output stream
 void ArrowOutputStream::Write(const uint8_t* data, int64_t length) {
@@ -391,8 +385,8 @@ InMemoryInputStream::InMemoryInputStream(const std::shared_ptr<Buffer>& buffer)
   len_ = buffer_->size();
 }
 
-InMemoryInputStream::InMemoryInputStream(
-    RandomAccessSource* source, int64_t start, int64_t num_bytes)
+InMemoryInputStream::InMemoryInputStream(RandomAccessSource* source, int64_t start,
+                                         int64_t num_bytes)
     : offset_(0) {
   buffer_ = source->ReadAt(start, num_bytes);
   if (buffer_->size() < num_bytes) {
@@ -412,24 +406,22 @@ const uint8_t* InMemoryInputStream::Read(int64_t num_to_read, int64_t* num_bytes
   return result;
 }
 
-void InMemoryInputStream::Advance(int64_t num_bytes) {
-  offset_ += num_bytes;
-}
+void InMemoryInputStream::Advance(int64_t num_bytes) { offset_ += num_bytes; }
 
 // ----------------------------------------------------------------------
 // In-memory output stream
 
 InMemoryOutputStream::InMemoryOutputStream(MemoryPool* pool, int64_t initial_capacity)
     : size_(0), capacity_(initial_capacity) {
-  if (initial_capacity == 0) { initial_capacity = kInMemoryDefaultCapacity; }
+  if (initial_capacity == 0) {
+    initial_capacity = kInMemoryDefaultCapacity;
+  }
   buffer_ = AllocateBuffer(pool, initial_capacity);
 }
 
 InMemoryOutputStream::~InMemoryOutputStream() {}
 
-uint8_t* InMemoryOutputStream::Head() {
-  return buffer_->mutable_data() + size_;
-}
+uint8_t* InMemoryOutputStream::Head() { return buffer_->mutable_data() + size_; }
 
 void InMemoryOutputStream::Write(const uint8_t* data, int64_t length) {
   if (size_ + length > capacity_) {
@@ -444,9 +436,7 @@ void InMemoryOutputStream::Write(const uint8_t* data, int64_t length) {
   size_ += length;
 }
 
-int64_t InMemoryOutputStream::Tell() {
-  return size_;
-}
+int64_t InMemoryOutputStream::Tell() { return size_; }
 
 std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
   PARQUET_THROW_NOT_OK(buffer_->Resize(size_));
@@ -459,7 +449,8 @@ std::shared_ptr<Buffer> InMemoryOutputStream::GetBuffer() {
 // BufferedInputStream
 
 BufferedInputStream::BufferedInputStream(MemoryPool* pool, int64_t buffer_size,
-    RandomAccessSource* source, int64_t start, int64_t num_bytes)
+                                         RandomAccessSource* source, int64_t start,
+                                         int64_t num_bytes)
     : source_(source), stream_offset_(start), stream_end_(start + num_bytes) {
   buffer_ = AllocateBuffer(pool, buffer_size);
   buffer_size_ = buffer_->size();
@@ -502,13 +493,17 @@ void BufferedInputStream::Advance(int64_t num_bytes) {
 
 std::shared_ptr<PoolBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
   auto result = std::make_shared<PoolBuffer>(pool);
-  if (size > 0) { PARQUET_THROW_NOT_OK(result->Resize(size)); }
+  if (size > 0) {
+    PARQUET_THROW_NOT_OK(result->Resize(size));
+  }
   return result;
 }
 
 std::unique_ptr<PoolBuffer> AllocateUniqueBuffer(MemoryPool* pool, int64_t size) {
   std::unique_ptr<PoolBuffer> result(new PoolBuffer(pool));
-  if (size > 0) { PARQUET_THROW_NOT_OK(result->Resize(size)); }
+  if (size > 0) {
+    PARQUET_THROW_NOT_OK(result->Resize(size));
+  }
   return result;
 }
 

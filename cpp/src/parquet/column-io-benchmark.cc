@@ -30,8 +30,9 @@ using schema::PrimitiveNode;
 namespace benchmark {
 
 std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
-    ColumnChunkMetaDataBuilder* metadata, ColumnDescriptor* schema,
-    const WriterProperties* properties) {
+                                         ColumnChunkMetaDataBuilder* metadata,
+                                         ColumnDescriptor* schema,
+                                         const WriterProperties* properties) {
   std::unique_ptr<SerializedPageWriter> pager(
       new SerializedPageWriter(dst, Compression::UNCOMPRESSED, metadata));
   return std::unique_ptr<Int64Writer>(new Int64Writer(
@@ -40,8 +41,8 @@ std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
 
 std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
   auto node = PrimitiveNode::Make("int64", repetition, Type::INT64);
-  return std::make_shared<ColumnDescriptor>(
-      node, repetition != Repetition::REQUIRED, repetition == Repetition::REPEATED);
+  return std::make_shared<ColumnDescriptor>(node, repetition != Repetition::REQUIRED,
+                                            repetition == Repetition::REPEATED);
 }
 
 void SetBytesProcessed(::benchmark::State& state, Repetition::type repetition) {
@@ -70,8 +71,8 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
     InMemoryOutputStream stream;
     std::unique_ptr<Int64Writer> writer = BuildWriter(
         state.range(0), &stream, metadata.get(), schema.get(), properties.get());
-    writer->WriteBatch(
-        values.size(), definition_levels.data(), repetition_levels.data(), values.data());
+    writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
+                       values.data());
     writer->Close();
   }
   SetBytesProcessed(state, repetition);
@@ -83,8 +84,8 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL)->Range(1024, 65536
 
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED)->Range(1024, 65536);
 
-std::unique_ptr<Int64Reader> BuildReader(
-    std::shared_ptr<Buffer>& buffer, int64_t num_values, ColumnDescriptor* schema) {
+std::unique_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
+                                         int64_t num_values, ColumnDescriptor* schema) {
   std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
   std::unique_ptr<SerializedPageReader> page_reader(
       new SerializedPageReader(std::move(source), num_values, Compression::UNCOMPRESSED));
@@ -105,8 +106,8 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   InMemoryOutputStream stream;
   std::unique_ptr<Int64Writer> writer = BuildWriter(
       state.range(0), &stream, metadata.get(), schema.get(), properties.get());
-  writer->WriteBatch(
-      values.size(), definition_levels.data(), repetition_levels.data(), values.data());
+  writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
+                     values.data());
   writer->Close();
 
   std::shared_ptr<Buffer> src = stream.GetBuffer();
@@ -118,7 +119,7 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
     int64_t values_read = 0;
     for (size_t i = 0; i < values.size(); i += values_read) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),
-          repetition_levels_out.data(), values_out.data(), &values_read);
+                        repetition_levels_out.data(), values_out.data(), &values_read);
     }
   }
   SetBytesProcessed(state, repetition);
@@ -136,8 +137,8 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED)
 static void BM_RleEncoding(::benchmark::State& state) {
   std::vector<int16_t> levels(state.range(0), 0);
   int64_t n = 0;
-  std::generate(
-      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
+  std::generate(levels.begin(), levels.end(),
+                [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
   auto buffer_rle = std::make_shared<PoolBuffer>();
@@ -146,7 +147,7 @@ static void BM_RleEncoding(::benchmark::State& state) {
   while (state.KeepRunning()) {
     LevelEncoder level_encoder;
     level_encoder.Init(Encoding::RLE, max_level, levels.size(),
-        buffer_rle->mutable_data(), buffer_rle->size());
+                       buffer_rle->mutable_data(), buffer_rle->size());
     level_encoder.Encode(levels.size(), levels.data());
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
@@ -159,14 +160,14 @@ static void BM_RleDecoding(::benchmark::State& state) {
   LevelEncoder level_encoder;
   std::vector<int16_t> levels(state.range(0), 0);
   int64_t n = 0;
-  std::generate(
-      levels.begin(), levels.end(), [&state, &n] { return (n++ % state.range(1)) == 0; });
+  std::generate(levels.begin(), levels.end(),
+                [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
   auto buffer_rle = std::make_shared<PoolBuffer>();
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size + sizeof(int32_t)));
   level_encoder.Init(Encoding::RLE, max_level, levels.size(),
-      buffer_rle->mutable_data() + sizeof(int32_t), rle_size);
+                     buffer_rle->mutable_data() + sizeof(int32_t), rle_size);
   level_encoder.Encode(levels.size(), levels.data());
   reinterpret_cast<int32_t*>(buffer_rle->mutable_data())[0] = level_encoder.len();
 

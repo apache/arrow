@@ -33,7 +33,7 @@ namespace parquet {
 #define COL_WIDTH "30"
 
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-    bool print_values, const char* filename) {
+                                    bool print_values, const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
@@ -101,7 +101,9 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
              << std::endl;
     }
 
-    if (!print_values) { continue; }
+    if (!print_values) {
+      continue;
+    }
 
     static constexpr int bufsize = 25;
     char buffer[bufsize];
@@ -117,7 +119,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       std::string fmt = ss.str();
 
       snprintf(buffer, bufsize, fmt.c_str(),
-          file_metadata->schema()->Column(i)->name().c_str());
+               file_metadata->schema()->Column(i)->name().c_str());
       stream << buffer;
 
       // This is OK in this method as long as the RowGroupReader does not get
@@ -140,8 +142,8 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   }
 }
 
-void ParquetFilePrinter::JSONPrint(
-    std::ostream& stream, std::list<int> selected_columns, const char* filename) {
+void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected_columns,
+                                   const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
   stream << "{\n";
   stream << "  \"FileName\": \"" << filename << "\",\n";
@@ -174,7 +176,9 @@ void ParquetFilePrinter::JSONPrint(
            << " \"LogicalType\": \"" << LogicalTypeToString(descr->logical_type())
            << "\" }";
     c++;
-    if (c != static_cast<int>(selected_columns.size())) { stream << ",\n"; }
+    if (c != static_cast<int>(selected_columns.size())) {
+      stream << ",\n";
+    }
   }
 
   stream << "\n  ],\n  \"RowGroups\": [\n";
@@ -223,11 +227,15 @@ void ParquetFilePrinter::JSONPrint(
       // end of a ColumnChunk
       stream << "\" }";
       c1++;
-      if (c1 != static_cast<int>(selected_columns.size())) { stream << ",\n"; }
+      if (c1 != static_cast<int>(selected_columns.size())) {
+        stream << ",\n";
+      }
     }
 
     stream << "\n        ]\n     }";
-    if ((r + 1) != static_cast<int>(file_metadata->num_row_groups())) { stream << ",\n"; }
+    if ((r + 1) != static_cast<int>(file_metadata->num_row_groups())) {
+      stream << ",\n";
+    }
   }
   stream << "\n  ]\n}\n";
 }

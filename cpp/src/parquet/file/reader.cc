@@ -51,14 +51,13 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
-  return ColumnReader::Make(descr, std::move(page_reader),
+  return ColumnReader::Make(
+      descr, std::move(page_reader),
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
 // Returns the rowgroup metadata
-const RowGroupMetaData* RowGroupReader::metadata() const {
-  return contents_->metadata();
-}
+const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
 // ----------------------------------------------------------------------
 // ParquetFileReader public API
@@ -67,7 +66,8 @@ ParquetFileReader::ParquetFileReader() {}
 ParquetFileReader::~ParquetFileReader() {
   try {
     Close();
-  } catch (...) {}
+  } catch (...) {
+  }
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
@@ -86,8 +86,8 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
   return result;
 }
 
-std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(const std::string& path,
-    bool memory_map, const ReaderProperties& props,
+std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
+    const std::string& path, bool memory_map, const ReaderProperties& props,
     const std::shared_ptr<FileMetaData>& metadata) {
   std::shared_ptr<::arrow::io::ReadableFileInterface> source;
   if (memory_map) {
@@ -110,7 +110,9 @@ void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> conten
 }
 
 void ParquetFileReader::Close() {
-  if (contents_) { contents_->Close(); }
+  if (contents_) {
+    contents_->Close();
+  }
 }
 
 std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {

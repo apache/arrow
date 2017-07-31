@@ -37,21 +37,13 @@ void RowGroupWriter::Close() {
   }
 }
 
-ColumnWriter* RowGroupWriter::NextColumn() {
-  return contents_->NextColumn();
-}
+ColumnWriter* RowGroupWriter::NextColumn() { return contents_->NextColumn(); }
 
-int RowGroupWriter::current_column() {
-  return contents_->current_column();
-}
+int RowGroupWriter::current_column() { return contents_->current_column(); }
 
-int RowGroupWriter::num_columns() const {
-  return contents_->num_columns();
-}
+int RowGroupWriter::num_columns() const { return contents_->num_columns(); }
 
-int64_t RowGroupWriter::num_rows() const {
-  return contents_->num_rows();
-}
+int64_t RowGroupWriter::num_rows() const { return contents_->num_rows(); }
 
 // ----------------------------------------------------------------------
 // ParquetFileWriter public API
@@ -61,7 +53,8 @@ ParquetFileWriter::ParquetFileWriter() {}
 ParquetFileWriter::~ParquetFileWriter() {
   try {
     Close();
-  } catch (...) {}
+  } catch (...) {
+  }
 }
 
 std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
@@ -69,8 +62,8 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  return Open(
-      std::make_shared<ArrowOutputStream>(sink), schema, properties, key_value_metadata);
+  return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
+              key_value_metadata);
 }
 
 std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
@@ -84,25 +77,17 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
-const SchemaDescriptor* ParquetFileWriter::schema() const {
-  return contents_->schema();
-}
+const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }
 
 const ColumnDescriptor* ParquetFileWriter::descr(int i) const {
   return contents_->schema()->Column(i);
 }
 
-int ParquetFileWriter::num_columns() const {
-  return contents_->num_columns();
-}
+int ParquetFileWriter::num_columns() const { return contents_->num_columns(); }
 
-int64_t ParquetFileWriter::num_rows() const {
-  return contents_->num_rows();
-}
+int64_t ParquetFileWriter::num_rows() const { return contents_->num_rows(); }
 
-int ParquetFileWriter::num_row_groups() const {
-  return contents_->num_row_groups();
-}
+int ParquetFileWriter::num_row_groups() const { return contents_->num_row_groups(); }
 
 const std::shared_ptr<const KeyValueMetadata>& ParquetFileWriter::key_value_metadata()
     const {

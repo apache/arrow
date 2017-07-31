@@ -53,12 +53,12 @@ namespace test {
 template <typename T>
 static void InitValues(int num_values, vector<T>& values, vector<uint8_t>& buffer) {
   random_numbers(num_values, 0, std::numeric_limits<T>::min(),
-      std::numeric_limits<T>::max(), values.data());
+                 std::numeric_limits<T>::max(), values.data());
 }
 
 template <typename T>
-static void InitDictValues(
-    int num_values, int num_dicts, vector<T>& values, vector<uint8_t>& buffer) {
+static void InitDictValues(int num_values, int num_dicts, vector<T>& values,
+                           vector<uint8_t>& buffer) {
   int repeat_factor = num_values / num_dicts;
   InitValues<T>(num_dicts, values, buffer);
   // add some repeated values
@@ -112,7 +112,7 @@ class DataPageBuilder {
         have_values_(false) {}
 
   void AppendDefLevels(const vector<int16_t>& levels, int16_t max_level,
-      Encoding::type encoding = Encoding::RLE) {
+                       Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
     num_values_ = std::max(static_cast<int32_t>(levels.size()), num_values_);
@@ -121,7 +121,7 @@ class DataPageBuilder {
   }
 
   void AppendRepLevels(const vector<int16_t>& levels, int16_t max_level,
-      Encoding::type encoding = Encoding::RLE) {
+                       Encoding::type encoding = Encoding::RLE) {
     AppendLevels(levels, max_level, encoding);
 
     num_values_ = std::max(static_cast<int32_t>(levels.size()), num_values_);
@@ -130,7 +130,7 @@ class DataPageBuilder {
   }
 
   void AppendValues(const ColumnDescriptor* d, const vector<T>& values,
-      Encoding::type encoding = Encoding::PLAIN) {
+                    Encoding::type encoding = Encoding::PLAIN) {
     PlainEncoder<Type> encoder(d);
     encoder.Put(&values[0], static_cast<int>(values.size()));
     std::shared_ptr<Buffer> values_sink = encoder.FlushValues();
@@ -162,8 +162,8 @@ class DataPageBuilder {
   bool have_values_;
 
   // Used internally for both repetition and definition levels
-  void AppendLevels(
-      const vector<int16_t>& levels, int16_t max_level, Encoding::type encoding) {
+  void AppendLevels(const vector<int16_t>& levels, int16_t max_level,
+                    Encoding::type encoding) {
     if (encoding != Encoding::RLE) {
       ParquetException::NYI("only rle encoding currently implemented");
     }
@@ -176,7 +176,7 @@ class DataPageBuilder {
     // size.
     LevelEncoder encoder;
     encoder.Init(encoding, max_level, static_cast<int>(levels.size()),
-        encode_buffer.data(), static_cast<int>(encode_buffer.size()));
+                 encode_buffer.data(), static_cast<int>(encode_buffer.size()));
 
     encoder.Encode(static_cast<int>(levels.size()), levels.data());
 
@@ -187,8 +187,9 @@ class DataPageBuilder {
 };
 
 template <>
-void DataPageBuilder<BooleanType>::AppendValues(
-    const ColumnDescriptor* d, const vector<bool>& values, Encoding::type encoding) {
+void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
+                                                const vector<bool>& values,
+                                                Encoding::type encoding) {
   if (encoding != Encoding::PLAIN) {
     ParquetException::NYI("only plain encoding currently implemented");
   }
@@ -203,17 +204,22 @@ void DataPageBuilder<BooleanType>::AppendValues(
 }
 
 template <typename Type>
-static shared_ptr<DataPage> MakeDataPage(const ColumnDescriptor* d,
-    const vector<typename Type::c_type>& values, int num_vals, Encoding::type encoding,
-    const uint8_t* indices, int indices_size, const vector<int16_t>& def_levels,
-    int16_t max_def_level, const vector<int16_t>& rep_levels, int16_t max_rep_level) {
+static shared_ptr<DataPage> MakeDataPage(
+    const ColumnDescriptor* d, const vector<typename Type::c_type>& values, int num_vals,
+    Encoding::type encoding, const uint8_t* indices, int indices_size,
+    const vector<int16_t>& def_levels, int16_t max_def_level,
+    const vector<int16_t>& rep_levels, int16_t max_rep_level) {
   int num_values = 0;
 
   InMemoryOutputStream page_stream;
   test::DataPageBuilder<Type> page_builder(&page_stream);
 
-  if (!rep_levels.empty()) { page_builder.AppendRepLevels(rep_levels, max_rep_level); }
-  if (!def_levels.empty()) { page_builder.AppendDefLevels(def_levels, max_def_level); }
+  if (!rep_levels.empty()) {
+    page_builder.AppendRepLevels(rep_levels, max_rep_level);
+  }
+  if (!def_levels.empty()) {
+    page_builder.AppendDefLevels(def_levels, max_def_level);
+  }
 
   if (encoding == Encoding::PLAIN) {
     page_builder.AppendValues(d, values, encoding);
@@ -226,7 +232,8 @@ static shared_ptr<DataPage> MakeDataPage(const ColumnDescriptor* d,
   auto buffer = page_stream.GetBuffer();
 
   return std::make_shared<DataPage>(buffer, num_values, encoding,
-      page_builder.def_level_encoding(), page_builder.rep_level_encoding());
+                                    page_builder.def_level_encoding(),
+                                    page_builder.rep_level_encoding());
 }
 
 template <typename TYPE>
@@ -287,9 +294,10 @@ shared_ptr<Buffer> DictionaryPageBuilder<BooleanType>::AppendValues(
 }
 
 template <typename Type>
-static shared_ptr<DictionaryPage> MakeDictPage(const ColumnDescriptor* d,
-    const vector<typename Type::c_type>& values, const vector<int>& values_per_page,
-    Encoding::type encoding, vector<shared_ptr<Buffer>>& rle_indices) {
+static shared_ptr<DictionaryPage> MakeDictPage(
+    const ColumnDescriptor* d, const vector<typename Type::c_type>& values,
+    const vector<int>& values_per_page, Encoding::type encoding,
+    vector<shared_ptr<Buffer>>& rle_indices) {
   InMemoryOutputStream page_stream;
   test::DictionaryPageBuilder<Type> page_builder(d);
   int num_pages = static_cast<int>(values_per_page.size());
@@ -303,17 +311,19 @@ static shared_ptr<DictionaryPage> MakeDictPage(const ColumnDescriptor* d,
 
   auto buffer = page_builder.WriteDict();
 
-  return std::make_shared<DictionaryPage>(
-      buffer, page_builder.num_values(), Encoding::PLAIN);
+  return std::make_shared<DictionaryPage>(buffer, page_builder.num_values(),
+                                          Encoding::PLAIN);
 }
 
 // Given def/rep levels and values create multiple dict pages
 template <typename Type>
 static void PaginateDict(const ColumnDescriptor* d,
-    const vector<typename Type::c_type>& values, const vector<int16_t>& def_levels,
-    int16_t max_def_level, const vector<int16_t>& rep_levels, int16_t max_rep_level,
-    int num_levels_per_page, const vector<int>& values_per_page,
-    vector<shared_ptr<Page>>& pages, Encoding::type encoding = Encoding::RLE_DICTIONARY) {
+                         const vector<typename Type::c_type>& values,
+                         const vector<int16_t>& def_levels, int16_t max_def_level,
+                         const vector<int16_t>& rep_levels, int16_t max_rep_level,
+                         int num_levels_per_page, const vector<int>& values_per_page,
+                         vector<shared_ptr<Page>>& pages,
+                         Encoding::type encoding = Encoding::RLE_DICTIONARY) {
   int num_pages = static_cast<int>(values_per_page.size());
   vector<shared_ptr<Buffer>> rle_indices;
   shared_ptr<DictionaryPage> dict_page =
@@ -332,8 +342,9 @@ static void PaginateDict(const ColumnDescriptor* d,
       rep_level_start = i * num_levels_per_page;
       rep_level_end = (i + 1) * num_levels_per_page;
     }
-    shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(d, {}, values_per_page[i],
-        encoding, rle_indices[i]->data(), static_cast<int>(rle_indices[i]->size()),
+    shared_ptr<DataPage> data_page = MakeDataPage<Int32Type>(
+        d, {}, values_per_page[i], encoding, rle_indices[i]->data(),
+        static_cast<int>(rle_indices[i]->size()),
         slice(def_levels, def_level_start, def_level_end), max_def_level,
         slice(rep_levels, rep_level_start, rep_level_end), max_rep_level);
     pages.push_back(data_page);
@@ -343,10 +354,12 @@ static void PaginateDict(const ColumnDescriptor* d,
 // Given def/rep levels and values create multiple plain pages
 template <typename Type>
 static void PaginatePlain(const ColumnDescriptor* d,
-    const vector<typename Type::c_type>& values, const vector<int16_t>& def_levels,
-    int16_t max_def_level, const vector<int16_t>& rep_levels, int16_t max_rep_level,
-    int num_levels_per_page, const vector<int>& values_per_page,
-    vector<shared_ptr<Page>>& pages, Encoding::type encoding = Encoding::PLAIN) {
+                          const vector<typename Type::c_type>& values,
+                          const vector<int16_t>& def_levels, int16_t max_def_level,
+                          const vector<int16_t>& rep_levels, int16_t max_rep_level,
+                          int num_levels_per_page, const vector<int>& values_per_page,
+                          vector<shared_ptr<Page>>& pages,
+                          Encoding::type encoding = Encoding::PLAIN) {
   int num_pages = static_cast<int>(values_per_page.size());
   int def_level_start = 0;
   int def_level_end = 0;
@@ -362,10 +375,11 @@ static void PaginatePlain(const ColumnDescriptor* d,
       rep_level_start = i * num_levels_per_page;
       rep_level_end = (i + 1) * num_levels_per_page;
     }
-    shared_ptr<DataPage> page = MakeDataPage<Type>(d,
-        slice(values, value_start, value_start + values_per_page[i]), values_per_page[i],
-        encoding, NULL, 0, slice(def_levels, def_level_start, def_level_end),
-        max_def_level, slice(rep_levels, rep_level_start, rep_level_end), max_rep_level);
+    shared_ptr<DataPage> page = MakeDataPage<Type>(
+        d, slice(values, value_start, value_start + values_per_page[i]),
+        values_per_page[i], encoding, NULL, 0,
+        slice(def_levels, def_level_start, def_level_end), max_def_level,
+        slice(rep_levels, rep_level_start, rep_level_end), max_rep_level);
     pages.push_back(page);
     value_start += values_per_page[i];
   }
@@ -374,9 +388,10 @@ static void PaginatePlain(const ColumnDescriptor* d,
 // Generates pages from randomly generated data
 template <typename Type>
 static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_page,
-    vector<int16_t>& def_levels, vector<int16_t>& rep_levels,
-    vector<typename Type::c_type>& values, vector<uint8_t>& buffer,
-    vector<shared_ptr<Page>>& pages, Encoding::type encoding = Encoding::PLAIN) {
+                     vector<int16_t>& def_levels, vector<int16_t>& rep_levels,
+                     vector<typename Type::c_type>& values, vector<uint8_t>& buffer,
+                     vector<shared_ptr<Page>>& pages,
+                     Encoding::type encoding = Encoding::PLAIN) {
   int num_levels = levels_per_page * num_pages;
   int num_values = 0;
   uint32_t seed = 0;
@@ -411,13 +426,13 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
   if (encoding == Encoding::PLAIN) {
     InitValues<typename Type::c_type>(num_values, values, buffer);
     PaginatePlain<Type>(d, values, def_levels, max_def_level, rep_levels, max_rep_level,
-        levels_per_page, values_per_page, pages);
+                        levels_per_page, values_per_page, pages);
   } else if (encoding == Encoding::RLE_DICTIONARY ||
              encoding == Encoding::PLAIN_DICTIONARY) {
     // Calls InitValues and repeats the data
     InitDictValues<typename Type::c_type>(num_values, levels_per_page, values, buffer);
     PaginateDict<Type>(d, values, def_levels, max_def_level, rep_levels, max_rep_level,
-        levels_per_page, values_per_page, pages);
+                       levels_per_page, values_per_page, pages);
   }
 
   return num_values;

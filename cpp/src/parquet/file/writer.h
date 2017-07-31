@@ -88,7 +88,7 @@ class PARQUET_EXPORT ParquetFileWriter {
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     Contents(const std::shared_ptr<::parquet::schema::GroupNode>& schema,
-        const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
+             const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
         : schema_(), key_value_metadata_(key_value_metadata) {
       schema_.Init(schema);
     }

@@ -33,8 +33,8 @@ namespace benchmark {
 
 std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
   auto node = PrimitiveNode::Make("int64", repetition, Type::INT64);
-  return std::make_shared<ColumnDescriptor>(
-      node, repetition != Repetition::REQUIRED, repetition == Repetition::REPEATED);
+  return std::make_shared<ColumnDescriptor>(node, repetition != Repetition::REQUIRED,
+                                            repetition == Repetition::REPEATED);
 }
 
 static void BM_PlainEncodingBoolean(::benchmark::State& state) {
@@ -99,8 +99,8 @@ static void BM_PlainDecodingInt64(::benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingInt64)->Range(1024, 65536);
 
 template <typename Type>
-static void DecodeDict(
-    std::vector<typename Type::c_type>& values, ::benchmark::State& state) {
+static void DecodeDict(std::vector<typename Type::c_type>& values,
+                       ::benchmark::State& state) {
   typedef typename Type::c_type T;
   int num_values = values.size();
 

@@ -98,8 +98,9 @@ class PARQUET_EXPORT ParquetFileReader {
 
   // API Convenience to open a serialized Parquet file on disk, using Arrow IO
   // interfaces.
-  static std::unique_ptr<ParquetFileReader> OpenFile(const std::string& path,
-      bool memory_map = true, const ReaderProperties& props = default_reader_properties(),
+  static std::unique_ptr<ParquetFileReader> OpenFile(
+      const std::string& path, bool memory_map = true,
+      const ReaderProperties& props = default_reader_properties(),
       const std::shared_ptr<FileMetaData>& metadata = nullptr);
 
   void Open(std::unique_ptr<Contents> contents);
@@ -117,8 +118,8 @@ class PARQUET_EXPORT ParquetFileReader {
 };
 
 // Read only Parquet file metadata
-std::shared_ptr<FileMetaData> PARQUET_EXPORT ReadMetaData(
-    const std::shared_ptr<::arrow::io::ReadableFileInterface>& source);
+std::shared_ptr<FileMetaData> PARQUET_EXPORT
+ReadMetaData(const std::shared_ptr<::arrow::io::ReadableFileInterface>& source);
 
 }  // namespace parquet
 

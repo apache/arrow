@@ -290,28 +290,29 @@ template <typename T>
 using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int num_threads,
-    int64_t row_group_size,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-    std::shared_ptr<Buffer>* out) {
+                        int64_t row_group_size,
+                        const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
+                        std::shared_ptr<Buffer>* out) {
   auto sink = std::make_shared<InMemoryOutputStream>();
 
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
-      row_group_size, default_writer_properties(), arrow_properties));
+                                row_group_size, default_writer_properties(),
+                                arrow_properties));
   *out = sink->GetBuffer();
 }
 
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
-    int64_t row_group_size, const std::vector<int>& column_subset,
-    std::shared_ptr<Table>* out,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties()) {
+                       int64_t row_group_size, const std::vector<int>& column_subset,
+                       std::shared_ptr<Table>* out,
+                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+                           default_arrow_writer_properties()) {
   std::shared_ptr<Buffer> buffer;
   WriteTableToBuffer(table, num_threads, row_group_size, arrow_properties, &buffer);
 
   std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(
-      OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-          ::parquet::default_reader_properties(), nullptr, &reader));
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(),
+                              ::parquet::default_reader_properties(), nullptr, &reader));
 
   reader->set_num_threads(num_threads);
 
@@ -323,8 +324,8 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
   }
 }
 
-static std::shared_ptr<GroupNode> MakeSimpleSchema(
-    const ::arrow::DataType& type, Repetition::type repetition) {
+static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::arrow::DataType& type,
+                                                   Repetition::type repetition) {
   int byte_width;
   // Decimal is not implemented yet.
   switch (type.id()) {
@@ -334,8 +335,8 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(
     default:
       byte_width = -1;
   }
-  auto pnode = PrimitiveNode::Make(
-      "column1", repetition, get_physical_type(type), get_logical_type(type), byte_width);
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_physical_type(type),
+                                   get_logical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
   return std::static_pointer_cast<GroupNode>(node_);
@@ -354,13 +355,13 @@ class TestParquetIO : public ::testing::Test {
 
   void ReaderFromSink(std::unique_ptr<FileReader>* out) {
     std::shared_ptr<Buffer> buffer = sink_->GetBuffer();
-    ASSERT_OK_NO_THROW(
-        OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-            ::parquet::default_reader_properties(), nullptr, out));
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                                ::arrow::default_memory_pool(),
+                                ::parquet::default_reader_properties(), nullptr, out));
   }
 
-  void ReadSingleColumnFile(
-      std::unique_ptr<FileReader> file_reader, std::shared_ptr<Array>* out) {
+  void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
+                            std::shared_ptr<Array>* out) {
     std::unique_ptr<ColumnReader> column_reader;
     ASSERT_OK_NO_THROW(file_reader->GetColumn(0, &column_reader));
     ASSERT_NE(nullptr, column_reader.get());
@@ -378,8 +379,8 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_TRUE(values->Equals(out));
   }
 
-  void ReadTableFromFile(
-      std::unique_ptr<FileReader> reader, std::shared_ptr<Table>* out) {
+  void ReadTableFromFile(std::unique_ptr<FileReader> reader,
+                         std::shared_ptr<Table>* out) {
     ASSERT_OK_NO_THROW(reader->ReadTable(out));
     auto key_value_metadata =
         reader->parquet_reader()->metadata()->key_value_metadata().get();
@@ -388,30 +389,30 @@ class TestParquetIO : public ::testing::Test {
   }
 
   void PrepareListTable(int64_t size, bool nullable_lists, bool nullable_elements,
-      int64_t null_count, std::shared_ptr<Table>* out) {
+                        int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(
-        size * size, nullable_elements ? null_count : 0, kDefaultSeed, &values));
+    ASSERT_OK(NullableArray<TestType>(size * size, nullable_elements ? null_count : 0,
+                                      kDefaultSeed, &values));
     // Also test that slice offsets are respected
     values = values->Slice(5, values->length() - 5);
     std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(
-        values, size, nullable_lists ? null_count : 0, nullable_elements, &lists));
+    ASSERT_OK(MakeListArray(values, size, nullable_lists ? null_count : 0,
+                            nullable_elements, &lists));
     *out = MakeSimpleTable(lists->Slice(3, size - 6), nullable_lists);
   }
 
   void PrepareListOfListTable(int64_t size, bool nullable_parent_lists,
-      bool nullable_lists, bool nullable_elements, int64_t null_count,
-      std::shared_ptr<Table>* out) {
+                              bool nullable_lists, bool nullable_elements,
+                              int64_t null_count, std::shared_ptr<Table>* out) {
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<TestType>(
-        size * 6, nullable_elements ? null_count : 0, kDefaultSeed, &values));
+    ASSERT_OK(NullableArray<TestType>(size * 6, nullable_elements ? null_count : 0,
+                                      kDefaultSeed, &values));
     std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(
-        values, size * 3, nullable_lists ? null_count : 0, nullable_elements, &lists));
+    ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0,
+                            nullable_elements, &lists));
     std::shared_ptr<ListArray> parent_lists;
     ASSERT_OK(MakeListArray(lists, size, nullable_parent_lists ? null_count : 0,
-        nullable_lists, &parent_lists));
+                            nullable_lists, &parent_lists));
     *out = MakeSimpleTable(parent_lists, nullable_parent_lists);
   }
 
@@ -438,7 +439,7 @@ class TestParquetIO : public ::testing::Test {
 
   template <typename ArrayType>
   void WriteColumn(const std::shared_ptr<GroupNode>& schema,
-      const std::shared_ptr<ArrayType>& values) {
+                   const std::shared_ptr<ArrayType>& values) {
     FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema));
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
@@ -454,9 +455,10 @@ class TestParquetIO : public ::testing::Test {
 // Parquet version 1.0.
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
-    ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type,
-    ::arrow::Int64Type, ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType,
-    ::arrow::StringType, ::arrow::BinaryType, ::arrow::FixedSizeBinaryType>
+                         ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type,
+                         ::arrow::UInt64Type, ::arrow::Int64Type, ::arrow::Date32Type,
+                         ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
+                         ::arrow::BinaryType, ::arrow::FixedSizeBinaryType>
     TestTypes;
 
 TYPED_TEST_CASE(TestParquetIO, TestTypes);
@@ -478,7 +480,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
-      values->length(), default_writer_properties()));
+                                values->length(), default_writer_properties()));
 
   std::shared_ptr<Table> out;
   std::unique_ptr<FileReader> reader;
@@ -599,8 +601,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
-  ASSERT_OK_NO_THROW(WriteTable(
-      *table, default_memory_pool(), this->sink_, 512, default_writer_properties()));
+  ASSERT_OK_NO_THROW(WriteTable(*table, default_memory_pool(), this->sink_, 512,
+                                default_writer_properties()));
 
   this->ReadAndCheckSingleColumnTable(values);
 }
@@ -615,8 +617,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   {
     // BufferOutputStream closed on gc
     auto arrow_sink_ = std::make_shared<::arrow::io::BufferOutputStream>(buffer);
-    ASSERT_OK_NO_THROW(WriteTable(
-        *table, default_memory_pool(), arrow_sink_, 512, default_writer_properties()));
+    ASSERT_OK_NO_THROW(WriteTable(*table, default_memory_pool(), arrow_sink_, 512,
+                                  default_writer_properties()));
 
     // XXX: Remove this after ARROW-455 completed
     ASSERT_OK(arrow_sink_->Close());
@@ -664,7 +666,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, 512,
-      default_writer_properties()));
+                                default_writer_properties()));
 
   this->ReadAndCheckSingleColumnTable(values);
 }
@@ -713,8 +715,8 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   rg_writer->Close();
   writer->Close();
 
-  ::arrow::TimestampBuilder builder(
-      default_memory_pool(), ::arrow::timestamp(TimeUnit::NANO));
+  ::arrow::TimestampBuilder builder(default_memory_pool(),
+                                    ::arrow::timestamp(TimeUnit::NANO));
   ASSERT_OK(builder.Append(val));
   std::shared_ptr<Array> values;
   ASSERT_OK(builder.Finish(&values));
@@ -777,8 +779,8 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
 
   const int32_t kOffset = 0;
   ASSERT_OK(MakePrimitiveArray(std::make_shared<::arrow::Int64Type>(), values->length(),
-      int64_data, values->null_bitmap(), values->null_count(), kOffset,
-      &expected_values));
+                               int64_data, values->null_bitmap(), values->null_count(),
+                               kOffset, &expected_values));
   this->ReadAndCheckSingleColumnTable(expected_values);
 }
 
@@ -794,7 +796,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
-      values->length(), default_writer_properties()));
+                                values->length(), default_writer_properties()));
 
   std::shared_ptr<Table> out;
   std::unique_ptr<FileReader> reader;
@@ -815,7 +817,7 @@ TEST_F(TestNullParquetIO, NullColumn) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
-      values->length(), default_writer_properties()));
+                                values->length(), default_writer_properties()));
 
   std::shared_ptr<Table> out;
   std::unique_ptr<FileReader> reader;
@@ -847,16 +849,16 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
  public:
   typedef typename c_type_trait<TestType>::ArrowCType T;
 
-  void MakeTestFile(
-      std::vector<T>& values, int num_chunks, std::unique_ptr<FileReader>* reader) {
+  void MakeTestFile(std::vector<T>& values, int num_chunks,
+                    std::unique_ptr<FileReader>* reader) {
     TestType dummy;
 
     std::shared_ptr<GroupNode> schema = MakeSimpleSchema(dummy, Repetition::REQUIRED);
     std::unique_ptr<ParquetFileWriter> file_writer = this->MakeWriter(schema);
     size_t chunk_size = values.size() / num_chunks;
     // Convert to Parquet's expected physical type
-    std::vector<uint8_t> values_buffer(
-        sizeof(ParquetCDataType<TestType>) * values.size());
+    std::vector<uint8_t> values_buffer(sizeof(ParquetCDataType<TestType>) *
+                                       values.size());
     auto values_parquet =
         reinterpret_cast<ParquetCDataType<TestType>*>(values_buffer.data());
     std::copy(values.cbegin(), values.cend(), values_parquet);
@@ -901,8 +903,9 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
 };
 
 typedef ::testing::Types<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
-    ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::UInt32Type, ::arrow::Int32Type,
-    ::arrow::UInt64Type, ::arrow::Int64Type, ::arrow::FloatType, ::arrow::DoubleType>
+                         ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::UInt32Type,
+                         ::arrow::Int32Type, ::arrow::UInt64Type, ::arrow::Int64Type,
+                         ::arrow::FloatType, ::arrow::DoubleType>
     PrimitiveTestTypes;
 
 TYPED_TEST_CASE(TestPrimitiveParquetIO, PrimitiveTestTypes);
@@ -942,23 +945,23 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool nanos_as_micros = 
   auto f5 = field("f5", ::arrow::time64(TimeUnit::MICRO));
   std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1, f2, f3, f4, f5}));
 
-  std::vector<int32_t> t32_values = {
-      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
+  std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
+                                     1489272000, 1489272000, 1489273000};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
-      1489272000000, 1489272000000, 1489273000000};
-  std::vector<int64_t> t64_us_values = {
-      1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000};
+                                     1489272000000, 1489272000000, 1489273000000};
+  std::vector<int64_t> t64_us_values = {1489269000, 1489270000, 1489271000,
+                                        1489272000, 1489272000, 1489273000};
 
   std::shared_ptr<Array> a0, a1, a2, a3, a4, a5;
   ArrayFromVector<::arrow::Date32Type, int32_t>(f0->type(), is_valid, t32_values, &a0);
   ArrayFromVector<::arrow::TimestampType, int64_t>(f1->type(), is_valid, t64_values, &a1);
   ArrayFromVector<::arrow::TimestampType, int64_t>(f2->type(), is_valid, t64_values, &a2);
   if (nanos_as_micros) {
-    ArrayFromVector<::arrow::TimestampType, int64_t>(
-        f3->type(), is_valid, t64_us_values, &a3);
+    ArrayFromVector<::arrow::TimestampType, int64_t>(f3->type(), is_valid, t64_us_values,
+                                                     &a3);
   } else {
-    ArrayFromVector<::arrow::TimestampType, int64_t>(
-        f3->type(), is_valid, t64_values, &a3);
+    ArrayFromVector<::arrow::TimestampType, int64_t>(f3->type(), is_valid, t64_values,
+                                                     &a3);
   }
   ArrayFromVector<::arrow::Time32Type, int32_t>(f4->type(), is_valid, t32_values, &a4);
   ArrayFromVector<::arrow::Time64Type, int64_t>(f5->type(), is_valid, t64_values, &a5);
@@ -976,7 +979,8 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
 
   // Use deprecated INT96 type
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result,
+  DoSimpleRoundtrip(
+      table, 1, table->num_rows(), {}, &result,
       ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build());
 
   ASSERT_TRUE(table->Equals(*result));
@@ -999,7 +1003,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1}));
 
   std::vector<int64_t> a0_values = {1489190400000, 1489276800000, 1489363200000,
-      1489449600000, 1489536000000, 1489622400000};
+                                    1489449600000, 1489536000000, 1489622400000};
   std::vector<int32_t> a1_values = {0, 1, 2, 3, 4, 5};
 
   std::shared_ptr<Array> a0, a1, x0, x1;
@@ -1030,8 +1034,8 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   ASSERT_TRUE(result->Equals(*ex_table));
 }
 
-void MakeDoubleTable(
-    int num_columns, int num_rows, int nchunks, std::shared_ptr<Table>* out) {
+void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
+                     std::shared_ptr<Table>* out) {
   std::shared_ptr<::arrow::Column> column;
   std::vector<std::shared_ptr<::arrow::Column>> columns(num_columns);
   std::vector<std::shared_ptr<::arrow::Field>> fields(num_columns);
@@ -1039,8 +1043,8 @@ void MakeDoubleTable(
   for (int i = 0; i < num_columns; ++i) {
     std::vector<std::shared_ptr<Array>> arrays;
     std::shared_ptr<Array> values;
-    ASSERT_OK(NullableArray<::arrow::DoubleType>(
-        num_rows, num_rows / 10, static_cast<uint32_t>(i), &values));
+    ASSERT_OK(NullableArray<::arrow::DoubleType>(num_rows, num_rows / 10,
+                                                 static_cast<uint32_t>(i), &values));
     std::stringstream ss;
     ss << "col" << i;
 
@@ -1081,9 +1085,9 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   WriteTableToBuffer(table, 1, num_rows / 2, default_arrow_writer_properties(), &buffer);
 
   std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(
-      OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-          ::parquet::default_reader_properties(), nullptr, &reader));
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(),
+                              ::parquet::default_reader_properties(), nullptr, &reader));
 
   ASSERT_EQ(2, reader->num_row_groups());
 
@@ -1131,8 +1135,8 @@ TEST(TestArrowWrite, CheckChunkSize) {
 
   auto sink = std::make_shared<InMemoryOutputStream>();
 
-  ASSERT_RAISES(
-      Invalid, WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
+  ASSERT_RAISES(Invalid,
+                WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
 }
 
 class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
@@ -1145,13 +1149,13 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     std::shared_ptr<Buffer> buffer = nested_parquet_->GetBuffer();
     ASSERT_OK_NO_THROW(
         OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
-            ::parquet::default_reader_properties(), nullptr, &reader_));
+                 ::parquet::default_reader_properties(), nullptr, &reader_));
   }
 
   void InitNewParquetFile(const std::shared_ptr<GroupNode>& schema, int num_rows) {
     nested_parquet_ = std::make_shared<InMemoryOutputStream>();
-    writer_ = parquet::ParquetFileWriter::Open(
-        nested_parquet_, schema, default_writer_properties());
+    writer_ = parquet::ParquetFileWriter::Open(nested_parquet_, schema,
+                                               default_writer_properties());
     row_group_writer_ = writer_->AppendRowGroup(num_rows);
   }
 
@@ -1166,8 +1170,8 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     values_array_ = std::dynamic_pointer_cast<::arrow::Int32Array>(arr);
   }
 
-  void WriteColumnData(
-      size_t num_rows, int16_t* def_levels, int16_t* rep_levels, int32_t* values) {
+  void WriteColumnData(size_t num_rows, int16_t* def_levels, int16_t* rep_levels,
+                       int32_t* values) {
     auto typed_writer =
         static_cast<TypedColumnWriter<Int32Type>*>(row_group_writer_->NextColumn());
     typed_writer->WriteBatch(num_rows, def_levels, rep_levels, values);
@@ -1179,7 +1183,9 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     // Also independently count the nulls
     auto local_null_count = 0;
     for (int i = 0; i < array.length(); i++) {
-      if (array.IsNull(i)) { local_null_count++; }
+      if (array.IsNull(i)) {
+        local_null_count++;
+      }
     }
     ASSERT_EQ(local_null_count, expected_nulls);
   }
@@ -1189,7 +1195,9 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
     int j = 0;
     for (int i = 0; i < values_array_->length(); i++) {
-      if (array.IsNull(i)) { continue; }
+      if (array.IsNull(i)) {
+        continue;
+      }
       ASSERT_EQ(array.Value(i), values_array_->Value(j));
       j++;
     }
@@ -1219,9 +1227,10 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     // }
     // required int32 leaf3;
 
-    parquet_fields.push_back(GroupNode::Make("group1", struct_repetition,
+    parquet_fields.push_back(GroupNode::Make(
+        "group1", struct_repetition,
         {PrimitiveNode::Make("leaf1", Repetition::REQUIRED, ParquetType::INT32),
-            PrimitiveNode::Make("leaf2", Repetition::OPTIONAL, ParquetType::INT32)}));
+         PrimitiveNode::Make("leaf2", Repetition::OPTIONAL, ParquetType::INT32)}));
     parquet_fields.push_back(
         PrimitiveNode::Make("leaf3", Repetition::REQUIRED, ParquetType::INT32));
 
@@ -1252,33 +1261,34 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     int32_t* values = reinterpret_cast<int32_t*>(values_array_->values()->mutable_data());
 
     // Create the actual parquet file
-    InitNewParquetFile(
-        std::static_pointer_cast<GroupNode>(schema_node), NUM_SIMPLE_TEST_ROWS);
+    InitNewParquetFile(std::static_pointer_cast<GroupNode>(schema_node),
+                       NUM_SIMPLE_TEST_ROWS);
 
     // leaf1 column
-    WriteColumnData(
-        NUM_SIMPLE_TEST_ROWS, leaf1_def_levels.data(), rep_levels.data(), values);
+    WriteColumnData(NUM_SIMPLE_TEST_ROWS, leaf1_def_levels.data(), rep_levels.data(),
+                    values);
     // leaf2 column
-    WriteColumnData(
-        NUM_SIMPLE_TEST_ROWS, leaf2_def_levels.data(), rep_levels.data(), values);
+    WriteColumnData(NUM_SIMPLE_TEST_ROWS, leaf2_def_levels.data(), rep_levels.data(),
+                    values);
     // leaf3 column
-    WriteColumnData(
-        NUM_SIMPLE_TEST_ROWS, leaf3_def_levels.data(), rep_levels.data(), values);
+    WriteColumnData(NUM_SIMPLE_TEST_ROWS, leaf3_def_levels.data(), rep_levels.data(),
+                    values);
 
     FinalizeParquetFile();
     InitReader();
   }
 
   NodePtr CreateSingleTypedNestedGroup(int index, int depth, int num_children,
-      Repetition::type node_repetition, ParquetType::type leaf_type) {
+                                       Repetition::type node_repetition,
+                                       ParquetType::type leaf_type) {
     std::vector<NodePtr> children;
 
     for (int i = 0; i < num_children; i++) {
       if (depth <= 1) {
         children.push_back(PrimitiveNode::Make("leaf", node_repetition, leaf_type));
       } else {
-        children.push_back(CreateSingleTypedNestedGroup(
-            i, depth - 1, num_children, node_repetition, leaf_type));
+        children.push_back(CreateSingleTypedNestedGroup(i, depth - 1, num_children,
+                                                        node_repetition, leaf_type));
       }
     }
 
@@ -1289,7 +1299,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
   // A deeply nested schema
   void CreateMultiLevelNestedParquet(int num_trees, int tree_depth, int num_children,
-      int num_rows, Repetition::type node_repetition) {
+                                     int num_rows, Repetition::type node_repetition) {
     // Create the schema
     std::vector<NodePtr> parquet_fields;
     for (int i = 0; i < num_trees; i++) {
@@ -1327,8 +1337,8 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
   class DeepParquetTestVisitor : public ArrayVisitor {
    public:
-    DeepParquetTestVisitor(
-        Repetition::type node_repetition, std::shared_ptr<::arrow::Int32Array> expected)
+    DeepParquetTestVisitor(Repetition::type node_repetition,
+                           std::shared_ptr<::arrow::Int32Array> expected)
         : node_repetition_(node_repetition), expected_(expected) {}
 
     Status Validate(std::shared_ptr<Array> tree) { return tree->Accept(this); }
@@ -1475,7 +1485,7 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
 }
 
 INSTANTIATE_TEST_CASE_P(Repetition_type, TestNestedSchemaRead,
-    ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
+                        ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, NanosecondToImpala) {
   // June 20, 2017 16:32:56 and 123456789 nanoseconds

@@ -43,8 +43,8 @@ using schema::NodePtr;
 namespace test {
 
 template <>
-void InitDictValues<bool>(
-    int num_values, int dict_per_page, vector<bool>& values, vector<uint8_t>& buffer) {
+void InitDictValues<bool>(int num_values, int dict_per_page, vector<bool>& values,
+                          vector<uint8_t>& buffer) {
   // No op for bool
 }
 
@@ -91,9 +91,9 @@ class TestFlatScanner : public ::testing::Test {
   }
 
   void Execute(int num_pages, int levels_per_page, int batch_size,
-      const ColumnDescriptor* d, Encoding::type encoding) {
+               const ColumnDescriptor* d, Encoding::type encoding) {
     num_values_ = MakePages<Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-        values_, data_buffer_, pages_, encoding);
+                                  values_, data_buffer_, pages_, encoding);
     num_levels_ = num_pages * levels_per_page;
     InitScanner(d);
     CheckResults(batch_size, d);
@@ -101,22 +101,22 @@ class TestFlatScanner : public ::testing::Test {
   }
 
   void InitDescriptors(std::shared_ptr<ColumnDescriptor>& d1,
-      std::shared_ptr<ColumnDescriptor>& d2, std::shared_ptr<ColumnDescriptor>& d3,
-      int length) {
+                       std::shared_ptr<ColumnDescriptor>& d2,
+                       std::shared_ptr<ColumnDescriptor>& d3, int length) {
     NodePtr type;
-    type = schema::PrimitiveNode::Make(
-        "c1", Repetition::REQUIRED, Type::type_num, LogicalType::NONE, length);
+    type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED, Type::type_num,
+                                       LogicalType::NONE, length);
     d1.reset(new ColumnDescriptor(type, 0, 0));
-    type = schema::PrimitiveNode::Make(
-        "c2", Repetition::OPTIONAL, Type::type_num, LogicalType::NONE, length);
+    type = schema::PrimitiveNode::Make("c2", Repetition::OPTIONAL, Type::type_num,
+                                       LogicalType::NONE, length);
     d2.reset(new ColumnDescriptor(type, 4, 0));
-    type = schema::PrimitiveNode::Make(
-        "c3", Repetition::REPEATED, Type::type_num, LogicalType::NONE, length);
+    type = schema::PrimitiveNode::Make("c3", Repetition::REPEATED, Type::type_num,
+                                       LogicalType::NONE, length);
     d3.reset(new ColumnDescriptor(type, 4, 2));
   }
 
   void ExecuteAll(int num_pages, int num_levels, int batch_size, int type_length,
-      Encoding::type encoding = Encoding::PLAIN) {
+                  Encoding::type encoding = Encoding::PLAIN) {
     std::shared_ptr<ColumnDescriptor> d1;
     std::shared_ptr<ColumnDescriptor> d2;
     std::shared_ptr<ColumnDescriptor> d3;
@@ -145,7 +145,7 @@ static int num_pages = 20;
 static int batch_size = 32;
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType>
+                         ByteArrayType>
     TestTypes;
 
 using TestBooleanFlatScanner = TestFlatScanner<BooleanType>;
@@ -158,8 +158,8 @@ TYPED_TEST(TestFlatScanner, TestPlainScanner) {
 }
 
 TYPED_TEST(TestFlatScanner, TestDictScanner) {
-  this->ExecuteAll(
-      num_pages, num_levels_per_page, batch_size, 0, Encoding::RLE_DICTIONARY);
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, 0,
+                   Encoding::RLE_DICTIONARY);
 }
 
 TEST_F(TestBooleanFlatScanner, TestPlainScanner) {
@@ -171,33 +171,35 @@ TEST_F(TestFLBAFlatScanner, TestPlainScanner) {
 }
 
 TEST_F(TestFLBAFlatScanner, TestDictScanner) {
-  this->ExecuteAll(
-      num_pages, num_levels_per_page, batch_size, FLBA_LENGTH, Encoding::RLE_DICTIONARY);
+  this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
+                   Encoding::RLE_DICTIONARY);
 }
 
 TEST_F(TestFLBAFlatScanner, TestPlainDictScanner) {
   this->ExecuteAll(num_pages, num_levels_per_page, batch_size, FLBA_LENGTH,
-      Encoding::PLAIN_DICTIONARY);
+                   Encoding::PLAIN_DICTIONARY);
 }
 
 // PARQUET 502
 TEST_F(TestFLBAFlatScanner, TestSmallBatch) {
-  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::REQUIRED,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
+  NodePtr type =
+      schema::PrimitiveNode::Make("c1", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                                  LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 0, 0);
-  num_values_ = MakePages<FLBAType>(
-      &d, 1, 100, def_levels_, rep_levels_, values_, data_buffer_, pages_);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+                                    data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
   CheckResults(1, &d);
 }
 
 TEST_F(TestFLBAFlatScanner, TestDescriptorAPI) {
-  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
+  NodePtr type =
+      schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
+                                  LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);
-  num_values_ = MakePages<FLBAType>(
-      &d, 1, 100, def_levels_, rep_levels_, values_, data_buffer_, pages_);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+                                    data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
   TypedScanner<FLBAType>* scanner =
@@ -208,11 +210,12 @@ TEST_F(TestFLBAFlatScanner, TestDescriptorAPI) {
 }
 
 TEST_F(TestFLBAFlatScanner, TestFLBAPrinterNext) {
-  NodePtr type = schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
+  NodePtr type =
+      schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
+                                  LogicalType::DECIMAL, FLBA_LENGTH, 10, 2);
   const ColumnDescriptor d(type, 4, 0);
-  num_values_ = MakePages<FLBAType>(
-      &d, 1, 100, def_levels_, rep_levels_, values_, data_buffer_, pages_);
+  num_values_ = MakePages<FLBAType>(&d, 1, 100, def_levels_, rep_levels_, values_,
+                                    data_buffer_, pages_);
   num_levels_ = 1 * 100;
   InitScanner(&d);
   TypedScanner<FLBAType>* scanner =

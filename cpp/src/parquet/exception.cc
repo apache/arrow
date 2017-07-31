@@ -33,9 +33,7 @@ void ParquetException::NYI(const std::string& msg) {
   throw ParquetException(ss.str());
 }
 
-void ParquetException::Throw(const std::string& msg) {
-  throw ParquetException(msg);
-}
+void ParquetException::Throw(const std::string& msg) { throw ParquetException(msg); }
 
 ParquetException::ParquetException(const char* msg) : msg_(msg) {}
 
@@ -45,8 +43,6 @@ ParquetException::ParquetException(const char* msg, std::exception& e) : msg_(ms
 
 ParquetException::~ParquetException() throw() {}
 
-const char* ParquetException::what() const throw() {
-  return msg_.c_str();
-}
+const char* ParquetException::what() const throw() { return msg_.c_str(); }
 
 }  // namespace parquet

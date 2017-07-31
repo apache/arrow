@@ -44,12 +44,12 @@ class PARQUET_EXPORT LevelEncoder {
   LevelEncoder();
   ~LevelEncoder();
 
-  static int MaxBufferSize(
-      Encoding::type encoding, int16_t max_level, int num_buffered_values);
+  static int MaxBufferSize(Encoding::type encoding, int16_t max_level,
+                           int num_buffered_values);
 
   // Initialize the LevelEncoder.
   void Init(Encoding::type encoding, int16_t max_level, int num_buffered_values,
-      uint8_t* data, int data_size);
+            uint8_t* data, int data_size);
 
   // Encodes a batch of levels from an array and returns the number of levels encoded
   int Encode(int batch_size, const int16_t* levels);
@@ -73,12 +73,13 @@ static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
   ColumnWriter(ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
-      int64_t expected_rows, bool has_dictionary, Encoding::type encoding,
-      const WriterProperties* properties);
+               int64_t expected_rows, bool has_dictionary, Encoding::type encoding,
+               const WriterProperties* properties);
 
   static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
-      std::unique_ptr<PageWriter>, int64_t expected_rows,
-      const WriterProperties* properties);
+                                            std::unique_ptr<PageWriter>,
+                                            int64_t expected_rows,
+                                            const WriterProperties* properties);
 
   Type::type type() const { return descr_->physical_type(); }
 
@@ -126,8 +127,8 @@ class PARQUET_EXPORT ColumnWriter {
   void WriteRepetitionLevels(int64_t num_levels, const int16_t* levels);
 
   // RLE encode the src_buffer into dest_buffer and return the encoded size
-  int64_t RleEncodeLevels(
-      const Buffer& src_buffer, ResizableBuffer* dest_buffer, int16_t max_level);
+  int64_t RleEncodeLevels(const Buffer& src_buffer, ResizableBuffer* dest_buffer,
+                          int16_t max_level);
 
   // Serialize the buffered Data Pages
   void FlushBufferedDataPages();
@@ -194,13 +195,13 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   typedef typename DType::c_type T;
 
   TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-      std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
-      const WriterProperties* properties);
+                    std::unique_ptr<PageWriter> pager, int64_t expected_rows,
+                    Encoding::type encoding, const WriterProperties* properties);
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
   void WriteBatch(int64_t num_values, const int16_t* def_levels,
-      const int16_t* rep_levels, const T* values);
+                  const int16_t* rep_levels, const T* values);
 
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.
@@ -229,8 +230,8 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   ///   spacing for nulls on the lowest levels; input has the length
   ///   of the number of rows on the lowest nesting level.
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
-      const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
-      const T* values);
+                        const int16_t* rep_levels, const uint8_t* valid_bits,
+                        int64_t valid_bits_offset, const T* values);
 
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
@@ -244,18 +245,19 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
 
  private:
   int64_t WriteMiniBatch(int64_t num_values, const int16_t* def_levels,
-      const int16_t* rep_levels, const T* values);
+                         const int16_t* rep_levels, const T* values);
 
   int64_t WriteMiniBatchSpaced(int64_t num_values, const int16_t* def_levels,
-      const int16_t* rep_levels, const uint8_t* valid_bits, int64_t valid_bits_offset,
-      const T* values, int64_t* num_spaced_written);
+                               const int16_t* rep_levels, const uint8_t* valid_bits,
+                               int64_t valid_bits_offset, const T* values,
+                               int64_t* num_spaced_written);
 
   typedef Encoder<DType> EncoderType;
 
   // Write values to a temporary buffer before they are encoded into pages
   void WriteValues(int64_t num_values, const T* values);
   void WriteValuesSpaced(int64_t num_values, const uint8_t* valid_bits,
-      int64_t valid_bits_offset, const T* values);
+                         int64_t valid_bits_offset, const T* values);
   std::unique_ptr<EncoderType> current_encoder_;
 
   typedef TypedRowGroupStatistics<DType> TypedStats;

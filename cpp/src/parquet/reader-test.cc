@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
-#include <cstdlib>
 #include <fcntl.h>
 #include <gtest/gtest.h>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -227,8 +227,8 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   printer.DebugPrint(ss, columns, true);
 
   // Make sure OpenFile passes on the external metadata, too
-  auto reader2 = ParquetFileReader::OpenFile(
-      alltypes_plain(), false, default_reader_properties(), metadata);
+  auto reader2 = ParquetFileReader::OpenFile(alltypes_plain(), false,
+                                             default_reader_properties(), metadata);
 
   // Compare pointers
   ASSERT_EQ(metadata.get(), reader2->metadata().get());

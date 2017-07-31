@@ -35,7 +35,7 @@ LevelEncoder::LevelEncoder() {}
 LevelEncoder::~LevelEncoder() {}
 
 void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
-    int num_buffered_values, uint8_t* data, int data_size) {
+                        int num_buffered_values, uint8_t* data, int data_size) {
   bit_width_ = BitUtil::Log2(max_level + 1);
   encoding_ = encoding;
   switch (encoding) {
@@ -54,8 +54,8 @@ void LevelEncoder::Init(Encoding::type encoding, int16_t max_level,
   }
 }
 
-int LevelEncoder::MaxBufferSize(
-    Encoding::type encoding, int16_t max_level, int num_buffered_values) {
+int LevelEncoder::MaxBufferSize(Encoding::type encoding, int16_t max_level,
+                                int num_buffered_values) {
   int bit_width = BitUtil::Log2(max_level + 1);
   int num_bytes = 0;
   switch (encoding) {
@@ -84,14 +84,18 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 
   if (encoding_ == Encoding::RLE) {
     for (int i = 0; i < batch_size; ++i) {
-      if (!rle_encoder_->Put(*(levels + i))) { break; }
+      if (!rle_encoder_->Put(*(levels + i))) {
+        break;
+      }
       ++num_encoded;
     }
     rle_encoder_->Flush();
     rle_length_ = rle_encoder_->len();
   } else {
     for (int i = 0; i < batch_size; ++i) {
-      if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) { break; }
+      if (!bit_packed_encoder_->PutValue(*(levels + i), bit_width_)) {
+        break;
+      }
       ++num_encoded;
     }
     bit_packed_encoder_->Flush();
@@ -109,8 +113,9 @@ std::shared_ptr<WriterProperties> default_writer_properties() {
 }
 
 ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-    std::unique_ptr<PageWriter> pager, int64_t expected_rows, bool has_dictionary,
-    Encoding::type encoding, const WriterProperties* properties)
+                           std::unique_ptr<PageWriter> pager, int64_t expected_rows,
+                           bool has_dictionary, Encoding::type encoding,
+                           const WriterProperties* properties)
     : metadata_(metadata),
       descr_(metadata->descr()),
       pager_(std::move(pager)),
@@ -147,22 +152,22 @@ void ColumnWriter::InitSinks() {
 
 void ColumnWriter::WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
   DCHECK(!closed_);
-  definition_levels_sink_->Write(
-      reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
+  definition_levels_sink_->Write(reinterpret_cast<const uint8_t*>(levels),
+                                 sizeof(int16_t) * num_levels);
 }
 
 void ColumnWriter::WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
   DCHECK(!closed_);
-  repetition_levels_sink_->Write(
-      reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels);
+  repetition_levels_sink_->Write(reinterpret_cast<const uint8_t*>(levels),
+                                 sizeof(int16_t) * num_levels);
 }
 
 // return the size of the encoded buffer
-int64_t ColumnWriter::RleEncodeLevels(
-    const Buffer& src_buffer, ResizableBuffer* dest_buffer, int16_t max_level) {
+int64_t ColumnWriter::RleEncodeLevels(const Buffer& src_buffer,
+                                      ResizableBuffer* dest_buffer, int16_t max_level) {
   // TODO: This only works with due to some RLE specifics
   int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
-                         static_cast<int>(num_buffered_values_)) +
+                                                 static_cast<int>(num_buffered_values_)) +
                      sizeof(int32_t);
 
   // Use Arrow::Buffer::shrink_to_fit = false
@@ -170,10 +175,11 @@ int64_t ColumnWriter::RleEncodeLevels(
   PARQUET_THROW_NOT_OK(dest_buffer->Resize(rle_size, false));
 
   level_encoder_.Init(Encoding::RLE, max_level, static_cast<int>(num_buffered_values_),
-      dest_buffer->mutable_data() + sizeof(int32_t),
-      static_cast<int>(dest_buffer->size()) - sizeof(int32_t));
-  int encoded = level_encoder_.Encode(static_cast<int>(num_buffered_values_),
-      reinterpret_cast<const int16_t*>(src_buffer.data()));
+                      dest_buffer->mutable_data() + sizeof(int32_t),
+                      static_cast<int>(dest_buffer->size()) - sizeof(int32_t));
+  int encoded =
+      level_encoder_.Encode(static_cast<int>(num_buffered_values_),
+                            reinterpret_cast<const int16_t*>(src_buffer.data()));
   DCHECK_EQ(encoded, num_buffered_values_);
   reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
   int64_t encoded_size = level_encoder_.len() + sizeof(int32_t);
@@ -187,13 +193,15 @@ void ColumnWriter::AddDataPage() {
   std::shared_ptr<Buffer> values = GetValuesBuffer();
 
   if (descr_->max_definition_level() > 0) {
-    definition_levels_rle_size = RleEncodeLevels(definition_levels_sink_->GetBufferRef(),
-        definition_levels_rle_.get(), descr_->max_definition_level());
+    definition_levels_rle_size =
+        RleEncodeLevels(definition_levels_sink_->GetBufferRef(),
+                        definition_levels_rle_.get(), descr_->max_definition_level());
   }
 
   if (descr_->max_repetition_level() > 0) {
-    repetition_levels_rle_size = RleEncodeLevels(repetition_levels_sink_->GetBufferRef(),
-        repetition_levels_rle_.get(), descr_->max_repetition_level());
+    repetition_levels_rle_size =
+        RleEncodeLevels(repetition_levels_sink_->GetBufferRef(),
+                        repetition_levels_rle_.get(), descr_->max_repetition_level());
   }
 
   int64_t uncompressed_size =
@@ -226,15 +234,16 @@ void ColumnWriter::AddDataPage() {
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     std::shared_ptr<Buffer> compressed_data_copy;
-    PARQUET_THROW_NOT_OK(compressed_data->Copy(
-        0, compressed_data->size(), allocator_, &compressed_data_copy));
+    PARQUET_THROW_NOT_OK(compressed_data->Copy(0, compressed_data->size(), allocator_,
+                                               &compressed_data_copy));
     CompressedDataPage page(compressed_data_copy,
-        static_cast<int32_t>(num_buffered_values_), encoding_, Encoding::RLE,
-        Encoding::RLE, uncompressed_size, page_stats);
+                            static_cast<int32_t>(num_buffered_values_), encoding_,
+                            Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
     data_pages_.push_back(std::move(page));
   } else {  // Eagerly write pages
     CompressedDataPage page(compressed_data, static_cast<int32_t>(num_buffered_values_),
-        encoding_, Encoding::RLE, Encoding::RLE, uncompressed_size, page_stats);
+                            encoding_, Encoding::RLE, Encoding::RLE, uncompressed_size,
+                            page_stats);
     WriteDataPage(page);
   }
 
@@ -251,7 +260,9 @@ void ColumnWriter::WriteDataPage(const CompressedDataPage& page) {
 int64_t ColumnWriter::Close() {
   if (!closed_) {
     closed_ = true;
-    if (has_dictionary_ && !fallback_) { WriteDictionaryPage(); }
+    if (has_dictionary_ && !fallback_) {
+      WriteDictionaryPage();
+    }
 
     FlushBufferedDataPages();
 
@@ -272,7 +283,9 @@ int64_t ColumnWriter::Close() {
 
 void ColumnWriter::FlushBufferedDataPages() {
   // Write all outstanding data to a new page
-  if (num_buffered_values_ > 0) { AddDataPage(); }
+  if (num_buffered_values_ > 0) {
+    AddDataPage();
+  }
   for (size_t i = 0; i < data_pages_.size(); i++) {
     WriteDataPage(data_pages_[i]);
   }
@@ -284,12 +297,13 @@ void ColumnWriter::FlushBufferedDataPages() {
 
 template <typename Type>
 TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-    std::unique_ptr<PageWriter> pager, int64_t expected_rows, Encoding::type encoding,
-    const WriterProperties* properties)
+                                           std::unique_ptr<PageWriter> pager,
+                                           int64_t expected_rows, Encoding::type encoding,
+                                           const WriterProperties* properties)
     : ColumnWriter(metadata, std::move(pager), expected_rows,
-          (encoding == Encoding::PLAIN_DICTIONARY ||
-              encoding == Encoding::RLE_DICTIONARY),
-          encoding, properties) {
+                   (encoding == Encoding::PLAIN_DICTIONARY ||
+                    encoding == Encoding::RLE_DICTIONARY),
+                   encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:
       current_encoder_.reset(new PlainEncoder<Type>(descr_, properties->memory_pool()));
@@ -334,8 +348,8 @@ void TypedColumnWriter<Type>::WriteDictionaryPage() {
   // TODO Get rid of this deep call
   dict_encoder->mem_pool()->FreeAll();
 
-  DictionaryPage page(
-      buffer, dict_encoder->num_entries(), properties_->dictionary_index_encoding());
+  DictionaryPage page(buffer, dict_encoder->num_entries(),
+                      properties_->dictionary_index_encoding());
   total_bytes_written_ += pager_->WriteDictionaryPage(page);
 }
 
@@ -365,8 +379,9 @@ void TypedColumnWriter<Type>::ResetPageStatistics() {
 // Dynamic column writer constructor
 
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
-    std::unique_ptr<PageWriter> pager, int64_t expected_rows,
-    const WriterProperties* properties) {
+                                                 std::unique_ptr<PageWriter> pager,
+                                                 int64_t expected_rows,
+                                                 const WriterProperties* properties) {
   const ColumnDescriptor* descr = metadata->descr();
   Encoding::type encoding = properties->encoding(descr->path());
   if (properties->dictionary_enabled(descr->path()) &&
@@ -375,26 +390,26 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   }
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolWriter>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<BoolWriter>(metadata, std::move(pager), expected_rows,
+                                          encoding, properties);
     case Type::INT32:
-      return std::make_shared<Int32Writer>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<Int32Writer>(metadata, std::move(pager), expected_rows,
+                                           encoding, properties);
     case Type::INT64:
-      return std::make_shared<Int64Writer>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<Int64Writer>(metadata, std::move(pager), expected_rows,
+                                           encoding, properties);
     case Type::INT96:
-      return std::make_shared<Int96Writer>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<Int96Writer>(metadata, std::move(pager), expected_rows,
+                                           encoding, properties);
     case Type::FLOAT:
-      return std::make_shared<FloatWriter>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<FloatWriter>(metadata, std::move(pager), expected_rows,
+                                           encoding, properties);
     case Type::DOUBLE:
-      return std::make_shared<DoubleWriter>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<DoubleWriter>(metadata, std::move(pager), expected_rows,
+                                            encoding, properties);
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayWriter>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<ByteArrayWriter>(metadata, std::move(pager), expected_rows,
+                                               encoding, properties);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FixedLenByteArrayWriter>(
           metadata, std::move(pager), expected_rows, encoding, properties);
@@ -410,12 +425,16 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
 
 template <typename DType>
 inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
-    const int16_t* def_levels, const int16_t* rep_levels, const T* values) {
+                                                        const int16_t* def_levels,
+                                                        const int16_t* rep_levels,
+                                                        const T* values) {
   int64_t values_to_write = 0;
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
     for (int64_t i = 0; i < num_values; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) { ++values_to_write; }
+      if (def_levels[i] == descr_->max_definition_level()) {
+        ++values_to_write;
+      }
     }
 
     WriteDefinitionLevels(num_values, def_levels);
@@ -429,7 +448,9 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     // A row could include more than one value
     // Count the occasions where we start a new row
     for (int64_t i = 0; i < num_values; ++i) {
-      if (rep_levels[i] == 0) { num_rows_++; }
+      if (rep_levels[i] == 0) {
+        num_rows_++;
+      }
     }
 
     WriteRepetitionLevels(num_values, rep_levels);
@@ -443,7 +464,9 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
   }
 
   // PARQUET-780
-  if (values_to_write > 0) { DCHECK(nullptr != values) << "Values ptr cannot be NULL"; }
+  if (values_to_write > 0) {
+    DCHECK(nullptr != values) << "Values ptr cannot be NULL";
+  }
 
   WriteValues(values_to_write, values);
 
@@ -457,25 +480,34 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
   if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
     AddDataPage();
   }
-  if (has_dictionary_ && !fallback_) { CheckDictionarySizeLimit(); }
+  if (has_dictionary_ && !fallback_) {
+    CheckDictionarySizeLimit();
+  }
 
   return values_to_write;
 }
 
 template <typename DType>
-inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values,
-    const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
-    int64_t valid_bits_offset, const T* values, int64_t* num_spaced_written) {
+inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
+    int64_t num_values, const int16_t* def_levels, const int16_t* rep_levels,
+    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values,
+    int64_t* num_spaced_written) {
   int64_t values_to_write = 0;
   int64_t spaced_values_to_write = 0;
   // If the field is required and non-repeated, there are no definition levels
   if (descr_->max_definition_level() > 0) {
     // Minimal definition level for which spaced values are written
     int16_t min_spaced_def_level = descr_->max_definition_level();
-    if (descr_->schema_node()->is_optional()) { min_spaced_def_level--; }
+    if (descr_->schema_node()->is_optional()) {
+      min_spaced_def_level--;
+    }
     for (int64_t i = 0; i < num_values; ++i) {
-      if (def_levels[i] == descr_->max_definition_level()) { ++values_to_write; }
-      if (def_levels[i] >= min_spaced_def_level) { ++spaced_values_to_write; }
+      if (def_levels[i] == descr_->max_definition_level()) {
+        ++values_to_write;
+      }
+      if (def_levels[i] >= min_spaced_def_level) {
+        ++spaced_values_to_write;
+      }
     }
 
     WriteDefinitionLevels(num_values, def_levels);
@@ -490,7 +522,9 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values
     // A row could include more than one value
     // Count the occasions where we start a new row
     for (int64_t i = 0; i < num_values; ++i) {
-      if (rep_levels[i] == 0) { num_rows_++; }
+      if (rep_levels[i] == 0) {
+        num_rows_++;
+      }
     }
 
     WriteRepetitionLevels(num_values, rep_levels);
@@ -512,7 +546,7 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values
 
   if (page_statistics_ != nullptr) {
     page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset, values_to_write,
-        num_values - values_to_write);
+                                   num_values - values_to_write);
   }
 
   num_buffered_values_ += num_values;
@@ -521,14 +555,16 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(int64_t num_values
   if (current_encoder_->EstimatedDataEncodedSize() >= properties_->data_pagesize()) {
     AddDataPage();
   }
-  if (has_dictionary_ && !fallback_) { CheckDictionarySizeLimit(); }
+  if (has_dictionary_ && !fallback_) {
+    CheckDictionarySizeLimit();
+  }
 
   return values_to_write;
 }
 
 template <typename DType>
 void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def_levels,
-    const int16_t* rep_levels, const T* values) {
+                                          const int16_t* rep_levels, const T* values) {
   // We check for DataPage limits only after we have inserted the values. If a user
   // writes a large number of values, the DataPage size can be much above the limit.
   // The purpose of this chunking is to bound this. Even if a user writes large number
@@ -541,19 +577,19 @@ void TypedColumnWriter<DType>::WriteBatch(int64_t num_values, const int16_t* def
   for (int round = 0; round < num_batches; round++) {
     int64_t offset = round * write_batch_size;
     int64_t num_values = WriteMiniBatch(write_batch_size, &def_levels[offset],
-        &rep_levels[offset], &values[value_offset]);
+                                        &rep_levels[offset], &values[value_offset]);
     value_offset += num_values;
   }
   // Write the remaining values
   int64_t offset = num_batches * write_batch_size;
-  WriteMiniBatch(
-      num_remaining, &def_levels[offset], &rep_levels[offset], &values[value_offset]);
+  WriteMiniBatch(num_remaining, &def_levels[offset], &rep_levels[offset],
+                 &values[value_offset]);
 }
 
 template <typename DType>
-void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
-    const int16_t* def_levels, const int16_t* rep_levels, const uint8_t* valid_bits,
-    int64_t valid_bits_offset, const T* values) {
+void TypedColumnWriter<DType>::WriteBatchSpaced(
+    int64_t num_values, const int16_t* def_levels, const int16_t* rep_levels,
+    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values) {
   // We check for DataPage limits only after we have inserted the values. If a user
   // writes a large number of values, the DataPage size can be much above the limit.
   // The purpose of this chunking is to bound this. Even if a user writes large number
@@ -567,15 +603,15 @@ void TypedColumnWriter<DType>::WriteBatchSpaced(int64_t num_values,
   for (int round = 0; round < num_batches; round++) {
     int64_t offset = round * write_batch_size;
     WriteMiniBatchSpaced(write_batch_size, &def_levels[offset], &rep_levels[offset],
-        valid_bits, valid_bits_offset + values_offset, values + values_offset,
-        &num_spaced_written);
+                         valid_bits, valid_bits_offset + values_offset,
+                         values + values_offset, &num_spaced_written);
     values_offset += num_spaced_written;
   }
   // Write the remaining values
   int64_t offset = num_batches * write_batch_size;
   WriteMiniBatchSpaced(num_remaining, &def_levels[offset], &rep_levels[offset],
-      valid_bits, valid_bits_offset + values_offset, values + values_offset,
-      &num_spaced_written);
+                       valid_bits, valid_bits_offset + values_offset,
+                       values + values_offset, &num_spaced_written);
 }
 
 template <typename DType>
@@ -585,9 +621,11 @@ void TypedColumnWriter<DType>::WriteValues(int64_t num_values, const T* values) 
 
 template <typename DType>
 void TypedColumnWriter<DType>::WriteValuesSpaced(int64_t num_values,
-    const uint8_t* valid_bits, int64_t valid_bits_offset, const T* values) {
-  current_encoder_->PutSpaced(
-      values, static_cast<int>(num_values), valid_bits, valid_bits_offset);
+                                                 const uint8_t* valid_bits,
+                                                 int64_t valid_bits_offset,
+                                                 const T* values) {
+  current_encoder_->PutSpaced(values, static_cast<int>(num_values), valid_bits,
+                              valid_bits_offset);
 }
 
 template class PARQUET_TEMPLATE_EXPORT TypedColumnWriter<BooleanType>;

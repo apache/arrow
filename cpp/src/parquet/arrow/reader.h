@@ -130,19 +130,19 @@ class PARQUET_EXPORT FileReader {
   // i=1 indices={3} will read foo2 column
   // i=1 indices={2} will result in out=nullptr
   // leaf indices which are unrelated to the schema field are ignored
-  ::arrow::Status ReadSchemaField(
-      int i, const std::vector<int>& indices, std::shared_ptr<::arrow::Array>* out);
+  ::arrow::Status ReadSchemaField(int i, const std::vector<int>& indices,
+                                  std::shared_ptr<::arrow::Array>* out);
 
   // Read a table of columns into a Table
   ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out);
 
   // Read a table of columns into a Table. Read only the indicated column
   // indices (relative to the schema)
-  ::arrow::Status ReadTable(
-      const std::vector<int>& column_indices, std::shared_ptr<::arrow::Table>* out);
+  ::arrow::Status ReadTable(const std::vector<int>& column_indices,
+                            std::shared_ptr<::arrow::Table>* out);
 
   ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
-      std::shared_ptr<::arrow::Table>* out);
+                               std::shared_ptr<::arrow::Table>* out);
 
   ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
 
@@ -198,12 +198,15 @@ class PARQUET_EXPORT ColumnReader {
 // metadata : separately-computed file metadata, can be nullptr
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    ::arrow::MemoryPool* allocator, const ReaderProperties& properties,
-    const std::shared_ptr<FileMetaData>& metadata, std::unique_ptr<FileReader>* reader);
+                         ::arrow::MemoryPool* allocator,
+                         const ReaderProperties& properties,
+                         const std::shared_ptr<FileMetaData>& metadata,
+                         std::unique_ptr<FileReader>* reader);
 
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::ReadableFileInterface>& file,
-    ::arrow::MemoryPool* allocator, std::unique_ptr<FileReader>* reader);
+                         ::arrow::MemoryPool* allocator,
+                         std::unique_ptr<FileReader>* reader);
 
 }  // namespace arrow
 }  // namespace parquet

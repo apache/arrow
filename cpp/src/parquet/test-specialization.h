@@ -40,8 +40,8 @@ void InitValues<bool>(int num_values, vector<bool>& values, vector<uint8_t>& buf
 }
 
 template <>
-void InitValues<ByteArray>(
-    int num_values, vector<ByteArray>& values, vector<uint8_t>& buffer) {
+void InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
+                           vector<uint8_t>& buffer) {
   int max_byte_array_len = 12;
   int num_bytes = max_byte_array_len + sizeof(uint32_t);
   size_t nbytes = num_values * num_bytes;
@@ -59,7 +59,7 @@ void InitValues<FLBA>(int num_values, vector<FLBA>& values, vector<uint8_t>& buf
 template <>
 void InitValues<Int96>(int num_values, vector<Int96>& values, vector<uint8_t>& buffer) {
   random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
-      std::numeric_limits<int32_t>::max(), values.data());
+                       std::numeric_limits<int32_t>::max(), values.data());
 }
 
 inline std::string TestColumnName(int i) {
@@ -79,8 +79,8 @@ class PrimitiveTypedTest : public ::testing::Test {
 
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
-      fields.push_back(schema::PrimitiveNode::Make(
-          name, repetition, TestType::type_num, LogicalType::NONE, FLBA_LENGTH));
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, TestType::type_num,
+                                                   LogicalType::NONE, FLBA_LENGTH));
     }
     node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);

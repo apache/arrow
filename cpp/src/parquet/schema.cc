@@ -72,15 +72,15 @@ std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) con
 std::string ColumnPath::ToDotString() const {
   std::stringstream ss;
   for (auto it = path_.cbegin(); it != path_.cend(); ++it) {
-    if (it != path_.cbegin()) { ss << "."; }
+    if (it != path_.cbegin()) {
+      ss << ".";
+    }
     ss << *it;
   }
   return ss.str();
 }
 
-const std::vector<std::string>& ColumnPath::ToDotVector() const {
-  return path_;
-}
+const std::vector<std::string>& ColumnPath::ToDotVector() const { return path_; }
 
 // ----------------------------------------------------------------------
 // Base node
@@ -96,16 +96,14 @@ bool Node::EqualsInternal(const Node* other) const {
          repetition_ == other->repetition_ && logical_type_ == other->logical_type_;
 }
 
-void Node::SetParent(const Node* parent) {
-  parent_ = parent;
-}
+void Node::SetParent(const Node* parent) { parent_ = parent; }
 
 // ----------------------------------------------------------------------
 // Primitive node
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-    Type::type type, LogicalType::type logical_type, int length, int precision, int scale,
-    int id)
+                             Type::type type, LogicalType::type logical_type, int length,
+                             int precision, int scale, int id)
     : Node(Node::PRIMITIVE, name, repetition, logical_type, id),
       physical_type_(type),
       type_length_(length) {
@@ -224,13 +222,13 @@ bool PrimitiveNode::EqualsInternal(const PrimitiveNode* other) const {
 }
 
 bool PrimitiveNode::Equals(const Node* other) const {
-  if (!Node::EqualsInternal(other)) { return false; }
+  if (!Node::EqualsInternal(other)) {
+    return false;
+  }
   return EqualsInternal(static_cast<const PrimitiveNode*>(other));
 }
 
-void PrimitiveNode::Visit(Node::Visitor* visitor) {
-  visitor->Visit(this);
-}
+void PrimitiveNode::Visit(Node::Visitor* visitor) { visitor->Visit(this); }
 
 void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
   visitor->Visit(this);
@@ -240,16 +238,24 @@ void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
 // Group node
 
 bool GroupNode::EqualsInternal(const GroupNode* other) const {
-  if (this == other) { return true; }
-  if (this->field_count() != other->field_count()) { return false; }
+  if (this == other) {
+    return true;
+  }
+  if (this->field_count() != other->field_count()) {
+    return false;
+  }
   for (int i = 0; i < this->field_count(); ++i) {
-    if (!this->field(i)->Equals(other->field(i).get())) { return false; }
+    if (!this->field(i)->Equals(other->field(i).get())) {
+      return false;
+    }
   }
   return true;
 }
 
 bool GroupNode::Equals(const Node* other) const {
-  if (!Node::EqualsInternal(other)) { return false; }
+  if (!Node::EqualsInternal(other)) {
+    return false;
+  }
   return EqualsInternal(static_cast<const GroupNode*>(other));
 }
 
@@ -264,7 +270,9 @@ int GroupNode::FieldIndex(const std::string& name) const {
 
 int GroupNode::FieldIndex(const Node& node) const {
   int result = FieldIndex(node.name());
-  if (result < 0) { return -1; }
+  if (result < 0) {
+    return -1;
+  }
   DCHECK(result < field_count());
   if (!node.Equals(field(result).get())) {
     // Same name but not the same node
@@ -273,13 +281,9 @@ int GroupNode::FieldIndex(const Node& node) const {
   return result;
 }
 
-void GroupNode::Visit(Node::Visitor* visitor) {
-  visitor->Visit(this);
-}
+void GroupNode::Visit(Node::Visitor* visitor) { visitor->Visit(this); }
 
-void GroupNode::VisitConst(Node::ConstVisitor* visitor) const {
-  visitor->Visit(this);
-}
+void GroupNode::VisitConst(Node::ConstVisitor* visitor) const { visitor->Visit(this); }
 
 // ----------------------------------------------------------------------
 // Node construction from Parquet metadata
@@ -304,25 +308,25 @@ static inline NodeParams GetNodeParams(const format::SchemaElement* element) {
   return params;
 }
 
-std::unique_ptr<Node> GroupNode::FromParquet(
-    const void* opaque_element, int node_id, const NodeVector& fields) {
+std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int node_id,
+                                             const NodeVector& fields) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
-  return std::unique_ptr<Node>(new GroupNode(
-      params.name, params.repetition, fields, params.logical_type, node_id));
+  return std::unique_ptr<Node>(new GroupNode(params.name, params.repetition, fields,
+                                             params.logical_type, node_id));
 }
 
-std::unique_ptr<Node> PrimitiveNode::FromParquet(
-    const void* opaque_element, int node_id) {
+std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
+                                                 int node_id) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
   NodeParams params = GetNodeParams(element);
 
   std::unique_ptr<PrimitiveNode> result =
-      std::unique_ptr<PrimitiveNode>(new PrimitiveNode(params.name, params.repetition,
-          FromThrift(element->type), params.logical_type, element->type_length,
-          element->precision, element->scale, node_id));
+      std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
+          params.name, params.repetition, FromThrift(element->type), params.logical_type,
+          element->type_length, element->precision, element->scale, node_id));
 
   // Return as unique_ptr to the base type
   return std::unique_ptr<Node>(result.release());
@@ -442,8 +446,8 @@ class SchemaVisitor : public Node::ConstVisitor {
   std::vector<format::SchemaElement>* elements_;
 };
 
-SchemaFlattener::SchemaFlattener(
-    const GroupNode* schema, std::vector<format::SchemaElement>* out)
+SchemaFlattener::SchemaFlattener(const GroupNode* schema,
+                                 std::vector<format::SchemaElement>* out)
     : root_(schema), elements_(out) {}
 
 void SchemaFlattener::Flatten() {
@@ -546,7 +550,9 @@ void SchemaPrinter::Visit(const GroupNode* node) {
     PrintRepLevel(node->repetition(), stream_);
     stream_ << " group " << node->name();
     auto lt = node->logical_type();
-    if (lt != LogicalType::NONE) { stream_ << " (" << LogicalTypeToString(lt) << ")"; }
+    if (lt != LogicalType::NONE) {
+      stream_ << " (" << LogicalTypeToString(lt) << ")";
+    }
     stream_ << " {" << std::endl;
   }
 
@@ -609,17 +615,21 @@ void SchemaDescriptor::Init(const NodePtr& schema) {
 }
 
 bool SchemaDescriptor::Equals(const SchemaDescriptor& other) const {
-  if (this->num_columns() != other.num_columns()) { return false; }
+  if (this->num_columns() != other.num_columns()) {
+    return false;
+  }
 
   for (int i = 0; i < this->num_columns(); ++i) {
-    if (!this->Column(i)->Equals(*other.Column(i))) { return false; }
+    if (!this->Column(i)->Equals(*other.Column(i))) {
+      return false;
+    }
   }
 
   return true;
 }
 
 void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
-    int16_t max_rep_level, const NodePtr& base) {
+                                 int16_t max_rep_level, const NodePtr& base) {
   if (node->is_optional()) {
     ++max_def_level;
   } else if (node->is_repeated()) {
@@ -639,19 +649,22 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
     // Primitive node, append to leaves
     leaves_.push_back(ColumnDescriptor(node, max_def_level, max_rep_level, this));
     leaf_to_base_.emplace(static_cast<int>(leaves_.size()) - 1, base);
-    leaf_to_idx_.emplace(
-        node->path()->ToDotString(), static_cast<int>(leaves_.size()) - 1);
+    leaf_to_idx_.emplace(node->path()->ToDotString(),
+                         static_cast<int>(leaves_.size()) - 1);
   }
 }
 
 ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
-    int16_t max_definition_level, int16_t max_repetition_level,
-    const SchemaDescriptor* schema_descr)
+                                   int16_t max_definition_level,
+                                   int16_t max_repetition_level,
+                                   const SchemaDescriptor* schema_descr)
     : node_(node),
       max_definition_level_(max_definition_level),
       max_repetition_level_(max_repetition_level),
       schema_descr_(schema_descr) {
-  if (!node_->is_primitive()) { throw ParquetException("Must be a primitive type"); }
+  if (!node_->is_primitive()) {
+    throw ParquetException("Must be a primitive type");
+  }
   primitive_node_ = static_cast<const PrimitiveNode*>(node_.get());
 }
 
@@ -677,7 +690,9 @@ int SchemaDescriptor::ColumnIndex(const std::string& node_path) const {
 
 int SchemaDescriptor::ColumnIndex(const Node& node) const {
   int result = ColumnIndex(node.path()->ToDotString());
-  if (result < 0) { return -1; }
+  if (result < 0) {
+    return -1;
+  }
   DCHECK(result < num_columns());
   if (!node.Equals(Column(result)->schema_node().get())) {
     // Same path but not the same node
@@ -699,9 +714,7 @@ int ColumnDescriptor::type_precision() const {
   return primitive_node_->decimal_metadata().precision;
 }
 
-int ColumnDescriptor::type_length() const {
-  return primitive_node_->type_length();
-}
+int ColumnDescriptor::type_length() const { return primitive_node_->type_length(); }
 
 const std::shared_ptr<ColumnPath> ColumnDescriptor::path() const {
   return primitive_node_->path();

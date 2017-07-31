@@ -20,8 +20,8 @@
 #ifndef PARQUET_UTIL_BUFFER_BUILDER_H
 #define PARQUET_UTIL_BUFFER_BUILDER_H
 
-#include <cstdint>
 #include <stdlib.h>
+#include <cstdint>
 
 namespace parquet {
 

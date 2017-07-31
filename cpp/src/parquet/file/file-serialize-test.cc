@@ -65,8 +65,8 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     for (int i = 0; i < num_columns_; ++i) {
       auto column_writer =
           static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
-      column_writer->WriteBatch(
-          100, this->def_levels_.data(), nullptr, this->values_ptr_);
+      column_writer->WriteBatch(100, this->def_levels_.data(), nullptr,
+                                this->values_ptr_);
       column_writer->Close();
     }
 
@@ -96,7 +96,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
           std::static_pointer_cast<TypedColumnReader<TestType>>(rg_reader->Column(i));
       this->SetupValuesOut(100);
       col_reader->ReadBatch(100, def_levels_out.data(), rep_levels_out.data(),
-          this->values_out_ptr_, &values_read);
+                            this->values_out_ptr_, &values_read);
       this->SyncValuesOut();
       ASSERT_EQ(100, values_read);
       ASSERT_EQ(this->values_, this->values_out_);
@@ -106,7 +106,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 };
 
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    BooleanType, ByteArrayType, FLBAType>
+                         BooleanType, ByteArrayType, FLBAType>
     TestTypes;
 
 TYPED_TEST_CASE(TestSerialize, TestTypes);
@@ -123,9 +123,7 @@ TYPED_TEST(TestSerialize, SmallFileBrotli) {
   this->FileSerializeTest(Compression::BROTLI);
 }
 
-TYPED_TEST(TestSerialize, SmallFileGzip) {
-  this->FileSerializeTest(Compression::GZIP);
-}
+TYPED_TEST(TestSerialize, SmallFileGzip) { this->FileSerializeTest(Compression::GZIP); }
 
 }  // namespace test
 

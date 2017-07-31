@@ -51,8 +51,8 @@ template <>
 inline bool Compare<FLBA>::operator()(const FLBA& a, const FLBA& b) {
   auto aptr = reinterpret_cast<const int8_t*>(a.ptr);
   auto bptr = reinterpret_cast<const int8_t*>(b.ptr);
-  return std::lexicographical_compare(
-      aptr, aptr + type_length_, bptr, bptr + type_length_);
+  return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
+                                      bptr + type_length_);
 }
 
 }  // namespace parquet

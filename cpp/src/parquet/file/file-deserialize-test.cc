@@ -37,10 +37,12 @@
 
 namespace parquet {
 
-#define ASSERT_OK(expr)                      \
-  do {                                       \
-    ::arrow::Status s = (expr);              \
-    if (!s.ok()) { FAIL() << s.ToString(); } \
+#define ASSERT_OK(expr)         \
+  do {                          \
+    ::arrow::Status s = (expr); \
+    if (!s.ok()) {              \
+      FAIL() << s.ToString();   \
+    }                           \
   } while (0)
 
 using ::arrow::io::BufferReader;
@@ -66,8 +68,8 @@ class TestPageSerde : public ::testing::Test {
     ResetStream();
   }
 
-  void InitSerializedPageReader(
-      int64_t num_rows, Compression::type codec = Compression::UNCOMPRESSED) {
+  void InitSerializedPageReader(int64_t num_rows,
+                                Compression::type codec = Compression::UNCOMPRESSED) {
     EndStream();
     std::unique_ptr<InputStream> stream;
     stream.reset(new InMemoryInputStream(out_buffer_));
@@ -75,7 +77,7 @@ class TestPageSerde : public ::testing::Test {
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
-      int32_t compressed_size = 0) {
+                           int32_t compressed_size = 0) {
     // Simplifying writing serialized data page headers which may or may not
     // have meaningful data associated with them
 
@@ -176,8 +178,8 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, Compression) {
-  Compression::type codec_types[3] = {
-      Compression::GZIP, Compression::SNAPPY, Compression::BROTLI};
+  Compression::type codec_types[3] = {Compression::GZIP, Compression::SNAPPY,
+                                      Compression::BROTLI};
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
@@ -203,8 +205,8 @@ TEST_F(TestPageSerde, Compression) {
       buffer.resize(max_compressed_size);
 
       int64_t actual_size;
-      ASSERT_OK(codec->Compress(
-          data_size, data, max_compressed_size, &buffer[0], &actual_size));
+      ASSERT_OK(codec->Compress(data_size, data, max_compressed_size, &buffer[0],
+                                &actual_size));
 
       WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size));
       out_stream_->Write(buffer.data(), actual_size);
@@ -246,8 +248,8 @@ class TestParquetFileReader : public ::testing::Test {
     auto reader = std::make_shared<BufferReader>(buffer);
     auto wrapper = std::unique_ptr<ArrowInputFile>(new ArrowInputFile(reader));
 
-    ASSERT_THROW(
-        reader_->Open(SerializedFile::Open(std::move(wrapper))), ParquetException);
+    ASSERT_THROW(reader_->Open(SerializedFile::Open(std::move(wrapper))),
+                 ParquetException);
   }
 
  protected:
@@ -257,22 +259,22 @@ class TestParquetFileReader : public ::testing::Test {
 TEST_F(TestParquetFileReader, InvalidHeader) {
   const char* bad_header = "PAR2";
 
-  auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(bad_header), strlen(bad_header));
+  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_header),
+                                         strlen(bad_header));
   AssertInvalidFileThrows(buffer);
 }
 
 TEST_F(TestParquetFileReader, InvalidFooter) {
   // File is smaller than FOOTER_SIZE
   const char* bad_file = "PAR1PAR";
-  auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(bad_file), strlen(bad_file));
+  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file),
+                                         strlen(bad_file));
   AssertInvalidFileThrows(buffer);
 
   // Magic number incorrect
   const char* bad_file2 = "PAR1PAR2";
-  buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(bad_file2), strlen(bad_file2));
+  buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(bad_file2),
+                                    strlen(bad_file2));
   AssertInvalidFileThrows(buffer);
 }
 

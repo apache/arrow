@@ -67,8 +67,8 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool(),
+                                             std::make_shared<ArrowType>());
   RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
 }
@@ -83,8 +83,8 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NonNullAr
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool(),
+                                             std::make_shared<ArrowType>());
   builder.Append(values.data(), values.size());
   return builder.Finish(out);
 }
@@ -129,8 +129,8 @@ template <typename ArrowType>
 typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NullableArray(
     size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
-  ::arrow::test::random_real<typename ArrowType::c_type>(
-      size, seed, -1e10, 1e10, &values);
+  ::arrow::test::random_real<typename ArrowType::c_type>(size, seed, -1e10, 1e10,
+                                                         &values);
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
@@ -159,8 +159,8 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Arra
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool(),
+                                             std::make_shared<ArrowType>());
   RETURN_NOT_OK(builder.Append(values.data(), values.size(), valid_bytes.data()));
   return builder.Finish(out);
 }
@@ -183,8 +183,8 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NullableA
   }
 
   // Passing data type so this will work with TimestampType too
-  ::arrow::NumericBuilder<ArrowType> builder(
-      ::arrow::default_memory_pool(), std::make_shared<ArrowType>());
+  ::arrow::NumericBuilder<ArrowType> builder(::arrow::default_memory_pool(),
+                                             std::make_shared<ArrowType>());
   builder.Append(values.data(), values.size(), valid_bytes.data());
   return builder.Finish(out);
 }
@@ -193,8 +193,8 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NullableA
 template <typename ArrowType>
 typename std::enable_if<
     is_arrow_string<ArrowType>::value || is_arrow_binary<ArrowType>::value, Status>::type
-NullableArray(
-    size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<::arrow::Array>* out) {
+NullableArray(size_t size, size_t num_nulls, uint32_t seed,
+              std::shared_ptr<::arrow::Array>* out) {
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
@@ -221,8 +221,8 @@ NullableArray(
 // same as NullableArray<String|Binary>(..)
 template <typename ArrowType>
 typename std::enable_if<is_arrow_fixed_size_binary<ArrowType>::value, Status>::type
-NullableArray(
-    size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<::arrow::Array>* out) {
+NullableArray(size_t size, size_t num_nulls, uint32_t seed,
+              std::shared_ptr<::arrow::Array>* out) {
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
@@ -231,8 +231,8 @@ NullableArray(
 
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
   const int byte_width = 10;
-  BuilderType builder(
-      ::arrow::default_memory_pool(), ::arrow::fixed_size_binary(byte_width));
+  BuilderType builder(::arrow::default_memory_pool(),
+                      ::arrow::fixed_size_binary(byte_width));
 
   const int kBufferSize = byte_width;
   uint8_t buffer[kBufferSize];
@@ -272,7 +272,8 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
 ///
 /// This helper function only supports (size/2) nulls.
 Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
-    int64_t null_count, bool nullable_values, std::shared_ptr<::arrow::ListArray>* out) {
+                     int64_t null_count, bool nullable_values,
+                     std::shared_ptr<::arrow::ListArray>* out) {
   // We always include an empty list
   int64_t non_null_entries = size - null_count - 1;
   int64_t length_per_entry = values->length() / non_null_entries;
@@ -294,33 +295,37 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
     if (!(((i % 2) == 0) && ((i / 2) < null_count))) {
       // Non-null list (list with index 1 is always empty).
       ::arrow::BitUtil::SetBit(null_bitmap_ptr, i);
-      if (i != 1) { current_offset += static_cast<int32_t>(length_per_entry); }
+      if (i != 1) {
+        current_offset += static_cast<int32_t>(length_per_entry);
+      }
     }
   }
   offsets_ptr[size] = static_cast<int32_t>(values->length());
 
   auto value_field =
       std::make_shared<::arrow::Field>("item", values->type(), nullable_values);
-  *out = std::make_shared<::arrow::ListArray>(
-      ::arrow::list(value_field), size, offsets, values, null_bitmap, null_count);
+  *out = std::make_shared<::arrow::ListArray>(::arrow::list(value_field), size, offsets,
+                                              values, null_bitmap, null_count);
 
   return Status::OK();
 }
 
-static std::shared_ptr<::arrow::Column> MakeColumn(
-    const std::string& name, const std::shared_ptr<Array>& array, bool nullable) {
+static std::shared_ptr<::arrow::Column> MakeColumn(const std::string& name,
+                                                   const std::shared_ptr<Array>& array,
+                                                   bool nullable) {
   auto field = std::make_shared<::arrow::Field>(name, array->type(), nullable);
   return std::make_shared<::arrow::Column>(field, array);
 }
 
-static std::shared_ptr<::arrow::Column> MakeColumn(const std::string& name,
-    const std::vector<std::shared_ptr<Array>>& arrays, bool nullable) {
+static std::shared_ptr<::arrow::Column> MakeColumn(
+    const std::string& name, const std::vector<std::shared_ptr<Array>>& arrays,
+    bool nullable) {
   auto field = std::make_shared<::arrow::Field>(name, arrays[0]->type(), nullable);
   return std::make_shared<::arrow::Column>(field, arrays);
 }
 
-std::shared_ptr<::arrow::Table> MakeSimpleTable(
-    const std::shared_ptr<Array>& values, bool nullable) {
+std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
+                                                bool nullable) {
   std::shared_ptr<::arrow::Column> column = MakeColumn("col", values, nullable);
   std::vector<std::shared_ptr<::arrow::Column>> columns({column});
   std::vector<std::shared_ptr<::arrow::Field>> fields({column->field()});
@@ -341,15 +346,15 @@ void ExpectArrayT(void* expected, Array* result) {
   ::arrow::PrimitiveArray* p_array = static_cast<::arrow::PrimitiveArray*>(result);
   for (int64_t i = 0; i < result->length(); i++) {
     EXPECT_EQ(reinterpret_cast<typename ArrowType::c_type*>(expected)[i],
-        reinterpret_cast<const typename ArrowType::c_type*>(
-            p_array->values()->data())[i]);
+              reinterpret_cast<const typename ArrowType::c_type*>(
+                  p_array->values()->data())[i]);
   }
 }
 
 template <>
 void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
-  ::arrow::BooleanBuilder builder(
-      ::arrow::default_memory_pool(), std::make_shared<::arrow::BooleanType>());
+  ::arrow::BooleanBuilder builder(::arrow::default_memory_pool(),
+                                  std::make_shared<::arrow::BooleanType>());
   EXPECT_OK(builder.Append(reinterpret_cast<uint8_t*>(expected), result->length()));
 
   std::shared_ptr<Array> expected_array;

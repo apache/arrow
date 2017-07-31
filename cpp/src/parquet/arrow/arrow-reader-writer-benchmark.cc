@@ -64,8 +64,8 @@ using ArrowType = typename benchmark_traits<ParquetType>::arrow_type;
 template <typename ParquetType>
 std::shared_ptr<ColumnDescriptor> MakeSchema(Repetition::type repetition) {
   auto node = PrimitiveNode::Make("int64", repetition, ParquetType::type_num);
-  return std::make_shared<ColumnDescriptor>(
-      node, repetition != Repetition::REQUIRED, repetition == Repetition::REPEATED);
+  return std::make_shared<ColumnDescriptor>(node, repetition != Repetition::REQUIRED,
+                                            repetition == Repetition::REPEATED);
 }
 
 template <bool nullable, typename ParquetType>

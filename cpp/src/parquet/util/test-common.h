@@ -32,7 +32,7 @@ namespace parquet {
 namespace test {
 
 typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type, FloatType,
-    DoubleType, ByteArrayType, FLBAType>
+                         DoubleType, ByteArrayType, FLBAType>
     ParquetTypes;
 
 template <typename T>
@@ -46,7 +46,9 @@ static inline void assert_vector_equal(const vector<T>& left, const vector<T>& r
 
 template <typename T>
 static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
-  if (left.size() != right.size()) { return false; }
+  if (left.size() != right.size()) {
+    return false;
+  }
 
   for (size_t i = 0; i < left.size(); ++i) {
     if (left[i] != right[i]) {
@@ -61,7 +63,9 @@ static inline bool vector_equal(const vector<T>& left, const vector<T>& right) {
 
 template <typename T>
 static vector<T> slice(const vector<T>& values, int start, int end) {
-  if (end < start) { return vector<T>(0); }
+  if (end < start) {
+    return vector<T>(0);
+  }
 
   vector<T> out(end - start);
   for (int i = start; i < end; ++i) {
@@ -130,8 +134,8 @@ void random_numbers(int n, uint32_t seed, float min_value, float max_value, floa
 }
 
 template <>
-void random_numbers(
-    int n, uint32_t seed, double min_value, double max_value, double* out) {
+void random_numbers(int n, uint32_t seed, double min_value, double max_value,
+                    double* out) {
   std::mt19937 gen(seed);
   std::uniform_real_distribution<double> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -139,8 +143,8 @@ void random_numbers(
   }
 }
 
-void random_Int96_numbers(
-    int n, uint32_t seed, int32_t min_value, int32_t max_value, Int96* out) {
+void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
+                          Int96* out) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int32_t> d(min_value, max_value);
   for (int i = 0; i < n; ++i) {
@@ -162,8 +166,8 @@ void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* 
   }
 }
 
-void random_byte_array(
-    int n, uint32_t seed, uint8_t* buf, ByteArray* out, int min_size, int max_size) {
+void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int min_size,
+                       int max_size) {
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> d1(min_size, max_size);
   std::uniform_int_distribution<int> d2(0, 255);

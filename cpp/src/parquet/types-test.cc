@@ -44,10 +44,10 @@ TEST(TestLogicalTypeToString, LogicalTypes) {
   ASSERT_STREQ("DATE", LogicalTypeToString(LogicalType::DATE).c_str());
   ASSERT_STREQ("TIME_MILLIS", LogicalTypeToString(LogicalType::TIME_MILLIS).c_str());
   ASSERT_STREQ("TIME_MICROS", LogicalTypeToString(LogicalType::TIME_MICROS).c_str());
-  ASSERT_STREQ(
-      "TIMESTAMP_MILLIS", LogicalTypeToString(LogicalType::TIMESTAMP_MILLIS).c_str());
-  ASSERT_STREQ(
-      "TIMESTAMP_MICROS", LogicalTypeToString(LogicalType::TIMESTAMP_MICROS).c_str());
+  ASSERT_STREQ("TIMESTAMP_MILLIS",
+               LogicalTypeToString(LogicalType::TIMESTAMP_MILLIS).c_str());
+  ASSERT_STREQ("TIMESTAMP_MICROS",
+               LogicalTypeToString(LogicalType::TIMESTAMP_MICROS).c_str());
   ASSERT_STREQ("UINT_8", LogicalTypeToString(LogicalType::UINT_8).c_str());
   ASSERT_STREQ("UINT_16", LogicalTypeToString(LogicalType::UINT_16).c_str());
   ASSERT_STREQ("UINT_32", LogicalTypeToString(LogicalType::UINT_32).c_str());
@@ -106,10 +106,10 @@ TEST(TypePrinter, StatisticsTypes) {
 
   smin = std::string("abcdefgh");
   smax = std::string("ijklmnop");
-  ASSERT_STREQ(
-      "abcdefgh ", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin.c_str()).c_str());
-  ASSERT_STREQ(
-      "ijklmnop ", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax.c_str()).c_str());
+  ASSERT_STREQ("abcdefgh ",
+               FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin.c_str()).c_str());
+  ASSERT_STREQ("ijklmnop ",
+               FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax.c_str()).c_str());
 }
 
 }  // namespace parquet

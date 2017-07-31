@@ -22,8 +22,8 @@
 #include <memory>
 #include <sstream>
 
-#include "arrow/util/bit-util.h"
 #include "arrow/status.h"
+#include "arrow/util/bit-util.h"
 
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -49,13 +49,13 @@ class Encoder {
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual void Put(const T* src, int num_values) = 0;
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
-      int64_t valid_bits_offset) {
+                         int64_t valid_bits_offset) {
     PoolBuffer buffer(pool_);
     ::arrow::Status status = buffer.Resize(num_values * sizeof(T));
     if (!status.ok()) {
       std::ostringstream ss;
-      ss << "buffer.Resize failed in Encoder.PutSpaced in " <<
-         __FILE__ << ", on line " << __LINE__;
+      ss << "buffer.Resize failed in Encoder.PutSpaced in " << __FILE__ << ", on line "
+         << __LINE__;
       throw ParquetException(ss.str());
     }
     int32_t num_valid_values = 0;
@@ -73,8 +73,8 @@ class Encoder {
   Encoding::type encoding() const { return encoding_; }
 
  protected:
-  explicit Encoder(
-      const ColumnDescriptor* descr, Encoding::type encoding, ::arrow::MemoryPool* pool)
+  explicit Encoder(const ColumnDescriptor* descr, Encoding::type encoding,
+                   ::arrow::MemoryPool* pool)
       : descr_(descr), encoding_(encoding), pool_(pool) {}
 
   // For accessing type-specific metadata, like FIXED_LEN_BYTE_ARRAY
@@ -106,7 +106,7 @@ class Decoder {
   // num_values is the size of the def_levels and buffer arrays including the number of
   // null values.
   virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
-      const uint8_t* valid_bits, int64_t valid_bits_offset) {
+                           const uint8_t* valid_bits, int64_t valid_bits_offset) {
     int values_to_read = num_values - null_count;
     int values_read = Decode(buffer, values_to_read);
     if (values_read != values_to_read) {

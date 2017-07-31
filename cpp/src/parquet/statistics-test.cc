@@ -68,13 +68,13 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_max = statistics1.EncodeMax();
 
     TypedStats statistics2(this->schema_.Column(0), encoded_min, encoded_max,
-        this->values_.size(), 0, 0, true);
+                           this->values_.size(), 0, 0, true);
 
     TypedStats statistics3(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
         BitUtil::RoundUpNumBytes(static_cast<uint32_t>(this->values_.size())) + 1, 255);
-    statistics3.UpdateSpaced(
-        this->values_ptr_, valid_bits.data(), 0, this->values_.size(), 0);
+    statistics3.UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
+                             this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3.EncodeMin();
     std::string encoded_max_spaced = statistics3.EncodeMax();
 
@@ -108,13 +108,13 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
 
     TypedStats statistics1(this->schema_.Column(0));
     this->GenerateData(1000);
-    statistics1.Update(
-        this->values_ptr_, this->values_.size() - num_null[0], num_null[0]);
+    statistics1.Update(this->values_ptr_, this->values_.size() - num_null[0],
+                       num_null[0]);
 
     TypedStats statistics2(this->schema_.Column(0));
     this->GenerateData(1000);
-    statistics2.Update(
-        this->values_ptr_, this->values_.size() - num_null[1], num_null[1]);
+    statistics2.Update(this->values_ptr_, this->values_.size() - num_null[1],
+                       num_null[1]);
 
     TypedStats total(this->schema_.Column(0));
     total.Merge(statistics1);
@@ -149,14 +149,14 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
       int64_t batch_null_count = i ? null_count : 0;
       DCHECK(null_count <= num_values);  // avoid too much headache
       std::vector<int16_t> definition_levels(batch_null_count, 0);
-      definition_levels.insert(
-          definition_levels.end(), batch_num_values - batch_null_count, 1);
+      definition_levels.insert(definition_levels.end(),
+                               batch_num_values - batch_null_count, 1);
       auto beg = this->values_.begin() + i * num_values / 2;
       auto end = beg + batch_num_values;
       std::vector<T> batch = GetDeepCopy(std::vector<T>(beg, end));
       T* batch_values_ptr = GetValuesPointer(batch);
-      column_writer->WriteBatch(
-          batch_num_values, definition_levels.data(), nullptr, batch_values_ptr);
+      column_writer->WriteBatch(batch_num_values, definition_levels.data(), nullptr,
+                                batch_values_ptr);
       DeepFree(batch);
     }
     column_writer->Close();
@@ -263,12 +263,13 @@ void TestRowGroupStatistics<ByteArrayType>::TestMinMaxEncode() {
 
   // encoded is same as unencoded
   ASSERT_EQ(encoded_min,
-      std::string((const char*)statistics1.min().ptr, statistics1.min().len));
+            std::string((const char*)statistics1.min().ptr, statistics1.min().len));
   ASSERT_EQ(encoded_max,
-      std::string((const char*)statistics1.max().ptr, statistics1.max().len));
+            std::string((const char*)statistics1.max().ptr, statistics1.max().len));
 
   TypedRowGroupStatistics<ByteArrayType> statistics2(this->schema_.Column(0), encoded_min,
-      encoded_max, this->values_.size(), 0, 0, true);
+                                                     encoded_max, this->values_.size(), 0,
+                                                     0, true);
 
   ASSERT_EQ(encoded_min, statistics2.EncodeMin());
   ASSERT_EQ(encoded_max, statistics2.EncodeMax());
@@ -277,7 +278,7 @@ void TestRowGroupStatistics<ByteArrayType>::TestMinMaxEncode() {
 }
 
 using TestTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
-    ByteArrayType, FLBAType, BooleanType>;
+                                   ByteArrayType, FLBAType, BooleanType>;
 
 TYPED_TEST_CASE(TestRowGroupStatistics, TestTypes);
 
@@ -316,19 +317,20 @@ TEST(CorruptStatistics, Basics) {
   schema::NodePtr node;
   std::vector<schema::NodePtr> fields;
   // Test Physical Types
-  fields.push_back(schema::PrimitiveNode::Make(
-      "col1", Repetition::OPTIONAL, Type::INT32, LogicalType::NONE));
-  fields.push_back(schema::PrimitiveNode::Make(
-      "col2", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::NONE));
+  fields.push_back(schema::PrimitiveNode::Make("col1", Repetition::OPTIONAL, Type::INT32,
+                                               LogicalType::NONE));
+  fields.push_back(schema::PrimitiveNode::Make("col2", Repetition::OPTIONAL,
+                                               Type::BYTE_ARRAY, LogicalType::NONE));
   // Test Logical Types
-  fields.push_back(schema::PrimitiveNode::Make(
-      "col3", Repetition::OPTIONAL, Type::INT32, LogicalType::DATE));
-  fields.push_back(schema::PrimitiveNode::Make(
-      "col4", Repetition::OPTIONAL, Type::INT32, LogicalType::UINT_32));
+  fields.push_back(schema::PrimitiveNode::Make("col3", Repetition::OPTIONAL, Type::INT32,
+                                               LogicalType::DATE));
+  fields.push_back(schema::PrimitiveNode::Make("col4", Repetition::OPTIONAL, Type::INT32,
+                                               LogicalType::UINT_32));
   fields.push_back(schema::PrimitiveNode::Make("col5", Repetition::OPTIONAL,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 12));
-  fields.push_back(schema::PrimitiveNode::Make(
-      "col6", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::UTF8));
+                                               Type::FIXED_LEN_BYTE_ARRAY,
+                                               LogicalType::INTERVAL, 12));
+  fields.push_back(schema::PrimitiveNode::Make("col6", Repetition::OPTIONAL,
+                                               Type::BYTE_ARRAY, LogicalType::UTF8));
   node = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
   schema.Init(node);
 

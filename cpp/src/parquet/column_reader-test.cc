@@ -44,8 +44,10 @@ namespace test {
 
 template <typename T>
 static inline bool vector_equal_with_def_levels(const vector<T>& left,
-    const vector<int16_t>& def_levels, int16_t max_def_levels, int16_t max_rep_levels,
-    const vector<T>& right) {
+                                                const vector<int16_t>& def_levels,
+                                                int16_t max_def_levels,
+                                                int16_t max_rep_levels,
+                                                const vector<T>& right) {
   size_t i_left = 0;
   size_t i_right = 0;
   for (size_t i = 0; i < def_levels.size(); i++) {
@@ -63,7 +65,9 @@ static inline bool vector_equal_with_def_levels(const vector<T>& left,
       i_right++;
     } else if (def_levels[i] < (max_def_levels - 1)) {
       // Null entry on a higher nesting level, only supported for non-repeating data
-      if (max_rep_levels == 0) { i_right++; }
+      if (max_rep_levels == 0) {
+        i_right++;
+      }
     }
   }
 
@@ -93,8 +97,9 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      batch = static_cast<int>(reader->ReadBatch(batch_size, &dresult[0] + batch_actual,
-          &rresult[0] + batch_actual, &vresult[0] + total_values_read, &values_read));
+      batch = static_cast<int>(reader->ReadBatch(
+          batch_size, &dresult[0] + batch_actual, &rresult[0] + batch_actual,
+          &vresult[0] + total_values_read, &values_read));
       total_values_read += static_cast<int>(values_read);
       batch_actual += batch;
       batch_size = std::max(batch_size * 2, 4096);
@@ -103,8 +108,12 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(num_levels_, batch_actual);
     ASSERT_EQ(num_values_, total_values_read);
     ASSERT_TRUE(vector_equal(values_, vresult));
-    if (max_def_level_ > 0) { ASSERT_TRUE(vector_equal(def_levels_, dresult)); }
-    if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
+    if (max_def_level_ > 0) {
+      ASSERT_TRUE(vector_equal(def_levels_, dresult));
+    }
+    if (max_rep_level_ > 0) {
+      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
+    }
     // catch improper writes at EOS
     batch_actual =
         static_cast<int>(reader->ReadBatch(5, nullptr, nullptr, nullptr, &values_read));
@@ -131,8 +140,8 @@ class TestPrimitiveReader : public ::testing::Test {
     // 1) batch_size < page_size (multiple ReadBatch from a single page)
     // 2) batch_size > page_size (BatchRead limits to a single page)
     do {
-      batch = static_cast<int>(reader->ReadBatchSpaced(batch_size,
-          dresult.data() + levels_actual, rresult.data() + levels_actual,
+      batch = static_cast<int>(reader->ReadBatchSpaced(
+          batch_size, dresult.data() + levels_actual, rresult.data() + levels_actual,
           vresult.data() + batch_actual, valid_bits.data() + batch_actual, 0,
           &levels_read, &values_read, &null_count));
       total_values_read += batch - static_cast<int>(null_count);
@@ -145,15 +154,18 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(num_values_, total_values_read);
     if (max_def_level_ > 0) {
       ASSERT_TRUE(vector_equal(def_levels_, dresult));
-      ASSERT_TRUE(vector_equal_with_def_levels(
-          values_, dresult, max_def_level_, max_rep_level_, vresult));
+      ASSERT_TRUE(vector_equal_with_def_levels(values_, dresult, max_def_level_,
+                                               max_rep_level_, vresult));
     } else {
       ASSERT_TRUE(vector_equal(values_, vresult));
     }
-    if (max_rep_level_ > 0) { ASSERT_TRUE(vector_equal(rep_levels_, rresult)); }
+    if (max_rep_level_ > 0) {
+      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
+    }
     // catch improper writes at EOS
-    batch_actual = static_cast<int>(reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr,
-        valid_bits.data(), 0, &levels_read, &values_read, &null_count));
+    batch_actual = static_cast<int>(
+        reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr, valid_bits.data(), 0,
+                                &levels_read, &values_read, &null_count));
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, null_count);
   }
@@ -167,15 +179,17 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void ExecutePlain(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
-    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
-        rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_values_ =
+        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                             values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
     Clear();
 
-    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
-        rep_levels_, values_, data_buffer_, pages_, Encoding::PLAIN);
+    num_values_ =
+        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                             values_, data_buffer_, pages_, Encoding::PLAIN);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResultsSpaced();
@@ -183,15 +197,17 @@ class TestPrimitiveReader : public ::testing::Test {
   }
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
-    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
-        rep_levels_, values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+    num_values_ =
+        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
     Clear();
 
-    num_values_ = MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_,
-        rep_levels_, values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
+    num_values_ =
+        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
+                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResultsSpaced();
@@ -252,7 +268,7 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   NodePtr type = schema::Int32("b", Repetition::REQUIRED);
   const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
   MakePages<Int32Type>(&descr, num_pages, levels_per_page, def_levels_, rep_levels_,
-      values_, data_buffer_, pages_, Encoding::PLAIN);
+                       values_, data_buffer_, pages_, Encoding::PLAIN);
   InitReader(&descr);
   vector<int32_t> vresult(levels_per_page / 2, -1);
   vector<int16_t> dresult(levels_per_page / 2, -1);
@@ -266,9 +282,10 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   int64_t levels_skipped = reader->Skip(2 * levels_per_page);
   ASSERT_EQ(2 * levels_per_page, levels_skipped);
   // Read half a page
-  reader->ReadBatch(
-      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
-  vector<int32_t> sub_values(values_.begin() + 2 * levels_per_page,
+  reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
+                    &values_read);
+  vector<int32_t> sub_values(
+      values_.begin() + 2 * levels_per_page,
       values_.begin() + static_cast<int>(2.5 * static_cast<double>(levels_per_page)));
   ASSERT_TRUE(vector_equal(sub_values, vresult));
 
@@ -276,10 +293,11 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   levels_skipped = reader->Skip(levels_per_page);
   ASSERT_EQ(levels_per_page, levels_skipped);
   // Read half a page
-  reader->ReadBatch(
-      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
+  reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
+                    &values_read);
   sub_values.clear();
-  sub_values.insert(sub_values.end(),
+  sub_values.insert(
+      sub_values.end(),
       values_.begin() + static_cast<int>(3.5 * static_cast<double>(levels_per_page)),
       values_.begin() + 4 * levels_per_page);
   ASSERT_TRUE(vector_equal(sub_values, vresult));
@@ -289,10 +307,11 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRequiredSkip) {
   levels_skipped = reader->Skip(levels_per_page / 2);
   ASSERT_EQ(0.5 * levels_per_page, levels_skipped);
   // Read half a page
-  reader->ReadBatch(
-      levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(), &values_read);
+  reader->ReadBatch(levels_per_page / 2, dresult.data(), rresult.data(), vresult.data(),
+                    &values_read);
   sub_values.clear();
-  sub_values.insert(sub_values.end(),
+  sub_values.insert(
+      sub_values.end(),
       values_.begin() + static_cast<int>(4.5 * static_cast<double>(levels_per_page)),
       values_.end());
   ASSERT_TRUE(vector_equal(sub_values, vresult));
@@ -323,8 +342,8 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   pages_.clear();
 
   dict_page = std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN_DICTIONARY);
-  data_page = MakeDataPage<Int32Type>(
-      &descr, {}, 0, Encoding::PLAIN_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0, Encoding::PLAIN_DICTIONARY, {}, 0,
+                                      {}, 0, {}, 0);
   pages_.push_back(dict_page);
   pages_.push_back(data_page);
   InitReader(&descr);
@@ -332,8 +351,8 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_NO_THROW(reader_->HasNext());
   pages_.clear();
 
-  data_page = MakeDataPage<Int32Type>(
-      &descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {}, 0, {}, 0);
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0, Encoding::RLE_DICTIONARY, {}, 0, {},
+                                      0, {}, 0);
   pages_.push_back(data_page);
   InitReader(&descr);
   // Tests dictionary page must occur before data page
@@ -358,8 +377,8 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   ASSERT_THROW(reader_->HasNext(), ParquetException);
   pages_.clear();
 
-  data_page = MakeDataPage<Int32Type>(
-      &descr, {}, 0, Encoding::DELTA_BYTE_ARRAY, {}, 0, {}, 0, {}, 0);
+  data_page = MakeDataPage<Int32Type>(&descr, {}, 0, Encoding::DELTA_BYTE_ARRAY, {}, 0,
+                                      {}, 0, {}, 0);
   pages_.push_back(data_page);
   InitReader(&descr);
   // unsupported encoding

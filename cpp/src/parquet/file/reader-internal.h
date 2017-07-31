@@ -50,8 +50,8 @@ static constexpr uint32_t DEFAULT_PAGE_HEADER_SIZE = 16 * 1024;
 class PARQUET_EXPORT SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t num_rows,
-      Compression::type codec,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                       Compression::type codec,
+                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   virtual ~SerializedPageReader() {}
 
@@ -84,7 +84,7 @@ class PARQUET_EXPORT SerializedPageReader : public PageReader {
 class PARQUET_EXPORT SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(RandomAccessSource* source, FileMetaData* file_metadata,
-      int row_group_number, const ReaderProperties& props);
+                     int row_group_number, const ReaderProperties& props);
 
   virtual const RowGroupMetaData* metadata() const;
 
@@ -118,8 +118,8 @@ class PARQUET_EXPORT SerializedFile : public ParquetFileReader::Contents {
 
  private:
   // This class takes ownership of the provided data source
-  explicit SerializedFile(
-      std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props);
+  explicit SerializedFile(std::unique_ptr<RandomAccessSource> source,
+                          const ReaderProperties& props);
 
   std::unique_ptr<RandomAccessSource> source_;
   std::shared_ptr<FileMetaData> file_metadata_;

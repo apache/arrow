@@ -30,8 +30,8 @@ using arrow::MemoryPool;
 namespace parquet {
 
 template <typename DType>
-TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
-    const ColumnDescriptor* schema, MemoryPool* pool)
+TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* schema,
+                                                        MemoryPool* pool)
     : pool_(pool),
       min_buffer_(AllocateBuffer(pool_, 0)),
       max_buffer_(AllocateBuffer(pool_, 0)) {
@@ -41,8 +41,10 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
 
 template <typename DType>
 TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_type& min,
-    const typename DType::c_type& max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count)
+                                                        const typename DType::c_type& max,
+                                                        int64_t num_values,
+                                                        int64_t null_count,
+                                                        int64_t distinct_count)
     : pool_(default_memory_pool()),
       min_buffer_(AllocateBuffer(pool_, 0)),
       max_buffer_(AllocateBuffer(pool_, 0)) {
@@ -56,9 +58,10 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_
 }
 
 template <typename DType>
-TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* schema,
-    const std::string& encoded_min, const std::string& encoded_max, int64_t num_values,
-    int64_t null_count, int64_t distinct_count, bool has_min_max, MemoryPool* pool)
+TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
+    const ColumnDescriptor* schema, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, MemoryPool* pool)
     : pool_(pool),
       min_buffer_(AllocateBuffer(pool_, 0)),
       max_buffer_(AllocateBuffer(pool_, 0)) {
@@ -68,8 +71,12 @@ TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* 
 
   SetDescr(schema);
 
-  if (!encoded_min.empty()) { PlainDecode(encoded_min, &min_); }
-  if (!encoded_max.empty()) { PlainDecode(encoded_max, &max_); }
+  if (!encoded_min.empty()) {
+    PlainDecode(encoded_min, &min_);
+  }
+  if (!encoded_max.empty()) {
+    PlainDecode(encoded_max, &max_);
+  }
   has_min_max_ = has_min_max;
 }
 
@@ -85,8 +92,8 @@ void TypedRowGroupStatistics<DType>::Reset() {
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::Update(
-    const T* values, int64_t num_not_null, int64_t num_null) {
+void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_null,
+                                            int64_t num_null) {
   DCHECK(num_not_null >= 0);
   DCHECK(num_null >= 0);
 
@@ -109,8 +116,10 @@ void TypedRowGroupStatistics<DType>::Update(
 
 template <typename DType>
 void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
-    const uint8_t* valid_bits, int64_t valid_bits_offset, int64_t num_not_null,
-    int64_t num_null) {
+                                                  const uint8_t* valid_bits,
+                                                  int64_t valid_bits_offset,
+                                                  int64_t num_not_null,
+                                                  int64_t num_null) {
   DCHECK(num_not_null >= 0);
   DCHECK(num_null >= 0);
 
@@ -126,7 +135,9 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   int64_t length = num_null + num_not_null;
   int64_t i = 0;
   for (; i < length; i++) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) { break; }
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      break;
+    }
     READ_NEXT_BITSET(valid_bits);
   }
   T min = values[i];
@@ -216,8 +227,8 @@ void TypedRowGroupStatistics<DType>::PlainEncode(const T& src, std::string* dst)
 template <typename DType>
 void TypedRowGroupStatistics<DType>::PlainDecode(const std::string& src, T* dst) {
   PlainDecoder<DType> decoder(descr());
-  decoder.SetData(
-      1, reinterpret_cast<const uint8_t*>(src.c_str()), static_cast<int>(src.size()));
+  decoder.SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
+                  static_cast<int>(src.size()));
   decoder.Decode(dst, 1);
 }
 

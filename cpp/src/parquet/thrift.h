@@ -30,9 +30,9 @@
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/protocol/TDebugProtocol.h>
 
-#include <sstream>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <sstream>
 
 #include "parquet/exception.h"
 #include "parquet/parquet_types.h"

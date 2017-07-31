@@ -91,8 +91,9 @@ SortOrder get_sort_order(LogicalType::type converted, Type::type primitive) {
 template <typename DType>
 static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
-  return std::make_shared<TypedRowGroupStatistics<DType>>(descr, metadata.statistics.min,
-      metadata.statistics.max, metadata.num_values - metadata.statistics.null_count,
+  return std::make_shared<TypedRowGroupStatistics<DType>>(
+      descr, metadata.statistics.min, metadata.statistics.max,
+      metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max || metadata.statistics.__isset.min);
 }
@@ -125,7 +126,8 @@ std::shared_ptr<RowGroupStatistics> MakeColumnStats(
 class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
  public:
   explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
-      const ColumnDescriptor* descr, const ApplicationVersion* writer_version)
+                                   const ColumnDescriptor* descr,
+                                   const ApplicationVersion* writer_version)
       : column_(column), descr_(descr), writer_version_(writer_version) {
     const format::ColumnMetaData& meta_data = column->meta_data;
     for (auto encoding : meta_data.encodings) {
@@ -205,36 +207,30 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const ApplicationVersion* writer_version_;
 };
 
-std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(const uint8_t* metadata,
-    const ColumnDescriptor* descr, const ApplicationVersion* writer_version) {
+std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
+    const uint8_t* metadata, const ColumnDescriptor* descr,
+    const ApplicationVersion* writer_version) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, writer_version));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(const uint8_t* metadata,
-    const ColumnDescriptor* descr, const ApplicationVersion* writer_version)
+                                         const ColumnDescriptor* descr,
+                                         const ApplicationVersion* writer_version)
     : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
           reinterpret_cast<const format::ColumnChunk*>(metadata), descr,
           writer_version))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 
 // column chunk
-int64_t ColumnChunkMetaData::file_offset() const {
-  return impl_->file_offset();
-}
+int64_t ColumnChunkMetaData::file_offset() const { return impl_->file_offset(); }
 
-const std::string& ColumnChunkMetaData::file_path() const {
-  return impl_->file_path();
-}
+const std::string& ColumnChunkMetaData::file_path() const { return impl_->file_path(); }
 
 // column metadata
-Type::type ColumnChunkMetaData::type() const {
-  return impl_->type();
-}
+Type::type ColumnChunkMetaData::type() const { return impl_->type(); }
 
-int64_t ColumnChunkMetaData::num_values() const {
-  return impl_->num_values();
-}
+int64_t ColumnChunkMetaData::num_values() const { return impl_->num_values(); }
 
 std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const {
   return impl_->path_in_schema();
@@ -244,9 +240,7 @@ std::shared_ptr<RowGroupStatistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
-bool ColumnChunkMetaData::is_stats_set() const {
-  return impl_->is_stats_set();
-}
+bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
 int64_t ColumnChunkMetaData::has_dictionary_page() const {
   return impl_->has_dictionary_page();
@@ -284,7 +278,8 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
   explicit RowGroupMetaDataImpl(const format::RowGroup* row_group,
-      const SchemaDescriptor* schema, const ApplicationVersion* writer_version)
+                                const SchemaDescriptor* schema,
+                                const ApplicationVersion* writer_version)
       : row_group_(row_group), schema_(schema), writer_version_(writer_version) {}
   ~RowGroupMetaDataImpl() {}
 
@@ -314,34 +309,28 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   const ApplicationVersion* writer_version_;
 };
 
-std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(const uint8_t* metadata,
-    const SchemaDescriptor* schema, const ApplicationVersion* writer_version) {
+std::unique_ptr<RowGroupMetaData> RowGroupMetaData::Make(
+    const uint8_t* metadata, const SchemaDescriptor* schema,
+    const ApplicationVersion* writer_version) {
   return std::unique_ptr<RowGroupMetaData>(
       new RowGroupMetaData(metadata, schema, writer_version));
 }
 
 RowGroupMetaData::RowGroupMetaData(const uint8_t* metadata,
-    const SchemaDescriptor* schema, const ApplicationVersion* writer_version)
+                                   const SchemaDescriptor* schema,
+                                   const ApplicationVersion* writer_version)
     : impl_{std::unique_ptr<RowGroupMetaDataImpl>(new RowGroupMetaDataImpl(
           reinterpret_cast<const format::RowGroup*>(metadata), schema, writer_version))} {
 }
 RowGroupMetaData::~RowGroupMetaData() {}
 
-int RowGroupMetaData::num_columns() const {
-  return impl_->num_columns();
-}
+int RowGroupMetaData::num_columns() const { return impl_->num_columns(); }
 
-int64_t RowGroupMetaData::num_rows() const {
-  return impl_->num_rows();
-}
+int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
-int64_t RowGroupMetaData::total_byte_size() const {
-  return impl_->total_byte_size();
-}
+int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
 
-const SchemaDescriptor* RowGroupMetaData::schema() const {
-  return impl_->schema();
-}
+const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const {
   return impl_->ColumnChunk(i);
@@ -408,8 +397,8 @@ class FileMetaData::FileMetaDataImpl {
   uint32_t metadata_len_;
   std::unique_ptr<format::FileMetaData> metadata_;
   void InitSchema() {
-    schema::FlatSchemaConverter converter(
-        &metadata_->schema[0], static_cast<int>(metadata_->schema.size()));
+    schema::FlatSchemaConverter converter(&metadata_->schema[0],
+                                          static_cast<int>(metadata_->schema.size()));
     schema_.Init(converter.Convert());
   }
   SchemaDescriptor schema_;
@@ -429,8 +418,8 @@ class FileMetaData::FileMetaDataImpl {
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
-std::shared_ptr<FileMetaData> FileMetaData::Make(
-    const uint8_t* metadata, uint32_t* metadata_len) {
+std::shared_ptr<FileMetaData> FileMetaData::Make(const uint8_t* metadata,
+                                                 uint32_t* metadata_len) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(new FileMetaData(metadata, metadata_len));
 }
@@ -448,21 +437,13 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
 }
 
-uint32_t FileMetaData::size() const {
-  return impl_->size();
-}
+uint32_t FileMetaData::size() const { return impl_->size(); }
 
-int FileMetaData::num_columns() const {
-  return impl_->num_columns();
-}
+int FileMetaData::num_columns() const { return impl_->num_columns(); }
 
-int64_t FileMetaData::num_rows() const {
-  return impl_->num_rows();
-}
+int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
-int FileMetaData::num_row_groups() const {
-  return impl_->num_row_groups();
-}
+int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
 
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {
@@ -481,25 +462,17 @@ const ApplicationVersion& FileMetaData::writer_version() const {
   return impl_->writer_version();
 }
 
-const std::string& FileMetaData::created_by() const {
-  return impl_->created_by();
-}
+const std::string& FileMetaData::created_by() const { return impl_->created_by(); }
 
-int FileMetaData::num_schema_elements() const {
-  return impl_->num_schema_elements();
-}
+int FileMetaData::num_schema_elements() const { return impl_->num_schema_elements(); }
 
-const SchemaDescriptor* FileMetaData::schema() const {
-  return impl_->schema();
-}
+const SchemaDescriptor* FileMetaData::schema() const { return impl_->schema(); }
 
 std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const {
   return impl_->key_value_metadata();
 }
 
-void FileMetaData::WriteTo(OutputStream* dst) {
-  return impl_->WriteTo(dst);
-}
+void FileMetaData::WriteTo(OutputStream* dst) { return impl_->WriteTo(dst); }
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
   boost::regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
@@ -509,7 +482,7 @@ ApplicationVersion::ApplicationVersion(const std::string& created_by) {
 
   std::string created_by_lower = created_by;
   std::transform(created_by_lower.begin(), created_by_lower.end(),
-      created_by_lower.begin(), ::tolower);
+                 created_by_lower.begin(), ::tolower);
 
   bool app_success = boost::regex_match(created_by_lower, app_matches, app_regex);
   bool ver_success = false;
@@ -572,10 +545,14 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type) const {
 
   // created_by is not populated, which could have been caused by
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
-  if (application_ == "unknown") { return true; }
+  if (application_ == "unknown") {
+    return true;
+  }
 
   // PARQUET-251
-  if (VersionLt(PARQUET_251_FIXED_VERSION)) { return false; }
+  if (VersionLt(PARQUET_251_FIXED_VERSION)) {
+    return false;
+  }
 
   return true;
 }
@@ -585,7 +562,8 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type) const {
 class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  public:
   explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
-      const ColumnDescriptor* column, uint8_t* contents)
+                                          const ColumnDescriptor* column,
+                                          uint8_t* contents)
       : properties_(props), column_(column) {
     column_chunk_ = reinterpret_cast<format::ColumnChunk*>(contents);
     column_chunk_->meta_data.__set_type(ToThrift(column->physical_type()));
@@ -614,8 +592,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
-      int64_t index_page_offset, int64_t data_page_offset, int64_t compressed_size,
-      int64_t uncompressed_size, bool has_dictionary, bool dictionary_fallback) {
+              int64_t index_page_offset, int64_t data_page_offset,
+              int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
+              bool dictionary_fallback) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
@@ -642,7 +621,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Only PLAIN encoding is supported for fallback in V1
     // TODO(majetideepak): Use user specified encoding for V2
-    if (dictionary_fallback) { thrift_encodings.push_back(ToThrift(Encoding::PLAIN)); }
+    if (dictionary_fallback) {
+      thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
+    }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
@@ -678,16 +659,16 @@ void ColumnChunkMetaDataBuilder::set_file_path(const std::string& path) {
 }
 
 void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
-    int64_t dictionary_page_offset, int64_t index_page_offset, int64_t data_page_offset,
-    int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-    bool dictionary_fallback) {
+                                        int64_t dictionary_page_offset,
+                                        int64_t index_page_offset,
+                                        int64_t data_page_offset, int64_t compressed_size,
+                                        int64_t uncompressed_size, bool has_dictionary,
+                                        bool dictionary_fallback) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
-      compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
+                compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
 }
 
-void ColumnChunkMetaDataBuilder::WriteTo(OutputStream* sink) {
-  impl_->WriteTo(sink);
-}
+void ColumnChunkMetaDataBuilder::WriteTo(OutputStream* sink) { impl_->WriteTo(sink); }
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
@@ -700,8 +681,8 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
  public:
   explicit RowGroupMetaDataBuilderImpl(int64_t num_rows,
-      const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema,
-      uint8_t* contents)
+                                       const std::shared_ptr<WriterProperties>& props,
+                                       const SchemaDescriptor* schema, uint8_t* contents)
       : properties_(props), schema_(schema), current_column_(0) {
     row_group_ = reinterpret_cast<format::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
@@ -717,7 +698,8 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       throw ParquetException(ss.str());
     }
     auto column = schema_->Column(current_column_);
-    auto column_builder = ColumnChunkMetaDataBuilder::Make(properties_, column,
+    auto column_builder = ColumnChunkMetaDataBuilder::Make(
+        properties_, column,
         reinterpret_cast<uint8_t*>(&row_group_->columns[current_column_++]));
     auto column_builder_ptr = column_builder.get();
     column_builders_.push_back(std::move(column_builder));
@@ -761,16 +743,16 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
   int current_column_;
 };
 
-std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(int64_t num_rows,
-    const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
-    uint8_t* contents) {
+std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(
+    int64_t num_rows, const std::shared_ptr<WriterProperties>& props,
+    const SchemaDescriptor* schema_, uint8_t* contents) {
   return std::unique_ptr<RowGroupMetaDataBuilder>(
       new RowGroupMetaDataBuilder(num_rows, props, schema_, contents));
 }
 
-RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(int64_t num_rows,
-    const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
-    uint8_t* contents)
+RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(
+    int64_t num_rows, const std::shared_ptr<WriterProperties>& props,
+    const SchemaDescriptor* schema_, uint8_t* contents)
     : impl_{std::unique_ptr<RowGroupMetaDataBuilderImpl>(
           new RowGroupMetaDataBuilderImpl(num_rows, props, schema_, contents))} {}
 
@@ -780,13 +762,9 @@ ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
 }
 
-int RowGroupMetaDataBuilder::current_column() const {
-  return impl_->current_column();
-}
+int RowGroupMetaDataBuilder::current_column() const { return impl_->current_column(); }
 
-int RowGroupMetaDataBuilder::num_columns() {
-  return impl_->num_columns();
-}
+int RowGroupMetaDataBuilder::num_columns() { return impl_->num_columns(); }
 
 void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written) {
   impl_->Finish(total_bytes_written);
@@ -796,8 +774,8 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written) {
 // TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
-  explicit FileMetaDataBuilderImpl(const SchemaDescriptor* schema,
-      const std::shared_ptr<WriterProperties>& props,
+  explicit FileMetaDataBuilderImpl(
+      const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
@@ -879,8 +857,8 @@ std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
       new FileMetaDataBuilder(schema, props, key_value_metadata));
 }
 
-FileMetaDataBuilder::FileMetaDataBuilder(const SchemaDescriptor* schema,
-    const std::shared_ptr<WriterProperties>& props,
+FileMetaDataBuilder::FileMetaDataBuilder(
+    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
     : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(
           new FileMetaDataBuilderImpl(schema, props, key_value_metadata))} {}
@@ -891,8 +869,6 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup(int64_t num_rows) {
   return impl_->AppendRowGroup(num_rows);
 }
 
-std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() {
-  return impl_->Finish();
-}
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
 
 }  // namespace parquet

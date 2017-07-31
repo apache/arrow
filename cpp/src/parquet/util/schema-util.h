@@ -35,7 +35,9 @@ using parquet::schema::Node;
 using parquet::LogicalType;
 
 inline bool str_endswith_tuple(const std::string& str) {
-  if (str.size() >= 6) { return str.substr(str.size() - 6, 6) == "_tuple"; }
+  if (str.size() >= 6) {
+    return str.substr(str.size() - 6, 6) == "_tuple";
+  }
   return false;
 }
 
@@ -63,16 +65,21 @@ inline bool IsSimpleStruct(const NodePtr& node) {
 // Coalesce a list of schema fields indices which are the roots of the
 // columns referred by a list of column indices
 inline bool ColumnIndicesToFieldIndices(const SchemaDescriptor& descr,
-    const std::vector<int>& column_indices, std::vector<int>* out) {
+                                        const std::vector<int>& column_indices,
+                                        std::vector<int>* out) {
   const GroupNode* group = descr.group_node();
   std::unordered_set<int> already_added;
   out->clear();
   for (auto& column_idx : column_indices) {
     auto field_node = descr.GetColumnRoot(column_idx);
     auto field_idx = group->FieldIndex(field_node->name());
-    if (field_idx < 0) { return false; }
+    if (field_idx < 0) {
+      return false;
+    }
     auto insertion = already_added.insert(field_idx);
-    if (insertion.second) { out->push_back(field_idx); }
+    if (insertion.second) {
+      out->push_back(field_idx);
+    }
   }
 
   return true;

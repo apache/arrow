@@ -134,15 +134,15 @@ class TypedRowGroupStatistics : public RowGroupStatistics {
   using T = typename DType::c_type;
 
   TypedRowGroupStatistics(const ColumnDescriptor* schema,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   TypedRowGroupStatistics(const T& min, const T& max, int64_t num_values,
-      int64_t null_count, int64_t distinct_count);
+                          int64_t null_count, int64_t distinct_count);
 
   TypedRowGroupStatistics(const ColumnDescriptor* schema, const std::string& encoded_min,
-      const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, bool has_min_max,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+                          const std::string& encoded_max, int64_t num_values,
+                          int64_t null_count, int64_t distinct_count, bool has_min_max,
+                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   bool HasMinMax() const override;
   void Reset() override;
@@ -150,7 +150,7 @@ class TypedRowGroupStatistics : public RowGroupStatistics {
 
   void Update(const T* values, int64_t num_not_null, int64_t num_null);
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-      int64_t num_not_null, int64_t num_null);
+                    int64_t num_not_null, int64_t num_null);
 
   const T& min() const;
   const T& max() const;
@@ -178,8 +178,8 @@ inline void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, PoolBuffe
 }
 
 template <>
-inline void TypedRowGroupStatistics<FLBAType>::Copy(
-    const FLBA& src, FLBA* dst, PoolBuffer* buffer) {
+inline void TypedRowGroupStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
+                                                    PoolBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   uint32_t len = descr_->type_length();
   PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
@@ -188,8 +188,9 @@ inline void TypedRowGroupStatistics<FLBAType>::Copy(
 }
 
 template <>
-inline void TypedRowGroupStatistics<ByteArrayType>::Copy(
-    const ByteArray& src, ByteArray* dst, PoolBuffer* buffer) {
+inline void TypedRowGroupStatistics<ByteArrayType>::Copy(const ByteArray& src,
+                                                         ByteArray* dst,
+                                                         PoolBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
   std::memcpy(buffer->mutable_data(), src.ptr, src.len);

@@ -17,10 +17,10 @@
 
 #include "parquet/file/reader-internal.h"
 
+#include <string.h>
 #include <algorithm>
 #include <exception>
 #include <ostream>
-#include <string.h>
 #include <string>
 #include <vector>
 
@@ -42,7 +42,8 @@ namespace parquet {
 // assembled in a serialized stream for storing in a Parquet files
 
 SerializedPageReader::SerializedPageReader(std::unique_ptr<InputStream> stream,
-    int64_t total_num_rows, Compression::type codec, MemoryPool* pool)
+                                           int64_t total_num_rows,
+                                           Compression::type codec, MemoryPool* pool)
     : stream_(std::move(stream)),
       decompression_buffer_(AllocateBuffer(pool, 0)),
       seen_num_rows_(0),
@@ -66,7 +67,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // until a maximum allowed header limit
     while (true) {
       buffer = stream_->Peek(allowed_page_size, &bytes_available);
-      if (bytes_available == 0) { return std::shared_ptr<Page>(nullptr); }
+      if (bytes_available == 0) {
+        return std::shared_ptr<Page>(nullptr);
+      }
 
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(bytes_available);
@@ -92,7 +95,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     // Read the compressed data page.
     buffer = stream_->Read(compressed_len, &bytes_read);
-    if (bytes_read != compressed_len) { ParquetException::EofException(); }
+    if (bytes_read != compressed_len) {
+      ParquetException::EofException();
+    }
 
     // Uncompress it if we need to
     if (decompressor_ != NULL) {
@@ -100,8 +105,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
         PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
       }
-      PARQUET_THROW_NOT_OK(decompressor_->Decompress(compressed_len, buffer,
-          uncompressed_len, decompression_buffer_->mutable_data()));
+      PARQUET_THROW_NOT_OK(
+          decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
+                                    decompression_buffer_->mutable_data()));
       buffer = decompression_buffer_->data();
     }
 
@@ -114,15 +120,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       bool is_sorted = dict_header.__isset.is_sorted ? dict_header.is_sorted : false;
 
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
-          FromThrift(dict_header.encoding), is_sorted);
+                                              FromThrift(dict_header.encoding),
+                                              is_sorted);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
       EncodedStatistics page_statistics;
       if (header.__isset.statistics) {
         const format::Statistics& stats = header.statistics;
-        if (stats.__isset.max) { page_statistics.set_max(stats.max); }
-        if (stats.__isset.min) { page_statistics.set_min(stats.min); }
+        if (stats.__isset.max) {
+          page_statistics.set_max(stats.max);
+        }
+        if (stats.__isset.min) {
+          page_statistics.set_min(stats.min);
+        }
         if (stats.__isset.null_count) {
           page_statistics.set_null_count(stats.null_count);
         }
@@ -133,8 +144,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       seen_num_rows_ += header.num_values;
 
-      return std::make_shared<DataPage>(page_buffer, header.num_values,
-          FromThrift(header.encoding), FromThrift(header.definition_level_encoding),
+      return std::make_shared<DataPage>(
+          page_buffer, header.num_values, FromThrift(header.encoding),
+          FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
@@ -142,10 +154,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       seen_num_rows_ += header.num_values;
 
-      return std::make_shared<DataPageV2>(page_buffer, header.num_values,
-          header.num_nulls, header.num_rows, FromThrift(header.encoding),
-          header.definition_levels_byte_length, header.repetition_levels_byte_length,
-          is_compressed);
+      return std::make_shared<DataPageV2>(
+          page_buffer, header.num_values, header.num_nulls, header.num_rows,
+          FromThrift(header.encoding), header.definition_levels_byte_length,
+          header.repetition_levels_byte_length, is_compressed);
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
       // pages.
@@ -156,7 +168,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 }
 
 SerializedRowGroup::SerializedRowGroup(RandomAccessSource* source,
-    FileMetaData* file_metadata, int row_group_number, const ReaderProperties& props)
+                                       FileMetaData* file_metadata, int row_group_number,
+                                       const ReaderProperties& props)
     : source_(source), file_metadata_(file_metadata), properties_(props) {
   row_group_metadata_ = file_metadata->RowGroup(row_group_number);
 }
@@ -164,9 +177,7 @@ const RowGroupMetaData* SerializedRowGroup::metadata() const {
   return row_group_metadata_.get();
 }
 
-const ReaderProperties* SerializedRowGroup::properties() const {
-  return &properties_;
-}
+const ReaderProperties* SerializedRowGroup::properties() const { return &properties_; }
 
 // For PARQUET-816
 static constexpr int64_t kMaxDictHeaderSize = 100;
@@ -196,8 +207,9 @@ std::unique_ptr<PageReader> SerializedRowGroup::GetColumnPageReader(int i) {
 
   stream = properties_.GetStream(source_, col_start, col_length);
 
-  return std::unique_ptr<PageReader>(new SerializedPageReader(std::move(stream),
-      col->num_values(), col->compression(), properties_.memory_pool()));
+  return std::unique_ptr<PageReader>(
+      new SerializedPageReader(std::move(stream), col->num_values(), col->compression(),
+                               properties_.memory_pool()));
 }
 
 // ----------------------------------------------------------------------
@@ -227,14 +239,13 @@ std::unique_ptr<ParquetFileReader::Contents> SerializedFile::Open(
   return result;
 }
 
-void SerializedFile::Close() {
-  source_->Close();
-}
+void SerializedFile::Close() { source_->Close(); }
 
 SerializedFile::~SerializedFile() {
   try {
     Close();
-  } catch (...) {}
+  } catch (...) {
+  }
 }
 
 std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
@@ -243,11 +254,10 @@ std::shared_ptr<RowGroupReader> SerializedFile::GetRowGroup(int i) {
   return std::make_shared<RowGroupReader>(std::move(contents));
 }
 
-std::shared_ptr<FileMetaData> SerializedFile::metadata() const {
-  return file_metadata_;
-}
+std::shared_ptr<FileMetaData> SerializedFile::metadata() const { return file_metadata_; }
 
-SerializedFile::SerializedFile(std::unique_ptr<RandomAccessSource> source,
+SerializedFile::SerializedFile(
+    std::unique_ptr<RandomAccessSource> source,
     const ReaderProperties& props = default_reader_properties())
     : source_(std::move(source)), properties_(props) {}
 
@@ -284,7 +294,7 @@ void SerializedFile::ParseMetaData() {
   // Check if the footer_buffer contains the entire metadata
   if (footer_read_size >= (metadata_len + FOOTER_SIZE)) {
     memcpy(metadata_buffer->mutable_data(),
-        footer_buffer + (footer_read_size - metadata_len - FOOTER_SIZE), metadata_len);
+           footer_buffer + (footer_read_size - metadata_len - FOOTER_SIZE), metadata_len);
   } else {
     bytes_read =
         source_->ReadAt(metadata_start, metadata_len, metadata_buffer->mutable_data());

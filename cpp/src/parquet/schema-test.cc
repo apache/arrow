@@ -41,7 +41,8 @@ using format::SchemaElement;
 namespace schema {
 
 static inline SchemaElement NewPrimitive(const std::string& name,
-    FieldRepetitionType::type repetition, format::Type::type type, int id = 0) {
+                                         FieldRepetitionType::type repetition,
+                                         format::Type::type type, int id = 0) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
@@ -52,7 +53,8 @@ static inline SchemaElement NewPrimitive(const std::string& name,
 }
 
 static inline SchemaElement NewGroup(const std::string& name,
-    FieldRepetitionType::type repetition, int num_children, int id = 0) {
+                                     FieldRepetitionType::type repetition,
+                                     int num_children, int id = 0) {
   SchemaElement result;
   result.__set_name(name);
   result.__set_repetition_type(repetition);
@@ -156,8 +158,8 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(LogicalType::UTF8, prim_node_->logical_type());
 
   // FIXED_LEN_BYTE_ARRAY
-  elt = NewPrimitive(
-      name_, FieldRepetitionType::OPTIONAL, format::Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
+                     format::Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_type_length(16);
 
   Convert(&elt);
@@ -168,8 +170,8 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(16, prim_node_->type_length());
 
   // ConvertedType::Decimal
-  elt = NewPrimitive(
-      name_, FieldRepetitionType::OPTIONAL, format::Type::FIXED_LEN_BYTE_ARRAY, 0);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL,
+                     format::Type::FIXED_LEN_BYTE_ARRAY, 0);
   elt.__set_converted_type(ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
@@ -197,21 +199,21 @@ TEST_F(TestPrimitiveNode, Equals) {
   ASSERT_TRUE(node1.Equals(&node5));
 
   PrimitiveNode flba1("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::DECIMAL, 12, 4, 2);
+                      LogicalType::DECIMAL, 12, 4, 2);
 
   PrimitiveNode flba2("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::DECIMAL, 1, 4, 2);
+                      LogicalType::DECIMAL, 1, 4, 2);
   flba2.SetTypeLength(12);
 
   PrimitiveNode flba3("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::DECIMAL, 1, 4, 2);
+                      LogicalType::DECIMAL, 1, 4, 2);
   flba3.SetTypeLength(16);
 
   PrimitiveNode flba4("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::DECIMAL, 12, 4, 0);
+                      LogicalType::DECIMAL, 12, 4, 0);
 
   PrimitiveNode flba5("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::NONE, 12, 4, 0);
+                      LogicalType::NONE, 12, 4, 0);
 
   ASSERT_TRUE(flba1.Equals(&flba2));
   ASSERT_FALSE(flba1.Equals(&flba3));
@@ -222,52 +224,59 @@ TEST_F(TestPrimitiveNode, Equals) {
 TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
   ASSERT_NO_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::INT_32));
-  ASSERT_NO_THROW(PrimitiveNode::Make(
-      "foo", Repetition::REQUIRED, Type::BYTE_ARRAY, LogicalType::JSON));
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                      LogicalType::JSON));
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::JSON),
       ParquetException);
-  ASSERT_NO_THROW(PrimitiveNode::Make(
-      "foo", Repetition::REQUIRED, Type::INT64, LogicalType::TIMESTAMP_MILLIS));
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT64,
+                                      LogicalType::TIMESTAMP_MILLIS));
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::INT_64),
       ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make(
-                   "foo", Repetition::REQUIRED, Type::BYTE_ARRAY, LogicalType::INT_8),
-      ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make(
-                   "foo", Repetition::REQUIRED, Type::BYTE_ARRAY, LogicalType::INTERVAL),
-      ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                   LogicalType::INT_8),
+               ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                   LogicalType::INTERVAL),
+               ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM),
-      ParquetException);
-  ASSERT_NO_THROW(PrimitiveNode::Make(
-      "foo", Repetition::REQUIRED, Type::BYTE_ARRAY, LogicalType::ENUM));
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 0, 2, 4),
+                                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM),
+               ParquetException);
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                      LogicalType::ENUM));
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::DECIMAL, 0, 2, 4),
       ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FLOAT,
-                   LogicalType::DECIMAL, 0, 2, 4),
+                                   LogicalType::DECIMAL, 0, 2, 4),
+               ParquetException);
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::DECIMAL, 0, 4, 0),
       ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 0, 4, 0),
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::DECIMAL, 10, 0, 4),
       ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 0, 4),
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::DECIMAL, 10, 4, -1),
       ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 4, -1),
-      ParquetException);
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 2, 4),
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::DECIMAL, 10, 2, 4),
       ParquetException);
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL, 10, 6, 4));
+                                      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL,
+                                      10, 6, 4));
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 12));
+                                      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL,
+                                      12));
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 10),
-      ParquetException);
+                                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 10),
+               ParquetException);
 }
 
 // ----------------------------------------------------------------------
@@ -372,10 +381,14 @@ bool check_for_parent_consistency(const GroupNode* node) {
   // Each node should have the group as parent
   for (int i = 0; i < node->field_count(); i++) {
     const NodePtr& field = node->field(i);
-    if (field->parent() != node) { return false; }
+    if (field->parent() != node) {
+      return false;
+    }
     if (field->is_group()) {
       const GroupNode* group = static_cast<GroupNode*>(field.get());
-      if (!check_for_parent_consistency(group)) { return false; }
+      if (!check_for_parent_consistency(group)) {
+        return false;
+      }
     }
   }
   return true;
@@ -468,8 +481,8 @@ class TestSchemaFlatten : public ::testing::Test {
 
 TEST_F(TestSchemaFlatten, DecimalMetadata) {
   // Checks that DecimalMetadata is only set for DecimalTypes
-  NodePtr node = PrimitiveNode::Make(
-      "decimal", Repetition::REQUIRED, Type::INT64, LogicalType::DECIMAL, -1, 8, 4);
+  NodePtr node = PrimitiveNode::Make("decimal", Repetition::REQUIRED, Type::INT64,
+                                     LogicalType::DECIMAL, -1, 8, 4);
   NodePtr group =
       GroupNode::Make("group", Repetition::REPEATED, {node}, LogicalType::LIST);
   Flatten(reinterpret_cast<GroupNode*>(group.get()));
@@ -526,8 +539,8 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 }
 
 TEST(TestColumnDescriptor, TestAttrs) {
-  NodePtr node = PrimitiveNode::Make(
-      "name", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::UTF8);
+  NodePtr node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::BYTE_ARRAY,
+                                     LogicalType::UTF8);
   ColumnDescriptor descr(node, 4, 1);
 
   ASSERT_EQ("name", descr.name());
@@ -540,7 +553,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
 
   // Test FIXED_LEN_BYTE_ARRAY
   node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
-      LogicalType::DECIMAL, 12, 10, 4);
+                             LogicalType::DECIMAL, 12, 10, 4);
   descr = ColumnDescriptor(node, 4, 1);
 
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr.physical_type());
@@ -572,8 +585,8 @@ TEST_F(TestSchemaDescriptor, Equals) {
   NodePtr item1 = Int64("item1", Repetition::REQUIRED);
   NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
   NodePtr item3 = Int32("item3", Repetition::REPEATED);
-  NodePtr list(GroupNode::Make(
-      "records", Repetition::REPEATED, {item1, item2, item3}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make("records", Repetition::REPEATED, {item1, item2, item3},
+                               LogicalType::LIST));
 
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   NodePtr bag2(GroupNode::Make("bag", Repetition::REQUIRED, {list}));
@@ -624,8 +637,8 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   NodePtr item1 = Int64("item1", Repetition::REQUIRED);
   NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
   NodePtr item3 = Int32("item3", Repetition::REPEATED);
-  NodePtr list(GroupNode::Make(
-      "records", Repetition::REPEATED, {item1, item2, item3}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make("records", Repetition::REPEATED, {item1, item2, item3},
+                               LogicalType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -705,8 +718,8 @@ TEST(TestSchemaPrinter, Examples) {
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
-  fields.push_back(PrimitiveNode::Make(
-      "c", Repetition::REQUIRED, Type::INT32, LogicalType::DECIMAL, -1, 3, 2));
+  fields.push_back(PrimitiveNode::Make("c", Repetition::REQUIRED, Type::INT32,
+                                       LogicalType::DECIMAL, -1, 3, 2));
 
   NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
 

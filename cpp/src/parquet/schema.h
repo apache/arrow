@@ -108,7 +108,7 @@ class PARQUET_EXPORT Node {
   enum type { PRIMITIVE, GROUP };
 
   Node(Node::type type, const std::string& name, Repetition::type repetition,
-      LogicalType::type logical_type = LogicalType::NONE, int id = -1)
+       LogicalType::type logical_type = LogicalType::NONE, int id = -1)
       : type_(type),
         name_(name),
         repetition_(repetition),
@@ -195,10 +195,11 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-      Type::type type, LogicalType::type logical_type = LogicalType::NONE,
-      int length = -1, int precision = -1, int scale = -1) {
-    return NodePtr(new PrimitiveNode(
-        name, repetition, type, logical_type, length, precision, scale));
+                             Type::type type,
+                             LogicalType::type logical_type = LogicalType::NONE,
+                             int length = -1, int precision = -1, int scale = -1) {
+    return NodePtr(new PrimitiveNode(name, repetition, type, logical_type, length,
+                                     precision, scale));
   }
 
   bool Equals(const Node* other) const override;
@@ -215,8 +216,8 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
  private:
   PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
-      LogicalType::type logical_type = LogicalType::NONE, int length = -1,
-      int precision = -1, int scale = -1, int id = -1);
+                LogicalType::type logical_type = LogicalType::NONE, int length = -1,
+                int precision = -1, int scale = -1, int id = -1);
 
   Type::type physical_type_;
   int32_t type_length_;
@@ -243,11 +244,12 @@ class PARQUET_EXPORT GroupNode : public Node {
  public:
   // Like PrimitiveNode, GroupNode::FromParquet accepts an opaque void* to avoid exporting
   // parquet::SchemaElement into the public API
-  static std::unique_ptr<Node> FromParquet(
-      const void* opaque_element, int id, const NodeVector& fields);
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
+                                           const NodeVector& fields);
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-      const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE) {
+                             const NodeVector& fields,
+                             LogicalType::type logical_type = LogicalType::NONE) {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
@@ -265,8 +267,8 @@ class PARQUET_EXPORT GroupNode : public Node {
 
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
-      const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
-      int id = -1)
+            const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
+            int id = -1)
       : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
     field_name_to_idx_.clear();
     auto field_idx = 0;
@@ -290,10 +292,10 @@ class PARQUET_EXPORT GroupNode : public Node {
 // ----------------------------------------------------------------------
 // Convenience primitive type factory functions
 
-#define PRIMITIVE_FACTORY(FuncName, TYPE)                                            \
-  static inline NodePtr FuncName(                                                    \
-      const std::string& name, Repetition::type repetition = Repetition::OPTIONAL) { \
-    return PrimitiveNode::Make(name, repetition, Type::TYPE);                        \
+#define PRIMITIVE_FACTORY(FuncName, TYPE)                                              \
+  static inline NodePtr FuncName(const std::string& name,                              \
+                                 Repetition::type repetition = Repetition::OPTIONAL) { \
+    return PrimitiveNode::Make(name, repetition, Type::TYPE);                          \
   }
 
 PRIMITIVE_FACTORY(Boolean, BOOLEAN);
@@ -304,8 +306,8 @@ PRIMITIVE_FACTORY(Float, FLOAT);
 PRIMITIVE_FACTORY(Double, DOUBLE);
 PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY);
 
-void PARQUET_EXPORT PrintSchema(
-    const schema::Node* schema, std::ostream& stream, int indent_width = 2);
+void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream,
+                                int indent_width = 2);
 
 }  // namespace schema
 
@@ -317,7 +319,8 @@ void PARQUET_EXPORT PrintSchema(
 class PARQUET_EXPORT ColumnDescriptor {
  public:
   ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
-      int16_t max_repetition_level, const SchemaDescriptor* schema_descr = nullptr);
+                   int16_t max_repetition_level,
+                   const SchemaDescriptor* schema_descr = nullptr);
 
   bool Equals(const ColumnDescriptor& other) const;
 
@@ -402,7 +405,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
-      int16_t max_rep_level, const schema::NodePtr& base);
+                 int16_t max_rep_level, const schema::NodePtr& base);
 
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
