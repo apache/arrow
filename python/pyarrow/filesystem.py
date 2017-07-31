@@ -17,9 +17,9 @@
 
 from os.path import join as pjoin
 import os
+import posixpath
 
 from pyarrow.util import implements
-import pyarrow.lib as lib
 
 
 class Filesystem(object):
@@ -174,27 +174,10 @@ class DaskFilesystem(Filesystem):
 
     @implements(Filesystem.isdir)
     def isdir(self, path):
-        if hasattr(self.fs, 'info'):
-            try:
-                contents = self.fs.ls(path)
-                if len(contents) == 1 and contents[0] == path:
-                    return False
-                else:
-                    return True
-            except FileNotFoundError:
-                return False
-
         raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.isfile)
     def isfile(self, path):
-        if hasattr(self.fs, 'info'):
-            try:
-                self.fs.info(path)
-                return True
-            except FileNotFoundError:
-                return False
-
         raise NotImplementedError("Unsupported file system API")
 
     @implements(Filesystem.delete)
@@ -232,7 +215,7 @@ class S3FSWrapper(DaskFilesystem):
                 return False
             else:
                 return True
-        except FileNotFoundError:
+        except OSError:
             return False
 
     @implements(Filesystem.isfile)
@@ -240,11 +223,37 @@ class S3FSWrapper(DaskFilesystem):
         try:
             contents = self.fs.ls(path)
             return len(contents) == 1 and contents[0] == path
-        except FileNotFoundError:
+        except OSError:
             return False
 
-    def walk(self, top_path):
+    def walk(self, path, refresh=False):
         """
         Directory tree generator, like os.walk
+
+        Generator version of what is in s3fs, which yields a flattened list of
+        files
         """
-        return self.fs.walk(top_path)
+        path = path.replace('s3://', '')
+        directories = set()
+        files = set()
+
+        for key in list(self.fs._ls(path, refresh=refresh)):
+            path = key['Key']
+            if key['StorageClass'] == 'DIRECTORY':
+                directories.add(path)
+            elif key['StorageClass'] == 'BUCKET':
+                pass
+            else:
+                files.add(path)
+
+        # s3fs creates duplicate 'DIRECTORY' entries
+        files = sorted([posixpath.split(f)[1] for f in files
+                        if f not in directories])
+        directories = sorted([posixpath.split(x)[1]
+                              for x in directories])
+
+        yield path, directories, files
+
+        for directory in directories:
+            for tup in self.walk(directory, refresh=refresh):
+                yield tup
