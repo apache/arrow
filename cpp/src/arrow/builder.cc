@@ -37,7 +37,9 @@
 
 namespace arrow {
 
-using namespace internal;
+using internal::AdaptiveIntBuilderBase;
+using internal::ArrayData;
+using internal::WrappedBinary;
 
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
@@ -497,7 +499,7 @@ Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
       uint8_t new_int_size = int_size_;
       for (int64_t i = 0; i < length; i++) {
         if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = ExpandedUIntSize(values[i], new_int_size);
+          new_int_size = internal::ExpandedUIntSize(values[i], new_int_size);
         }
       }
       if (new_int_size != int_size_) {

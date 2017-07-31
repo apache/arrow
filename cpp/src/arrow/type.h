@@ -163,7 +163,7 @@ class ARROW_EXPORT DataType {
 };
 
 // TODO(wesm): Remove this from parquet-cpp
-using TypePtr = std::shared_ptr<DataType>
+using TypePtr = std::shared_ptr<DataType>;
 
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:

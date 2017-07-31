@@ -56,7 +56,7 @@ using internal::MakeArray;
 
 namespace py {
 
-using namespace internal;
+using internal::NumPyTypeSize;
 
 // ----------------------------------------------------------------------
 // Conversion utilities
@@ -89,7 +89,7 @@ static inline bool PyObject_is_integer(const PyObject* obj) {
 
 template <int TYPE>
 static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
-  typedef npy_traits<TYPE> traits;
+  typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
   int64_t null_count = 0;
@@ -126,7 +126,7 @@ static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap
 template <int TYPE>
 static int64_t ValuesToValidBytes(const void* data, int64_t length,
                                   uint8_t* valid_bytes) {
-  typedef npy_traits<TYPE> traits;
+  typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
   int64_t null_count = 0;
@@ -321,7 +321,7 @@ class PandasConverter {
 
   template <typename ArrowType>
   Status VisitNative() {
-    using traits = arrow_traits<ArrowType::type_id>;
+    using traits = internal::arrow_traits<ArrowType::type_id>;
 
     if (mask_ != nullptr || traits::supports_nulls) {
       RETURN_NOT_OK(InitNullBitmap());
@@ -454,7 +454,7 @@ void CopyStrided<PyObject*>(PyObject** input_data, int64_t length, int64_t strid
 
 template <typename ArrowType>
 inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
-  using traits = arrow_traits<ArrowType::type_id>;
+  using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
 
   // Handle LONGLONG->INT64 and other fun things
@@ -931,7 +931,7 @@ Status LoopPySequence(PyObject* sequence, T func) {
 template <int ITEM_TYPE, typename ArrowType>
 inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
                                                  ListBuilder* builder, PyObject* list) {
-  typedef npy_traits<ITEM_TYPE> traits;
+  typedef internal::npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
 
