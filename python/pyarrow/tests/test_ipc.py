@@ -40,22 +40,20 @@ class MessagingTest(object):
     def _get_source(self):
         return self.sink.getvalue()
 
-    def write_batches(self):
+    def write_batches(self, num_batches=5):
         nrows = 5
         df = pd.DataFrame({
             'one': np.random.randn(nrows),
             'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
-
         batch = pa.RecordBatch.from_pandas(df)
 
         writer = self._get_writer(self.sink, batch.schema)
 
-        num_batches = 5
         frames = []
         batches = []
         for i in range(num_batches):
             unique_df = df.copy()
-            unique_df['one'] = np.random.randn(nrows)
+            unique_df['one'] = np.random.randn(len(df))
 
             batch = pa.RecordBatch.from_pandas(unique_df)
             writer.write_batch(batch)
@@ -121,6 +119,22 @@ class TestStream(MessagingTest, unittest.TestCase):
         buf = io.BytesIO(b'')
         with pytest.raises(pa.ArrowInvalid):
             pa.open_stream(buf)
+
+    def test_categorical_roundtrip(self):
+        df = pd.DataFrame({
+            'one': np.random.randn(5),
+            'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
+                                  categories=['foo', 'bar'],
+                                  ordered=True)
+        })
+        batch = pa.RecordBatch.from_pandas(df)
+        writer = self._get_writer(self.sink, batch.schema)
+        writer.write_batch(pa.RecordBatch.from_pandas(df))
+        writer.close()
+
+        table = (pa.open_stream(pa.BufferReader(self._get_source()))
+                 .read_all())
+        assert_frame_equal(table.to_pandas(), df)
 
     def test_simple_roundtrip(self):
         _, batches = self.write_batches()

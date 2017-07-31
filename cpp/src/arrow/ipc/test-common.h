@@ -462,7 +462,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
 
   auto f0_type = arrow::dictionary(arrow::int32(), dict1);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict1, true);
   auto f2_type = arrow::dictionary(arrow::int32(), dict2);
 
   std::shared_ptr<Array> indices0, indices1, indices2;

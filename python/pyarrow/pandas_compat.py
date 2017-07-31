@@ -284,9 +284,10 @@ def table_to_blockmanager(table, nthreads=1):
         block_arr = item['block']
         placement = item['placement']
         if 'dictionary' in item:
+            ordered = block_table.schema[placement[0]].type.ordered
             cat = pd.Categorical(block_arr,
                                  categories=item['dictionary'],
-                                 ordered=False, fastpath=True)
+                                 ordered=ordered, fastpath=True)
             block = _int.make_block(cat, placement=placement,
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)

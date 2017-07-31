@@ -1881,15 +1881,18 @@ TEST(TestDictionary, Basics) {
 
   std::shared_ptr<DictionaryType> type1 =
       std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
-  DictionaryType type2(int16(), dict);
+
+  auto type2 =
+      std::dynamic_pointer_cast<DictionaryType>(::arrow::dictionary(int16(), dict, true));
 
   ASSERT_TRUE(int16()->Equals(type1->index_type()));
   ASSERT_TRUE(type1->dictionary()->Equals(dict));
 
-  ASSERT_TRUE(int16()->Equals(type2.index_type()));
-  ASSERT_TRUE(type2.dictionary()->Equals(dict));
+  ASSERT_TRUE(int16()->Equals(type2->index_type()));
+  ASSERT_TRUE(type2->dictionary()->Equals(dict));
 
-  ASSERT_EQ("dictionary<values=int32, indices=int16>", type1->ToString());
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=1>", type2->ToString());
 }
 
 TEST(TestDictionary, Equals) {

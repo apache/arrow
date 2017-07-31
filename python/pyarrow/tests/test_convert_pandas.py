@@ -536,6 +536,9 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
                            'cat_ints': pd.Categorical(v2 * repeats),
                            'cat_binary': pd.Categorical(v3 * repeats),
+                           'cat_strings_ordered': pd.Categorical(
+                               v1 * repeats, categories=['bar', 'qux', 'foo'],
+                               ordered=True),
                            'ints': v2 * repeats,
                            'ints2': v2 * repeats,
                            'strings': v1 * repeats,
