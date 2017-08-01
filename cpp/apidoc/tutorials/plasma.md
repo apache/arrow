@@ -61,7 +61,7 @@ The Plasma store will instead run silently in the background. To stop running
 the Plasma store in this case, issue the command below:
 
 ```shell
-killall plasma_store &
+killall plasma_store
 ```
 
 Creating a Plasma client
