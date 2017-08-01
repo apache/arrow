@@ -18,16 +18,23 @@
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.vector cimport vector as c_vector
 from cpython.ref cimport PyObject
+from cython.operator cimport dereference as deref
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status
 
-cdef extern from "arrow/python/python_to_arrow.h" nogil:
+cdef extern from "arrow/python/python_to_arrow.h":
 
     cdef CStatus SerializeSequences(c_vector[PyObject*] sequences,
         int32_t recursion_depth, shared_ptr[CArray]* array_out,
         c_vector[PyObject*]& tensors_out)
 
     cdef shared_ptr[CRecordBatch] MakeBatch(shared_ptr[CArray] data)
+
+cdef extern from "arrow/python/arrow_to_python.h":
+
+    cdef CStatus DeserializeList(shared_ptr[CArray] array, int32_t start_idx,
+        int32_t stop_idx, PyObject* base,
+        const c_vector[shared_ptr[CTensor]]& tensors, PyObject** out)
 
 cdef class PythonObject:
 
@@ -54,3 +61,9 @@ def serialize_sequence(object value):
         check_status(NdarrayToTensor(c_default_memory_pool(), <object> tensor, &out))
         result.tensors.push_back(out)
     return result
+
+# Main entry point for deserialization
+def deserialize_sequence(PythonObject value, object base):
+    cdef PyObject* result
+    check_status(DeserializeList(deref(value.batch).column(0), 0, deref(value.batch).num_rows(), <PyObject*> base, value.tensors, &result))
+    return <object> result
