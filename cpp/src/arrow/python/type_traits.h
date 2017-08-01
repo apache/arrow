@@ -30,6 +30,7 @@
 
 namespace arrow {
 namespace py {
+namespace internal {
 
 template <int TYPE>
 struct npy_traits {};
@@ -227,7 +228,7 @@ struct arrow_traits<Type::BINARY> {
   static constexpr bool supports_nulls = true;
 };
 
-static inline int numpy_type_size(int npy_type) {
+static inline int NumPyTypeSize(int npy_type) {
   switch (npy_type) {
     case NPY_BOOL:
       return 1;
@@ -272,5 +273,6 @@ static inline int numpy_type_size(int npy_type) {
   return -1;
 }
 
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow

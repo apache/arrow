@@ -162,7 +162,8 @@ class ARROW_EXPORT DataType {
   DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
-typedef std::shared_ptr<DataType> TypePtr;
+// TODO(wesm): Remove this from parquet-cpp
+using TypePtr = std::shared_ptr<DataType>;
 
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
@@ -241,7 +242,7 @@ class ARROW_EXPORT Field {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-typedef std::shared_ptr<Field> FieldPtr;
+namespace detail {
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
@@ -260,6 +261,13 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
+template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
+  bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
+};
+
+}  // namespace detail
+
 class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::NA;
@@ -272,11 +280,6 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   static std::string name() { return "null"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
-};
-
-template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
-  bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
 class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
@@ -292,65 +295,70 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   static std::string name() { return "bool"; }
 };
 
-class ARROW_EXPORT UInt8Type : public IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
+class ARROW_EXPORT UInt8Type
+    : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
   static std::string name() { return "uint8"; }
 };
 
-class ARROW_EXPORT Int8Type : public IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
+class ARROW_EXPORT Int8Type
+    : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
   static std::string name() { return "int8"; }
 };
 
 class ARROW_EXPORT UInt16Type
-    : public IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
+    : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
   static std::string name() { return "uint16"; }
 };
 
-class ARROW_EXPORT Int16Type : public IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
+class ARROW_EXPORT Int16Type
+    : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
   static std::string name() { return "int16"; }
 };
 
 class ARROW_EXPORT UInt32Type
-    : public IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
+    : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
   static std::string name() { return "uint32"; }
 };
 
-class ARROW_EXPORT Int32Type : public IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
+class ARROW_EXPORT Int32Type
+    : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
   static std::string name() { return "int32"; }
 };
 
 class ARROW_EXPORT UInt64Type
-    : public IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
+    : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
   static std::string name() { return "uint64"; }
 };
 
-class ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
+class ARROW_EXPORT Int64Type
+    : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
   static std::string name() { return "int64"; }
 };
 
 class ARROW_EXPORT HalfFloatType
-    : public CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
 class ARROW_EXPORT FloatType
-    : public CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
 class ARROW_EXPORT DoubleType
-    : public CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   static std::string name() { return "double"; }

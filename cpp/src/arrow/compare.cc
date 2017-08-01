@@ -38,6 +38,8 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Public method implementations
 
+namespace internal {
+
 class RangeEqualsVisitor {
  public:
   RangeEqualsVisitor(const Array& right, int64_t left_start_idx, int64_t left_end_idx,
@@ -673,63 +675,6 @@ inline Status ArrayEqualsImpl(const Array& left, const Array& right, bool* are_e
   return Status::OK();
 }
 
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
-  return ArrayEqualsImpl<ArrayEqualsVisitor>(left, right, are_equal);
-}
-
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
-  return ArrayEqualsImpl<ApproxEqualsVisitor>(left, right, are_equal);
-}
-
-Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
-                        int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
-  if (&left == &right) {
-    *are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
-  } else if (left.length() == 0) {
-    *are_equal = true;
-  } else {
-    RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx, right_start_idx);
-    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
-    *are_equal = visitor.result();
-  }
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// Implement TensorEquals
-
-Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
-  // The arrays are the same object
-  if (&left == &right) {
-    *are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
-  } else if (left.size() == 0) {
-    *are_equal = true;
-  } else {
-    if (!left.is_contiguous() || !right.is_contiguous()) {
-      return Status::NotImplemented(
-          "Comparison not implemented for non-contiguous tensors");
-    }
-
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / 8;
-    DCHECK_GT(byte_width, 0);
-
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right.data()->data();
-
-    *are_equal =
-        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
-  }
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// Implement TypeEquals
-
 class TypeEqualsVisitor {
  public:
   explicit TypeEqualsVisitor(const DataType& right) : right_(right), result_(false) {}
@@ -835,6 +780,60 @@ class TypeEqualsVisitor {
   bool result_;
 };
 
+}  // namespace internal
+
+Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
+  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, are_equal);
+}
+
+Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, are_equal);
+}
+
+Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
+                        int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
+  if (&left == &right) {
+    *are_equal = true;
+  } else if (left.type_id() != right.type_id()) {
+    *are_equal = false;
+  } else if (left.length() == 0) {
+    *are_equal = true;
+  } else {
+    internal::RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx,
+                                         right_start_idx);
+    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
+    *are_equal = visitor.result();
+  }
+  return Status::OK();
+}
+
+Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
+  // The arrays are the same object
+  if (&left == &right) {
+    *are_equal = true;
+  } else if (left.type_id() != right.type_id()) {
+    *are_equal = false;
+  } else if (left.size() == 0) {
+    *are_equal = true;
+  } else {
+    if (!left.is_contiguous() || !right.is_contiguous()) {
+      return Status::NotImplemented(
+          "Comparison not implemented for non-contiguous tensors");
+    }
+
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int byte_width = size_meta.bit_width() / 8;
+    DCHECK_GT(byte_width, 0);
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right.data()->data();
+
+    *are_equal =
+        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
+  }
+  return Status::OK();
+}
+
 Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
@@ -842,7 +841,7 @@ Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) 
   } else if (left.id() != right.id()) {
     *are_equal = false;
   } else {
-    TypeEqualsVisitor visitor(right);
+    internal::TypeEqualsVisitor visitor(right);
     RETURN_NOT_OK(VisitTypeInline(left, &visitor));
     *are_equal = visitor.result();
   }

@@ -84,7 +84,7 @@ class TestHadoopFileSystem : public ::testing::Test {
 
   // Set up shared state between unit tests
   void SetUp() {
-    LibHdfsShim* driver_shim;
+    internal::LibHdfsShim* driver_shim;
 
     client_ = nullptr;
     scratch_dir_ =

@@ -527,6 +527,8 @@ Status Array::Accept(ArrayVisitor* visitor) const {
 // ----------------------------------------------------------------------
 // Implement Array::Validate as inline visitor
 
+namespace internal {
+
 struct ValidateVisitor {
   Status Visit(const NullArray& array) { return Status::OK(); }
 
@@ -658,8 +660,10 @@ struct ValidateVisitor {
   }
 };
 
+}  // namespace internal
+
 Status ValidateArray(const Array& array) {
-  ValidateVisitor validate_visitor;
+  internal::ValidateVisitor validate_visitor;
   return VisitArrayInline(array, &validate_visitor);
 }
 

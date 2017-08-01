@@ -37,6 +37,10 @@
 
 namespace arrow {
 
+using internal::AdaptiveIntBuilderBase;
+using internal::ArrayData;
+using internal::WrappedBinary;
+
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
     // If the capacity was not already a multiple of 2, do so here
@@ -338,7 +342,7 @@ Status AdaptiveIntBuilder::Append(const int64_t* values, int64_t length,
       uint8_t new_int_size = int_size_;
       for (int64_t i = 0; i < length; i++) {
         if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = expanded_int_size(values[i], new_int_size);
+          new_int_size = internal::ExpandedIntSize(values[i], new_int_size);
         }
       }
       if (new_int_size != int_size_) {
@@ -495,7 +499,7 @@ Status AdaptiveUIntBuilder::Append(const uint64_t* values, int64_t length,
       uint8_t new_int_size = int_size_;
       for (int64_t i = 0; i < length; i++) {
         if (valid_bytes == nullptr || valid_bytes[i]) {
-          new_int_size = expanded_uint_size(values[i], new_int_size);
+          new_int_size = internal::ExpandedUIntSize(values[i], new_int_size);
         }
       }
       if (new_int_size != int_size_) {
@@ -861,48 +865,47 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   return dict_builder_.Append(value);
 }
 
-#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                        \
-  template <>                                                                          \
-  internal::WrappedBinary DictionaryBuilder<Type>::GetDictionaryValue(int64_t index) { \
-    int32_t v_len;                                                                     \
-    const uint8_t* v = dict_builder_.GetValue(static_cast<int64_t>(index), &v_len);    \
-    return internal::WrappedBinary(v, v_len);                                          \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendDictionary(                                    \
-      const internal::WrappedBinary& value) {                                          \
-    return dict_builder_.Append(value.ptr_, value.length_);                            \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                    \
-    const BinaryArray& binary_array = static_cast<const BinaryArray&>(array);          \
-    internal::WrappedBinary value(nullptr, 0);                                         \
-    for (int64_t i = 0; i < array.length(); i++) {                                     \
-      if (array.IsNull(i)) {                                                           \
-        RETURN_NOT_OK(AppendNull());                                                   \
-      } else {                                                                         \
-        value.ptr_ = binary_array.GetValue(i, &value.length_);                         \
-        RETURN_NOT_OK(Append(value));                                                  \
-      }                                                                                \
-    }                                                                                  \
-    return Status::OK();                                                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  int DictionaryBuilder<Type>::HashValue(const internal::WrappedBinary& value) {       \
-    return HashUtil::Hash(value.ptr_, value.length_, 0);                               \
-  }                                                                                    \
-                                                                                       \
-  template <>                                                                          \
-  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                       \
-                                              const internal::WrappedBinary& value) {  \
-    int32_t other_length;                                                              \
-    const uint8_t* other_value =                                                       \
-        dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);            \
-    return !(other_length == value.length_ &&                                          \
-             0 == memcmp(other_value, value.ptr_, value.length_));                     \
+#define BINARY_DICTIONARY_SPECIALIZATIONS(Type)                                     \
+  template <>                                                                       \
+  WrappedBinary DictionaryBuilder<Type>::GetDictionaryValue(int64_t index) {        \
+    int32_t v_len;                                                                  \
+    const uint8_t* v = dict_builder_.GetValue(static_cast<int64_t>(index), &v_len); \
+    return WrappedBinary(v, v_len);                                                 \
+  }                                                                                 \
+                                                                                    \
+  template <>                                                                       \
+  Status DictionaryBuilder<Type>::AppendDictionary(const WrappedBinary& value) {    \
+    return dict_builder_.Append(value.ptr_, value.length_);                         \
+  }                                                                                 \
+                                                                                    \
+  template <>                                                                       \
+  Status DictionaryBuilder<Type>::AppendArray(const Array& array) {                 \
+    const BinaryArray& binary_array = static_cast<const BinaryArray&>(array);       \
+    WrappedBinary value(nullptr, 0);                                                \
+    for (int64_t i = 0; i < array.length(); i++) {                                  \
+      if (array.IsNull(i)) {                                                        \
+        RETURN_NOT_OK(AppendNull());                                                \
+      } else {                                                                      \
+        value.ptr_ = binary_array.GetValue(i, &value.length_);                      \
+        RETURN_NOT_OK(Append(value));                                               \
+      }                                                                             \
+    }                                                                               \
+    return Status::OK();                                                            \
+  }                                                                                 \
+                                                                                    \
+  template <>                                                                       \
+  int DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {              \
+    return HashUtil::Hash(value.ptr_, value.length_, 0);                            \
+  }                                                                                 \
+                                                                                    \
+  template <>                                                                       \
+  bool DictionaryBuilder<Type>::SlotDifferent(hash_slot_t index,                    \
+                                              const WrappedBinary& value) {         \
+    int32_t other_length;                                                           \
+    const uint8_t* other_value =                                                    \
+        dict_builder_.GetValue(static_cast<int64_t>(index), &other_length);         \
+    return !(other_length == value.length_ &&                                       \
+             0 == memcmp(other_value, value.ptr_, value.length_));                  \
   }
 
 BINARY_DICTIONARY_SPECIALIZATIONS(StringType);
@@ -1132,7 +1135,7 @@ Status BinaryBuilder::AppendNull() {
   return Status::OK();
 }
 
-Status BinaryBuilder::FinishInternal(std::shared_ptr<internal::ArrayData>* out) {
+Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   // Write final offset (values length)
   RETURN_NOT_OK(AppendNextOffset());
   std::shared_ptr<Buffer> offsets, value_data;
@@ -1141,13 +1144,12 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<internal::ArrayData>* out) 
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
 
   BufferVector buffers = {null_bitmap_, offsets, value_data};
-  *out = std::make_shared<internal::ArrayData>(type_, length_, std::move(buffers),
-                                               null_count_, 0);
+  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_, 0);
   return Status::OK();
 }
 
 Status BinaryBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<internal::ArrayData> data;
+  std::shared_ptr<ArrayData> data;
   RETURN_NOT_OK(FinishInternal(&data));
   *out = std::make_shared<BinaryArray>(data);
   Reset();
@@ -1174,7 +1176,7 @@ const uint8_t* BinaryBuilder::GetValue(int64_t i, int32_t* out_length) const {
 StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(pool, utf8()) {}
 
 Status StringBuilder::Finish(std::shared_ptr<Array>* out) {
-  std::shared_ptr<internal::ArrayData> data;
+  std::shared_ptr<ArrayData> data;
   RETURN_NOT_OK(FinishInternal(&data));
   *out = std::make_shared<StringArray>(data);
   Reset();
@@ -1299,7 +1301,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::STRUCT: {
-      const std::vector<FieldPtr>& fields = type->children();
+      const std::vector<std::shared_ptr<Field>>& fields = type->children();
       std::vector<std::unique_ptr<ArrayBuilder>> values_builder;
 
       for (auto it : fields) {
