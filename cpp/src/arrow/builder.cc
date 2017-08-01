@@ -1355,8 +1355,8 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     RETURN_NOT_OK(builder->Finish(out));                                   \
     return Status::OK();
 
-Status MakeDictionaryArray(MemoryPool* pool, const Array& input,
-                           std::shared_ptr<Array>* out) {
+Status EncodeDictionary(const Array& input, MemoryPool* pool,
+                        std::shared_ptr<Array>* out) {
   const std::shared_ptr<DataType>& type = input.data()->type;
   std::shared_ptr<ArrayBuilder> builder;
   switch (type->id()) {

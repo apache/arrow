@@ -847,8 +847,13 @@ Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
                                           const std::shared_ptr<DataType>& type,
                                           std::shared_ptr<ArrayBuilder>* out);
 
-Status ARROW_EXPORT MakeDictionaryArray(MemoryPool* pool, const Array& input,
-                                        std::shared_ptr<Array>* out);
+/// \brief Encodes a given Array using a hash table
+///
+/// \param[in] input The Array to be encoded
+/// \param[in] pool MemoryPool to allocate memory for the hash table
+/// \param[out] out Array encoded to dictionaries
+Status ARROW_EXPORT EncodeDictionary(const Array& input, MemoryPool* pool,
+                                     std::shared_ptr<Array>* out);
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_
