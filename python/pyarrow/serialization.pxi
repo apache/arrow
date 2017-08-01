@@ -38,7 +38,8 @@ cdef class PythonObject:
     def __cinit__(self):
         pass
 
-def serialize_list(object value):
+# Main entry point for serialization
+def serialize_sequence(object value):
     cdef int32_t recursion_depth = 0
     cdef PythonObject result = PythonObject()
     cdef c_vector[PyObject*] sequences
