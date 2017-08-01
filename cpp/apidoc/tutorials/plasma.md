@@ -18,11 +18,13 @@ Using the Plasma In-Memory Object Store from C++
 Apache Arrow offers the ability to share your data structures among multiple
 processes simultaneously through Plasma, an in-memory object store.
 
-Plasma object stores can be local, as in being on the same node, or remote.
-Plasma can communicate between local and remote object stores to share
-objects between nodes as well.
+Note that **the Plasma API is not stable**.
 
-Like in Apache Arrow, Plasma objects are immutable.
+Plasma clients are processes that run on the same machine as the object store.
+They communicate with the object store over Unix domain sockets, and they read
+and write data in the object store through shared memory.
+
+Plasma objects are immutable once they have been created.
 
 The following goes over the basics so you can begin using Plasma in your big
 data applications.
@@ -33,45 +35,44 @@ Starting the Plasma store
 To start running the Plasma object store so that clients may
 connect and access the data, run the following command:
 
-```
+```shell
 plasma_store -m 1000000000 -s /tmp/plasma
 ```
 
-This command takes in two flags -- the `-m` flag specifies
-the size of the object store in bytes, and the `-s` flag specifies the path of
-the UNIX domain socket that the store will listen at.
+The `-m` flag specifies the size of the object store in bytes. The `-s` flag
+specifies the path of the Unix domain socket that the store will listen at.
 
-Therefore, the above command initializes a Plasma store up to 1 GB of memory, and
-sets the socket to `/tmp/plasma.`
+Therefore, the above command initializes a Plasma store up to 1 GB of memory
+and sets the socket to `/tmp/plasma.`
 
 The Plasma store will remain available as long as the `plasma_store` process is
-running in a terminal window. Messages, such as alerts for disconnecting clients,
-may occasionally be outputted. To stop running the Plasma store, you can press
-`CTRL-C` in the terminal window.
+running in a terminal window. Messages, such as alerts for disconnecting
+clients, may occasionally be output. To stop running the Plasma store, you
+can press `Ctrl-C` in the terminal window.
 
 Alternatively, you can run the Plasma store in the background and ignore all
 message output with the following terminal command:
 
-```
+```shell
 plasma_store -m 1000000000 -s /tmp/plasma 1> /dev/null 2> /dev/null &
 ```
 
-The Plasma store will instead run silently in the background. To stop running the Plasma store in this case, issue the below terminal command:
+The Plasma store will instead run silently in the background. To stop running
+the Plasma store in this case, issue the command below:
 
-```
+```shell
 killall plasma_store &
 ```
 
 Creating a Plasma client
 ------------------------
 
-Now that the Plasma object store is up and running, it is time to make client
-processes (such as an instance of your C++ program) connect to it. To use the
-Plasma object store as a client, your application should initialize a
-`plasma::PlasmaClient` object and tell it to connect to socket specified when
-starting up the Plasma object store.
+Now that the Plasma object store is up and running, it is time to make a client
+process connect to it. To use the Plasma object store as a client, your
+application should initialize a `plasma::PlasmaClient` object and tell it to
+connect to the socket specified when starting up the Plasma object store.
 
-```
+```cpp
 #include <plasma/client.h>
 
 using namespace plasma;
@@ -87,12 +88,13 @@ int main(int argc, char** argv) {
 
 Save this program in a file `test.cc` and compile it with
 
-```
+```shell
 g++ test.cc `pkg-config --cflags --libs plasma` --std=c++11
 ```
 
-Note that multiple clients can be created within the same process, and
-clients can be created among multiple concurrent processes.
+Note that multiple clients can be created within the same process.
+
+Note that a `PlasmaClient` object is **not thread safe**.
 
 If the Plasma store is still running, you can now execute the `a.out` executable
 and the store will print something like
@@ -106,14 +108,14 @@ which shows that the client was successfully disconnected.
 Object IDs
 ----------
 
-The Plasma object store uses SHA-1 identifiers for accessing objects stored
-in shared memory. Each object in the Plasma store should be associated
-with a unique id. The Object ID then serves as a key for *any* client to fetch
-that object from the Plasma store.
+The Plasma object store uses twenty-byte identifiers for accessing objects
+stored in shared memory. Each object in the Plasma store should be associated
+with a unique ID. The Object ID is then a key that can be used by **any** client
+to fetch that object from the Plasma store.
 
-Random generation of Object IDs is often good enough to ensure unique ids:
+Random generation of Object IDs is often good enough to ensure unique IDs:
 
-```
+```cpp
 // Randomly generate an Object ID.
 ObjectID object_id = ObjectID::from_random();
 ```
@@ -123,7 +125,7 @@ same object from the Plasma object store. For easy transportation of Object IDs,
 you can convert/serialize an Object ID into a binary string and back as
 follows:
 
-```
+```cpp
 // From ObjectID to binary string
 std:string id_string = object_id.binary();
 
@@ -136,7 +138,7 @@ format that git uses for commit hashes by running `ObjectID::hex`.
 
 Here is a test program you can run:
 
-```
+```cpp
 #include <iostream>
 #include <string>
 #include <plasma/client.h>
@@ -157,27 +159,30 @@ Creating an Object
 ------------------
 
 Now that you learned about Object IDs that are used to refer to objects,
-let's look into how objects can be stored in Plasma.
+let's look at how objects can be stored in Plasma.
 
-Storing objects is a two-stage process. First, an object is *created*, in
-which you specify a pointer for which the object's data and contents will be
-constructed from. At this point, the client can still modify the contents
-of the data array.
+Storing objects is a two-stage process. First a buffer is allocated with a call
+to `Create`. Then it can be constructed in place by the client. Then it is made
+immutable and shared with other clients via a call to `Seal`.
 
-To create an object for Plasma, you need to create an object id, as well as
-give the object's maximum data size in bytes.
+The `Create` call blocks while the Plasma store allocates a buffer of the
+appropriate size. The client will then map the buffer into its own address
+space. At this point the object can be constructed in place using a pointer that
+was written by the `Create` command.
 
-```
-// Create the Plasma object by specifying its size.
+```cpp
 int64_t data_size = 100;
+// The address of the buffer allocated by the Plasma store will be written at
+// this address.
 uint8_t* data;
+// Create a Plasma object by specifying its ID and size.
 ARROW_CHECK_OK(client.Create(object_id, data_size, NULL, 0, &data));
 ```
 
 You can also specify metadata for the object; the third argument is the
-metadata (as raw bytes) and the forth argument is the size of the metadata.
+metadata (as raw bytes) and the fourth argument is the size of the metadata.
 
-```
+```cpp
 // Create a Plasma object without metadata.
 int64_t data_size = 100;
 std::string metadata = "{'author': 'john'}";
@@ -185,27 +190,27 @@ uint8_t* data;
 client.Create(object_id, data_size, (uint8_t*) metadata.data(), metadata.size(), &data);
 ```
 
-Now that we've specified the pointer to our object's data, we can
+Now that we've obtained a pointer to our object's data, we can
 write our data to it:
 
-```
+```cpp
 // Write some data for the Plasma object.
 for (int64_t i = 0; i < data_size; i++) {
     data[i] = static_cast<uint8_t>(i % 4);
 }
 ```
 
-When the client is done, the client *seals* the buffer, making the object
+When the client is done, the client **seals** the buffer, making the object
 immutable, and making it available to other Plasma clients:
 
-```
+```cpp
 // Seal the object. This makes it available for all clients.
 client.Seal(object_id);
 ```
 
 Here is an example that combines all these features:
 
-```
+```cpp
 #include <plasma/client.h>
 
 using namespace plasma;
@@ -232,7 +237,8 @@ int main(int argc, char** argv) {
 ```
 
 This example can be compiled with
-```
+
+```shell
 g++ create.cc `pkg-config --cflags --libs plasma` --std=c++11 -o create
 ```
 
@@ -242,7 +248,7 @@ been created and sealed for a given Object ID. Note that this function
 will still return False if the object has been created, but not yet
 sealed:
 
-```
+```cpp
 // Check if an object has been created and sealed.
 bool has_object;
 client.Contains(object_id, &has_object);
@@ -258,7 +264,7 @@ After an object has been sealed, any client who knows the Object ID can get
 the object. To store the retrieved object contents, you should create an
 `ObjectBuffer`, then call `PlasmaClient::Get()` as follows:
 
-```
+```cpp
 // Get from the Plasma store by Object ID.
 ObjectBuffer object_buffer;
 client.Get(&object_id, 1, -1, &object_buffer);
@@ -269,7 +275,7 @@ from the Plasma store at once. You can specify an array of Object IDs and
 `ObjectBuffers` to fetch at once, so long as you also specify the
 number of objects being fetched:
 
-```
+```cpp
 // Get two objects at once from the Plasma store. This function
 // call will block until both objects have been fetched.
 ObjectBuffer multiple_buffers[2];
@@ -283,7 +289,7 @@ when trying to fetch from the Plasma store. You can pass in a timeout
 in milliseconds when calling `PlasmaClient::Get().` To use `PlasmaClient::Get()`
 without a timeout, just pass in -1 like in the previous example calls:
 
-```
+```cpp
 // Make the function call give up fetching the object if it takes
 // more than 100 milliseconds.
 int64_t timeout = 100;
@@ -294,7 +300,7 @@ Finally, to access the object, you can access the `data` and
 `metadata` attributes of the `ObjectBuffer`. The `data` can be indexed
 like any array:
 
-```
+```cpp
 // Access object data.
 uint8_t* data = object_buffer.data;
 int64_t data_size = object_buffer.data_size;
@@ -309,7 +315,7 @@ uint8_t first_data_byte = data[0];
 
 Here is a longer example that shows these capabilities:
 
-```
+```cpp
 #include <plasma/client.h>
 
 using namespace plasma;
@@ -338,7 +344,7 @@ int main(int argc, char** argv) {
 
 If you compile it with
 
-```
+```shell
 g++ get.cc `pkg-config --cflags --libs plasma` --std=c++11 -o get
 ```
 
@@ -353,16 +359,17 @@ The Plasma store internally does reference counting to make sure objects that
 are mapped into the address space of one of the clients with `PlasmaClient::Get`
 are accessible. To unmap objects from a client, call `PlasmaClient::Release`.
 All objects that are mapped into a clients address space will automatically
-be released when the client is disconnected from the store.
+be released when the client is disconnected from the store (this happens even
+if the client process crashes or otherwise fails to call `Disconnect`).
 
 If a new object is created and there is not enough space in the Plasma store,
-the store will evict the least recently used released object. If all objects
-are mapped into the address space of some client, the
+the store will evict the least recently used object (an object is in use if at
+least one client has gotten it but not released it).
 
 Object notifications
 --------------------
 
-Additionally, you can arrange Plasma to notify you when objects are
+Additionally, you can arrange to have Plasma notify you when objects are
 sealed in the object store. This may especially be handy when your
 program is collaborating with other Plasma clients, and needs to know
 when they make objects available.
@@ -370,7 +377,7 @@ when they make objects available.
 First, you can subscribe your current Plasma client to such notifications
 by getting a file descriptor:
 
-```
+```cpp
 // Start receiving notifications into file_descriptor.
 int fd;
 ARROW_CHECK_OK(client.Subscribe(&fd));
@@ -381,7 +388,7 @@ wait to receive the next object notification. Object notifications
 include information such as Object ID, data size, and metadata size of
 the next newly available object:
 
-```
+```cpp
 // Receive notification of the next newly available object.
 // Notification information is stored in object_id, data_size, and metadata_size
 ObjectID new_object_id;
@@ -389,14 +396,14 @@ int64_t data_size;
 int64_t metadata_size;
 ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
 
-// Fetch the newly available object.
+// Get the newly available object.
 ObjectBuffer object_buffer;
 ARROW_CHECK_OK(client.Get(&object_id, 1, -1, &object_buffer));
 ```
 
 Here is a full program that shows this capability:
 
-```
+```cpp
 #include <plasma/client.h>
 
 using namespace plasma;
@@ -427,7 +434,7 @@ int main(int argc, char** argv) {
 
 If you compile it with
 
-```
+```shell
 g++ subscribe.cc `pkg-config --cflags --libs plasma` --std=c++11 -o subscribe
 ```
 
