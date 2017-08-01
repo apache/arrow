@@ -36,8 +36,8 @@ AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([ext], [mandatory])
 LT_INIT
 
-GARROW_CFLAGS="-Wall -Wconversion"
-GARROW_CXXFLAGS="-Wall -Wconversion"
+GARROW_CFLAGS="-Wall -Wconversion ${ARROW_C_GLIB_CFLAGS}"
+GARROW_CXXFLAGS="-Wall -Wconversion ${ARROW_C_GLIB_CXXFLAGS}"
 AC_ARG_ENABLE(debug,
   [AS_HELP_STRING([--enable-debug],
                   [Use debug flags (default=no)])],
@@ -79,6 +79,7 @@ else
   ARROW_LIB_DIR="${GARROW_ARROW_CPP_BUILD_DIR}/${GARROW_ARROW_CPP_BUILD_TYPE}"
 
   ARROW_CFLAGS="-I${ARROW_INCLUDE_DIR}"
+
   ARROW_LIBS="-L${ARROW_LIB_DIR} -larrow"
 
   AC_SUBST(ARROW_LIB_DIR)
