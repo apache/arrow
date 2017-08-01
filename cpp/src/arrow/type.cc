@@ -236,7 +236,7 @@ std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; 
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
   ss << "dictionary<values=" << dictionary_->type()->ToString()
-     << ", indices=" << index_type_->ToString() << ">";
+     << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
 }
 
@@ -428,8 +428,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<Array>& dict_values) {
-  return std::make_shared<DictionaryType>(index_type, dict_values);
+                                     const std::shared_ptr<Array>& dict_values,
+                                     bool ordered) {
+  return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
 }
 
 std::shared_ptr<Field> field(const std::string& name,

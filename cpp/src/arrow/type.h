@@ -785,8 +785,9 @@ std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
        const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
-std::shared_ptr<DataType> ARROW_EXPORT dictionary(
-    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
+std::shared_ptr<DataType> ARROW_EXPORT
+dictionary(const std::shared_ptr<DataType>& index_type,
+           const std::shared_ptr<Array>& values, bool ordered = false);
 
 std::shared_ptr<Field> ARROW_EXPORT field(
     const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,

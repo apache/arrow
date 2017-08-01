@@ -769,7 +769,8 @@ class TypeEqualsVisitor {
   Status Visit(const DictionaryType& left) {
     const auto& right = static_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
-              left.dictionary()->Equals(right.dictionary());
+              left.dictionary()->Equals(right.dictionary()) &&
+              (left.ordered() == right.ordered());
     return Status::OK();
   }
 

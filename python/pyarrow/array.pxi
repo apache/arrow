@@ -189,7 +189,8 @@ cdef class Array:
         if isinstance(values, Categorical):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
-                mask=mask, memory_pool=memory_pool)
+                mask=mask, ordered=values.ordered,
+                memory_pool=memory_pool)
         elif values.dtype == object:
             # Object dtype undergoes a different conversion path as more type
             # inference may be needed
@@ -564,7 +565,7 @@ cdef class DictionaryArray(Array):
             return self._indices
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None,
+    def from_arrays(indices, dictionary, mask=None, ordered=False,
                     MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
@@ -576,6 +577,8 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        ordered : boolean, default False
+            Set to True if the category values are ordered
 
         Returns
         -------
@@ -609,8 +612,10 @@ cdef class DictionaryArray(Array):
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
+        cdef c_bool c_ordered = ordered
+
         c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array))
+                                         arrow_dictionary.sp_array, c_ordered))
         c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
 
         result = DictionaryArray()

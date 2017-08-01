@@ -97,6 +97,11 @@ cdef class DictionaryType(DataType):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
+    property ordered:
+
+        def __get__(self):
+            return self.dict_type.ordered()
+
 
 cdef class ListType(DataType):
 
@@ -798,7 +803,8 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dictionary):
+cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
+                                bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
 
@@ -814,7 +820,8 @@ cpdef DictionaryType dictionary(DataType index_type, Array dictionary):
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dictionary.sp_array))
+                                        dictionary.sp_array,
+                                        ordered == 1))
     out.init(dict_type)
     return out
 

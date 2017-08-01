@@ -132,10 +132,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
-                        const shared_ptr[CArray]& dictionary)
+                        const shared_ptr[CArray]& dictionary,
+                        c_bool ordered)
 
         shared_ptr[CDataType] index_type()
         shared_ptr[CArray] dictionary()
+        c_bool ordered()
 
     shared_ptr[CDataType] ctimestamp" arrow::timestamp"(TimeUnit unit)
     shared_ptr[CDataType] ctimestamp" arrow::timestamp"(
