@@ -38,7 +38,7 @@ namespace py {
 bool is_contiguous(PyObject* array) {
   if (PyArray_Check(array)) {
     return (PyArray_FLAGS(reinterpret_cast<PyArrayObject*>(array)) &
-               (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
+            (NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_F_CONTIGUOUS)) != 0;
   } else {
     return false;
   }
@@ -49,8 +49,12 @@ int cast_npy_type_compat(int type_num) {
 // U/LONGLONG to U/INT64 so things work properly.
 
 #if (NPY_INT64 == NPY_LONGLONG) && (NPY_SIZEOF_LONGLONG == 8)
-  if (type_num == NPY_LONGLONG) { type_num = NPY_INT64; }
-  if (type_num == NPY_ULONGLONG) { type_num = NPY_UINT64; }
+  if (type_num == NPY_LONGLONG) {
+    type_num = NPY_INT64;
+  }
+  if (type_num == NPY_ULONGLONG) {
+    type_num = NPY_UINT64;
+  }
 #endif
 
   return type_num;
@@ -66,13 +70,13 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
     size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
     capacity_ = size_;
 
-    if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) { is_mutable_ = true; }
+    if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) {
+      is_mutable_ = true;
+    }
   }
 }
 
-NumPyBuffer::~NumPyBuffer() {
-  Py_XDECREF(arr_);
-}
+NumPyBuffer::~NumPyBuffer() { Py_XDECREF(arr_); }
 
 #define TO_ARROW_TYPE_CASE(NPY_NAME, FACTORY) \
   case NPY_##NPY_NAME:                        \
@@ -198,7 +202,9 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
 #undef TO_ARROW_TYPE_CASE
 
 Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* out) {
-  if (!PyArray_Check(ao)) { return Status::TypeError("Did not pass ndarray object"); }
+  if (!PyArray_Check(ao)) {
+    return Status::TypeError("Did not pass ndarray object");
+  }
 
   PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
 
@@ -242,18 +248,27 @@ Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
   }
 
   const void* immutable_data = nullptr;
-  if (tensor.data()) { immutable_data = tensor.data()->data(); }
+  if (tensor.data()) {
+    immutable_data = tensor.data()->data();
+  }
 
   // Remove const =(
   void* mutable_data = const_cast<void*>(immutable_data);
 
   int array_flags = 0;
-  if (tensor.is_row_major()) { array_flags |= NPY_ARRAY_C_CONTIGUOUS; }
-  if (tensor.is_column_major()) { array_flags |= NPY_ARRAY_F_CONTIGUOUS; }
-  if (tensor.is_mutable()) { array_flags |= NPY_ARRAY_WRITEABLE; }
+  if (tensor.is_row_major()) {
+    array_flags |= NPY_ARRAY_C_CONTIGUOUS;
+  }
+  if (tensor.is_column_major()) {
+    array_flags |= NPY_ARRAY_F_CONTIGUOUS;
+  }
+  if (tensor.is_mutable()) {
+    array_flags |= NPY_ARRAY_WRITEABLE;
+  }
 
-  PyObject* result = PyArray_NewFromDescr(&PyArray_Type, dtype, tensor.ndim(),
-      npy_shape.data(), npy_strides.data(), mutable_data, array_flags, nullptr);
+  PyObject* result =
+      PyArray_NewFromDescr(&PyArray_Type, dtype, tensor.ndim(), npy_shape.data(),
+                           npy_strides.data(), mutable_data, array_flags, nullptr);
   RETURN_IF_PYERROR()
 
   if (base != Py_None) {

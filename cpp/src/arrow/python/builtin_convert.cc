@@ -44,8 +44,8 @@ static inline bool IsPyInteger(PyObject* obj) {
 #endif
 }
 
-Status InvalidConversion(
-    PyObject* obj, const std::string& expected_types, std::ostream* out) {
+Status InvalidConversion(PyObject* obj, const std::string& expected_types,
+                         std::ostream* out) {
   OwnedRef type(PyObject_Type(obj));
   RETURN_IF_PYERROR();
   DCHECK_NE(type.obj(), nullptr);
@@ -161,7 +161,9 @@ class SeqVisitor {
 
   // co-recursive with VisitElem
   Status Visit(PyObject* obj, int level = 0) {
-    if (level > max_nesting_level_) { max_nesting_level_ = level; }
+    if (level > max_nesting_level_) {
+      max_nesting_level_ = level;
+    }
     // Loop through either a sequence or an iterator.
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
@@ -226,7 +228,9 @@ class SeqVisitor {
   int max_observed_level() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
-      if (nesting_histogram_[i] > 0) { result = i; }
+      if (nesting_histogram_[i] > 0) {
+        result = i;
+      }
     }
     return result;
   }
@@ -235,7 +239,9 @@ class SeqVisitor {
   int num_nesting_levels() const {
     int result = 0;
     for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
-      if (nesting_histogram_[i] > 0) { ++result; }
+      if (nesting_histogram_[i] > 0) {
+        ++result;
+      }
     }
     return result;
   }
@@ -300,13 +306,15 @@ Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
   RETURN_NOT_OK(seq_visitor.Validate());
 
   *out_type = seq_visitor.GetType();
-  if (*out_type == nullptr) { return Status::TypeError("Unable to determine data type"); }
+  if (*out_type == nullptr) {
+    return Status::TypeError("Unable to determine data type");
+  }
 
   return Status::OK();
 }
 
-Status InferArrowTypeAndSize(
-    PyObject* obj, int64_t* size, std::shared_ptr<DataType>* out_type) {
+Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
+                             std::shared_ptr<DataType>* out_type) {
   RETURN_NOT_OK(InferArrowSize(obj, size));
 
   // For 0-length sequences, refuse to guess
@@ -372,7 +380,9 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
         RETURN_NOT_OK(static_cast<Derived*>(this)->AppendItem(ref));
         ++i;
       }
-      if (size != i) { RETURN_NOT_OK(this->typed_builder_->Resize(i)); }
+      if (size != i) {
+        RETURN_NOT_OK(this->typed_builder_->Resize(i));
+      }
     } else {
       return Status::TypeError("Object is not a sequence or iterable");
     }
@@ -487,8 +497,9 @@ class FixedWidthBytesConverter
   inline Status AppendItem(const OwnedRef& item) {
     PyObject* bytes_obj;
     OwnedRef tmp;
-    Py_ssize_t expected_length = std::dynamic_pointer_cast<FixedSizeBinaryType>(
-        typed_builder_->type())->byte_width();
+    Py_ssize_t expected_length =
+        std::dynamic_pointer_cast<FixedSizeBinaryType>(typed_builder_->type())
+            ->byte_width();
     if (item.obj() == Py_None) {
       RETURN_NOT_OK(typed_builder_->AppendNull());
       return Status::OK();
@@ -636,7 +647,7 @@ Status ListConverter::Init(ArrayBuilder* builder) {
 }
 
 Status AppendPySequence(PyObject* obj, int64_t size,
-    const std::shared_ptr<DataType>& type, ArrayBuilder* builder) {
+                        const std::shared_ptr<DataType>& type, ArrayBuilder* builder) {
   PyDateTime_IMPORT;
   std::shared_ptr<SeqConverter> converter = GetConverter(type);
   if (converter == nullptr) {
@@ -656,7 +667,7 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 }
 
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-    const std::shared_ptr<DataType>& type, int64_t size) {
+                         const std::shared_ptr<DataType>& type, int64_t size) {
   // Handle NA / NullType case
   if (type->id() == Type::NA) {
     out->reset(new NullArray(size));
@@ -671,7 +682,7 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 }
 
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-    const std::shared_ptr<DataType>& type) {
+                         const std::shared_ptr<DataType>& type) {
   int64_t size;
   RETURN_NOT_OK(InferArrowSize(obj, &size));
   return ConvertPySequence(obj, pool, out, type, size);

@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +33,7 @@ public class TestBitVector {
 
   @Before
   public void init() {
-    allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
+    allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
   @After
@@ -63,4 +65,80 @@ public class TestBitVector {
     }
   }
 
+  @Test
+  public void testSplitAndTransfer() throws Exception {
+
+    try (final BitVector sourceVector = new BitVector("bitvector", allocator)) {
+      final BitVector.Mutator sourceMutator = sourceVector.getMutator();
+      final BitVector.Accessor sourceAccessor = sourceVector.getAccessor();
+
+      sourceVector.allocateNew(40);
+
+      /* populate the bitvector -- 010101010101010101010101..... */
+      for(int i = 0; i < 40; i++) {
+        if((i & 1) ==  1) {
+          sourceMutator.set(i, 1);
+        }
+        else {
+          sourceMutator.set(i, 0);
+        }
+      }
+
+      sourceMutator.setValueCount(40);
+
+      /* check the vector output */
+      for(int i = 0; i < 40; i++) {
+        int result = sourceAccessor.get(i);
+        if((i & 1) ==  1) {
+          assertEquals(Integer.toString(1), Integer.toString(result));
+        }
+        else {
+          assertEquals(Integer.toString(0), Integer.toString(result));
+        }
+      }
+
+      final TransferPair transferPair = sourceVector.getTransferPair(allocator);
+      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector.Accessor toAccessor = toVector.getAccessor();
+      final BitVector.Mutator toMutator = toVector.getMutator();
+
+      /*
+       * form test cases such that we cover:
+       *
+       * (1) the start index is exactly where a particular byte starts in the source bit vector
+       * (2) the start index is randomly positioned within a byte in the source bit vector
+       *    (2.1) the length is a multiple of 8
+       *    (2.2) the length is not a multiple of 8
+       */
+      final int[][] transferLengths = {  {0, 8},     /* (1) */
+                                         {8, 10},    /* (1) */
+                                         {18, 0},    /* zero length scenario */
+                                         {18, 8},    /* (2.1) */
+                                         {26, 0},    /* zero length scenario */
+                                         {26, 14}    /* (2.2) */
+                                      };
+
+      for (final int[] transferLength : transferLengths) {
+        final int start = transferLength[0];
+        final int length = transferLength[1];
+
+        transferPair.splitAndTransfer(start, length);
+
+        /* check the toVector output after doing splitAndTransfer */
+        for (int i = 0; i < length; i++) {
+          int result = toAccessor.get(i);
+          if((i & 1) == 1) {
+            assertEquals(Integer.toString(1), Integer.toString(result));
+          }
+          else {
+            assertEquals(Integer.toString(0), Integer.toString(result));
+          }
+        }
+
+        toVector.clear();
+      }
+
+      sourceVector.close();
+    }
+  }
 }

@@ -73,8 +73,8 @@ class MemoryMapFixture {
     tmp_files_.push_back(path);
   }
 
-  Status InitMemoryMap(
-      int64_t size, const std::string& path, std::shared_ptr<MemoryMappedFile>* mmap) {
+  Status InitMemoryMap(int64_t size, const std::string& path,
+                       std::shared_ptr<MemoryMappedFile>* mmap) {
     RETURN_NOT_OK(MemoryMappedFile::Create(path, size, mmap));
     tmp_files_.push_back(path);
     return Status::OK();

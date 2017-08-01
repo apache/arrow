@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstdint>
 #include <gtest/gtest.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -43,25 +43,25 @@ void CheckCodecRoundtrip(const vector<uint8_t>& data) {
 
   // compress with c1
   int64_t actual_size;
-  ASSERT_OK(c1->Compress(
-      data.size(), &data[0], max_compressed_len, &compressed[0], &actual_size));
+  ASSERT_OK(c1->Compress(data.size(), &data[0], max_compressed_len, &compressed[0],
+                         &actual_size));
   compressed.resize(actual_size);
 
   // decompress with c2
-  ASSERT_OK(c2->Decompress(
-      compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]));
+  ASSERT_OK(c2->Decompress(compressed.size(), &compressed[0], decompressed.size(),
+                           &decompressed[0]));
 
   ASSERT_EQ(data, decompressed);
 
   // compress with c2
   int64_t actual_size2;
-  ASSERT_OK(c2->Compress(
-      data.size(), &data[0], max_compressed_len, &compressed[0], &actual_size2));
+  ASSERT_OK(c2->Compress(data.size(), &data[0], max_compressed_len, &compressed[0],
+                         &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
 
   // decompress with c1
-  ASSERT_OK(c1->Decompress(
-      compressed.size(), &compressed[0], decompressed.size(), &decompressed[0]));
+  ASSERT_OK(c1->Decompress(compressed.size(), &compressed[0], decompressed.size(),
+                           &decompressed[0]));
 
   ASSERT_EQ(data, decompressed);
 }
@@ -76,24 +76,14 @@ void CheckCodec() {
   }
 }
 
-TEST(TestCompressors, Snappy) {
-  CheckCodec<Compression::SNAPPY>();
-}
+TEST(TestCompressors, Snappy) { CheckCodec<Compression::SNAPPY>(); }
 
-TEST(TestCompressors, Brotli) {
-  CheckCodec<Compression::BROTLI>();
-}
+TEST(TestCompressors, Brotli) { CheckCodec<Compression::BROTLI>(); }
 
-TEST(TestCompressors, GZip) {
-  CheckCodec<Compression::GZIP>();
-}
+TEST(TestCompressors, GZip) { CheckCodec<Compression::GZIP>(); }
 
-TEST(TestCompressors, ZSTD) {
-  CheckCodec<Compression::ZSTD>();
-}
+TEST(TestCompressors, ZSTD) { CheckCodec<Compression::ZSTD>(); }
 
-TEST(TestCompressors, Lz4) {
-  CheckCodec<Compression::LZ4>();
-}
+TEST(TestCompressors, Lz4) { CheckCodec<Compression::LZ4>(); }
 
 }  // namespace arrow

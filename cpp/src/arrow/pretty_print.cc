@@ -42,7 +42,9 @@ class ArrayPrinter {
       const T& array) {
     const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         (*sink_) << "null";
       } else {
@@ -56,7 +58,9 @@ class ArrayPrinter {
       const T& array) {
     const auto data = array.raw_values();
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         Write("null");
       } else {
@@ -71,7 +75,9 @@ class ArrayPrinter {
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         Write("null");
       } else {
@@ -87,7 +93,9 @@ class ArrayPrinter {
   WriteDataValues(const T& array) {
     int32_t length;
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         Write("null");
       } else {
@@ -102,7 +110,9 @@ class ArrayPrinter {
   WriteDataValues(const T& array) {
     int32_t width = array.byte_width();
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         Write("null");
       } else {
@@ -116,7 +126,9 @@ class ArrayPrinter {
   inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
-      if (i > 0) { (*sink_) << ", "; }
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
       if (array.IsNull(i)) {
         Write("null");
       } else {
@@ -138,7 +150,7 @@ class ArrayPrinter {
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value,
-      Status>::type
+                          Status>::type
   Visit(const T& array) {
     OpenArray();
     WriteDataValues(array);
@@ -157,8 +169,8 @@ class ArrayPrinter {
 
     Newline();
     Write("-- value_offsets: ");
-    Int32Array value_offsets(
-        array.length() + 1, array.value_offsets(), nullptr, 0, array.offset());
+    Int32Array value_offsets(array.length() + 1, array.value_offsets(), nullptr, 0,
+                             array.offset());
     RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
 
     Newline();
@@ -170,8 +182,8 @@ class ArrayPrinter {
     return Status::OK();
   }
 
-  Status PrintChildren(
-      const std::vector<std::shared_ptr<Array>>& fields, int64_t offset, int64_t length) {
+  Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,
+                       int64_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
       std::stringstream ss;
@@ -179,7 +191,9 @@ class ArrayPrinter {
       Write(ss.str());
 
       std::shared_ptr<Array> field = fields[i];
-      if (offset != 0) { field = field->Slice(offset, length); }
+      if (offset != 0) {
+        field = field->Slice(offset, length);
+      }
 
       RETURN_NOT_OK(PrettyPrint(*field, indent_ + 2, sink_));
     }
@@ -207,8 +221,8 @@ class ArrayPrinter {
     if (array.mode() == UnionMode::DENSE) {
       Newline();
       Write("-- value_offsets: ");
-      Int32Array value_offsets(
-          array.length(), array.value_offsets(), nullptr, 0, array.offset());
+      Int32Array value_offsets(array.length(), array.value_offsets(), nullptr, 0,
+                               array.offset());
       RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + 2, sink_));
     }
 
@@ -247,8 +261,8 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   Write("-- is_valid: ");
 
   if (array.null_count() > 0) {
-    BooleanArray is_valid(
-        array.length(), array.null_bitmap(), nullptr, 0, array.offset());
+    BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
+                          array.offset());
     return PrettyPrint(is_valid, indent_ + 2, sink_);
   } else {
     Write("all not null");
@@ -256,20 +270,12 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   }
 }
 
-void ArrayPrinter::OpenArray() {
-  (*sink_) << "[";
-}
-void ArrayPrinter::CloseArray() {
-  (*sink_) << "]";
-}
+void ArrayPrinter::OpenArray() { (*sink_) << "["; }
+void ArrayPrinter::CloseArray() { (*sink_) << "]"; }
 
-void ArrayPrinter::Write(const char* data) {
-  (*sink_) << data;
-}
+void ArrayPrinter::Write(const char* data) { (*sink_) << data; }
 
-void ArrayPrinter::Write(const std::string& data) {
-  (*sink_) << data;
-}
+void ArrayPrinter::Write(const std::string& data) { (*sink_) << data; }
 
 void ArrayPrinter::Newline() {
   (*sink_) << "\n";

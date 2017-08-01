@@ -31,13 +31,9 @@ namespace {
 namespace arrow {
 namespace py {
 
-int import_pyarrow() {
-  return ::import_pyarrow__lib();
-}
+int import_pyarrow() { return ::import_pyarrow__lib(); }
 
-bool is_buffer(PyObject* buffer) {
-  return ::pyarrow_is_buffer(buffer) != 0;
-}
+bool is_buffer(PyObject* buffer) { return ::pyarrow_is_buffer(buffer) != 0; }
 
 Status unwrap_buffer(PyObject* buffer, std::shared_ptr<Buffer>* out) {
   *out = ::pyarrow_unwrap_buffer(buffer);
@@ -52,9 +48,7 @@ PyObject* wrap_buffer(const std::shared_ptr<Buffer>& buffer) {
   return ::pyarrow_wrap_buffer(buffer);
 }
 
-bool is_data_type(PyObject* data_type) {
-  return ::pyarrow_is_data_type(data_type) != 0;
-}
+bool is_data_type(PyObject* data_type) { return ::pyarrow_is_data_type(data_type) != 0; }
 
 Status unwrap_data_type(PyObject* object, std::shared_ptr<DataType>* out) {
   *out = ::pyarrow_unwrap_data_type(object);
@@ -69,9 +63,7 @@ PyObject* wrap_data_type(const std::shared_ptr<DataType>& type) {
   return ::pyarrow_wrap_data_type(type);
 }
 
-bool is_field(PyObject* field) {
-  return ::pyarrow_is_field(field) != 0;
-}
+bool is_field(PyObject* field) { return ::pyarrow_is_field(field) != 0; }
 
 Status unwrap_field(PyObject* field, std::shared_ptr<Field>* out) {
   *out = ::pyarrow_unwrap_field(field);
@@ -86,9 +78,7 @@ PyObject* wrap_field(const std::shared_ptr<Field>& field) {
   return ::pyarrow_wrap_field(field);
 }
 
-bool is_schema(PyObject* schema) {
-  return ::pyarrow_is_schema(schema) != 0;
-}
+bool is_schema(PyObject* schema) { return ::pyarrow_is_schema(schema) != 0; }
 
 Status unwrap_schema(PyObject* schema, std::shared_ptr<Schema>* out) {
   *out = ::pyarrow_unwrap_schema(schema);
@@ -103,9 +93,7 @@ PyObject* wrap_schema(const std::shared_ptr<Schema>& schema) {
   return ::pyarrow_wrap_schema(schema);
 }
 
-bool is_array(PyObject* array) {
-  return ::pyarrow_is_array(array) != 0;
-}
+bool is_array(PyObject* array) { return ::pyarrow_is_array(array) != 0; }
 
 Status unwrap_array(PyObject* array, std::shared_ptr<Array>* out) {
   *out = ::pyarrow_unwrap_array(array);
@@ -120,9 +108,7 @@ PyObject* wrap_array(const std::shared_ptr<Array>& array) {
   return ::pyarrow_wrap_array(array);
 }
 
-bool is_tensor(PyObject* tensor) {
-  return ::pyarrow_is_tensor(tensor) != 0;
-}
+bool is_tensor(PyObject* tensor) { return ::pyarrow_is_tensor(tensor) != 0; }
 
 Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out) {
   *out = ::pyarrow_unwrap_tensor(tensor);
@@ -137,9 +123,7 @@ PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor) {
   return ::pyarrow_wrap_tensor(tensor);
 }
 
-bool is_column(PyObject* column) {
-  return ::pyarrow_is_column(column) != 0;
-}
+bool is_column(PyObject* column) { return ::pyarrow_is_column(column) != 0; }
 
 Status unwrap_column(PyObject* column, std::shared_ptr<Column>* out) {
   *out = ::pyarrow_unwrap_column(column);
@@ -154,9 +138,7 @@ PyObject* wrap_column(const std::shared_ptr<Column>& column) {
   return ::pyarrow_wrap_column(column);
 }
 
-bool is_table(PyObject* table) {
-  return ::pyarrow_is_table(table) != 0;
-}
+bool is_table(PyObject* table) { return ::pyarrow_is_table(table) != 0; }
 
 Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out) {
   *out = ::pyarrow_unwrap_table(table);
@@ -171,9 +153,7 @@ PyObject* wrap_table(const std::shared_ptr<Table>& table) {
   return ::pyarrow_wrap_table(table);
 }
 
-bool is_record_batch(PyObject* batch) {
-  return ::pyarrow_is_batch(batch) != 0;
-}
+bool is_record_batch(PyObject* batch) { return ::pyarrow_is_batch(batch) != 0; }
 
 Status unwrap_record_batch(PyObject* batch, std::shared_ptr<RecordBatch>* out) {
   *out = ::pyarrow_unwrap_batch(batch);

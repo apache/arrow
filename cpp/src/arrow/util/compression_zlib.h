@@ -40,10 +40,10 @@ class ARROW_EXPORT GZipCodec : public Codec {
   virtual ~GZipCodec();
 
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-      uint8_t* output_buffer) override;
+                    uint8_t* output_buffer) override;
 
   Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-      uint8_t* output_buffer, int64_t* output_length) override;
+                  uint8_t* output_buffer, int64_t* output_length) override;
 
   int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 

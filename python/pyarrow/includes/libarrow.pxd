@@ -148,9 +148,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CLoggingMemoryPool(CMemoryPool*)
 
     cdef cppclass CBuffer" arrow::Buffer":
+        CBuffer(const uint8_t* data, int64_t size)
         uint8_t* data()
         int64_t size()
         shared_ptr[CBuffer] parent()
+        c_bool is_mutable() const
+
+    cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
+        CMutableBuffer(const uint8_t* data, int64_t size)
+        uint8_t* mutable_data()
 
     cdef cppclass ResizableBuffer(CBuffer):
         CStatus Resize(int64_t nbytes)
@@ -363,7 +369,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CTable]* table)
 
         int num_columns()
-        int num_rows()
+        int64_t num_rows()
 
         c_bool Equals(const CTable& other)
 
@@ -407,6 +413,10 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
 
+    cdef cppclass FileStatistics:
+        int64_t size
+        ObjectType kind
+
     cdef cppclass FileInterface:
         CStatus Close()
         CStatus Tell(int64_t* position)
@@ -443,6 +453,9 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(RandomAccessFile,
                                          WriteableFile):
         pass
+
+    cdef cppclass FileSystem:
+        CStatus Stat(const c_string& path, FileStatistics* stat)
 
 
 cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
@@ -511,10 +524,10 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(OutputStream):
         pass
 
-    cdef cppclass CHdfsClient" arrow::io::HdfsClient":
+    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem"(FileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
-                        shared_ptr[CHdfsClient]* client)
+                        shared_ptr[CHadoopFileSystem]* client)
 
         CStatus MakeDirectory(const c_string& path)
 
@@ -523,6 +536,10 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus Disconnect()
 
         c_bool Exists(const c_string& path)
+
+        CStatus Chmod(const c_string& path, int mode)
+        CStatus Chown(const c_string& path, const char* owner,
+                      const char* group)
 
         CStatus GetCapacity(int64_t* nbytes)
         CStatus GetUsed(int64_t* nbytes)
@@ -557,6 +574,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         (OutputStream):
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
+
+    cdef cppclass CFixedSizeBufferWriter" arrow::io::FixedSizeBufferWriter"(WriteableFile):
+        CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:

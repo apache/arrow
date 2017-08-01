@@ -22,7 +22,7 @@ import six
 
 import numpy as np
 
-from pyarrow.filesystem import LocalFilesystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
@@ -403,7 +403,7 @@ class ParquetManifest(object):
     """
     def __init__(self, dirpath, filesystem=None, pathsep='/',
                  partition_scheme='hive'):
-        self.filesystem = filesystem or LocalFilesystem.get_instance()
+        self.filesystem = filesystem or LocalFileSystem.get_instance()
         self.pathsep = pathsep
         self.dirpath = dirpath
         self.partition_scheme = partition_scheme
@@ -416,40 +416,41 @@ class ParquetManifest(object):
         self._visit_level(0, self.dirpath, [])
 
     def _visit_level(self, level, base_path, part_keys):
-        directories = []
-        files = []
         fs = self.filesystem
 
-        if not fs.isdir(base_path):
-            raise ValueError('"{0}" is not a directory'.format(base_path))
+        _, directories, files = next(fs.walk(base_path))
 
-        for path in sorted(fs.ls(base_path)):
-            if fs.isfile(path):
-                if _is_parquet_file(path):
-                    files.append(path)
-                elif path.endswith('_common_metadata'):
-                    self.common_metadata_path = path
-                elif path.endswith('_metadata'):
-                    self.metadata_path = path
-                elif not self._should_silently_exclude(path):
-                    print('Ignoring path: {0}'.format(path))
-            elif fs.isdir(path):
-                directories.append(path)
+        filtered_files = []
+        for path in files:
+            full_path = self.pathsep.join((base_path, path))
+            if _is_parquet_file(path):
+                filtered_files.append(full_path)
+            elif path.endswith('_common_metadata'):
+                self.common_metadata_path = full_path
+            elif path.endswith('_metadata'):
+                self.metadata_path = full_path
+            elif not self._should_silently_exclude(path):
+                print('Ignoring path: {0}'.format(full_path))
 
         # ARROW-1079: Filter out "private" directories starting with underscore
-        directories = [x for x in directories if not _is_private_directory(x)]
+        filtered_directories = [self.pathsep.join((base_path, x))
+                                for x in directories
+                                if not _is_private_directory(x)]
 
-        if len(files) > 0 and len(directories) > 0:
+        filtered_files.sort()
+        filtered_directories.sort()
+
+        if len(files) > 0 and len(filtered_directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
-        elif len(directories) > 0:
-            self._visit_directories(level, directories, part_keys)
+        elif len(filtered_directories) > 0:
+            self._visit_directories(level, filtered_directories, part_keys)
         else:
-            self._push_pieces(files, part_keys)
+            self._push_pieces(filtered_files, part_keys)
 
-    def _should_silently_exclude(self, path):
-        _, tail = path.rsplit(self.pathsep, 1)
-        return tail.endswith('.crc') or tail in EXCLUDED_PARQUET_PATHS
+    def _should_silently_exclude(self, file_name):
+        return (file_name.endswith('.crc') or
+                file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
         for path in directories:
@@ -505,7 +506,7 @@ class ParquetDataset(object):
     ----------
     path_or_paths : str or List[str]
         A directory name, single file name, or list of file names
-    filesystem : Filesystem, default None
+    filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
         filesystem
     metadata : pyarrow.parquet.FileMetaData
@@ -521,9 +522,9 @@ class ParquetDataset(object):
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True):
         if filesystem is None:
-            self.fs = LocalFilesystem.get_instance()
+            self.fs = LocalFileSystem.get_instance()
         else:
-            self.fs = filesystem
+            self.fs = _ensure_filesystem(filesystem)
 
         self.paths = path_or_paths
 
@@ -630,7 +631,7 @@ class ParquetDataset(object):
         return keyvalues.get(b'pandas', None)
 
     def _get_open_file_func(self):
-        if self.fs is None or isinstance(self.fs, LocalFilesystem):
+        if self.fs is None or isinstance(self.fs, LocalFileSystem):
             def open_file(path, meta=None):
                 return ParquetFile(path, metadata=meta,
                                    common_metadata=self.common_metadata)
@@ -640,6 +641,18 @@ class ParquetDataset(object):
                                    metadata=meta,
                                    common_metadata=self.common_metadata)
         return open_file
+
+
+def _ensure_filesystem(fs):
+    if not isinstance(fs, FileSystem):
+        if type(fs).__name__ == 'S3FileSystem':
+            from pyarrow.filesystem import S3FSWrapper
+            return S3FSWrapper(fs)
+        else:
+            raise IOError('Unrecognized filesystem: {0}'
+                          .format(type(fs)))
+    else:
+        return fs
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/'):
@@ -703,7 +716,7 @@ def read_table(source, columns=None, nthreads=1, metadata=None,
         Content of the file as a table (of columns)
     """
     if is_string(source):
-        fs = LocalFilesystem.get_instance()
+        fs = LocalFileSystem.get_instance()
         if fs.isdir(source):
             return fs.read_parquet(source, columns=columns,
                                    metadata=metadata)
@@ -769,9 +782,22 @@ def write_table(table, where, row_group_size=None, version='1.0',
         compression=compression,
         version=version,
         use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
-    writer = ParquetWriter(where, table.schema, **options)
-    writer.write_table(table, row_group_size=row_group_size)
-    writer.close()
+
+    writer = None
+    try:
+        writer = ParquetWriter(where, table.schema, **options)
+        writer.write_table(table, row_group_size=row_group_size)
+    except:
+        if writer is not None:
+            writer.close()
+        if isinstance(where, six.string_types):
+            try:
+                os.remove(where)
+            except os.error:
+                pass
+        raise
+    else:
+        writer.close()
 
 
 def write_metadata(schema, where, version='1.0',
@@ -792,3 +818,33 @@ def write_metadata(schema, where, version='1.0',
     )
     writer = ParquetWriter(where, schema, **options)
     writer.close()
+
+
+def read_metadata(where):
+    """
+    Read FileMetadata from footer of a single Parquet file
+
+    Parameters
+    ----------
+    where : string (filepath) or file-like object
+
+    Returns
+    -------
+    metadata : FileMetadata
+    """
+    return ParquetFile(where).metadata
+
+
+def read_schema(where):
+    """
+    Read effective Arrow schema from Parquet file metadata
+
+    Parameters
+    ----------
+    where : string (filepath) or file-like object
+
+    Returns
+    -------
+    schema : pyarrow.Schema
+    """
+    return ParquetFile(where).schema.to_arrow_schema()

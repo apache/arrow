@@ -27,9 +27,7 @@ class TestDefaultMemoryPool : public ::arrow::test::TestMemoryPoolBase {
   ::arrow::MemoryPool* memory_pool() override { return ::arrow::default_memory_pool(); }
 };
 
-TEST_F(TestDefaultMemoryPool, MemoryTracking) {
-  this->TestMemoryTracking();
-}
+TEST_F(TestDefaultMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
 
 TEST_F(TestDefaultMemoryPool, OOM) {
 #ifndef ADDRESS_SANITIZER
@@ -37,9 +35,7 @@ TEST_F(TestDefaultMemoryPool, OOM) {
 #endif
 }
 
-TEST_F(TestDefaultMemoryPool, Reallocate) {
-  this->TestReallocate();
-}
+TEST_F(TestDefaultMemoryPool, Reallocate) { this->TestReallocate(); }
 
 // Death tests and valgrind are known to not play well 100% of the time. See
 // googletest documentation
@@ -53,7 +49,7 @@ TEST(DefaultMemoryPoolDeathTest, FreeLargeMemory) {
 
 #ifndef NDEBUG
   EXPECT_EXIT(pool->Free(data, 120), ::testing::ExitedWithCode(1),
-      ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
+              ".*Check failed: \\(bytes_allocated_\\) >= \\(size\\)");
 #endif
 
   pool->Free(data, 100);

@@ -89,8 +89,8 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   return Status::OK();
 }
 
-Status InferDecimalPrecisionAndScale(
-    PyObject* python_decimal, int* precision, int* scale) {
+Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision,
+                                     int* scale) {
   // Call Python's str(decimal_object)
   OwnedRef str_obj(PyObject_Str(python_decimal));
   RETURN_IF_PYERROR();
@@ -102,12 +102,12 @@ Status InferDecimalPrecisionAndScale(
   auto size = str.size;
 
   std::string c_string(bytes, size);
-  return FromString(
-      c_string, static_cast<decimal::Decimal32*>(nullptr), precision, scale);
+  return FromString(c_string, static_cast<decimal::Decimal32*>(nullptr), precision,
+                    scale);
 }
 
-Status DecimalFromString(
-    PyObject* decimal_constructor, const std::string& decimal_string, PyObject** out) {
+Status DecimalFromString(PyObject* decimal_constructor, const std::string& decimal_string,
+                         PyObject** out) {
   DCHECK_NE(decimal_constructor, nullptr);
   DCHECK_NE(out, nullptr);
 
@@ -117,8 +117,8 @@ Status DecimalFromString(
   auto string_bytes = decimal_string.c_str();
   DCHECK_NE(string_bytes, nullptr);
 
-  *out = PyObject_CallFunction(
-      decimal_constructor, const_cast<char*>("s#"), string_bytes, string_size);
+  *out = PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
+                               string_size);
   RETURN_IF_PYERROR();
   return Status::OK();
 }

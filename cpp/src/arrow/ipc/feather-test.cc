@@ -365,8 +365,8 @@ TEST_F(TestTableWriter, TimeTypes) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
   const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
-  std::vector<std::shared_ptr<Buffer>> buffers = {
-      prim_values.null_bitmap(), prim_values.values()};
+  std::vector<std::shared_ptr<Buffer>> buffers = {prim_values.null_bitmap(),
+                                                  prim_values.values()};
 
   std::vector<std::shared_ptr<internal::ArrayData>> arrays;
   arrays.push_back(date_array->data());
@@ -400,7 +400,8 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
     ASSERT_OK(reader_->GetColumn(i, &col));
     ASSERT_EQ(batch->column_name(i), col->name());
     StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
-        batch->column(i)->null_bitmap(), batch->column(i)->null_count());
+                           batch->column(i)->null_bitmap(),
+                           batch->column(i)->null_count());
     CheckArrays(str_values, *col->data()->chunk(0));
   }
 }
