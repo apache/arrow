@@ -15,8 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Filesystem Interfaces
-=====================
+File System Interfaces
+======================
 
 In this section, we discuss filesystem-like interfaces in PyArrow.
 
@@ -31,10 +31,11 @@ System. You connect like so:
 .. code-block:: python
 
    import pyarrow as pa
-   hdfs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
-   type(hdfs)
+   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
+   with fs.open(path, 'rb') as f:
+       # Do something with f
 
-By default, ``pyarrow.hdfs.HadoopFilesystem`` uses libhdfs, a JNI-based
+By default, ``pyarrow.hdfs.HadoopFileSystem`` uses libhdfs, a JNI-based
 interface to the Java Hadoop client. This library is loaded **at runtime**
 (rather than at link / library load time, since the library may not be in your
 LD_LIBRARY_PATH), and relies on some environment variables.
@@ -57,5 +58,33 @@ You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
 
 .. code-block:: python
 
-   hdfs3 = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
-                           driver='libhdfs3')
+   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
+                       driver='libhdfs3')
+
+HDFS API
+~~~~~~~~
+
+.. currentmodule:: pyarrow
+
+.. autosummary::
+   :toctree: generated/
+
+   hdfs.connect
+   HadoopFileSystem.cat
+   HadoopFileSystem.chmod
+   HadoopFileSystem.chown
+   HadoopFileSystem.delete
+   HadoopFileSystem.df
+   HadoopFileSystem.disk_usage
+   HadoopFileSystem.download
+   HadoopFileSystem.exists
+   HadoopFileSystem.get_capacity
+   HadoopFileSystem.get_space_used
+   HadoopFileSystem.info
+   HadoopFileSystem.ls
+   HadoopFileSystem.mkdir
+   HadoopFileSystem.open
+   HadoopFileSystem.rename
+   HadoopFileSystem.rm
+   HadoopFileSystem.upload
+   HdfsFile

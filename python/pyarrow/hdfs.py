@@ -18,13 +18,13 @@
 import posixpath
 
 from pyarrow.util import implements
-from pyarrow.filesystem import Filesystem
+from pyarrow.filesystem import FileSystem
 import pyarrow.lib as lib
 
 
-class HadoopFilesystem(lib._HdfsClient, Filesystem):
+class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     """
-    Filesystem interface for HDFS cluster. See pyarrow.hdfs.connect for full
+    FileSystem interface for HDFS cluster. See pyarrow.hdfs.connect for full
     connection details
     """
 
@@ -32,21 +32,25 @@ class HadoopFilesystem(lib._HdfsClient, Filesystem):
                  driver='libhdfs'):
         self._connect(host, port, user, kerb_ticket, driver)
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
-        return lib._HdfsClient.isdir(self, path)
+        return super(HadoopFileSystem, self).isdir(path)
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
-        return lib._HdfsClient.isfile(self, path)
+        return super(HadoopFileSystem, self).isfile(path)
 
-    @implements(Filesystem.delete)
+    @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
-        return lib._HdfsClient.delete(self, path, recursive)
+        return super(HadoopFileSystem, self).delete(path, recursive)
 
-    @implements(Filesystem.mkdir)
+    @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
-        return lib._HdfsClient.mkdir(self, path)
+        return super(HadoopFileSystem, self).mkdir(path)
+
+    @implements(FileSystem.rename)
+    def rename(self, path, new_path):
+        return super(HadoopFileSystem, self).rename(path, new_path)
 
     def ls(self, path, detail=False):
         """
@@ -62,7 +66,7 @@ class HadoopFilesystem(lib._HdfsClient, Filesystem):
         -------
         result : list of dicts (detail=True) or strings (detail=False)
         """
-        return lib._HdfsClient.ls(self, path, detail)
+        return super(HadoopFileSystem, self).ls(path, detail)
 
     def walk(self, top_path):
         """
@@ -82,7 +86,7 @@ class HadoopFilesystem(lib._HdfsClient, Filesystem):
         directories, files = _libhdfs_walk_files_dirs(top_path, contents)
         yield top_path, directories, files
         for dirname in directories:
-            for tup in self.walk(dirname):
+            for tup in self.walk(self._path_join(top_path, dirname)):
                 yield tup
 
 
@@ -126,8 +130,8 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
 
     Returns
     -------
-    filesystem : HadoopFilesystem
+    filesystem : HadoopFileSystem
     """
-    fs = HadoopFilesystem(host=host, port=port, user=user,
+    fs = HadoopFileSystem(host=host, port=port, user=user,
                           kerb_ticket=kerb_ticket, driver=driver)
     return fs

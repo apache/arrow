@@ -308,9 +308,9 @@ static void SetPathInfo(const hdfsFileInfo* input, HdfsPathInfo* out) {
 }
 
 // Private implementation
-class HdfsClient::HdfsClientImpl {
+class HadoopFileSystem::HadoopFileSystemImpl {
  public:
-  HdfsClientImpl() {}
+  HadoopFileSystemImpl() {}
 
   Status Connect(const HdfsConnectionConfig* config) {
     if (config->driver == HdfsDriver::LIBHDFS3) {
@@ -396,6 +396,24 @@ class HdfsClient::HdfsClientImpl {
     return Status::OK();
   }
 
+  Status Stat(const std::string& path, FileStatistics* stat) {
+    HdfsPathInfo info;
+    RETURN_NOT_OK(GetPathInfo(path, &info));
+
+    stat->size = info.size;
+    stat->kind = info.kind;
+    return Status::OK();
+  }
+
+  Status GetChildren(const std::string& path, std::vector<std::string>* listing) {
+    std::vector<HdfsPathInfo> detailed_listing;
+    RETURN_NOT_OK(ListDirectory(path, &detailed_listing));
+    for (const auto& info : detailed_listing) {
+      listing->push_back(info.name);
+    }
+    return Status::OK();
+  }
+
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing) {
     int num_entries = 0;
     hdfsFileInfo* entries = driver_->ListDirectory(fs_, path.c_str(), &num_entries);
@@ -476,6 +494,18 @@ class HdfsClient::HdfsClientImpl {
     return Status::OK();
   }
 
+  Status Chmod(const std::string& path, int mode) {
+    int ret = driver_->Chmod(fs_, path.c_str(), static_cast<short>(mode));  // NOLINT
+    CHECK_FAILURE(ret, "Chmod");
+    return Status::OK();
+  }
+
+  Status Chown(const std::string& path, const char* owner, const char* group) {
+    int ret = driver_->Chown(fs_, path.c_str(), owner, group);
+    CHECK_FAILURE(ret, "Chown");
+    return Status::OK();
+  }
+
  private:
   LibHdfsShim* driver_;
 
@@ -490,68 +520,92 @@ class HdfsClient::HdfsClientImpl {
 // ----------------------------------------------------------------------
 // Public API for HDFSClient
 
-HdfsClient::HdfsClient() { impl_.reset(new HdfsClientImpl()); }
+HadoopFileSystem::HadoopFileSystem() { impl_.reset(new HadoopFileSystemImpl()); }
 
-HdfsClient::~HdfsClient() {}
+HadoopFileSystem::~HadoopFileSystem() {}
 
-Status HdfsClient::Connect(const HdfsConnectionConfig* config,
-                           std::shared_ptr<HdfsClient>* fs) {
+Status HadoopFileSystem::Connect(const HdfsConnectionConfig* config,
+                                 std::shared_ptr<HadoopFileSystem>* fs) {
   // ctor is private, make_shared will not work
-  *fs = std::shared_ptr<HdfsClient>(new HdfsClient());
+  *fs = std::shared_ptr<HadoopFileSystem>(new HadoopFileSystem());
 
   RETURN_NOT_OK((*fs)->impl_->Connect(config));
   return Status::OK();
 }
 
-Status HdfsClient::MakeDirectory(const std::string& path) {
+Status HadoopFileSystem::MakeDirectory(const std::string& path) {
   return impl_->MakeDirectory(path);
 }
 
-Status HdfsClient::Delete(const std::string& path, bool recursive) {
+Status HadoopFileSystem::Delete(const std::string& path, bool recursive) {
   return impl_->Delete(path, recursive);
 }
 
-Status HdfsClient::Disconnect() { return impl_->Disconnect(); }
+Status HadoopFileSystem::DeleteDirectory(const std::string& path) {
+  return Delete(path, true);
+}
 
-bool HdfsClient::Exists(const std::string& path) { return impl_->Exists(path); }
+Status HadoopFileSystem::Disconnect() { return impl_->Disconnect(); }
 
-Status HdfsClient::GetPathInfo(const std::string& path, HdfsPathInfo* info) {
+bool HadoopFileSystem::Exists(const std::string& path) { return impl_->Exists(path); }
+
+Status HadoopFileSystem::GetPathInfo(const std::string& path, HdfsPathInfo* info) {
   return impl_->GetPathInfo(path, info);
 }
 
-Status HdfsClient::GetCapacity(int64_t* nbytes) { return impl_->GetCapacity(nbytes); }
+Status HadoopFileSystem::Stat(const std::string& path, FileStatistics* stat) {
+  return impl_->Stat(path, stat);
+}
 
-Status HdfsClient::GetUsed(int64_t* nbytes) { return impl_->GetUsed(nbytes); }
+Status HadoopFileSystem::GetCapacity(int64_t* nbytes) {
+  return impl_->GetCapacity(nbytes);
+}
 
-Status HdfsClient::ListDirectory(const std::string& path,
-                                 std::vector<HdfsPathInfo>* listing) {
+Status HadoopFileSystem::GetUsed(int64_t* nbytes) { return impl_->GetUsed(nbytes); }
+
+Status HadoopFileSystem::GetChildren(const std::string& path,
+                                     std::vector<std::string>* listing) {
+  return impl_->GetChildren(path, listing);
+}
+
+Status HadoopFileSystem::ListDirectory(const std::string& path,
+                                       std::vector<HdfsPathInfo>* listing) {
   return impl_->ListDirectory(path, listing);
 }
 
-Status HdfsClient::OpenReadable(const std::string& path, int32_t buffer_size,
-                                std::shared_ptr<HdfsReadableFile>* file) {
+Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
   return impl_->OpenReadable(path, buffer_size, file);
 }
 
-Status HdfsClient::OpenReadable(const std::string& path,
-                                std::shared_ptr<HdfsReadableFile>* file) {
+Status HadoopFileSystem::OpenReadable(const std::string& path,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
   return OpenReadable(path, kDefaultHdfsBufferSize, file);
 }
 
-Status HdfsClient::OpenWriteable(const std::string& path, bool append,
-                                 int32_t buffer_size, int16_t replication,
-                                 int64_t default_block_size,
-                                 std::shared_ptr<HdfsOutputStream>* file) {
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       int32_t buffer_size, int16_t replication,
+                                       int64_t default_block_size,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
   return impl_->OpenWriteable(path, append, buffer_size, replication, default_block_size,
                               file);
 }
 
-Status HdfsClient::OpenWriteable(const std::string& path, bool append,
-                                 std::shared_ptr<HdfsOutputStream>* file) {
+Status HadoopFileSystem::OpenWriteable(const std::string& path, bool append,
+                                       std::shared_ptr<HdfsOutputStream>* file) {
   return OpenWriteable(path, append, 0, 0, 0, file);
 }
 
-Status HdfsClient::Rename(const std::string& src, const std::string& dst) {
+Status HadoopFileSystem::Chmod(const std::string& path, int mode) {
+  return impl_->Chmod(path, mode);
+}
+
+Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
+                               const char* group) {
+  return impl_->Chown(path, owner, group);
+}
+
+Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) {
   return impl_->Rename(src, dst);
 }
 

@@ -22,10 +22,21 @@ import posixpath
 from pyarrow.util import implements
 
 
-class Filesystem(object):
+class FileSystem(object):
     """
     Abstract filesystem interface
     """
+    def cat(self, path):
+        """
+        Return contents of file as a bytes object
+
+        Returns
+        -------
+        contents : bytes
+        """
+        with self.open(path, 'rb') as f:
+            return f.read()
+
     def ls(self, path):
         """
         Return list of file paths
@@ -44,11 +55,67 @@ class Filesystem(object):
         """
         raise NotImplementedError
 
+    def disk_usage(self, path):
+        """
+        Compute bytes used by all contents under indicated path in file tree
+
+        Parameters
+        ----------
+        path : string
+            Can be a file path or directory
+
+        Returns
+        -------
+        usage : int
+        """
+        path_info = self.stat(path)
+        if path_info['kind'] == 'file':
+            return path_info['size']
+
+        total = 0
+        for root, directories, files in self.walk(path):
+            for child_path in files:
+                abspath = self._path_join(root, child_path)
+                total += self.stat(abspath)['size']
+
+        return total
+
+    def _path_join(self, *args):
+        return self.pathsep.join(args)
+
+    def stat(self, path):
+        """
+
+        Returns
+        -------
+        stat : dict
+        """
+        raise NotImplementedError('FileSystem.stat')
+
     def rm(self, path, recursive=False):
         """
-        Alias for Filesystem.delete
+        Alias for FileSystem.delete
         """
         return self.delete(path, recursive=recursive)
+
+    def mv(self, path, new_path):
+        """
+        Alias for FileSystem.rename
+        """
+        return self.rename(path, new_path)
+
+    def rename(self, path, new_path):
+        """
+        Rename file, like UNIX mv command
+
+        Parameters
+        ----------
+        path : string
+            Path to alter
+        new_path : string
+            Path to move to
+        """
+        raise NotImplementedError('FileSystem.rename')
 
     def mkdir(self, path, create_parents=True):
         raise NotImplementedError
@@ -113,40 +180,40 @@ class Filesystem(object):
         return '/'
 
 
-class LocalFilesystem(Filesystem):
+class LocalFileSystem(FileSystem):
 
     _instance = None
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = LocalFilesystem()
+            cls._instance = LocalFileSystem()
         return cls._instance
 
-    @implements(Filesystem.ls)
+    @implements(FileSystem.ls)
     def ls(self, path):
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
-    @implements(Filesystem.mkdir)
+    @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
         if create_parents:
             os.makedirs(path)
         else:
             os.mkdir(path)
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         return os.path.isdir(path)
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         return os.path.isfile(path)
 
-    @implements(Filesystem.exists)
+    @implements(FileSystem.exists)
     def exists(self, path):
         return os.path.exists(path)
 
-    @implements(Filesystem.open)
+    @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -164,7 +231,7 @@ class LocalFilesystem(Filesystem):
         return os.walk(top_dir)
 
 
-class DaskFilesystem(Filesystem):
+class DaskFileSystem(FileSystem):
     """
     Wraps s3fs Dask filesystem implementation like s3fs, gcsfs, etc.
     """
@@ -172,23 +239,23 @@ class DaskFilesystem(Filesystem):
     def __init__(self, fs):
         self.fs = fs
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(Filesystem.delete)
+    @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
         return self.fs.rm(path, recursive=recursive)
 
-    @implements(Filesystem.mkdir)
+    @implements(FileSystem.mkdir)
     def mkdir(self, path):
         return self.fs.mkdir(path)
 
-    @implements(Filesystem.open)
+    @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -205,9 +272,9 @@ class DaskFilesystem(Filesystem):
         return self.fs.walk(top_path)
 
 
-class S3FSWrapper(DaskFilesystem):
+class S3FSWrapper(DaskFileSystem):
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         try:
             contents = self.fs.ls(path)
@@ -218,7 +285,7 @@ class S3FSWrapper(DaskFilesystem):
         except OSError:
             return False
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         try:
             contents = self.fs.ls(path)

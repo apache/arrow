@@ -22,7 +22,7 @@ import six
 
 import numpy as np
 
-from pyarrow.filesystem import Filesystem, LocalFilesystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
@@ -403,7 +403,7 @@ class ParquetManifest(object):
     """
     def __init__(self, dirpath, filesystem=None, pathsep='/',
                  partition_scheme='hive'):
-        self.filesystem = filesystem or LocalFilesystem.get_instance()
+        self.filesystem = filesystem or LocalFileSystem.get_instance()
         self.pathsep = pathsep
         self.dirpath = dirpath
         self.partition_scheme = partition_scheme
@@ -506,7 +506,7 @@ class ParquetDataset(object):
     ----------
     path_or_paths : str or List[str]
         A directory name, single file name, or list of file names
-    filesystem : Filesystem, default None
+    filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
         filesystem
     metadata : pyarrow.parquet.FileMetaData
@@ -522,7 +522,7 @@ class ParquetDataset(object):
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True):
         if filesystem is None:
-            self.fs = LocalFilesystem.get_instance()
+            self.fs = LocalFileSystem.get_instance()
         else:
             self.fs = _ensure_filesystem(filesystem)
 
@@ -631,7 +631,7 @@ class ParquetDataset(object):
         return keyvalues.get(b'pandas', None)
 
     def _get_open_file_func(self):
-        if self.fs is None or isinstance(self.fs, LocalFilesystem):
+        if self.fs is None or isinstance(self.fs, LocalFileSystem):
             def open_file(path, meta=None):
                 return ParquetFile(path, metadata=meta,
                                    common_metadata=self.common_metadata)
@@ -644,7 +644,7 @@ class ParquetDataset(object):
 
 
 def _ensure_filesystem(fs):
-    if not isinstance(fs, Filesystem):
+    if not isinstance(fs, FileSystem):
         if type(fs).__name__ == 'S3FileSystem':
             from pyarrow.filesystem import S3FSWrapper
             return S3FSWrapper(fs)
@@ -716,7 +716,7 @@ def read_table(source, columns=None, nthreads=1, metadata=None,
         Content of the file as a table (of columns)
     """
     if is_string(source):
-        fs = LocalFilesystem.get_instance()
+        fs = LocalFileSystem.get_instance()
         if fs.isdir(source):
             return fs.read_parquet(source, columns=columns,
                                    metadata=metadata)

@@ -114,6 +114,7 @@ include "table.pxi"
 
 # File IO
 include "io.pxi"
+include "io-hdfs.pxi"
 
 # IPC / Messaging
 include "ipc.pxi"
