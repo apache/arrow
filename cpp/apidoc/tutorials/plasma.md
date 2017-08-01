@@ -35,7 +35,7 @@ Starting the Plasma store
 To start running the Plasma object store so that clients may
 connect and access the data, run the following command:
 
-```shell
+```
 plasma_store -m 1000000000 -s /tmp/plasma
 ```
 
@@ -53,14 +53,14 @@ can press `Ctrl-C` in the terminal window.
 Alternatively, you can run the Plasma store in the background and ignore all
 message output with the following terminal command:
 
-```shell
+```
 plasma_store -m 1000000000 -s /tmp/plasma 1> /dev/null 2> /dev/null &
 ```
 
 The Plasma store will instead run silently in the background. To stop running
 the Plasma store in this case, issue the command below:
 
-```shell
+```
 killall plasma_store
 ```
 
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
 
 Save this program in a file `test.cc` and compile it with
 
-```shell
+```
 g++ test.cc `pkg-config --cflags --libs plasma` --std=c++11
 ```
 
@@ -238,7 +238,7 @@ int main(int argc, char** argv) {
 
 This example can be compiled with
 
-```shell
+```
 g++ create.cc `pkg-config --cflags --libs plasma` --std=c++11 -o create
 ```
 
@@ -344,7 +344,7 @@ int main(int argc, char** argv) {
 
 If you compile it with
 
-```shell
+```
 g++ get.cc `pkg-config --cflags --libs plasma` --std=c++11 -o get
 ```
 
@@ -434,7 +434,7 @@ int main(int argc, char** argv) {
 
 If you compile it with
 
-```shell
+```
 g++ subscribe.cc `pkg-config --cflags --libs plasma` --std=c++11 -o subscribe
 ```
 
