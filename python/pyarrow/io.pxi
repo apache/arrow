@@ -255,13 +255,18 @@ cdef class NativeFile:
 
         if not hasattr(stream_or_path, 'read'):
             stream = open(stream_or_path, 'wb')
-            cleanup = lambda: stream.close()
+
+            def cleanup():
+                stream.close()
         else:
             stream = stream_or_path
-            cleanup = lambda: None
+
+            def cleanup():
+                pass
 
         done = False
         exc_info = None
+
         def bg_write():
             try:
                 while not done or write_queue.qsize() > 0:
@@ -326,6 +331,7 @@ cdef class NativeFile:
 
         done = False
         exc_info = None
+
         def bg_write():
             try:
                 while not done or write_queue.qsize() > 0:

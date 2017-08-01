@@ -25,17 +25,18 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
-  cdef cppclass Node:
-    pass
+    cdef cppclass Node:
+        pass
 
-  cdef cppclass GroupNode(Node):
-    pass
+    cdef cppclass GroupNode(Node):
+        pass
 
-  cdef cppclass PrimitiveNode(Node):
-    pass
+    cdef cppclass PrimitiveNode(Node):
+        pass
 
-  cdef cppclass ColumnPath:
-    c_string ToDotString()
+    cdef cppclass ColumnPath:
+        c_string ToDotString()
+
 
 cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
     enum ParquetType" parquet::Type::type":
@@ -59,8 +60,10 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetLogicalType_DATE" parquet::LogicalType::DATE"
         ParquetLogicalType_TIME_MILLIS" parquet::LogicalType::TIME_MILLIS"
         ParquetLogicalType_TIME_MICROS" parquet::LogicalType::TIME_MICROS"
-        ParquetLogicalType_TIMESTAMP_MILLIS" parquet::LogicalType::TIMESTAMP_MILLIS"
-        ParquetLogicalType_TIMESTAMP_MICROS" parquet::LogicalType::TIMESTAMP_MICROS"
+        ParquetLogicalType_TIMESTAMP_MILLIS \
+            " parquet::LogicalType::TIMESTAMP_MILLIS"
+        ParquetLogicalType_TIMESTAMP_MICROS \
+            " parquet::LogicalType::TIMESTAMP_MICROS"
         ParquetLogicalType_UINT_8" parquet::LogicalType::UINT_8"
         ParquetLogicalType_UINT_16" parquet::LogicalType::UINT_16"
         ParquetLogicalType_UINT_32" parquet::LogicalType::UINT_32"
@@ -83,8 +86,10 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetEncoding_PLAIN_DICTIONARY" parquet::Encoding::PLAIN_DICTIONARY"
         ParquetEncoding_RLE" parquet::Encoding::RLE"
         ParquetEncoding_BIT_PACKED" parquet::Encoding::BIT_PACKED"
-        ParquetEncoding_DELTA_BINARY_PACKED" parquet::Encoding::DELTA_BINARY_PACKED"
-        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY" parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY"
+        ParquetEncoding_DELTA_BINARY_PACKED \
+            " parquet::Encoding::DELTA_BINARY_PACKED"
+        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY \
+            " parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY"
         ParquetEncoding_DELTA_BYTE_ARRAY" parquet::Encoding::DELTA_BYTE_ARRAY"
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
 
@@ -231,13 +236,15 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
-    CStatus FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                              const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
-                              shared_ptr[CSchema]* out)
+    CStatus FromParquetSchema(
+        const SchemaDescriptor* parquet_schema,
+        const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
+        shared_ptr[CSchema]* out)
 
-    CStatus ToParquetSchema(const CSchema* arrow_schema,
-                            const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
-                            shared_ptr[SchemaDescriptor]* out)
+    CStatus ToParquetSchema(
+        const CSchema* arrow_schema,
+        const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
+        shared_ptr[SchemaDescriptor]* out)
 
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:

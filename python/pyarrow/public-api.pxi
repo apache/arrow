@@ -47,7 +47,8 @@ cdef public api bint pyarrow_is_data_type(object type_):
     return isinstance(type_, DataType)
 
 
-cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type):
+cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(
+        object data_type):
     cdef DataType type_
     if pyarrow_is_data_type(data_type):
         type_ = <DataType>(data_type)
@@ -57,7 +58,7 @@ cdef public api shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)
 
 
 cdef public api object pyarrow_wrap_data_type(
-    const shared_ptr[CDataType]& type):
+        const shared_ptr[CDataType]& type):
     cdef:
         DataType out
 
@@ -149,7 +150,7 @@ cdef public api object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array):
 
 
 cdef public api object pyarrow_wrap_chunked_array(
-    const shared_ptr[CChunkedArray]& sp_array):
+        const shared_ptr[CChunkedArray]& sp_array):
     if sp_array.get() == NULL:
         raise ValueError('ChunkedArray was NULL')
 
@@ -177,7 +178,7 @@ cdef public api shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor):
 
 
 cdef public api object pyarrow_wrap_tensor(
-    const shared_ptr[CTensor]& sp_tensor):
+        const shared_ptr[CTensor]& sp_tensor):
     if sp_tensor.get() == NULL:
         raise ValueError('Tensor was NULL')
 
@@ -238,7 +239,7 @@ cdef public api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
 
 
 cdef public api object pyarrow_wrap_batch(
-    const shared_ptr[CRecordBatch]& cbatch):
+        const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch()
     batch.init(cbatch)
     return batch
