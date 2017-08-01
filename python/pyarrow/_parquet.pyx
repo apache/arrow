@@ -279,8 +279,8 @@ cdef class ColumnSchema:
   max_repetition_level: {3}
   physical_type: {4}
   logical_type: {5}""".format(self.name, self.path, self.max_definition_level,
-                       self.max_repetition_level, physical_type,
-                       logical_type)
+                              self.max_repetition_level, physical_type,
+                              logical_type)
 
     property name:
 
@@ -514,7 +514,7 @@ cdef class ParquetReader:
 
         with nogil:
             check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &carray));
+                         .ReadSchemaField(field_index, &carray))
 
         array.init(carray)
         return array
@@ -553,7 +553,8 @@ cdef class ParquetWriter:
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
-                  MemoryPool memory_pool=None, use_deprecated_int96_timestamps=False):
+                  MemoryPool memory_pool=None,
+                  use_deprecated_int96_timestamps=False):
         cdef:
             shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties

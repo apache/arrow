@@ -97,6 +97,9 @@ python_version_tests() {
   # Fail fast on style checks
   flake8 pyarrow
 
+  # Check Cython files with some checks turned off
+  flake8 --config=.flake8.cython pyarrow
+
   # Build C++ libraries
   rebuild_arrow_libraries
 

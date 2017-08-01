@@ -49,6 +49,7 @@ build. Check for style errors before submitting your pull request with:
 
 ```
 flake8 pyarrow
+flake8 --config=.flake8.cython pyarrow
 ```
 
 ### Building from Source
