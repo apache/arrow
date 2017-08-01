@@ -121,11 +121,11 @@ class ARROW_EXPORT RecordBatch {
   /// num_rows
 
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<Array>>& columns);
+              const std::vector<std::shared_ptr<Array>>& columns);
 
   /// \brief Deprecated move constructor for a vector of Array instances
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<Array>>&& columns);
+              std::vector<std::shared_ptr<Array>>&& columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
@@ -138,12 +138,12 @@ class ARROW_EXPORT RecordBatch {
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<internal::ArrayData>>&& columns);
+              std::vector<std::shared_ptr<internal::ArrayData>>&& columns);
 
   /// \brief Construct record batch by copying vector of array data
   /// \since 0.5.0
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<internal::ArrayData>>& columns);
+              const std::vector<std::shared_ptr<internal::ArrayData>>& columns);
 
   bool Equals(const RecordBatch& other) const;
 
@@ -194,14 +194,14 @@ class ARROW_EXPORT Table {
  public:
   // If columns is zero-length, the table's number of rows is zero
   Table(const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column>>& columns);
+        const std::vector<std::shared_ptr<Column>>& columns);
 
   // num_rows is a parameter to allow for tables of a particular size not
   // having any materialized columns. Each column should therefore have the
   // same length as num_rows -- you can validate this using
   // Table::ValidateColumns
   Table(const std::shared_ptr<Schema>& schema,
-      const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
+        const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
@@ -221,8 +221,8 @@ class ARROW_EXPORT Table {
   Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
 
   /// Add column to the table, producing a new Table
-  Status AddColumn(
-      int i, const std::shared_ptr<Column>& column, std::shared_ptr<Table>* out) const;
+  Status AddColumn(int i, const std::shared_ptr<Column>& column,
+                   std::shared_ptr<Table>* out) const;
 
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0
@@ -252,11 +252,12 @@ class ARROW_EXPORT Table {
 
 // Construct table from multiple input tables. Return Status::Invalid if
 // schemas are not equal
-Status ARROW_EXPORT ConcatenateTables(
-    const std::vector<std::shared_ptr<Table>>& tables, std::shared_ptr<Table>* table);
+Status ARROW_EXPORT ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
+                                      std::shared_ptr<Table>* table);
 
 Status ARROW_EXPORT MakeTable(const std::shared_ptr<Schema>& schema,
-    const std::vector<std::shared_ptr<Array>>& arrays, std::shared_ptr<Table>* table);
+                              const std::vector<std::shared_ptr<Array>>& arrays,
+                              std::shared_ptr<Table>* table);
 
 }  // namespace arrow
 

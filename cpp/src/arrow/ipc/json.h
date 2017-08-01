@@ -41,8 +41,8 @@ class ARROW_EXPORT JsonWriter {
  public:
   ~JsonWriter();
 
-  static Status Open(
-      const std::shared_ptr<Schema>& schema, std::unique_ptr<JsonWriter>* out);
+  static Status Open(const std::shared_ptr<Schema>& schema,
+                     std::unique_ptr<JsonWriter>* out);
 
   Status WriteRecordBatch(const RecordBatch& batch);
   Status Finish(std::string* result);
@@ -61,11 +61,11 @@ class ARROW_EXPORT JsonReader {
   ~JsonReader();
 
   static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
-      std::unique_ptr<JsonReader>* reader);
+                     std::unique_ptr<JsonReader>* reader);
 
   // Use the default memory pool
-  static Status Open(
-      const std::shared_ptr<Buffer>& data, std::unique_ptr<JsonReader>* reader);
+  static Status Open(const std::shared_ptr<Buffer>& data,
+                     std::unique_ptr<JsonReader>* reader);
 
   std::shared_ptr<Schema> schema() const;
 

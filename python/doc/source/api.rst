@@ -164,6 +164,18 @@ Input / Output and Shared Memory
    create_memory_map
    PythonFile
 
+File Systems
+------------
+
+.. autosummary::
+   :toctree: generated/
+
+   hdfs.connect
+   LocalFileSystem
+
+.. class:: HadoopFileSystem
+   :noindex:
+
 .. _api.ipc:
 
 Interprocess Communication and Messaging
@@ -212,6 +224,20 @@ Type Classes
    Field
    Schema
 
+.. currentmodule:: pyarrow.plasma
+
+.. _api.plasma:
+
+In-Memory Object Store
+----------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   ObjectID
+   PlasmaClient
+   PlasmaBuffer
+
 .. currentmodule:: pyarrow.parquet
 
 .. _api.parquet:
@@ -225,5 +251,8 @@ Apache Parquet
    ParquetDataset
    ParquetFile
    read_table
+   read_metadata
+   read_pandas
+   read_schema
    write_metadata
    write_table

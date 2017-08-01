@@ -1,15 +1,20 @@
 <!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
 -->
 
 # Developing Arrow C++ on Windows
@@ -26,7 +31,7 @@ other development instructions for Windows here.
 [Miniconda][1] is a minimal Python distribution including the conda package
 manager. To get started, download and install a 64-bit distribution.
 
-We recommend using packages from [conda-forge][2].  
+We recommend using packages from [conda-forge][2].
 Launch cmd.exe and run following commands:
 
 ```shell
@@ -46,7 +51,7 @@ previous step:
 activate arrow-dev
 ```
 
-We are using [cmake][4] tool to support Windows builds.  
+We are using [cmake][4] tool to support Windows builds.
 To allow cmake to pick up 3rd party dependencies, you should set
 `ARROW_BUILD_TOOLCHAIN` environment variable to contain `Library` folder
 path of new created on previous step `arrow-dev` conda environment.
@@ -71,16 +76,16 @@ As alternative to `ARROW_BUILD_TOOLCHAIN`, it's possible to configure path
 to each 3rd party dependency separately by setting appropriate environment
 variable:
 
-`FLATBUFFERS_HOME` variable with path to `flatbuffers` installation  
-`RAPIDJSON_HOME` variable with path to `rapidjson` installation  
-`GFLAGS_HOME` variable with path to `gflags` installation  
-`SNAPPY_HOME` variable with path to `snappy` installation  
-`ZLIB_HOME` variable with path to `zlib` installation  
-`BROTLI_HOME` variable with path to `brotli` installation  
-`LZ4_HOME` variable with path to `lz4` installation  
+`FLATBUFFERS_HOME` variable with path to `flatbuffers` installation
+`RAPIDJSON_HOME` variable with path to `rapidjson` installation
+`GFLAGS_HOME` variable with path to `gflags` installation
+`SNAPPY_HOME` variable with path to `snappy` installation
+`ZLIB_HOME` variable with path to `zlib` installation
+`BROTLI_HOME` variable with path to `brotli` installation
+`LZ4_HOME` variable with path to `lz4` installation
 `ZSTD_HOME` variable with path to `zstd` installation
 
-### Customize static libraries names lookup of 3rd party dependencies 
+### Customize static libraries names lookup of 3rd party dependencies
 
 If you decided to use pre-built 3rd party dependencies libs, it's possible to
 configure Arrow's cmake build script to search for customized names of 3rd

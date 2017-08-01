@@ -74,8 +74,8 @@ ARROW_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);
 ARROW_EXPORT PyObject* wrap_table(const std::shared_ptr<Table>& table);
 
 ARROW_EXPORT bool is_record_batch(PyObject* batch);
-ARROW_EXPORT Status unwrap_record_batch(
-    PyObject* batch, std::shared_ptr<RecordBatch>* out);
+ARROW_EXPORT Status unwrap_record_batch(PyObject* batch,
+                                        std::shared_ptr<RecordBatch>* out);
 ARROW_EXPORT PyObject* wrap_record_batch(const std::shared_ptr<RecordBatch>& batch);
 
 }  // namespace py

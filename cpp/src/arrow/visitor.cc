@@ -59,6 +59,8 @@ Status ArrayVisitor::Visit(const DecimalArray& array) {
   return Status::NotImplemented("decimal");
 }
 
+#undef ARRAY_VISITOR_DEFAULT
+
 // ----------------------------------------------------------------------
 // Default implementations of TypeVisitor methods
 
@@ -94,5 +96,7 @@ TYPE_VISITOR_DEFAULT(ListType);
 TYPE_VISITOR_DEFAULT(StructType);
 TYPE_VISITOR_DEFAULT(UnionType);
 TYPE_VISITOR_DEFAULT(DictionaryType);
+
+#undef TYPE_VISITOR_DEFAULT
 
 }  // namespace arrow

@@ -47,7 +47,7 @@ import io.netty.buffer.ArrowBuf;
  *   <li>you should never write to a vector once it has been read.</li>
  * </ul>
  *
- * Please note that the current implementation doesn't enfore those rules, hence we may find few places that
+ * Please note that the current implementation doesn't enforce those rules, hence we may find few places that
  * deviate from these rules (e.g. offset vectors in Variable Length and Repeated vector)
  *
  * This interface "should" strive to guarantee this order of operation:

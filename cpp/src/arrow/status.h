@@ -23,10 +23,12 @@
 #include "arrow/util/visibility.h"
 
 // Return the given status if it is not OK.
-#define ARROW_RETURN_NOT_OK(s)                        \
-  do {                                                \
-    ::arrow::Status _s = (s);                         \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
+#define ARROW_RETURN_NOT_OK(s)           \
+  do {                                   \
+    ::arrow::Status _s = (s);            \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      return _s;                         \
+    }                                    \
   } while (0)
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
@@ -43,10 +45,12 @@
 
 namespace arrow {
 
-#define RETURN_NOT_OK(s)                              \
-  do {                                                \
-    Status _s = (s);                                  \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { return _s; } \
+#define RETURN_NOT_OK(s)                 \
+  do {                                   \
+    Status _s = (s);                     \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      return _s;                         \
+    }                                    \
   } while (0)
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
@@ -187,7 +191,9 @@ inline Status::Status(const Status& s)
 inline void Status::operator=(const Status& s) {
   // The following condition catches both aliasing (when this == &s),
   // and the common case where both s and *this are ok.
-  if (state_ != s.state_) { CopyFrom(s.state_); }
+  if (state_ != s.state_) {
+    CopyFrom(s.state_);
+  }
 }
 
 }  // namespace arrow

@@ -109,6 +109,11 @@ class TestPandasConversion(unittest.TestCase):
         df['a'] = df['a'].astype('category')
         self._check_pandas_roundtrip(df)
 
+    def test_non_string_columns(self):
+        df = pd.DataFrame({0: [1, 2, 3]})
+        table = pa.Table.from_pandas(df)
+        assert table.column(0).name == '0'
+
     def test_float_no_nulls(self):
         data = {}
         fields = []

@@ -360,7 +360,7 @@ def test_pandas_serialize_round_trip_multi_index():
 
 
 @pytest.mark.xfail(
-    raises=TypeError,
+    raises=AssertionError,
     reason='Non string columns are not supported',
 )
 def test_pandas_serialize_round_trip_not_string_columns():

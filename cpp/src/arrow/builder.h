@@ -186,8 +186,8 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status Append(
-      const value_type* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const value_type* values, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
@@ -262,6 +262,8 @@ using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
 
+namespace internal {
+
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
   explicit AdaptiveIntBuilderBase(MemoryPool* pool);
@@ -295,25 +297,49 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 };
 
 // Check if we would need to expand the underlying storage type
-inline uint8_t expanded_uint_size(uint64_t val, uint8_t current_int_size) {
+inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
   if (current_int_size == 8 ||
       (current_int_size < 8 &&
-          (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
+       (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
+        val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
     return 8;
   } else if (current_int_size == 4 ||
              (current_int_size < 4 &&
-                 (val > static_cast<uint64_t>(std::numeric_limits<uint16_t>::max())))) {
+              (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
+               val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
     return 4;
   } else if (current_int_size == 2 ||
              (current_int_size == 1 &&
-                 (val > static_cast<uint64_t>(std::numeric_limits<uint8_t>::max())))) {
+              (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
+               val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
     return 2;
   } else {
     return 1;
   }
 }
 
-class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
+// Check if we would need to expand the underlying storage type
+inline uint8_t ExpandedUIntSize(uint64_t val, uint8_t current_int_size) {
+  if (current_int_size == 8 ||
+      (current_int_size < 8 &&
+       (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
+    return 8;
+  } else if (current_int_size == 4 ||
+             (current_int_size < 4 &&
+              (val > static_cast<uint64_t>(std::numeric_limits<uint16_t>::max())))) {
+    return 4;
+  } else if (current_int_size == 2 ||
+             (current_int_size == 1 &&
+              (val > static_cast<uint64_t>(std::numeric_limits<uint8_t>::max())))) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+
+}  // namespace internal
+
+class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveUIntBuilder(MemoryPool* pool);
 
@@ -324,8 +350,10 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
-    uint8_t new_int_size = expanded_uint_size(val, int_size_);
-    if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+    uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
+    if (new_int_size != int_size_) {
+      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+    }
 
     switch (int_size_) {
       case 1:
@@ -350,8 +378,8 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status Append(
-      const uint64_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const uint64_t* values, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
 
   Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
@@ -370,29 +398,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
   Status ExpandIntSizeN();
 };
 
-// Check if we would need to expand the underlying storage type
-inline uint8_t expanded_int_size(int64_t val, uint8_t current_int_size) {
-  if (current_int_size == 8 ||
-      (current_int_size < 8 &&
-          (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
-              val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
-    return 8;
-  } else if (current_int_size == 4 ||
-             (current_int_size < 4 &&
-                 (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
-                     val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
-    return 4;
-  } else if (current_int_size == 2 ||
-             (current_int_size == 1 &&
-                 (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
-                     val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
-    return 2;
-  } else {
-    return 1;
-  }
-}
-
-class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
+class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveIntBuilder(MemoryPool* pool);
 
@@ -403,8 +409,10 @@ class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
-    uint8_t new_int_size = expanded_int_size(val, int_size_);
-    if (new_int_size != int_size_) { RETURN_NOT_OK(ExpandIntSize(new_int_size)); }
+    uint8_t new_int_size = internal::ExpandedIntSize(val, int_size_);
+    if (new_int_size != int_size_) {
+      RETURN_NOT_OK(ExpandIntSize(new_int_size));
+    }
 
     switch (int_size_) {
       case 1:
@@ -429,8 +437,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status Append(
-      const int64_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const int64_t* values, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
 
   Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
@@ -490,8 +498,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status Append(
-      const uint8_t* values, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const uint8_t* values, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
@@ -526,7 +534,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
-      const std::shared_ptr<DataType>& type = nullptr);
+              const std::shared_ptr<DataType>& type = nullptr);
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -536,8 +544,8 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
-  Status Append(
-      const int32_t* offsets, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const int32_t* offsets, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
 
   /// \brief Start a new variable-length list slot
   ///
@@ -626,8 +634,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   FixedSizeBinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 
   Status Append(const uint8_t* value);
-  Status Append(
-      const uint8_t* data, int64_t length, const uint8_t* valid_bytes = nullptr);
+  Status Append(const uint8_t* data, int64_t length,
+                const uint8_t* valid_bytes = nullptr);
   Status Append(const std::string& value);
   Status AppendNull();
 
@@ -672,7 +680,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-      std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
+                std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 
@@ -808,7 +816,7 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
 
   Status Append(const std::string& value) {
     return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-        static_cast<int32_t>(value.size())));
+                                          static_cast<int32_t>(value.size())));
   }
 };
 
@@ -829,7 +837,7 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
 
   Status Append(const std::string& value) {
     return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-        static_cast<int32_t>(value.size())));
+                                          static_cast<int32_t>(value.size())));
   }
 };
 
@@ -837,10 +845,11 @@ class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType
 // Helper functions
 
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    std::unique_ptr<ArrayBuilder>* out);
+                                std::unique_ptr<ArrayBuilder>* out);
 
 Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
-    const std::shared_ptr<DataType>& type, std::shared_ptr<ArrayBuilder>* out);
+                                          const std::shared_ptr<DataType>& type,
+                                          std::shared_ptr<ArrayBuilder>* out);
 
 }  // namespace arrow
 

@@ -281,12 +281,12 @@ cdef class Schema:
     def __len__(self):
         return self.schema.num_fields()
 
-    def __getitem__(self, int64_t i):
+    def __getitem__(self, int i):
 
         cdef:
             Field result = Field()
-            int64_t num_fields = self.schema.num_fields()
-            int64_t index
+            int num_fields = self.schema.num_fields()
+            int index
 
         if not -num_fields <= i < num_fields:
             raise IndexError(
@@ -456,7 +456,7 @@ def field(name, DataType type, bint nullable=True, dict metadata=None):
         convert_metadata(metadata, &c_meta)
 
     result.sp_field.reset(new CField(tobytes(name), type.sp_type,
-                                     nullable, c_meta))
+                                     nullable == 1, c_meta))
     result.field = result.sp_field.get()
     result.type = type
     return result

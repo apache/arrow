@@ -23,7 +23,7 @@ import json
 import pytest
 
 from pyarrow.compat import guid, u
-from pyarrow.filesystem import LocalFilesystem
+from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
@@ -124,9 +124,8 @@ def test_pandas_parquet_custom_metadata(tmpdir):
     assert b'pandas' in arrow_table.schema.metadata
 
     _write_table(arrow_table, filename.strpath, version="2.0")
-    pf = pq.ParquetFile(filename.strpath)
 
-    md = pf.metadata.metadata
+    md = pq.read_metadata(filename.strpath).metadata
     assert b'pandas' in md
 
     js = json.loads(md[b'pandas'].decode('utf8'))
@@ -263,6 +262,18 @@ def test_read_pandas_column_subset(tmpdir):
     reader = pa.BufferReader(buf)
     df_read = pq.read_pandas(reader, columns=['strings', 'uint8']).to_pandas()
     tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
+
+
+@parquet
+def test_pandas_parquet_empty_roundtrip(tmpdir):
+    df = _test_dataframe(0)
+    arrow_table = pa.Table.from_pandas(df)
+    imos = pa.BufferOutputStream()
+    _write_table(arrow_table, imos, version="2.0")
+    buf = imos.get_result()
+    reader = pa.BufferReader(buf)
+    df_read = _read_table(reader).to_pandas()
+    tm.assert_frame_equal(df, df_read)
 
 
 @parquet
@@ -580,7 +591,7 @@ def test_pass_separate_metadata():
     _write_table(a_table, buf, compression='snappy', version='2.0')
 
     buf.seek(0)
-    metadata = pq.ParquetFile(buf).metadata
+    metadata = pq.read_metadata(buf)
 
     buf.seek(0)
 
@@ -689,6 +700,45 @@ def test_partition_set_dictionary_type():
 
 @parquet
 def test_read_partitioned_directory(tmpdir):
+    fs = LocalFileSystem.get_instance()
+    base_path = str(tmpdir)
+
+    _partition_test_for_filesystem(fs, base_path)
+
+
+@pytest.yield_fixture
+def s3_example():
+    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
+    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
+    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
+
+    import s3fs
+    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+
+    test_dir = guid()
+
+    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
+    fs.mkdir(bucket_uri)
+    yield fs, bucket_uri
+    fs.rm(bucket_uri, recursive=True)
+
+
+@pytest.mark.s3
+@parquet
+def test_read_partitioned_directory_s3fs(s3_example):
+    from pyarrow.filesystem import S3FSWrapper
+    import pyarrow.parquet as pq
+
+    fs, bucket_uri = s3_example
+    wrapper = S3FSWrapper(fs)
+    _partition_test_for_filesystem(wrapper, bucket_uri)
+
+    # Check that we can auto-wrap
+    dataset = pq.ParquetDataset(bucket_uri, filesystem=fs)
+    dataset.read()
+
+
+def _partition_test_for_filesystem(fs, base_path):
     import pyarrow.parquet as pq
 
     foo_keys = [0, 1]
@@ -706,10 +756,9 @@ def test_read_partitioned_directory(tmpdir):
         'values': np.random.randn(N)
     }, columns=['index', 'foo', 'bar', 'values'])
 
-    base_path = str(tmpdir)
-    _generate_partition_directories(base_path, partition_spec, df)
+    _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.ParquetDataset(base_path)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
     table = dataset.read()
     result_df = (table.to_pandas()
                  .sort_values(by='index')
@@ -726,12 +775,11 @@ def test_read_partitioned_directory(tmpdir):
     tm.assert_frame_equal(result_df, expected_df)
 
 
-def _generate_partition_directories(base_dir, partition_spec, df):
+def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
     DEPTH = len(partition_spec)
-    fs = LocalFilesystem.get_instance()
 
     def _visit_level(base_dir, level, part_keys):
         name, values = partition_spec[level]
@@ -747,7 +795,8 @@ def _generate_partition_directories(base_dir, partition_spec, df):
 
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
-                _write_table(part_table, file_path)
+                with fs.open(file_path, 'wb') as f:
+                    _write_table(part_table, f)
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
 
@@ -776,12 +825,30 @@ def test_read_common_metadata_files(tmpdir):
     dataset = pq.ParquetDataset(base_path)
     assert dataset.metadata_path == metadata_path
 
-    pf = pq.ParquetFile(data_path)
-    assert dataset.schema.equals(pf.schema)
+    common_schema = pq.read_metadata(data_path).schema
+    assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
     dataset2 = pq.ParquetDataset([base_path])
     assert dataset2.schema.equals(dataset.schema)
+
+
+@parquet
+def test_read_schema(tmpdir):
+    import pyarrow.parquet as pq
+
+    N = 100
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'values': np.random.randn(N)
+    }, columns=['index', 'values'])
+
+    data_path = pjoin(str(tmpdir), 'test.parquet')
+
+    table = pa.Table.from_pandas(df)
+    _write_table(table, data_path)
+
+    assert table.schema.equals(pq.read_schema(data_path))
 
 
 def _filter_partition(df, part_keys):
@@ -835,7 +902,7 @@ def test_read_multiple_files(tmpdir):
     assert result.equals(expected)
 
     # Read with provided metadata
-    metadata = pq.ParquetFile(paths[0]).metadata
+    metadata = pq.read_metadata(paths[0])
 
     result2 = read_multiple_files(paths, metadata=metadata)
     assert result2.equals(expected)
@@ -861,7 +928,7 @@ def test_read_multiple_files(tmpdir):
     t = pa.Table.from_pandas(bad_apple)
     _write_table(t, bad_apple_path)
 
-    bad_meta = pq.ParquetFile(bad_apple_path).metadata
+    bad_meta = pq.read_metadata(bad_apple_path)
 
     with pytest.raises(ValueError):
         read_multiple_files(paths + [bad_apple_path])
@@ -1006,3 +1073,28 @@ def test_multiindex_duplicate_values(tmpdir):
 
     result_df = result_table.to_pandas()
     tm.assert_frame_equal(result_df, df)
+
+
+@parquet
+def test_write_error_deletes_incomplete_file(tmpdir):
+    # ARROW-1285
+    df = pd.DataFrame({'a': list('abc'),
+                       'b': list(range(1, 4)),
+                       'c': np.arange(3, 6).astype('u1'),
+                       'd': np.arange(4.0, 7.0, dtype='float64'),
+                       'e': [True, False, True],
+                       'f': pd.Categorical(list('abc')),
+                       'g': pd.date_range('20130101', periods=3),
+                       'h': pd.date_range('20130101', periods=3,
+                                          tz='US/Eastern'),
+                       'i': pd.date_range('20130101', periods=3, freq='ns')})
+
+    pdf = pa.Table.from_pandas(df)
+
+    filename = tmpdir.join('tmp_file').strpath
+    try:
+        _write_table(pdf, filename)
+    except pa.ArrowException:
+        pass
+
+    assert not os.path.exists(filename)

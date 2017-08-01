@@ -7,14 +7,18 @@ layout: default
         <p class="lead">Powering Columnar In-Memory Analytics</p>
         <p>
           <a class="btn btn-lg btn-success" href="mailto:dev-subscribe@arrow.apache.org" role="button">Join Mailing List</a>
-          <a class="btn btn-lg btn-primary" href="{{ site.baseurl }}/install/" role="button">Install (0.4.1 Release - June 9, 2017)</a>
+          <a class="btn btn-lg btn-primary" href="{{ site.baseurl }}/install/" role="button">Install (0.5.0 Release - July 23, 2017)</a>
         </p>
       </div>
-      <h4><strong>Latest News</strong>: <a href="{{ site.baseurl }}/blog/">Apache Arrow 0.4.1 release</a></h4>
+      <h4><strong>Latest News</strong>: <a href="{{ site.baseurl }}/blog/">Apache Arrow 0.5.0 release</a></h4>
       <div class="row">
         <div class="col-lg-4">
           <h2>Fast</h2>
-          <p>Apache Arrow&#8482; enables execution engines to take advantage of the latest SIMD (Single input multiple data) operations included in modern processors, for native vectorized optimization of analytical data processing. Columnar layout of data also allows for a better use of CPU caches by placing all data relevant to a column operation in as compact of a format as possible.</p>
+          <p>Apache Arrow&#8482; enables execution engines to take advantage of the latest SIM
+D (Single input multiple data) operations included in modern processors, for native vectorized optimization of analytical data processing. Columnar layout of data also allows for a better use of CPU caches by placing all data relevant to a column operation in as compact of a format
+ as possible.</p>
+          <p>The Arrow memory format supports <strong>zero-copy reads</strong>
+          for lightning-fast data access without serialization overhead.</p>
         </div>
         <div class="col-lg-4">
           <h2>Flexible</h2>
@@ -25,12 +29,6 @@ layout: default
           <p>Apache Arrow is backed by key developers of 13 major open source projects, including Calcite, Cassandra, Drill, Hadoop, HBase, Ibis, Impala, Kudu, Pandas, Parquet, Phoenix, Spark, and Storm making it the de-facto standard for columnar in-memory analytics.</p>
         </div>
      </div> <!-- close "row" div -->
-
-<h2>Zero-Copy IPC and Streaming Messaging</h2>
-<div align="left">
-  <h4>Apache Arrow supports zero-copy shared memory IPC and a streaming wire
-  format that fully avoids traditional data serialization costs</h4>
-</div>
 
 <h2>Performance Advantage of Columnar In-Memory</h2>
 <div align="center">

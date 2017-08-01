@@ -640,7 +640,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         continue;
       }
       final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
-      sb.append("UnsafeDirectLittleEndian[dentityHashCode == ");
+      sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(udle)));
       sb.append("] size ");
       sb.append(Integer.toString(udle.capacity()));

@@ -30,8 +30,6 @@ import org.apache.arrow.vector.util.TransferPair;
 
 public abstract class BaseDataValueVector extends BaseValueVector implements BufferBacked {
 
-  protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
-
   public static void load(ArrowFieldNode fieldNode, List<BufferBacked> vectors, List<ArrowBuf> buffers) {
     int expectedSize = vectors.size();
     if (buffers.size() != expectedSize) {

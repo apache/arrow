@@ -44,8 +44,8 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   // truncated to 0 bytes, deleting any existing memory
   static Status Open(const std::string& path, std::shared_ptr<FileOutputStream>* file);
 
-  static Status Open(
-      const std::string& path, bool append, std::shared_ptr<FileOutputStream>* file);
+  static Status Open(const std::string& path, bool append,
+                     std::shared_ptr<FileOutputStream>* file);
 
   // OutputStream interface
   Status Close() override;
@@ -73,7 +73,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
 
   // Open file with one's own memory pool for memory allocations
   static Status Open(const std::string& path, MemoryPool* memory_pool,
-      std::shared_ptr<ReadableFile>* file);
+                     std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
   Status Tell(int64_t* position) override;
@@ -107,11 +107,11 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   ~MemoryMappedFile();
 
   /// Create new file with indicated size, return in read/write mode
-  static Status Create(
-      const std::string& path, int64_t size, std::shared_ptr<MemoryMappedFile>* out);
+  static Status Create(const std::string& path, int64_t size,
+                       std::shared_ptr<MemoryMappedFile>* out);
 
   static Status Open(const std::string& path, FileMode::type mode,
-      std::shared_ptr<MemoryMappedFile>* out);
+                     std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
 
