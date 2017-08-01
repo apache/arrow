@@ -46,12 +46,15 @@ set(ARROW_PYTHON_SRCS
   builtin_convert.cc
   common.cc
   config.cc
+  dict.cc
   helpers.cc
   init.cc
   io.cc
   numpy_convert.cc
   pandas_to_arrow.cc
+  python_to_arrow.cc
   pyarrow.cc
+  sequence
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
@@ -86,14 +89,17 @@ install(FILES
   builtin_convert.h
   common.h
   config.h
+  dict.h
   helpers.h
   init.h
   io.h
   numpy_convert.h
   numpy_interop.h
   pandas_to_arrow.h
+  python_to_arrow.h
   platform.h
   pyarrow.h
+  sequence.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 

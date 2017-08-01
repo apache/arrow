@@ -119,5 +119,8 @@ include "ipc.pxi"
 # Feather format
 include "feather.pxi"
 
+# Python serialization
+include "serialization.pxi"
+
 # Public API
 include "public-api.pxi"
