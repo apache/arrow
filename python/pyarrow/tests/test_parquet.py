@@ -23,7 +23,7 @@ import json
 import pytest
 
 from pyarrow.compat import guid, u
-from pyarrow.filesystem import LocalFilesystem
+from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
@@ -700,7 +700,7 @@ def test_partition_set_dictionary_type():
 
 @parquet
 def test_read_partitioned_directory(tmpdir):
-    fs = LocalFilesystem.get_instance()
+    fs = LocalFileSystem.get_instance()
     base_path = str(tmpdir)
 
     _partition_test_for_filesystem(fs, base_path)

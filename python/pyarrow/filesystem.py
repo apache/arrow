@@ -22,7 +22,7 @@ import posixpath
 from pyarrow.util import implements
 
 
-class Filesystem(object):
+class FileSystem(object):
     """
     Abstract filesystem interface
     """
@@ -46,7 +46,7 @@ class Filesystem(object):
 
     def rm(self, path, recursive=False):
         """
-        Alias for Filesystem.delete
+        Alias for FileSystem.delete
         """
         return self.delete(path, recursive=recursive)
 
@@ -113,40 +113,40 @@ class Filesystem(object):
         return '/'
 
 
-class LocalFilesystem(Filesystem):
+class LocalFileSystem(FileSystem):
 
     _instance = None
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = LocalFilesystem()
+            cls._instance = LocalFileSystem()
         return cls._instance
 
-    @implements(Filesystem.ls)
+    @implements(FileSystem.ls)
     def ls(self, path):
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
-    @implements(Filesystem.mkdir)
+    @implements(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
         if create_parents:
             os.makedirs(path)
         else:
             os.mkdir(path)
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         return os.path.isdir(path)
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         return os.path.isfile(path)
 
-    @implements(Filesystem.exists)
+    @implements(FileSystem.exists)
     def exists(self, path):
         return os.path.exists(path)
 
-    @implements(Filesystem.open)
+    @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -164,7 +164,7 @@ class LocalFilesystem(Filesystem):
         return os.walk(top_dir)
 
 
-class DaskFilesystem(Filesystem):
+class DaskFileSystem(FileSystem):
     """
     Wraps s3fs Dask filesystem implementation like s3fs, gcsfs, etc.
     """
@@ -172,23 +172,23 @@ class DaskFilesystem(Filesystem):
     def __init__(self, fs):
         self.fs = fs
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(Filesystem.delete)
+    @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
         return self.fs.rm(path, recursive=recursive)
 
-    @implements(Filesystem.mkdir)
+    @implements(FileSystem.mkdir)
     def mkdir(self, path):
         return self.fs.mkdir(path)
 
-    @implements(Filesystem.open)
+    @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing
@@ -205,9 +205,9 @@ class DaskFilesystem(Filesystem):
         return self.fs.walk(top_path)
 
 
-class S3FSWrapper(DaskFilesystem):
+class S3FSWrapper(DaskFileSystem):
 
-    @implements(Filesystem.isdir)
+    @implements(FileSystem.isdir)
     def isdir(self, path):
         try:
             contents = self.fs.ls(path)
@@ -218,7 +218,7 @@ class S3FSWrapper(DaskFilesystem):
         except OSError:
             return False
 
-    @implements(Filesystem.isfile)
+    @implements(FileSystem.isfile)
     def isfile(self, path):
         try:
             contents = self.fs.ls(path)

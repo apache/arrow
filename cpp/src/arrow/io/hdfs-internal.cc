@@ -462,21 +462,11 @@ tOffset LibHdfsShim::GetUsed(hdfsFS fs) { return this->hdfsGetUsed(fs); }
 
 int LibHdfsShim::Chown(hdfsFS fs, const char* path, const char* owner,
                        const char* group) {
-  GET_SYMBOL(this, hdfsChown);
-  if (this->hdfsChown) {
-    return this->hdfsChown(fs, path, owner, group);
-  } else {
-    return 0;
-  }
+  return this->hdfsChown(fs, path, owner, group);
 }
 
 int LibHdfsShim::Chmod(hdfsFS fs, const char* path, short mode) {  // NOLINT
-  GET_SYMBOL(this, hdfsChmod);
-  if (this->hdfsChmod) {
-    return this->hdfsChmod(fs, path, mode);
-  } else {
-    return 0;
-  }
+  return this->hdfsChmod(fs, path, mode);
 }
 
 int LibHdfsShim::Utime(hdfsFS fs, const char* path, tTime mtime, tTime atime) {
@@ -504,6 +494,8 @@ Status LibHdfsShim::GetRequiredSymbols() {
   GET_SYMBOL_REQUIRED(this, hdfsGetUsed);
   GET_SYMBOL_REQUIRED(this, hdfsGetPathInfo);
   GET_SYMBOL_REQUIRED(this, hdfsListDirectory);
+  GET_SYMBOL_REQUIRED(this, hdfsChown);
+  GET_SYMBOL_REQUIRED(this, hdfsChmod);
 
   // File methods
   GET_SYMBOL_REQUIRED(this, hdfsCloseFile);

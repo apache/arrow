@@ -517,10 +517,10 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(OutputStream):
         pass
 
-    cdef cppclass CHdfsClient" arrow::io::HdfsClient":
+    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem":
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
-                        shared_ptr[CHdfsClient]* client)
+                        shared_ptr[CHadoopFileSystem]* client)
 
         CStatus MakeDirectory(const c_string& path)
 
@@ -529,6 +529,10 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
         CStatus Disconnect()
 
         c_bool Exists(const c_string& path)
+
+        CStatus Chmod(const c_string& path, int mode)
+        CStatus Chown(const c_string& path, const char* owner,
+                      const char* group)
 
         CStatus GetCapacity(int64_t* nbytes)
         CStatus GetUsed(int64_t* nbytes)

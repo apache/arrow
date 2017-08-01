@@ -106,6 +106,11 @@ class HdfsTestCases(object):
         contents = sorted(self.hdfs.ls(base_path, False))
         assert contents == [dir_path, f1_path]
 
+    def test_hdfs_chmod_chown(self):
+        path = pjoin(self.tmp_path, 'chmod-test')
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(b'a' * 10)
+
     def test_hdfs_download_upload(self):
         base_path = pjoin(self.tmp_path, 'upload-test')
 

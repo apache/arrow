@@ -59,3 +59,26 @@ You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
 
    hdfs3 = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
                            driver='libhdfs3')
+
+HDFS API
+~~~~~~~~
+
+.. currentmodule:: pyarrow
+
+.. autosummary::
+   :toctree: generated/
+
+   hdfs.connect
+   HadoopFilesystem
+   HadoopFilesystem.cat
+   HadoopFilesystem.chmod
+   HadoopFilesystem.chown
+   HadoopFilesystem.delete
+   HadoopFilesystem.download
+   HadoopFilesystem.exists
+   HadoopFilesystem.info
+   HadoopFilesystem.ls
+   HadoopFilesystem.mkdir
+   HadoopFilesystem.rm
+   HadoopFilesystem.upload
+   HdfsFile

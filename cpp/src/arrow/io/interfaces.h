@@ -22,6 +22,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -42,9 +43,29 @@ struct ObjectType {
   enum type { FILE, DIRECTORY };
 };
 
-class ARROW_EXPORT FileSystemClient {
+struct ARROW_EXPORT FileStatistics {
+  /// Size of file, -1 if finding length is unsupported
+  int64_t size;
+  ObjectType::type kind;
+
+  FileStatistics() {}
+  FileStatistics(int64_t size, ObjectType::type kind) : size(size), kind(kind) {}
+};
+
+class ARROW_EXPORT FileSystem {
  public:
-  virtual ~FileSystemClient() {}
+  virtual ~FileSystem() {}
+
+  virtual Status MakeDirectory(const std::string& path) = 0;
+
+  virtual Status DeleteDirectory(const std::string& path) = 0;
+
+  virtual Status GetChildren(const std::string& path,
+                             std::vector<std::string>* listing) = 0;
+
+  virtual Status Rename(const std::string& src, const std::string& dst) = 0;
+
+  virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
 };
 
 class ARROW_EXPORT FileInterface {
