@@ -124,6 +124,10 @@ set(Boost_ADDITIONAL_VERSIONS
   "1.62.0" "1.61"
   "1.61.0" "1.62"
   "1.60.0" "1.60")
+list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
+string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
+set(BOOST_LATEST_URL
+  "https://dl.bintray.com/boostorg/release/${BOOST_LATEST_VERSION}/source/boost_${BOOST_LATEST_VERSION_IN_PATH}.tar.gz")
 
 if (ARROW_BOOST_USE_SHARED)
   # Find shared Boost libraries.
@@ -139,17 +143,27 @@ if (ARROW_BOOST_USE_SHARED)
 
   if (ARROW_BOOST_HEADER_ONLY)
     find_package(Boost)
-  else()
-    find_package(Boost COMPONENTS system filesystem REQUIRED)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    if (Boost_FOUND)
+      set(BOOST_VENDORED FALSE)
     else()
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      set(BOOST_VENDORED TRUE)
     endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+  else()
+    find_package(Boost COMPONENTS system filesystem)
+    if (Boost_FOUND)
+      set(BOOST_VENDORED FALSE)
+      if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+      else()
+	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      endif()
+      set(BOOST_SYSTEM_LIBRARY boost_system_shared)
+      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+    else()
+      set(BOOST_VENDORED TRUE)
+    endif()
   endif()
 else()
   # Find static boost headers and libs
@@ -157,18 +171,84 @@ else()
   set(Boost_USE_STATIC_LIBS ON)
   if (ARROW_BOOST_HEADER_ONLY)
     find_package(Boost)
-  else()
-    find_package(Boost COMPONENTS system filesystem REQUIRED)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+    if (Boost_FOUND)
+      set(BOOST_VENDORED FALSE)
     else()
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      set(BOOST_VENDORED TRUE)
     endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  else()
+    find_package(Boost COMPONENTS system filesystem)
+    if (Boost_FOUND)
+      set(BOOST_VENDORED FALSE)
+      if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+      else()
+	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      endif()
+      set(BOOST_SYSTEM_LIBRARY boost_system_static)
+      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    else()
+      set(BOOST_VENDORED TRUE)
+    endif()
   endif()
+endif()
+
+if (BOOST_VENDORED)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+  if (ARROW_BOOST_USE_SHARED)
+    set(BOOST_BUILD_LINK "shared")
+    set(BOOST_SHARED_SYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}boost_system${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(BOOST_SHARED_FILESYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}boost_filesystem${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(BOOST_SYSTEM_LIBRARY "${BOOST_SHARED_SYSTEM_LIBRARY}")
+    set(BOOST_FILESYSTEM_LIBRARY "${BOOST_SHARED_FILESYSTEM_LIBRARY}")
+  else()
+    set(BOOST_BUILD_LINK "static")
+    set(BOOST_STATIC_SYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(BOOST_STATIC_FILESYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(BOOST_SYSTEM_LIBRARY "${BOOST_STATIC_SYSTEM_LIBRARY}")
+    set(BOOST_FILESYSTEM_LIBRARY "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+  endif()
+  if (ARROW_BOOST_HEADER_ONLY)
+    set(BOOST_BUILD_PRODUCTS)
+    set(BOOST_CONFIGURE_COMMAND "")
+    set(BOOST_BUILD_COMMAND "")
+  else()
+    set(BOOST_BUILD_PRODUCTS
+      ${BOOST_SYSTEM_LIBRARY}
+      ${BOOST_FILESYSTEM_LIBRARY})
+    set(BOOST_CONFIGURE_COMMAND
+      "./bootstrap.sh"
+      "--prefix=${BOOST_PREFIX}"
+      "--with-libraries=filesystem,system")
+    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_BUILD_VARIANT "debug")
+    else()
+      set(BOOST_BUILD_VARIANT "release")
+    endif()
+    set(BOOST_BUILD_COMMAND
+      "./b2"
+      "link=${BOOST_BUILD_LINK}"
+      "variant=${BOOST_BUILD_VARIANT}"
+      "cxxflags=-fPIC")
+  endif()
+  ExternalProject_Add(boost_ep
+    URL ${BOOST_LATEST_URL}
+    BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+    BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+    INSTALL_COMMAND ""
+    ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(arrow_dependencies boost_ep)
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIRS})
