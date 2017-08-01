@@ -164,15 +164,17 @@ Input / Output and Shared Memory
    create_memory_map
    PythonFile
 
-Filesystems
------------
+File Systems
+------------
 
 .. autosummary::
    :toctree: generated/
 
    hdfs.connect
-   HadoopFilesystem
-   LocalFilesystem
+   LocalFileSystem
+
+.. class:: HadoopFileSystem
+   :noindex:
 
 .. _api.ipc:
 

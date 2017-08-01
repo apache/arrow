@@ -88,9 +88,9 @@ from pyarrow.lib import (ArrowException,
                          ArrowTypeError)
 
 
-from pyarrow.filesystem import Filesystem, LocalFilesystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem
 
-from pyarrow.hdfs import HadoopFilesystem
+from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import (Message, MessageReader,
@@ -103,7 +103,7 @@ from pyarrow.ipc import (Message, MessageReader,
                          open_file,
                          serialize_pandas, deserialize_pandas)
 
-localfs = LocalFilesystem.get_instance()
+localfs = LocalFileSystem.get_instance()
 
 
 # ----------------------------------------------------------------------

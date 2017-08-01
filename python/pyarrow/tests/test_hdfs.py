@@ -72,7 +72,26 @@ class HdfsTestCases(object):
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
 
-    def test_hdfs_close(self):
+    def test_cat(self):
+        path = pjoin(self.tmp_path, 'cat-test')
+
+        data = b'foobarbaz'
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(data)
+
+        contents = self.hdfs.cat(path)
+        assert contents == data
+
+    def test_capacity_space(self):
+        capacity = self.hdfs.get_capacity()
+        space_used = self.hdfs.get_space_used()
+        disk_free = self.hdfs.df()
+
+        assert capacity > 0
+        assert capacity > space_used
+        assert disk_free == (capacity - space_used)
+
+    def test_close(self):
         client = hdfs_test_client()
         assert client.is_open
         client.close()
@@ -81,7 +100,7 @@ class HdfsTestCases(object):
         with pytest.raises(Exception):
             client.ls('/')
 
-    def test_hdfs_mkdir(self):
+    def test_mkdir(self):
         path = pjoin(self.tmp_path, 'test-dir/test-dir')
         parent_path = pjoin(self.tmp_path, 'test-dir')
 
@@ -91,7 +110,64 @@ class HdfsTestCases(object):
         self.hdfs.delete(parent_path, recursive=True)
         assert not self.hdfs.exists(path)
 
-    def test_hdfs_ls(self):
+    def test_mv_rename(self):
+        path = pjoin(self.tmp_path, 'mv-test')
+        new_path = pjoin(self.tmp_path, 'mv-new-test')
+
+        data = b'foobarbaz'
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(data)
+
+        assert self.hdfs.exists(path)
+        self.hdfs.mv(path, new_path)
+        assert not self.hdfs.exists(path)
+        assert self.hdfs.exists(new_path)
+
+        assert self.hdfs.cat(new_path) == data
+
+        self.hdfs.rename(new_path, path)
+        assert self.hdfs.cat(path) == data
+
+    def test_info(self):
+        path = pjoin(self.tmp_path, 'info-base')
+        file_path = pjoin(path, 'ex')
+        self.hdfs.mkdir(path)
+
+        data = b'foobarbaz'
+        with self.hdfs.open(file_path, 'wb') as f:
+            f.write(data)
+
+        path_info = self.hdfs.info(path)
+        file_path_info = self.hdfs.info(file_path)
+
+        assert path_info['kind'] == 'directory'
+
+        assert file_path_info['kind'] == 'file'
+        assert file_path_info['size'] == len(data)
+
+    def test_disk_usage(self):
+        path = pjoin(self.tmp_path, 'disk-usage-base')
+        p1 = pjoin(path, 'p1')
+        p2 = pjoin(path, 'p2')
+
+        subdir = pjoin(path, 'subdir')
+        p3 = pjoin(subdir, 'p3')
+
+        if self.hdfs.exists(path):
+            self.hdfs.delete(path, True)
+
+        self.hdfs.mkdir(path)
+        self.hdfs.mkdir(subdir)
+
+        data = b'foobarbaz'
+
+        for file_path in [p1, p2, p3]:
+            with self.hdfs.open(file_path, 'wb') as f:
+                f.write(data)
+
+        assert self.hdfs.disk_usage(path) == len(data) * 3
+
+    def test_ls(self):
         base_path = pjoin(self.tmp_path, 'ls-test')
         self.hdfs.mkdir(base_path)
 
@@ -106,7 +182,12 @@ class HdfsTestCases(object):
         contents = sorted(self.hdfs.ls(base_path, False))
         assert contents == [dir_path, f1_path]
 
-    def test_hdfs_download_upload(self):
+    def test_chmod_chown(self):
+        path = pjoin(self.tmp_path, 'chmod-test')
+        with self.hdfs.open(path, 'wb') as f:
+            f.write(b'a' * 10)
+
+    def test_download_upload(self):
         base_path = pjoin(self.tmp_path, 'upload-test')
 
         data = b'foobarbaz'
@@ -120,7 +201,7 @@ class HdfsTestCases(object):
         out_buf.seek(0)
         assert out_buf.getvalue() == data
 
-    def test_hdfs_file_context_manager(self):
+    def test_file_context_manager(self):
         path = pjoin(self.tmp_path, 'ctx-manager')
 
         data = b'foo'
@@ -132,7 +213,7 @@ class HdfsTestCases(object):
             result = f.read(10)
             assert result == data
 
-    def test_hdfs_read_whole_file(self):
+    def test_read_whole_file(self):
         path = pjoin(self.tmp_path, 'read-whole-file')
 
         data = b'foo' * 1000
@@ -145,7 +226,7 @@ class HdfsTestCases(object):
         assert result == data
 
     @test_parquet.parquet
-    def test_hdfs_read_multiple_parquet_files(self):
+    def test_read_multiple_parquet_files(self):
         import pyarrow.parquet as pq
 
         nfiles = 10
@@ -191,7 +272,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
         if not pa.have_libhdfs():
             pytest.fail('No libhdfs available on system')
 
-    def test_hdfs_orphaned_file(self):
+    def test_orphaned_file(self):
         hdfs = hdfs_test_client()
         file_path = self._make_test_file(hdfs, 'orphaned_file_test', 'fname',
                                          'foobarbaz')

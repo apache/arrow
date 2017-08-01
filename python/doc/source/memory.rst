@@ -226,10 +226,3 @@ file interfaces that can read and write to Arrow Buffers.
    reader.read(7)
 
 These have similar semantics to Python's built-in ``io.BytesIO``.
-
-Hadoop Filesystem
------------------
-
-:class:`~pyarrow.HdfsFile` is an implementation of :class:`~pyarrow.NativeFile`
-that can read and write to the Hadoop filesytem. Read more in the
-:ref:`Filesystems Section <hdfs>`.
