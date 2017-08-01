@@ -16,5 +16,5 @@
 # under the License.
 
 [flake8]
-filename = *.pyx,*.px*
+filename = *.pyx,*.pxd,*.pxi
 ignore = E211,E901,E225,E226,E227
