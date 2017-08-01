@@ -51,12 +51,12 @@ Creating a Plasma client
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 To start the Plasma client, from within python, the same socket given to
-``./plasma_store``  should then be passed into the Plasma client as shown below:
+``./plasma_store``  should then be passed into the connect method as shown below:
 
 .. code-block:: python
 
   import pyarrow.plasma as plasma
-  client = plasma.PlasmaClient("/tmp/plasma", "", 0)
+  client = plasma.connect("/tmp/plasma", "", 0)
 
 If the following error occurs from running the above Python code, that
 means that either the socket given is incorrect, or the ``./plasma_store`` is 
@@ -65,7 +65,7 @@ process in your plasma directory.
 
 .. code-block:: shell
 
-  >>> client = plasma.PlasmaClient("/tmp/plasma", "", 0)
+  >>> client = plasma.connect("/tmp/plasma", "", 0)
   Connection to socket failed for pathname /tmp/plasma
   Could not connect to socket /tmp/plasma
 
@@ -138,7 +138,7 @@ the object.
 
   # Create a different client. Note that this second client could be
   # created in the same or in a separate, concurrent Python session.
-  client2 = plasma.PlasmaClient("/tmp/plasma", "", 0)
+  client2 = plasma.connect("/tmp/plasma", "", 0)
 
   # Get the object in the second client. This blocks until the object has been sealed.
   object_id2 = plasma.ObjectID(20 * b"a")  
