@@ -159,23 +159,15 @@ Now build and install the Arrow C++ libraries:
    cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
          -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
          -DARROW_PYTHON=on \
+         -DARROW_PLASMA=on \
          -DARROW_BUILD_TESTS=OFF \
          ..
    make -j4
    make install
    popd
 
-If you want to build and install the Plasma in-memory object store too,
-replace the cmake command with the following one:
-
-.. code-block:: shell
-
-   cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
-         -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-         -DARROW_PYTHON=on \
-         -DARROW_PLASMA=on \
-         -DARROW_BUILD_TESTS=OFF \
-         ..
+If you don't want to build and install the Plasma in-memory object store,
+you can omit the `-DARROW_PLASMA=on` flag.
 
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
@@ -231,6 +223,18 @@ You should be able to run the unit tests with:
    pyarrow/tests/test_tensor.py ................
 
    ====================== 181 passed, 17 skipped in 0.98 seconds ===========
+
+On some configurations this might give an error like the following:
+
+.. conda-block:: shell
+
+   ImportError: /home/ubuntu/anaconda3/bin/../lib/libstdc++.so.6: version `GLIBCXX_3.4.21' not found (required by /home/ubuntu/repos/arrow/python/pyarrow/lib.cpython-36m-x86_64-linux-gnu.so)
+
+This can be fixed by running the following:
+
+.. conda-block:: shell
+
+   conda install -y libgcc
 
 You can build a wheel by running:
 
