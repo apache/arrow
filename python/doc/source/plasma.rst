@@ -241,8 +241,8 @@ object:
 .. code-block:: python
 
   # Reconstruct the Arrow tensor object.
-  reader = pa.BufferReader(buf2)  # Plasma buffer -> Arrow reader
-  tensor2 = pa.read_tensor(reader)  # Arrow reader -> Arrow tensor
+  reader = pa.BufferReader(buf2)
+  tensor2 = pa.read_tensor(reader)
 
 Finally, you can use ``pyarrow.read_tensor`` to convert the Arrow object 
 back into numpy data:
@@ -250,7 +250,7 @@ back into numpy data:
 .. code-block:: python
 
   # Convert back to numpy
-  array = tensor2.to_numpy()  # Arrow tensor -> numpy array
+  array = tensor2.to_numpy()
 
 Storing Pandas DataFrames in Plasma
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -262,7 +262,8 @@ size of the ``DataFrame`` to allocate a buffer for.
 
 One can instead use pyarrow and its supportive API as an intermediary step 
 to import the Pandas ``DataFrame`` into Plasma. Arrow has multiple equivalent 
-types to the various Pandas structures, see the :ref:`pandas` page for more.
+types to the various Pandas structures, see the :ref:`pandas` page for more
+information.
 
 You can create the pyarrow equivalent of a Pandas ``DataFrame`` by using 
 ``pyarrow.from_pandas`` to convert it to a ``RecordBatch``.
@@ -292,6 +293,7 @@ size of the Plasma object.
   mock_sink = pa.MockOutputStream()
   stream_writer = pa.RecordBatchStreamWriter(mock_sink, record_batch.schema)
   stream_writer.write_batch(record_batch)
+  stream_writer.close()
   data_size = mock_sink.size()
   buf = client.create(object_id, data_size)
 
@@ -307,6 +309,7 @@ the PyArrow ``RecordBatch`` into Plasma as follows:
   stream = pa.FixedSizeBufferOutputStream(buf)
   stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
   stream_writer.write_batch(record_batch)
+  stream_writer.close()
 
 Finally, seal the finished object for use by all clients:
 
@@ -329,7 +332,7 @@ into an Arrow ``BufferReader`` object.
 
   # Fetch the Plasma object
   [data] = client.get([object_id])  # Get PlasmaBuffer from ObjectID
-  buffer = pa.BufferReader(data)  # PlasmaBuffer -> Arrow BufferReader
+  buffer = pa.BufferReader(data)
 
 From the ``BufferReader``, we can create a specific ``RecordBatchStreamReader`` 
 in Arrow to reconstruct the stored PyArrow ``RecordBatch`` object.
@@ -337,8 +340,8 @@ in Arrow to reconstruct the stored PyArrow ``RecordBatch`` object.
 .. code-block:: python
 
   # Convert object back into an Arrow RecordBatch
-  reader = pa.RecordBatchStreamReader(buffer)  # Arrow BufferReader -> Arrow RecordBatchStreamReader
-  rec_batch = reader.read_next_batch()  # Arrow RecordBatchStreamReader -> Arrow RecordBatch
+  reader = pa.RecordBatchStreamReader(buffer)
+  record_batch = reader.read_next_batch()
 
 The last step is to convert the PyArrow ``RecordBatch`` object back into 
 the original Pandas ``DataFrame`` structure.
@@ -346,4 +349,4 @@ the original Pandas ``DataFrame`` structure.
 .. code-block:: python
 
   # Convert back into Pandas
-  result = rec_batch.to_pandas()  # Arrow RecordBatch -> Pandas DataFrame
+  result = record_batch.to_pandas()

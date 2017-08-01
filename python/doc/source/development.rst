@@ -224,18 +224,6 @@ You should be able to run the unit tests with:
 
    ====================== 181 passed, 17 skipped in 0.98 seconds ===========
 
-On some configurations this might give an error like the following:
-
-.. code-block:: shell
-
-   ImportError: /home/ubuntu/anaconda3/bin/../lib/libstdc++.so.6: version `GLIBCXX_3.4.21' not found (required by /home/ubuntu/repos/arrow/python/pyarrow/lib.cpython-36m-x86_64-linux-gnu.so)
-
-This can be fixed by running the following:
-
-.. code-block:: shell
-
-   conda install -y libgcc
-
 You can build a wheel by running:
 
 .. code-block:: shell
