@@ -178,7 +178,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
 
-    cdef cppclass CFixedSizeBinaryType\
+    cdef cppclass CFixedSizeBinaryType \
             " arrow::FixedSizeBinaryType"(CFixedWidthType):
         CFixedSizeBinaryType(int byte_width)
         int byte_width()
@@ -479,7 +479,7 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
-    cdef cppclass CMemoryMappedFile\
+    cdef cppclass CMemoryMappedFile \
             " arrow::io::MemoryMappedFile"(ReadWriteFileInterface):
 
         @staticmethod
@@ -563,21 +563,21 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
 
 
 cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
-    cdef cppclass CBufferReader\
+    cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(RandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
-    cdef cppclass CBufferOutputStream\
+    cdef cppclass CBufferOutputStream \
             " arrow::io::BufferOutputStream"(OutputStream):
         CBufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
 
-    cdef cppclass CMockOutputStream\
+    cdef cppclass CMockOutputStream \
             " arrow::io::MockOutputStream"(OutputStream):
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
 
-    cdef cppclass CFixedSizeBufferWriter\
+    cdef cppclass CFixedSizeBufferWriter \
             " arrow::io::FixedSizeBufferWriter"(WriteableFile):
         CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
@@ -613,7 +613,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CMessageReader" arrow::ipc::MessageReader":
         CStatus ReadNextMessage(unique_ptr[CMessage]* out)
 
-    cdef cppclass CInputStreamMessageReader\
+    cdef cppclass CInputStreamMessageReader \
             " arrow::ipc::InputStreamMessageReader":
         CInputStreamMessageReader(const shared_ptr[InputStream]& stream)
 
@@ -625,7 +625,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         shared_ptr[CSchema] schema()
         CStatus ReadNextRecordBatch(shared_ptr[CRecordBatch]* batch)
 
-    cdef cppclass CRecordBatchStreamReader\
+    cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
         CStatus Open(const shared_ptr[InputStream]& stream,
@@ -635,19 +635,19 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
                              shared_ptr[CRecordBatchStreamReader]* out)
 
-    cdef cppclass CRecordBatchStreamWriter\
+    cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
                      shared_ptr[CRecordBatchStreamWriter]* out)
 
-    cdef cppclass CRecordBatchFileWriter\
+    cdef cppclass CRecordBatchFileWriter \
             " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
                      shared_ptr[CRecordBatchFileWriter]* out)
 
-    cdef cppclass CRecordBatchFileReader\
+    cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
         @staticmethod
         CStatus Open(const shared_ptr[RandomAccessFile]& file,

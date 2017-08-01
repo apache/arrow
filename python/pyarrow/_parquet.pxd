@@ -60,9 +60,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetLogicalType_DATE" parquet::LogicalType::DATE"
         ParquetLogicalType_TIME_MILLIS" parquet::LogicalType::TIME_MILLIS"
         ParquetLogicalType_TIME_MICROS" parquet::LogicalType::TIME_MICROS"
-        ParquetLogicalType_TIMESTAMP_MILLIS\
+        ParquetLogicalType_TIMESTAMP_MILLIS \
             " parquet::LogicalType::TIMESTAMP_MILLIS"
-        ParquetLogicalType_TIMESTAMP_MICROS\
+        ParquetLogicalType_TIMESTAMP_MICROS \
             " parquet::LogicalType::TIMESTAMP_MICROS"
         ParquetLogicalType_UINT_8" parquet::LogicalType::UINT_8"
         ParquetLogicalType_UINT_16" parquet::LogicalType::UINT_16"
@@ -86,9 +86,9 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetEncoding_PLAIN_DICTIONARY" parquet::Encoding::PLAIN_DICTIONARY"
         ParquetEncoding_RLE" parquet::Encoding::RLE"
         ParquetEncoding_BIT_PACKED" parquet::Encoding::BIT_PACKED"
-        ParquetEncoding_DELTA_BINARY_PACKED\
+        ParquetEncoding_DELTA_BINARY_PACKED \
             " parquet::Encoding::DELTA_BINARY_PACKED"
-        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY\
+        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY \
             " parquet::Encoding::DELTA_LENGTH_BYTE_ARRAY"
         ParquetEncoding_DELTA_BYTE_ARRAY" parquet::Encoding::DELTA_BYTE_ARRAY"
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
