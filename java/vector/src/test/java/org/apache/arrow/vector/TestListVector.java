@@ -452,7 +452,7 @@ public class TestListVector {
   }
 
   @Test
-  public void testMultipleLists() throws Exception {
+  public void testNestedListVector() throws Exception {
     try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
 
       UnionListWriter listWriter = listVector.getWriter();
