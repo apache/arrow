@@ -92,6 +92,10 @@ else()
   # Cython generates some bitshift expressions that MSVC does not like in
   # __Pyx_PyFloat_DivideObjC
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
+
+  # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
+  # seem harmless, and probably not worth the effort of working around it
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
