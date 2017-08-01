@@ -1510,7 +1510,7 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
 TYPED_TEST_CASE(TestDictionaryBuilder, PrimitiveDictionaries);
 
 TYPED_TEST(TestDictionaryBuilder, Basic) {
-  DictionaryBuilder<TypeParam> builder;
+  DictionaryBuilder<TypeParam> builder(default_memory_pool());
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
@@ -1546,7 +1546,7 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
 
   std::shared_ptr<Array> intermediate_result;
   ASSERT_OK(builder.Finish(&intermediate_result));
-  DictionaryBuilder<TypeParam> dictionary_builder;
+  DictionaryBuilder<TypeParam> dictionary_builder(default_memory_pool());
   ASSERT_OK(dictionary_builder.AppendArray(*intermediate_result));
   std::shared_ptr<Array> result;
   ASSERT_OK(dictionary_builder.Finish(&result));
@@ -1575,7 +1575,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
   // Skip this test for (u)int8
   if (sizeof(Scalar) > 1) {
     // Build the dictionary Array
-    DictionaryBuilder<TypeParam> builder;
+    DictionaryBuilder<TypeParam> builder(default_memory_pool());
     // Build expected data
     NumericBuilder<TypeParam> dict_builder;
     Int16Builder int_builder;
@@ -1610,7 +1610,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
 
 TEST(TestStringDictionaryBuilder, Basic) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder;
+  StringDictionaryBuilder builder(default_memory_pool());
   ASSERT_OK(builder.Append("test"));
   ASSERT_OK(builder.Append("test2"));
   ASSERT_OK(builder.Append("test"));
@@ -1639,7 +1639,7 @@ TEST(TestStringDictionaryBuilder, Basic) {
 
 TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
-  StringDictionaryBuilder builder;
+  StringDictionaryBuilder builder(default_memory_pool());
   // Build expected data
   StringBuilder str_builder;
   Int16Builder int_builder;

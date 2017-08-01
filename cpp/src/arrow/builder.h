@@ -801,17 +801,17 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
  public:
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
+  ~DictionaryBuilder() {}
+
 #ifndef ARROW_NO_DEPRECATED_API
   /// \deprecated Since 0.6.0
   explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 #endif
 
-  explicit DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   template <typename T1 = T>
-  explicit DictionaryBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type
-          ARROW_MEMORY_POOL_ARG)
+  explicit DictionaryBuilder(typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   /// \brief Append a scalar value
@@ -828,6 +828,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
+  using ArrayBuilder::ArrayBuilder;
+
   Status DoubleTableSize();
   Scalar GetDictionaryValue(int64_t index);
   int HashValue(const Scalar& value);

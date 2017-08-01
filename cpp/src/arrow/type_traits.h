@@ -164,6 +164,7 @@ struct TypeTraits<TimestampType> {
   static inline int64_t bytes_required(int64_t elements) {
     return elements * sizeof(int64_t);
   }
+  static inline std::shared_ptr<DataType> type_singleton() { return date32(); }
   constexpr static bool is_parameter_free = false;
 };
 
