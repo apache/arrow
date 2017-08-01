@@ -732,10 +732,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
                                  object py_ref, PyObject** out)
 
-    CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
+    CStatus ConvertColumnToPandas(PandasOptions options, const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)
 
-    CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
+    CStatus ConvertTableToPandas(PandasOptions options, const shared_ptr[CTable]& table,
                                  int nthreads, PyObject** out)
 
     void c_set_default_memory_pool \
@@ -755,6 +755,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef cppclass PyBytesReader(CBufferReader):
         PyBytesReader(object fo)
+    
+    cdef struct PandasOptions:
+        c_bool strings_to_categorical
 
 
 cdef extern from 'arrow/python/init.h':

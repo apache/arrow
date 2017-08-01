@@ -183,8 +183,8 @@ class PandasBlock {
     CATEGORICAL
   };
 
-  PandasBlock(int64_t num_rows, int num_columns)
-      : num_rows_(num_rows), num_columns_(num_columns) {}
+  PandasBlock(int64_t num_rows, int num_columns, PandasOptions options)
+      : num_rows_(num_rows), num_columns_(num_columns), options_(options) {}
   virtual ~PandasBlock() {}
 
   virtual Status Allocate() = 0;
@@ -251,6 +251,8 @@ class PandasBlock {
 
   OwnedRef block_arr_;
   uint8_t* block_data_;
+
+  PandasOptions options_;
 
   // ndarray<int32>
   OwnedRef placement_arr_;
@@ -470,7 +472,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
 }
 
 template <typename ArrowType>
-inline Status ConvertListsLike(const std::shared_ptr<Column>& col,
+inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Column>& col,
                                PyObject** out_values) {
   const ChunkedArray& data = *col->data().get();
   auto list_type = std::static_pointer_cast<ListType>(col->type());
@@ -485,7 +487,7 @@ inline Status ConvertListsLike(const std::shared_ptr<Column>& col,
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be to expensive.
   PyObject* numpy_array;
-  RETURN_NOT_OK(ConvertColumnToPandas(flat_column, nullptr, &numpy_array));
+  RETURN_NOT_OK(ConvertColumnToPandas(options, flat_column, nullptr, &numpy_array));
 
   PyAcquireGIL lock;
 
@@ -678,7 +680,7 @@ static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
 
 #define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum)                \
   case Type::ArrowEnum:                                            \
-    RETURN_NOT_OK((ConvertListsLike<ArrowType>(col, out_buffer))); \
+    RETURN_NOT_OK((ConvertListsLike<ArrowType>(options_, col, out_buffer))); \
     break;
 
 class ObjectBlock : public PandasBlock {
@@ -949,8 +951,8 @@ class DatetimeBlock : public PandasBlock {
 
 class DatetimeTZBlock : public DatetimeBlock {
  public:
-  DatetimeTZBlock(const std::string& timezone, int64_t num_rows)
-      : DatetimeBlock(num_rows, 1), timezone_(timezone) {}
+  DatetimeTZBlock(const std::string& timezone, int64_t num_rows, PandasOptions options)
+      : DatetimeBlock(num_rows, 1, options), timezone_(timezone) {}
 
   // Like Categorical, the internal ndarray is 1-dimensional
   Status Allocate() override { return AllocateDatetime(1); }
@@ -979,7 +981,7 @@ class DatetimeTZBlock : public DatetimeBlock {
 template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
-  explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
+  explicit CategoricalBlock(int64_t num_rows, PandasOptions options) : PandasBlock(num_rows, 1, options) {}
   Status Allocate() override {
     constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
 
@@ -1038,11 +1040,11 @@ class CategoricalBlock : public PandasBlock {
   OwnedRef dictionary_;
 };
 
-Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
+Status MakeBlock(PandasOptions options, PandasBlock::type type, int64_t num_rows, int num_columns,
                  std::shared_ptr<PandasBlock>* block) {
 #define BLOCK_CASE(NAME, TYPE)                              \
   case PandasBlock::NAME:                                   \
-    *block = std::make_shared<TYPE>(num_rows, num_columns); \
+    *block = std::make_shared<TYPE>(num_rows, num_columns, options); \
     break;
 
   switch (type) {
@@ -1070,21 +1072,22 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
 
 static inline Status MakeCategoricalBlock(const std::shared_ptr<DataType>& type,
                                           int64_t num_rows,
+                                          PandasOptions options,
                                           std::shared_ptr<PandasBlock>* block) {
   // All categoricals become a block with a single column
   auto dict_type = static_cast<const DictionaryType*>(type.get());
   switch (dict_type->index_type()->id()) {
     case Type::INT8:
-      *block = std::make_shared<CategoricalBlock<Type::INT8>>(num_rows);
+      *block = std::make_shared<CategoricalBlock<Type::INT8>>(num_rows, options);
       break;
     case Type::INT16:
-      *block = std::make_shared<CategoricalBlock<Type::INT16>>(num_rows);
+      *block = std::make_shared<CategoricalBlock<Type::INT16>>(num_rows, options);
       break;
     case Type::INT32:
-      *block = std::make_shared<CategoricalBlock<Type::INT32>>(num_rows);
+      *block = std::make_shared<CategoricalBlock<Type::INT32>>(num_rows, options);
       break;
     case Type::INT64:
-      *block = std::make_shared<CategoricalBlock<Type::INT64>>(num_rows);
+      *block = std::make_shared<CategoricalBlock<Type::INT64>>(num_rows, options);
       break;
     default: {
       std::stringstream ss;
@@ -1094,6 +1097,47 @@ static inline Status MakeCategoricalBlock(const std::shared_ptr<DataType>& type,
     }
   }
   return (*block)->Allocate();
+}
+
+// ----------------------------------------------------------------------
+// Helper for parallel for-loop
+
+template <class FUNCTION>
+Status ParallelFor(int nthreads, int num_tasks, FUNCTION&& func) {
+  std::vector<std::thread> thread_pool;
+  thread_pool.reserve(nthreads);
+  std::atomic<int> task_counter(0);
+
+  std::mutex error_mtx;
+  bool error_occurred = false;
+  Status error;
+
+  for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
+    thread_pool.emplace_back(
+        [&num_tasks, &task_counter, &error, &error_occurred, &error_mtx, &func]() {
+          int task_id;
+          while (!error_occurred) {
+            task_id = task_counter.fetch_add(1);
+            if (task_id >= num_tasks) {
+              break;
+            }
+            Status s = func(task_id);
+            if (!s.ok()) {
+              std::lock_guard<std::mutex> lock(error_mtx);
+              error_occurred = true;
+              error = s;
+              break;
+            }
+          }
+        });
+  }
+  for (auto&& thread : thread_pool) {
+    thread.join();
+  }
+  if (error_occurred) {
+    return error;
+  }
+  return Status::OK();
 }
 
 using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
@@ -1107,14 +1151,13 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 // * placement arrays as we go
 class DataFrameBlockCreator {
  public:
-  explicit DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
+  explicit DataFrameBlockCreator(PandasOptions options, const std::shared_ptr<Table>& table) : table_(table), options_(options) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
     column_block_placement_.resize(table_->num_columns());
     type_counts_.clear();
     blocks_.clear();
-
     RETURN_NOT_OK(CreateBlocks());
     RETURN_NOT_OK(WriteTableToBlocks(nthreads));
 
@@ -1163,6 +1206,10 @@ class DataFrameBlockCreator {
           break;
         case Type::NA:
         case Type::STRING:
+          if (options_.strings_to_categorical) {
+            output_type = PandasBlock::CATEGORICAL;
+            break;
+          }
         case Type::BINARY:
         case Type::FIXED_SIZE_BINARY:
         case Type::STRUCT:
@@ -1208,11 +1255,11 @@ class DataFrameBlockCreator {
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
       if (output_type == PandasBlock::CATEGORICAL) {
-        RETURN_NOT_OK(MakeCategoricalBlock(col->type(), table_->num_rows(), &block));
+        RETURN_NOT_OK(MakeCategoricalBlock(col->type(), table_->num_rows(), options_, &block));
         categorical_blocks_[i] = block;
       } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
         const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone(), table_->num_rows());
+        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone(), table_->num_rows(), options_);
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
       } else {
@@ -1235,7 +1282,7 @@ class DataFrameBlockCreator {
     for (const auto& it : type_counts_) {
       PandasBlock::type type = static_cast<PandasBlock::type>(it.first);
       std::shared_ptr<PandasBlock> block;
-      RETURN_NOT_OK(MakeBlock(type, table_->num_rows(), it.second, &block));
+      RETURN_NOT_OK(MakeBlock(options_, type, table_->num_rows(), it.second, &block));
       blocks_[type] = block;
     }
     return Status::OK();
@@ -1243,9 +1290,17 @@ class DataFrameBlockCreator {
 
   Status WriteTableToBlocks(int nthreads) {
     auto WriteColumn = [this](int i) {
-      std::shared_ptr<Column> col = this->table_->column(i);
-      PandasBlock::type output_type = this->column_types_[i];
+      std::shared_ptr<Column> col;
 
+      if (options_.strings_to_categorical) {
+        // TODO am I insane to allocate this memory in threads or is this safe?
+        MemoryPool* pool = default_memory_pool();
+        RETURN_NOT_OK(EncodeColumnToDictionary(*this->table_->column(i), pool, &col));
+      } else {
+        col = this->table_->column(i);
+      }
+
+      PandasBlock::type output_type = this->column_types_[i];
       int rel_placement = this->column_block_placement_[i];
 
       std::shared_ptr<PandasBlock> block;
@@ -1271,47 +1326,14 @@ class DataFrameBlockCreator {
       return block->Write(col, i, rel_placement);
     };
 
-    nthreads = std::min<int>(nthreads, table_->num_columns());
-
+    int num_tasks = table_->num_columns();
+    nthreads = std::min<int>(nthreads, num_tasks);
     if (nthreads == 1) {
-      for (int i = 0; i < table_->num_columns(); ++i) {
+      for (int i = 0; i < num_tasks; ++i) {
         RETURN_NOT_OK(WriteColumn(i));
       }
     } else {
-      std::vector<std::thread> thread_pool;
-      thread_pool.reserve(nthreads);
-      std::atomic<int> task_counter(0);
-
-      std::mutex error_mtx;
-      bool error_occurred = false;
-      Status error;
-
-      for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
-        thread_pool.emplace_back(
-            [this, &error, &error_occurred, &error_mtx, &task_counter, &WriteColumn]() {
-              int column_num;
-              while (!error_occurred) {
-                column_num = task_counter.fetch_add(1);
-                if (column_num >= this->table_->num_columns()) {
-                  break;
-                }
-                Status s = WriteColumn(column_num);
-                if (!s.ok()) {
-                  std::lock_guard<std::mutex> lock(error_mtx);
-                  error_occurred = true;
-                  error = s;
-                  break;
-                }
-              }
-            });
-      }
-      for (auto&& thread : thread_pool) {
-        thread.join();
-      }
-
-      if (error_occurred) {
-        return error;
-      }
+      RETURN_NOT_OK(ParallelFor(nthreads, num_tasks, WriteColumn));
     }
     return Status::OK();
   }
@@ -1356,6 +1378,8 @@ class DataFrameBlockCreator {
   // block type -> type count
   std::unordered_map<int, int> type_counts_;
 
+  PandasOptions options_;
+
   // block type -> block
   BlockMap blocks_;
 
@@ -1368,8 +1392,8 @@ class DataFrameBlockCreator {
 
 class ArrowDeserializer {
  public:
-  ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref)
-      : col_(col), data_(*col->data().get()), py_ref_(py_ref) {}
+  ArrowDeserializer(PandasOptions options, const std::shared_ptr<Column>& col, PyObject* py_ref)
+      : col_(col), data_(*col->data().get()), options_(options), py_ref_(py_ref) {}
 
   Status AllocateOutput(int type) {
     PyAcquireGIL lock;
@@ -1545,7 +1569,7 @@ class ArrowDeserializer {
   Status Visit(const ListType& type) {
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
   case Type::ArrowEnum:                                    \
-    return ConvertListsLike<ArrowType>(col_, out_values);
+    return ConvertListsLike<ArrowType>(options_, col_, out_values);
 
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
@@ -1576,7 +1600,7 @@ class ArrowDeserializer {
 
   Status Visit(const DictionaryType& type) {
     std::shared_ptr<PandasBlock> block;
-    RETURN_NOT_OK(MakeCategoricalBlock(col_->type(), col_->length(), &block));
+    RETURN_NOT_OK(MakeCategoricalBlock(col_->type(), col_->length(), options_, &block));
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 
     auto dict_type = static_cast<const DictionaryType*>(col_->type().get());
@@ -1610,28 +1634,29 @@ class ArrowDeserializer {
  private:
   std::shared_ptr<Column> col_;
   const ChunkedArray& data_;
+  PandasOptions options_;
   PyObject* py_ref_;
   PyArrayObject* arr_;
   PyObject* result_;
 };
 
-Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
+Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>& arr, PyObject* py_ref,
                             PyObject** out) {
   static std::string dummy_name = "dummy";
   auto field = std::make_shared<Field>(dummy_name, arr->type());
   auto col = std::make_shared<Column>(field, arr);
-  return ConvertColumnToPandas(col, py_ref, out);
+  return ConvertColumnToPandas(options, col, py_ref, out);
 }
 
-Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col, PyObject* py_ref,
                              PyObject** out) {
-  ArrowDeserializer converter(col, py_ref);
+  ArrowDeserializer converter(options, col, py_ref);
   return converter.Convert(out);
 }
 
-Status ConvertTableToPandas(const std::shared_ptr<Table>& table, int nthreads,
+Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table, int nthreads,
                             PyObject** out) {
-  DataFrameBlockCreator helper(table);
+  DataFrameBlockCreator helper(options, table);
   return helper.Convert(nthreads, out);
 }
 

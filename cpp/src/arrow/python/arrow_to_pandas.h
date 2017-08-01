@@ -39,17 +39,18 @@ class Table;
 
 namespace py {
 
+struct PandasOptions {
+  bool strings_to_categorical;
+};
+
 ARROW_EXPORT
 Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
                             PyObject** out);
 
 ARROW_EXPORT
-Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
+Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col, PyObject* py_ref,
                              PyObject** out);
 
-struct PandasOptions {
-  bool strings_to_categorical;
-};
 
 // Convert a whole table as efficiently as possible to a pandas.DataFrame.
 //
@@ -58,7 +59,7 @@ struct PandasOptions {
 //
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
 ARROW_EXPORT
-Status ConvertTableToPandas(const std::shared_ptr<Table>& table, int nthreads,
+Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table, int nthreads,
                             PyObject** out);
 
 }  // namespace py

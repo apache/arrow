@@ -147,7 +147,7 @@ cdef class Column:
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
         return pyarrow_wrap_column(sp_column)
 
-    def to_pandas(self):
+    def to_pandas(self, strings_to_categorical=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -157,8 +157,12 @@ cdef class Column:
         """
         cdef:
             PyObject* out
+            PandasOptions options
+        if strings_to_categorical:
+            options.strings_to_categorical = True
 
-        check_status(libarrow.ConvertColumnToPandas(self.sp_column,
+        check_status(libarrow.ConvertColumnToPandas(options,
+                                                    self.sp_column,
                                                     self, &out))
 
         return pd.Series(wrap_array_output(out), name=self.name)
@@ -610,7 +614,7 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-def table_to_blocks(Table table, int nthreads):
+def table_to_blocks(PandasOptions options, Table table, int nthreads):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
@@ -618,7 +622,7 @@ def table_to_blocks(Table table, int nthreads):
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                c_table, nthreads, &result_obj
+                options, c_table, nthreads, &result_obj
             )
         )
 
@@ -826,7 +830,7 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
-    def to_pandas(self, nthreads=None):
+    def to_pandas(self, nthreads=None, strings_to_categorical=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -841,11 +845,16 @@ cdef class Table:
         -------
         pandas.DataFrame
         """
+        cdef:
+            PandasOptions options
+        if strings_to_categorical:
+            options.strings_to_categorical = True
+
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
 
-        mgr = pdcompat.table_to_blockmanager(self, nthreads)
+        mgr = pdcompat.table_to_blockmanager(options, self, nthreads)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
