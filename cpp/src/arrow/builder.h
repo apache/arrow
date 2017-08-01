@@ -829,8 +829,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
-  using ArrayBuilder::ArrayBuilder;
-
   Status DoubleTableSize();
   Scalar GetDictionaryValue(int64_t index);
   int HashValue(const Scalar& value);
