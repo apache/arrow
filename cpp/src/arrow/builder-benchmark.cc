@@ -118,7 +118,7 @@ static void BM_BuildAdaptiveUIntNoNulls(
 static void BM_BuildDictionary(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1024;
   while (state.KeepRunning()) {
-    DictionaryBuilder<Int64Type> builder;
+    DictionaryBuilder<Int64Type> builder(default_memory_pool());
     for (int64_t i = 0; i < iterations; i++) {
       for (int64_t j = 0; j < i; j++) {
         ABORT_NOT_OK(builder.Append(j));
@@ -142,7 +142,7 @@ static void BM_BuildStringDictionary(
     data.push_back(ss.str());
   }
   while (state.KeepRunning()) {
-    StringDictionaryBuilder builder;
+    StringDictionaryBuilder builder(default_memory_pool());
     for (int64_t i = 0; i < iterations; i++) {
       for (int64_t j = 0; j < i; j++) {
         ABORT_NOT_OK(builder.Append(data[j]));

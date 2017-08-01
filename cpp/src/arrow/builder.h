@@ -811,7 +811,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   template <typename T1 = T>
-  explicit DictionaryBuilder(typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
+  explicit DictionaryBuilder(
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
       : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   /// \brief Append a scalar value
