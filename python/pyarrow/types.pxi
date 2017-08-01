@@ -419,7 +419,7 @@ cdef DataType primitive_type(Type type):
     _type_cache[type] = out
     return out
 
-#------------------------------------------------------------
+# -----------------------------------------------------------
 # Type factory functions
 
 cdef int convert_metadata(dict metadata,

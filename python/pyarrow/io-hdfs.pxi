@@ -231,7 +231,6 @@ cdef class HadoopFileSystem:
             check_status(self.client.get()
                          .GetPathInfo(c_path, info))
 
-
     def ls(self, path, bint full_info):
         cdef:
             c_string c_path = tobytes(path)

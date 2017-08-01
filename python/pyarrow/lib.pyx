@@ -19,31 +19,27 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+import datetime
+import decimal as _pydecimal
+import multiprocessing
+import numpy as np
+import os
+import six
+from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
+
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
-
-import datetime
-import decimal as _pydecimal
-import numpy as np
-import six
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
-
 cdef _pandas():
     import pandas as pd
     return pd
 
-
 arrow_init_numpy()
-
-import numpy as np
 set_numpy_nan(np.nan)
 
-import multiprocessing
-import os
 cdef int CPU_COUNT = int(
     os.environ.get('OMP_NUM_THREADS',
                    max(multiprocessing.cpu_count() // 2, 1)))
@@ -61,6 +57,7 @@ def cpu_count():
       help.
     """
     return CPU_COUNT
+
 
 def set_cpu_count(count):
     global CPU_COUNT
@@ -122,7 +119,5 @@ include "ipc.pxi"
 # Feather format
 include "feather.pxi"
 
-#----------------------------------------------------------------------
 # Public API
-
 include "public-api.pxi"

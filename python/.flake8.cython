@@ -17,4 +17,4 @@
 
 [flake8]
 filename = *.pyx,*.px*
-ignore = E211, E901,E225,E226,E227
+ignore = E211,E901,E225,E226,E227
