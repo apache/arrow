@@ -165,14 +165,16 @@ Input / Output and Shared Memory
    PythonFile
 
 File Systems
------------
+------------
 
 .. autosummary::
    :toctree: generated/
 
    hdfs.connect
-   HadoopFileSystem
-   LocalFilesystem
+   LocalFileSystem
+
+.. class:: HadoopFileSystem
+   :noindex:
 
 .. _api.ipc:
 

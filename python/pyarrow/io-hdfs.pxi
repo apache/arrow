@@ -129,6 +129,48 @@ cdef class HadoopFileSystem:
         self._path_info(path, &info)
         return info.kind == ObjectType_FILE
 
+    def get_capacity(self):
+        """
+        Get reported total capacity of file system
+
+        Returns
+        -------
+        capacity : int
+        """
+        cdef int64_t capacity = 0
+        with nogil:
+            check_status(self.client.get().GetCapacity(&capacity))
+        return capacity
+
+    def get_space_used(self):
+        """
+        Get space used on file system
+
+        Returns
+        -------
+        space_used : int
+        """
+        cdef int64_t space_used = 0
+        with nogil:
+            check_status(self.client.get().GetUsed(&space_used))
+        return space_used
+
+    def df(self):
+        """
+        Return free space on disk, like the UNIX df command
+
+        Returns
+        -------
+        space : int
+        """
+        return self.get_capacity() - self.get_space_used()
+
+    def rename(self, path, new_path):
+        cdef c_string c_path = tobytes(path)
+        cdef c_string c_new_path = tobytes(new_path)
+        with nogil:
+            check_status(self.client.get().Rename(c_path, c_new_path))
+
     def info(self, path):
         """
         Return detailed HDFS information for path
@@ -154,6 +196,30 @@ cdef class HadoopFileSystem:
             'last_accessed': info.last_access_time,
             'replication': info.replication,
             'permissions': info.permissions,
+            'kind': ('directory' if info.kind == ObjectType_DIRECTORY
+                     else 'file')
+        }
+
+    def stat(self, path):
+        """
+        Return basic file system statistics about path
+
+        Parameters
+        ----------
+        path : string
+            Path to file or directory
+
+        Returns
+        -------
+        stat : dict
+        """
+        cdef FileStatistics info
+        cdef c_string c_path = tobytes(path)
+        with nogil:
+            check_status(self.client.get()
+                         .Stat(c_path, &info))
+        return {
+            'size': info.size,
             'kind': ('directory' if info.kind == ObjectType_DIRECTORY
                      else 'file')
         }
@@ -290,9 +356,16 @@ cdef class HadoopFileSystem:
     def open(self, path, mode='rb', buffer_size=None, replication=None,
              default_block_size=None):
         """
+        Open HDFS file for reading or writing
+
         Parameters
         ----------
-        mode : string, 'rb', 'wb', 'ab'
+        mode : string
+            Must be one of 'rb', 'wb', 'ab'
+
+        Returns
+        -------
+        handle : HdfsFile
         """
         self._ensure_client()
 

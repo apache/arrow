@@ -413,6 +413,10 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
         ObjectType_FILE" arrow::io::ObjectType::FILE"
         ObjectType_DIRECTORY" arrow::io::ObjectType::DIRECTORY"
 
+    cdef cppclass FileStatistics:
+        int64_t size
+        ObjectType kind
+
     cdef cppclass FileInterface:
         CStatus Close()
         CStatus Tell(int64_t* position)
@@ -449,6 +453,9 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass ReadWriteFileInterface(RandomAccessFile,
                                          WriteableFile):
         pass
+
+    cdef cppclass FileSystem:
+        CStatus Stat(const c_string& path, FileStatistics* stat)
 
 
 cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
@@ -517,7 +524,7 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(OutputStream):
         pass
 
-    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem":
+    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem"(FileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHadoopFileSystem]* client)

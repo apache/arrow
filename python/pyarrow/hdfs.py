@@ -48,6 +48,10 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     def mkdir(self, path, create_parents=True):
         return super(HadoopFileSystem, self).mkdir(path)
 
+    @implements(FileSystem.rename)
+    def rename(self, path, new_path):
+        return super(HadoopFileSystem, self).rename(path, new_path)
+
     def ls(self, path, detail=False):
         """
         Retrieve directory contents and metadata, if requested.
@@ -82,7 +86,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         directories, files = _libhdfs_walk_files_dirs(top_path, contents)
         yield top_path, directories, files
         for dirname in directories:
-            for tup in self.walk(dirname):
+            for tup in self.walk(self._path_join(top_path, dirname)):
                 yield tup
 
 

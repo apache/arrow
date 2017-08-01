@@ -26,6 +26,17 @@ class FileSystem(object):
     """
     Abstract filesystem interface
     """
+    def cat(self, path):
+        """
+        Return contents of file as a bytes object
+
+        Returns
+        -------
+        contents : bytes
+        """
+        with self.open(path, 'rb') as f:
+            return f.read()
+
     def ls(self, path):
         """
         Return list of file paths
@@ -44,11 +55,67 @@ class FileSystem(object):
         """
         raise NotImplementedError
 
+    def disk_usage(self, path):
+        """
+        Compute bytes used by all contents under indicated path in file tree
+
+        Parameters
+        ----------
+        path : string
+            Can be a file path or directory
+
+        Returns
+        -------
+        usage : int
+        """
+        path_info = self.stat(path)
+        if path_info['kind'] == 'file':
+            return path_info['size']
+
+        total = 0
+        for root, directories, files in self.walk(path):
+            for child_path in files:
+                abspath = self._path_join(root, child_path)
+                total += self.stat(abspath)['size']
+
+        return total
+
+    def _path_join(self, *args):
+        return self.pathsep.join(args)
+
+    def stat(self, path):
+        """
+
+        Returns
+        -------
+        stat : dict
+        """
+        raise NotImplementedError('FileSystem.stat')
+
     def rm(self, path, recursive=False):
         """
         Alias for FileSystem.delete
         """
         return self.delete(path, recursive=recursive)
+
+    def mv(self, path, new_path):
+        """
+        Alias for FileSystem.rename
+        """
+        return self.rename(path, new_path)
+
+    def rename(self, path, new_path):
+        """
+        Rename file, like UNIX mv command
+
+        Parameters
+        ----------
+        path : string
+            Path to alter
+        new_path : string
+            Path to move to
+        """
+        raise NotImplementedError('FileSystem.rename')
 
     def mkdir(self, path, create_parents=True):
         raise NotImplementedError

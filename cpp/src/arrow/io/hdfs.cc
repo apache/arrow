@@ -495,7 +495,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   }
 
   Status Chmod(const std::string& path, int mode) {
-    int ret = driver_->Chmod(fs_, path.c_str(), static_cast<short>(mode));
+    int ret = driver_->Chmod(fs_, path.c_str(), static_cast<short>(mode));  // NOLINT
     CHECK_FAILURE(ret, "Chmod");
     return Status::OK();
   }
