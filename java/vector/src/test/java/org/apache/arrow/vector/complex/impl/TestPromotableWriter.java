@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import static org.junit.Assert.assertEquals;
@@ -67,7 +68,7 @@ public class TestPromotableWriter {
       writer.setPosition(1);
       writer.bit("A").writeBit(1);
 
-      writer.decimal("dec", 10,10);
+      writer.decimal("dec", 10, 10);
 
       writer.setPosition(2);
       writer.integer("A").writeInt(10);

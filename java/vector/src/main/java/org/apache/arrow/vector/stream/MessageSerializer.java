@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.stream;
 
 import java.io.IOException;
@@ -48,29 +49,30 @@ import io.netty.buffer.ArrowBuf;
  * Utility class for serializing Messages. Messages are all serialized a similar way.
  * 1. 4 byte little endian message header prefix
  * 2. FB serialized Message: This includes it the body length, which is the serialized
- *    body and the type of the message.
+ * body and the type of the message.
  * 3. Serialized message.
  *
  * For schema messages, the serialization is simply the FB serialized Schema.
  *
  * For RecordBatch messages the serialization is:
- *   1. 4 byte little endian batch metadata header
- *   2. FB serialized RowBatch
- *   3. Padding to align to 8 byte boundary.
- *   4. serialized RowBatch buffers.
+ * 1. 4 byte little endian batch metadata header
+ * 2. FB serialized RowBatch
+ * 3. Padding to align to 8 byte boundary.
+ * 4. serialized RowBatch buffers.
  */
 public class MessageSerializer {
 
   public static int bytesToInt(byte[] bytes) {
     return ((bytes[3] & 255) << 24) +
-           ((bytes[2] & 255) << 16) +
-           ((bytes[1] & 255) <<  8) +
-           ((bytes[0] & 255) <<  0);
+        ((bytes[2] & 255) << 16) +
+        ((bytes[1] & 255) << 8) +
+        ((bytes[0] & 255) << 0);
   }
 
   /**
    * Serialize a schema object.
-   * @param out where to write the schema
+   *
+   * @param out    where to write the schema
    * @param schema the object to serialize to out
    * @return the resulting size of the serialized schema
    * @throws IOException if something went wrong
@@ -86,6 +88,7 @@ public class MessageSerializer {
 
   /**
    * Deserializes a schema object. Format is from serialize().
+   *
    * @param in the channel to deserialize from
    * @return the deserialized object
    * @throws IOException if something went wrong
@@ -106,13 +109,14 @@ public class MessageSerializer {
 
   /**
    * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
-   * @param out where to write the batch
+   *
+   * @param out   where to write the batch
    * @param batch the object to serialize to out
    * @return the serialized block metadata
    * @throws IOException if something went wrong
    */
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch)
-          throws IOException {
+      throws IOException {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
@@ -125,9 +129,9 @@ public class MessageSerializer {
     int metadataLength = serializedMessage.remaining();
 
     // calculate alignment bytes so that metadata length points to the correct location after alignment
-    int padding = (int)((start + metadataLength + 4) % 8);
+    int padding = (int) ((start + metadataLength + 4) % 8);
     if (padding != 0) {
-        metadataLength += (8 - padding);
+      metadataLength += (8 - padding);
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -152,7 +156,7 @@ public class MessageSerializer {
       ArrowBuffer layout = buffersLayout.get(i);
       long startPosition = bufferStart + layout.getOffset();
       if (startPosition != out.getCurrentPosition()) {
-        out.writeZeros((int)(startPosition - out.getCurrentPosition()));
+        out.writeZeros((int) (startPosition - out.getCurrentPosition()));
       }
       out.write(buffer);
       if (out.getCurrentPosition() != startPosition + layout.getSize()) {
@@ -165,9 +169,10 @@ public class MessageSerializer {
 
   /**
    * Deserializes a RecordBatch
-   * @param in the channel to deserialize from
+   *
+   * @param in      the channel to deserialize from
    * @param message the object to derialize to
-   * @param alloc to allocate buffers
+   * @param alloc   to allocate buffers
    * @return the deserialized object
    * @throws IOException if something went wrong
    */
@@ -188,14 +193,15 @@ public class MessageSerializer {
   /**
    * Deserializes a RecordBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
-   * @param in the channel to deserialize from
+   *
+   * @param in    the channel to deserialize from
    * @param block the object to derialize to
    * @param alloc to allocate buffers
    * @return the deserialized object
    * @throws IOException if something went wrong
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block,
-      BufferAllocator alloc) throws IOException {
+                                                        BufferAllocator alloc) throws IOException {
     // Metadata length contains integer prefix plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
@@ -223,37 +229,38 @@ public class MessageSerializer {
 
   // Deserializes a record batch given the Flatbuffer metadata and in-memory body
   public static ArrowRecordBatch deserializeRecordBatch(RecordBatch recordBatchFB,
-      ArrowBuf body) throws IOException {
+                                                        ArrowBuf body) throws IOException {
     // Now read the body
     int nodesLength = recordBatchFB.nodesLength();
     List<ArrowFieldNode> nodes = new ArrayList<>();
     for (int i = 0; i < nodesLength; ++i) {
       FieldNode node = recordBatchFB.nodes(i);
-      if ((int)node.length() != node.length() ||
-          (int)node.nullCount() != node.nullCount()) {
+      if ((int) node.length() != node.length() ||
+          (int) node.nullCount() != node.nullCount()) {
         throw new IOException("Cannot currently deserialize record batches with " +
-                              "node length larger than Int.MAX_VALUE");
+            "node length larger than Int.MAX_VALUE");
       }
-      nodes.add(new ArrowFieldNode((int)node.length(), (int)node.nullCount()));
+      nodes.add(new ArrowFieldNode((int) node.length(), (int) node.nullCount()));
     }
     List<ArrowBuf> buffers = new ArrayList<>();
     for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
       Buffer bufferFB = recordBatchFB.buffers(i);
-      ArrowBuf vectorBuffer = body.slice((int)bufferFB.offset(), (int)bufferFB.length());
+      ArrowBuf vectorBuffer = body.slice((int) bufferFB.offset(), (int) bufferFB.length());
       buffers.add(vectorBuffer);
     }
-    if ((int)recordBatchFB.length() != recordBatchFB.length()) {
+    if ((int) recordBatchFB.length() != recordBatchFB.length()) {
       throw new IOException("Cannot currently deserialize record batches over 2GB");
     }
     ArrowRecordBatch arrowRecordBatch =
-        new ArrowRecordBatch((int)recordBatchFB.length(), nodes, buffers);
+        new ArrowRecordBatch((int) recordBatchFB.length(), nodes, buffers);
     body.release();
     return arrowRecordBatch;
   }
 
   /**
    * Serializes a dictionary ArrowRecordBatch. Returns the offset and length of the written batch.
-   * @param out where to serialize
+   *
+   * @param out   where to serialize
    * @param batch the batch to serialize
    * @return the metadata of the serialized block
    * @throws IOException if something went wrong
@@ -290,15 +297,16 @@ public class MessageSerializer {
 
   /**
    * Deserializes a DictionaryBatch
-   * @param in where to read from
+   *
+   * @param in      where to read from
    * @param message the message message metadata to deserialize
-   * @param alloc the allocator for new buffers
+   * @param alloc   the allocator for new buffers
    * @return the corresponding dictionary batch
    * @throws IOException if something went wrong
    */
   public static ArrowDictionaryBatch deserializeDictionaryBatch(ReadChannel in,
-                                                                 Message message,
-                                                                 BufferAllocator alloc) throws IOException {
+                                                                Message message,
+                                                                BufferAllocator alloc) throws IOException {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
 
     int bodyLength = (int) message.bodyLength();
@@ -315,7 +323,8 @@ public class MessageSerializer {
   /**
    * Deserializes a DictionaryBatch knowing the size of the entire message up front. This
    * minimizes the number of reads to the underlying stream.
-   * @param in where to read from
+   *
+   * @param in    where to read from
    * @param block block metadata for deserializing
    * @param alloc to allocate new buffers
    * @return the corresponding dictionary
@@ -345,7 +354,7 @@ public class MessageSerializer {
 
     // Now read the body
     final ArrowBuf body = buffer.slice(block.getMetadataLength(),
-                                       (int) totalLen - block.getMetadataLength());
+        (int) totalLen - block.getMetadataLength());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), body);
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
   }
@@ -359,22 +368,26 @@ public class MessageSerializer {
     }
 
     switch (message.headerType()) {
-      case MessageHeader.RecordBatch: return deserializeRecordBatch(in, message, alloc);
-      case MessageHeader.DictionaryBatch: return deserializeDictionaryBatch(in, message, alloc);
-      default: throw new IOException("Unexpected message header type " + message.headerType());
+      case MessageHeader.RecordBatch:
+        return deserializeRecordBatch(in, message, alloc);
+      case MessageHeader.DictionaryBatch:
+        return deserializeDictionaryBatch(in, message, alloc);
+      default:
+        throw new IOException("Unexpected message header type " + message.headerType());
     }
   }
 
   /**
    * Serializes a message header.
-   * @param builder to write the flatbuf to
-   * @param headerType headerType field
+   *
+   * @param builder      to write the flatbuf to
+   * @param headerType   headerType field
    * @param headerOffset header offset field
-   * @param bodyLength body length field
+   * @param bodyLength   body length field
    * @return the corresponding ByteBuffer
    */
   public static ByteBuffer serializeMessage(FlatBufferBuilder builder, byte headerType,
-      int headerOffset, int bodyLength) {
+                                            int headerOffset, int bodyLength) {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
     Message.addHeader(builder, headerOffset);
@@ -387,9 +400,13 @@ public class MessageSerializer {
   private static Message deserializeMessage(ReadChannel in) throws IOException {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
-    if (in.readFully(buffer) != 4) return null;
+    if (in.readFully(buffer) != 4) {
+      return null;
+    }
     int messageLength = bytesToInt(buffer.array());
-    if (messageLength == 0) return null;
+    if (messageLength == 0) {
+      return null;
+    }
 
     buffer = ByteBuffer.allocate(messageLength);
     if (in.readFully(buffer) != messageLength) {

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.util.Arrays;
@@ -68,7 +69,7 @@ public class Validator {
       Dictionary dict2 = provider2.lookup(id);
 
       if (dict1 == null || dict2 == null) {
-        throw new IllegalArgumentException("The DictionaryProvider did not contain the required dictionary with id: " + id +"\n" + dict1 + "\n" + dict2);
+        throw new IllegalArgumentException("The DictionaryProvider did not contain the required dictionary with id: " + id + "\n" + dict1 + "\n" + dict2);
       }
 
       try {
@@ -132,9 +133,9 @@ public class Validator {
       ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) type;
       switch (fpType.getPrecision()) {
         case DOUBLE:
-          return equalEnough((Double)o1, (Double)o2);
+          return equalEnough((Double) o1, (Double) o2);
         case SINGLE:
-          return equalEnough((Float)o1, (Float)o2);
+          return equalEnough((Float) o1, (Float) o2);
         case HALF:
         default:
           throw new UnsupportedOperationException("unsupported precision: " + fpType);

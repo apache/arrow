@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.nio.charset.StandardCharsets;
@@ -155,7 +156,7 @@ public class BaseFileTest {
         Assert.assertNull(intVal);
       }
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
-      Assert.assertEquals(i % 3, ((List<?>)root.getVector("list").getAccessor().getObject(i)).size());
+      Assert.assertEquals(i % 3, ((List<?>) root.getVector("list").getAccessor().getObject(i)).size());
       NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
       FieldReader mapReader = root.getVector("map").getReader();
       mapReader.setPosition(i);
@@ -198,11 +199,11 @@ public class BaseFileTest {
     Assert.assertEquals(count, root.getRowCount());
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
-      long dateVal = ((NullableDateMilliVector)root.getVector("date")).getAccessor().get(i);
+      long dateVal = ((NullableDateMilliVector) root.getVector("date")).getAccessor().get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
       LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
       Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
-      long timeVal = ((NullableTimeMilliVector)root.getVector("time")).getAccessor().get(i);
+      long timeVal = ((NullableTimeMilliVector) root.getVector("time")).getAccessor().get(i);
       Assert.assertEquals(dt.getMillisOfDay(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getAccessor().getObject(i);
       Assert.assertEquals(dt, timestampMilliVal);
@@ -450,20 +451,20 @@ public class BaseFileTest {
     for (int i = 0; i < count; i++) {
       unionReader.setPosition(i);
       switch (i % 4) {
-      case 0:
-        Assert.assertEquals(i, unionReader.readInteger().intValue());
-        break;
-      case 1:
-        Assert.assertEquals(i, unionReader.readLong().longValue());
-        break;
-      case 2:
-        Assert.assertEquals(i % 3, unionReader.size());
-        break;
-      case 3:
-        NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
-        unionReader.reader("timestamp").read(h);
-        Assert.assertEquals(i, h.value);
-        break;
+        case 0:
+          Assert.assertEquals(i, unionReader.readInteger().intValue());
+          break;
+        case 1:
+          Assert.assertEquals(i, unionReader.readLong().longValue());
+          break;
+        case 2:
+          Assert.assertEquals(i % 3, unionReader.size());
+          break;
+        case 3:
+          NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
+          unionReader.reader("timestamp").read(h);
+          Assert.assertEquals(i, h.value);
+          break;
       }
     }
   }
@@ -483,28 +484,28 @@ public class BaseFileTest {
     MapWriter mapWriter = rootWriter.map("union");
     for (int i = 0; i < count; i++) {
       switch (i % 4) {
-      case 0:
-        intWriter.setPosition(i);
-        intWriter.writeInt(i);
-        break;
-      case 1:
-        bigIntWriter.setPosition(i);
-        bigIntWriter.writeBigInt(i);
-        break;
-      case 2:
-        listWriter.setPosition(i);
-        listWriter.startList();
-        for (int j = 0; j < i % 3; j++) {
-          listWriter.varChar().writeVarChar(0, 3, varchar);
-        }
-        listWriter.endList();
-        break;
-      case 3:
-        mapWriter.setPosition(i);
-        mapWriter.start();
-        mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
-        mapWriter.end();
-        break;
+        case 0:
+          intWriter.setPosition(i);
+          intWriter.writeInt(i);
+          break;
+        case 1:
+          bigIntWriter.setPosition(i);
+          bigIntWriter.writeBigInt(i);
+          break;
+        case 2:
+          listWriter.setPosition(i);
+          listWriter.startList();
+          for (int j = 0; j < i % 3; j++) {
+            listWriter.varChar().writeVarChar(0, 3, varchar);
+          }
+          listWriter.endList();
+          break;
+        case 3:
+          mapWriter.setPosition(i);
+          mapWriter.start();
+          mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+          mapWriter.end();
+          break;
       }
     }
     writer.setValueCount(count);

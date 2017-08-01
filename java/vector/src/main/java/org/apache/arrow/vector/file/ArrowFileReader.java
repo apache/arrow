@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -117,7 +118,7 @@ public class ArrowFileReader extends ArrowReader<SeekableReadChannel> {
                                                    ArrowBlock block,
                                                    BufferAllocator allocator) throws IOException {
     LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
-       block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
     in.setPosition(block.getOffset());
     ArrowDictionaryBatch batch = MessageSerializer.deserializeDictionaryBatch(in, block, allocator);
     if (batch == null) {

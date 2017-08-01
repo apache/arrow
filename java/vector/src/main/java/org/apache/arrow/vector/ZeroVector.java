@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.util.Collections;
@@ -42,10 +43,12 @@ public class ZeroVector implements FieldVector {
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
-    public void transfer() { }
+    public void transfer() {
+    }
 
     @Override
-    public void splitAndTransfer(int startIndex, int length) { }
+    public void splitAndTransfer(int startIndex, int length) {
+    }
 
     @Override
     public ValueVector getTo() {
@@ -53,7 +56,8 @@ public class ZeroVector implements FieldVector {
     }
 
     @Override
-    public void copyValueSafe(int from, int to) { }
+    public void copyValueSafe(int from, int to) {
+    }
   };
 
   private final Accessor defaultAccessor = new Accessor() {
@@ -80,22 +84,28 @@ public class ZeroVector implements FieldVector {
 
   private final Mutator defaultMutator = new Mutator() {
     @Override
-    public void setValueCount(int valueCount) { }
+    public void setValueCount(int valueCount) {
+    }
 
     @Override
-    public void reset() { }
+    public void reset() {
+    }
 
     @Override
-    public void generateTestData(int values) { }
+    public void generateTestData(int values) {
+    }
   };
 
-  public ZeroVector() { }
+  public ZeroVector() {
+  }
 
   @Override
-  public void close() { }
+  public void close() {
+  }
 
   @Override
-  public void clear() { }
+  public void clear() {
+  }
 
   @Override
   public Field getField() {
@@ -144,7 +154,8 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
-  public void reAlloc() {}
+  public void reAlloc() {
+  }
 
   @Override
   public BufferAllocator getAllocator() {
@@ -152,7 +163,8 @@ public class ZeroVector implements FieldVector {
   }
 
   @Override
-  public void setInitialCapacity(int numRecords) { }
+  public void setInitialCapacity(int numRecords) {
+  }
 
   @Override
   public int getValueCapacity() {

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.FieldVector;
@@ -120,7 +121,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   protected FieldWriter getWriter(MinorType type) {
     if (state == State.UNION) {
-      ((UnionWriter)writer).getWriter(type);
+      ((UnionWriter) writer).getWriter(type);
     } else if (state == State.UNTYPED) {
       if (type == null) {
         // ???
@@ -132,7 +133,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
-      ((UnionWriter)writer).getWriter(type);
+      ((UnionWriter) writer).getWriter(type);
     }
     return writer;
   }
@@ -157,7 +158,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
     }
-    unionVector.addVector((FieldVector)tp.getTo());
+    unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableMapWriterFactory);
     writer.setPosition(idx());
     for (int i = 0; i <= idx(); i++) {

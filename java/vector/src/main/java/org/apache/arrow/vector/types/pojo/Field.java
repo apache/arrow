@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.types.pojo;
 
 
@@ -166,7 +167,7 @@ public class Field {
     int layoutOffset = org.apache.arrow.flatbuf.Field.createLayoutVector(builder, buffersData);
     int[] metadataOffsets = new int[getMetadata().size()];
     Iterator<Entry<String, String>> metadataIterator = getMetadata().entrySet().iterator();
-    for (int i = 0; i < metadataOffsets.length; i ++) {
+    for (int i = 0; i < metadataOffsets.length; i++) {
       Entry<String, String> kv = metadataIterator.next();
       int keyOffset = builder.createString(kv.getKey());
       int valueOffset = builder.createString(kv.getValue());
@@ -239,11 +240,11 @@ public class Field {
     }
     Field that = (Field) obj;
     return Objects.equals(this.name, that.name) &&
-             Objects.equals(this.isNullable(), that.isNullable()) &&
-             Objects.equals(this.getType(), that.getType()) &&
-             Objects.equals(this.getDictionary(), that.getDictionary()) &&
-             Objects.equals(this.getMetadata(), that.getMetadata()) &&
-             Objects.equals(this.children, that.children);
+        Objects.equals(this.isNullable(), that.isNullable()) &&
+        Objects.equals(this.getType(), that.getType()) &&
+        Objects.equals(this.getDictionary(), that.getDictionary()) &&
+        Objects.equals(this.getMetadata(), that.getMetadata()) &&
+        Objects.equals(this.children, that.children);
   }
 
   @Override

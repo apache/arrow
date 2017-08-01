@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.types;
 
 public enum TimeUnit {
@@ -24,6 +25,7 @@ public enum TimeUnit {
   NANOSECOND(org.apache.arrow.flatbuf.TimeUnit.NANOSECOND);
 
   private static final TimeUnit[] valuesByFlatbufId = new TimeUnit[TimeUnit.values().length];
+
   static {
     for (TimeUnit v : TimeUnit.values()) {
       valuesByFlatbufId[v.flatbufID] = v;

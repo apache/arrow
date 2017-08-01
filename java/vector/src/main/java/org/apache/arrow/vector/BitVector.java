@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -115,7 +116,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public int getValueCapacity() {
-    return (int)Math.min((long)Integer.MAX_VALUE, data.capacity() * 8L);
+    return (int) Math.min((long) Integer.MAX_VALUE, data.capacity() * 8L);
   }
 
   private int getByteIndex(int index) {
@@ -165,8 +166,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   /**
    * Allocate a new memory space for this vector. Must be called prior to using the ValueVector.
    *
-   * @param valueCount
-   *          The number of values which can be contained within this vector.
+   * @param valueCount The number of values which can be contained within this vector.
    */
   @Override
   public void allocateNew(int valueCount) {
@@ -195,7 +195,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
 
-    final int curSize = (int)newAllocationSize;
+    final int curSize = (int) newAllocationSize;
     final ArrowBuf newBuf = allocator.buffer(curSize);
     newBuf.setZero(0, newBuf.capacity());
     newBuf.setBytes(0, data, 0, data.capacity());
@@ -287,7 +287,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
           target.data.setByte(byteSize - 1, ((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset));
         } else {
           target.data.setByte(byteSize - 1,
-                  (((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset) + (this.data.getByte(firstByte + byteSize) << (8 - offset))));
+              (((this.data.getByte(firstByte + byteSize - 1) & 0xFF) >>> offset) + (this.data.getByte(firstByte + byteSize) << (8 - offset))));
         }
       }
     }
@@ -342,15 +342,14 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     /**
      * Get the byte holding the desired bit, then mask all other bits. Iff the result is 0, the bit was not set.
      *
-     * @param index
-     *          position of the bit in the vector
+     * @param index position of the bit in the vector
      * @return 1 if set, otherwise 0
      */
     public final int get(int index) {
       int byteIndex = index >> 3;
       byte b = data.getByte(byteIndex);
       int bitIndex = index & 7;
-      return Long.bitCount(b &  (1L << bitIndex));
+      return Long.bitCount(b & (1L << bitIndex));
     }
 
     @Override
@@ -379,6 +378,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
     /**
      * Get the number nulls, this correspond to the number of bits set to 0 in the vector
+     *
      * @return the number of bits set to 0
      */
     @Override
@@ -414,10 +414,8 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     /**
      * Set the bit at the given index to the specified value.
      *
-     * @param index
-     *          position of the bit to set
-     * @param value
-     *          value to set (either 1 or 0)
+     * @param index position of the bit to set
+     * @param value value to set (either 1 or 0)
      */
     public final void set(int index, int value) {
       int byteIndex = byteIndex(index);
@@ -448,8 +446,9 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
     /**
      * set count bits to 1 in data starting at firstBitIndex
+     *
      * @param firstBitIndex the index of the first bit to set
-     * @param count the number of bits to set
+     * @param count         the number of bits to set
      */
     public void setRangeToOne(int firstBitIndex, int count) {
       int starByteIndex = byteIndex(firstBitIndex);
@@ -473,7 +472,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
           final byte bitMask = (byte) (0xFFL << startByteBitIndex);
           currentByte |= bitMask;
           data.setByte(starByteIndex, currentByte);
-          ++ starByteIndex;
+          ++starByteIndex;
         }
 
         // fill in one full byte at a time
@@ -518,28 +517,28 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     }
 
     public void setSafe(int index, int value) {
-      while(index >= getValueCapacity()) {
+      while (index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, value);
     }
 
     public void setSafeToOne(int index) {
-      while(index >= getValueCapacity()) {
+      while (index >= getValueCapacity()) {
         reAlloc();
       }
       setToOne(index);
     }
 
     public void setSafe(int index, BitHolder holder) {
-      while(index >= getValueCapacity()) {
+      while (index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, holder.value);
     }
 
     public void setSafe(int index, NullableBitHolder holder) {
-      while(index >= getValueCapacity()) {
+      while (index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, holder.value);
@@ -550,7 +549,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       int currentValueCapacity = getValueCapacity();
       BitVector.this.valueCount = valueCount;
       int idx = getSizeFromCount(valueCount);
-      while(valueCount > getValueCapacity()) {
+      while (valueCount > getValueCapacity()) {
         reAlloc();
       }
       if (valueCount > 0 && currentValueCapacity > valueCount * 2) {
@@ -564,7 +563,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     @Override
     public final void generateTestData(int values) {
       boolean even = true;
-      for(int i = 0; i < values; i++, even = !even) {
+      for (int i = 0; i < values; i++, even = !even) {
         if (even) {
           set(i, 1);
         }
@@ -576,10 +575,10 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       setValueCount(size);
       boolean even = true;
       final int valueCount = getAccessor().getValueCount();
-      for(int i = 0; i < valueCount; i++, even = !even) {
-        if(even){
+      for (int i = 0; i < valueCount; i++, even = !even) {
+        if (even) {
           set(i, (byte) 1);
-        }else{
+        } else {
           set(i, (byte) 0);
         }
       }

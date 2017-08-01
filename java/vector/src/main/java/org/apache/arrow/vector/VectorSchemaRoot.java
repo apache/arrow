@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.util.ArrayList;
@@ -67,7 +68,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
     if (fieldVectors.size() != schema.getFields().size()) {
       throw new IllegalArgumentException("The root vector did not create the right number of children. found " +
-        fieldVectors.size() + " expected " + schema.getFields().size());
+          fieldVectors.size() + " expected " + schema.getFields().size());
     }
     return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
@@ -102,7 +103,7 @@ public class VectorSchemaRoot implements AutoCloseable {
         ex = chain(ex, e);
       }
     }
-    if (ex!= null) {
+    if (ex != null) {
       throw ex;
     }
   }

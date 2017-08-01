@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -185,7 +186,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
 
   @Override
-  public int getBufferSize(){
+  public int getBufferSize() {
     return super.getBufferSize() + bits.getBufferSize();
   }
 
@@ -229,7 +230,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
     super.reAlloc();
   }
 
-  public final class Accessor extends MapVector.Accessor  {
+  public final class Accessor extends MapVector.Accessor {
     final BitVector.Accessor bAccessor = bits.getAccessor();
 
     @Override
@@ -257,7 +258,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
       return isSet(index) == 0;
     }
 
-    public int isSet(int index){
+    public int isSet(int index) {
       return bAccessor.get(index);
     }
 
@@ -265,15 +266,15 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   public final class Mutator extends MapVector.Mutator implements NullableVectorDefinitionSetter {
 
-    private Mutator(){
+    private Mutator() {
     }
 
     @Override
-    public void setIndexDefined(int index){
+    public void setIndexDefined(int index) {
       bits.getMutator().setSafe(index, 1);
     }
 
-    public void setNull(int index){
+    public void setNull(int index) {
       bits.getMutator().setSafe(index, 0);
     }
 
@@ -285,13 +286,13 @@ public class NullableMapVector extends MapVector implements FieldVector {
     }
 
     @Override
-    public void generateTestData(int valueCount){
+    public void generateTestData(int valueCount) {
       super.generateTestData(valueCount);
       bits.getMutator().generateTestDataAlt(valueCount);
     }
 
     @Override
-    public void reset(){
+    public void reset() {
       bits.getMutator().setValueCount(0);
     }
 

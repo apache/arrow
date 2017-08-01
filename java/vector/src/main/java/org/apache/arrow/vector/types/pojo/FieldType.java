@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.types.pojo;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -55,12 +56,15 @@ public class FieldType {
   public boolean isNullable() {
     return nullable;
   }
+
   public ArrowType getType() {
     return type;
   }
+
   public DictionaryEncoding getDictionary() {
     return dictionary;
   }
+
   public Map<String, String> getMetadata() {
     return metadata;
   }

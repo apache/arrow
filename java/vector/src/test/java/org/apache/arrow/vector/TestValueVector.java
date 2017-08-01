@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
@@ -394,7 +395,7 @@ public class TestValueVector {
   }
 
   private void validateRange(int length, int start, int count) {
-    String desc = "[" + start + ", "  + (start + count) + ") ";
+    String desc = "[" + start + ", " + (start + count) + ") ";
     try (BitVector bitVector = new BitVector("bits", allocator)) {
       bitVector.reset();
       bitVector.allocateNew(length);
@@ -489,7 +490,7 @@ public class TestValueVector {
   @Test
   public void testCopyFromWithNulls() {
     try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-          final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+         final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
 
       for (int i = 0; i < 4095; i++) {
@@ -608,15 +609,15 @@ public class TestValueVector {
       VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
 
       try (
-              ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-              BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-              VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
       ) {
 
         VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
         vectorLoader.load(recordBatch);
 
-        NullableVarCharVector vector2 = (NullableVarCharVector)schemaRoot2.getVector(fieldName);
+        NullableVarCharVector vector2 = (NullableVarCharVector) schemaRoot2.getVector(fieldName);
         NullableVarCharVector.Mutator mutator2 = vector2.getMutator();
 
         /*

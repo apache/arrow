@@ -277,8 +277,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         throw new OutOfMemoryException(e);
       }
       throw e;
-    }
-    finally {
+    } finally {
       if (!success) {
         releaseBytes(actualRequestSize);
       }

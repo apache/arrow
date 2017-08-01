@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,6 +42,7 @@ public class VectorLoader {
 
   /**
    * will create children in root based on schema
+   *
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
@@ -50,12 +52,13 @@ public class VectorLoader {
   /**
    * Loads the record batch in the vectors
    * will not close the record batch
+   *
    * @param recordBatch the batch to load
    */
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    for (FieldVector fieldVector: root.getFieldVectors()) {
+    for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
     }
     root.setRowCount(recordBatch.getLength());
@@ -77,7 +80,7 @@ public class VectorLoader {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
     } catch (RuntimeException e) {
       throw new IllegalArgumentException("Could not load buffers for field " +
-            field + ". error message: " + e.getMessage(), e);
+          field + ". error message: " + e.getMessage(), e);
     }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
