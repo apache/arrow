@@ -165,6 +165,18 @@ Now build and install the Arrow C++ libraries:
    make install
    popd
 
+If you want to build and install the Plasma in-memory object store too,
+replace the cmake command with the following one:
+
+.. code-block:: shell
+
+   cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
+         -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+         -DARROW_PYTHON=on \
+         -DARROW_PLASMA=on \
+         -DARROW_BUILD_TESTS=OFF \
+         ..
+
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
 
@@ -190,9 +202,10 @@ Now, build pyarrow:
 
    cd arrow/python
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --inplace
+          --with-parquet --with-plasma --inplace
 
-If you did not build parquet-cpp, you can omit ``--with-parquet``.
+If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
+you did not build with plasma, you can omit ``--with-plasma``.
 
 You should be able to run the unit tests with:
 
@@ -224,9 +237,10 @@ You can build a wheel by running:
 .. code-block:: shell
 
    python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-          --with-parquet --bundle-arrow-cpp bdist_wheel
+          --with-parquet --with-plasma --bundle-arrow-cpp bdist_wheel
 
-Again, if you did not build parquet-cpp, you should omit ``--with-parquet``.
+Again, if you did not build parquet-cpp, you should omit ``--with-parquet`` and
+if you did not build with plasma, you should omit ``--with-plasma``.
 
 Developing on Windows
 =====================
