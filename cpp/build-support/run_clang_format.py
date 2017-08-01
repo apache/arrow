@@ -57,5 +57,9 @@ for directory, subdirs, files in os.walk(SOURCE_DIR):
 #   exit 1
 # fi
 
-subprocess.check_output([CLANG_FORMAT, '-i'] + files_to_format,
-                        stderr=subprocess.STDOUT)
+try:
+    subprocess.check_output([CLANG_FORMAT, '-i'] + files_to_format,
+                            stderr=subprocess.STDOUT)
+except Exception as e:
+    print(e)
+    raise

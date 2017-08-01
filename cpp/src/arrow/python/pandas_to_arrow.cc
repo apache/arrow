@@ -50,7 +50,13 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
+
+using internal::ArrayData;
+using internal::MakeArray;
+
 namespace py {
+
+using internal::NumPyTypeSize;
 
 // ----------------------------------------------------------------------
 // Conversion utilities
@@ -83,7 +89,7 @@ static inline bool PyObject_is_integer(const PyObject* obj) {
 
 template <int TYPE>
 static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
-  typedef npy_traits<TYPE> traits;
+  typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
   int64_t null_count = 0;
@@ -120,7 +126,7 @@ static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap
 template <int TYPE>
 static int64_t ValuesToValidBytes(const void* data, int64_t length,
                                   uint8_t* valid_bytes) {
-  typedef npy_traits<TYPE> traits;
+  typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
   int64_t null_count = 0;
@@ -306,16 +312,16 @@ class PandasConverter {
     return Status::OK();
   }
 
-  Status PushArray(const std::shared_ptr<internal::ArrayData>& data) {
+  Status PushArray(const std::shared_ptr<ArrayData>& data) {
     std::shared_ptr<Array> result;
-    RETURN_NOT_OK(internal::MakeArray(data, &result));
+    RETURN_NOT_OK(MakeArray(data, &result));
     out_arrays_.emplace_back(std::move(result));
     return Status::OK();
   }
 
   template <typename ArrowType>
   Status VisitNative() {
-    using traits = arrow_traits<ArrowType::type_id>;
+    using traits = internal::arrow_traits<ArrowType::type_id>;
 
     if (mask_ != nullptr || traits::supports_nulls) {
       RETURN_NOT_OK(InitNullBitmap());
@@ -334,8 +340,8 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    return PushArray(std::make_shared<internal::ArrayData>(
-        type_, length_, std::move(buffers), null_count, 0));
+    return PushArray(
+        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0));
   }
 
   template <typename T>
@@ -448,13 +454,13 @@ void CopyStrided<PyObject*>(PyObject** input_data, int64_t length, int64_t strid
 
 template <typename ArrowType>
 inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
-  using traits = arrow_traits<ArrowType::type_id>;
+  using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
 
   // Handle LONGLONG->INT64 and other fun things
   int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
 
-  if (numpy_type_size(traits::npy_type) != numpy_type_size(type_num_compat)) {
+  if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
     return Status::NotImplemented("NumPy type casts not yet implemented");
   }
 
@@ -925,7 +931,7 @@ Status LoopPySequence(PyObject* sequence, T func) {
 template <int ITEM_TYPE, typename ArrowType>
 inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
                                                  ListBuilder* builder, PyObject* list) {
-  typedef npy_traits<ITEM_TYPE> traits;
+  typedef internal::npy_traits<ITEM_TYPE> traits;
   typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
 

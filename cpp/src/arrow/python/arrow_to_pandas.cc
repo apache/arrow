@@ -56,6 +56,9 @@
 namespace arrow {
 namespace py {
 
+using internal::kPandasTimestampNull;
+using internal::kNanosecondsInDay;
+
 // ----------------------------------------------------------------------
 // Utility code
 
@@ -752,7 +755,7 @@ class IntBlock : public PandasBlock {
  public:
   using PandasBlock::PandasBlock;
   Status Allocate() override {
-    return AllocateNDArray(arrow_traits<ARROW_TYPE>::npy_type);
+    return AllocateNDArray(internal::arrow_traits<ARROW_TYPE>::npy_type);
   }
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
@@ -981,7 +984,7 @@ class CategoricalBlock : public PandasBlock {
  public:
   explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
   Status Allocate() override {
-    constexpr int npy_type = arrow_traits<ARROW_INDEX_TYPE>::npy_type;
+    constexpr int npy_type = internal::arrow_traits<ARROW_INDEX_TYPE>::npy_type;
 
     if (!(npy_type == NPY_INT8 || npy_type == NPY_INT16 || npy_type == NPY_INT32 ||
           npy_type == NPY_INT64)) {
@@ -992,7 +995,7 @@ class CategoricalBlock : public PandasBlock {
 
   Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
                int64_t rel_placement) override {
-    using T = typename arrow_traits<ARROW_INDEX_TYPE>::T;
+    using T = typename internal::arrow_traits<ARROW_INDEX_TYPE>::T;
 
     T* out_values = reinterpret_cast<T*>(block_data_) + rel_placement * num_rows_;
 
@@ -1381,7 +1384,7 @@ class ArrowDeserializer {
 
   template <int TYPE>
   Status ConvertValuesZeroCopy(int npy_type, std::shared_ptr<Array> arr) {
-    typedef typename arrow_traits<TYPE>::T T;
+    typedef typename internal::arrow_traits<TYPE>::T T;
 
     auto prim_arr = static_cast<PrimitiveArray*>(arr.get());
     auto in_values = reinterpret_cast<const T*>(prim_arr->raw_values());
@@ -1425,7 +1428,7 @@ class ArrowDeserializer {
   typename std::enable_if<std::is_base_of<FloatingPoint, Type>::value, Status>::type
   Visit(const Type& type) {
     constexpr int TYPE = Type::type_id;
-    using traits = arrow_traits<TYPE>;
+    using traits = internal::arrow_traits<TYPE>;
 
     typedef typename traits::T T;
     int npy_type = traits::npy_type;
@@ -1447,7 +1450,7 @@ class ArrowDeserializer {
                           Status>::type
   Visit(const Type& type) {
     constexpr int TYPE = Type::type_id;
-    using traits = arrow_traits<TYPE>;
+    using traits = internal::arrow_traits<TYPE>;
 
     typedef typename traits::T T;
 
@@ -1480,7 +1483,7 @@ class ArrowDeserializer {
   typename std::enable_if<std::is_base_of<Integer, Type>::value, Status>::type Visit(
       const Type& type) {
     constexpr int TYPE = Type::type_id;
-    using traits = arrow_traits<TYPE>;
+    using traits = internal::arrow_traits<TYPE>;
 
     typedef typename traits::T T;
 
@@ -1535,7 +1538,7 @@ class ArrowDeserializer {
     if (data_.null_count() > 0) {
       return VisitObjects(ConvertBooleanWithNulls);
     } else {
-      RETURN_NOT_OK(AllocateOutput(arrow_traits<Type::BOOL>::npy_type));
+      RETURN_NOT_OK(AllocateOutput(internal::arrow_traits<Type::BOOL>::npy_type));
       auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(arr_));
       ConvertBooleanNoNulls(data_, out_values);
     }

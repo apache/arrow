@@ -227,6 +227,8 @@ inline bool BitWriter::PutVlqInt(uint32_t v) {
   return result;
 }
 
+namespace detail {
+
 template <typename T>
 inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
                       int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
@@ -264,6 +266,8 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
   }
 }
 
+}  // namespace detail
+
 template <typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
   return GetBatch(num_bits, v, 1) == 1;
@@ -291,15 +295,15 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   int i = 0;
   if (UNLIKELY(bit_offset != 0)) {
     for (; i < batch_size && bit_offset != 0; ++i) {
-      GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                &buffered_values);
+      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                        &buffered_values);
     }
   }
 
   if (sizeof(T) == 4) {
     int num_unpacked =
-        unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                 reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
+        internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                           reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
   } else {
@@ -307,8 +311,9 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
-      int num_unpacked = unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
-                                  unpack_buffer, unpack_size, num_bits);
+      int num_unpacked =
+          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
+                             unpack_buffer, unpack_size, num_bits);
       if (num_unpacked == 0) {
         break;
       }
@@ -335,8 +340,8 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   }
 
   for (; i < batch_size; ++i) {
-    GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-              &buffered_values);
+    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                      &buffered_values);
   }
 
   bit_offset_ = bit_offset;

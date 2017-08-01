@@ -282,6 +282,7 @@ static inline void* GetLibrarySymbol(void* handle, const char* symbol) {
 
 namespace arrow {
 namespace io {
+namespace internal {
 
 static LibHdfsShim libhdfs_shim;
 static LibHdfsShim libhdfs3_shim;
@@ -556,5 +557,6 @@ Status ConnectLibHdfs3(LibHdfsShim** driver) {
   return shim->GetRequiredSymbols();
 }
 
+}  // namespace internal
 }  // namespace io
 }  // namespace arrow

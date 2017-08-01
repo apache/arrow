@@ -262,6 +262,8 @@ using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
 
+namespace internal {
+
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
   explicit AdaptiveIntBuilderBase(MemoryPool* pool);
@@ -295,7 +297,29 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 };
 
 // Check if we would need to expand the underlying storage type
-inline uint8_t expanded_uint_size(uint64_t val, uint8_t current_int_size) {
+inline uint8_t ExpandedIntSize(int64_t val, uint8_t current_int_size) {
+  if (current_int_size == 8 ||
+      (current_int_size < 8 &&
+       (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
+        val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
+    return 8;
+  } else if (current_int_size == 4 ||
+             (current_int_size < 4 &&
+              (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
+               val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
+    return 4;
+  } else if (current_int_size == 2 ||
+             (current_int_size == 1 &&
+              (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
+               val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+
+// Check if we would need to expand the underlying storage type
+inline uint8_t ExpandedUIntSize(uint64_t val, uint8_t current_int_size) {
   if (current_int_size == 8 ||
       (current_int_size < 8 &&
        (val > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())))) {
@@ -313,7 +337,9 @@ inline uint8_t expanded_uint_size(uint64_t val, uint8_t current_int_size) {
   }
 }
 
-class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
+}  // namespace internal
+
+class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveUIntBuilder(MemoryPool* pool);
 
@@ -324,7 +350,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
-    uint8_t new_int_size = expanded_uint_size(val, int_size_);
+    uint8_t new_int_size = internal::ExpandedUIntSize(val, int_size_);
     if (new_int_size != int_size_) {
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }
@@ -372,29 +398,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public AdaptiveIntBuilderBase {
   Status ExpandIntSizeN();
 };
 
-// Check if we would need to expand the underlying storage type
-inline uint8_t expanded_int_size(int64_t val, uint8_t current_int_size) {
-  if (current_int_size == 8 ||
-      (current_int_size < 8 &&
-       (val > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
-        val < static_cast<int64_t>(std::numeric_limits<int32_t>::min())))) {
-    return 8;
-  } else if (current_int_size == 4 ||
-             (current_int_size < 4 &&
-              (val > static_cast<int64_t>(std::numeric_limits<int16_t>::max()) ||
-               val < static_cast<int64_t>(std::numeric_limits<int16_t>::min())))) {
-    return 4;
-  } else if (current_int_size == 2 ||
-             (current_int_size == 1 &&
-              (val > static_cast<int64_t>(std::numeric_limits<int8_t>::max()) ||
-               val < static_cast<int64_t>(std::numeric_limits<int8_t>::min())))) {
-    return 2;
-  } else {
-    return 1;
-  }
-}
-
-class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
+class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveIntBuilder(MemoryPool* pool);
 
@@ -405,7 +409,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public AdaptiveIntBuilderBase {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
-    uint8_t new_int_size = expanded_int_size(val, int_size_);
+    uint8_t new_int_size = internal::ExpandedIntSize(val, int_size_);
     if (new_int_size != int_size_) {
       RETURN_NOT_OK(ExpandIntSize(new_int_size));
     }

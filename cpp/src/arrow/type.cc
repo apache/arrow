@@ -293,7 +293,8 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), metadata_);
+  *out =
+      std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
   return Status::OK();
 }
 
@@ -316,7 +317,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), metadata_);
+  *out = std::make_shared<Schema>(internal::DeleteVectorElement(fields_, i), metadata_);
   return Status::OK();
 }
 

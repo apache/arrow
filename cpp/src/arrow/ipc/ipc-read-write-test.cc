@@ -409,7 +409,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
                      int64_t* body_length, std::shared_ptr<RecordBatch>* batch,
                      std::shared_ptr<Schema>* schema) {
     const int batch_length = 5;
-    TypePtr type = int32();
+    auto type = int32();
     std::shared_ptr<Array> array;
     const bool include_nulls = true;
     RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool_, &array));

@@ -61,7 +61,7 @@ static constexpr int kDefaultHdfsBufferSize = 1 << 16;
 
 class HdfsAnyFileImpl {
  public:
-  void set_members(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+  void set_members(const std::string& path, internal::LibHdfsShim* driver, hdfsFS fs,
                    hdfsFile handle) {
     path_ = path;
     driver_ = driver;
@@ -88,7 +88,7 @@ class HdfsAnyFileImpl {
  protected:
   std::string path_;
 
-  LibHdfsShim* driver_;
+  internal::LibHdfsShim* driver_;
 
   // For threadsafety
   std::mutex lock_;
@@ -507,7 +507,7 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   }
 
  private:
-  LibHdfsShim* driver_;
+  internal::LibHdfsShim* driver_;
 
   std::string namenode_host_;
   std::string user_;
@@ -613,13 +613,13 @@ Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) 
 // Allow public API users to check whether we are set up correctly
 
 Status HaveLibHdfs() {
-  LibHdfsShim* driver;
-  return ConnectLibHdfs(&driver);
+  internal::LibHdfsShim* driver;
+  return internal::ConnectLibHdfs(&driver);
 }
 
 Status HaveLibHdfs3() {
-  LibHdfsShim* driver;
-  return ConnectLibHdfs3(&driver);
+  internal::LibHdfsShim* driver;
+  return internal::ConnectLibHdfs3(&driver);
 }
 
 }  // namespace io

@@ -333,7 +333,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const int batch_length = 5;
-  TypePtr type = int32();
+  auto type = int32();
 
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> array;
