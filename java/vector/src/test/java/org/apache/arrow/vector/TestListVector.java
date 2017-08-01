@@ -129,11 +129,11 @@ public class TestListVector {
 
       /* get inner vectors; bitVector and offsetVector */
       List<BufferBacked> innerVectors = listVector.getFieldInnerVectors();
-      BitVector bitVector = (BitVector) innerVectors.get(0);
-      UInt4Vector offsetVector = (UInt4Vector) innerVectors.get(1);
+      BitVector bitVector = (BitVector)innerVectors.get(0);
+      UInt4Vector offsetVector = (UInt4Vector)innerVectors.get(1);
 
       /* get the underlying data vector -- NullableBigIntVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      NullableBigIntVector dataVector = (NullableBigIntVector)listVector.getDataVector();
 
       /* check current lastSet */
       assertEquals(Integer.toString(0), Integer.toString(listVector.getMutator().getLastSet()));
@@ -219,36 +219,36 @@ public class TestListVector {
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       Object actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(10), (Long) actual);
+      assertEquals(new Long(10), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(11), (Long) actual);
+      assertEquals(new Long(11), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(12), (Long) actual);
+      assertEquals(new Long(12), (Long)actual);
 
       index++;
       offset = offsetAccessor.get(index);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(13), (Long) actual);
+      assertEquals(new Long(13), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(14), (Long) actual);
+      assertEquals(new Long(14), (Long)actual);
 
       index++;
       offset = offsetAccessor.get(index);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offsetAccessor.get(index));
-      assertEquals(new Long(15), (Long) actual);
+      assertEquals(new Long(15), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(16), (Long) actual);
+      assertEquals(new Long(16), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(17), (Long) actual);
+      assertEquals(new Long(17), (Long)actual);
 
       index++;
       offset = offsetAccessor.get(index);
@@ -312,10 +312,10 @@ public class TestListVector {
       assertEquals(5, listVector.getMutator().getLastSet());
 
       /* get offsetVector */
-      UInt4Vector offsetVector = (UInt4Vector) listVector.getOffsetVector();
+      UInt4Vector offsetVector = (UInt4Vector)listVector.getOffsetVector();
 
       /* get dataVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      NullableBigIntVector dataVector = (NullableBigIntVector)listVector.getDataVector();
 
       /* check the vector output */
       final UInt4Vector.Accessor offsetAccessor = offsetVector.getAccessor();
@@ -331,13 +331,13 @@ public class TestListVector {
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(10), (Long) actual);
+      assertEquals(new Long(10), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(11), (Long) actual);
+      assertEquals(new Long(11), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(12), (Long) actual);
+      assertEquals(new Long(12), (Long)actual);
 
       /* index 1 */
       index++;
@@ -346,10 +346,10 @@ public class TestListVector {
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(13), (Long) actual);
+      assertEquals(new Long(13), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(14), (Long) actual);
+      assertEquals(new Long(14), (Long)actual);
 
       /* index 2 */
       index++;
@@ -358,16 +358,16 @@ public class TestListVector {
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(15), (Long) actual);
+      assertEquals(new Long(15), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(16), (Long) actual);
+      assertEquals(new Long(16), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(17), (Long) actual);
+      assertEquals(new Long(17), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(18), (Long) actual);
+      assertEquals(new Long(18), (Long)actual);
 
       /* index 3 */
       index++;
@@ -376,7 +376,7 @@ public class TestListVector {
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(19), (Long) actual);
+      assertEquals(new Long(19), (Long)actual);
 
       /* index 4 */
       index++;
@@ -385,16 +385,16 @@ public class TestListVector {
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(20), (Long) actual);
+      assertEquals(new Long(20), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(21), (Long) actual);
+      assertEquals(new Long(21), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(22), (Long) actual);
+      assertEquals(new Long(22), (Long)actual);
       offset++;
       actual = valueAccessor.getObject(offset);
-      assertEquals(new Long(23), (Long) actual);
+      assertEquals(new Long(23), (Long)actual);
 
       /* index 5 */
       index++;
@@ -407,10 +407,7 @@ public class TestListVector {
 
         TransferPair transferPair = listVector.makeTransferPair(toVector);
 
-        int[][] transferLengths = {{0, 2},
-                {3, 1},
-                {4, 1}
-        };
+        int[][] transferLengths = {{0, 2}, {3, 1}, {4, 1}};
 
         for (final int[] transferLength : transferLengths) {
           int start = transferLength[0];
@@ -425,26 +422,25 @@ public class TestListVector {
           transferPair.splitAndTransfer(start, splitLength);
 
           /* get offsetVector of toVector */
-          UInt4Vector offsetVector1 = (UInt4Vector) toVector.getOffsetVector();
+          UInt4Vector offsetVector1 = (UInt4Vector)toVector.getOffsetVector();
           UInt4Vector.Accessor offsetAccessor1 = offsetVector1.getAccessor();
 
           /* get dataVector of toVector */
-          NullableBigIntVector dataVector1 = (NullableBigIntVector) toVector.getDataVector();
+          NullableBigIntVector dataVector1 = (NullableBigIntVector)toVector.getDataVector();
           NullableBigIntVector.Accessor valueAccessor1 = dataVector1.getAccessor();
 
-          for (int i = 0; i < splitLength; i++) {
+          for(int i = 0; i < splitLength; i++) {
             dataLength1 = offsetAccessor.get(start + i + 1) - offsetAccessor.get(start + i);
             dataLength2 = offsetAccessor1.get(i + 1) - offsetAccessor1.get(i);
 
-            assertEquals("Different data lengths at index: " + i + " and start: " + start,
-                    dataLength1, dataLength2);
+            assertEquals("Different data lengths at index: " + i + " and start: " + start, dataLength1, dataLength2);
 
             offset1 = offsetAccessor.get(start + i);
             offset2 = offsetAccessor1.get(i);
 
-            for (int j = 0; j < dataLength1; j++) {
+            for(int j = 0; j < dataLength1; j++) {
               assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
-                      valueAccessor.getObject(offset1), valueAccessor1.getObject(offset2));
+                            valueAccessor.getObject(offset1), valueAccessor1.getObject(offset2));
 
               offset1++;
               offset2++;
