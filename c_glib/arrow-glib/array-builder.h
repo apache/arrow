@@ -119,6 +119,57 @@ gboolean garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *bui
                                                   GError **error);
 
 
+#define GARROW_TYPE_INT_ARRAY_BUILDER           \
+  (garrow_int_array_builder_get_type())
+#define GARROW_INT_ARRAY_BUILDER(obj)                           \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_INT_ARRAY_BUILDER,    \
+                              GArrowIntArrayBuilder))
+#define GARROW_INT_ARRAY_BUILDER_CLASS(klass)                   \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_INT_ARRAY_BUILDER,       \
+                           GArrowIntArrayBuilderClass))
+#define GARROW_IS_INT_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_INT_ARRAY_BUILDER))
+#define GARROW_IS_INT_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_INT_ARRAY_BUILDER))
+#define GARROW_INT_ARRAY_BUILDER_GET_CLASS(obj)                 \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_INT_ARRAY_BUILDER,     \
+                             GArrowIntArrayBuilderClass))
+
+typedef struct _GArrowIntArrayBuilder         GArrowIntArrayBuilder;
+typedef struct _GArrowIntArrayBuilderClass    GArrowIntArrayBuilderClass;
+
+/**
+ * GArrowIntArrayBuilder:
+ *
+ * It wraps `arrow::AdaptiveIntBuilder`.
+ */
+struct _GArrowIntArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowIntArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_int_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowIntArrayBuilder *garrow_int_array_builder_new(void);
+
+gboolean garrow_int_array_builder_append(GArrowIntArrayBuilder *builder,
+                                         gint64 value,
+                                         GError **error);
+gboolean garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
+                                              GError **error);
+
+
 #define GARROW_TYPE_INT8_ARRAY_BUILDER          \
   (garrow_int8_array_builder_get_type())
 #define GARROW_INT8_ARRAY_BUILDER(obj)                          \
