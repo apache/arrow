@@ -30,7 +30,7 @@ static void BM_BuildPrimitiveArrayNoNulls(
   // 2 MiB block
   std::vector<int64_t> data(256 * 1024, 100);
   while (state.KeepRunning()) {
-    Int64Builder builder(default_memory_pool());
+    Int64Builder builder;
     for (int i = 0; i < kFinalSize; i++) {
       // Build up an array of 512 MiB in size
       ABORT_NOT_OK(builder.Append(data.data(), data.size(), nullptr));
@@ -66,7 +66,7 @@ static void BM_BuildAdaptiveIntNoNulls(
     data.push_back(i);
   }
   while (state.KeepRunning()) {
-    AdaptiveIntBuilder builder(default_memory_pool());
+    AdaptiveIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
       ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
@@ -85,7 +85,7 @@ static void BM_BuildAdaptiveIntNoNullsScalarAppend(
     data.push_back(i);
   }
   while (state.KeepRunning()) {
-    AdaptiveIntBuilder builder(default_memory_pool());
+    AdaptiveIntBuilder builder;
     for (int64_t i = 0; i < size; i++) {
       ABORT_NOT_OK(builder.Append(data[i]));
     }
@@ -104,7 +104,7 @@ static void BM_BuildAdaptiveUIntNoNulls(
     data.push_back(i);
   }
   while (state.KeepRunning()) {
-    AdaptiveUIntBuilder builder(default_memory_pool());
+    AdaptiveUIntBuilder builder;
     for (int64_t i = 0; i < size; i += chunk_size) {
       // Build up an array of 512 MiB in size
       ABORT_NOT_OK(builder.Append(data.data() + i, chunk_size, nullptr));
@@ -161,7 +161,7 @@ static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const 
 
   std::string value = "1234567890";
   while (state.KeepRunning()) {
-    BinaryBuilder builder(default_memory_pool());
+    BinaryBuilder builder;
     for (int64_t i = 0; i < iterations; i++) {
       ABORT_NOT_OK(builder.Append(value));
     }
