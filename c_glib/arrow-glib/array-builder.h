@@ -65,7 +65,8 @@ struct _GArrowArrayBuilderClass
 
 GType               garrow_array_builder_get_type (void) G_GNUC_CONST;
 
-GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder);
+GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
+                                                   GError **error);
 
 
 #define GARROW_TYPE_BOOLEAN_ARRAY_BUILDER       \

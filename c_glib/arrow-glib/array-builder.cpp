@@ -220,16 +220,22 @@ garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
 /**
  * garrow_array_builder_finish:
  * @builder: A #GArrowArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (transfer full): The built #GArrowArray.
+ * Returns: (transfer full): The built #GArrowArray on success,
+ *   %NULL on error.
  */
 GArrowArray *
-garrow_array_builder_finish(GArrowArrayBuilder *builder)
+garrow_array_builder_finish(GArrowArrayBuilder *builder, GError **error)
 {
   auto arrow_builder = garrow_array_builder_get_raw(builder);
   std::shared_ptr<arrow::Array> arrow_array;
-  arrow_builder->Finish(&arrow_array);
-  return garrow_array_new_raw(&arrow_array);
+  auto status = arrow_builder->Finish(&arrow_array);
+  if (garrow_error_check(error, status, "[array-builder][finish]")) {
+    return garrow_array_new_raw(&arrow_array);
+  } else {
+    return NULL;
+  }
 }
 
 
