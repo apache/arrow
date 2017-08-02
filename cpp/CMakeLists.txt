@@ -671,7 +671,7 @@ if (ARROW_JEMALLOC)
         # For glibc <2.17 we need to link to librt.
         # As we compile with --as-needed by default, the linker will omit this
         # dependency if not required.
-        -Wl,--whole-archive ${PTHREAD_LIBRARY} -Wl,--no-whole-archive
+        ${PTHREAD_LIBRARY}
         rt
         )
     else()
