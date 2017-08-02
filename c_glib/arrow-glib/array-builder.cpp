@@ -25,25 +25,27 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 
-template <typename T>
+template <typename BUILDER, typename VALUE>
 gboolean
 garrow_array_builder_append(GArrowArrayBuilder *builder,
-                            auto value,
+                            VALUE value,
                             GError **error,
                             const gchar *context)
 {
-  auto arrow_builder = static_cast<T>(garrow_array_builder_get_raw(builder));
+  auto arrow_builder =
+    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
   auto status = arrow_builder->Append(value);
   return garrow_error_check(error, status, context);
 }
 
-template <typename T>
+template <typename BUILDER>
 gboolean
 garrow_array_builder_append_null(GArrowArrayBuilder *builder,
                                  GError **error,
                                  const gchar *context)
 {
-  auto arrow_builder = static_cast<T>(garrow_array_builder_get_raw(builder));
+  auto arrow_builder =
+    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
   auto status = arrow_builder->AppendNull();
   return garrow_error_check(error, status, context);
 }
