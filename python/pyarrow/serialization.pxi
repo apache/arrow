@@ -71,7 +71,7 @@ def deserialize_sequence(PythonObject value, object base):
 def write_python_object(PythonObject value, NativeFile sink):
     cdef shared_ptr[OutputStream] stream
     sink.write_handle(&stream)
-    cdef shared_ptr[CRecordBatchFileWriter] writer
+    cdef shared_ptr[CRecordBatchStreamWriter] writer
     cdef shared_ptr[CSchema] schema = deref(value.batch).schema()
     cdef shared_ptr[CRecordBatch] batch = value.batch
     cdef shared_ptr[CTensor] tensor
@@ -79,11 +79,32 @@ def write_python_object(PythonObject value, NativeFile sink):
     cdef int64_t body_length
 
     with nogil:
-        check_status(CRecordBatchFileWriter.Open(stream.get(), schema, &writer))
+        check_status(CRecordBatchStreamWriter.Open(stream.get(), schema, &writer))
         check_status(deref(writer).WriteRecordBatch(deref(batch)))
         check_status(deref(writer).Close())
 
     for tensor in value.tensors:
         check_status(WriteTensor(deref(tensor), stream.get(), &metadata_length, &body_length))
 
-# def read_python_object(NativeFile source):
+def read_python_object(NativeFile source):
+    cdef PythonObject result = PythonObject()
+    cdef shared_ptr[RandomAccessFile] stream
+    source.read_handle(&stream)
+    cdef shared_ptr[CRecordBatchStreamReader] reader
+    cdef shared_ptr[CTensor] tensor
+    cdef int64_t offset
+    
+    with nogil:
+        check_status(CRecordBatchStreamReader.Open(<shared_ptr[InputStream]> stream, &reader))
+        check_status(reader.get().ReadNextRecordBatch(&result.batch))
+
+        check_status(deref(stream).Tell(&offset))
+
+        while True:
+            s = ReadTensor(offset, stream.get(), &tensor)
+            result.tensors.push_back(tensor)
+            if not s.ok():
+                break
+            check_status(deref(stream).Tell(&offset))
+
+    return result
