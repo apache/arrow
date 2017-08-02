@@ -114,6 +114,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Rely on boost shared libraries where relevant"
     ON)
 
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost"
+    OFF)
+
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
     OFF)
