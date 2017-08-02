@@ -36,8 +36,8 @@ AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([ext], [mandatory])
 LT_INIT
 
-GARROW_CFLAGS="-Wall -Wconversion ${ARROW_C_GLIB_CFLAGS}"
-GARROW_CXXFLAGS="-Wall -Wconversion ${ARROW_C_GLIB_CXXFLAGS}"
+GARROW_CFLAGS="-Wall -Wconversion"
+GARROW_CXXFLAGS="-Wall -Wconversion"
 AC_ARG_ENABLE(debug,
   [AS_HELP_STRING([--enable-debug],
                   [Use debug flags (default=no)])],
