@@ -20,7 +20,7 @@ from libcpp.vector cimport vector as c_vector
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status
+from pyarrow.lib cimport Buffer, NativeFile, check_status, _RecordBatchFileWriter
 
 cdef extern from "arrow/python/python_to_arrow.h":
 
@@ -67,3 +67,23 @@ def deserialize_sequence(PythonObject value, object base):
     cdef PyObject* result
     check_status(DeserializeList(deref(value.batch).column(0), 0, deref(value.batch).num_rows(), <PyObject*> base, value.tensors, &result))
     return <object> result
+
+def write_python_object(PythonObject value, NativeFile sink):
+    cdef shared_ptr[OutputStream] stream
+    sink.write_handle(&stream)
+    cdef shared_ptr[CRecordBatchFileWriter] writer
+    cdef shared_ptr[CSchema] schema = deref(value.batch).schema()
+    cdef shared_ptr[CRecordBatch] batch = value.batch
+    cdef shared_ptr[CTensor] tensor
+    cdef int32_t metadata_length
+    cdef int64_t body_length
+
+    with nogil:
+        check_status(CRecordBatchFileWriter.Open(stream.get(), schema, &writer))
+        check_status(deref(writer).WriteRecordBatch(deref(batch)))
+        check_status(deref(writer).Close())
+
+    for tensor in value.tensors:
+        check_status(WriteTensor(deref(tensor), stream.get(), &metadata_length, &body_length))
+
+# def read_python_object(NativeFile source):
