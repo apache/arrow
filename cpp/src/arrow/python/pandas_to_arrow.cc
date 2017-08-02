@@ -17,6 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
+#define ARROW_NO_DEFAULT_MEMORY_POOL
+
 #include "arrow/python/numpy_interop.h"
 
 #include "arrow/python/pandas_to_arrow.h"
@@ -586,7 +588,7 @@ Status PandasConverter::ConvertDecimals() {
   type_ = std::make_shared<DecimalType>(precision, scale);
 
   const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
-  DecimalBuilder builder(pool_, type_);
+  DecimalBuilder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   for (int64_t i = 0; i < length_; ++i) {
@@ -619,7 +621,7 @@ Status PandasConverter::ConvertTimes() {
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
 
   // datetime.time stores microsecond resolution
-  Time64Builder builder(pool_, ::arrow::time64(TimeUnit::MICRO));
+  Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   PyObject* obj;
@@ -751,7 +753,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
-  FixedSizeBinaryBuilder builder(pool_, type);
+  FixedSizeBinaryBuilder builder(type, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   int64_t offset = 0;
