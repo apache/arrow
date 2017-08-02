@@ -66,8 +66,8 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     array : pyarrow.Array
     """
     cdef:
-       shared_ptr[CArray] sp_array
-       CMemoryPool* pool
+        shared_ptr[CArray] sp_array
+        CMemoryPool* pool
 
     pool = maybe_unbox_memory_pool(memory_pool)
     if type is None:
@@ -78,13 +78,13 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
                 ConvertPySequence(
                     sequence, pool, &sp_array, type.sp_type
                 )
-             )
+            )
         else:
             check_status(
                 ConvertPySequence(
                     sequence, pool, &sp_array, type.sp_type, size
                 )
-             )
+            )
 
     return pyarrow_wrap_array(sp_array)
 
@@ -399,7 +399,6 @@ strides: {2}""".format(self.type, self.shape, self.strides)
             for i in range(self.tp.strides().size()):
                 py_strides.append(self.tp.strides()[i])
             return py_strides
-
 
 
 cdef wrap_array_output(PyObject* output):

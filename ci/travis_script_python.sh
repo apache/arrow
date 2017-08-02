@@ -92,7 +92,13 @@ python_version_tests() {
   conda install -y -q nomkl
 
   # Expensive dependencies install from Continuum package repo
-  conda install -y -q pip numpy pandas cython
+  conda install -y -q pip numpy pandas cython flake8
+
+  # Fail fast on style checks
+  flake8 pyarrow
+
+  # Check Cython files with some checks turned off
+  flake8 --config=.flake8.cython pyarrow
 
   # Build C++ libraries
   rebuild_arrow_libraries

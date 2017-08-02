@@ -60,8 +60,8 @@ cdef extern from "plasma/common.h":
         PLASMA_QUERY_LOCAL"plasma::PLASMA_QUERY_LOCAL",
         PLASMA_QUERY_ANYWHERE"plasma::PLASMA_QUERY_ANYWHERE"
 
-    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal";
-    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote";
+    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal"
+    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote"
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -102,7 +102,7 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Wait(int64_t num_object_requests,
                      CObjectRequest* object_requests,
                      int num_ready_objects, int64_t timeout_ms,
-                     int* num_objects_ready);
+                     int* num_objects_ready)
 
         CStatus Transfer(const char* addr, int port,
                          const CUniqueID& object_id)
@@ -312,9 +312,10 @@ cdef class PlasmaClient:
         result = []
         for i in range(object_buffers.size()):
             if object_buffers[i].data_size != -1:
-                result.append(self._make_plasma_buffer(
-                                  object_ids[i], object_buffers[i].data,
-                                  object_buffers[i].data_size))
+                result.append(
+                    self._make_plasma_buffer(object_ids[i],
+                                             object_buffers[i].data,
+                                             object_buffers[i].data_size))
             else:
                 result.append(None)
         return result
@@ -345,9 +346,10 @@ cdef class PlasmaClient:
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
-            result.append(self._make_plasma_buffer(
-                              object_ids[i], object_buffers[i].metadata,
-                              object_buffers[i].metadata_size))
+            result.append(
+                self._make_plasma_buffer(object_ids[i],
+                                         object_buffers[i].metadata,
+                                         object_buffers[i].metadata_size))
         return result
 
     def seal(self, ObjectID object_id):
@@ -502,7 +504,7 @@ cdef class PlasmaClient:
                                                 object_requests.data(),
                                                 num_returns, timeout,
                                                 &num_objects_ready))
-        cdef int num_to_return = min(num_objects_ready, num_returns);
+        cdef int num_to_return = min(num_objects_ready, num_returns)
         ready_ids = []
         waiting_ids = set(object_ids)
         cdef int num_returned = 0
@@ -510,7 +512,7 @@ cdef class PlasmaClient:
             if num_returned == num_to_return:
                 break
             if (object_requests[i].status == ObjectStatusLocal or
-                object_requests[i].status == ObjectStatusRemote):
+                    object_requests[i].status == ObjectStatusRemote):
                 ready_ids.append(
                     ObjectID(object_requests[i].object_id.binary()))
                 waiting_ids.discard(

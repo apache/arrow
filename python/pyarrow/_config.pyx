@@ -19,6 +19,10 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+import numpy as np
+import multiprocessing
+import os
+
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
 
@@ -27,14 +31,12 @@ cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
 
 arrow_init_numpy()
 
-import numpy as np
 set_numpy_nan(np.nan)
 
-import multiprocessing
-import os
 cdef int CPU_COUNT = int(
     os.environ.get('OMP_NUM_THREADS',
                    max(multiprocessing.cpu_count() // 2, 1)))
+
 
 def cpu_count():
     """
@@ -48,6 +50,7 @@ def cpu_count():
       help.
     """
     return CPU_COUNT
+
 
 def set_cpu_count(count):
     global CPU_COUNT

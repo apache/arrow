@@ -495,7 +495,6 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-
     def to_pandas(self, nthreads=None):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
@@ -583,7 +582,6 @@ def table_to_blocks(Table table, int nthreads):
         )
 
     return PyObject_to_object(result_obj)
-
 
 
 cdef class Table:
@@ -897,7 +895,8 @@ cdef class Table:
         """
         Number of rows in this table.
 
-        Due to the definition of a table, all columns have the same number of rows.
+        Due to the definition of a table, all columns have the same number of
+        rows.
 
         Returns
         -------
