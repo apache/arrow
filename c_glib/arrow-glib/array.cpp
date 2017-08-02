@@ -557,6 +557,30 @@ garrow_boolean_array_get_value(GArrowBooleanArray *array,
   return static_cast<arrow::BooleanArray *>(arrow_array.get())->Value(i);
 }
 
+/**
+ * garrow_boolean_array_get_values:
+ * @array: A #GArrowBooleanArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw boolean values.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ */
+gboolean *
+garrow_boolean_array_get_values(GArrowBooleanArray *array,
+                                gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_boolean_array =
+    std::static_pointer_cast<arrow::BooleanArray>(arrow_array);
+  *length = arrow_boolean_array->length();
+  auto values = static_cast<gboolean *>(g_new(gboolean, *length));
+  for (gint64 i = 0; i < *length; ++i) {
+    values[i] = arrow_boolean_array->Value(i);
+  }
+  return values;
+}
+
 
 G_DEFINE_TYPE(GArrowInt8Array,               \
               garrow_int8_array,             \
