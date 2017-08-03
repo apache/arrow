@@ -87,9 +87,12 @@ def merge(object_ids):
     # we want to.
     dfs = [get_df(object_id) for object_id in object_ids]
 
-    arrays = [df.as_matrix() for df in dfs]
+    # In order to use our multimerge code, we have to convert the arrays from
+    # the Fortran format to the C format.
+    arrays = [np.ascontiguousarray(df.as_matrix()) for df in dfs]
     for a in arrays:
         assert a.dtype == np.float64
+        assert not np.isfortran(a)
 
     s1 = time.time()
 
@@ -99,9 +102,9 @@ def merge(object_ids):
         return None
 
     resulting_array = multimerge.multimerge2d(*arrays)
-    merged_df = pd.DataFrame(resulting_array, columns=column_names)
+    merged_df2 = pd.DataFrame(resulting_array, columns=column_names)
 
-    #merged_df = pd.DataFrame(np.zeros((total_size, len(column_names))), columns=column_names)
+    # merged_df1 = pd.DataFrame(np.zeros((total_size, len(column_names))), columns=column_names)
 
     s2 = time.time()
 
@@ -110,13 +113,13 @@ def merge(object_ids):
     # for df_index in range(len(dfs)):
     #     if len(dfs[df_index]) > 0:
     #         priority_queue.put((dfs[df_index][column_name].iloc[indices[df_index]], df_index))
-    #
+
     s3 = time.time()
-    #
+
     # total_index = 0
     # while not priority_queue.empty():
     #     value, df_index = priority_queue.get()
-    #     merged_df.iloc[total_index] = dfs[df_index].iloc[indices[df_index]]
+    #     merged_df1.iloc[total_index] = dfs[df_index].iloc[indices[df_index]]
     #     indices[df_index] += 1
     #     total_index += 1
     #     if not indices[df_index] == len(dfs[df_index]):
@@ -124,7 +127,7 @@ def merge(object_ids):
 
     s4 = time.time()
 
-    return put_df(merged_df), (s2 - s1, s3 - s2, s4 - s3)
+    return put_df(merged_df2), (s2 - s1, s3 - s2, s4 - s3)
 
 
 if __name__ == '__main__':
@@ -140,7 +143,15 @@ if __name__ == '__main__':
 
     df = pd.DataFrame(np.random.randn(num_rows, num_cols), columns=column_names)
 
+    # partition_ids = []
+    # for partition in np.split(df, num_cores):
+    #     # The call to np.split converts the underlying arrays into the fortran
+    #     # format, so undo that.
+    #     array = np.ascontiguousarray(partition.as_matrix())
+    #     df_partition = pd.DataFrame(array, columns=column_names)
+    #     partition_ids.append(put_df(df_partition))
     partition_ids = [put_df(partition) for partition in np.split(df, num_cores)]
+
 
     t1 = time.time()
 
@@ -195,9 +206,6 @@ if __name__ == '__main__':
 
     time4 = time.time()
     print('Serial sort took {} seconds.'.format(time4 - time3))
-
-    import IPython
-    IPython.embed()
 
     assert np.allclose(sorted_df.values, original_sorted_df.values)
 

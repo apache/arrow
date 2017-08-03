@@ -56,6 +56,7 @@ def multimerge2d(*arrays):
     assert arrays[i].ndim == 2
     assert arrays[i].dtype == np.float64
     assert arrays[i].shape[1] == num_cols
+    assert not np.isfortran(arrays[i])
 
   cdef vector[double*] data
 
