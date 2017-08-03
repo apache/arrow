@@ -132,7 +132,7 @@ def merge(object_ids):
 
 if __name__ == '__main__':
     # Start the plasma store.
-    plasma_store_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../../build/debug/plasma_store')
+    plasma_store_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../../build/release/plasma_store')
     p = subprocess.Popen([plasma_store_path, '-s', '/tmp/store', '-m', '500000000000'])
 
     # Connect to the plasma store.
