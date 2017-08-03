@@ -120,9 +120,8 @@ python_version_tests() {
   PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
   python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
 
-  # Build documentation once
-  if [[ "$PYTHON_VERSION" == "3.6" ]]
-  then
+  if [[ "$PYTHON_VERSION" == "3.6" ]]; then
+      # Build documentation once
       pushd $ARROW_PYTHON_DIR/doc
       conda install -y -q --file=requirements.txt
       sphinx-build -b html -d _build/doctrees -W source _build/html
