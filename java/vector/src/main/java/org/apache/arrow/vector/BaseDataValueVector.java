@@ -59,8 +59,6 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
     return result;
   }
 
-  // TODO: Nullable vectors extend BaseDataValueVector but do not use the data field
-  // We should fix the inheritance tree
   protected ArrowBuf data;
 
   public BaseDataValueVector(String name, BufferAllocator allocator) {
