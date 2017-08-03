@@ -120,7 +120,7 @@ python_version_tests() {
   PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
   python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
 
-  if [[ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]]; then
+  if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
       # Build documentation once
       pushd $ARROW_PYTHON_DIR/doc
       conda install -y -q --file=requirements.txt
