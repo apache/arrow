@@ -82,7 +82,7 @@ set(PLASMA_SRCS
 ADD_ARROW_LIB(plasma
   SOURCES ${PLASMA_SRCS}
   DEPENDENCIES gen_plasma_fbs
-  SHARED_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static
+  SHARED_LINK_LIBS ${FLATBUFFERS_SHARED_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_shared
   STATIC_LINK_LIBS ${FLATBUFFERS_STATIC_LIB} ${CMAKE_THREAD_LIBS_INIT} arrow_static)
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
