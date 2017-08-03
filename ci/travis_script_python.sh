@@ -125,7 +125,7 @@ python_version_tests() {
   then
       pushd $ARROW_PYTHON_DIR/doc
       conda install -y -q --file=requirements.txt
-      make html
+      sphinx-build -b html -d _build/doctrees -W source _build/html
       popd
   fi
 }

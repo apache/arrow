@@ -16,7 +16,7 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
-.. _io:
+.. _plasma:
 
 The Plasma In-Memory Object Store
 =================================
