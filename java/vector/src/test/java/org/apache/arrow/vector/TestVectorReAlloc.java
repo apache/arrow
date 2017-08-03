@@ -73,31 +73,6 @@ public class TestVectorReAlloc {
   }
 
   @Test
-  public void testVariableLengthType() {
-    try (final VarCharVector vector = new VarCharVector("", allocator)) {
-      final VarCharVector.Mutator m = vector.getMutator();
-      // note: capacity ends up being - 1 due to offsets vector
-      vector.setInitialCapacity(511);
-      vector.allocateNew();
-
-      assertEquals(511, vector.getValueCapacity());
-
-      try {
-        m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
-        Assert.fail("Expected out of bounds exception");
-      } catch (Exception e) {
-        // ok
-      }
-
-      vector.reAlloc();
-      assertEquals(1023, vector.getValueCapacity());
-
-      m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
-      assertEquals("foo", new String(vector.getAccessor().get(512), StandardCharsets.UTF_8));
-    }
-  }
-
-  @Test
   public void testNullableType() {
     try (final NullableVarCharVector vector = new NullableVarCharVector("", allocator)) {
       final NullableVarCharVector.Mutator m = vector.getMutator();
@@ -114,7 +89,7 @@ public class TestVectorReAlloc {
       }
 
       vector.reAlloc();
-      assertEquals(1024, vector.getValueCapacity());
+      assertEquals(1023, vector.getValueCapacity());
 
       m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
       assertEquals("foo", new String(vector.getAccessor().get(512), StandardCharsets.UTF_8));
