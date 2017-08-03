@@ -279,8 +279,8 @@ cdef class ColumnSchema:
   max_repetition_level: {3}
   physical_type: {4}
   logical_type: {5}""".format(self.name, self.path, self.max_definition_level,
-                       self.max_repetition_level, physical_type,
-                       logical_type)
+                              self.max_repetition_level, physical_type,
+                              logical_type)
 
     property name:
 
@@ -514,7 +514,7 @@ cdef class ParquetReader:
 
         with nogil:
             check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &carray));
+                         .ReadSchemaField(field_index, &carray))
 
         array.init(carray)
         return array
@@ -542,6 +542,7 @@ cdef ParquetCompression compression_from_name(str name):
 cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
+        shared_ptr[OutputStream] sink
 
     cdef readonly:
         object use_dictionary
@@ -552,17 +553,17 @@ cdef class ParquetWriter:
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
-                  MemoryPool memory_pool=None, use_deprecated_int96_timestamps=False):
+                  MemoryPool memory_pool=None,
+                  use_deprecated_int96_timestamps=False):
         cdef:
             shared_ptr[FileOutputStream] filestream
-            shared_ptr[OutputStream] sink
             shared_ptr[WriterProperties] properties
 
         if isinstance(where, six.string_types):
             check_status(FileOutputStream.Open(tobytes(where), &filestream))
-            sink = <shared_ptr[OutputStream]> filestream
+            self.sink = <shared_ptr[OutputStream]> filestream
         else:
-            get_writer(where, &sink)
+            get_writer(where, &self.sink)
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -582,7 +583,7 @@ cdef class ParquetWriter:
         check_status(
             FileWriter.Open(deref(schema.schema),
                             maybe_unbox_memory_pool(memory_pool),
-                            sink, properties, arrow_properties,
+                            self.sink, properties, arrow_properties,
                             &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
@@ -629,11 +630,14 @@ cdef class ParquetWriter:
         cdef CTable* ctable = table.table
 
         if row_group_size is None or row_group_size == -1:
-            row_group_size = ctable.num_rows()
+            if ctable.num_rows() > 0:
+                row_group_size = ctable.num_rows()
+            else:
+                row_group_size = 1
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
 
-        cdef int c_row_group_size = row_group_size
+        cdef int64_t c_row_group_size = row_group_size
 
         with nogil:
             check_status(self.writer.get()

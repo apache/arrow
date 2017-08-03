@@ -279,7 +279,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchWriter):
         with nogil:
             check_status(
                 CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                      &writer))
+                                            &writer))
 
         # Cast to base class, because has same interface
         self.writer = <shared_ptr[CRecordBatchWriter]> writer

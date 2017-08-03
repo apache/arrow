@@ -66,8 +66,8 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     array : pyarrow.Array
     """
     cdef:
-       shared_ptr[CArray] sp_array
-       CMemoryPool* pool
+        shared_ptr[CArray] sp_array
+        CMemoryPool* pool
 
     pool = maybe_unbox_memory_pool(memory_pool)
     if type is None:
@@ -78,16 +78,33 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
                 ConvertPySequence(
                     sequence, pool, &sp_array, type.sp_type
                 )
-             )
+            )
         else:
             check_status(
                 ConvertPySequence(
                     sequence, pool, &sp_array, type.sp_type, size
                 )
-             )
+            )
 
     return pyarrow_wrap_array(sp_array)
 
+
+def _normalize_slice(object arrow_obj, slice key):
+    cdef Py_ssize_t n = len(arrow_obj)
+
+    start = key.start or 0
+    while start < 0:
+        start += n
+
+    stop = key.stop if key.stop is not None else n
+    while stop < 0:
+        stop += n
+
+    step = key.step or 1
+    if step != 1:
+        raise IndexError('only slices with step 1 supported')
+    else:
+        return arrow_obj.slice(start, stop - start)
 
 
 cdef class Array:
@@ -172,7 +189,8 @@ cdef class Array:
         if isinstance(values, Categorical):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
-                mask=mask, memory_pool=memory_pool)
+                mask=mask, ordered=values.ordered,
+                memory_pool=memory_pool)
         elif values.dtype == object:
             # Object dtype undergoes a different conversion path as more type
             # inference may be needed
@@ -230,23 +248,10 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef:
-            Py_ssize_t n = len(self)
+        cdef Py_ssize_t n = len(self)
 
         if PySlice_Check(key):
-            start = key.start or 0
-            while start < 0:
-                start += n
-
-            stop = key.stop if key.stop is not None else n
-            while stop < 0:
-                stop += n
-
-            step = key.step or 1
-            if step != 1:
-                raise IndexError('only slices with step 1 supported')
-            else:
-                return self.slice(start, stop - start)
+            return _normalize_slice(self, key)
 
         while key < 0:
             key += len(self)
@@ -394,7 +399,6 @@ strides: {2}""".format(self.type, self.shape, self.strides)
             for i in range(self.tp.strides().size()):
                 py_strides.append(self.tp.strides()[i])
             return py_strides
-
 
 
 cdef wrap_array_output(PyObject* output):
@@ -560,7 +564,7 @@ cdef class DictionaryArray(Array):
             return self._indices
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None,
+    def from_arrays(indices, dictionary, mask=None, ordered=False,
                     MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
@@ -572,6 +576,8 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        ordered : boolean, default False
+            Set to True if the category values are ordered
 
         Returns
         -------
@@ -605,8 +611,10 @@ cdef class DictionaryArray(Array):
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
+        cdef c_bool c_ordered = ordered
+
         c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array))
+                                         arrow_dictionary.sp_array, c_ordered))
         c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
 
         result = DictionaryArray()

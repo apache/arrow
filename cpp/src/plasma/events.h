@@ -61,13 +61,13 @@ class EventLoop {
   /// @param events The flags for events we are listening to (read or write).
   /// @param callback The callback that will be called when the event happens.
   /// @return Returns true if the event handler was added successfully.
-  bool add_file_event(int fd, int events, const FileCallback& callback);
+  bool AddFileEvent(int fd, int events, const FileCallback& callback);
 
   /// Remove a file event handler from the event loop.
   ///
   /// @param fd The file descriptor of the event handler.
   /// @return Void.
-  void remove_file_event(int fd);
+  void RemoveFileEvent(int fd);
 
   /// Register a handler that will be called after a time slice of
   ///  "timeout" milliseconds.
@@ -75,23 +75,26 @@ class EventLoop {
   ///  @param timeout The timeout in milliseconds.
   ///  @param callback The callback for the timeout.
   ///  @return The ID of the newly created timer.
-  int64_t add_timer(int64_t timeout, const TimerCallback& callback);
+  int64_t AddTimer(int64_t timeout, const TimerCallback& callback);
 
   /// Remove a timer handler from the event loop.
   ///
   /// @param timer_id The ID of the timer that is to be removed.
   /// @return The ae.c error code. TODO(pcm): needs to be standardized
-  int remove_timer(int64_t timer_id);
+  int RemoveTimer(int64_t timer_id);
 
-  /// Run the event loop.
+  /// \brief Run the event loop.
   ///
   /// @return Void.
-  void run();
+  void Start();
+
+  /// \brief Stop the event loop
+  void Stop();
 
  private:
-  static void file_event_callback(aeEventLoop* loop, int fd, void* context, int events);
+  static void FileEventCallback(aeEventLoop* loop, int fd, void* context, int events);
 
-  static int timer_event_callback(aeEventLoop* loop, TimerID timer_id, void* context);
+  static int TimerEventCallback(aeEventLoop* loop, TimerID timer_id, void* context);
 
   aeEventLoop* loop_;
   std::unordered_map<int, std::unique_ptr<FileCallback>> file_callbacks_;

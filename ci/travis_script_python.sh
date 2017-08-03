@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License. See accompanying LICENSE file.
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 set -e
 
@@ -18,6 +23,7 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 export ARROW_HOME=$ARROW_CPP_INSTALL
 export PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
+export PYARROW_CXXFLAGS="-Werror"
 
 build_parquet_cpp() {
   export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
@@ -86,7 +92,13 @@ python_version_tests() {
   conda install -y -q nomkl
 
   # Expensive dependencies install from Continuum package repo
-  conda install -y -q pip numpy pandas cython
+  conda install -y -q pip numpy pandas cython flake8
+
+  # Fail fast on style checks
+  flake8 pyarrow
+
+  # Check Cython files with some checks turned off
+  flake8 --config=.flake8.cython pyarrow
 
   # Build C++ libraries
   rebuild_arrow_libraries

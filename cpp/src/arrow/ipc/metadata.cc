@@ -492,7 +492,8 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
   auto index_type_offset = flatbuf::CreateInt(fbb, fw_index_type.bit_width(), true);
 
   // TODO(wesm): ordered dictionaries
-  return flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset);
+  return flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset,
+                                           type.ordered());
 }
 
 static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
@@ -551,7 +552,7 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
 
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
-    type = std::make_shared<DictionaryType>(index_type, dictionary);
+    type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
   }
   *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
   return Status::OK();

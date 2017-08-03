@@ -171,7 +171,7 @@ TEST_F(TestArray, TestIsNull) {
 TEST_F(TestArray, BuildLargeInMemoryArray) {
   const int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
-  BooleanBuilder builder(default_memory_pool());
+  BooleanBuilder builder;
   ASSERT_OK(builder.Reserve(length));
   ASSERT_OK(builder.Advance(length));
 
@@ -754,9 +754,9 @@ TEST_F(TestStringArray, TestEmptyStringComparison) {
 }
 
 TEST_F(TestStringArray, CompareNullByteSlots) {
-  StringBuilder builder(default_memory_pool());
-  StringBuilder builder2(default_memory_pool());
-  StringBuilder builder3(default_memory_pool());
+  StringBuilder builder;
+  StringBuilder builder2;
+  StringBuilder builder3;
 
   ASSERT_OK(builder.Append("foo"));
   ASSERT_OK(builder2.Append("foo"));
@@ -795,7 +795,7 @@ TEST_F(TestStringArray, CompareNullByteSlots) {
 }
 
 TEST_F(TestStringArray, TestSliceGetString) {
-  StringBuilder builder(default_memory_pool());
+  StringBuilder builder;
 
   ASSERT_OK(builder.Append("a"));
   ASSERT_OK(builder.Append("b"));
@@ -958,7 +958,7 @@ TEST_F(TestBinaryArray, TestGetValue) {
 }
 
 TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
-  BinaryBuilder builder(default_memory_pool(), arrow::binary());
+  BinaryBuilder builder;
 
   string empty_string("");
   for (int i = 0; i < 5; ++i) {
@@ -1045,7 +1045,7 @@ void CheckSliceEquality() {
   using Traits = TypeTraits<TYPE>;
   using BuilderType = typename Traits::BuilderType;
 
-  BuilderType builder(default_memory_pool());
+  BuilderType builder;
 
   vector<string> strings = {"foo", "", "bar", "baz", "qux", ""};
   vector<uint8_t> is_null = {0, 1, 0, 1, 0, 0};
@@ -1102,7 +1102,7 @@ class TestFWBinaryArray : public ::testing::Test {
 
   void InitBuilder(int byte_width) {
     auto type = fixed_size_binary(byte_width);
-    builder_.reset(new FixedSizeBinaryBuilder(default_memory_pool(), type));
+    builder_.reset(new FixedSizeBinaryBuilder(type, default_memory_pool()));
   }
 
  protected:
@@ -1184,8 +1184,8 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
   // Check that we don't compare data in null slots
 
   auto type = fixed_size_binary(4);
-  FixedSizeBinaryBuilder builder1(default_memory_pool(), type);
-  FixedSizeBinaryBuilder builder2(default_memory_pool(), type);
+  FixedSizeBinaryBuilder builder1(type);
+  FixedSizeBinaryBuilder builder2(type);
 
   ASSERT_OK(builder1.Append("foo1"));
   ASSERT_OK(builder1.AppendNull());
@@ -1209,7 +1209,7 @@ TEST_F(TestFWBinaryArray, EqualsRangeEquals) {
 
 TEST_F(TestFWBinaryArray, ZeroSize) {
   auto type = fixed_size_binary(0);
-  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
+  FixedSizeBinaryBuilder builder(type);
 
   ASSERT_OK(builder.Append(nullptr));
   ASSERT_OK(builder.Append(nullptr));
@@ -1233,7 +1233,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
 
 TEST_F(TestFWBinaryArray, Slice) {
   auto type = fixed_size_binary(4);
-  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
+  FixedSizeBinaryBuilder builder(type);
 
   vector<string> strings = {"foo1", "foo2", "foo3", "foo4", "foo5"};
   vector<uint8_t> is_null = {0, 1, 0, 0, 0};
@@ -1519,14 +1519,14 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   ASSERT_OK(builder.Finish(&result));
 
   // Build expected data
-  NumericBuilder<TypeParam> dict_builder(default_memory_pool());
+  NumericBuilder<TypeParam> dict_builder;
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
   auto dtype = std::make_shared<DictionaryType>(int8(), dict_array);
 
-  Int8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder;
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1538,8 +1538,8 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
 }
 
 TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
-  NumericBuilder<TypeParam> builder(default_memory_pool());
-  // DictionaryBuilder<TypeParam> builder(default_memory_pool());
+  NumericBuilder<TypeParam> builder;
+  // DictionaryBuilder<TypeParam> builder;
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(2)));
   ASSERT_OK(builder.Append(static_cast<typename TypeParam::c_type>(1)));
@@ -1552,14 +1552,14 @@ TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   ASSERT_OK(dictionary_builder.Finish(&result));
 
   // Build expected data
-  NumericBuilder<TypeParam> dict_builder(default_memory_pool());
+  NumericBuilder<TypeParam> dict_builder;
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(1)));
   ASSERT_OK(dict_builder.Append(static_cast<typename TypeParam::c_type>(2)));
   std::shared_ptr<Array> dict_array;
   ASSERT_OK(dict_builder.Finish(&dict_array));
   auto dtype = std::make_shared<DictionaryType>(int8(), dict_array);
 
-  Int8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder;
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1577,8 +1577,8 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     // Build the dictionary Array
     DictionaryBuilder<TypeParam> builder(default_memory_pool());
     // Build expected data
-    NumericBuilder<TypeParam> dict_builder(default_memory_pool());
-    Int16Builder int_builder(default_memory_pool());
+    NumericBuilder<TypeParam> dict_builder;
+    Int16Builder int_builder;
 
     // Fill with 1024 different values
     for (int64_t i = 0; i < 1024; i++) {
@@ -1619,14 +1619,14 @@ TEST(TestStringDictionaryBuilder, Basic) {
   ASSERT_OK(builder.Finish(&result));
 
   // Build expected data
-  StringBuilder str_builder(default_memory_pool());
+  StringBuilder str_builder;
   ASSERT_OK(str_builder.Append("test"));
   ASSERT_OK(str_builder.Append("test2"));
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
   auto dtype = std::make_shared<DictionaryType>(int8(), str_array);
 
-  Int8Builder int_builder(default_memory_pool());
+  Int8Builder int_builder;
   ASSERT_OK(int_builder.Append(0));
   ASSERT_OK(int_builder.Append(1));
   ASSERT_OK(int_builder.Append(0));
@@ -1641,8 +1641,8 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
   StringDictionaryBuilder builder(default_memory_pool());
   // Build expected data
-  StringBuilder str_builder(default_memory_pool());
-  Int16Builder int_builder(default_memory_pool());
+  StringBuilder str_builder;
+  Int16Builder int_builder;
 
   // Fill with 1024 different values
   for (int64_t i = 0; i < 1024; i++) {
@@ -1881,15 +1881,18 @@ TEST(TestDictionary, Basics) {
 
   std::shared_ptr<DictionaryType> type1 =
       std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
-  DictionaryType type2(int16(), dict);
+
+  auto type2 =
+      std::dynamic_pointer_cast<DictionaryType>(::arrow::dictionary(int16(), dict, true));
 
   ASSERT_TRUE(int16()->Equals(type1->index_type()));
   ASSERT_TRUE(type1->dictionary()->Equals(dict));
 
-  ASSERT_TRUE(int16()->Equals(type2.index_type()));
-  ASSERT_TRUE(type2.dictionary()->Equals(dict));
+  ASSERT_TRUE(int16()->Equals(type2->index_type()));
+  ASSERT_TRUE(type2->dictionary()->Equals(dict));
 
-  ASSERT_EQ("dictionary<values=int32, indices=int16>", type1->ToString());
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=1>", type2->ToString());
 }
 
 TEST(TestDictionary, Equals) {
@@ -2042,9 +2045,9 @@ class TestStructBuilder : public TestBuilder {
     auto list_type = list(char_type);
 
     vector<std::shared_ptr<DataType>> types = {list_type, int32_type};
-    vector<FieldPtr> fields;
-    fields.push_back(FieldPtr(new Field("list", list_type)));
-    fields.push_back(FieldPtr(new Field("int", int32_type)));
+    vector<std::shared_ptr<Field>> fields;
+    fields.push_back(field("list", list_type));
+    fields.push_back(field("int", int32_type));
 
     type_ = struct_(fields);
     value_fields_ = fields;
@@ -2062,7 +2065,7 @@ class TestStructBuilder : public TestBuilder {
   }
 
  protected:
-  vector<FieldPtr> value_fields_;
+  vector<std::shared_ptr<Field>> value_fields_;
   std::shared_ptr<DataType> type_;
 
   std::shared_ptr<StructBuilder> builder_;

@@ -71,7 +71,7 @@ TEST(DecimalTest, TestPythonDecimalToString) {
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
-  StringBuilder builder(default_memory_pool());
+  StringBuilder builder;
   const char value[] = {'\xf1', '\0'};
 
   for (int i = 0; i < 1000; ++i) {

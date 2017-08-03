@@ -236,7 +236,7 @@ std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; 
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
   ss << "dictionary<values=" << dictionary_->type()->ToString()
-     << ", indices=" << index_type_->ToString() << ">";
+     << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
 }
 
@@ -293,7 +293,8 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
   DCHECK_GE(i, 0);
   DCHECK_LE(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(AddVectorElement(fields_, i, field), metadata_);
+  *out =
+      std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
   return Status::OK();
 }
 
@@ -316,7 +317,7 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
   DCHECK_GE(i, 0);
   DCHECK_LT(i, this->num_fields());
 
-  *out = std::make_shared<Schema>(DeleteVectorElement(fields_, i), metadata_);
+  *out = std::make_shared<Schema>(internal::DeleteVectorElement(fields_, i), metadata_);
   return Status::OK();
 }
 
@@ -427,8 +428,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<Array>& dict_values) {
-  return std::make_shared<DictionaryType>(index_type, dict_values);
+                                     const std::shared_ptr<Array>& dict_values,
+                                     bool ordered) {
+  return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
 }
 
 std::shared_ptr<Field> field(const std::string& name,

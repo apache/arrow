@@ -60,8 +60,8 @@ cdef extern from "plasma/common.h":
         PLASMA_QUERY_LOCAL"plasma::PLASMA_QUERY_LOCAL",
         PLASMA_QUERY_ANYWHERE"plasma::PLASMA_QUERY_ANYWHERE"
 
-    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal";
-    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote";
+    cdef int ObjectStatusLocal"plasma::ObjectStatusLocal"
+    cdef int ObjectStatusRemote"plasma::ObjectStatusRemote"
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -70,7 +70,8 @@ cdef extern from "plasma/client.h" nogil:
         CPlasmaClient()
 
         CStatus Connect(const c_string& store_socket_name,
-                        const c_string& manager_socket_name, int release_delay)
+                        const c_string& manager_socket_name,
+                        int release_delay, int num_retries)
 
         CStatus Create(const CUniqueID& object_id, int64_t data_size,
                        const uint8_t* metadata, int64_t metadata_size,
@@ -98,10 +99,13 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Fetch(int num_object_ids, const CUniqueID* object_ids)
 
-        CStatus Wait(int64_t num_object_requests, CObjectRequest* object_requests,
-           int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
+        CStatus Wait(int64_t num_object_requests,
+                     CObjectRequest* object_requests,
+                     int num_ready_objects, int64_t timeout_ms,
+                     int* num_objects_ready)
 
-        CStatus Transfer(const char* addr, int port, const CUniqueID& object_id)
+        CStatus Transfer(const char* addr, int port,
+                         const CUniqueID& object_id)
 
 
 cdef extern from "plasma/client.h" nogil:
@@ -247,7 +251,8 @@ cdef class PlasmaClient:
     def manager_socket_name(self):
         return self.manager_socket_name.decode()
 
-    def create(self, ObjectID object_id, int64_t data_size, c_string metadata=b""):
+    def create(self, ObjectID object_id, int64_t data_size,
+               c_string metadata=b""):
         """
         Create a new buffer in the PlasmaStore for a particular object ID.
 
@@ -307,9 +312,10 @@ cdef class PlasmaClient:
         result = []
         for i in range(object_buffers.size()):
             if object_buffers[i].data_size != -1:
-                result.append(self._make_plasma_buffer(
-                                  object_ids[i], object_buffers[i].data,
-                                  object_buffers[i].data_size))
+                result.append(
+                    self._make_plasma_buffer(object_ids[i],
+                                             object_buffers[i].data,
+                                             object_buffers[i].data_size))
             else:
                 result.append(None)
         return result
@@ -340,9 +346,10 @@ cdef class PlasmaClient:
         self._get_object_buffers(object_ids, timeout_ms, &object_buffers)
         result = []
         for i in range(object_buffers.size()):
-            result.append(self._make_plasma_buffer(
-                              object_ids[i], object_buffers[i].metadata,
-                              object_buffers[i].metadata_size))
+            result.append(
+                self._make_plasma_buffer(object_ids[i],
+                                         object_buffers[i].metadata,
+                                         object_buffers[i].metadata_size))
         return result
 
     def seal(self, ObjectID object_id):
@@ -439,7 +446,8 @@ cdef class PlasmaClient:
         """
         cdef c_string addr = address.encode()
         with nogil:
-            check_status(self.client.get().Transfer(addr.c_str(), port, object_id.data))
+            check_status(self.client.get()
+                         .Transfer(addr.c_str(), port, object_id.data))
 
     def fetch(self, object_ids):
         """
@@ -457,7 +465,8 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Fetch(ids.size(), ids.data()))
 
-    def wait(self, object_ids, int64_t timeout=PLASMA_WAIT_TIMEOUT, int num_returns=1):
+    def wait(self, object_ids, int64_t timeout=PLASMA_WAIT_TIMEOUT,
+             int num_returns=1):
         """
         Wait until num_returns objects in object_ids are ready.
         Currently, the object ID arguments to wait must be unique.
@@ -483,24 +492,31 @@ cdef class PlasmaClient:
         if len(object_ids) != len(set(object_ids)):
             raise Exception("Wait requires a list of unique object IDs.")
         cdef int64_t num_object_requests = len(object_ids)
-        cdef c_vector[CObjectRequest] object_requests = c_vector[CObjectRequest](num_object_requests)
+        cdef c_vector[CObjectRequest] object_requests = (
+            c_vector[CObjectRequest](num_object_requests))
         cdef int num_objects_ready = 0
         cdef ObjectID object_id
         for i, object_id in enumerate(object_ids):
             object_requests[i].object_id = object_id.data
             object_requests[i].type = PLASMA_QUERY_ANYWHERE
         with nogil:
-            check_status(self.client.get().Wait(num_object_requests, object_requests.data(), num_returns, timeout, &num_objects_ready))
-        cdef int num_to_return = min(num_objects_ready, num_returns);
+            check_status(self.client.get().Wait(num_object_requests,
+                                                object_requests.data(),
+                                                num_returns, timeout,
+                                                &num_objects_ready))
+        cdef int num_to_return = min(num_objects_ready, num_returns)
         ready_ids = []
         waiting_ids = set(object_ids)
         cdef int num_returned = 0
         for i in range(len(object_ids)):
             if num_returned == num_to_return:
                 break
-            if object_requests[i].status == ObjectStatusLocal or object_requests[i].status == ObjectStatusRemote:
-                ready_ids.append(ObjectID(object_requests[i].object_id.binary()))
-                waiting_ids.discard(ObjectID(object_requests[i].object_id.binary()))
+            if (object_requests[i].status == ObjectStatusLocal or
+                    object_requests[i].status == ObjectStatusRemote):
+                ready_ids.append(
+                    ObjectID(object_requests[i].object_id.binary()))
+                waiting_ids.discard(
+                    ObjectID(object_requests[i].object_id.binary()))
                 num_returned += 1
         return ready_ids, list(waiting_ids)
 
@@ -526,10 +542,11 @@ cdef class PlasmaClient:
         cdef int64_t data_size
         cdef int64_t metadata_size
         with nogil:
-            check_status(self.client.get().GetNotification(self.notification_fd,
-                                                           &object_id.data,
-                                                           &data_size,
-                                                           &metadata_size))
+            check_status(self.client.get()
+                         .GetNotification(self.notification_fd,
+                                          &object_id.data,
+                                          &data_size,
+                                          &metadata_size))
         return object_id, data_size, metadata_size
 
     def to_capsule(self):
@@ -542,7 +559,9 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get().Disconnect())
 
-def connect(store_socket_name, manager_socket_name, int release_delay):
+
+def connect(store_socket_name, manager_socket_name, int release_delay,
+            int num_retries=-1):
     """
     Return a new PlasmaClient that is connected a plasma store and
     optionally a manager.
@@ -556,11 +575,16 @@ def connect(store_socket_name, manager_socket_name, int release_delay):
     release_delay : int
         The maximum number of objects that the client will keep and
         delay releasing (for caching reasons).
+    num_retries : int, default -1
+        Number of times tor ty to connect to plasma store. Default value of -1
+        uses the default (50)
     """
     cdef PlasmaClient result = PlasmaClient()
     result.store_socket_name = store_socket_name.encode()
     result.manager_socket_name = manager_socket_name.encode()
     with nogil:
-        check_status(result.client.get().Connect(result.store_socket_name,
-                     result.manager_socket_name, release_delay))
+        check_status(result.client.get()
+                     .Connect(result.store_socket_name,
+                              result.manager_socket_name,
+                              release_delay, num_retries))
     return result

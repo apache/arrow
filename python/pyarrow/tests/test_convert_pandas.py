@@ -109,6 +109,11 @@ class TestPandasConversion(unittest.TestCase):
         df['a'] = df['a'].astype('category')
         self._check_pandas_roundtrip(df)
 
+    def test_non_string_columns(self):
+        df = pd.DataFrame({0: [1, 2, 3]})
+        table = pa.Table.from_pandas(df)
+        assert table.column(0).name == '0'
+
     def test_float_no_nulls(self):
         data = {}
         fields = []
@@ -531,6 +536,9 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
                            'cat_ints': pd.Categorical(v2 * repeats),
                            'cat_binary': pd.Categorical(v3 * repeats),
+                           'cat_strings_ordered': pd.Categorical(
+                               v1 * repeats, categories=['bar', 'qux', 'foo'],
+                               ordered=True),
                            'ints': v2 * repeats,
                            'ints2': v2 * repeats,
                            'strings': v1 * repeats,

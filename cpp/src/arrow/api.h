@@ -32,4 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/visitor.h"
 
+/// \brief Top-level namespace for Apache Arrow C++ API
+namespace arrow {}
+
 #endif  // ARROW_API_H

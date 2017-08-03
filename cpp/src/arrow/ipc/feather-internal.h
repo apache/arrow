@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// Public API for the "Feather" file format, originally created at
-/// http://github.com/wesm/feather
+// Public API for the "Feather" file format, originally created at
+// http://github.com/wesm/feather
 
 #ifndef ARROW_IPC_FEATHER_INTERNAL_H
 #define ARROW_IPC_FEATHER_INTERNAL_H

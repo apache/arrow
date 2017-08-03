@@ -164,6 +164,18 @@ Input / Output and Shared Memory
    create_memory_map
    PythonFile
 
+File Systems
+------------
+
+.. autosummary::
+   :toctree: generated/
+
+   hdfs.connect
+   LocalFileSystem
+
+.. class:: HadoopFileSystem
+   :noindex:
+
 .. _api.ipc:
 
 Interprocess Communication and Messaging
@@ -239,5 +251,8 @@ Apache Parquet
    ParquetDataset
    ParquetFile
    read_table
+   read_metadata
+   read_pandas
+   read_schema
    write_metadata
    write_table

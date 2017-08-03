@@ -99,7 +99,7 @@ Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool
                             std::shared_ptr<Array>* out) {
   std::shared_ptr<PoolBuffer> data;
   RETURN_NOT_OK(test::MakeRandomInt32PoolBuffer(length, pool, &data));
-  Int32Builder builder(pool, int32());
+  Int32Builder builder(int32(), pool);
   if (include_nulls) {
     std::shared_ptr<PoolBuffer> valid_bytes;
     RETURN_NOT_OK(test::MakeRandomBytePoolBuffer(length, pool, &valid_bytes));
@@ -333,7 +333,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   const int batch_length = 5;
-  TypePtr type = int32();
+  auto type = int32();
 
   MemoryPool* pool = default_memory_pool();
   std::shared_ptr<Array> array;
@@ -462,7 +462,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<StringType, std::string>(dict2_values, &dict2);
 
   auto f0_type = arrow::dictionary(arrow::int32(), dict1);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict1, true);
   auto f2_type = arrow::dictionary(arrow::int32(), dict2);
 
   std::shared_ptr<Array> indices0, indices1, indices2;
@@ -653,8 +653,8 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Array> a1, a2;
 
-  FixedSizeBinaryBuilder b1(default_memory_pool(), f0->type());
-  FixedSizeBinaryBuilder b2(default_memory_pool(), f1->type());
+  FixedSizeBinaryBuilder b1(f0->type());
+  FixedSizeBinaryBuilder b2(f1->type());
 
   std::vector<std::string> values1 = {"foo1", "foo2", "foo3", "foo4"};
   AppendValues(is_valid, values1, &b1);

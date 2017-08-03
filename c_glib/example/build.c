@@ -47,7 +47,13 @@ main(int argc, char **argv)
       g_object_unref(builder);
       return EXIT_FAILURE;
     }
-    array = garrow_array_builder_finish(GARROW_ARRAY_BUILDER(builder));
+    array = garrow_array_builder_finish(GARROW_ARRAY_BUILDER(builder), &error);
+    if (!array) {
+      g_print("failed to finish: %s\n", error->message);
+      g_error_free(error);
+      g_object_unref(builder);
+      return EXIT_FAILURE;
+    }
     g_object_unref(builder);
   }
 

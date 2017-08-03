@@ -17,14 +17,12 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow cimport CStatus
 from cpython cimport PyObject
 from libcpp cimport nullptr
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
-
-
-from pyarrow.includes.libarrow cimport CStatus
 
 
 cdef int check_status(const CStatus& status) nogil except -1

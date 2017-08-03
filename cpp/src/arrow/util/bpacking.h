@@ -20,12 +20,9 @@
 // https://github.com/lemire/FrameOfReference/blob/6ccaf9e97160f9a3b299e23a8ef739e711ef0c71/src/bpacking.cpp
 // The original copyright notice follows.
 
-/**
-*
-* This code is released under the
-* Apache License Version 2.0 http://www.apache.org/licenses/.
-* (c) Daniel Lemire 2013
-*/
+// This code is released under the
+// Apache License Version 2.0 http://www.apache.org/licenses/.
+// (c) Daniel Lemire 2013
 
 #ifndef ARROW_UTIL_BPACKING_H
 #define ARROW_UTIL_BPACKING_H
@@ -33,6 +30,7 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+namespace internal {
 
 inline const uint32_t* unpack1_32(const uint32_t* in, uint32_t* out) {
   *out = ((*in) >> 0) & 1;
@@ -3304,6 +3302,7 @@ inline int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_b
   return batch_size;
 }
 
-};  // namespace arrow
+}  // namespace internal
+}  // namespace arrow
 
 #endif  // ARROW_UTIL_BPACKING_H

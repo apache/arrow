@@ -100,7 +100,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    ON)
+    OFF)
 
   option(ARROW_JEMALLOC_USE_SHARED
     "Rely on jemalloc shared libraries where relevant"
@@ -113,6 +113,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
+
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost"
+    OFF)
 
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
@@ -160,6 +164,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_WITH_ZSTD
     "Build with zstd compression"
+    ON)
+
+  option(ARROW_VERBOSE_THIRDPARTY_BUILD
+    "If off, output from ExternalProjects will be logged to files rather than shown"
     ON)
 
   if (MSVC)
@@ -303,8 +311,28 @@ include_directories(src)
 # For generate_export_header() and add_compiler_export_flags().
 include(GenerateExportHeader)
 
-# Sets -fvisibility=hidden for gcc
-add_compiler_export_flags()
+# Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
+# Honor visibility properties for all target types. See
+# "cmake --help-policy CMP0063" for details.
+#
+# This policy was only added to cmake in version 3.3, so until the cmake in
+# thirdparty is updated, we must check if the policy exists before setting it.
+if(POLICY CMP0063)
+  cmake_policy(SET CMP0063 NEW)
+endif()
+
+if (PARQUET_BUILD_SHARED)
+  if (POLICY CMP0063)
+    set_target_properties(arrow_shared
+      PROPERTIES
+      C_VISIBILITY_PRESET hidden
+      CXX_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN 1)
+  else()
+    # Sets -fvisibility=hidden for gcc
+    add_compiler_export_flags()
+  endif()
+endif()
 
 ############################################################
 # Benchmarking

@@ -89,9 +89,11 @@ class ARROW_EXPORT PlasmaClient {
   ///        function will not connect to a manager.
   /// @param release_delay Number of released objects that are kept around
   ///        and not evicted to avoid too many munmaps.
+  /// @param num_retries number of attempts to connect to IPC socket, default 50
   /// @return The return status.
   Status Connect(const std::string& store_socket_name,
-                 const std::string& manager_socket_name, int release_delay);
+                 const std::string& manager_socket_name, int release_delay,
+                 int num_retries = -1);
 
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.

@@ -92,6 +92,8 @@ class build_ext(_build_ext):
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE', 'debug').lower()
 
+        self.cmake_cxxflags = os.environ.get('PYARROW_CXXFLAGS', '')
+
         if sys.platform == 'win32':
             # Cannot do debug builds in Windows unless Python itself is a debug
             # build
@@ -143,13 +145,21 @@ class build_ext(_build_ext):
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
 
+        if self.with_plasma:
+            cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+        if len(self.cmake_cxxflags) > 0:
+            cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
+                                 .format(self.cmake_cxxflags))
+
         if self.bundle_arrow_cpp:
             cmake_options.append('-DPYARROW_BUNDLE_ARROW_CPP=ON')
             # ARROW-1090: work around CMake rough edges
             if 'ARROW_HOME' in os.environ and sys.platform != 'win32':
-                os.environ['PKG_CONFIG_PATH'] = pjoin(os.environ['ARROW_HOME'], 'lib', 'pkgconfig')
+                pkg_config = pjoin(os.environ['ARROW_HOME'], 'lib',
+                                   'pkgconfig')
+                os.environ['PKG_CONFIG_PATH'] = pkg_config
                 del os.environ['ARROW_HOME']
-
 
         cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                              .format(self.build_type.lower()))
@@ -243,7 +253,8 @@ class build_ext(_build_ext):
             print(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
                 shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
+            shutil.move(pjoin(build_prefix, 'include'),
+                        pjoin(build_lib, 'pyarrow'))
             move_lib("arrow")
             move_lib("arrow_python")
             if self.with_plasma:
@@ -280,7 +291,9 @@ class build_ext(_build_ext):
         if self.with_plasma:
             build_py = self.get_finalized_command('build_py')
             source = os.path.join(self.build_type, "plasma_store")
-            target = os.path.join(build_lib, build_py.get_package_dir('pyarrow'), "plasma_store")
+            target = os.path.join(build_lib,
+                                  build_py.get_package_dir('pyarrow'),
+                                  "plasma_store")
             shutil.move(source, target)
 
         os.chdir(saved_cwd)
@@ -349,6 +362,7 @@ designed to accelerate big data. It houses a set of canonical in-memory
 representations of flat and hierarchical data along with multiple
 language-bindings for structure manipulation. It also provides IPC
 and common algorithm implementations."""
+
 
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):

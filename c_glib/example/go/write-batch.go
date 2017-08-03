@@ -29,7 +29,11 @@ func BuildUInt8Array() *arrow.Array {
 	for _, value := range []uint8{1, 2, 4, 8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildUInt16Array() *arrow.Array {
@@ -37,7 +41,11 @@ func BuildUInt16Array() *arrow.Array {
 	for _, value := range []uint16{1, 2, 4, 8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildUInt32Array() *arrow.Array {
@@ -45,7 +53,11 @@ func BuildUInt32Array() *arrow.Array {
 	for _, value := range []uint32{1, 2, 4, 8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildUInt64Array() *arrow.Array {
@@ -53,7 +65,11 @@ func BuildUInt64Array() *arrow.Array {
 	for _, value := range []uint64{1, 2, 4, 8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildInt8Array() *arrow.Array {
@@ -61,7 +77,11 @@ func BuildInt8Array() *arrow.Array {
 	for _, value := range []int8{1, -2, 4, -8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildInt16Array() *arrow.Array {
@@ -69,7 +89,11 @@ func BuildInt16Array() *arrow.Array {
 	for _, value := range []int16{1, -2, 4, -8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildInt32Array() *arrow.Array {
@@ -77,7 +101,11 @@ func BuildInt32Array() *arrow.Array {
 	for _, value := range []int32{1, -2, 4, -8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildInt64Array() *arrow.Array {
@@ -85,7 +113,11 @@ func BuildInt64Array() *arrow.Array {
 	for _, value := range []int64{1, -2, 4, -8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildFloatArray() *arrow.Array {
@@ -93,7 +125,11 @@ func BuildFloatArray() *arrow.Array {
 	for _, value := range []float32{1.1, -2.2, 4.4, -8.8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func BuildDoubleArray() *arrow.Array {
@@ -101,7 +137,11 @@ func BuildDoubleArray() *arrow.Array {
 	for _, value := range []float64{1.1, -2.2, 4.4, -8.8} {
 		builder.Append(value)
 	}
-	return builder.Finish()
+	array, err := builder.Finish()
+		if err != nil {
+		log.Fatalf("Failed to build array: %v", err)
+	}
+	return array
 }
 
 func main() {
