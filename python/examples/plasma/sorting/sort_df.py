@@ -118,7 +118,7 @@ def merge(object_ids):
 
 if __name__ == '__main__':
     # Start the plasma store.
-    p = subprocess.Popen(["plasma_store",
+    p = subprocess.Popen(['plasma_store',
                           '-s', '/tmp/store',
                           '-m', str(object_store_size)])
 
