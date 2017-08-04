@@ -38,8 +38,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+
 
 public class TestListVector {
 
@@ -433,7 +434,8 @@ public class TestListVector {
             dataLength1 = offsetAccessor.get(start + i + 1) - offsetAccessor.get(start + i);
             dataLength2 = offsetAccessor1.get(i + 1) - offsetAccessor1.get(i);
 
-            assertEquals("Different data lengths at index: " + i + " and start: " + start, dataLength1, dataLength2);
+            assertEquals("Different data lengths at index: " + i + " and start: " + start,
+                         dataLength1, dataLength2);
 
             offset1 = offsetAccessor.get(start + i);
             offset2 = offsetAccessor1.get(i);
@@ -521,15 +523,15 @@ public class TestListVector {
       assertEquals(4, resultSet.get(1).size());      /* size of second inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(50), (Long)list.get(0));
-      assertEquals(new Long(100), (Long)list.get(1));
-      assertEquals(new Long(200), (Long)list.get(2));
+      assertEquals(new Long(50), list.get(0));
+      assertEquals(new Long(100), list.get(1));
+      assertEquals(new Long(200), list.get(2));
 
       list = resultSet.get(1);
-      assertEquals(new Long(75), (Long)list.get(0));
-      assertEquals(new Long(125), (Long)list.get(1));
-      assertEquals(new Long(150), (Long)list.get(2));
-      assertEquals(new Long(175), (Long)list.get(3));
+      assertEquals(new Long(75), list.get(0));
+      assertEquals(new Long(125), list.get(1));
+      assertEquals(new Long(150), list.get(2));
+      assertEquals(new Long(175), list.get(3));
 
        /* get listVector value at index 1 -- the value itself is a listvector */
       result = accessor.getObject(1);
@@ -541,16 +543,16 @@ public class TestListVector {
       assertEquals(3, resultSet.get(2).size());       /* size of third inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(10), (Long)list.get(0));
+      assertEquals(new Long(10), list.get(0));
 
       list = resultSet.get(1);
-      assertEquals(new Long(15), (Long)list.get(0));
-      assertEquals(new Long(20), (Long)list.get(1));
+      assertEquals(new Long(15), list.get(0));
+      assertEquals(new Long(20), list.get(1));
 
       list = resultSet.get(2);
-      assertEquals(new Long(25), (Long)list.get(0));
-      assertEquals(new Long(30), (Long)list.get(1));
-      assertEquals(new Long(35), (Long)list.get(2));
+      assertEquals(new Long(25), list.get(0));
+      assertEquals(new Long(30), list.get(1));
+      assertEquals(new Long(35), list.get(2));
 
       /* check underlying bitVector */
       assertFalse(accessor.isNull(0));
