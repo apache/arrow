@@ -10,11 +10,12 @@ import time
 import multimerge
 
 client = None
+object_store_size = 2000000000 # 2 GB
 num_cores = 8
 num_rows = 200000
 num_cols = 2
 column_names = [str(i) for i in range(num_cols)]
-column_name = column_names[0]
+column_to_sort = column_names[0]
 
 
 # Connect to clients
@@ -51,7 +52,7 @@ def put_df(df):
 
 def get_df(object_id):
     """Retrieve a dataframe from the object store given its object ID."""
-    buf = client.get([object_id])[0]
+    [buf] = client.get([object_id])
     reader = pa.RecordBatchStreamReader(buf)
     record_batch = reader.read_next_batch()
     return record_batch.to_pandas()
@@ -62,7 +63,7 @@ def local_sort(object_id):
     # Get the dataframe from the object store.
     df = get_df(object_id)
     # Sort the dataframe.
-    sorted_df = df.sort_values(by=column_name)
+    sorted_df = df.sort_values(by=column_to_sort)
     # Get evenly spaced values from the dataframe.
     indices = np.linspace(0, len(df) - 1, num=num_cores, dtype=np.int64)
     # Put the sorted dataframe in the object store and return the corresponding
@@ -74,7 +75,7 @@ def local_partitions(object_id_and_pivots):
     """Take a sorted partition of a dataframe and split it into more pieces."""
     object_id, pivots = object_id_and_pivots
     df = get_df(object_id)
-    split_at = df[column_name].searchsorted(pivots)
+    split_at = df[column_to_sort].searchsorted(pivots)
     split_at = [0] + list(split_at) + [len(df)]
     # Partition the sorted dataframe and put each partition into the object
     # store.
@@ -108,12 +109,9 @@ def merge(object_ids):
 
 if __name__ == '__main__':
     # Start the plasma store.
-    plasma_store_path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)),
-        '../../../build/release/plasma_store')
-    p = subprocess.Popen([plasma_store_path,
+    p = subprocess.Popen(["plasma_store",
                           '-s', '/tmp/store',
-                          '-m', '500000000000'])
+                          '-m', str(object_store_size)])
 
     # Connect to the plasma store.
     connect()
@@ -162,7 +160,7 @@ if __name__ == '__main__':
 
     serial_sort_start = time.time()
 
-    original_sorted_df = df.sort_values(by=column_name)
+    original_sorted_df = df.sort_values(by=column_to_sort)
 
     serial_sort_end = time.time()
 
