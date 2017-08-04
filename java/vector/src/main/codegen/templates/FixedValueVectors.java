@@ -111,6 +111,10 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
     return mutator;
   }
 
+  int getAllocationSize() {
+    return allocationSizeInBytes;
+  }
+
   @Override
   public void setInitialCapacity(final int valueCount) {
     final long size = 1L * valueCount * ${type.width};
@@ -162,7 +166,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
   @Override
   public void reset() {
-    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION * ${type.width};
     allocationMonitor = 0;
     zeroVector();
     super.reset();
