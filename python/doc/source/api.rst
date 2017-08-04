@@ -91,13 +91,14 @@ Scalar Value Types
 
 .. _api.array:
 
-Array Types and Constructors
-----------------------------
+.. currentmodule:: pyarrow.lib
+
+Array Types
+-----------
 
 .. autosummary::
    :toctree: generated/
 
-   array
    Array
    BooleanArray
    DictionaryArray
@@ -125,6 +126,8 @@ Array Types and Constructors
    ListArray
 
 .. _api.table:
+
+.. currentmodule:: pyarrow
 
 Tables and Record Batches
 -------------------------
@@ -213,6 +216,8 @@ Memory Pools
    set_memory_pool
 
 .. _api.type_classes:
+
+.. currentmodule:: pyarrow.lib
 
 Type Classes
 ------------
