@@ -9,8 +9,15 @@ import time
 
 import multimerge
 
+# You will only see speedups if you run this code on more data, this
+# is just a small example that can run on a laptop.
+# The values we used to get a speedup (on a m4.10xlarge instance on EC2) were
+# object_store_size = 500 * 10 ** 9
+# num_cores = 20
+# num_rows = 10 ** 9
+# num_cols = 1
 client = None
-object_store_size = 2000000000 # 2 GB
+object_store_size = 2 * 10 ** 9 # 2 GB
 num_cores = 8
 num_rows = 200000
 num_cols = 2
