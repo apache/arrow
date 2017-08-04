@@ -104,25 +104,26 @@ until the object has been sealed.
 
 ### A sorting application
 
-To illustrate the benefits of Plasma, we demonstrate a **22x speedup** (on a
-machine with 20 physical cores and 40 logical cores) for sorting a large pandas
-DataFrame (one billion entries). The baseline is the built-in pandas sort
-function, which sorts the DataFrame in 986 seconds. To leverage multiple cores,
-we implement the following standard distributed sorting scheme.
+To illustrate the benefits of Plasma, we demonstrate an **11x speedup** (on a
+machine with 20 physical cores) for sorting a large pandas DataFrame (one
+billion entries). The baseline is the built-in pandas sort function, which sorts
+the DataFrame in 477 seconds. To leverage multiple cores, we implement the
+following standard distributed sorting scheme.
 
 * We assume that the data is partitioned across K pandas DataFrames and that
   each one already lives in the Plasma store.
 * We subsample the data, sort the subsampled data, and use the result to define
   L non-overlapping buckets.
 * For each of the K data partitions and each of the L buckets, we find the
-  subset of the data partition that falls in the bucket, and we sort that subset.
+  subset of the data partition that falls in the bucket, and we sort that
+  subset.
 * For each of the L buckets, we gather all of the K sorted subsets that fall in
   that bucket.
 * For each of the L buckets, we merge the corresponding K sorted subsets.
 * We turn each bucket into a pandas DataFrame and place it in the Plasma store.
 
 Using this scheme, we can sort the DataFrame (the data starts and ends in the
-Plasma store), in 44 seconds, giving a 22x speedup over the baseline.
+Plasma store), in 44 seconds, giving an 11x speedup over the baseline.
 
 ### Design
 
