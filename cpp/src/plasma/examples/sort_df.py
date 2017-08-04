@@ -50,18 +50,17 @@ def put_df(df):
     return object_id
 
 
-def get_df(object_id):
-    """Retrieve a dataframe from the object store given its object ID."""
-    [buf] = client.get([object_id])
-    reader = pa.RecordBatchStreamReader(buf)
-    record_batch = reader.read_next_batch()
-    return record_batch.to_pandas()
+def get_dfs(object_ids):
+    """Retrieve dataframes from the object store given their object IDs."""
+    buffers = client.get(object_ids)
+    return [pa.RecordBatchStreamReader(buf).read_next_batch().to_pandas()
+            for buf in buffers]
 
 
 def local_sort(object_id):
     """Sort a partition of a dataframe."""
     # Get the dataframe from the object store.
-    df = get_df(object_id)
+    [df] = get_dfs([object_id])
     # Sort the dataframe.
     sorted_df = df.sort_values(by=column_to_sort)
     # Get evenly spaced values from the dataframe.
@@ -74,7 +73,7 @@ def local_sort(object_id):
 def local_partitions(object_id_and_pivots):
     """Take a sorted partition of a dataframe and split it into more pieces."""
     object_id, pivots = object_id_and_pivots
-    df = get_df(object_id)
+    [df] = get_dfs([object_id])
     split_at = df[column_to_sort].searchsorted(pivots)
     split_at = [0] + list(split_at) + [len(df)]
     # Partition the sorted dataframe and put each partition into the object
@@ -84,9 +83,7 @@ def local_partitions(object_id_and_pivots):
 
 def merge(object_ids):
     """Merge a number of sorted dataframes into a single sorted dataframe."""
-    # We could change this to do only one IPC roundtrip to the object store if
-    # we want to.
-    dfs = [get_df(object_id) for object_id in object_ids]
+    dfs = get_dfs(object_ids)
 
     # In order to use our multimerge code, we have to convert the arrays from
     # the Fortran format to the C format.
@@ -166,7 +163,7 @@ if __name__ == '__main__':
 
     # Check that we sorted the DataFrame properly.
 
-    sorted_dfs = [get_df(object_id) for object_id in resulting_ids]
+    sorted_dfs = get_dfs(resulting_ids)
     sorted_df = pd.concat(sorted_dfs)
 
     print('Serial sort took {} seconds.'
