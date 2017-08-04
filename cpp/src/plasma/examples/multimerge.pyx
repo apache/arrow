@@ -21,35 +21,16 @@ cdef extern from "<queue>" namespace "std" nogil:
         T& top()
 
 
-def multimerge(*arrays):
-    cdef int num_arrays = len(arrays)
-    cdef vector[double*] data
-    cdef vector[int] indices = num_arrays * [0]
-    cdef vector[int] sizes
-    cdef priority_queue[pair[double, int]] queue
-    cdef pair[double, int] top
-    cdef int num_elts = sum([len(array) for array in arrays])
-    cdef np.ndarray[np.float64_t, ndim=1] result = np.zeros(num_elts,
-                                                            dtype=np.float64)
-    cdef double* result_ptr = <double*> np.PyArray_DATA(result)
-    cdef int curr_idx = 0
-    for i in range(num_arrays):
-        sizes.push_back(len(arrays[i]))
-        data.push_back(<double*> np.PyArray_DATA(arrays[i]))
-        queue.push(pair[double, int](-data[i][0], i))
-    while curr_idx < num_elts:
-        top = queue.top()
-        result_ptr[curr_idx] = data[top.second][indices[top.second]]
-        indices[top.second] += 1
-        queue.pop()
-        if indices[top.second] < sizes[top.second]:
-            queue.push(pair[double, int](
-                -data[top.second][indices[top.second]], top.second))
-        curr_idx += 1
-    return result
-
-
 def multimerge2d(*arrays):
+    """Merge a list of sorted 2d arrays into a sorted 2d array.
+
+    This assumes C style ordering for both input and output arrays. For
+    each input array we have array[i,0] <= array[i+1,0] and for the output
+    array the same will hold.
+    
+    Ideally this code would be simpler and also support both C style
+    and Fortran style ordering.
+    """
     cdef int num_arrays = len(arrays)
     assert num_arrays > 0
 
