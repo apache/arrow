@@ -94,11 +94,14 @@ def merge(object_ids):
         assert a.dtype == np.float64
         assert not np.isfortran(a)
 
+    # Filter out empty arrays.
+    arrays = [a for a in arrays if a.shape[0] > 0]
+
     s1 = time.time()
 
     total_size = sum([len(df[column_name]) for df in dfs])
 
-    if total_size == 0:
+    if len(arrays) == 0:
         return None
 
     resulting_array = multimerge.multimerge2d(*arrays)
