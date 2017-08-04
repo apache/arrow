@@ -5,7 +5,6 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.plasma as plasma
 import subprocess
-import sys
 import time
 
 import multimerge
@@ -83,6 +82,7 @@ def local_partitions(object_id_and_pivots):
 
 
 def merge(object_ids):
+    """Merge a number of sorted dataframes into a single sorted dataframe."""
     # We could change this to do only one IPC roundtrip to the object store if
     # we want to.
     dfs = [get_df(object_id) for object_id in object_ids]
@@ -97,8 +97,6 @@ def merge(object_ids):
     # Filter out empty arrays.
     arrays = [a for a in arrays if a.shape[0] > 0]
 
-    total_size = sum([len(df[column_name]) for df in dfs])
-
     if len(arrays) == 0:
         return None
 
@@ -110,8 +108,12 @@ def merge(object_ids):
 
 if __name__ == '__main__':
     # Start the plasma store.
-    plasma_store_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../../build/release/plasma_store')
-    p = subprocess.Popen([plasma_store_path, '-s', '/tmp/store', '-m', '500000000000'])
+    plasma_store_path = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)),
+        '../../../build/release/plasma_store')
+    p = subprocess.Popen([plasma_store_path,
+                          '-s', '/tmp/store',
+                          '-m', '500000000000'])
 
     # Connect to the plasma store.
     connect()
@@ -119,71 +121,60 @@ if __name__ == '__main__':
     # Connect the processes in the pool.
     pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 
-    df = pd.DataFrame(np.random.randn(num_rows, num_cols), columns=column_names)
+    # Create a DataFrame from a numpy array.
+    df = pd.DataFrame(np.random.randn(num_rows, num_cols),
+                      columns=column_names)
 
-    # partition_ids = []
-    # for partition in np.split(df, num_cores):
-    #     # The call to np.split converts the underlying arrays into the fortran
-    #     # format, so undo that.
-    #     array = np.ascontiguousarray(partition.as_matrix())
-    #     df_partition = pd.DataFrame(array, columns=column_names)
-    #     partition_ids.append(put_df(df_partition))
-    partition_ids = [put_df(partition) for partition in np.split(df, num_cores)]
+    partition_ids = [put_df(partition) for partition
+                     in np.split(df, num_cores)]
 
-
-    t1 = time.time()
+    # Begin timing the parallel sort example.
+    parallel_sort_start = time.time()
 
     # Sort each partition and subsample them. The subsampled values will be
     # used to create buckets.
-    sorted_df_ids, pivot_groups = list(zip(*pool.map(local_sort, partition_ids)))
-
-    t2 = time.time()
+    sorted_df_ids, pivot_groups = list(zip(*pool.map(local_sort,
+                                                     partition_ids)))
 
     # Choose the pivots.
     all_pivots = np.concatenate(pivot_groups)
-
-    t3 = time.time()
-
-    indices = np.linspace(0, len(all_pivots) - 1, num=num_cores, dtype=np.int64)
-
-    t4 = time.time()
-
+    indices = np.linspace(0, len(all_pivots) - 1, num=num_cores,
+                          dtype=np.int64)
     pivots = np.take(np.sort(all_pivots), indices)
-
-    t5 = time.time()
 
     # Break all of the sorted partitions into even smaller partitions. Group
     # the object IDs from each bucket together.
-    results = list(zip(*pool.map(local_partitions, zip(sorted_df_ids, len(sorted_df_ids) * [pivots]))))
-
-    t6 = time.time()
+    results = list(zip(*pool.map(local_partitions,
+                                 zip(sorted_df_ids,
+                                     len(sorted_df_ids) * [pivots]))))
 
     # Merge each of the buckets and store the results in the object store.
-    object_ids_and_times = pool.map(merge, results)
+    object_ids = pool.map(merge, results)
 
-    t7 = time.time()
+    resulting_ids = [object_id for object_id in object_ids
+                     if object_id is not None]
 
-    print('Parallel sort took {} seconds.'.format(t7 - t1))
-    print('Breakdown', t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5, t7 - t6)
-    print('Merge times')
-    object_ids = []
-    for object_ids_time in object_ids_and_times:
-        if object_ids_time is None:
-            continue
-        object_id = object_ids_time
-        object_ids.append(object_id)
+    # Stop timing the paralle sort example.
+    parallel_sort_end = time.time()
 
-    # Check that we sorted the DataFrame properly.
-    sorted_dfs = [get_df(object_id) for object_id in object_ids]
-    sorted_df = pd.concat(sorted_dfs)
+    print('Parallel sort took {} seconds.'
+          .format(parallel_sort_end - parallel_sort_start))
 
-    time3 = time.time()
+    serial_sort_start = time.time()
 
     original_sorted_df = df.sort_values(by=column_name)
 
-    time4 = time.time()
-    print('Serial sort took {} seconds.'.format(time4 - time3))
+    serial_sort_end = time.time()
+
+    # Check that we sorted the DataFrame properly.
+
+    sorted_dfs = [get_df(object_id) for object_id in resulting_ids]
+    sorted_df = pd.concat(sorted_dfs)
+
+    print('Serial sort took {} seconds.'
+          .format(serial_sort_end - serial_sort_start))
 
     assert np.allclose(sorted_df.values, original_sorted_df.values)
 
+    # Kill the object store.
     p.kill()
