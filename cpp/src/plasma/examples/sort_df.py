@@ -97,8 +97,6 @@ def merge(object_ids):
     # Filter out empty arrays.
     arrays = [a for a in arrays if a.shape[0] > 0]
 
-    s1 = time.time()
-
     total_size = sum([len(df[column_name]) for df in dfs])
 
     if len(arrays) == 0:
@@ -107,30 +105,7 @@ def merge(object_ids):
     resulting_array = multimerge.multimerge2d(*arrays)
     merged_df2 = pd.DataFrame(resulting_array, columns=column_names)
 
-    # merged_df1 = pd.DataFrame(np.zeros((total_size, len(column_names))), columns=column_names)
-
-    s2 = time.time()
-
-    # indices = [0 for i in range(len(dfs))]
-    # priority_queue = queue.PriorityQueue()
-    # for df_index in range(len(dfs)):
-    #     if len(dfs[df_index]) > 0:
-    #         priority_queue.put((dfs[df_index][column_name].iloc[indices[df_index]], df_index))
-
-    s3 = time.time()
-
-    # total_index = 0
-    # while not priority_queue.empty():
-    #     value, df_index = priority_queue.get()
-    #     merged_df1.iloc[total_index] = dfs[df_index].iloc[indices[df_index]]
-    #     indices[df_index] += 1
-    #     total_index += 1
-    #     if not indices[df_index] == len(dfs[df_index]):
-    #         priority_queue.put((dfs[df_index][column_name].iloc[indices[df_index]], df_index))
-
-    s4 = time.time()
-
-    return put_df(merged_df2), (s2 - s1, s3 - s2, s4 - s3)
+    return put_df(merged_df2)
 
 
 if __name__ == '__main__':
@@ -195,9 +170,8 @@ if __name__ == '__main__':
     for object_ids_time in object_ids_and_times:
         if object_ids_time is None:
             continue
-        object_id, times = object_ids_time
+        object_id = object_ids_time
         object_ids.append(object_id)
-        print(times)
 
     # Check that we sorted the DataFrame properly.
     sorted_dfs = [get_df(object_id) for object_id in object_ids]
