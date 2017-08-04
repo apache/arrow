@@ -17,6 +17,7 @@
 
 import re
 import json
+import numpy as np
 import pandas as pd
 
 import six
@@ -239,6 +240,29 @@ def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
         df, names, index_columns, preserve_index, types
     )
     return names, arrays, metadata
+
+
+def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
+    from pyarrow.compat import DatetimeTZDtype
+
+    if values.dtype.type != np.datetime64:
+        return values, type_
+
+    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
+
+    if coerce_ms:
+        values = values.astype('datetime64[ms]')
+        type_ = pa.timestamp('ms')
+
+    if isinstance(dtype, DatetimeTZDtype):
+        tz = dtype.tz
+        unit = 'ms' if coerce_ms else dtype.unit
+        type_ = pa.timestamp(unit, tz)
+    elif type_ is None:
+        # Trust the NumPy dtype
+        type_ = pa.from_numpy_dtype(values.dtype)
+
+    return values, type_
 
 
 def table_to_blockmanager(table, nthreads=1):
