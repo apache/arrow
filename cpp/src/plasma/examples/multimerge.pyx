@@ -50,7 +50,7 @@ def multimerge2d(*arrays):
 
   assert num_arrays > 0
 
-  num_cols = arrays[0].shape[1]
+  cdef int num_cols = arrays[0].shape[1]
 
   for i in range(num_arrays):
     assert arrays[i].ndim == 2
@@ -78,6 +78,8 @@ def multimerge2d(*arrays):
       queue.push(pair[double, int](-data[i][0], i))
 
   cdef int curr_idx = 0
+  cdef int j
+  cdef int col = 0
 
   for j in range(num_rows):
     top = queue.top()
