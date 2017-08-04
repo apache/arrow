@@ -16,30 +16,6 @@
 # under the License.
 
 
-cdef maybe_coerce_datetime64(values, dtype, DataType type,
-                             timestamps_to_ms=False):
-
-    from pyarrow.compat import DatetimeTZDtype
-
-    if values.dtype.type != np.datetime64:
-        return values, type
-
-    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
-
-    if coerce_ms:
-        values = values.astype('datetime64[ms]')
-
-    if isinstance(dtype, DatetimeTZDtype):
-        tz = dtype.tz
-        unit = 'ms' if coerce_ms else dtype.unit
-        type = timestamp(unit, tz)
-    elif type is None:
-        # Trust the NumPy dtype
-        type = from_numpy_dtype(values.dtype)
-
-    return values, type
-
-
 def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
           size=None):
     """
@@ -205,7 +181,7 @@ cdef class Array:
             else:
                 out = chunked_out.get().chunk(0)
         else:
-            values, type = maybe_coerce_datetime64(
+            values, type = pdcompat.maybe_coerce_datetime64(
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
             if type is None:

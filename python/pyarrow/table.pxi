@@ -134,6 +134,16 @@ cdef class Column:
         self.sp_column = column
         self.column = column.get()
 
+    def __repr__(self):
+        from pyarrow.compat import StringIO
+        result = StringIO()
+        result.write(object.__repr__(self))
+        data = self.data
+        for i in range(len(data)):
+            result.write('\nchunk {0}: {1}'.format(i, repr(data.chunk(0))))
+
+        return result.getvalue()
+
     @staticmethod
     def from_array(object field_or_name, Array arr):
         cdef Field boxed_field
@@ -661,13 +671,8 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(
-        cls,
-        df,
-        bint timestamps_to_ms=False,
-        Schema schema=None,
-        bint preserve_index=True
-    ):
+    def from_pandas(cls, df, bint timestamps_to_ms=False,
+                    Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow Table
 
