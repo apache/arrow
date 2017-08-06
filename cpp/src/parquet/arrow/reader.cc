@@ -930,9 +930,9 @@ Status PrimitiveImpl::WrapIntoListArray(const int16_t* def_levels,
         current_field = current_field->type()->child(0);
       }
       offset_builders.emplace_back(
-          std::make_shared<::arrow::Int32Builder>(pool_, ::arrow::int32()));
+          std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool_));
       valid_bits_builders.emplace_back(
-          std::make_shared<::arrow::BooleanBuilder>(pool_, ::arrow::boolean()));
+          std::make_shared<::arrow::BooleanBuilder>(::arrow::boolean(), pool_));
       nullable.push_back(current_field->nullable());
     }
 
@@ -1224,7 +1224,7 @@ Status PrimitiveImpl::ReadFLBABatch(int batch_size, int byte_width,
   int16_t* rep_levels = reinterpret_cast<int16_t*>(rep_levels_buffer_.mutable_data());
 
   int values_to_read = batch_size;
-  BuilderType builder(pool_, ::arrow::fixed_size_binary(byte_width));
+  BuilderType builder(::arrow::fixed_size_binary(byte_width), pool_);
   while ((values_to_read > 0) && column_reader_) {
     RETURN_NOT_OK(values_buffer_.Resize(values_to_read * sizeof(FLBA), false));
     auto reader = dynamic_cast<TypedColumnReader<FLBAType>*>(column_reader_.get());

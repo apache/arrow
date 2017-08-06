@@ -715,8 +715,8 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   rg_writer->Close();
   writer->Close();
 
-  ::arrow::TimestampBuilder builder(default_memory_pool(),
-                                    ::arrow::timestamp(TimeUnit::NANO));
+  ::arrow::TimestampBuilder builder(::arrow::timestamp(TimeUnit::NANO),
+                                    ::arrow::default_memory_pool());
   ASSERT_OK(builder.Append(val));
   std::shared_ptr<Array> values;
   ASSERT_OK(builder.Finish(&values));
@@ -788,7 +788,7 @@ using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
 TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<Array> values;
-  ::arrow::StringBuilder builder(::arrow::default_memory_pool());
+  ::arrow::StringBuilder builder;
   for (size_t i = 0; i < SMALL_SIZE; i++) {
     ASSERT_OK(builder.Append(""));
   }

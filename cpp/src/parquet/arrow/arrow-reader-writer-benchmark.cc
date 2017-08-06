@@ -29,6 +29,14 @@
 
 using arrow::NumericBuilder;
 
+#define ABORT_NOT_OK(s)                  \
+  do {                                   \
+    ::arrow::Status _s = (s);            \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      exit(-1);                          \
+    }                                    \
+  } while (0);
+
 namespace parquet {
 
 using arrow::FileReader;
@@ -82,17 +90,17 @@ template <bool nullable, typename ParquetType>
 std::shared_ptr<::arrow::Table> TableFromVector(
     const std::vector<typename ParquetType::c_type>& vec) {
   ::arrow::TypePtr type = std::make_shared<ArrowType<ParquetType>>();
-  NumericBuilder<ArrowType<ParquetType>> builder(::arrow::default_memory_pool(), type);
+  NumericBuilder<ArrowType<ParquetType>> builder(type, ::arrow::default_memory_pool());
   if (nullable) {
     std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);
     int n = {0};
     std::generate(valid_bytes.begin(), valid_bytes.end(), [&n] { return n++ % 2; });
-    builder.Append(vec.data(), vec.size(), valid_bytes.data());
+    ABORT_NOT_OK(builder.Append(vec.data(), vec.size(), valid_bytes.data()));
   } else {
-    builder.Append(vec.data(), vec.size(), nullptr);
+    ABORT_NOT_OK(builder.Append(vec.data(), vec.size(), nullptr));
   }
   std::shared_ptr<::arrow::Array> array;
-  builder.Finish(&array);
+  ABORT_NOT_OK(builder.Finish(&array));
   auto field = std::make_shared<::arrow::Field>("column", type, nullable);
   auto schema = std::make_shared<::arrow::Schema>(
       std::vector<std::shared_ptr<::arrow::Field>>({field}));
@@ -109,7 +117,8 @@ static void BM_WriteColumn(::benchmark::State& state) {
 
   while (state.KeepRunning()) {
     auto output = std::make_shared<InMemoryOutputStream>();
-    WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
+    ABORT_NOT_OK(
+        WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }
@@ -128,7 +137,8 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<nullable, ParquetType>(values);
   auto output = std::make_shared<InMemoryOutputStream>();
-  WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE);
+  ABORT_NOT_OK(
+      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
@@ -136,7 +146,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
     std::shared_ptr<::arrow::Table> table;
-    filereader.ReadTable(&table);
+    ABORT_NOT_OK(filereader.ReadTable(&table));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }

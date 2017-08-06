@@ -62,7 +62,7 @@ std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
 class LevelBuilder {
  public:
   explicit LevelBuilder(MemoryPool* pool)
-      : def_levels_(pool, ::arrow::int16()), rep_levels_(pool, ::arrow::int16()) {
+      : def_levels_(::arrow::int16(), pool), rep_levels_(::arrow::int16(), pool) {
     def_levels_buffer_ = std::make_shared<PoolBuffer>(pool);
   }
 
