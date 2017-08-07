@@ -243,6 +243,10 @@ def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
 
 
 def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
+    if timestamps_to_ms:
+        import warnings
+        warnings.warn('timestamps_to_ms=True is deprecated', FutureWarning)
+
     from pyarrow.compat import DatetimeTZDtype
 
     if values.dtype.type != np.datetime64:

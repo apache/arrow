@@ -100,10 +100,11 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
     df = alltypes_sample(size=10000)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
-    _write_table(arrow_table, filename.strpath, version="2.0")
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
     table_read = pq.read_pandas(filename.strpath)
     assert b'pandas' in table_read.schema.metadata
 
@@ -120,10 +121,11 @@ def test_pandas_parquet_custom_metadata(tmpdir):
     df = alltypes_sample(size=10000)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
-    _write_table(arrow_table, filename.strpath, version="2.0")
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
 
     md = pq.read_metadata(filename.strpath).metadata
     assert b'pandas' in md
@@ -139,13 +141,12 @@ def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tmpdir):
     df = alltypes_sample(size=10000)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(
-        df, timestamps_to_ms=True, preserve_index=False
-    )
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
     js = json.loads(arrow_table.schema.metadata[b'pandas'].decode('utf8'))
     assert not js['index_columns']
 
-    _write_table(arrow_table, filename.strpath, version="2.0")
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
     table_read = pq.read_pandas(filename.strpath)
 
     js = json.loads(table_read.schema.metadata[b'pandas'].decode('utf8'))
@@ -340,10 +341,11 @@ def test_pandas_parquet_configuration_options(tmpdir):
 def make_sample_file(df):
     import pyarrow.parquet as pq
 
-    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
-    _write_table(a_table, buf, compression='SNAPPY', version='2.0')
+    _write_table(a_table, buf, compression='SNAPPY', version='2.0',
+                 coerce_timestamps='ms')
 
     buf.seek(0)
     return pq.ParquetFile(buf)
@@ -418,12 +420,37 @@ def test_column_of_arrays(tmpdir):
     df, schema = dataframe_with_arrays()
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True,
-                                       schema=schema)
-    _write_table(arrow_table, filename.strpath, version="2.0")
+    arrow_table = pa.Table.from_pandas(df, schema=schema)
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
     table_read = _read_table(filename.strpath)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_coerce_timestamps(tmpdir):
+    # ARROW-622
+    df, schema = dataframe_with_arrays()
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(df, schema=schema)
+
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='us')
+    table_read = _read_table(filename.strpath)
+    df_read = table_read.to_pandas()
+
+    df_expected = df.copy()
+    for i, x in enumerate(df_expected['datetime64']):
+        if isinstance(x, np.ndarray):
+            df_expected['datetime64'][i] = x.astype('M8[us]')
+
+    tm.assert_frame_equal(df_expected, df_read)
+
+    with pytest.raises(ValueError):
+        _write_table(arrow_table, filename.strpath, version="2.0",
+                     coerce_timestamps='unknown')
 
 
 @parquet
@@ -431,9 +458,9 @@ def test_column_of_lists(tmpdir):
     df, schema = dataframe_with_lists()
 
     filename = tmpdir.join('pandas_rountrip.parquet')
-    arrow_table = pa.Table.from_pandas(df, timestamps_to_ms=True,
-                                       schema=schema)
-    _write_table(arrow_table, filename.strpath, version="2.0")
+    arrow_table = pa.Table.from_pandas(df, schema=schema)
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
     table_read = _read_table(filename.strpath)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
@@ -469,12 +496,14 @@ def test_date_time_types():
 
     t7 = pa.timestamp('ns')
     start = pd.Timestamp('2001-01-01').value
-    data7 = np.array([start, start + 1, start + 2], dtype='int64')
+    data7 = np.array([start, start + 1000, start + 2000],
+                     dtype='int64')
     a7 = pa.Array.from_pandas(data7, type=t7)
 
     t7_us = pa.timestamp('us')
     start = pd.Timestamp('2001-01-01').value
-    data7_us = np.array([start, start + 1, start + 2], dtype='int64') // 1000
+    data7_us = np.array([start, start + 1000, start + 2000],
+                        dtype='int64') // 1000
     a7_us = pa.Array.from_pandas(data7_us, type=t7_us)
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
@@ -547,7 +576,7 @@ def _check_roundtrip(table, expected=None, **params):
 def test_multithreaded_read():
     df = alltypes_sample(size=10000)
 
-    table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
     _write_table(table, buf, compression='SNAPPY', version='2.0')
@@ -585,7 +614,7 @@ def test_pass_separate_metadata():
     # ARROW-471
     df = alltypes_sample(size=10000)
 
-    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
     _write_table(a_table, buf, compression='snappy', version='2.0')
@@ -608,7 +637,7 @@ def test_read_single_row_group():
     N, K = 10000, 4
     df = alltypes_sample(size=N)
 
-    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
@@ -631,7 +660,7 @@ def test_read_single_row_group_with_column_subset():
 
     N, K = 10000, 4
     df = alltypes_sample(size=N)
-    a_table = pa.Table.from_pandas(df, timestamps_to_ms=True)
+    a_table = pa.Table.from_pandas(df)
 
     buf = io.BytesIO()
     _write_table(a_table, buf, row_group_size=N / K,
