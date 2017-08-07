@@ -250,6 +250,10 @@ def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
 
     coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
 
+    if timestamps_to_ms:
+        import warnings
+        warnings.warn('timestamps_to_ms=True is deprecated', FutureWarning)
+
     if coerce_ms:
         values = values.astype('datetime64[ms]')
         type_ = pa.timestamp('ms')
