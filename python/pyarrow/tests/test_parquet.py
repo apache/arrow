@@ -429,6 +429,31 @@ def test_column_of_arrays(tmpdir):
 
 
 @parquet
+def test_coerce_timestamps(tmpdir):
+    # ARROW-622
+    df, schema = dataframe_with_arrays()
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(df, schema=schema)
+
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='us')
+    table_read = _read_table(filename.strpath)
+    df_read = table_read.to_pandas()
+
+    df_expected = df.copy()
+    for i, x in enumerate(df_expected['datetime64']):
+        if isinstance(x, np.ndarray):
+            df_expected['datetime64'][i] = x.astype('M8[us]')
+
+    tm.assert_frame_equal(df_expected, df_read)
+
+    with pytest.raises(ValueError):
+        _write_table(arrow_table, filename.strpath, version="2.0",
+                     coerce_timestamps='unknown')
+
+
+@parquet
 def test_column_of_lists(tmpdir):
     df, schema = dataframe_with_lists()
 

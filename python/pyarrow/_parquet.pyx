@@ -596,8 +596,8 @@ cdef class ParquetWriter:
         else:
             props.disable_deprecated_int96_timestamps()
 
-    cdef void _set_coerce_timestamps(self,
-                                     ArrowWriterProperties.Builder* props):
+    cdef int _set_coerce_timestamps(
+            self, ArrowWriterProperties.Builder* props) except -1:
         if self.coerce_timestamps == 'ms':
             props.coerce_timestamps(TimeUnit_MILLI)
         elif self.coerce_timestamps == 'us':
