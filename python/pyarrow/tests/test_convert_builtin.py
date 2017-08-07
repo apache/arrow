@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
+
 from pyarrow.compat import unittest, u  # noqa
 import pyarrow as pa
 
@@ -139,6 +141,17 @@ class TestConvertSequence(unittest.TestCase):
         assert arr.null_count == 1
         assert arr.type == pa.binary()
         assert arr.to_pylist() == [b'foo', u1, None]
+
+    def test_utf8_to_unicode(self):
+        # ARROW-1225
+        data = [b'foo', None, b'bar']
+        arr = pa.array(data, type=pa.string())
+        assert arr[0].as_py() == u'foo'
+
+        # test a non-utf8 unicode string
+        val = (u'mañana').encode('utf-16-le')
+        with pytest.raises(pa.ArrowException):
+            pa.array([val], type=pa.string())
 
     def test_fixed_size_bytes(self):
         data = [b'foof', None, b'barb', b'2346']
