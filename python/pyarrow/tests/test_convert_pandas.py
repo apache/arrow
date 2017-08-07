@@ -534,14 +534,15 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
-    def test_lists_all_none(self):
+    def test_nested_lists_all_none(self):
         data = np.array([[None, None], None], dtype=object)
 
         arr = pa.Array.from_pandas(data)
         expected = pa.array(list(data))
         assert arr.equals(expected)
+        assert arr.type == pa.list_(pa.null())
 
-        data2 = np.array([None, [None, None]], dtype=object)
+        data2 = np.array([None, None, [None, None]], dtype=object)
         arr = pa.Array.from_pandas(data2)
         expected = pa.array(list(data2))
         assert arr.equals(expected)

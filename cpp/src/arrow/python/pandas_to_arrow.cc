@@ -1014,6 +1014,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
       }
       return Status::OK();
     } else if (PyList_Check(object)) {
+      RETURN_NOT_OK(builder->Append(true));
       const Py_ssize_t size = PySequence_Size(object);
       for (Py_ssize_t i = 0; i < size; ++i) {
         RETURN_NOT_OK(value_builder->AppendNull());
