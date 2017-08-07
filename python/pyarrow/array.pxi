@@ -44,23 +44,28 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     cdef:
         shared_ptr[CArray] sp_array
         CMemoryPool* pool
+        int64_t c_size
 
     pool = maybe_unbox_memory_pool(memory_pool)
     if type is None:
-        check_status(ConvertPySequence(sequence, pool, &sp_array))
+        with nogil:
+            check_status(ConvertPySequence(sequence, pool, &sp_array))
     else:
         if size is None:
-            check_status(
-                ConvertPySequence(
-                    sequence, pool, &sp_array, type.sp_type
+            with nogil:
+                check_status(
+                    ConvertPySequence(
+                        sequence, pool, &sp_array, type.sp_type
+                    )
                 )
-            )
         else:
-            check_status(
-                ConvertPySequence(
-                    sequence, pool, &sp_array, type.sp_type, size
+            c_size = size
+            with nogil:
+                check_status(
+                    ConvertPySequence(
+                        sequence, pool, &sp_array, type.sp_type, c_size
+                    )
                 )
-            )
 
     return pyarrow_wrap_array(sp_array)
 
@@ -91,7 +96,8 @@ cdef class Array:
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
     def _debug_print(self):
-        check_status(DebugPrint(deref(self.ap), 0))
+        with nogil:
+            check_status(DebugPrint(deref(self.ap), 0))
 
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,
@@ -185,7 +191,9 @@ cdef class Array:
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
             if type is None:
-                check_status(NumPyDtypeToArrow(values.dtype, &c_type))
+                dtype = values.dtype
+                with nogil:
+                    check_status(NumPyDtypeToArrow(dtype, &c_type))
             else:
                 c_type = type.sp_type
 
@@ -319,7 +327,9 @@ strides: {2}""".format(self.type, self.shape, self.strides)
     @staticmethod
     def from_numpy(obj):
         cdef shared_ptr[CTensor] ctensor
-        check_status(NdarrayToTensor(c_default_memory_pool(), obj, &ctensor))
+        with nogil:
+            check_status(NdarrayToTensor(c_default_memory_pool(), obj,
+                                         &ctensor))
         return pyarrow_wrap_tensor(ctensor)
 
     def to_numpy(self):
@@ -329,7 +339,8 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         cdef:
             PyObject* out
 
-        check_status(TensorToNdarray(deref(self.tp), self, &out))
+        with nogil:
+            check_status(TensorToNdarray(deref(self.tp), self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):

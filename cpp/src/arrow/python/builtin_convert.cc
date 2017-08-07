@@ -660,6 +660,7 @@ Status AppendPySequence(PyObject* obj, int64_t size,
 }
 
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out) {
+  PyAcquireGIL lock;
   std::shared_ptr<DataType> type;
   int64_t size;
   RETURN_NOT_OK(InferArrowTypeAndSize(obj, &size, &type));
@@ -668,6 +669,7 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
                          const std::shared_ptr<DataType>& type, int64_t size) {
+  PyAcquireGIL lock;
   // Handle NA / NullType case
   if (type->id() == Type::NA) {
     out->reset(new NullArray(size));
@@ -684,7 +686,10 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
                          const std::shared_ptr<DataType>& type) {
   int64_t size;
-  RETURN_NOT_OK(InferArrowSize(obj, &size));
+  {
+    PyAcquireGIL lock;
+    RETURN_NOT_OK(InferArrowSize(obj, &size));
+  }
   return ConvertPySequence(obj, pool, out, type, size);
 }
 

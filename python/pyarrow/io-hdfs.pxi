@@ -29,7 +29,8 @@ except ImportError:
 
 def have_libhdfs():
     try:
-        check_status(HaveLibHdfs())
+        with nogil:
+            check_status(HaveLibHdfs())
         return True
     except:
         return False
@@ -37,7 +38,8 @@ def have_libhdfs():
 
 def have_libhdfs3():
     try:
-        check_status(HaveLibHdfs3())
+        with nogil:
+            check_status(HaveLibHdfs3())
         return True
     except:
         return False
@@ -73,10 +75,12 @@ cdef class HadoopFileSystem:
             conf.kerb_ticket = tobytes(kerb_ticket)
 
         if driver == 'libhdfs':
-            check_status(HaveLibHdfs())
+            with nogil:
+                check_status(HaveLibHdfs())
             conf.driver = HdfsDriver_LIBHDFS
         else:
-            check_status(HaveLibHdfs3())
+            with nogil:
+                check_status(HaveLibHdfs3())
             conf.driver = HdfsDriver_LIBHDFS3
 
         with nogil:

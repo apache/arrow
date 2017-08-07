@@ -168,8 +168,9 @@ cdef class Column:
         cdef:
             PyObject* out
 
-        check_status(libarrow.ConvertColumnToPandas(self.sp_column,
-                                                    self, &out))
+        with nogil:
+            check_status(libarrow.ConvertColumnToPandas(self.sp_column,
+                                                        self, &out))
 
         return pd.Series(wrap_array_output(out), name=self.name)
 
