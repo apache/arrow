@@ -59,6 +59,8 @@ using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 using parquet::arrow::FromParquetSchema;
 
+using ColumnVector = std::vector<std::shared_ptr<arrow::Column>>;
+
 namespace parquet {
 namespace arrow {
 
@@ -280,9 +282,9 @@ struct test_traits<::arrow::FixedSizeBinaryType> {
   static std::string const value;
 };
 
-const std::string test_traits<::arrow::StringType>::value("Test");
-const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");
-const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");
+const std::string test_traits<::arrow::StringType>::value("Test");              // NOLINT
+const std::string test_traits<::arrow::BinaryType>::value("\x00\x01\x02\x03");  // NOLINT
+const std::string test_traits<::arrow::FixedSizeBinaryType>::value("Fixed");    // NOLINT
 template <typename T>
 using ParquetDataType = DataType<test_traits<T>::parquet_enum>;
 
@@ -991,6 +993,145 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
   MakeDateTimeTypesTable(&table, true);
 
   ASSERT_TRUE(table->Equals(*result));
+}
+
+TEST(TestArrowReadWrite, CoerceTimestamps) {
+  using ::arrow::ArrayFromVector;
+  using ::arrow::field;
+
+  // PARQUET-1078, coerce Arrow timestamps to either TIMESTAMP_MILLIS or TIMESTAMP_MICROS
+  std::vector<bool> is_valid = {true, true, true, false, true, true};
+
+  auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
+  auto t_ms = ::arrow::timestamp(TimeUnit::MILLI);
+  auto t_us = ::arrow::timestamp(TimeUnit::MICRO);
+  auto t_ns = ::arrow::timestamp(TimeUnit::NANO);
+
+  std::vector<int64_t> s_values = {1489269, 1489270, 1489271, 1489272, 1489272, 1489273};
+  std::vector<int64_t> ms_values = {1489269000, 1489270000, 1489271000,
+                                    1489272001, 1489272000, 1489273000};
+  std::vector<int64_t> us_values = {1489269000000, 1489270000000, 1489271000000,
+                                    1489272000001, 1489272000000, 1489273000000};
+  std::vector<int64_t> ns_values = {1489269000000000LL, 1489270000000000LL,
+                                    1489271000000000LL, 1489272000000001LL,
+                                    1489272000000000LL, 1489273000000000LL};
+
+  std::shared_ptr<Array> a_s, a_ms, a_us, a_ns;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, s_values, &a_s);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, is_valid, ms_values, &a_ms);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, is_valid, us_values, &a_us);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, is_valid, ns_values, &a_ns);
+
+  // Input table, all data as is
+  auto s1 = std::shared_ptr<::arrow::Schema>(
+      new ::arrow::Schema({field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us),
+                           field("f_ns", t_ns)}));
+  auto input = std::make_shared<::arrow::Table>(
+      s1, ColumnVector({std::make_shared<Column>("f_s", a_s),
+                        std::make_shared<Column>("f_ms", a_ms),
+                        std::make_shared<Column>("f_us", a_us),
+                        std::make_shared<Column>("f_ns", a_ns)}));
+
+  // Result when coercing to milliseconds
+  auto s2 = std::shared_ptr<::arrow::Schema>(
+      new ::arrow::Schema({field("f_s", t_ms), field("f_ms", t_ms), field("f_us", t_ms),
+                           field("f_ns", t_ms)}));
+  auto ex_milli_result = std::make_shared<::arrow::Table>(
+      s2, ColumnVector({std::make_shared<Column>("f_s", a_ms),
+                        std::make_shared<Column>("f_ms", a_ms),
+                        std::make_shared<Column>("f_us", a_ms),
+                        std::make_shared<Column>("f_ns", a_ms)}));
+
+  // Result when coercing to microseconds
+  auto s3 = std::shared_ptr<::arrow::Schema>(
+      new ::arrow::Schema({field("f_s", t_us), field("f_ms", t_us), field("f_us", t_us),
+                           field("f_ns", t_us)}));
+  auto ex_micro_result = std::make_shared<::arrow::Table>(
+      s3, ColumnVector({std::make_shared<Column>("f_s", a_us),
+                        std::make_shared<Column>("f_ms", a_us),
+                        std::make_shared<Column>("f_us", a_us),
+                        std::make_shared<Column>("f_ns", a_us)}));
+
+  std::shared_ptr<Table> milli_result;
+  DoSimpleRoundtrip(
+      input, 1, input->num_rows(), {}, &milli_result,
+      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build());
+  ASSERT_TRUE(milli_result->Equals(*ex_milli_result));
+
+  std::shared_ptr<Table> micro_result;
+  DoSimpleRoundtrip(
+      input, 1, input->num_rows(), {}, &micro_result,
+      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build());
+  ASSERT_TRUE(micro_result->Equals(*ex_micro_result));
+}
+
+TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
+  using ::arrow::ArrayFromVector;
+  using ::arrow::field;
+
+  // PARQUET-1078, coerce Arrow timestamps to either TIMESTAMP_MILLIS or TIMESTAMP_MICROS
+  std::vector<bool> is_valid = {true, true, true, false, true, true};
+
+  auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
+  auto t_ms = ::arrow::timestamp(TimeUnit::MILLI);
+  auto t_us = ::arrow::timestamp(TimeUnit::MICRO);
+  auto t_ns = ::arrow::timestamp(TimeUnit::NANO);
+
+  std::vector<int64_t> s_values = {1489269, 1489270, 1489271, 1489272, 1489272, 1489273};
+  std::vector<int64_t> ms_values = {1489269001, 1489270001, 1489271001,
+                                    1489272001, 1489272001, 1489273001};
+  std::vector<int64_t> us_values = {1489269000001, 1489270000001, 1489271000001,
+                                    1489272000001, 1489272000001, 1489273000001};
+  std::vector<int64_t> ns_values = {1489269000000001LL, 1489270000000001LL,
+                                    1489271000000001LL, 1489272000000001LL,
+                                    1489272000000001LL, 1489273000000001LL};
+
+  std::shared_ptr<Array> a_s, a_ms, a_us, a_ns;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, s_values, &a_s);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, is_valid, ms_values, &a_ms);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, is_valid, us_values, &a_us);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, is_valid, ns_values, &a_ns);
+
+  auto s1 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_s", t_s)}));
+  auto s2 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_ms", t_ms)}));
+  auto s3 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_us", t_us)}));
+  auto s4 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_ns", t_ns)}));
+
+  auto c1 = std::make_shared<Column>("f_s", a_s);
+  auto c2 = std::make_shared<Column>("f_ms", a_ms);
+  auto c3 = std::make_shared<Column>("f_us", a_us);
+  auto c4 = std::make_shared<Column>("f_ns", a_ns);
+
+  auto t1 = std::make_shared<::arrow::Table>(s1, ColumnVector({c1}));
+  auto t2 = std::make_shared<::arrow::Table>(s2, ColumnVector({c2}));
+  auto t3 = std::make_shared<::arrow::Table>(s3, ColumnVector({c3}));
+  auto t4 = std::make_shared<::arrow::Table>(s4, ColumnVector({c4}));
+
+  auto sink = std::make_shared<InMemoryOutputStream>();
+
+  // OK to write to millis
+  auto coerce_millis =
+      (ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build());
+  ASSERT_OK_NO_THROW(WriteTable(*t1, ::arrow::default_memory_pool(), sink, 10,
+                                default_writer_properties(), coerce_millis));
+  ASSERT_OK_NO_THROW(WriteTable(*t2, ::arrow::default_memory_pool(), sink, 10,
+                                default_writer_properties(), coerce_millis));
+
+  // Loss of precision
+  ASSERT_RAISES(Invalid, WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
+                                    default_writer_properties(), coerce_millis));
+  ASSERT_RAISES(Invalid, WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
+                                    default_writer_properties(), coerce_millis));
+
+  // OK to write micros to micros
+  auto coerce_micros =
+      (ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build());
+  ASSERT_OK_NO_THROW(WriteTable(*t3, ::arrow::default_memory_pool(), sink, 10,
+                                default_writer_properties(), coerce_micros));
+
+  // Loss of precision
+  ASSERT_RAISES(Invalid, WriteTable(*t4, ::arrow::default_memory_pool(), sink, 10,
+                                    default_writer_properties(), coerce_micros));
 }
 
 TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {

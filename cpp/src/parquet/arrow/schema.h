@@ -25,6 +25,7 @@
 
 #include "parquet/api/schema.h"
 #include "parquet/api/writer.h"
+#include "parquet/arrow/writer.h"
 
 namespace arrow {
 
@@ -69,13 +70,17 @@ FromParquetSchema(const SchemaDescriptor* parquet_schema,
 
 ::arrow::Status PARQUET_EXPORT FieldToNode(const std::shared_ptr<::arrow::Field>& field,
                                            const WriterProperties& properties,
-                                           schema::NodePtr* out,
-                                           bool support_int96_nanoseconds = false);
+                                           const ArrowWriterProperties& arrow_properties,
+                                           schema::NodePtr* out);
+
+::arrow::Status PARQUET_EXPORT
+ToParquetSchema(const ::arrow::Schema* arrow_schema, const WriterProperties& properties,
+                const ArrowWriterProperties& arrow_properties,
+                std::shared_ptr<SchemaDescriptor>* out);
 
 ::arrow::Status PARQUET_EXPORT ToParquetSchema(const ::arrow::Schema* arrow_schema,
                                                const WriterProperties& properties,
-                                               std::shared_ptr<SchemaDescriptor>* out,
-                                               bool support_int96_nanoseconds = false);
+                                               std::shared_ptr<SchemaDescriptor>* out);
 
 }  // namespace arrow
 
