@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Plasma In-Memory Object Store"
-date: "2017-08-04 00:00:00 -0400"
+date: "2017-08-08 00:00:00 -0400"
 author: Philipp Moritz and Robert Nishihara
 categories: [application]
 ---
