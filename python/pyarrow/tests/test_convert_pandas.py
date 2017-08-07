@@ -542,9 +542,11 @@ class TestPandasConversion(unittest.TestCase):
         assert arr.equals(expected)
         assert arr.type == pa.list_(pa.null())
 
-        data2 = np.array([None, None, [None, None]], dtype=object)
+        data2 = np.array([None, None, [None, None],
+                          np.array([None, None], dtype=object)],
+                         dtype=object)
         arr = pa.Array.from_pandas(data2)
-        expected = pa.array(list(data2))
+        expected = pa.array([None, None, [None, None], [None, None]])
         assert arr.equals(expected)
 
     def test_threaded_conversion(self):
