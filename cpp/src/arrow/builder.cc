@@ -1357,7 +1357,7 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     return Status::OK();
 
 Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
-                        std::shared_ptr<Array>* out) {
+                               std::shared_ptr<Array>* out) {
   const std::shared_ptr<DataType>& type = input.data()->type;
   std::shared_ptr<ArrayBuilder> builder;
   switch (type->id()) {
@@ -1384,22 +1384,23 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
       return Status::NotImplemented(type->ToString());
   }
 }
-#define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                           \
-  case Type::ENUM:                                                         \
-    builder = std::make_shared<BuilderType>(pool, type);                   \
-    chunks = input.data(); \
-    for (auto chunk : chunks->chunks()){ \
+#define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                             \
+  case Type::ENUM:                                                            \
+    builder = std::make_shared<BuilderType>(pool, type);                      \
+    chunks = input.data();                                                    \
+    for (auto chunk : chunks->chunks()) {                                     \
       RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(*chunk)); \
-    } \
-    RETURN_NOT_OK(builder->Finish(&arr));                                   \
-    *out = std::make_shared<Column>(input.name(), arr); \
-    return Status::OK(); \
+    }                                                                         \
+    RETURN_NOT_OK(builder->Finish(&arr));                                     \
+    *out = std::make_shared<Column>(input.name(), arr);                       \
+    return Status::OK();
 
-  Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
-                        std::shared_ptr<Column>* out) {
+Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
+                                std::shared_ptr<Column>* out) {
   const std::shared_ptr<DataType>& type = input.type();
   std::shared_ptr<ArrayBuilder> builder;
-    std::shared_ptr<Array> arr; std::shared_ptr<ChunkedArray> chunks;
+  std::shared_ptr<Array> arr;
+  std::shared_ptr<ChunkedArray> chunks;
   switch (type->id()) {
     DICTIONARY_COLUMN_CASE(UINT8, DictionaryBuilder<UInt8Type>);
     DICTIONARY_COLUMN_CASE(INT8, DictionaryBuilder<Int8Type>);

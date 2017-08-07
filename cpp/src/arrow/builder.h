@@ -856,13 +856,13 @@ Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
 Status ARROW_EXPORT EncodeDictionary(const Array& input, MemoryPool* pool,
                                      std::shared_ptr<Array>* out);
 
-/// \brief Encodes a given Array using a hash table
+/// \brief Encodes a given ChunkedArray using a hash table
 ///
-/// \param[in] input The Array to be encoded
+/// \param[in] input The ChunkedArray to be encoded
 /// \param[in] pool MemoryPool to allocate memory for the hash table
-/// \param[out] out Array encoded to dictionaries
+/// \param[out] out ChunkedArray encoded to dictionaries
 Status ARROW_EXPORT EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
-                                     std::shared_ptr<Column>* out);
+                                std::shared_ptr<Column>* out);
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_

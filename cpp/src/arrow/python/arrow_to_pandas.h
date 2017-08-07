@@ -44,7 +44,7 @@ struct PandasOptions {
 };
 
 ARROW_EXPORT
-Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
+Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>& arr, PyObject* py_ref,
                             PyObject** out);
 
 ARROW_EXPORT

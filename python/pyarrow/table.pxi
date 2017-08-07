@@ -158,8 +158,8 @@ cdef class Column:
         cdef:
             PyObject* out
             PandasOptions options
-        if strings_to_categorical:
-            options.strings_to_categorical = True
+            
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
 
         check_status(libarrow.ConvertColumnToPandas(options,
                                                     self.sp_column,
@@ -847,9 +847,8 @@ cdef class Table:
         """
         cdef:
             PandasOptions options
-        if strings_to_categorical:
-            options.strings_to_categorical = True
-
+            
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()

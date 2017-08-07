@@ -890,7 +890,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([None, 'a', 'b'] * 5, dtype=object)
         pa_arr = pa.Array.from_pandas(arr, type=pa.string())
 
-        result = pa_arr.to_pandas(to_categorical=True)
+        result = pa_arr.to_pandas(strings_to_categorical=True)
         expected = pd.Categorical(arr)
         tm.assert_categorical_equal(result, expected)
 
@@ -901,7 +901,7 @@ class TestPandasConversion(unittest.TestCase):
         schema = pa.schema([field])
         table = pa.Table.from_pandas(df, schema=schema)
 
-        result = table.to_pandas(str_to_categorical=True)
+        result = table.to_pandas(strings_to_categorical=True)
         expected = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result, expected, check_dtype=True)
 
