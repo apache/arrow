@@ -736,7 +736,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                   object py_ref, PyObject** out)
 
     CStatus ConvertTableToPandas(PandasOptions options, const shared_ptr[CTable]& table,
-                                 int nthreads, PyObject** out)
+                                 int nthreads, CMemoryPool* pool, PyObject** out)
 
     void c_set_default_memory_pool \
         " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\

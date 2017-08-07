@@ -59,7 +59,7 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 //
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
 ARROW_EXPORT
-Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table, int nthreads,
+Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table, int nthreads, MemoryPool* pool,
                             PyObject** out);
 
 }  // namespace py

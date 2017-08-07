@@ -205,7 +205,7 @@ def construct_metadata(df, index_levels, preserve_index, types):
     }
 
 
-def table_to_blockmanager(options, table, nthreads=1):
+def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pandas.core.internals as _int
     from pyarrow.compat import DatetimeTZDtype
     import pyarrow.lib as lib
@@ -241,7 +241,7 @@ def table_to_blockmanager(options, table, nthreads=1):
                 block_table.schema.get_field_index(name)
             )
 
-    result = lib.table_to_blocks(options, block_table, nthreads)
+    result = lib.table_to_blocks(options, block_table, nthreads, memory_pool)
 
     blocks = []
     for item in result:

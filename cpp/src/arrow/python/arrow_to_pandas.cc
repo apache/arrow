@@ -1165,8 +1165,8 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(PandasOptions options,
-                                 const std::shared_ptr<Table>& table)
-      : table_(table), options_(options) {}
+                                 const std::shared_ptr<Table>& table, MemoryPool* pool)
+      : table_(table), options_(options), pool_(pool) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1345,8 +1345,8 @@ class DataFrameBlockCreator {
       }
       if (options_.strings_to_categorical && col->type()->id() != Type::STRING) {
         std::shared_ptr<Column> encoded_col;
-        MemoryPool* pool = default_memory_pool();
-        EncodeColumnToDictionary(static_cast<Column>(*col.get()), pool, &encoded_col);
+        RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<Column>(*col.get()), pool_,
+                                               &encoded_col));
         return block->Write(encoded_col, i, rel_placement);
       }
       return block->Write(col, i, rel_placement);
@@ -1405,6 +1405,9 @@ class DataFrameBlockCreator {
   std::unordered_map<int, int> type_counts_;
 
   PandasOptions options_;
+
+  // Memory pool for dictionary encoding
+  MemoryPool* pool_;
 
   // block type -> block
   BlockMap blocks_;
@@ -1684,8 +1687,8 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 }
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
-                            int nthreads, PyObject** out) {
-  DataFrameBlockCreator helper(options, table);
+                           int nthreads, MemoryPool* pool, PyObject** out) {
+  DataFrameBlockCreator helper(options, table, pool);
   return helper.Convert(nthreads, out);
 }
 
