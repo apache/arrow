@@ -686,7 +686,10 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
                          const std::shared_ptr<DataType>& type) {
   int64_t size;
-  RETURN_NOT_OK(InferArrowSize(obj, &size));
+  {
+    PyAcquireGIL lock;
+    RETURN_NOT_OK(InferArrowSize(obj, &size));
+  }
   return ConvertPySequence(obj, pool, out, type, size);
 }
 
