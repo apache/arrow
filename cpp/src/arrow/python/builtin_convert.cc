@@ -530,14 +530,24 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
     const char* bytes;
     Py_ssize_t length;
 
-    if (item.obj() == Py_None) {
+    PyObject* obj = item.obj();
+    if (obj == Py_None) {
       return typed_builder_->AppendNull();
-    } else if (!PyUnicode_Check(item.obj())) {
-      return Status::Invalid("Non-unicode value encountered");
+    } else if (PyBytes_Check(obj)) {
+      tmp.reset(PyUnicode_FromStringAndSize(PyBytes_AS_STRING(obj),
+                                            PyBytes_GET_SIZE(obj)));
+      RETURN_IF_PYERROR();
+      bytes_obj = obj;
+    } else if (!PyUnicode_Check(obj)) {
+      PyObjectStringify stringified(obj);
+      std::stringstream ss;
+      ss << "Non bytes/unicode value encountered: " << stringified.bytes;
+      return Status::Invalid(ss.str());
+    } else {
+      tmp.reset(PyUnicode_AsUTF8String(obj));
+      RETURN_IF_PYERROR();
+      bytes_obj = tmp.obj();
     }
-    tmp.reset(PyUnicode_AsUTF8String(item.obj()));
-    RETURN_IF_PYERROR();
-    bytes_obj = tmp.obj();
 
     // No error checking
     length = PyBytes_GET_SIZE(bytes_obj);
