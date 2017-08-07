@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -60,9 +61,9 @@ public abstract class ArrowWriter implements AutoCloseable {
   /**
    * Note: fields are not closed when the writer is closed
    *
-   * @param root the vectors to write to the output
+   * @param root     the vectors to write to the output
    * @param provider where to find the dictionaries
-   * @param out the output where to write
+   * @param out      the output where to write
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     this.unloader = new VectorUnloader(root);
@@ -72,13 +73,13 @@ public abstract class ArrowWriter implements AutoCloseable {
     Set<Long> dictionaryIdsUsed = new HashSet<>();
 
     // Convert fields with dictionaries to have dictionary type
-    for (Field field: root.getSchema().getFields()) {
+    for (Field field : root.getSchema().getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
     }
 
     // Create a record batch for each dictionary
     this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
-    for (long id: dictionaryIdsUsed) {
+    for (long id : dictionaryIdsUsed) {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       int count = vector.getAccessor().getValueCount();
@@ -105,7 +106,7 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected void writeRecordBatch(ArrowRecordBatch batch) throws IOException {
     ArrowBlock block = MessageSerializer.serialize(out, batch);
     LOGGER.debug(String.format("RecordBatch at %d, metadata: %d, body: %d",
-      block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+        block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
     recordBlocks.add(block);
   }
 
@@ -114,7 +115,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     ensureEnded();
   }
 
-  public long bytesWritten() { return out.getCurrentPosition(); }
+  public long bytesWritten() {
+    return out.getCurrentPosition();
+  }
 
   private void ensureStarted() throws IOException {
     if (!started) {
@@ -128,7 +131,7 @@ public abstract class ArrowWriter implements AutoCloseable {
         try {
           ArrowBlock block = MessageSerializer.serialize(out, batch);
           LOGGER.debug(String.format("DictionaryRecordBatch at %d, metadata: %d, body: %d",
-            block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
+              block.getOffset(), block.getMetadataLength(), block.getBodyLength()));
           dictionaryBlocks.add(block);
         } finally {
           batch.close();

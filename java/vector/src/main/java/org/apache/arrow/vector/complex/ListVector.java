@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.complex;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -199,7 +200,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
         to.addOrGetVector(vector.getField().getFieldType());
       }
       dataTransferPair = getDataVector().makeTransferPair(to.getDataVector());
-      pairs = new TransferPair[] { bitsTransferPair, offsetsTransferPair, dataTransferPair };
+      pairs = new TransferPair[] {bitsTransferPair, offsetsTransferPair, dataTransferPair};
     }
 
     @Override
@@ -316,9 +317,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers = ObjectArrays.concat(offsets.getBuffers(false), ObjectArrays.concat(bits.getBuffers(false),
-            vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
+        vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
     if (clear) {
-      for (ArrowBuf buffer:buffers) {
+      for (ArrowBuf buffer : buffers) {
         buffer.retain();
       }
       clear();
@@ -351,7 +352,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       final int start = offsetsAccessor.get(index);
       final int end = offsetsAccessor.get(index + 1);
       final ValueVector.Accessor valuesAccessor = getDataVector().getAccessor();
-      for(int i = start; i < end; i++) {
+      for (int i = start; i < end; i++) {
         vals.add(valuesAccessor.getObject(i));
       }
       return vals;
@@ -388,7 +389,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      * End the current value
      *
      * @param index index of the value to end
-     * @param size number of elements in the list that was written
+     * @param size  number of elements in the list that was written
      */
     public void endValue(int index, int size) {
       offsets.getMutator().set(index + 1, offsets.getAccessor().get(index + 1) + size);
@@ -414,7 +415,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       lastSet = value;
     }
 
-    public int getLastSet() { return lastSet; }
+    public int getLastSet() {
+      return lastSet;
+    }
   }
 
 }

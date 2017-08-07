@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import org.apache.arrow.flatbuf.Buffer;
@@ -58,19 +59,25 @@ public class ArrowBuffer implements FBSerializable {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj)
+    if (this == obj) {
       return true;
-    if (obj == null)
+    }
+    if (obj == null) {
       return false;
-    if (getClass() != obj.getClass())
+    }
+    if (getClass() != obj.getClass()) {
       return false;
+    }
     ArrowBuffer other = (ArrowBuffer) obj;
-    if (offset != other.offset)
+    if (offset != other.offset) {
       return false;
-    if (page != other.page)
+    }
+    if (page != other.page) {
       return false;
-    if (size != other.size)
+    }
+    if (size != other.size) {
       return false;
+    }
     return true;
   }
 

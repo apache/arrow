@@ -15,13 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import org.apache.arrow.vector.ValueVector;
 
 public interface TransferPair {
   public void transfer();
+
   public void splitAndTransfer(int startIndex, int length);
+
   public ValueVector getTo();
+
   public void copyValueSafe(int from, int to);
 }

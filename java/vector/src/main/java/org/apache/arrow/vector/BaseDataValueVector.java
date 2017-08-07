@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.util.ArrayList;
@@ -84,7 +85,7 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
     if (getBufferSize() == 0) {
       out = new ArrowBuf[0];
     } else {
-      out = new ArrowBuf[]{data};
+      out = new ArrowBuf[] {data};
       data.readerIndex(0);
       if (clear) {
         data.retain(1);
@@ -123,5 +124,6 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
    * This method has a similar effect of allocateNew() without actually clearing and reallocating
    * the value vector. The purpose is to move the value vector to a "mutate" state
    */
-  public void reset() {}
+  public void reset() {
+  }
 }

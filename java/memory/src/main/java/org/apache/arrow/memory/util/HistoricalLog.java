@@ -97,7 +97,7 @@ public class HistoricalLog {
    * includes the identifying string provided at construction time, and all the recorded
    * events with their stack traces.
    *
-   * @param sb {@link StringBuilder} to write to
+   * @param sb                {@link StringBuilder} to write to
    * @param includeStackTrace whether to include the stacktrace of each event in the history
    */
   public void buildHistory(final StringBuilder sb, boolean includeStackTrace) {
@@ -106,8 +106,9 @@ public class HistoricalLog {
 
   /**
    * build the history and write it to sb
-   * @param sb output
-   * @param indent starting indent (usually "")
+   *
+   * @param sb                output
+   * @param indent            starting indent (usually "")
    * @param includeStackTrace whether to include the stacktrace of each event.
    */
   public synchronized void buildHistory(

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import java.util.Iterator;
@@ -25,7 +26,7 @@ import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
 
 
-abstract class AbstractBaseReader implements FieldReader{
+abstract class AbstractBaseReader implements FieldReader {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);
 
@@ -40,11 +41,11 @@ abstract class AbstractBaseReader implements FieldReader{
     return index;
   }
 
-  public void setPosition(int index){
+  public void setPosition(int index) {
     this.index = index;
   }
 
-  protected int idx(){
+  protected int idx() {
     return index;
   }
 
@@ -86,6 +87,6 @@ abstract class AbstractBaseReader implements FieldReader{
 
   @Override
   public void copyAsValue(ListWriter writer) {
-    ComplexCopier.copy(this, (FieldWriter)writer);
+    ComplexCopier.copy(this, (FieldWriter) writer);
   }
 }

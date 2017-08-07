@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.types;
 
 import org.apache.arrow.flatbuf.Precision;
@@ -25,6 +26,7 @@ public enum FloatingPointPrecision {
   DOUBLE(Precision.DOUBLE);
 
   private static final FloatingPointPrecision[] valuesByFlatbufId = new FloatingPointPrecision[FloatingPointPrecision.values().length];
+
   static {
     for (FloatingPointPrecision v : FloatingPointPrecision.values()) {
       valuesByFlatbufId[v.flatbufID] = v;

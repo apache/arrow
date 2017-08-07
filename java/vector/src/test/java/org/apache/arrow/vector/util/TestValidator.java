@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import static org.apache.arrow.vector.util.Validator.equalEnough;
@@ -26,32 +27,32 @@ import org.junit.Test;
 
 public class TestValidator {
 
-    @Test
-    public void testFloatComp() {
-        assertTrue(equalEnough(912.4140000000002F, 912.414F));
-        assertTrue(equalEnough(912.4140000000002D, 912.414D));
-        assertTrue(equalEnough(912.414F, 912.4140000000002F));
-        assertTrue(equalEnough(912.414D, 912.4140000000002D));
-        assertFalse(equalEnough(912.414D, 912.4140001D));
-        assertFalse(equalEnough(null, 912.414D));
-        assertTrue(equalEnough((Float)null, null));
-        assertTrue(equalEnough((Double)null, null));
-        assertFalse(equalEnough(912.414D, null));
-        assertFalse(equalEnough(Double.MAX_VALUE, Double.MIN_VALUE));
-        assertFalse(equalEnough(Double.MIN_VALUE, Double.MAX_VALUE));
-        assertTrue(equalEnough(Double.MAX_VALUE, Double.MAX_VALUE));
-        assertTrue(equalEnough(Double.MIN_VALUE, Double.MIN_VALUE));
-        assertTrue(equalEnough(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
-        assertFalse(equalEnough(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
-        assertTrue(equalEnough(Double.NaN, Double.NaN));
-        assertFalse(equalEnough(1.0, Double.NaN));
-        assertFalse(equalEnough(Float.MAX_VALUE, Float.MIN_VALUE));
-        assertFalse(equalEnough(Float.MIN_VALUE, Float.MAX_VALUE));
-        assertTrue(equalEnough(Float.MAX_VALUE, Float.MAX_VALUE));
-        assertTrue(equalEnough(Float.MIN_VALUE, Float.MIN_VALUE));
-        assertTrue(equalEnough(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY));
-        assertFalse(equalEnough(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
-        assertTrue(equalEnough(Float.NaN, Float.NaN));
-        assertFalse(equalEnough(1.0F, Float.NaN));
-    }
+  @Test
+  public void testFloatComp() {
+    assertTrue(equalEnough(912.4140000000002F, 912.414F));
+    assertTrue(equalEnough(912.4140000000002D, 912.414D));
+    assertTrue(equalEnough(912.414F, 912.4140000000002F));
+    assertTrue(equalEnough(912.414D, 912.4140000000002D));
+    assertFalse(equalEnough(912.414D, 912.4140001D));
+    assertFalse(equalEnough(null, 912.414D));
+    assertTrue(equalEnough((Float) null, null));
+    assertTrue(equalEnough((Double) null, null));
+    assertFalse(equalEnough(912.414D, null));
+    assertFalse(equalEnough(Double.MAX_VALUE, Double.MIN_VALUE));
+    assertFalse(equalEnough(Double.MIN_VALUE, Double.MAX_VALUE));
+    assertTrue(equalEnough(Double.MAX_VALUE, Double.MAX_VALUE));
+    assertTrue(equalEnough(Double.MIN_VALUE, Double.MIN_VALUE));
+    assertTrue(equalEnough(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
+    assertFalse(equalEnough(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
+    assertTrue(equalEnough(Double.NaN, Double.NaN));
+    assertFalse(equalEnough(1.0, Double.NaN));
+    assertFalse(equalEnough(Float.MAX_VALUE, Float.MIN_VALUE));
+    assertFalse(equalEnough(Float.MIN_VALUE, Float.MAX_VALUE));
+    assertTrue(equalEnough(Float.MAX_VALUE, Float.MAX_VALUE));
+    assertTrue(equalEnough(Float.MIN_VALUE, Float.MIN_VALUE));
+    assertTrue(equalEnough(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY));
+    assertFalse(equalEnough(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+    assertTrue(equalEnough(Float.NaN, Float.NaN));
+    assertFalse(equalEnough(1.0F, Float.NaN));
+  }
 }

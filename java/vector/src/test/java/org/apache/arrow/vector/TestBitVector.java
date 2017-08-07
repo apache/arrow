@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
@@ -75,11 +76,10 @@ public class TestBitVector {
       sourceVector.allocateNew(40);
 
       /* populate the bitvector -- 010101010101010101010101..... */
-      for(int i = 0; i < 40; i++) {
-        if((i & 1) ==  1) {
+      for (int i = 0; i < 40; i++) {
+        if ((i & 1) == 1) {
           sourceMutator.set(i, 1);
-        }
-        else {
+        } else {
           sourceMutator.set(i, 0);
         }
       }
@@ -87,18 +87,17 @@ public class TestBitVector {
       sourceMutator.setValueCount(40);
 
       /* check the vector output */
-      for(int i = 0; i < 40; i++) {
+      for (int i = 0; i < 40; i++) {
         int result = sourceAccessor.get(i);
-        if((i & 1) ==  1) {
+        if ((i & 1) == 1) {
           assertEquals(Integer.toString(1), Integer.toString(result));
-        }
-        else {
+        } else {
           assertEquals(Integer.toString(0), Integer.toString(result));
         }
       }
 
       final TransferPair transferPair = sourceVector.getTransferPair(allocator);
-      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector) transferPair.getTo();
       final BitVector.Accessor toAccessor = toVector.getAccessor();
       final BitVector.Mutator toMutator = toVector.getMutator();
 
@@ -110,13 +109,13 @@ public class TestBitVector {
        *    (2.1) the length is a multiple of 8
        *    (2.2) the length is not a multiple of 8
        */
-      final int[][] transferLengths = {  {0, 8},     /* (1) */
-                                         {8, 10},    /* (1) */
-                                         {18, 0},    /* zero length scenario */
-                                         {18, 8},    /* (2.1) */
-                                         {26, 0},    /* zero length scenario */
-                                         {26, 14}    /* (2.2) */
-                                      };
+      final int[][] transferLengths = {{0, 8},     /* (1) */
+          {8, 10},    /* (1) */
+          {18, 0},    /* zero length scenario */
+          {18, 8},    /* (2.1) */
+          {26, 0},    /* zero length scenario */
+          {26, 14}    /* (2.2) */
+      };
 
       for (final int[] transferLength : transferLengths) {
         final int start = transferLength[0];
@@ -127,10 +126,9 @@ public class TestBitVector {
         /* check the toVector output after doing splitAndTransfer */
         for (int i = 0; i < length; i++) {
           int result = toAccessor.get(i);
-          if((i & 1) == 1) {
+          if ((i & 1) == 1) {
             assertEquals(Integer.toString(1), Integer.toString(result));
-          }
-          else {
+          } else {
             assertEquals(Integer.toString(0), Integer.toString(result));
           }
         }
