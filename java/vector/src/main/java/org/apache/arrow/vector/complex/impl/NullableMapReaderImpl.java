@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.MapVector;
@@ -28,8 +29,8 @@ public class NullableMapReaderImpl extends SingleMapReaderImpl {
   private NullableMapVector nullableMapVector;
 
   public NullableMapReaderImpl(MapVector vector) {
-    super((NullableMapVector)vector);
-    this.nullableMapVector = (NullableMapVector)vector;
+    super((NullableMapVector) vector);
+    this.nullableMapVector = (NullableMapVector) vector;
   }
 
   @Override
@@ -38,19 +39,19 @@ public class NullableMapReaderImpl extends SingleMapReaderImpl {
   }
 
   @Override
-  public void copyAsValue(MapWriter writer){
+  public void copyAsValue(MapWriter writer) {
     NullableMapWriter impl = (NullableMapWriter) writer;
     impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer){
+  public void copyAsField(String name, MapWriter writer) {
     NullableMapWriter impl = (NullableMapWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), nullableMapVector);
   }
 
   @Override
-  public boolean isSet(){
+  public boolean isSet() {
     return !nullableMapVector.getAccessor().isNull(idx());
   }
 }

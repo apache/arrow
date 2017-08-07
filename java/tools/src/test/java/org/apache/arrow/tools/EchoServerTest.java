@@ -158,16 +158,16 @@ public class EchoServerTest {
   public void testFlatDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        NullableIntVector writeVector =
-            new NullableIntVector(
-                "varchar",
-                new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
-                allocator);
-        NullableVarCharVector writeDictionaryVector =
-            new NullableVarCharVector(
-                "dict",
-                FieldType.nullable(VARCHAR.getType()),
-                allocator)) {
+         NullableIntVector writeVector =
+             new NullableIntVector(
+                 "varchar",
+                 new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
+                 allocator);
+         NullableVarCharVector writeDictionaryVector =
+             new NullableVarCharVector(
+                 "dict",
+                 FieldType.nullable(VARCHAR.getType()),
+                 allocator)) {
       writeVector.allocateNewSafe();
       NullableIntVector.Mutator mutator = writeVector.getMutator();
       mutator.set(0, 0);

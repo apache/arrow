@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -58,6 +59,7 @@ public abstract class AbstractContainerVector implements ValueVector {
 
   /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given field name if exists or null.
+   *
    * @param name the name of the child to return
    * @return the corresponding FieldVector
    */
@@ -68,9 +70,9 @@ public abstract class AbstractContainerVector implements ValueVector {
   /**
    * Clears out all underlying child vectors.
    */
- @Override
+  @Override
   public void close() {
-    for (ValueVector vector:(Iterable<ValueVector>)this) {
+    for (ValueVector vector : (Iterable<ValueVector>) this) {
       vector.close();
     }
   }

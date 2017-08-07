@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.types.pojo;
 
 
@@ -53,7 +54,7 @@ public class Schema {
 
   /**
    * @param fields the list of the fields
-   * @param name the name of the field to return
+   * @param name   the name of the field to return
    * @return the corresponding field
    * @throws IllegalArgumentException if the field was not found
    */
@@ -146,7 +147,7 @@ public class Schema {
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
     int[] metadataOffsets = new int[metadata.size()];
     Iterator<Entry<String, String>> metadataIterator = metadata.entrySet().iterator();
-    for (int i = 0; i < metadataOffsets.length; i ++) {
+    for (int i = 0; i < metadataOffsets.length; i++) {
       Entry<String, String> kv = metadataIterator.next();
       int keyOffset = builder.createString(kv.getKey());
       int valueOffset = builder.createString(kv.getValue());
@@ -174,7 +175,7 @@ public class Schema {
       return false;
     }
     return Objects.equals(this.fields, ((Schema) obj).fields) &&
-           Objects.equals(this.metadata, ((Schema) obj).metadata);
+        Objects.equals(this.metadata, ((Schema) obj).metadata);
   }
 
   @Override

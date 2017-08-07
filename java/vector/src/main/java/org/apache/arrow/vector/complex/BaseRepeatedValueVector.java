@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import java.util.Collections;
@@ -144,7 +145,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers = ObjectArrays.concat(offsets.getBuffers(false), vector.getBuffers(false), ArrowBuf.class);
     if (clear) {
-      for (ArrowBuf buffer:buffers) {
+      for (ArrowBuf buffer : buffers) {
         buffer.retain();
       }
       clear();
@@ -156,7 +157,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    * @return 1 if inner vector is explicitly set via #addOrGetVector else 0
    */
   public int size() {
-    return vector == DEFAULT_DATA_VECTOR ? 0:1;
+    return vector == DEFAULT_DATA_VECTOR ? 0 : 1;
   }
 
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
@@ -166,8 +167,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       // returned vector must have the same field
       created = true;
       if (callBack != null &&
-        // not a schema change if changing from ZeroVector to ZeroVector
-        (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+          // not a schema change if changing from ZeroVector to ZeroVector
+          (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         callBack.doWork();
       }
     }
@@ -178,7 +179,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       throw new SchemaChangeRuntimeException(msg);
     }
 
-    return new AddOrGetResult<>((T)vector, created);
+    return new AddOrGetResult<>((T) vector, created);
   }
 
   protected void replaceDataVector(FieldVector v) {
@@ -200,7 +201,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
     @Override
     public int getInnerValueCountAt(int index) {
-      return offsets.getAccessor().get(index+1) - offsets.getAccessor().get(index);
+      return offsets.getAccessor().get(index + 1) - offsets.getAccessor().get(index);
     }
 
     @Override
@@ -222,15 +223,15 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
         offsets.reAlloc();
       }
       int offset = offsets.getAccessor().get(index);
-      offsets.getMutator().setSafe(index+1, offset);
-      setValueCount(index+1);
+      offsets.getMutator().setSafe(index + 1, offset);
+      setValueCount(index + 1);
       return offset;
     }
 
     @Override
     public void setValueCount(int valueCount) {
       // TODO: populate offset end points
-      offsets.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
+      offsets.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount + 1);
       final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
       vector.getMutator().setValueCount(childValueCount);
     }

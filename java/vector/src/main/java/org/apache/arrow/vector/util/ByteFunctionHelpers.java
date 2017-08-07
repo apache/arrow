@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.util;
 
 import io.netty.buffer.ArrowBuf;
@@ -31,15 +32,15 @@ public class ByteFunctionHelpers {
   /**
    * Helper function to check for equality of bytes in two ArrowBufs
    *
-   * @param left Left ArrowBuf for comparison
+   * @param left   Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
-   * @param lEnd end offset in the buffer
-   * @param right Right ArrowBuf for comparison
+   * @param lEnd   end offset in the buffer
+   * @param right  Right ArrowBuf for comparison
    * @param rStart start offset in the buffer
-   * @param rEnd end offset in the buffer
+   * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd){
+  public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -48,7 +49,7 @@ public class ByteFunctionHelpers {
   }
 
   private static final int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
-      final int rEnd) {
+                                    final int rEnd) {
 
     int n = lEnd - lStart;
     if (n == rEnd - rStart) {
@@ -85,15 +86,15 @@ public class ByteFunctionHelpers {
    *
    * Function will check data before completing in the case that
    *
-   * @param left Left ArrowBuf to compare
+   * @param left   Left ArrowBuf to compare
    * @param lStart start offset in the buffer
-   * @param lEnd end offset in the buffer
-   * @param right Right ArrowBuf to compare
+   * @param lEnd   end offset in the buffer
+   * @param right  Right ArrowBuf to compare
    * @param rStart start offset in the buffer
-   * @param rEnd end offset in the buffer
+   * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd){
+  public static final int compare(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -140,12 +141,12 @@ public class ByteFunctionHelpers {
   /**
    * Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
    *
-   * @param left Left ArrowBuf for comparison purposes
+   * @param left   Left ArrowBuf for comparison purposes
    * @param lStart start offset in the buffer
-   * @param lEnd end offset in the buffer
-   * @param right second input to be compared
+   * @param lEnd   end offset in the buffer
+   * @param right  second input to be compared
    * @param rStart start offset in the byte array
-   * @param rEnd end offset in the byte array
+   * @param rEnd   end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
   public static final int compare(final ArrowBuf left, int lStart, int lEnd, final byte[] right, int rStart, final int rEnd) {

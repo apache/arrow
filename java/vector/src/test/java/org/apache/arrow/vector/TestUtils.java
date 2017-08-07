@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -25,7 +26,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 public class TestUtils {
 
   public static NullableVarCharVector newNullableVarCharVector(String name, BufferAllocator allocator) {
-    return (NullableVarCharVector)FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector(name, allocator, null);
+    return (NullableVarCharVector) FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector(name, allocator, null);
   }
 
   public static <T> T newVector(Class<T> c, String name, ArrowType type, BufferAllocator allocator) {

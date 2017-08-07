@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.ByteArrayInputStream;
@@ -107,19 +108,19 @@ public class TestArrowFile extends BaseFileTest {
     // read
     try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
          FileInputStream fileInputStream = new FileInputStream(file);
-         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator){
-            @Override
-            protected ArrowMessage readMessage(SeekableReadChannel in, BufferAllocator allocator) throws IOException {
-              ArrowMessage message = super.readMessage(in, allocator);
-              if (message != null) {
-                ArrowRecordBatch batch = (ArrowRecordBatch) message;
-                List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
-                for (ArrowBuffer arrowBuffer : buffersLayout) {
-                  Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
-                }
-              }
-              return message;
-            }
+         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator) {
+           @Override
+           protected ArrowMessage readMessage(SeekableReadChannel in, BufferAllocator allocator) throws IOException {
+             ArrowMessage message = super.readMessage(in, allocator);
+             if (message != null) {
+               ArrowRecordBatch batch = (ArrowRecordBatch) message;
+               List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
+               for (ArrowBuffer arrowBuffer : buffersLayout) {
+                 Assert.assertEquals(0, arrowBuffer.getOffset() % 8);
+               }
+             }
+             return message;
+           }
          }) {
       Schema schema = arrowReader.getVectorSchemaRoot().getSchema();
       LOGGER.debug("reading schema: " + schema);
@@ -134,7 +135,7 @@ public class TestArrowFile extends BaseFileTest {
     // Read from stream.
     try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
          ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
-         ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator){
+         ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator) {
            @Override
            protected ArrowMessage readMessage(ReadChannel in, BufferAllocator allocator) throws IOException {
              ArrowMessage message = super.readMessage(in, allocator);
@@ -203,17 +204,17 @@ public class TestArrowFile extends BaseFileTest {
   public void testWriteReadMultipleRBs() throws IOException {
     File file = new File("target/mytest_multiple.arrow");
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    int[] counts = { 10, 5 };
+    int[] counts = {10, 5};
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          MapVector parent = MapVector.empty("parent", originalVectorAllocator);
-         FileOutputStream fileOutputStream = new FileOutputStream(file)){
+         FileOutputStream fileOutputStream = new FileOutputStream(file)) {
       writeData(counts[0], parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
 
-      try(ArrowFileWriter fileWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel());
-          ArrowStreamWriter streamWriter = new ArrowStreamWriter(root, null, stream)) {
+      try (ArrowFileWriter fileWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel());
+           ArrowStreamWriter streamWriter = new ArrowStreamWriter(root, null, stream)) {
         fileWriter.start();
         streamWriter.start();
 
@@ -318,7 +319,7 @@ public class TestArrowFile extends BaseFileTest {
       root.getFieldVectors().get(0).allocateNew();
       NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
       for (int i = 0; i < 16; i++) {
-        mutator.set(i, i < 8 ? 1 : 0, (byte)(i + 1));
+        mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
       mutator.setValueCount(16);
       root.setRowCount(16);
@@ -367,7 +368,7 @@ public class TestArrowFile extends BaseFileTest {
     NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
     for (int i = 0; i < 16; i++) {
       if (i < 8) {
-        Assert.assertEquals((byte)(i + 1), vector.getAccessor().get(i));
+        Assert.assertEquals((byte) (i + 1), vector.getAccessor().get(i));
       } else {
         Assert.assertTrue(vector.getAccessor().isNull(i));
       }
@@ -384,7 +385,7 @@ public class TestArrowFile extends BaseFileTest {
     childFields.add(new Field("float-child", new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null, metadata(2)), null));
     childFields.add(new Field("int-child", new FieldType(false, new ArrowType.Int(32, true), null, metadata(3)), null));
     childFields.add(new Field("list-child", new FieldType(true, ArrowType.List.INSTANCE, null, metadata(4)),
-                              ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16 ,true)), null))));
+        ImmutableList.of(new Field("l1", FieldType.nullable(new ArrowType.Int(16, true)), null))));
     Field field = new Field("meta", new FieldType(true, ArrowType.Struct.INSTANCE, null, metadata(0)), childFields);
     Map<String, String> metadata = new HashMap<>();
     metadata.put("s1", "v1");
@@ -425,7 +426,7 @@ public class TestArrowFile extends BaseFileTest {
       Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
-      for (int i = 0; i < 4; i ++) {
+      for (int i = 0; i < 4; i++) {
         Assert.assertEquals(metadata(i + 1), top.getChildren().get(i).getMetadata());
       }
     }
@@ -441,7 +442,7 @@ public class TestArrowFile extends BaseFileTest {
       Assert.assertEquals(originalSchema.getCustomMetadata(), schema.getCustomMetadata());
       Field top = schema.getFields().get(0);
       Assert.assertEquals(metadata(0), top.getMetadata());
-      for (int i = 0; i < 4; i ++) {
+      for (int i = 0; i < 4; i++) {
         Assert.assertEquals(metadata(i + 1), top.getChildren().get(i).getMetadata());
       }
     }
@@ -475,7 +476,7 @@ public class TestArrowFile extends BaseFileTest {
       }
 
       // Need to close dictionary vectors
-      for (long id: provider.getDictionaryIds()) {
+      for (long id : provider.getDictionaryIds()) {
         provider.lookup(id).getVector().close();
       }
     }
@@ -534,7 +535,7 @@ public class TestArrowFile extends BaseFileTest {
       }
 
       // Need to close dictionary vectors
-      for (long id: provider.getDictionaryIds()) {
+      for (long id : provider.getDictionaryIds()) {
         provider.lookup(id).getVector().close();
       }
     }

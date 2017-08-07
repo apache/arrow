@@ -15,28 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.NullableMapVector;
 
 public class NullableMapWriterFactory {
-    private final boolean caseSensitive;
-    private static final NullableMapWriterFactory nullableMapWriterFactory = new NullableMapWriterFactory(false);
-    private static final NullableMapWriterFactory nullableCaseSensitiveWriterFactory = new NullableMapWriterFactory(true);
+  private final boolean caseSensitive;
+  private static final NullableMapWriterFactory nullableMapWriterFactory = new NullableMapWriterFactory(false);
+  private static final NullableMapWriterFactory nullableCaseSensitiveWriterFactory = new NullableMapWriterFactory(true);
 
-    public NullableMapWriterFactory(boolean caseSensitive) {
-        this.caseSensitive = caseSensitive;
-    }
+  public NullableMapWriterFactory(boolean caseSensitive) {
+    this.caseSensitive = caseSensitive;
+  }
 
-    public NullableMapWriter build(NullableMapVector container) {
-        return this.caseSensitive? new NullableCaseSensitiveMapWriter(container) : new NullableMapWriter(container);
-    }
+  public NullableMapWriter build(NullableMapVector container) {
+    return this.caseSensitive ? new NullableCaseSensitiveMapWriter(container) : new NullableMapWriter(container);
+  }
 
-    public static NullableMapWriterFactory getNullableMapWriterFactoryInstance() {
-        return nullableMapWriterFactory;
-    }
+  public static NullableMapWriterFactory getNullableMapWriterFactoryInstance() {
+    return nullableMapWriterFactory;
+  }
 
-    public static NullableMapWriterFactory getNullableCaseSensitiveMapWriterFactoryInstance() {
-        return nullableCaseSensitiveWriterFactory;
-    }
+  public static NullableMapWriterFactory getNullableCaseSensitiveMapWriterFactoryInstance() {
+    return nullableCaseSensitiveWriterFactory;
+  }
 }

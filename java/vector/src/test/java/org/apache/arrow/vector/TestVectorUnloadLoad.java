@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static java.util.Arrays.asList;
@@ -176,8 +177,9 @@ public class TestVectorUnloadLoad {
 
   /**
    * The validity buffer can be empty if:
-   *  - all values are defined
-   *  - all values are null
+   * - all values are defined
+   * - all values are null
+   *
    * @throws IOException
    */
   @Test
@@ -185,7 +187,7 @@ public class TestVectorUnloadLoad {
     Schema schema = new Schema(asList(
         new Field("intDefined", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
         new Field("intNull", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
-                                     ));
+    ));
     int count = 10;
     ArrowBuf validity = allocator.buffer(10).slice(0, 0);
     ArrowBuf[] values = new ArrowBuf[2];
@@ -208,8 +210,8 @@ public class TestVectorUnloadLoad {
 
       vectorLoader.load(recordBatch);
 
-      NullableIntVector intDefinedVector = (NullableIntVector)newRoot.getVector("intDefined");
-      NullableIntVector intNullVector = (NullableIntVector)newRoot.getVector("intNull");
+      NullableIntVector intDefinedVector = (NullableIntVector) newRoot.getVector("intDefined");
+      NullableIntVector intNullVector = (NullableIntVector) newRoot.getVector("intNull");
       for (int i = 0; i < count; i++) {
         assertFalse("#" + i, intDefinedVector.getAccessor().isNull(i));
         assertEquals("#" + i, i, intDefinedVector.getAccessor().get(i));
@@ -244,20 +246,20 @@ public class TestVectorUnloadLoad {
   public void testUnloadLoadDuplicates() throws IOException {
     int count = 10;
     Schema schema = new Schema(asList(
-      new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
-      new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
+        new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
+        new Field("duplicate", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
     ));
 
     try (
-      BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        BufferAllocator originalVectorsAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
     ) {
       List<FieldVector> sources = new ArrayList<>();
-      for (Field field: schema.getFields()) {
+      for (Field field : schema.getFields()) {
         FieldVector vector = field.createVector(originalVectorsAllocator);
         vector.allocateNew();
         sources.add(vector);
         NullableIntVector.Mutator mutator = (NullableIntVector.Mutator) vector.getMutator();
-        for (int i =  0; i < count; i++) {
+        for (int i = 0; i < count; i++) {
           mutator.set(i, i);
         }
         mutator.setValueCount(count);
@@ -266,8 +268,8 @@ public class TestVectorUnloadLoad {
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), sources, count)) {
         VectorUnloader vectorUnloader = new VectorUnloader(root);
         try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-                BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-                VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);) {
+             BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
+             VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);) {
           // load it
           VectorLoader vectorLoader = new VectorLoader(newRoot);
           vectorLoader.load(recordBatch);

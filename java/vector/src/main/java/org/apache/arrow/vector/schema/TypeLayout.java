@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import static java.util.Arrays.asList;
@@ -61,11 +62,13 @@ public class TypeLayout {
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
 
-      @Override public TypeLayout visit(Int type) {
+      @Override
+      public TypeLayout visit(Int type) {
         return newFixedWidthTypeLayout(dataVector(type.getBitWidth()));
       }
 
-      @Override public TypeLayout visit(Union type) {
+      @Override
+      public TypeLayout visit(Union type) {
         List<VectorLayout> vectors;
         switch (type.getMode()) {
           case Dense:
@@ -74,12 +77,12 @@ public class TypeLayout {
                 validityVector(),
                 typeVector(),
                 offsetVector() // offset to find the vector
-                );
+            );
             break;
           case Sparse:
             vectors = asList(
                 typeVector() // type of the value at the index or 0 if null
-                );
+            );
             break;
           default:
             throw new UnsupportedOperationException("Unsupported Union Mode: " + type.getMode());
@@ -87,64 +90,73 @@ public class TypeLayout {
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(Struct type) {
+      @Override
+      public TypeLayout visit(Struct type) {
         List<VectorLayout> vectors = asList(
             validityVector()
-            );
+        );
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(Timestamp type) {
+      @Override
+      public TypeLayout visit(Timestamp type) {
         return newFixedWidthTypeLayout(dataVector(64));
       }
 
-      @Override public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      @Override
+      public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
         List<VectorLayout> vectors = asList(
             validityVector(),
             offsetVector()
-            );
+        );
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(FixedSizeList type) {
+      @Override
+      public TypeLayout visit(FixedSizeList type) {
         List<VectorLayout> vectors = asList(
             validityVector()
-            );
+        );
         return new TypeLayout(vectors);
       }
 
-      @Override public TypeLayout visit(FloatingPoint type) {
+      @Override
+      public TypeLayout visit(FloatingPoint type) {
         int bitWidth;
         switch (type.getPrecision()) {
-        case HALF:
-          bitWidth = 16;
-          break;
-        case SINGLE:
-          bitWidth = 32;
-          break;
-        case DOUBLE:
-          bitWidth = 64;
-          break;
-        default:
-          throw new UnsupportedOperationException("Unsupported Precision: " + type.getPrecision());
+          case HALF:
+            bitWidth = 16;
+            break;
+          case SINGLE:
+            bitWidth = 32;
+            break;
+          case DOUBLE:
+            bitWidth = 64;
+            break;
+          default:
+            throw new UnsupportedOperationException("Unsupported Precision: " + type.getPrecision());
         }
         return newFixedWidthTypeLayout(dataVector(bitWidth));
       }
 
-      @Override public TypeLayout visit(Decimal type) {
+      @Override
+      public TypeLayout visit(Decimal type) {
         // TODO: check size
         return newFixedWidthTypeLayout(dataVector(64)); // actually depends on the type fields
       }
 
-      @Override public TypeLayout visit(Bool type) {
+      @Override
+      public TypeLayout visit(Bool type) {
         return newFixedWidthTypeLayout(booleanVector());
       }
 
-      @Override public TypeLayout visit(Binary type) {
+      @Override
+      public TypeLayout visit(Binary type) {
         return newVariableWidthTypeLayout();
       }
 
-      @Override public TypeLayout visit(Utf8 type) {
+      @Override
+      public TypeLayout visit(Utf8 type) {
         return newVariableWidthTypeLayout();
       }
 
@@ -178,12 +190,12 @@ public class TypeLayout {
       @Override
       public TypeLayout visit(Interval type) { // TODO: check size
         switch (type.getUnit()) {
-        case DAY_TIME:
-          return newFixedWidthTypeLayout(dataVector(64));
-        case YEAR_MONTH:
-          return newFixedWidthTypeLayout(dataVector(64));
-        default:
-          throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
+          case DAY_TIME:
+            return newFixedWidthTypeLayout(dataVector(64));
+          case YEAR_MONTH:
+            return newFixedWidthTypeLayout(dataVector(64));
+          default:
+            throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
         }
       }
 
@@ -228,12 +240,15 @@ public class TypeLayout {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj)
+    if (this == obj) {
       return true;
-    if (obj == null)
+    }
+    if (obj == null) {
       return false;
-    if (getClass() != obj.getClass())
+    }
+    if (getClass() != obj.getClass()) {
       return false;
+    }
     TypeLayout other = (TypeLayout) obj;
     return vectors.equals(other.vectors);
   }

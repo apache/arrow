@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
@@ -65,7 +66,7 @@ public class TestBufferOwnershipTransfer {
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    int expected = 8*4096 + 4*4096 + 4096;
+    int expected = 8 * 4096 + 4 * 4096 + 4096;
     assertEquals(expected, childAllocator2.getAllocatedMemory());
   }
 
@@ -90,11 +91,11 @@ public class TestBufferOwnershipTransfer {
     final Pointer<Boolean> trigger1 = new Pointer<>();
     final Pointer<Boolean> trigger2 = new Pointer<>();
     final ListVector v1 = new ListVector("v1", allocator,
-            FieldType.nullable(ArrowType.Null.INSTANCE),
-            newTriggerCallback(trigger1));
+        FieldType.nullable(ArrowType.Null.INSTANCE),
+        newTriggerCallback(trigger1));
     final ListVector v2 = new ListVector("v2", allocator,
-            FieldType.nullable(ArrowType.Null.INSTANCE),
-            newTriggerCallback(trigger2));
+        FieldType.nullable(ArrowType.Null.INSTANCE),
+        newTriggerCallback(trigger2));
 
     v1.makeTransferPair(v2).transfer();
 

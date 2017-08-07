@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import static java.util.Arrays.asList;
@@ -71,7 +72,7 @@ public class TestArrowStream extends BaseFileTest {
       root.getFieldVectors().get(0).allocateNew();
       NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
       for (int i = 0; i < 16; i++) {
-        mutator.set(i, i < 8 ? 1 : 0, (byte)(i + 1));
+        mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
       mutator.setValueCount(16);
       root.setRowCount(16);

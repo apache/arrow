@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
@@ -48,7 +49,7 @@ public class ArrowFooter implements FBSerializable {
         Schema.convertSchema(footer.schema()),
         dictionaries(footer),
         recordBatches(footer)
-        );
+    );
   }
 
   private static List<ArrowBlock> recordBatches(Footer footer) {
@@ -112,28 +113,37 @@ public class ArrowFooter implements FBSerializable {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj)
+    if (this == obj) {
       return true;
-    if (obj == null)
+    }
+    if (obj == null) {
       return false;
-    if (getClass() != obj.getClass())
+    }
+    if (getClass() != obj.getClass()) {
       return false;
+    }
     ArrowFooter other = (ArrowFooter) obj;
     if (dictionaries == null) {
-      if (other.dictionaries != null)
+      if (other.dictionaries != null) {
         return false;
-    } else if (!dictionaries.equals(other.dictionaries))
+      }
+    } else if (!dictionaries.equals(other.dictionaries)) {
       return false;
+    }
     if (recordBatches == null) {
-      if (other.recordBatches != null)
+      if (other.recordBatches != null) {
         return false;
-    } else if (!recordBatches.equals(other.recordBatches))
+      }
+    } else if (!recordBatches.equals(other.recordBatches)) {
       return false;
+    }
     if (schema == null) {
-      if (other.schema != null)
+      if (other.schema != null) {
         return false;
-    } else if (!schema.equals(other.schema))
+      }
+    } else if (!schema.equals(other.schema)) {
       return false;
+    }
     return true;
   }
 }

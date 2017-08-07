@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.file.json;
 
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -114,7 +115,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       dictionaries = new HashMap<>();
 
       // Convert fields with dictionaries to have the index type
-      for (Field field: originalSchema.getFields()) {
+      for (Field field : originalSchema.getFields()) {
         fields.add(DictionaryUtility.toMemoryFormat(field, allocator, dictionaries));
       }
       this.schema = new Schema(fields, originalSchema.getCustomMetadata());
@@ -233,7 +234,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         BufferBacked innerVector = fieldInnerVectors.get(v);
         nextFieldIs(vectorType.getName());
         readToken(START_ARRAY);
-        ValueVector valueVector = (ValueVector)innerVector;
+        ValueVector valueVector = (ValueVector) innerVector;
         valueVector.allocateNew();
         Mutator mutator = valueVector.getMutator();
 
@@ -262,7 +263,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         readToken(END_ARRAY);
       }
       if (vector instanceof NullableMapVector) {
-        ((NullableMapVector)vector).valueCount = count;
+        ((NullableMapVector) vector).valueCount = count;
       }
     }
     readToken(END_OBJECT);
@@ -278,96 +279,96 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
   private void setValueFromParser(ValueVector valueVector, int i) throws IOException {
     switch (valueVector.getMinorType()) {
-    case BIT:
-      ((BitVector)valueVector).getMutator().set(i, parser.readValueAs(Boolean.class) ? 1 : 0);
-      break;
-    case TINYINT:
-      ((TinyIntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case SMALLINT:
-      ((SmallIntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case INT:
-      ((IntVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case BIGINT:
-      ((BigIntVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case UINT1:
-      ((UInt1Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case UINT2:
-      ((UInt2Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case UINT4:
-      ((UInt4Vector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case UINT8:
-      ((UInt8Vector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case FLOAT4:
-      ((Float4Vector)valueVector).getMutator().set(i, parser.readValueAs(Float.class));
-      break;
-    case FLOAT8:
-      ((Float8Vector)valueVector).getMutator().set(i, parser.readValueAs(Double.class));
-      break;
-    case VARBINARY:
-      ((VarBinaryVector)valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
-      break;
-    case VARCHAR:
-      ((VarCharVector)valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
-      break;
-    case DATEDAY:
-      ((DateDayVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case DATEMILLI:
-      ((DateMilliVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESEC:
-      ((TimeSecVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case TIMEMILLI:
-      ((TimeMilliVector)valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-      break;
-    case TIMEMICRO:
-      ((TimeMicroVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMENANO:
-      ((TimeNanoVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPSEC:
-      ((TimeStampSecVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPMILLI:
-      ((TimeStampMilliVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPMICRO:
-      ((TimeStampMicroVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPNANO:
-      ((TimeStampNanoVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPSECTZ:
-      ((TimeStampSecTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPMILLITZ:
-      ((TimeStampMilliTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPMICROTZ:
-      ((TimeStampMicroTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    case TIMESTAMPNANOTZ:
-      ((TimeStampNanoTZVector)valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-      break;
-    default:
-      throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
+      case BIT:
+        ((BitVector) valueVector).getMutator().set(i, parser.readValueAs(Boolean.class) ? 1 : 0);
+        break;
+      case TINYINT:
+        ((TinyIntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case SMALLINT:
+        ((SmallIntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case INT:
+        ((IntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case BIGINT:
+        ((BigIntVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case UINT1:
+        ((UInt1Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case UINT2:
+        ((UInt2Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case UINT4:
+        ((UInt4Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case UINT8:
+        ((UInt8Vector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case FLOAT4:
+        ((Float4Vector) valueVector).getMutator().set(i, parser.readValueAs(Float.class));
+        break;
+      case FLOAT8:
+        ((Float8Vector) valueVector).getMutator().set(i, parser.readValueAs(Double.class));
+        break;
+      case VARBINARY:
+        ((VarBinaryVector) valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
+        break;
+      case VARCHAR:
+        ((VarCharVector) valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
+        break;
+      case DATEDAY:
+        ((DateDayVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case DATEMILLI:
+        ((DateMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESEC:
+        ((TimeSecVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case TIMEMILLI:
+        ((TimeMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
+        break;
+      case TIMEMICRO:
+        ((TimeMicroVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMENANO:
+        ((TimeNanoVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPSEC:
+        ((TimeStampSecVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPMILLI:
+        ((TimeStampMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPMICRO:
+        ((TimeStampMicroVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPNANO:
+        ((TimeStampNanoVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPSECTZ:
+        ((TimeStampSecTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPMILLITZ:
+        ((TimeStampMilliTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPMICROTZ:
+        ((TimeStampMicroTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      case TIMESTAMPNANOTZ:
+        ((TimeStampNanoTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
+        break;
+      default:
+        throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
     }
   }
 
   @Override
   public void close() throws IOException {
     parser.close();
-    for (Dictionary dictionary: dictionaries.values()) {
+    for (Dictionary dictionary : dictionaries.values()) {
       dictionary.getVector().close();
     }
   }

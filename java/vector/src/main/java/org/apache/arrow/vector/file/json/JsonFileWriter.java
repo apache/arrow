@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.file.json;
 
 import java.io.File;
@@ -60,12 +61,15 @@ public class JsonFileWriter implements AutoCloseable {
 
   public static final class JSONWriteConfig {
     private final boolean pretty;
+
     private JSONWriteConfig(boolean pretty) {
       this.pretty = pretty;
     }
+
     private JSONWriteConfig() {
       this.pretty = false;
     }
+
     public JSONWriteConfig pretty(boolean pretty) {
       return new JSONWriteConfig(pretty);
     }
@@ -98,7 +102,7 @@ public class JsonFileWriter implements AutoCloseable {
     this.schema = schema;  // Store original Schema to ensure batches written match
 
     // Convert fields with dictionaries to have dictionary type
-    for (Field field: schema.getFields()) {
+    for (Field field : schema.getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
     }
     Schema updatedSchema = new Schema(fields, schema.getCustomMetadata());
@@ -117,7 +121,7 @@ public class JsonFileWriter implements AutoCloseable {
 
   private void writeDictionaryBatches(JsonGenerator generator, Set<Long> dictionaryIdsUsed, DictionaryProvider provider) throws IOException {
     generator.writeArrayFieldStart("dictionaries");
-    for (Long id: dictionaryIdsUsed) {
+    for (Long id : dictionaryIdsUsed) {
       generator.writeStartObject();
       generator.writeObjectField("id", id);
 
@@ -170,7 +174,7 @@ public class JsonFileWriter implements AutoCloseable {
         ArrowVectorType vectorType = vectorTypes.get(v);
         BufferBacked innerVector = fieldInnerVectors.get(v);
         generator.writeArrayFieldStart(vectorType.getName());
-        ValueVector valueVector = (ValueVector)innerVector;
+        ValueVector valueVector = (ValueVector) innerVector;
         for (int i = 0; i < valueVector.getAccessor().getValueCount(); i++) {
           writeValueToGenerator(valueVector, i);
         }
@@ -197,37 +201,37 @@ public class JsonFileWriter implements AutoCloseable {
   private void writeValueToGenerator(ValueVector valueVector, int i) throws IOException {
     switch (valueVector.getMinorType()) {
       case DATEDAY:
-        generator.writeNumber(((DateDayVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((DateDayVector) valueVector).getAccessor().get(i));
         break;
       case DATEMILLI:
-        generator.writeNumber(((DateMilliVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((DateMilliVector) valueVector).getAccessor().get(i));
         break;
       case TIMESEC:
-        generator.writeNumber(((TimeSecVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeSecVector) valueVector).getAccessor().get(i));
         break;
       case TIMEMILLI:
-        generator.writeNumber(((TimeMilliVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeMilliVector) valueVector).getAccessor().get(i));
         break;
       case TIMEMICRO:
-        generator.writeNumber(((TimeMicroVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeMicroVector) valueVector).getAccessor().get(i));
         break;
       case TIMENANO:
-        generator.writeNumber(((TimeNanoVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeNanoVector) valueVector).getAccessor().get(i));
         break;
       case TIMESTAMPSEC:
-        generator.writeNumber(((TimeStampSecVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeStampSecVector) valueVector).getAccessor().get(i));
         break;
       case TIMESTAMPMILLI:
-        generator.writeNumber(((TimeStampMilliVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeStampMilliVector) valueVector).getAccessor().get(i));
         break;
       case TIMESTAMPMICRO:
-        generator.writeNumber(((TimeStampMicroVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeStampMicroVector) valueVector).getAccessor().get(i));
         break;
       case TIMESTAMPNANO:
-        generator.writeNumber(((TimeStampNanoVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((TimeStampNanoVector) valueVector).getAccessor().get(i));
         break;
       case BIT:
-        generator.writeNumber(((BitVector)valueVector).getAccessor().get(i));
+        generator.writeNumber(((BitVector) valueVector).getAccessor().get(i));
         break;
       case VARBINARY:
         String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
