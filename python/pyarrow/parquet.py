@@ -808,7 +808,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
 
 
 def write_metadata(schema, where, version='1.0',
-                   use_deprecated_int96_timestamps=False):
+                   use_deprecated_int96_timestamps=False,
+                   coerce_timestamps=None):
     """
     Write metadata-only Parquet file from schema
 
@@ -818,10 +819,16 @@ def write_metadata(schema, where, version='1.0',
     where: string or pyarrow.io.NativeFile
     version : {"1.0", "2.0"}, default "1.0"
         The Parquet format version, defaults to 1.0
+    use_deprecated_int96_timestamps : boolean, default False
+        Write nanosecond resolution timestamps to INT96 Parquet format
+    coerce_timestamps : string, default None
+        Cast timestamps a particular resolution.
+        Valid values: {None, 'ms', 'us'}
     """
     options = dict(
         version=version,
-        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps
+        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+        coerce_timestamps=coerce_timestamps
     )
     writer = ParquetWriter(where, schema, **options)
     writer.close()
