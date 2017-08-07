@@ -558,9 +558,14 @@ cdef class ParquetWriter:
         cdef:
             shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties
+            c_string c_where
+            CMemoryPool* pool
 
         if isinstance(where, six.string_types):
-            check_status(FileOutputStream.Open(tobytes(where), &filestream))
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where,
+                                                   &filestream))
             self.sink = <shared_ptr[OutputStream]> filestream
         else:
             get_writer(where, &self.sink)
@@ -580,11 +585,12 @@ cdef class ParquetWriter:
         self._set_int96_support(&arrow_properties_builder)
         arrow_properties = arrow_properties_builder.build()
 
-        check_status(
-            FileWriter.Open(deref(schema.schema),
-                            maybe_unbox_memory_pool(memory_pool),
-                            self.sink, properties, arrow_properties,
-                            &self.writer))
+        pool = maybe_unbox_memory_pool(memory_pool)
+        with nogil:
+            check_status(
+                FileWriter.Open(deref(schema.schema), pool,
+                                self.sink, properties, arrow_properties,
+                                &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
         if self.use_deprecated_int96_timestamps:
