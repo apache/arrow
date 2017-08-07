@@ -541,7 +541,7 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
     } else if (!PyUnicode_Check(obj)) {
       PyObjectStringify stringified(obj);
       std::stringstream ss;
-      ss << "Non-unicode value encountered: " << stringified.bytes;
+      ss << "Non bytes/unicode value encountered: " << stringified.bytes;
       return Status::Invalid(ss.str());
     } else {
       tmp.reset(PyUnicode_AsUTF8String(obj));
