@@ -547,6 +547,7 @@ cdef class ParquetWriter:
     cdef readonly:
         object use_dictionary
         object use_deprecated_int96_timestamps
+        object coerce_timestamps
         object compression
         object version
         int row_group_size
@@ -554,7 +555,8 @@ cdef class ParquetWriter:
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
                   MemoryPool memory_pool=None,
-                  use_deprecated_int96_timestamps=False):
+                  use_deprecated_int96_timestamps=False,
+                  coerce_timestamps=None):
         cdef:
             shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties
@@ -574,6 +576,7 @@ cdef class ParquetWriter:
         self.compression = compression
         self.version = version
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
+        self.coerce_timestamps = coerce_timestamps
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
@@ -583,6 +586,7 @@ cdef class ParquetWriter:
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
         self._set_int96_support(&arrow_properties_builder)
+        self._set_coerce_timestamps(&arrow_properties_builder)
         arrow_properties = arrow_properties_builder.build()
 
         pool = maybe_unbox_memory_pool(memory_pool)
@@ -597,6 +601,16 @@ cdef class ParquetWriter:
             props.enable_deprecated_int96_timestamps()
         else:
             props.disable_deprecated_int96_timestamps()
+
+    cdef int _set_coerce_timestamps(
+            self, ArrowWriterProperties.Builder* props) except -1:
+        if self.coerce_timestamps == 'ms':
+            props.coerce_timestamps(TimeUnit_MILLI)
+        elif self.coerce_timestamps == 'us':
+            props.coerce_timestamps(TimeUnit_MICRO)
+        elif self.coerce_timestamps is not None:
+            raise ValueError('Invalid value for coerce_timestamps: {0}'
+                             .format(self.coerce_timestamps))
 
     cdef void _set_version(self, WriterProperties.Builder* props):
         if self.version is not None:

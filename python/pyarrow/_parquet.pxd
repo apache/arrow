@@ -21,7 +21,8 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CTable, CMemoryPool,
                                         CKeyValueMetadata,
-                                        RandomAccessFile, OutputStream)
+                                        RandomAccessFile, OutputStream,
+                                        TimeUnit)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -266,5 +267,6 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
             Builder()
             Builder* disable_deprecated_int96_timestamps()
             Builder* enable_deprecated_int96_timestamps()
+            Builder* coerce_timestamps(TimeUnit unit)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
