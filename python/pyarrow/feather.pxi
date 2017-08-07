@@ -44,7 +44,8 @@ cdef class FeatherWriter:
         if self.num_rows < 0:
             self.num_rows = 0
         self.writer.get().SetNumRows(self.num_rows)
-        check_status(self.writer.get().Finalize())
+        with nogil:
+            check_status(self.writer.get().Finalize())
 
     def write_array(self, object name, object col, object mask=None):
         cdef Array arr

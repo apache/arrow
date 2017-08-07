@@ -447,7 +447,8 @@ cdef class MemoryMappedFile(NativeFile):
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-        check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
+        with nogil:
+            check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
 
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
@@ -642,7 +643,8 @@ cdef class BufferOutputStream(NativeFile):
         self.is_open = True
 
     def get_result(self):
-        check_status(self.wr_file.get().Close())
+        with nogil:
+            check_status(self.wr_file.get().Close())
         self.is_open = False
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
