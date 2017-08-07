@@ -31,7 +31,11 @@
 #endif
 
 #ifdef _WIN32
+#include <intrin.h>
 #include <windows.h>
+#include <array>
+#include <bitset>
+
 #endif
 
 #include <boost/algorithm/string.hpp>
@@ -132,6 +136,46 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
   }
   return true;
 }
+
+bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
+  if (!hardware_flags || !model_name) {
+    return false;
+  }
+  const int register_ECX_id = 1;
+  int highest_valid_id = 0;
+  int highest_extended_valid_id = 0;
+  std::bitset<32> features_ECX;
+  std::array<int, 4> cpu_info;
+
+  // Get highest valid id
+  __cpuid(cpu_info.data(), 0);
+  highest_valid_id = cpu_info[0];
+
+  if (highest_valid_id <= register_ECX_id) return false;
+
+  __cpuidex(cpu_info.data(), register_ECX_id, 0);
+  features_ECX = cpu_info[2];
+
+  // Get highest extended id
+  __cpuid(cpu_info.data(), 0x80000000);
+  highest_extended_valid_id = cpu_info[0];
+
+  // Retrieve CPU model name
+  if (highest_extended_valid_id >= 0x80000004) {
+    model_name->clear();
+    for (int i = 0x80000002; i <= 0x80000004; ++i) {
+      __cpuidex(cpu_info.data(), i, 0);
+      *model_name +=
+          std::string(reinterpret_cast<char*>(cpu_info.data()), sizeof(cpu_info));
+    }
+  }
+
+  if (features_ECX[9]) *hardware_flags |= CpuInfo::SSSE3;
+  if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
+  if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
+  if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
+  return true;
+}
 #endif
 
 void CpuInfo::Init() {
@@ -203,6 +247,7 @@ void CpuInfo::Init() {
   if (!RetrieveCacheSize(cache_sizes_)) {
     SetDefaultCacheSize();
   }
+  RetrieveCPUInfo(&hardware_flags_, &model_name_);
 #else
   SetDefaultCacheSize();
 #endif
