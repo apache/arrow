@@ -1395,6 +1395,12 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     *out = std::make_shared<Column>(input.name(), arr);                       \
     return Status::OK();
 
+
+/// \brief Encodes a column to a suitable dictionary type
+/// \param input Column to be encoded
+/// \param pool MemoryPool to allocate the dictionary
+/// \param out The new column
+/// \return Status
 Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
                                 std::shared_ptr<Column>* out) {
   const std::shared_ptr<DataType>& type = input.type();

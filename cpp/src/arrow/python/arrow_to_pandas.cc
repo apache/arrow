@@ -1175,7 +1175,7 @@ class DataFrameBlockCreator {
     blocks_.clear();
 
     RETURN_NOT_OK(InferOutputBlockTypes());
-    RETURN_NOT_OK(CreateBlocks());
+    RETURN_NOT_OK(CreateTrivialBlocks());
     RETURN_NOT_OK(WriteTableToBlocks(nthreads));
 
     return GetResultList(output);
@@ -1273,57 +1273,82 @@ class DataFrameBlockCreator {
     return Status::OK();
   }
 
-  Status CreateBlocks() {
+  /// \brief Allocates a block in case the column is of type CATEGORICAL or
+  /// DATETIME_WITH_TZ
+  /// \param i Column index to assign the block types correctly
+  /// \param col Column for which the block should be created. Needed for type
+  Status MaybeCreateSingleBlock(int i, std::shared_ptr<Column> col) {
+    PandasBlock::type output_type = this->column_types_[i];
+    std::shared_ptr<PandasBlock> block;
+    if (output_type == PandasBlock::CATEGORICAL) {
+      RETURN_NOT_OK(MakeCategoricalBlock(this->options_, col->type(),
+                                         this->table_->num_rows(), &block));
+      this->categorical_blocks_[i] = block;
+    } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
+      const auto& ts_type = static_cast<const TimestampType&>(*col->type());
+      block = std::make_shared<DatetimeTZBlock>(this->options_, ts_type.timezone(),
+                                                this->table_->num_rows());
+      RETURN_NOT_OK(block->Allocate());
+      this->datetimetz_blocks_[i] = block;
+    }
+    return Status::OK();
+  }
+
+  /// \brief Allocate all blocks which are neither datetime nor categorical
+  Status CreateTrivialBlocks() {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<Column> col = table_->column(i);
       PandasBlock::type output_type = column_types_[i];
 
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
-      if (output_type == PandasBlock::CATEGORICAL) {
-        RETURN_NOT_OK(
-            MakeCategoricalBlock(options_, col->type(), table_->num_rows(), &block));
-        categorical_blocks_[i] = block;
-      } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
-        const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-        block = std::make_shared<DatetimeTZBlock>(options_, ts_type.timezone(),
-                                                  table_->num_rows());
-        RETURN_NOT_OK(block->Allocate());
-        datetimetz_blocks_[i] = block;
-      } else {
-        auto it = type_counts_.find(output_type);
-        if (it != type_counts_.end()) {
+      if (output_type != PandasBlock::CATEGORICAL &&
+          output_type != PandasBlock::DATETIME_WITH_TZ) {
+        auto it = this->type_counts_.find(output_type);
+        if (it != this->type_counts_.end()) {
           block_placement = it->second;
           // Increment count
           it->second += 1;
         } else {
           // Add key to map
-          type_counts_[output_type] = 1;
+          this->type_counts_[output_type] = 1;
         }
       }
-      column_block_placement_[i] = block_placement;
+      this->column_block_placement_[i] = block_placement;
     }
 
     // Create normal non-categorical blocks
-    for (const auto& it : type_counts_) {
+    for (const auto& it : this->type_counts_) {
       PandasBlock::type type = static_cast<PandasBlock::type>(it.first);
       std::shared_ptr<PandasBlock> block;
-      RETURN_NOT_OK(MakeBlock(options_, type, table_->num_rows(), it.second, &block));
-      blocks_[type] = block;
+      RETURN_NOT_OK(
+          MakeBlock(this->options_, type, this->table_->num_rows(), it.second, &block));
+      this->blocks_[type] = block;
     }
     return Status::OK();
   }
 
   Status WriteTableToBlocks(int nthreads) {
     auto WriteColumn = [this](int i) {
+      std::shared_ptr<PandasBlock> block;
+      std::shared_ptr<Column> out_col;
       std::shared_ptr<Column> col;
 
+      PandasBlock::type output_type;
       col = this->table_->column(i);
+      if (options_.strings_to_categorical &&
+          (col->type()->id() == Type::STRING || col->type()->id() == Type::BINARY)) {
+        RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<Column>(*col.get()),
+                                               this->pool_, &out_col));
+        output_type = PandasBlock::CATEGORICAL;
+      } else {
+        out_col = col;
+        output_type = this->column_types_[i];
+      }
 
-      PandasBlock::type output_type = this->column_types_[i];
+      RETURN_NOT_OK(MaybeCreateSingleBlock(i, out_col));
+
       int rel_placement = this->column_block_placement_[i];
-
-      std::shared_ptr<PandasBlock> block;
       if (output_type == PandasBlock::CATEGORICAL) {
         auto it = this->categorical_blocks_.find(i);
         if (it == this->blocks_.end()) {
@@ -1343,13 +1368,7 @@ class DataFrameBlockCreator {
         }
         block = it->second;
       }
-      if (options_.strings_to_categorical && col->type()->id() != Type::STRING) {
-        std::shared_ptr<Column> encoded_col;
-        RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<Column>(*col.get()), pool_,
-                                               &encoded_col));
-        return block->Write(encoded_col, i, rel_placement);
-      }
-      return block->Write(col, i, rel_placement);
+      return block->Write(out_col, i, rel_placement);
     };
 
     int num_tasks = table_->num_columns();
@@ -1687,7 +1706,7 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 }
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
-                           int nthreads, MemoryPool* pool, PyObject** out) {
+                            int nthreads, MemoryPool* pool, PyObject** out) {
   DataFrameBlockCreator helper(options, table, pool);
   return helper.Convert(nthreads, out);
 }

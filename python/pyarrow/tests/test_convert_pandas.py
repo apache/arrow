@@ -886,14 +886,6 @@ class TestPandasConversion(unittest.TestCase):
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
 
-    def test_array_to_categorical(self):
-        arr = np.array([None, 'a', 'b'] * 5, dtype=object)
-        pa_arr = pa.Array.from_pandas(arr, type=pa.string())
-
-        result = pa_arr.to_pandas(strings_to_categorical=True)
-        expected = pd.Categorical(arr)
-        tm.assert_categorical_equal(result, expected)
-
     def test_table_str_to_categorical(self):
         values = [None, 'a', 'b', np.nan]
         df = pd.DataFrame({'strings': values})
