@@ -143,10 +143,6 @@ struct PlatformFilename {
 
   const char* data() const { return reinterpret_cast<const char*>(utf16_path.c_str()); }
 
-  const char* utf8_data() const { return utf8_path.c_str(); }
-
-  const std::string& utf8_path() const { return utf8_path; }
-
   size_t length() const { return utf16_path.size(); }
 
   std::string utf8_path;
@@ -157,19 +153,17 @@ struct PlatformFilename {
 
 struct PlatformFilename {
   static Status Init(const std::string& utf8_path, PlatformFilename* out) {
-    out->path = utf8_path;
+    out->utf8_path = utf8_path;
     return Status::OK();
   }
 
-  const char* data() const { return path.c_str(); }
+  const char* data() const { return utf8_path.c_str(); }
 
   const char* utf8_data() const { return data(); }
 
-  const std::string& utf8_path() const { return path; }
+  size_t length() const { return utf8_path.size(); }
 
-  size_t length() const { return path.size(); }
-
-  std::string path;
+  std::string utf8_path;
 };
 
 #endif
