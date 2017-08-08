@@ -339,12 +339,12 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
     // no nulls, just dump the data
     RETURN_NOT_OK((WriteNonNullableBatch<ParquetType, ArrowType>(
         writer, static_cast<const ArrowType&>(*array->type()), array->length(),
-        num_levels, def_levels, rep_levels, data_ptr + data->offset())));
+        num_levels, def_levels, rep_levels, data_ptr)));
   } else {
     const uint8_t* valid_bits = data->null_bitmap_data();
     RETURN_NOT_OK((WriteNullableBatch<ParquetType, ArrowType>(
         writer, static_cast<const ArrowType&>(*array->type()), data->length(), num_levels,
-        def_levels, rep_levels, valid_bits, data->offset(), data_ptr + data->offset())));
+        def_levels, rep_levels, valid_bits, data->offset(), data_ptr)));
   }
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
@@ -602,7 +602,6 @@ Status FileWriter::Impl::WriteTimestampsCoerce(ColumnWriter* column_writer,
 
   const auto& data = static_cast<const ::arrow::TimestampArray&>(*array);
 
-  // TimestampArray::raw_values accounts for offset
   auto data_ptr = data.raw_values();
   auto writer = reinterpret_cast<TypedColumnWriter<Int64Type>*>(column_writer);
 
