@@ -38,7 +38,7 @@ public class ArrowFileWriter extends ArrowWriter {
 
   @Override
   protected void startInternal(WriteChannel out) throws IOException {
-    ArrowMagic.writeMagic(out);
+    ArrowMagic.writeMagic(out, true);
   }
 
   @Override
@@ -54,7 +54,7 @@ public class ArrowFileWriter extends ArrowWriter {
     }
     out.writeIntLittleEndian(footerLength);
     LOGGER.debug(String.format("Footer starts at %d, length: %d", footerStart, footerLength));
-    ArrowMagic.writeMagic(out);
+    ArrowMagic.writeMagic(out, false);
     LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
   }
 }
