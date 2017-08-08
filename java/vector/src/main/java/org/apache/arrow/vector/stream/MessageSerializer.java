@@ -128,12 +128,7 @@ public class MessageSerializer {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
-    // make sure that the body ends on an 8 byte boundary
-    // each buffer in the body gets started on an 8 byte boundary in ArrowRecordBatch,
-    // but we need to handle the final end alignment here
-    if (bodyLength % 8 != 0) {
-      bodyLength += 8 - (bodyLength % 8);
-    }
+    assert bodyLength % 8 == 0;
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -155,8 +150,7 @@ public class MessageSerializer {
     out.align();
 
     long bufferLength = writeBatchBuffers(out, batch);
-    // align again - the size is captured in out bodyLength check above
-    bufferLength += out.align();
+    assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
@@ -180,6 +174,7 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
+    out.align();
     return out.getCurrentPosition() - bufferStart;
   }
 
@@ -284,12 +279,7 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
-    // make sure that the body ends on an 8 byte boundary
-    // each buffer in the body gets started on an 8 byte boundary in ArrowRecordBatch,
-    // but we need to handle the final end alignment here
-    if (bodyLength % 8 != 0) {
-      bodyLength += 8 - (bodyLength % 8);
-    }
+    assert bodyLength % 8 == 0;
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -298,10 +288,10 @@ public class MessageSerializer {
 
     int metadataLength = serializedMessage.remaining();
 
-    // Add extra padding bytes so that length prefix + metadata is a multiple
-    // of 8 after alignment
-    if ((start + metadataLength + 4) % 8 != 0) {
-      metadataLength += 8 - (start + metadataLength + 4) % 8;
+    // calculate alignment bytes so that metadata length points to the correct location after alignment
+    int padding = (int) ((start + metadataLength + 4) % 8);
+    if (padding != 0) {
+      metadataLength += (8 - padding);
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -312,8 +302,7 @@ public class MessageSerializer {
 
     // write the embedded record batch
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
-    // align again - the size is captured in out bodyLength check above
-    bufferLength += out.align();
+    assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
