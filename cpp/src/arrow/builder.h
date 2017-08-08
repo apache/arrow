@@ -162,6 +162,19 @@ class ARROW_EXPORT ArrayBuilder {
   DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
+class ARROW_EXPORT NullBuilder : public ArrayBuilder {
+ public:
+  explicit NullBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG) : ArrayBuilder(null(), pool) {}
+
+  Status AppendNull() {
+    ++null_count_;
+    ++length_;
+    return Status::OK();
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override;
+};
+
 template <typename Type>
 class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
  public:

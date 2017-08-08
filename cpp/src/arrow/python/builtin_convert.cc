@@ -155,7 +155,7 @@ static constexpr int MAX_NESTING_LEVELS = 32;
 // SeqVisitor is used to infer the type.
 class SeqVisitor {
  public:
-  SeqVisitor() : max_nesting_level_(0) {
+  SeqVisitor() : max_nesting_level_(0), max_observed_level_(0) {
     memset(nesting_histogram_, 0, MAX_NESTING_LEVELS * sizeof(int));
   }
 
@@ -217,22 +217,11 @@ class SeqVisitor {
       if (num_nesting_levels() > 1) {
         return Status::Invalid("Mixed nesting levels not supported");
         // If the nesting goes deeper than the deepest scalar
-      } else if (max_observed_level() < max_nesting_level_) {
+      } else if (max_observed_level_ < max_nesting_level_) {
         return Status::Invalid("Mixed nesting levels not supported");
       }
     }
     return Status::OK();
-  }
-
-  // Returns the deepest level which has scalar elements.
-  int max_observed_level() const {
-    int result = 0;
-    for (int i = 0; i < MAX_NESTING_LEVELS; ++i) {
-      if (nesting_histogram_[i] > 0) {
-        result = i;
-      }
-    }
-    return result;
   }
 
   // Returns the number of nesting levels which have scalar elements.
@@ -252,6 +241,8 @@ class SeqVisitor {
   // Track observed
   // Deapest nesting level (irregardless of scalars)
   int max_nesting_level_;
+  int max_observed_level_;
+
   // Number of scalar elements at each nesting level.
   // (TOOD: We really only need to know if a scalar is present, not the count).
   int nesting_histogram_[MAX_NESTING_LEVELS];
@@ -263,13 +254,15 @@ class SeqVisitor {
     } else if (PyDict_Check(item_ref.obj())) {
       return Status::NotImplemented("No type inference for dicts");
     } else {
-      // We permit nulls at any level of nesting
-      if (item_ref.obj() == Py_None) {
-        // TODO
-      } else {
+      // We permit nulls at any level of nesting, but they aren't treated like
+      // other scalar values as far as the checking for mixed nesting structure
+      if (item_ref.obj() != Py_None) {
         ++nesting_histogram_[level];
-        return scalars_.Visit(item_ref.obj());
       }
+      if (level > max_observed_level_) {
+        max_observed_level_ = level;
+      }
+      return scalars_.Visit(item_ref.obj());
     }
     return Status::OK();
   }
@@ -390,6 +383,17 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
   }
 
   virtual Status AppendItem(const OwnedRef& item) = 0;
+};
+
+class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
+ public:
+  inline Status AppendItem(const OwnedRef& item) {
+    if (item.obj() == Py_None) {
+      return typed_builder_->AppendNull();
+    } else {
+      return Status::Invalid("NullConverter: passed non-None value");
+    }
+  }
 };
 
 class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter> {
@@ -616,6 +620,8 @@ class DecimalConverter
 // Dynamic constructor for sequence converters
 std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
   switch (type->id()) {
+    case Type::NA:
+      return std::make_shared<NullConverter>();
     case Type::BOOL:
       return std::make_shared<BoolConverter>();
     case Type::INT64:
