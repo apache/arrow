@@ -1397,8 +1397,6 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     DICTIONARY_BUILDER_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_BUILDER_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(BINARY, BinaryDictionaryBuilder);
-    // DICTIONARY_BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-    // DICTIONARY_BUILDER_CASE(DECIMAL, DecimalBuilder);
     default:
       return Status::NotImplemented(type->ToString());
   }
@@ -1433,15 +1431,13 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     DICTIONARY_ARRAY_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
-    // DICTIONARY_ARRAY_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-    // DICTIONARY_ARRAY_CASE(DECIMAL, DecimalBuilder);
     default:
       return Status::NotImplemented(type->ToString());
   }
 }
 #define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                             \
   case Type::ENUM:                                                            \
-    builder = std::make_shared<BuilderType>(pool, type);                      \
+    builder = std::make_shared<BuilderType>(type, pool);                      \
     chunks = input.data();                                                    \
     for (auto chunk : chunks->chunks()) {                                     \
       RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(*chunk)); \
@@ -1449,7 +1445,6 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     RETURN_NOT_OK(builder->Finish(&arr));                                     \
     *out = std::make_shared<Column>(input.name(), arr);                       \
     return Status::OK();
-
 
 /// \brief Encodes a column to a suitable dictionary type
 /// \param input Column to be encoded
@@ -1480,8 +1475,6 @@ Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
     DICTIONARY_COLUMN_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_COLUMN_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_COLUMN_CASE(BINARY, BinaryDictionaryBuilder);
-    // DICTIONARY_COLUMN_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-    // DICTIONARY_COLUMN_CASE(DECIMAL, DecimalBuilder);
     default:
       return Status::NotImplemented(type->ToString());
   }
