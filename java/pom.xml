@@ -33,7 +33,7 @@
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>18.0</dep.guava.version>
     <forkCount>2</forkCount>
-    <jackson.version>2.7.1</jackson.version>
+    <jackson.version>2.7.9</jackson.version>
     <hadoop.version>2.7.1</hadoop.version>
     <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
   </properties>
