@@ -267,7 +267,7 @@ template <typename T>
 inline void ConvertIntegerWithNulls(const ChunkedArray& data, double* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
     // Upcast to double, set NaN as appropriate
 
     for (int i = 0; i < arr.length(); ++i) {
@@ -280,7 +280,7 @@ template <typename T>
 inline void ConvertIntegerNoNullsSameType(const ChunkedArray& data, T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
     memcpy(out_values, in_values, sizeof(T) * arr.length());
     out_values += arr.length();
   }
@@ -290,7 +290,7 @@ template <typename InType, typename OutType>
 inline void ConvertIntegerNoNullsCast(const ChunkedArray& data, OutType* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values = in_values[i];
     }
@@ -518,7 +518,7 @@ template <typename T>
 inline void ConvertNumericNullable(const ChunkedArray& data, T na_value, T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const T*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const T*>(arr.raw_values());
 
     const uint8_t* valid_bits = arr.null_bitmap_data();
 
@@ -538,7 +538,7 @@ inline void ConvertNumericNullableCast(const ChunkedArray& data, OutType na_valu
                                        OutType* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
 
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values++ = arr.IsNull(i) ? na_value : static_cast<OutType>(in_values[i]);
@@ -550,7 +550,7 @@ template <typename InType, int64_t SHIFT>
 inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
-    auto in_values = reinterpret_cast<const InType*>(arr.values()->data()) + arr.offset();
+    auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
 
     for (int64_t i = 0; i < arr.length(); ++i) {
       *out_values++ = arr.IsNull(i) ? kPandasTimestampNull
@@ -1000,8 +1000,7 @@ class CategoricalBlock : public PandasBlock {
       const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
 
       const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
-      auto in_values =
-          reinterpret_cast<const T*>(indices.values()->data()) + indices.offset();
+      auto in_values = reinterpret_cast<const T*>(indices.raw_values());
 
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr->length(); ++i) {
@@ -1383,8 +1382,7 @@ class ArrowDeserializer {
     typedef typename internal::arrow_traits<TYPE>::T T;
 
     const auto& prim_arr = static_cast<const PrimitiveArray&>(*arr);
-    auto in_values =
-        reinterpret_cast<const T*>(prim_arr.values()->data()) + prim_arr.offset();
+    auto in_values = reinterpret_cast<const T*>(prim_arr.raw_values());
 
     // Zero-Copy. We can pass the data pointer directly to NumPy.
     void* data = const_cast<T*>(in_values);
@@ -1459,7 +1457,7 @@ class ArrowDeserializer {
 
     for (int c = 0; c < data_.num_chunks(); c++) {
       const auto& arr = static_cast<const PrimitiveArray&>(*data_.chunk(c));
-      auto in_values = reinterpret_cast<const T*>(arr.values()->data()) + arr.offset();
+      auto in_values = reinterpret_cast<const T*>(arr.raw_values());
 
       for (int64_t i = 0; i < arr.length(); ++i) {
         *out_values++ = arr.IsNull(i) ? na_value : in_values[i] / kShift;
