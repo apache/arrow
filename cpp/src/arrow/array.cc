@@ -159,6 +159,11 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
 }
 
+const uint8_t* PrimitiveArray::raw_values() const {
+  return raw_values_ +
+         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / 8;
+}
+
 template <typename T>
 NumericArray<T>::NumericArray(const std::shared_ptr<internal::ArrayData>& data)
     : PrimitiveArray(data) {

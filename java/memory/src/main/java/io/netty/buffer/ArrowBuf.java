@@ -406,12 +406,12 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[]{nioBuffer()};
+    return new ByteBuffer[] {nioBuffer()};
   }
 
   @Override
   public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[]{nioBuffer(index, length)};
+    return new ByteBuffer[] {nioBuffer(index, length)};
   }
 
   @Override

@@ -15,9 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
+
 import io.netty.buffer.ByteBuf;
 
 import org.apache.arrow.memory.BufferAllocator;

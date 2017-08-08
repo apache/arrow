@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
@@ -39,6 +40,7 @@ public class TestDecimalVector {
       intValues[2 * i] = -1 * (1 << i + 1);
     }
   }
+
   private int scale = 3;
 
   @Test

@@ -202,6 +202,8 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
 #undef TO_ARROW_TYPE_CASE
 
 Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* out) {
+  PyAcquireGIL lock;
+
   if (!PyArray_Check(ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }
@@ -234,6 +236,8 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao, std::shared_ptr<Tensor>* 
 }
 
 Status TensorToNdarray(const Tensor& tensor, PyObject* base, PyObject** out) {
+  PyAcquireGIL lock;
+
   int type_num;
   RETURN_NOT_OK(GetNumPyType(*tensor.type(), &type_num));
   PyArray_Descr* dtype = PyArray_DescrNewFromType(type_num);

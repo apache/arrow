@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.pojo;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -92,15 +93,15 @@ public class TestConvert {
     childrenBuilder.add(new Field("child3", FieldType.nullable(new Struct()), ImmutableList.<Field>of(
         new Field("child3.1", FieldType.nullable(Utf8.INSTANCE), null),
         new Field("child3.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of())
-        )));
+    )));
     childrenBuilder.add(new Field("child4", FieldType.nullable(new List()), ImmutableList.<Field>of(
         new Field("child4.1", FieldType.nullable(Utf8.INSTANCE), null)
-        )));
-    childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] { MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal() } )), ImmutableList.<Field>of(
+    )));
+    childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] {MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal()})), ImmutableList.<Field>of(
         new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
         new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of()),
         new Field("child5.3", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null)
-        )));
+    )));
     Schema initialSchema = new Schema(childrenBuilder.build());
     run(initialSchema);
   }

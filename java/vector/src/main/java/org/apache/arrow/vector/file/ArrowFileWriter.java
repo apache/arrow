@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -47,7 +48,7 @@ public class ArrowFileWriter extends ArrowWriter {
                              List<ArrowBlock> records) throws IOException {
     long footerStart = out.getCurrentPosition();
     out.write(new ArrowFooter(schema, dictionaries, records), false);
-    int footerLength = (int)(out.getCurrentPosition() - footerStart);
+    int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");
     }

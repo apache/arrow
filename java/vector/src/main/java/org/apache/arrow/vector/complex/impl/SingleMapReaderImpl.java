@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.complex.impl;
 
 
@@ -31,7 +32,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import com.google.common.collect.Maps;
 
 @SuppressWarnings("unused")
-public class SingleMapReaderImpl extends AbstractFieldReader{
+public class SingleMapReaderImpl extends AbstractFieldReader {
 
   private final MapVector vector;
   private final Map<String, FieldReader> fields = Maps.newHashMap();
@@ -40,8 +41,8 @@ public class SingleMapReaderImpl extends AbstractFieldReader{
     this.vector = vector;
   }
 
-  private void setChildrenPosition(int index){
-    for(FieldReader r : fields.values()){
+  private void setChildrenPosition(int index) {
+    for (FieldReader r : fields.values()) {
       r.setPosition(index);
     }
   }
@@ -52,13 +53,13 @@ public class SingleMapReaderImpl extends AbstractFieldReader{
   }
 
   @Override
-  public FieldReader reader(String name){
+  public FieldReader reader(String name) {
     FieldReader reader = fields.get(name);
-    if(reader == null){
+    if (reader == null) {
       ValueVector child = vector.getChild(name);
-      if(child == null){
+      if (child == null) {
         reader = NullReader.INSTANCE;
-      }else{
+      } else {
         reader = child.getReader();
       }
       fields.put(name, reader);
@@ -68,9 +69,9 @@ public class SingleMapReaderImpl extends AbstractFieldReader{
   }
 
   @Override
-  public void setPosition(int index){
+  public void setPosition(int index) {
     super.setPosition(index);
-    for(FieldReader r : fields.values()){
+    for (FieldReader r : fields.values()) {
       r.setPosition(index);
     }
   }
@@ -91,18 +92,18 @@ public class SingleMapReaderImpl extends AbstractFieldReader{
   }
 
   @Override
-  public java.util.Iterator<String> iterator(){
+  public java.util.Iterator<String> iterator() {
     return vector.fieldNameIterator();
   }
 
   @Override
-  public void copyAsValue(MapWriter writer){
+  public void copyAsValue(MapWriter writer) {
     SingleMapWriter impl = (SingleMapWriter) writer;
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
 
   @Override
-  public void copyAsField(String name, MapWriter writer){
+  public void copyAsField(String name, MapWriter writer) {
     SingleMapWriter impl = (SingleMapWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }

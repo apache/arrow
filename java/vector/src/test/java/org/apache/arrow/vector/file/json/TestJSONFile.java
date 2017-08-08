@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file.json;
 
 import java.io.File;
@@ -53,7 +54,7 @@ public class TestJSONFile extends BaseFileTest {
     // read
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        ) {
+    ) {
       JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
@@ -109,7 +110,7 @@ public class TestJSONFile extends BaseFileTest {
     try (
         BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
         BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-        ) {
+    ) {
       JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
@@ -174,7 +175,7 @@ public class TestJSONFile extends BaseFileTest {
       }
 
       // Need to close dictionary vectors
-      for (long id: provider.getDictionaryIds()) {
+      for (long id : provider.getDictionaryIds()) {
         provider.lookup(id).getVector().close();
       }
     }
@@ -215,7 +216,7 @@ public class TestJSONFile extends BaseFileTest {
       }
 
       // Need to close dictionary vectors
-      for (long id: provider.getDictionaryIds()) {
+      for (long id : provider.getDictionaryIds()) {
         provider.lookup(id).getVector().close();
       }
     }
@@ -240,7 +241,7 @@ public class TestJSONFile extends BaseFileTest {
   public void testSetStructLength() throws IOException {
     File file = new File("../../integration/data/struct_example.json");
     try (
-            BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
     ) {
       JsonFileReader reader = new JsonFileReader(file, readerAllocator);
       Schema schema = reader.start();

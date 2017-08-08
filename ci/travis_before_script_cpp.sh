@@ -70,12 +70,6 @@ if [ $only_library_mode == "yes" ]; then
 $CMAKE_COMMON_FLAGS \
 -DARROW_BUILD_TESTS=OFF \
 -DARROW_BUILD_UTILITIES=OFF"
-else
-  # Deactivate jemalloc on Linux builds. We check the jemalloc+Linux build
-  # also in the manylinux1 image.
-  CMAKE_LINUX_FLAGS="\
-$CMAKE_LINUX_FLAGS \
--DARROW_JEMALLOC=ON"
 fi
 
 # Use Ninja for faster builds when using toolchain

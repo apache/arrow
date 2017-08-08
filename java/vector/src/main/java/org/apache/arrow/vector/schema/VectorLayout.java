@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import static org.apache.arrow.vector.schema.ArrowVectorType.DATA;
@@ -48,16 +49,16 @@ public class VectorLayout implements FBSerializable {
 
   public static VectorLayout dataVector(int typeBitWidth) {
     switch (typeBitWidth) {
-    case 8:
-      return VALUES_8;
-    case 16:
-      return VALUES_16;
-    case 32:
-      return VALUES_32;
-    case 64:
-      return VALUES_64;
-    default:
-      throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
+      case 8:
+        return VALUES_8;
+      case 16:
+        return VALUES_16;
+      case 32:
+        return VALUES_32;
+      case 64:
+        return VALUES_64;
+      default:
+        throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
     }
   }
 
@@ -81,7 +82,7 @@ public class VectorLayout implements FBSerializable {
   private VectorLayout(@JsonProperty("type") ArrowVectorType type, @JsonProperty("typeBitWidth") int typeBitWidth) {
     super();
     this.type = Preconditions.checkNotNull(type);
-    this.typeBitWidth = (short)typeBitWidth;
+    this.typeBitWidth = (short) typeBitWidth;
     if (typeBitWidth <= 0) {
       throw new IllegalArgumentException("bitWidth invalid: " + typeBitWidth);
     }
@@ -111,18 +112,22 @@ public class VectorLayout implements FBSerializable {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj)
+    if (this == obj) {
       return true;
-    if (obj == null)
+    }
+    if (obj == null) {
       return false;
-    if (getClass() != obj.getClass())
+    }
+    if (getClass() != obj.getClass()) {
       return false;
+    }
     VectorLayout other = (VectorLayout) obj;
     return type.equals(other.type) && (typeBitWidth == other.typeBitWidth);
   }
 
   @Override
-  public int writeTo(FlatBufferBuilder builder) {;
+  public int writeTo(FlatBufferBuilder builder) {
+    ;
     return org.apache.arrow.flatbuf.VectorLayout.createVectorLayout(builder, typeBitWidth, type.getType());
   }
 

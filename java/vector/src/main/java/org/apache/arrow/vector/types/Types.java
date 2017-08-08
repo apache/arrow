@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.types;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -531,73 +532,83 @@ public class Types {
 
   public static MinorType getMinorTypeForArrowType(ArrowType arrowType) {
     return arrowType.accept(new ArrowTypeVisitor<MinorType>() {
-      @Override public MinorType visit(Null type) {
+      @Override
+      public MinorType visit(Null type) {
         return MinorType.NULL;
       }
 
-      @Override public MinorType visit(Struct type) {
+      @Override
+      public MinorType visit(Struct type) {
         return MinorType.MAP;
       }
 
-      @Override public MinorType visit(List type) {
+      @Override
+      public MinorType visit(List type) {
         return MinorType.LIST;
       }
 
-      @Override public MinorType visit(FixedSizeList type) {
+      @Override
+      public MinorType visit(FixedSizeList type) {
         return MinorType.FIXED_SIZE_LIST;
       }
 
-      @Override public MinorType visit(Union type) {
+      @Override
+      public MinorType visit(Union type) {
         return MinorType.UNION;
       }
 
       @Override
       public MinorType visit(Int type) {
         switch (type.getBitWidth()) {
-        case 8:
-          return type.getIsSigned() ? MinorType.TINYINT : MinorType.UINT1;
-        case 16:
-          return type.getIsSigned() ? MinorType.SMALLINT : MinorType.UINT2;
-        case 32:
-          return type.getIsSigned() ? MinorType.INT : MinorType.UINT4;
-        case 64:
-          return type.getIsSigned() ? MinorType.BIGINT : MinorType.UINT8;
-        default:
-          throw new IllegalArgumentException("only 8, 16, 32, 64 supported: " + type);
+          case 8:
+            return type.getIsSigned() ? MinorType.TINYINT : MinorType.UINT1;
+          case 16:
+            return type.getIsSigned() ? MinorType.SMALLINT : MinorType.UINT2;
+          case 32:
+            return type.getIsSigned() ? MinorType.INT : MinorType.UINT4;
+          case 64:
+            return type.getIsSigned() ? MinorType.BIGINT : MinorType.UINT8;
+          default:
+            throw new IllegalArgumentException("only 8, 16, 32, 64 supported: " + type);
         }
       }
 
       @Override
       public MinorType visit(FloatingPoint type) {
         switch (type.getPrecision()) {
-        case HALF:
-          throw new UnsupportedOperationException("NYI: " + type);
-        case SINGLE:
-          return MinorType.FLOAT4;
-        case DOUBLE:
-          return MinorType.FLOAT8;
-        default:
-          throw new IllegalArgumentException("unknown precision: " + type);
+          case HALF:
+            throw new UnsupportedOperationException("NYI: " + type);
+          case SINGLE:
+            return MinorType.FLOAT4;
+          case DOUBLE:
+            return MinorType.FLOAT8;
+          default:
+            throw new IllegalArgumentException("unknown precision: " + type);
         }
       }
 
-      @Override public MinorType visit(Utf8 type) {
+      @Override
+      public MinorType visit(Utf8 type) {
         return MinorType.VARCHAR;
       }
 
-      @Override public MinorType visit(Binary type) {
+      @Override
+      public MinorType visit(Binary type) {
         return MinorType.VARBINARY;
       }
 
-      @Override public MinorType visit(Bool type) {
+      @Override
+      public MinorType visit(Bool type) {
         return MinorType.BIT;
       }
 
-      @Override public MinorType visit(Decimal type) {
+      @Override
+      public MinorType visit(Decimal type) {
         return MinorType.DECIMAL;
       }
 
-      @Override public MinorType visit(Date type) {
+      @Override
+      public MinorType visit(Date type) {
         switch (type.getUnit()) {
           case DAY:
             return MinorType.DATEDAY;
@@ -608,7 +619,8 @@ public class Types {
         }
       }
 
-      @Override public MinorType visit(Time type) {
+      @Override
+      public MinorType visit(Time type) {
         switch (type.getUnit()) {
           case SECOND:
             return MinorType.TIMESEC;
@@ -623,7 +635,8 @@ public class Types {
         }
       }
 
-      @Override public MinorType visit(Timestamp type) {
+      @Override
+      public MinorType visit(Timestamp type) {
         String tz = type.getTimezone();
         switch (type.getUnit()) {
           case SECOND:
@@ -642,12 +655,12 @@ public class Types {
       @Override
       public MinorType visit(Interval type) {
         switch (type.getUnit()) {
-        case DAY_TIME:
-          return MinorType.INTERVALDAY;
-        case YEAR_MONTH:
-          return MinorType.INTERVALYEAR;
-        default:
-          throw new IllegalArgumentException("unknown unit: " + type);
+          case DAY_TIME:
+            return MinorType.INTERVALDAY;
+          case YEAR_MONTH:
+            return MinorType.INTERVALYEAR;
+          default:
+            throw new IllegalArgumentException("unknown unit: " + type);
         }
       }
     });

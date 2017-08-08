@@ -279,8 +279,8 @@ cdef class ColumnSchema:
   max_repetition_level: {3}
   physical_type: {4}
   logical_type: {5}""".format(self.name, self.path, self.max_definition_level,
-                       self.max_repetition_level, physical_type,
-                       logical_type)
+                              self.max_repetition_level, physical_type,
+                              logical_type)
 
     property name:
 
@@ -514,7 +514,7 @@ cdef class ParquetReader:
 
         with nogil:
             check_status(self.reader.get()
-                         .ReadSchemaField(field_index, &carray));
+                         .ReadSchemaField(field_index, &carray))
 
         array.init(carray)
         return array
@@ -547,19 +547,27 @@ cdef class ParquetWriter:
     cdef readonly:
         object use_dictionary
         object use_deprecated_int96_timestamps
+        object coerce_timestamps
         object compression
         object version
         int row_group_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
-                  MemoryPool memory_pool=None, use_deprecated_int96_timestamps=False):
+                  MemoryPool memory_pool=None,
+                  use_deprecated_int96_timestamps=False,
+                  coerce_timestamps=None):
         cdef:
             shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties
+            c_string c_where
+            CMemoryPool* pool
 
         if isinstance(where, six.string_types):
-            check_status(FileOutputStream.Open(tobytes(where), &filestream))
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where,
+                                                   &filestream))
             self.sink = <shared_ptr[OutputStream]> filestream
         else:
             get_writer(where, &self.sink)
@@ -568,6 +576,7 @@ cdef class ParquetWriter:
         self.compression = compression
         self.version = version
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
+        self.coerce_timestamps = coerce_timestamps
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
@@ -577,19 +586,31 @@ cdef class ParquetWriter:
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
         self._set_int96_support(&arrow_properties_builder)
+        self._set_coerce_timestamps(&arrow_properties_builder)
         arrow_properties = arrow_properties_builder.build()
 
-        check_status(
-            FileWriter.Open(deref(schema.schema),
-                            maybe_unbox_memory_pool(memory_pool),
-                            self.sink, properties, arrow_properties,
-                            &self.writer))
+        pool = maybe_unbox_memory_pool(memory_pool)
+        with nogil:
+            check_status(
+                FileWriter.Open(deref(schema.schema), pool,
+                                self.sink, properties, arrow_properties,
+                                &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
         if self.use_deprecated_int96_timestamps:
             props.enable_deprecated_int96_timestamps()
         else:
             props.disable_deprecated_int96_timestamps()
+
+    cdef int _set_coerce_timestamps(
+            self, ArrowWriterProperties.Builder* props) except -1:
+        if self.coerce_timestamps == 'ms':
+            props.coerce_timestamps(TimeUnit_MILLI)
+        elif self.coerce_timestamps == 'us':
+            props.coerce_timestamps(TimeUnit_MICRO)
+        elif self.coerce_timestamps is not None:
+            raise ValueError('Invalid value for coerce_timestamps: {0}'
+                             .format(self.coerce_timestamps))
 
     cdef void _set_version(self, WriterProperties.Builder* props):
         if self.version is not None:

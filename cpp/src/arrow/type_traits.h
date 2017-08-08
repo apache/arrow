@@ -31,6 +31,7 @@ struct TypeTraits {};
 template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
+  using BuilderType = NullBuilder;
   constexpr static bool is_parameter_free = false;
 };
 

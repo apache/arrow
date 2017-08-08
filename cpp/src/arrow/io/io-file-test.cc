@@ -45,7 +45,7 @@ static bool FileExists(const std::string& path) {
 void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
                          const wchar_t* source_file, unsigned int source_line,
                          uintptr_t reserved) {
-  wprintf(L"Invalid parameter in funcion %s. Source: %s line %d expression %s", func,
+  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s", func,
           source_file, source_line, expr);
 }
 #endif
@@ -320,7 +320,12 @@ TEST_F(TestReadableFile, ReadAt) {
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {
-  ASSERT_RAISES(IOError, ReadableFile::Open("0xDEADBEEF.txt", &file_));
+  std::string path = "0xDEADBEEF.txt";
+  Status s = ReadableFile::Open(path, &file_);
+  ASSERT_TRUE(s.IsIOError());
+
+  std::string message = s.message();
+  ASSERT_NE(std::string::npos, message.find(path));
 }
 
 class MyMemoryPool : public MemoryPool {

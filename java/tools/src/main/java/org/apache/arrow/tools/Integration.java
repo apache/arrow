@@ -94,7 +94,7 @@ public class Integration {
   }
 
   static void extractDictionaryEncodings(List<Field> fields, List<DictionaryEncoding> encodings) {
-    for (Field field: fields) {
+    for (Field field : fields) {
       DictionaryEncoding encoding = field.getDictionary();
       if (encoding != null) {
         encodings.add(encoding);
@@ -214,7 +214,7 @@ public class Integration {
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {
             throw new IllegalArgumentException("Unexpected RecordBatches. Total: " + totalBatches
-                                               + " J:" + hasMoreJSON + " "
+                + " J:" + hasMoreJSON + " "
                 + "A:" + hasMoreArrow);
           }
         }

@@ -277,6 +277,8 @@ def test_mock_output_stream():
 
     stream_writer1.write_batch(record_batch)
     stream_writer2.write_batch(record_batch)
+    stream_writer1.close()
+    stream_writer2.close()
 
     assert f1.size() == len(f2.get_result())
 

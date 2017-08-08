@@ -328,6 +328,7 @@ public class AllocationManager {
      * Decrement the ledger's reference count. If the ledger is decremented to zero, this ledger
      * should release its
      * ownership back to the AllocationManager
+     *
      * @param decrement amout to decrease the reference count by
      * @return the new reference count
      */

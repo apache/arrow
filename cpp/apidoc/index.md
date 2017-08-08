@@ -39,6 +39,7 @@ Table of Contents
  * How to access [HDFS](HDFS.md)
  * Tutorials
    * [Convert a vector of row-wise data into an Arrow table](tutorials/row_wise_conversion.md)
+   * [Using the Plasma In-Memory Object Store](tutorials/plasma.md)
 
 Getting Started
 ---------------

@@ -92,7 +92,13 @@ python_version_tests() {
   conda install -y -q nomkl
 
   # Expensive dependencies install from Continuum package repo
-  conda install -y -q pip numpy pandas cython
+  conda install -y -q pip numpy pandas cython flake8
+
+  # Fail fast on style checks
+  flake8 pyarrow
+
+  # Check Cython files with some checks turned off
+  flake8 --config=.flake8.cython pyarrow
 
   # Build C++ libraries
   rebuild_arrow_libraries
@@ -114,14 +120,13 @@ python_version_tests() {
   PYARROW_PATH=$CONDA_PREFIX/lib/python$PYTHON_VERSION/site-packages/pyarrow
   python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
 
-  pushd $ARROW_PYTHON_DIR
-  # Build documentation once
-  if [[ "$PYTHON_VERSION" == "3.6" ]]
-  then
-      conda install -y -q --file=doc/requirements.txt
-      python setup.py build_sphinx -s doc/source
+  if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
+      # Build documentation once
+      pushd $ARROW_PYTHON_DIR/doc
+      conda install -y -q --file=requirements.txt
+      sphinx-build -b html -d _build/doctrees -W source _build/html
+      popd
   fi
-  popd
 }
 
 # run tests for python 2.7 and 3.6

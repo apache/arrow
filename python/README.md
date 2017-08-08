@@ -38,7 +38,21 @@ On Linux, you can also install binary wheels from PyPI with pip:
 pip install pyarrow
 ```
 
-### Development details
+## Development
+
+### Coding Style
+
+We follow a similar PEP8-like coding style to the [pandas project][3].
+
+The code must pass `flake8` (available from pip or conda) or it will fail the
+build. Check for style errors before submitting your pull request with:
+
+```
+flake8 pyarrow
+flake8 --config=.flake8.cython pyarrow
+```
+
+### Building from Source
 
 See the [Development][2] page in the documentation.
 
@@ -51,3 +65,4 @@ python setup.py build_sphinx -s doc/source
 
 [1]: https://github.com/apache/parquet-cpp
 [2]: https://github.com/apache/arrow/blob/master/python/doc/source/development.rst
+[3]: https://github.com/pandas-dev/pandas

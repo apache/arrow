@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import static org.junit.Assert.assertEquals;
@@ -65,7 +66,7 @@ public class TestArrowStreamPipe {
           // Send a changing batch id first
           mutator.set(0, j);
           for (int i = 1; i < 16; i++) {
-            mutator.set(i, i < 8 ? 1 : 0, (byte)(i + 1));
+            mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
           }
           mutator.setValueCount(16);
           root.setRowCount(16);
@@ -80,7 +81,9 @@ public class TestArrowStreamPipe {
       }
     }
 
-    public long bytesWritten() { return writer.bytesWritten(); }
+    public long bytesWritten() {
+      return writer.bytesWritten();
+    }
   }
 
   private final class ReaderThread extends Thread {
@@ -104,6 +107,7 @@ public class TestArrowStreamPipe {
           }
           return message;
         }
+
         @Override
         public boolean loadNextBatch() throws IOException {
           if (!super.loadNextBatch()) {
@@ -113,10 +117,10 @@ public class TestArrowStreamPipe {
             VectorSchemaRoot root = getVectorSchemaRoot();
             Assert.assertEquals(16, root.getRowCount());
             NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
-            Assert.assertEquals((byte)(batchesRead - 1), vector.getAccessor().get(0));
+            Assert.assertEquals((byte) (batchesRead - 1), vector.getAccessor().get(0));
             for (int i = 1; i < 16; i++) {
               if (i < 8) {
-                Assert.assertEquals((byte)(i + 1), vector.getAccessor().get(i));
+                Assert.assertEquals((byte) (i + 1), vector.getAccessor().get(i));
               } else {
                 Assert.assertTrue(vector.getAccessor().isNull(i));
               }
@@ -143,8 +147,13 @@ public class TestArrowStreamPipe {
       }
     }
 
-    public int getBatchesRead() { return batchesRead; }
-    public long bytesRead() { return reader.bytesRead(); }
+    public int getBatchesRead() {
+      return batchesRead;
+    }
+
+    public long bytesRead() {
+      return reader.bytesRead();
+    }
   }
 
   // Starts up a producer and consumer thread to read/write batches.

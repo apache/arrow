@@ -221,6 +221,8 @@ GArrowBooleanArray *garrow_boolean_array_new(gint64 length,
 
 gboolean       garrow_boolean_array_get_value (GArrowBooleanArray *array,
                                                gint64 i);
+gboolean      *garrow_boolean_array_get_values(GArrowBooleanArray *array,
+                                               gint64 *length);
 
 
 #define GARROW_TYPE_INT8_ARRAY                  \

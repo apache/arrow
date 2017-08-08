@@ -273,18 +273,38 @@ Status RecordBatch::Validate() const {
 // Table methods
 
 Table::Table(const std::shared_ptr<Schema>& schema,
-             const std::vector<std::shared_ptr<Column>>& columns)
+             const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
     : schema_(schema), columns_(columns) {
-  if (columns.size() == 0) {
-    num_rows_ = 0;
+  if (num_rows < 0) {
+    if (columns.size() == 0) {
+      num_rows_ = 0;
+    } else {
+      num_rows_ = columns[0]->length();
+    }
   } else {
-    num_rows_ = columns[0]->length();
+    num_rows_ = num_rows;
   }
 }
 
 Table::Table(const std::shared_ptr<Schema>& schema,
-             const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows)
-    : schema_(schema), columns_(columns), num_rows_(num_rows) {}
+             const std::vector<std::shared_ptr<Array>>& columns, int64_t num_rows)
+    : schema_(schema) {
+  if (num_rows < 0) {
+    if (columns.size() == 0) {
+      num_rows_ = 0;
+    } else {
+      num_rows_ = columns[0]->length();
+    }
+  } else {
+    num_rows_ = num_rows;
+  }
+
+  columns_.resize(columns.size());
+  for (size_t i = 0; i < columns.size(); ++i) {
+    columns_[i] = std::make_shared<Column>(schema->field(static_cast<int>(i)),
+                                           columns[i]);
+  }
+}
 
 std::shared_ptr<Table> Table::ReplaceSchemaMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {

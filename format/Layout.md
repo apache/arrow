@@ -62,7 +62,11 @@ Base requirements
   linearly in the nesting level
 * Capable of representing fully-materialized and decoded / decompressed [Parquet][5]
   data
-* All contiguous memory buffers are aligned at 64-byte boundaries and padded to a multiple of 64 bytes.
+* It is required to have all the contiguous memory buffers in an IPC payload
+  aligned at 8-byte boundaries. In other words, each buffer must start at
+  an aligned 8-byte offset.
+* The general recommendation is to align the buffers at 64-byte boundary, but
+  this is not absolutely necessary.
 * Any relative type can have null slots
 * Arrays are immutable once created. Implementations can provide APIs to mutate
   an array, but applying mutations will require a new array data structure to
@@ -108,21 +112,23 @@ via byte swapping.
 
 ## Alignment and Padding
 
-As noted above, all buffers are intended to be aligned in memory at 64 byte
-boundaries and padded to a length that is a multiple of 64 bytes.  The alignment
-requirement follows best practices for optimized memory access:
+As noted above, all buffers must be aligned in memory at 8-byte boundaries and padded
+to a length that is a multiple of 8 bytes.  The alignment requirement follows best
+practices for optimized memory access:
 
 * Elements in numeric arrays will be guaranteed to be retrieved via aligned access.
 * On some architectures alignment can help limit partially used cache lines.
 * 64 byte alignment is recommended by the [Intel performance guide][2] for
-data-structures over 64 bytes (which will be a common case for Arrow Arrays).
+  data-structures over 64 bytes (which will be a common case for Arrow Arrays).
 
-Requiring padding to a multiple of 64 bytes allows for using [SIMD][4] instructions
+Recommending padding to a multiple of 64 bytes allows for using [SIMD][4] instructions
 consistently in loops without additional conditional checks.
-This should allow for simpler and more efficient code.
+This should allow for simpler, efficient and CPU cache-friendly code.
 The specific padding length was chosen because it matches the largest known
-SIMD instruction registers available as of April 2016 (Intel AVX-512).
-Guaranteed padding can also allow certain compilers
+SIMD instruction registers available as of April 2016 (Intel AVX-512). In other
+words, we can load the entire 64-byte buffer into a 512-bit wide SIMD register
+and get data-level parallelism on all the columnar values packed into the 64-byte
+buffer. Guaranteed padding can also allow certain compilers
 to generate more optimized code directly (e.g. One can safely use Intel's
 `-qopt-assume-safe-padding`).
 

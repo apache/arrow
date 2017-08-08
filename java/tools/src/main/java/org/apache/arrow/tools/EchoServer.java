@@ -73,7 +73,9 @@ public class EchoServer {
         LOGGER.info("Closed connection with client");
       }
     } catch (java.net.SocketException ex) {
-      if (!closed) throw ex;
+      if (!closed) {
+        throw ex;
+      }
     } finally {
       serverSocket.close();
       LOGGER.info("Server closed.");

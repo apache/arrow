@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   // Maintains a map with key as field name and value is the vector itself
-  private final MapWithOrdinal<String, FieldVector> vectors =  new MapWithOrdinal<>();
+  private final MapWithOrdinal<String, FieldVector> vectors = new MapWithOrdinal<>();
 
   protected AbstractMapVector(String name, BufferAllocator allocator, CallBack callBack) {
     super(name, allocator, callBack);
@@ -50,7 +51,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   @Override
   public void close() {
-    for(final ValueVector valueVector : vectors.values()) {
+    for (final ValueVector valueVector : vectors.values()) {
       valueVector.close();
     }
     vectors.clear();
@@ -83,7 +84,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   @Override
   public void reAlloc() {
-    for (final ValueVector v: vectors.values()) {
+    for (final ValueVector v : vectors.values()) {
       v.reAlloc();
     }
   }
@@ -94,27 +95,26 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    *
    * Execution takes place in the following order:
    * <ul>
-   *   <li>
-   *     if field is new, create and insert a new vector of desired type.
-   *   </li>
-   *   <li>
-   *     if field exists and existing vector is of desired vector type, return the vector.
-   *   </li>
-   *   <li>
-   *     if field exists and null filled, clear the existing vector; create and insert a new vector of desired type.
-   *   </li>
-   *   <li>
-   *     otherwise, throw an {@link java.lang.IllegalStateException}
-   *   </li>
+   * <li>
+   * if field is new, create and insert a new vector of desired type.
+   * </li>
+   * <li>
+   * if field exists and existing vector is of desired vector type, return the vector.
+   * </li>
+   * <li>
+   * if field exists and null filled, clear the existing vector; create and insert a new vector of desired type.
+   * </li>
+   * <li>
+   * otherwise, throw an {@link java.lang.IllegalStateException}
+   * </li>
    * </ul>
    *
    * @param childName the name of the field
    * @param fieldType the type for the vector
-   * @param clazz class of expected vector type
-   * @param <T> class type of expected vector type
-   * @throws java.lang.IllegalStateException raised if there is a hard schema change
-   *
+   * @param clazz     class of expected vector type
+   * @param <T>       class type of expected vector type
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
+   * @throws java.lang.IllegalStateException raised if there is a hard schema change
    */
   @Override
   public <T extends FieldVector> T addOrGet(String childName, FieldType fieldType, Class<T> clazz) {
@@ -151,6 +151,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given ordinal identifier.
+   *
    * @param id the ordinal of the child to return
    * @return the corresponding child
    */
@@ -161,7 +162,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} instance of subtype of T corresponding to the given
    * field name if exists or null.
-   * @param name the name of the child to return
+   *
+   * @param name  the name of the child to return
    * @param clazz the expected type of the child
    * @return the child corresponding to this name
    */
@@ -191,7 +193,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * Inserts the vector with the given name if it does not exist else replaces it with the new value.
    *
    * Note that this method does not enforce any vector type check nor throws a schema change exception.
-   * @param name the name of the child to add
+   *
+   * @param name   the name of the child to add
    * @param vector the vector to add as a child
    */
   protected void putChild(String name, FieldVector vector) {
@@ -200,8 +203,9 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   /**
    * Inserts the input vector into the map if it does not exist, replaces if it exists already
-   * @param name  field name
-   * @param vector  vector to be inserted
+   *
+   * @param name   field name
+   * @param vector vector to be inserted
    */
   protected void putVector(String name, FieldVector vector) {
     final ValueVector old = vectors.put(
@@ -210,7 +214,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
     );
     if (old != null && old != vector) {
       logger.debug("Field [{}] mutated from [{}] to [{}]", name, old.getClass().getSimpleName(),
-                   vector.getClass().getSimpleName());
+          vector.getClass().getSimpleName());
     }
   }
 
@@ -298,7 +302,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   @Override
   public int getBufferSize() {
-    int actualBufSize = 0 ;
+    int actualBufSize = 0;
 
     for (final ValueVector v : vectors.values()) {
       for (final ArrowBuf buf : v.getBuffers(false)) {

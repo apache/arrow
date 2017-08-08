@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.dictionary;
 
 import java.util.HashMap;
@@ -31,7 +32,7 @@ public interface DictionaryProvider {
 
     public MapDictionaryProvider(Dictionary... dictionaries) {
       this.map = new HashMap<>();
-      for (Dictionary dictionary: dictionaries) {
+      for (Dictionary dictionary : dictionaries) {
         put(dictionary);
       }
     }
