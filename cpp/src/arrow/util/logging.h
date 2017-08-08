@@ -45,7 +45,7 @@ namespace arrow {
               : ::arrow::internal::FatalLog(ARROW_FATAL) \
                     << __FILE__ << __LINE__ << " Check failed: " #condition " "
 
-#ifdef NDEBUG
+#ifdef ARROW_NDEBUG
 #define ARROW_DFATAL ARROW_WARNING
 
 #define DCHECK(condition)      \
@@ -81,7 +81,7 @@ namespace arrow {
 #define DCHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define DCHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
 
-#endif  // NDEBUG
+#endif  // ARROW_NDEBUG
 
 namespace internal {
 

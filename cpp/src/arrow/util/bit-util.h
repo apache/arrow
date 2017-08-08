@@ -217,18 +217,26 @@ static inline uint32_t RoundUpNumi64(uint32_t bits) { return (bits + 63) >> 6; }
 /// Returns the rounded down to 64 multiple.
 static inline uint32_t RoundDownNumi64(uint32_t bits) { return bits >> 6; }
 
-static inline int64_t RoundUpToMultipleOf64(int64_t num) {
+template <int64_t ROUND_TO>
+static inline int64_t RoundToPowerOfTwo(int64_t num) {
   // TODO(wesm): is this definitely needed?
   // DCHECK_GE(num, 0);
-  constexpr int64_t round_to = 64;
-  constexpr int64_t force_carry_addend = round_to - 1;
-  constexpr int64_t truncate_bitmask = ~(round_to - 1);
-  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - round_to;
+  constexpr int64_t force_carry_addend = ROUND_TO - 1;
+  constexpr int64_t truncate_bitmask = ~(ROUND_TO - 1);
+  constexpr int64_t max_roundable_num = std::numeric_limits<int64_t>::max() - ROUND_TO;
   if (num <= max_roundable_num) {
     return (num + force_carry_addend) & truncate_bitmask;
   }
   // handle overflow case.  This should result in a malloc error upstream
   return num;
+}
+
+static inline int64_t RoundUpToMultipleOf64(int64_t num) {
+  return RoundToPowerOfTwo<64>(num);
+}
+
+static inline int64_t RoundUpToMultipleOf8(int64_t num) {
+  return RoundToPowerOfTwo<8>(num);
 }
 
 /// Non hw accelerated pop count.
