@@ -192,16 +192,20 @@ class ARROW_EXPORT RecordBatch {
 // Immutable container of fixed-length columns conforming to a particular schema
 class ARROW_EXPORT Table {
  public:
-  // If columns is zero-length, the table's number of rows is zero
+  /// \brief Construct Table from schema and columns
+  /// If columns is zero-length, the table's number of rows is zero
+  /// \param schema
+  /// \param columns
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
   Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Column>>& columns);
+        const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows = -1);
 
-  // num_rows is a parameter to allow for tables of a particular size not
-  // having any materialized columns. Each column should therefore have the
-  // same length as num_rows -- you can validate this using
-  // Table::ValidateColumns
+  /// \brief Construct Table from schema and arrays
+  /// \param schema
+  /// \param arrays
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
   Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows);
+        const std::vector<std::shared_ptr<Array>>& arrays, int64_t num_rows = -1);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
