@@ -131,9 +131,9 @@ class PlatformFilename {
     std::wstring utf16_path;
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
 
-    if (!input.empty()) {
+    if (!utf8_path.empty()) {
       try {
-        *utf16_path = utf16_converter.from_bytes(utf8_path);
+        utf16_path = utf16_converter.from_bytes(utf8_path);
       } catch (const std::range_error&) {
         return Status::Invalid(kRangeExceptionError);
       }
@@ -142,7 +142,9 @@ class PlatformFilename {
     return Status::OK();
   }
 
-  const char* data() const { return utf16_path_.c_str(); }
+  const char* data() const {
+    return reinterpret_cast<const char*>(utf16_path_.c_str());
+  }
 
   const char* utf8_data() const { return utf8_path_.c_str(); }
 
@@ -210,8 +212,8 @@ static inline Status FileOpenReadable(const PlatformFilename& filename, int* fd)
   int ret;
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
-  errno_actual =
-      _wsopen_s(fd, filename.data(), _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
+  errno_actual = _wsopen_s(fd, reinterpret_cast<const wchar_t*>(filename.data()),
+      _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
   ret = *fd = open(filename.data(), O_RDONLY | O_BINARY);
@@ -243,7 +245,8 @@ static inline Status FileOpenWriteable(const PlatformFilename& filename, bool wr
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, filename.data(), oflag, _SH_DENYNO, pmode);
+  errno_actual = _wsopen_s(fd, reinterpret_cast<const wchar_t*>(filename.data()),
+      oflag, _SH_DENYNO, pmode);
   ret = *fd;
 
 #else
