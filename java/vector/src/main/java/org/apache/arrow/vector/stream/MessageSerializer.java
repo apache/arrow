@@ -83,13 +83,14 @@ public class MessageSerializer {
     int schemaOffset = schema.getSchema(builder);
     ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
     int size = serializedMessage.remaining();
-    // ensure that message aligns to 8 byte padding - start position, 4 bytes for size, message body
+    // ensure that message aligns to 8 byte padding
+    // start position (e.g. magic bytes), 4 bytes for size, message body
     if ((start + 4 + size) % 8 != 0) {
       size += 8 - (start + 4 + size) % 8;
     }
     out.writeIntLittleEndian(size);
     out.write(serializedMessage);
-    out.align();
+    out.align(); // any bytes written are already captured by our size modification above
     return size + 4;
   }
 
@@ -127,6 +128,9 @@ public class MessageSerializer {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    // make sure that the body ends on an 8 byte boundary
+    // each buffer in the body gets started on an 8 byte boundary in ArrowRecordBatch,
+    // but we need to handle the final end alignment here
     if (bodyLength % 8 != 0) {
       bodyLength += 8 - (bodyLength % 8);
     }
@@ -151,6 +155,7 @@ public class MessageSerializer {
     out.align();
 
     long bufferLength = writeBatchBuffers(out, batch);
+    // align again - the size is captured in out bodyLength check above
     bufferLength += out.align();
 
     // Metadata size in the Block account for the size prefix
@@ -279,6 +284,9 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    // make sure that the body ends on an 8 byte boundary
+    // each buffer in the body gets started on an 8 byte boundary in ArrowRecordBatch,
+    // but we need to handle the final end alignment here
     if (bodyLength % 8 != 0) {
       bodyLength += 8 - (bodyLength % 8);
     }
@@ -304,6 +312,7 @@ public class MessageSerializer {
 
     // write the embedded record batch
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
+    // align again - the size is captured in out bodyLength check above
     bufferLength += out.align();
 
     // Metadata size in the Block account for the size prefix
