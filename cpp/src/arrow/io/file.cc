@@ -143,6 +143,8 @@ struct PlatformFilename {
 
   const char* data() const { return reinterpret_cast<const char*>(utf16_path.c_str()); }
 
+  const char* utf8_data() const { return utf8_path.c_str(); }
+
   size_t length() const { return utf16_path.size(); }
 
   std::string utf8_path;
