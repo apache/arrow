@@ -1404,7 +1404,7 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
 
 #define DICTIONARY_ARRAY_CASE(ENUM, BuilderType)                           \
   case Type::ENUM:                                                         \
-    builder = std::make_shared<BuilderType>(pool, type);                   \
+    builder = std::make_shared<BuilderType>(type, pool);                   \
     RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(input)); \
     RETURN_NOT_OK(builder->Finish(out));                                   \
     return Status::OK();
