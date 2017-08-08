@@ -534,6 +534,21 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
+    def test_nested_lists_all_none(self):
+        data = np.array([[None, None], None], dtype=object)
+
+        arr = pa.Array.from_pandas(data)
+        expected = pa.array(list(data))
+        assert arr.equals(expected)
+        assert arr.type == pa.list_(pa.null())
+
+        data2 = np.array([None, None, [None, None],
+                          np.array([None, None], dtype=object)],
+                         dtype=object)
+        arr = pa.Array.from_pandas(data2)
+        expected = pa.array([None, None, [None, None], [None, None]])
+        assert arr.equals(expected)
+
     def test_threaded_conversion(self):
         df = _alltypes_example()
         self._check_pandas_roundtrip(df, nthreads=2,

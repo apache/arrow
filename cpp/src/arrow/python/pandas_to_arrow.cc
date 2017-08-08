@@ -944,10 +944,6 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
     return Status::NotImplemented("mask not supported in object conversions yet");
   }
 
-  if (is_strided()) {
-    return Status::NotImplemented("strided arrays not implemented for lists");
-  }
-
   BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object) {
@@ -992,6 +988,47 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
 }
 
 template <>
+inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
+    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
+  PyAcquireGIL lock;
+
+  // TODO: mask not supported here
+  if (mask_ != nullptr) {
+    return Status::NotImplemented("mask not supported in object conversions yet");
+  }
+
+  auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
+
+  auto foreach_item = [&](PyObject* object) {
+    if (PandasObjectIsNull(object)) {
+      return builder->AppendNull();
+    } else if (PyArray_Check(object)) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
+      RETURN_NOT_OK(builder->Append(true));
+
+      // TODO(uwe): Support more complex numpy array structures
+      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
+
+      for (int64_t i = 0; i < static_cast<int64_t>(PyArray_SIZE(numpy_array)); ++i) {
+        RETURN_NOT_OK(value_builder->AppendNull());
+      }
+      return Status::OK();
+    } else if (PyList_Check(object)) {
+      RETURN_NOT_OK(builder->Append(true));
+      const Py_ssize_t size = PySequence_Size(object);
+      for (Py_ssize_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(value_builder->AppendNull());
+      }
+      return Status::OK();
+    } else {
+      return Status::TypeError("Unsupported Python type for list items");
+    }
+  };
+
+  return LoopPySequence(list, foreach_item);
+}
+
+template <>
 inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
@@ -1001,10 +1038,6 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   // TODO: mask not supported here
   if (mask_ != nullptr) {
     return Status::NotImplemented("mask not supported in object conversions yet");
-  }
-
-  if (is_strided()) {
-    return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
   auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
@@ -1053,6 +1086,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
 Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type,
                                      ListBuilder* builder, PyObject* list) {
   switch (type->id()) {
+    LIST_CASE(NA, NPY_OBJECT, NullType)
     LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
     LIST_CASE(INT8, NPY_INT8, Int8Type)
     LIST_CASE(UINT16, NPY_UINT16, UInt16Type)

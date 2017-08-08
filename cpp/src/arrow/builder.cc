@@ -177,6 +177,17 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   length_ = new_length;
 }
 
+// ----------------------------------------------------------------------
+// Null builder
+
+Status NullBuilder::Finish(std::shared_ptr<Array>* out) {
+  *out = std::make_shared<NullArray>(length_);
+  length_ = null_count_ = 0;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+
 template <typename T>
 Status PrimitiveBuilder<T>::Init(int64_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
@@ -1306,26 +1317,30 @@ Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
-    BUILDER_CASE(UINT8, UInt8Builder);
-    BUILDER_CASE(INT8, Int8Builder);
-    BUILDER_CASE(UINT16, UInt16Builder);
-    BUILDER_CASE(INT16, Int16Builder);
-    BUILDER_CASE(UINT32, UInt32Builder);
-    BUILDER_CASE(INT32, Int32Builder);
-    BUILDER_CASE(UINT64, UInt64Builder);
-    BUILDER_CASE(INT64, Int64Builder);
-    BUILDER_CASE(DATE32, Date32Builder);
-    BUILDER_CASE(DATE64, Date64Builder);
-    BUILDER_CASE(TIME32, Time32Builder);
-    BUILDER_CASE(TIME64, Time64Builder);
-    BUILDER_CASE(TIMESTAMP, TimestampBuilder);
-    BUILDER_CASE(BOOL, BooleanBuilder);
-    BUILDER_CASE(FLOAT, FloatBuilder);
-    BUILDER_CASE(DOUBLE, DoubleBuilder);
-    BUILDER_CASE(STRING, StringBuilder);
-    BUILDER_CASE(BINARY, BinaryBuilder);
-    BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-    BUILDER_CASE(DECIMAL, DecimalBuilder);
+    case Type::NA: {
+      out->reset(new NullBuilder(pool));
+      return Status::OK();
+    }
+      BUILDER_CASE(UINT8, UInt8Builder);
+      BUILDER_CASE(INT8, Int8Builder);
+      BUILDER_CASE(UINT16, UInt16Builder);
+      BUILDER_CASE(INT16, Int16Builder);
+      BUILDER_CASE(UINT32, UInt32Builder);
+      BUILDER_CASE(INT32, Int32Builder);
+      BUILDER_CASE(UINT64, UInt64Builder);
+      BUILDER_CASE(INT64, Int64Builder);
+      BUILDER_CASE(DATE32, Date32Builder);
+      BUILDER_CASE(DATE64, Date64Builder);
+      BUILDER_CASE(TIME32, Time32Builder);
+      BUILDER_CASE(TIME64, Time64Builder);
+      BUILDER_CASE(TIMESTAMP, TimestampBuilder);
+      BUILDER_CASE(BOOL, BooleanBuilder);
+      BUILDER_CASE(FLOAT, FloatBuilder);
+      BUILDER_CASE(DOUBLE, DoubleBuilder);
+      BUILDER_CASE(STRING, StringBuilder);
+      BUILDER_CASE(BINARY, BinaryBuilder);
+      BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
+      BUILDER_CASE(DECIMAL, DecimalBuilder);
     case Type::LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
@@ -1348,8 +1363,11 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       return Status::OK();
     }
 
-    default:
-      return Status::NotImplemented(type->ToString());
+    default: {
+      std::stringstream ss;
+      ss << "MakeBuilder: cannot construct builder for type " << type->ToString();
+      return Status::NotImplemented(ss.str());
+    }
   }
 }
 
