@@ -252,6 +252,10 @@ Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
     : fields_(fields), metadata_(metadata) {}
 
+Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
+               const std::shared_ptr<const KeyValueMetadata>& metadata)
+    : fields_(std::move(fields)), metadata_(metadata) {}
+
 bool Schema::Equals(const Schema& other) const {
   if (this == &other) {
     return true;
@@ -341,6 +345,16 @@ std::string Schema::ToString() const {
   }
 
   return buffer.str();
+}
+
+std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,
+                               const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  return std::make_shared<Schema>(fields, metadata);
+}
+
+std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
+                               const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  return std::make_shared<Schema>(std::move(fields), metadata);
 }
 
 // ----------------------------------------------------------------------

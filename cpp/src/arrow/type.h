@@ -708,6 +708,10 @@ class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+  explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
   virtual ~Schema() = default;
 
   /// Returns true if all of the schema fields are equal
@@ -772,26 +776,55 @@ std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit,
                                                  const std::string& timezone);
 
+/// \brief Create an instance of 32-bit time type
 /// Unit can be either SECOND or MILLI
 std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 
+/// \brief Create an instance of 64-bit time type
 /// Unit can be either MICRO or NANO
 std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
+/// \brief Create an instance of Struct type
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
+/// \brief Create an instance of Union type
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
        const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
+/// \brief Create an instance of Dictionary type
 std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,
            const std::shared_ptr<Array>& values, bool ordered = false);
 
+/// \brief Create a Field instance
+///
+/// \param name the field name
+/// \param type the field value type
+/// \param nullable whether the values are nullable, default true
+/// \param metadata any custom key-value metadata, default nullptr
 std::shared_ptr<Field> ARROW_EXPORT field(
     const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param metadata any custom key-value metadata, default nullptr
+/// \return schema shared_ptr to Schema
+std::shared_ptr<Schema> ARROW_EXPORT
+schema(const std::vector<std::shared_ptr<Field>>& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields (rvalue reference)
+/// \param metadata any custom key-value metadata, default nullptr
+/// \return schema shared_ptr to Schema
+std::shared_ptr<Schema> ARROW_EXPORT
+schema(std::vector<std::shared_ptr<Field>>&& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //
