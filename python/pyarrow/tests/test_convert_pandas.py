@@ -327,7 +327,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
-            })
+        })
         field = pa.field('datetime64', pa.timestamp('ms'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
@@ -342,7 +342,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
-            })
+        })
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
@@ -369,7 +369,7 @@ class TestPandasConversion(unittest.TestCase):
                 None,
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
-            })
+        })
         field = pa.field('datetime64', pa.timestamp('ms'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
@@ -384,7 +384,7 @@ class TestPandasConversion(unittest.TestCase):
                 None,
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
-            })
+        })
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
@@ -400,7 +400,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
-            })
+        })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
         self._check_pandas_roundtrip(df, timestamps_to_ms=True)
@@ -413,7 +413,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
-            })
+        })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
         self._check_pandas_roundtrip(df, timestamps_to_ms=False)
@@ -462,7 +462,7 @@ class TestPandasConversion(unittest.TestCase):
         table_pandas = table.to_pandas()
 
         ex_values = (np.array(['2017-04-03', '2017-04-04', '2017-04-04',
-                              '2017-04-05'],
+                               '2017-04-05'],
                               dtype='datetime64[D]')
                      .astype('datetime64[ns]'))
         ex_values[1] = pd.NaT.value
@@ -491,10 +491,10 @@ class TestPandasConversion(unittest.TestCase):
         # TODO(jreback): Pandas only support ns resolution
         # Arrow supports ??? for resolution
         df = pd.DataFrame({
-            'timedelta': np.arange(start=0, stop=3*86400000,
+            'timedelta': np.arange(start=0, stop=3 * 86400000,
                                    step=86400000,
                                    dtype='timedelta64[ms]')
-            })
+        })
         pa.Table.from_pandas(df)
 
     def test_column_of_arrays(self):
@@ -919,6 +919,17 @@ class TestPandasConversion(unittest.TestCase):
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
+
+    def test_table_str_to_categorical(self):
+        values = [None, 'a', 'b', np.nan]
+        df = pd.DataFrame({'strings': values})
+        field = pa.field('strings', pa.string())
+        schema = pa.schema([field])
+        table = pa.Table.from_pandas(df, schema=schema)
+
+        result = table.to_pandas(strings_to_categorical=True)
+        expected = pd.DataFrame({'strings': pd.Categorical(values)})
+        tm.assert_frame_equal(result, expected, check_dtype=True)
 
 
 def _pytime_from_micros(val):

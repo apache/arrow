@@ -157,7 +157,7 @@ cdef class Column:
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
         return pyarrow_wrap_column(sp_column)
 
-    def to_pandas(self):
+    def to_pandas(self, strings_to_categorical=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -167,9 +167,13 @@ cdef class Column:
         """
         cdef:
             PyObject* out
+            PandasOptions options
+
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
 
         with nogil:
-            check_status(libarrow.ConvertColumnToPandas(self.sp_column,
+            check_status(libarrow.ConvertColumnToPandas(options,
+                                                        self.sp_column,
                                                         self, &out))
 
         return pd.Series(wrap_array_output(out), name=self.name)
@@ -580,15 +584,18 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-def table_to_blocks(Table table, int nthreads):
+def table_to_blocks(PandasOptions options, Table table, int nthreads,
+                    MemoryPool memory_pool):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
+        CMemoryPool* pool
 
+    pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                c_table, nthreads, &result_obj
+                options, c_table, nthreads, pool, &result_obj
             )
         )
 
@@ -790,7 +797,8 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
-    def to_pandas(self, nthreads=None):
+    def to_pandas(self, nthreads=None, strings_to_categorical=False,
+                  memory_pool=None):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -800,16 +808,23 @@ cdef class Table:
             For the default, we divide the CPU count by 2 because most modern
             computers have hyperthreading turned on, so doubling the CPU count
             beyond the number of physical cores does not help
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        memory_pool: MemoryPool, optional
+            Specific memory pool to use to allocate casted columns
 
         Returns
         -------
         pandas.DataFrame
         """
+        cdef:
+            PandasOptions options
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
-
-        mgr = pdcompat.table_to_blockmanager(self, nthreads)
+        mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
+                                             nthreads)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):

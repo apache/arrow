@@ -274,9 +274,14 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self):
+    def to_pandas(self, c_bool strings_to_categorical=False):
         """
         Convert to an array object suitable for use in pandas
+
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
 
         See also
         --------
@@ -286,9 +291,12 @@ cdef class Array:
         """
         cdef:
             PyObject* out
+            PandasOptions options
 
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
         with nogil:
-            check_status(ConvertArrayToPandas(self.sp_array, self, &out))
+            check_status(ConvertArrayToPandas(options, self.sp_array,
+                                              self, &out))
         return wrap_array_output(out)
 
     def to_pylist(self):

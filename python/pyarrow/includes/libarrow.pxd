@@ -740,14 +740,18 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus TensorToNdarray(const CTensor& tensor, object base,
                             PyObject** out)
 
-    CStatus ConvertArrayToPandas(const shared_ptr[CArray]& arr,
+    CStatus ConvertArrayToPandas(PandasOptions options,
+                                 const shared_ptr[CArray]& arr,
                                  object py_ref, PyObject** out)
 
-    CStatus ConvertColumnToPandas(const shared_ptr[CColumn]& arr,
+    CStatus ConvertColumnToPandas(PandasOptions options,
+                                  const shared_ptr[CColumn]& arr,
                                   object py_ref, PyObject** out)
 
-    CStatus ConvertTableToPandas(const shared_ptr[CTable]& table,
-                                 int nthreads, PyObject** out)
+    CStatus ConvertTableToPandas(PandasOptions options,
+                                 const shared_ptr[CTable]& table,
+                                 int nthreads, CMemoryPool* pool,
+                                 PyObject** out)
 
     void c_set_default_memory_pool \
         " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
@@ -766,6 +770,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef cppclass PyBytesReader(CBufferReader):
         PyBytesReader(object fo)
+
+    cdef struct PandasOptions:
+        c_bool strings_to_categorical
 
 
 cdef extern from 'arrow/python/init.h':

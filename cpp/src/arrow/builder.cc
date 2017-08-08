@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -1396,8 +1397,84 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     DICTIONARY_BUILDER_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_BUILDER_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(BINARY, BinaryDictionaryBuilder);
-    // DICTIONARY_BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
-    // DICTIONARY_BUILDER_CASE(DECIMAL, DecimalBuilder);
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+}
+
+#define DICTIONARY_ARRAY_CASE(ENUM, BuilderType)                           \
+  case Type::ENUM:                                                         \
+    builder = std::make_shared<BuilderType>(type, pool);                   \
+    RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(input)); \
+    RETURN_NOT_OK(builder->Finish(out));                                   \
+    return Status::OK();
+
+Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
+                               std::shared_ptr<Array>* out) {
+  const std::shared_ptr<DataType>& type = input.data()->type;
+  std::shared_ptr<ArrayBuilder> builder;
+  switch (type->id()) {
+    DICTIONARY_ARRAY_CASE(UINT8, DictionaryBuilder<UInt8Type>);
+    DICTIONARY_ARRAY_CASE(INT8, DictionaryBuilder<Int8Type>);
+    DICTIONARY_ARRAY_CASE(UINT16, DictionaryBuilder<UInt16Type>);
+    DICTIONARY_ARRAY_CASE(INT16, DictionaryBuilder<Int16Type>);
+    DICTIONARY_ARRAY_CASE(UINT32, DictionaryBuilder<UInt32Type>);
+    DICTIONARY_ARRAY_CASE(INT32, DictionaryBuilder<Int32Type>);
+    DICTIONARY_ARRAY_CASE(UINT64, DictionaryBuilder<UInt64Type>);
+    DICTIONARY_ARRAY_CASE(INT64, DictionaryBuilder<Int64Type>);
+    DICTIONARY_ARRAY_CASE(DATE32, DictionaryBuilder<Date32Type>);
+    DICTIONARY_ARRAY_CASE(DATE64, DictionaryBuilder<Date64Type>);
+    DICTIONARY_ARRAY_CASE(TIME32, DictionaryBuilder<Time32Type>);
+    DICTIONARY_ARRAY_CASE(TIME64, DictionaryBuilder<Time64Type>);
+    DICTIONARY_ARRAY_CASE(TIMESTAMP, DictionaryBuilder<TimestampType>);
+    DICTIONARY_ARRAY_CASE(FLOAT, DictionaryBuilder<FloatType>);
+    DICTIONARY_ARRAY_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
+    DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
+    DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
+    default:
+      return Status::NotImplemented(type->ToString());
+  }
+}
+#define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                             \
+  case Type::ENUM:                                                            \
+    builder = std::make_shared<BuilderType>(type, pool);                      \
+    chunks = input.data();                                                    \
+    for (auto chunk : chunks->chunks()) {                                     \
+      RETURN_NOT_OK(static_cast<BuilderType&>(*builder).AppendArray(*chunk)); \
+    }                                                                         \
+    RETURN_NOT_OK(builder->Finish(&arr));                                     \
+    *out = std::make_shared<Column>(input.name(), arr);                       \
+    return Status::OK();
+
+/// \brief Encodes a column to a suitable dictionary type
+/// \param input Column to be encoded
+/// \param pool MemoryPool to allocate the dictionary
+/// \param out The new column
+/// \return Status
+Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
+                                std::shared_ptr<Column>* out) {
+  const std::shared_ptr<DataType>& type = input.type();
+  std::shared_ptr<ArrayBuilder> builder;
+  std::shared_ptr<Array> arr;
+  std::shared_ptr<ChunkedArray> chunks;
+  switch (type->id()) {
+    DICTIONARY_COLUMN_CASE(UINT8, DictionaryBuilder<UInt8Type>);
+    DICTIONARY_COLUMN_CASE(INT8, DictionaryBuilder<Int8Type>);
+    DICTIONARY_COLUMN_CASE(UINT16, DictionaryBuilder<UInt16Type>);
+    DICTIONARY_COLUMN_CASE(INT16, DictionaryBuilder<Int16Type>);
+    DICTIONARY_COLUMN_CASE(UINT32, DictionaryBuilder<UInt32Type>);
+    DICTIONARY_COLUMN_CASE(INT32, DictionaryBuilder<Int32Type>);
+    DICTIONARY_COLUMN_CASE(UINT64, DictionaryBuilder<UInt64Type>);
+    DICTIONARY_COLUMN_CASE(INT64, DictionaryBuilder<Int64Type>);
+    DICTIONARY_COLUMN_CASE(DATE32, DictionaryBuilder<Date32Type>);
+    DICTIONARY_COLUMN_CASE(DATE64, DictionaryBuilder<Date64Type>);
+    DICTIONARY_COLUMN_CASE(TIME32, DictionaryBuilder<Time32Type>);
+    DICTIONARY_COLUMN_CASE(TIME64, DictionaryBuilder<Time64Type>);
+    DICTIONARY_COLUMN_CASE(TIMESTAMP, DictionaryBuilder<TimestampType>);
+    DICTIONARY_COLUMN_CASE(FLOAT, DictionaryBuilder<FloatType>);
+    DICTIONARY_COLUMN_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
+    DICTIONARY_COLUMN_CASE(STRING, StringDictionaryBuilder);
+    DICTIONARY_COLUMN_CASE(BINARY, BinaryDictionaryBuilder);
     default:
       return Status::NotImplemented(type->ToString());
   }

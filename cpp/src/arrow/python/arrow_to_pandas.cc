@@ -22,14 +22,11 @@
 #include "arrow/python/arrow_to_pandas.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -42,6 +39,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
 #include "arrow/python/builtin_convert.h"
@@ -186,8 +184,8 @@ class PandasBlock {
     CATEGORICAL
   };
 
-  PandasBlock(int64_t num_rows, int num_columns)
-      : num_rows_(num_rows), num_columns_(num_columns) {}
+  PandasBlock(PandasOptions options, int64_t num_rows, int num_columns)
+      : num_rows_(num_rows), num_columns_(num_columns), options_(options) {}
   virtual ~PandasBlock() {}
 
   virtual Status Allocate() = 0;
@@ -255,6 +253,8 @@ class PandasBlock {
   OwnedRef block_arr_;
   uint8_t* block_data_;
 
+  PandasOptions options_;
+
   // ndarray<int32>
   OwnedRef placement_arr_;
   int64_t* placement_data_;
@@ -264,7 +264,8 @@ class PandasBlock {
 };
 
 template <typename T>
-inline void ConvertIntegerWithNulls(const ChunkedArray& data, double* out_values) {
+inline void ConvertIntegerWithNulls(PandasOptions options, const ChunkedArray& data,
+                                    double* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
     auto in_values = reinterpret_cast<const T*>(arr.raw_values());
@@ -277,7 +278,8 @@ inline void ConvertIntegerWithNulls(const ChunkedArray& data, double* out_values
 }
 
 template <typename T>
-inline void ConvertIntegerNoNullsSameType(const ChunkedArray& data, T* out_values) {
+inline void ConvertIntegerNoNullsSameType(PandasOptions options, const ChunkedArray& data,
+                                          T* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
     auto in_values = reinterpret_cast<const T*>(arr.raw_values());
@@ -287,7 +289,8 @@ inline void ConvertIntegerNoNullsSameType(const ChunkedArray& data, T* out_value
 }
 
 template <typename InType, typename OutType>
-inline void ConvertIntegerNoNullsCast(const ChunkedArray& data, OutType* out_values) {
+inline void ConvertIntegerNoNullsCast(PandasOptions options, const ChunkedArray& data,
+                                      OutType* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = static_cast<const PrimitiveArray&>(*data.chunk(c));
     auto in_values = reinterpret_cast<const InType*>(arr.raw_values());
@@ -297,7 +300,8 @@ inline void ConvertIntegerNoNullsCast(const ChunkedArray& data, OutType* out_val
   }
 }
 
-static Status ConvertBooleanWithNulls(const ChunkedArray& data, PyObject** out_values) {
+static Status ConvertBooleanWithNulls(PandasOptions options, const ChunkedArray& data,
+                                      PyObject** out_values) {
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
@@ -321,7 +325,8 @@ static Status ConvertBooleanWithNulls(const ChunkedArray& data, PyObject** out_v
   return Status::OK();
 }
 
-static void ConvertBooleanNoNulls(const ChunkedArray& data, uint8_t* out_values) {
+static void ConvertBooleanNoNulls(PandasOptions options, const ChunkedArray& data,
+                                  uint8_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const std::shared_ptr<Array> arr = data.chunk(c);
     auto bool_arr = static_cast<BooleanArray*>(arr.get());
@@ -332,7 +337,8 @@ static void ConvertBooleanNoNulls(const ChunkedArray& data, uint8_t* out_values)
 }
 
 template <typename Type>
-inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values) {
+inline Status ConvertBinaryLike(PandasOptions options, const ChunkedArray& data,
+                                PyObject** out_values) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -362,7 +368,8 @@ inline Status ConvertBinaryLike(const ChunkedArray& data, PyObject** out_values)
   return Status::OK();
 }
 
-inline Status ConvertNulls(const ChunkedArray& data, PyObject** out_values) {
+inline Status ConvertNulls(PandasOptions options, const ChunkedArray& data,
+                           PyObject** out_values) {
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
     std::shared_ptr<Array> arr = data.chunk(c);
@@ -377,7 +384,8 @@ inline Status ConvertNulls(const ChunkedArray& data, PyObject** out_values) {
   return Status::OK();
 }
 
-inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_values) {
+inline Status ConvertFixedSizeBinary(PandasOptions options, const ChunkedArray& data,
+                                     PyObject** out_values) {
   PyAcquireGIL lock;
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = static_cast<FixedSizeBinaryArray*>(data.chunk(c).get());
@@ -407,7 +415,8 @@ inline Status ConvertFixedSizeBinary(const ChunkedArray& data, PyObject** out_va
   return Status::OK();
 }
 
-inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
+inline Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
+                            PyObject** out_values) {
   PyAcquireGIL lock;
   if (data.num_chunks() <= 0) {
     return Status::OK();
@@ -424,8 +433,8 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       PyObject* numpy_array;
-      RETURN_NOT_OK(
-          ConvertArrayToPandas(arr->field(static_cast<int>(i)), nullptr, &numpy_array));
+      RETURN_NOT_OK(ConvertArrayToPandas(options, arr->field(static_cast<int>(i)),
+                                         nullptr, &numpy_array));
       fields_data[i].reset(numpy_array);
     }
 
@@ -470,7 +479,7 @@ inline Status ConvertStruct(const ChunkedArray& data, PyObject** out_values) {
 }
 
 template <typename ArrowType>
-inline Status ConvertListsLike(const std::shared_ptr<Column>& col,
+inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Column>& col,
                                PyObject** out_values) {
   const ChunkedArray& data = *col->data().get();
   auto list_type = std::static_pointer_cast<ListType>(col->type());
@@ -485,7 +494,7 @@ inline Status ConvertListsLike(const std::shared_ptr<Column>& col,
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be to expensive.
   PyObject* numpy_array;
-  RETURN_NOT_OK(ConvertColumnToPandas(flat_column, nullptr, &numpy_array));
+  RETURN_NOT_OK(ConvertColumnToPandas(options, flat_column, nullptr, &numpy_array));
 
   PyAcquireGIL lock;
 
@@ -560,7 +569,8 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
 }
 
 template <typename TYPE>
-static Status ConvertTimes(const ChunkedArray& data, PyObject** out_values) {
+static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
+                           PyObject** out_values) {
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
 
   PyAcquireGIL lock;
@@ -629,7 +639,8 @@ Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
   return Status::OK();
 }
 
-static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
+static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
+                              PyObject** out_values) {
   PyAcquireGIL lock;
   OwnedRef decimal_ref;
   OwnedRef Decimal_ref;
@@ -673,9 +684,9 @@ static Status ConvertDecimals(const ChunkedArray& data, PyObject** out_values) {
   return Status::OK();
 }
 
-#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum)                \
-  case Type::ArrowEnum:                                            \
-    RETURN_NOT_OK((ConvertListsLike<ArrowType>(col, out_buffer))); \
+#define CONVERTLISTSLIKE_CASE(ArrowType, ArrowEnum)                          \
+  case Type::ArrowEnum:                                                      \
+    RETURN_NOT_OK((ConvertListsLike<ArrowType>(options_, col, out_buffer))); \
     break;
 
 class ObjectBlock : public PandasBlock {
@@ -693,21 +704,21 @@ class ObjectBlock : public PandasBlock {
     const ChunkedArray& data = *col->data().get();
 
     if (type == Type::BOOL) {
-      RETURN_NOT_OK(ConvertBooleanWithNulls(data, out_buffer));
+      RETURN_NOT_OK(ConvertBooleanWithNulls(options_, data, out_buffer));
     } else if (type == Type::BINARY) {
-      RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(options_, data, out_buffer));
     } else if (type == Type::STRING) {
-      RETURN_NOT_OK(ConvertBinaryLike<StringType>(data, out_buffer));
+      RETURN_NOT_OK(ConvertBinaryLike<StringType>(options_, data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
-      RETURN_NOT_OK(ConvertFixedSizeBinary(data, out_buffer));
+      RETURN_NOT_OK(ConvertFixedSizeBinary(options_, data, out_buffer));
     } else if (type == Type::TIME32) {
-      RETURN_NOT_OK(ConvertTimes<Time32Type>(data, out_buffer));
+      RETURN_NOT_OK(ConvertTimes<Time32Type>(options_, data, out_buffer));
     } else if (type == Type::TIME64) {
-      RETURN_NOT_OK(ConvertTimes<Time64Type>(data, out_buffer));
+      RETURN_NOT_OK(ConvertTimes<Time64Type>(options_, data, out_buffer));
     } else if (type == Type::DECIMAL) {
-      RETURN_NOT_OK(ConvertDecimals(data, out_buffer));
+      RETURN_NOT_OK(ConvertDecimals(options_, data, out_buffer));
     } else if (type == Type::NA) {
-      RETURN_NOT_OK(ConvertNulls(data, out_buffer));
+      RETURN_NOT_OK(ConvertNulls(options_, data, out_buffer));
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->id()) {
@@ -732,7 +743,7 @@ class ObjectBlock : public PandasBlock {
         }
       }
     } else if (type == Type::STRUCT) {
-      RETURN_NOT_OK(ConvertStruct(data, out_buffer));
+      RETURN_NOT_OK(ConvertStruct(options_, data, out_buffer));
     } else {
       std::stringstream ss;
       ss << "Unsupported type for object array output: " << col->type()->ToString();
@@ -768,7 +779,7 @@ class IntBlock : public PandasBlock {
       return Status::NotImplemented(ss.str());
     }
 
-    ConvertIntegerNoNullsSameType<C_TYPE>(data, out_buffer);
+    ConvertIntegerNoNullsSameType<C_TYPE>(options_, data, out_buffer);
     placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
@@ -821,8 +832,8 @@ class Float64Block : public PandasBlock {
 
     const ChunkedArray& data = *col->data().get();
 
-#define INTEGER_CASE(IN_TYPE)                         \
-  ConvertIntegerWithNulls<IN_TYPE>(data, out_buffer); \
+#define INTEGER_CASE(IN_TYPE)                                   \
+  ConvertIntegerWithNulls<IN_TYPE>(options_, data, out_buffer); \
   break;
 
     switch (type) {
@@ -881,7 +892,7 @@ class BoolBlock : public PandasBlock {
     uint8_t* out_buffer =
         reinterpret_cast<uint8_t*>(block_data_) + rel_placement * num_rows_;
 
-    ConvertBooleanNoNulls(*col->data().get(), out_buffer);
+    ConvertBooleanNoNulls(options_, *col->data().get(), out_buffer);
     placement_data_[rel_placement] = abs_placement;
     return Status::OK();
   }
@@ -946,8 +957,8 @@ class DatetimeBlock : public PandasBlock {
 
 class DatetimeTZBlock : public DatetimeBlock {
  public:
-  DatetimeTZBlock(const std::string& timezone, int64_t num_rows)
-      : DatetimeBlock(num_rows, 1), timezone_(timezone) {}
+  DatetimeTZBlock(PandasOptions options, const std::string& timezone, int64_t num_rows)
+      : DatetimeBlock(options, num_rows, 1), timezone_(timezone) {}
 
   // Like Categorical, the internal ndarray is 1-dimensional
   Status Allocate() override { return AllocateDatetime(1); }
@@ -973,25 +984,25 @@ class DatetimeTZBlock : public DatetimeBlock {
   std::string timezone_;
 };
 
-template <int ARROW_INDEX_TYPE>
 class CategoricalBlock : public PandasBlock {
  public:
-  explicit CategoricalBlock(int64_t num_rows) : PandasBlock(num_rows, 1) {}
-  Status Allocate() override {
-    constexpr int npy_type = internal::arrow_traits<ARROW_INDEX_TYPE>::npy_type;
+  explicit CategoricalBlock(PandasOptions options, MemoryPool* pool, int64_t num_rows)
+      : PandasBlock(options, num_rows, 1), pool_(pool) {}
 
-    if (!(npy_type == NPY_INT8 || npy_type == NPY_INT16 || npy_type == NPY_INT32 ||
-          npy_type == NPY_INT64)) {
-      return Status::Invalid("Category indices must be signed integers");
-    }
-    return AllocateNDArray(npy_type, 1);
+  Status Allocate() override {
+    return Status::NotImplemented(
+        "CategoricalBlock allocation happens when calling Write");
   }
 
-  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
-               int64_t rel_placement) override {
-    using T = typename internal::arrow_traits<ARROW_INDEX_TYPE>::T;
+  template <int ARROW_INDEX_TYPE>
+  Status WriteIndices(const std::shared_ptr<Column>& col) {
+    using TRAITS = internal::arrow_traits<ARROW_INDEX_TYPE>;
+    using T = typename TRAITS::T;
+    constexpr int npy_type = TRAITS::npy_type;
+    RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
-    T* out_values = reinterpret_cast<T*>(block_data_) + rel_placement * num_rows_;
+    // No relative placement offset because a single column
+    T* out_values = reinterpret_cast<T*>(block_data_);
 
     const ChunkedArray& data = *col->data().get();
 
@@ -1008,13 +1019,48 @@ class CategoricalBlock : public PandasBlock {
       }
     }
 
+    return Status::OK();
+  }
+
+  Status Write(const std::shared_ptr<Column>& col, int64_t abs_placement,
+               int64_t rel_placement) override {
+    std::shared_ptr<Column> converted_col;
+    if (options_.strings_to_categorical &&
+        (col->type()->id() == Type::STRING || col->type()->id() == Type::BINARY)) {
+      RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<const Column&>(*col), pool_,
+                                             &converted_col));
+    } else {
+      converted_col = col;
+    }
+
+    const auto& dict_type = static_cast<const DictionaryType&>(*converted_col->type());
+
+    switch (dict_type.index_type()->id()) {
+      case Type::INT8:
+        RETURN_NOT_OK(WriteIndices<Type::INT8>(converted_col));
+        break;
+      case Type::INT16:
+        RETURN_NOT_OK(WriteIndices<Type::INT16>(converted_col));
+        break;
+      case Type::INT32:
+        RETURN_NOT_OK(WriteIndices<Type::INT32>(converted_col));
+        break;
+      case Type::INT64:
+        RETURN_NOT_OK(WriteIndices<Type::INT64>(converted_col));
+        break;
+      default: {
+        std::stringstream ss;
+        ss << "Categorical index type not supported: "
+           << dict_type.index_type()->ToString();
+        return Status::NotImplemented(ss.str());
+      }
+    }
+
     placement_data_[rel_placement] = abs_placement;
-
-    auto dict_type = static_cast<const DictionaryType*>(col->type().get());
-
     PyObject* dict;
-    RETURN_NOT_OK(ConvertArrayToPandas(dict_type->dictionary(), nullptr, &dict));
+    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_type.dictionary(), nullptr, &dict));
     dictionary_.reset(dict);
+    ordered_ = dict_type.ordered();
 
     return Status::OK();
   }
@@ -1027,20 +1073,26 @@ class CategoricalBlock : public PandasBlock {
     PyDict_SetItemString(result, "dictionary", dictionary_.obj());
     PyDict_SetItemString(result, "placement", placement_arr_.obj());
 
+    PyObject* py_ordered = ordered_ ? Py_True : Py_False;
+    Py_INCREF(py_ordered);
+    PyDict_SetItemString(result, "ordered", py_ordered);
+
     *output = result;
 
     return Status::OK();
   }
 
  protected:
+  MemoryPool* pool_;
   OwnedRef dictionary_;
+  bool ordered_;
 };
 
-Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
-                 std::shared_ptr<PandasBlock>* block) {
-#define BLOCK_CASE(NAME, TYPE)                              \
-  case PandasBlock::NAME:                                   \
-    *block = std::make_shared<TYPE>(num_rows, num_columns); \
+Status MakeBlock(PandasOptions options, PandasBlock::type type, int64_t num_rows,
+                 int num_columns, std::shared_ptr<PandasBlock>* block) {
+#define BLOCK_CASE(NAME, TYPE)                                       \
+  case PandasBlock::NAME:                                            \
+    *block = std::make_shared<TYPE>(options, num_rows, num_columns); \
     break;
 
   switch (type) {
@@ -1066,35 +1118,93 @@ Status MakeBlock(PandasBlock::type type, int64_t num_rows, int num_columns,
   return (*block)->Allocate();
 }
 
-static inline Status MakeCategoricalBlock(const std::shared_ptr<DataType>& type,
-                                          int64_t num_rows,
-                                          std::shared_ptr<PandasBlock>* block) {
-  // All categoricals become a block with a single column
-  auto dict_type = static_cast<const DictionaryType*>(type.get());
-  switch (dict_type->index_type()->id()) {
+using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
+
+static Status GetPandasBlockType(const Column& col, const PandasOptions& options,
+                                 PandasBlock::type* output_type) {
+  switch (col.type()->id()) {
+    case Type::BOOL:
+      *output_type = col.null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
+      break;
+    case Type::UINT8:
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT8;
+      break;
     case Type::INT8:
-      *block = std::make_shared<CategoricalBlock<Type::INT8>>(num_rows);
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT8;
+      break;
+    case Type::UINT16:
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT16;
       break;
     case Type::INT16:
-      *block = std::make_shared<CategoricalBlock<Type::INT16>>(num_rows);
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT16;
+      break;
+    case Type::UINT32:
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT32;
       break;
     case Type::INT32:
-      *block = std::make_shared<CategoricalBlock<Type::INT32>>(num_rows);
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT32;
       break;
     case Type::INT64:
-      *block = std::make_shared<CategoricalBlock<Type::INT64>>(num_rows);
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT64;
       break;
-    default: {
+    case Type::UINT64:
+      *output_type = col.null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT64;
+      break;
+    case Type::FLOAT:
+      *output_type = PandasBlock::FLOAT;
+      break;
+    case Type::DOUBLE:
+      *output_type = PandasBlock::DOUBLE;
+      break;
+    case Type::STRING:
+    case Type::BINARY:
+      if (options.strings_to_categorical) {
+        *output_type = PandasBlock::CATEGORICAL;
+        break;
+      }
+    case Type::NA:
+    case Type::FIXED_SIZE_BINARY:
+    case Type::STRUCT:
+    case Type::TIME32:
+    case Type::TIME64:
+    case Type::DECIMAL:
+      *output_type = PandasBlock::OBJECT;
+      break;
+    case Type::DATE32:
+      *output_type = PandasBlock::DATETIME;
+      break;
+    case Type::DATE64:
+      *output_type = PandasBlock::DATETIME;
+      break;
+    case Type::TIMESTAMP: {
+      const auto& ts_type = static_cast<const TimestampType&>(*col.type());
+      if (ts_type.timezone() != "") {
+        *output_type = PandasBlock::DATETIME_WITH_TZ;
+      } else {
+        *output_type = PandasBlock::DATETIME;
+      }
+    } break;
+    case Type::LIST: {
+      auto list_type = std::static_pointer_cast<ListType>(col.type());
+      if (!ListTypeSupported(*list_type->value_type())) {
+        std::stringstream ss;
+        ss << "Not implemented type for list in DataFrameBlock: "
+           << list_type->value_type()->ToString();
+        return Status::NotImplemented(ss.str());
+      }
+      *output_type = PandasBlock::OBJECT;
+    } break;
+    case Type::DICTIONARY:
+      *output_type = PandasBlock::CATEGORICAL;
+      break;
+    default:
       std::stringstream ss;
-      ss << "Categorical index type not implemented: "
-         << dict_type->index_type()->ToString();
+      ss << "No known equivalent Pandas block for Arrow data of type ";
+      ss << col.type()->ToString() << " is known.";
       return Status::NotImplemented(ss.str());
-    }
   }
-  return (*block)->Allocate();
+  return Status::OK();
 }
-
-using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 
 // Construct the exact pandas 0.x "BlockManager" memory layout
 //
@@ -1105,7 +1215,9 @@ using BlockMap = std::unordered_map<int, std::shared_ptr<PandasBlock>>;
 // * placement arrays as we go
 class DataFrameBlockCreator {
  public:
-  explicit DataFrameBlockCreator(const std::shared_ptr<Table>& table) : table_(table) {}
+  explicit DataFrameBlockCreator(const PandasOptions& options,
+                                 const std::shared_ptr<Table>& table, MemoryPool* pool)
+      : table_(table), options_(options), pool_(pool) {}
 
   Status Convert(int nthreads, PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1123,94 +1235,17 @@ class DataFrameBlockCreator {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<Column> col = table_->column(i);
       PandasBlock::type output_type;
-
-      Type::type column_type = col->type()->id();
-      switch (column_type) {
-        case Type::BOOL:
-          output_type = col->null_count() > 0 ? PandasBlock::OBJECT : PandasBlock::BOOL;
-          break;
-        case Type::UINT8:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT8;
-          break;
-        case Type::INT8:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT8;
-          break;
-        case Type::UINT16:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT16;
-          break;
-        case Type::INT16:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT16;
-          break;
-        case Type::UINT32:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT32;
-          break;
-        case Type::INT32:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT32;
-          break;
-        case Type::INT64:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::INT64;
-          break;
-        case Type::UINT64:
-          output_type = col->null_count() > 0 ? PandasBlock::DOUBLE : PandasBlock::UINT64;
-          break;
-        case Type::FLOAT:
-          output_type = PandasBlock::FLOAT;
-          break;
-        case Type::DOUBLE:
-          output_type = PandasBlock::DOUBLE;
-          break;
-        case Type::NA:
-        case Type::STRING:
-        case Type::BINARY:
-        case Type::FIXED_SIZE_BINARY:
-        case Type::STRUCT:
-        case Type::TIME32:
-        case Type::TIME64:
-        case Type::DECIMAL:
-          output_type = PandasBlock::OBJECT;
-          break;
-        case Type::DATE32:
-          output_type = PandasBlock::DATETIME;
-          break;
-        case Type::DATE64:
-          output_type = PandasBlock::DATETIME;
-          break;
-        case Type::TIMESTAMP: {
-          const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-          if (ts_type.timezone() != "") {
-            output_type = PandasBlock::DATETIME_WITH_TZ;
-          } else {
-            output_type = PandasBlock::DATETIME;
-          }
-        } break;
-        case Type::LIST: {
-          auto list_type = std::static_pointer_cast<ListType>(col->type());
-          if (!ListTypeSupported(*list_type->value_type())) {
-            std::stringstream ss;
-            ss << "Not implemented type for list in DataFrameBlock: "
-               << list_type->value_type()->ToString();
-            return Status::NotImplemented(ss.str());
-          }
-          output_type = PandasBlock::OBJECT;
-        } break;
-        case Type::DICTIONARY:
-          output_type = PandasBlock::CATEGORICAL;
-          break;
-        default:
-          std::stringstream ss;
-          ss << "No known equivalent Pandas block for Arrow data of type ";
-          ss << col->type()->ToString() << " is known.";
-          return Status::NotImplemented(ss.str());
-      }
+      RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
 
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
       if (output_type == PandasBlock::CATEGORICAL) {
-        RETURN_NOT_OK(MakeCategoricalBlock(col->type(), table_->num_rows(), &block));
+        block = std::make_shared<CategoricalBlock>(options_, pool_, table_->num_rows());
         categorical_blocks_[i] = block;
       } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
         const auto& ts_type = static_cast<const TimestampType&>(*col->type());
-        block = std::make_shared<DatetimeTZBlock>(ts_type.timezone(), table_->num_rows());
+        block = std::make_shared<DatetimeTZBlock>(options_, ts_type.timezone(),
+                                                  table_->num_rows());
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
       } else {
@@ -1224,92 +1259,61 @@ class DataFrameBlockCreator {
           type_counts_[output_type] = 1;
         }
       }
-
       column_types_[i] = output_type;
       column_block_placement_[i] = block_placement;
     }
 
     // Create normal non-categorical blocks
-    for (const auto& it : type_counts_) {
+    for (const auto& it : this->type_counts_) {
       PandasBlock::type type = static_cast<PandasBlock::type>(it.first);
       std::shared_ptr<PandasBlock> block;
-      RETURN_NOT_OK(MakeBlock(type, table_->num_rows(), it.second, &block));
-      blocks_[type] = block;
+      RETURN_NOT_OK(
+          MakeBlock(this->options_, type, this->table_->num_rows(), it.second, &block));
+      this->blocks_[type] = block;
+    }
+    return Status::OK();
+  }
+
+  Status GetBlock(int i, std::shared_ptr<PandasBlock>* block) {
+    PandasBlock::type output_type = this->column_types_[i];
+
+    if (output_type == PandasBlock::CATEGORICAL) {
+      auto it = this->categorical_blocks_.find(i);
+      if (it == this->blocks_.end()) {
+        return Status::KeyError("No categorical block allocated");
+      }
+      *block = it->second;
+    } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
+      auto it = this->datetimetz_blocks_.find(i);
+      if (it == this->datetimetz_blocks_.end()) {
+        return Status::KeyError("No datetimetz block allocated");
+      }
+      *block = it->second;
+    } else {
+      auto it = this->blocks_.find(output_type);
+      if (it == this->blocks_.end()) {
+        return Status::KeyError("No block allocated");
+      }
+      *block = it->second;
     }
     return Status::OK();
   }
 
   Status WriteTableToBlocks(int nthreads) {
     auto WriteColumn = [this](int i) {
-      std::shared_ptr<Column> col = this->table_->column(i);
-      PandasBlock::type output_type = this->column_types_[i];
-
-      int rel_placement = this->column_block_placement_[i];
-
       std::shared_ptr<PandasBlock> block;
-      if (output_type == PandasBlock::CATEGORICAL) {
-        auto it = this->categorical_blocks_.find(i);
-        if (it == this->blocks_.end()) {
-          return Status::KeyError("No categorical block allocated");
-        }
-        block = it->second;
-      } else if (output_type == PandasBlock::DATETIME_WITH_TZ) {
-        auto it = this->datetimetz_blocks_.find(i);
-        if (it == this->datetimetz_blocks_.end()) {
-          return Status::KeyError("No datetimetz block allocated");
-        }
-        block = it->second;
-      } else {
-        auto it = this->blocks_.find(output_type);
-        if (it == this->blocks_.end()) {
-          return Status::KeyError("No block allocated");
-        }
-        block = it->second;
-      }
-      return block->Write(col, i, rel_placement);
+      RETURN_NOT_OK(this->GetBlock(i, &block));
+      return block->Write(this->table_->column(i), i, this->column_block_placement_[i]);
     };
 
-    nthreads = std::min<int>(nthreads, table_->num_columns());
-
+    int num_tasks = table_->num_columns();
+    nthreads = std::min<int>(nthreads, num_tasks);
     if (nthreads == 1) {
-      for (int i = 0; i < table_->num_columns(); ++i) {
+      for (int i = 0; i < num_tasks; ++i) {
         RETURN_NOT_OK(WriteColumn(i));
       }
     } else {
-      std::vector<std::thread> thread_pool;
-      thread_pool.reserve(nthreads);
-      std::atomic<int> task_counter(0);
-
-      std::mutex error_mtx;
-      bool error_occurred = false;
-      Status error;
-
-      for (int thread_id = 0; thread_id < nthreads; ++thread_id) {
-        thread_pool.emplace_back(
-            [this, &error, &error_occurred, &error_mtx, &task_counter, &WriteColumn]() {
-              int column_num;
-              while (!error_occurred) {
-                column_num = task_counter.fetch_add(1);
-                if (column_num >= this->table_->num_columns()) {
-                  break;
-                }
-                Status s = WriteColumn(column_num);
-                if (!s.ok()) {
-                  std::lock_guard<std::mutex> lock(error_mtx);
-                  error_occurred = true;
-                  error = s;
-                  break;
-                }
-              }
-            });
-      }
-      for (auto&& thread : thread_pool) {
-        thread.join();
-      }
-
-      if (error_occurred) {
-        return error;
-      }
+      RETURN_NOT_OK(ParallelFor(nthreads, num_tasks, WriteColumn));
     }
     return Status::OK();
   }
@@ -1354,6 +1358,11 @@ class DataFrameBlockCreator {
   // block type -> type count
   std::unordered_map<int, int> type_counts_;
 
+  PandasOptions options_;
+
+  // Memory pool for dictionary encoding
+  MemoryPool* pool_;
+
   // block type -> block
   BlockMap blocks_;
 
@@ -1366,8 +1375,9 @@ class DataFrameBlockCreator {
 
 class ArrowDeserializer {
  public:
-  ArrowDeserializer(const std::shared_ptr<Column>& col, PyObject* py_ref)
-      : col_(col), data_(*col->data().get()), py_ref_(py_ref) {}
+  ArrowDeserializer(PandasOptions options, const std::shared_ptr<Column>& col,
+                    PyObject* py_ref)
+      : col_(col), data_(*col->data().get()), options_(options), py_ref_(py_ref) {}
 
   Status AllocateOutput(int type) {
     PyAcquireGIL lock;
@@ -1378,7 +1388,8 @@ class ArrowDeserializer {
   }
 
   template <int TYPE>
-  Status ConvertValuesZeroCopy(int npy_type, std::shared_ptr<Array> arr) {
+  Status ConvertValuesZeroCopy(PandasOptions options, int npy_type,
+                               std::shared_ptr<Array> arr) {
     typedef typename internal::arrow_traits<TYPE>::T T;
 
     const auto& prim_arr = static_cast<const PrimitiveArray&>(*arr);
@@ -1429,7 +1440,7 @@ class ArrowDeserializer {
     int npy_type = traits::npy_type;
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
-      return ConvertValuesZeroCopy<TYPE>(npy_type, data_.chunk(0));
+      return ConvertValuesZeroCopy<TYPE>(options_, npy_type, data_.chunk(0));
     }
 
     RETURN_NOT_OK(AllocateOutput(npy_type));
@@ -1482,17 +1493,17 @@ class ArrowDeserializer {
     typedef typename traits::T T;
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
-      return ConvertValuesZeroCopy<TYPE>(traits::npy_type, data_.chunk(0));
+      return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_.chunk(0));
     }
 
     if (data_.null_count() > 0) {
       RETURN_NOT_OK(AllocateOutput(NPY_FLOAT64));
       auto out_values = reinterpret_cast<double*>(PyArray_DATA(arr_));
-      ConvertIntegerWithNulls<T>(data_, out_values);
+      ConvertIntegerWithNulls<T>(options_, data_, out_values);
     } else {
       RETURN_NOT_OK(AllocateOutput(traits::npy_type));
       auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
-      ConvertIntegerNoNullsSameType<T>(data_, out_values);
+      ConvertIntegerNoNullsSameType<T>(options_, data_, out_values);
     }
 
     return Status::OK();
@@ -1502,7 +1513,7 @@ class ArrowDeserializer {
   inline Status VisitObjects(FUNCTOR func) {
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
-    return func(data_, out_values);
+    return func(options_, data_, out_values);
   }
 
   // UTF8 strings
@@ -1534,7 +1545,7 @@ class ArrowDeserializer {
     } else {
       RETURN_NOT_OK(AllocateOutput(internal::arrow_traits<Type::BOOL>::npy_type));
       auto out_values = reinterpret_cast<uint8_t*>(PyArray_DATA(arr_));
-      ConvertBooleanNoNulls(data_, out_values);
+      ConvertBooleanNoNulls(options_, data_, out_values);
     }
     return Status::OK();
   }
@@ -1542,7 +1553,7 @@ class ArrowDeserializer {
   Status Visit(const ListType& type) {
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
   case Type::ArrowEnum:                                    \
-    return ConvertListsLike<ArrowType>(col_, out_values);
+    return ConvertListsLike<ArrowType>(options_, col_, out_values);
 
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
@@ -1572,8 +1583,7 @@ class ArrowDeserializer {
   }
 
   Status Visit(const DictionaryType& type) {
-    std::shared_ptr<PandasBlock> block;
-    RETURN_NOT_OK(MakeCategoricalBlock(col_->type(), col_->length(), &block));
+    auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 
     auto dict_type = static_cast<const DictionaryType*>(col_->type().get());
@@ -1587,7 +1597,8 @@ class ArrowDeserializer {
     // Release GIL before calling ConvertArrayToPandas, will be reacquired
     // there if needed
     lock.release();
-    RETURN_NOT_OK(ConvertArrayToPandas(dict_type->dictionary(), nullptr, &dictionary));
+    RETURN_NOT_OK(
+        ConvertArrayToPandas(options_, dict_type->dictionary(), nullptr, &dictionary));
     lock.acquire();
 
     PyDict_SetItemString(result_, "indices", block->block_arr());
@@ -1607,28 +1618,29 @@ class ArrowDeserializer {
  private:
   std::shared_ptr<Column> col_;
   const ChunkedArray& data_;
+  PandasOptions options_;
   PyObject* py_ref_;
   PyArrayObject* arr_;
   PyObject* result_;
 };
 
-Status ConvertArrayToPandas(const std::shared_ptr<Array>& arr, PyObject* py_ref,
-                            PyObject** out) {
+Status ConvertArrayToPandas(PandasOptions options, const std::shared_ptr<Array>& arr,
+                            PyObject* py_ref, PyObject** out) {
   static std::string dummy_name = "dummy";
   auto field = std::make_shared<Field>(dummy_name, arr->type());
   auto col = std::make_shared<Column>(field, arr);
-  return ConvertColumnToPandas(col, py_ref, out);
+  return ConvertColumnToPandas(options, col, py_ref, out);
 }
 
-Status ConvertColumnToPandas(const std::shared_ptr<Column>& col, PyObject* py_ref,
-                             PyObject** out) {
-  ArrowDeserializer converter(col, py_ref);
+Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column>& col,
+                             PyObject* py_ref, PyObject** out) {
+  ArrowDeserializer converter(options, col, py_ref);
   return converter.Convert(out);
 }
 
-Status ConvertTableToPandas(const std::shared_ptr<Table>& table, int nthreads,
-                            PyObject** out) {
-  DataFrameBlockCreator helper(table);
+Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
+                            int nthreads, MemoryPool* pool, PyObject** out) {
+  DataFrameBlockCreator helper(options, table, pool);
   return helper.Convert(nthreads, out);
 }
 
