@@ -1035,7 +1035,7 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
     }
   }
 
-  *out = std::make_shared<Schema>(fields, metadata);
+  *out = ::arrow::schema(std::move(fields), metadata);
   return Status::OK();
 }
 

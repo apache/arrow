@@ -247,8 +247,8 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   auto v2_type = int32();
   auto v3_type = utf8();
 
-  std::shared_ptr<Schema> schema(
-      new Schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)}));
+  auto schema =
+      ::arrow::schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)});
 
   std::unique_ptr<JsonWriter> writer;
   ASSERT_OK(JsonWriter::Open(schema, &writer));
