@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.vector.UInt4Vector;
@@ -26,7 +27,6 @@ import org.apache.arrow.vector.ValueVector;
  * A repeated vector contains values that may either be flat or nested. A value consists of zero or more cells(inner values).
  * Current design maintains data and offsets vectors. Each cell is stored in the data vector. Repeated vector
  * uses the offset vector to determine the sequence of cells pertaining to an individual value.
- *
  */
 public interface RepeatedValueVector extends ValueVector {
 
@@ -51,6 +51,7 @@ public interface RepeatedValueVector extends ValueVector {
   interface RepeatedAccessor extends ValueVector.Accessor {
     /**
      * The result includes empty, null valued cells.
+     *
      * @return total number of cells that vector contains.
      */
     int getInnerValueCount();
@@ -63,7 +64,7 @@ public interface RepeatedValueVector extends ValueVector {
     int getInnerValueCountAt(int index);
 
     /**
-     * @param index  value index
+     * @param index value index
      * @return true if the value at the given index is empty, false otherwise.
      */
     boolean isEmpty(int index);
@@ -74,7 +75,7 @@ public interface RepeatedValueVector extends ValueVector {
     /**
      * Starts a new value that is a container of cells.
      *
-     * @param index  index of new value to start
+     * @param index index of new value to start
      * @return index into the child vector
      */
     int startNewValue(int index);

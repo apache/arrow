@@ -51,9 +51,16 @@ conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
       thrift-cpp
 
+@rem ARROW-1294 CMake 3.9.0 in conda-forge breaks the build
+set ARROW_CMAKE_VERSION=3.8.0
+
 if "%JOB%" == "Toolchain" (
+
   conda install -n arrow -q -y -c conda-forge ^
-      flatbuffers rapidjson cmake git boost-cpp ^
+      flatbuffers rapidjson ^
+      cmake=%ARROW_CMAKE_VERSION% ^
+      git ^
+      boost-cpp ^
       snappy zlib brotli gflags lz4-c zstd
 )
 
@@ -97,7 +104,6 @@ cmake -G "%GENERATOR%" ^
      -DCMAKE_INSTALL_PREFIX=%PARQUET_HOME% ^
      -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
      -DPARQUET_BOOST_USE_SHARED=OFF ^
-     -DPARQUET_ZLIB_VENDORED=off ^
      -DPARQUET_BUILD_TESTS=off .. || exit /B
 cmake --build . --target INSTALL --config %CONFIGURATION% || exit /B
 popd
@@ -107,6 +113,9 @@ popd
 @rem see PARQUET-1018
 
 pushd python
+
+set PYARROW_CXXFLAGS=/WX
 python setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp bdist_wheel  || exit /B
 py.test pyarrow -v -s --parquet || exit /B
+
 popd

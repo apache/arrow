@@ -15,20 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-public interface VariableWidthVector extends ValueVector{
+public interface VariableWidthVector extends ValueVector {
 
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
    *
-   * @param totalBytes   Desired size of the underlying data buffer.
-   * @param valueCount   Number of values in the vector.
+   * @param totalBytes Desired size of the underlying data buffer.
+   * @param valueCount Number of values in the vector.
    */
   void allocateNew(int totalBytes, int valueCount);
 
   /**
    * Provide the maximum amount of variable width bytes that can be stored in this vector.
+   *
    * @return the byte capacity of this vector
    */
   int getByteCapacity();

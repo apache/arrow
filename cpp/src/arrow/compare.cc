@@ -38,6 +38,8 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // Public method implementations
 
+namespace internal {
+
 class RangeEqualsVisitor {
  public:
   RangeEqualsVisitor(const Array& right, int64_t left_start_idx, int64_t left_end_idx,
@@ -229,11 +231,11 @@ class RangeEqualsVisitor {
     const uint8_t* right_data = nullptr;
 
     if (left.values()) {
-      left_data = left.raw_values() + left.offset() * width;
+      left_data = left.raw_values();
     }
 
     if (right.values()) {
-      right_data = right.raw_values() + right.offset() * width;
+      right_data = right.raw_values();
     }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
@@ -263,11 +265,11 @@ class RangeEqualsVisitor {
     const uint8_t* right_data = nullptr;
 
     if (left.values()) {
-      left_data = left.raw_values() + left.offset() * width;
+      left_data = left.raw_values();
     }
 
     if (right.values()) {
-      right_data = right.raw_values() + right.offset() * width;
+      right_data = right.raw_values();
     }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
@@ -350,10 +352,10 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const uint8_t* right_data = nullptr;
 
   if (left.values()) {
-    left_data = left.values()->data() + left.offset() * byte_width;
+    left_data = left.raw_values();
   }
   if (right.values()) {
-    right_data = right.values()->data() + right.offset() * byte_width;
+    right_data = right.raw_values();
   }
 
   if (left.null_count() > 0) {
@@ -397,10 +399,10 @@ static bool IsEqualDecimal(const DecimalArray& left, const DecimalArray& right) 
   const uint8_t* right_data = nullptr;
 
   if (left.values()) {
-    left_data = left.values()->data();
+    left_data = left.raw_values();
   }
   if (right.values()) {
-    right_data = right.values()->data();
+    right_data = right.raw_values();
   }
 
   const int32_t byte_width = left.byte_width();
@@ -673,63 +675,6 @@ inline Status ArrayEqualsImpl(const Array& left, const Array& right, bool* are_e
   return Status::OK();
 }
 
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
-  return ArrayEqualsImpl<ArrayEqualsVisitor>(left, right, are_equal);
-}
-
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
-  return ArrayEqualsImpl<ApproxEqualsVisitor>(left, right, are_equal);
-}
-
-Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
-                        int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
-  if (&left == &right) {
-    *are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
-  } else if (left.length() == 0) {
-    *are_equal = true;
-  } else {
-    RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx, right_start_idx);
-    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
-    *are_equal = visitor.result();
-  }
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// Implement TensorEquals
-
-Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
-  // The arrays are the same object
-  if (&left == &right) {
-    *are_equal = true;
-  } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
-  } else if (left.size() == 0) {
-    *are_equal = true;
-  } else {
-    if (!left.is_contiguous() || !right.is_contiguous()) {
-      return Status::NotImplemented(
-          "Comparison not implemented for non-contiguous tensors");
-    }
-
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / 8;
-    DCHECK_GT(byte_width, 0);
-
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right.data()->data();
-
-    *are_equal =
-        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
-  }
-  return Status::OK();
-}
-
-// ----------------------------------------------------------------------
-// Implement TypeEquals
-
 class TypeEqualsVisitor {
  public:
   explicit TypeEqualsVisitor(const DataType& right) : right_(right), result_(false) {}
@@ -824,7 +769,8 @@ class TypeEqualsVisitor {
   Status Visit(const DictionaryType& left) {
     const auto& right = static_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
-              left.dictionary()->Equals(right.dictionary());
+              left.dictionary()->Equals(right.dictionary()) &&
+              (left.ordered() == right.ordered());
     return Status::OK();
   }
 
@@ -835,6 +781,60 @@ class TypeEqualsVisitor {
   bool result_;
 };
 
+}  // namespace internal
+
+Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
+  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, are_equal);
+}
+
+Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, are_equal);
+}
+
+Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
+                        int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
+  if (&left == &right) {
+    *are_equal = true;
+  } else if (left.type_id() != right.type_id()) {
+    *are_equal = false;
+  } else if (left.length() == 0) {
+    *are_equal = true;
+  } else {
+    internal::RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx,
+                                         right_start_idx);
+    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
+    *are_equal = visitor.result();
+  }
+  return Status::OK();
+}
+
+Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
+  // The arrays are the same object
+  if (&left == &right) {
+    *are_equal = true;
+  } else if (left.type_id() != right.type_id()) {
+    *are_equal = false;
+  } else if (left.size() == 0) {
+    *are_equal = true;
+  } else {
+    if (!left.is_contiguous() || !right.is_contiguous()) {
+      return Status::NotImplemented(
+          "Comparison not implemented for non-contiguous tensors");
+    }
+
+    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+    const int byte_width = size_meta.bit_width() / 8;
+    DCHECK_GT(byte_width, 0);
+
+    const uint8_t* left_data = left.data()->data();
+    const uint8_t* right_data = right.data()->data();
+
+    *are_equal =
+        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
+  }
+  return Status::OK();
+}
+
 Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
@@ -842,7 +842,7 @@ Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) 
   } else if (left.id() != right.id()) {
     *are_equal = false;
   } else {
-    TypeEqualsVisitor visitor(right);
+    internal::TypeEqualsVisitor visitor(right);
     RETURN_NOT_OK(VisitTypeInline(left, &visitor));
     *are_equal = visitor.result();
   }

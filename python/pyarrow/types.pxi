@@ -97,6 +97,11 @@ cdef class DictionaryType(DataType):
         DataType.init(self, type)
         self.dict_type = <const CDictionaryType*> type.get()
 
+    property ordered:
+
+        def __get__(self):
+            return self.dict_type.ordered()
+
 
 cdef class ListType(DataType):
 
@@ -281,12 +286,12 @@ cdef class Schema:
     def __len__(self):
         return self.schema.num_fields()
 
-    def __getitem__(self, int64_t i):
+    def __getitem__(self, int i):
 
         cdef:
             Field result = Field()
-            int64_t num_fields = self.schema.num_fields()
-            int64_t index
+            int num_fields = self.schema.num_fields()
+            int index
 
         if not -num_fields <= i < num_fields:
             raise IndexError(
@@ -414,7 +419,7 @@ cdef DataType primitive_type(Type type):
     _type_cache[type] = out
     return out
 
-#------------------------------------------------------------
+# -----------------------------------------------------------
 # Type factory functions
 
 cdef int convert_metadata(dict metadata,
@@ -456,7 +461,7 @@ def field(name, DataType type, bint nullable=True, dict metadata=None):
         convert_metadata(metadata, &c_meta)
 
     result.sp_field.reset(new CField(tobytes(name), type.sp_type,
-                                     nullable, c_meta))
+                                     nullable == 1, c_meta))
     result.field = result.sp_field.get()
     result.type = type
     return result
@@ -798,7 +803,8 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dictionary):
+cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
+                                bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
 
@@ -814,7 +820,8 @@ cpdef DictionaryType dictionary(DataType index_type, Array dictionary):
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dictionary.sp_array))
+                                        dictionary.sp_array,
+                                        ordered == 1))
     out.init(dict_type)
     return out
 

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.types;
 
 public enum UnionMode {
@@ -22,6 +23,7 @@ public enum UnionMode {
   Dense(org.apache.arrow.flatbuf.UnionMode.Dense);
 
   private static final UnionMode[] valuesByFlatbufId = new UnionMode[UnionMode.values().length];
+
   static {
     for (UnionMode v : UnionMode.values()) {
       valuesByFlatbufId[v.flatbufID] = v;

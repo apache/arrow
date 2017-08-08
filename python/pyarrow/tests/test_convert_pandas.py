@@ -18,7 +18,7 @@
 
 from collections import OrderedDict
 
-import datetime
+from datetime import datetime, date, time
 import unittest
 import decimal
 import json
@@ -108,6 +108,11 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
         self._check_pandas_roundtrip(df)
+
+    def test_non_string_columns(self):
+        df = pd.DataFrame({0: [1, 2, 3]})
+        table = pa.Table.from_pandas(df)
+        assert table.column(0).name == '0'
 
     def test_float_no_nulls(self):
         data = {}
@@ -346,6 +351,17 @@ class TestPandasConversion(unittest.TestCase):
             expected_schema=schema,
         )
 
+    def test_timestamps_to_ms_explicit_schema(self):
+        # ARROW-1328
+        df = pd.DataFrame({'datetime': [datetime(2017, 1, 1)]})
+        pa_type = pa.from_numpy_dtype(df['datetime'].dtype)
+
+        arr = pa.Array.from_pandas(df['datetime'], type=pa_type,
+                                   timestamps_to_ms=True)
+
+        tm.assert_almost_equal(df['datetime'].values.astype('M8[ms]'),
+                               arr.to_pandas())
+
     def test_timestamps_notimezone_nulls(self):
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -404,10 +420,10 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_date_infer(self):
         df = pd.DataFrame({
-            'date': [datetime.date(2000, 1, 1),
+            'date': [date(2000, 1, 1),
                      None,
-                     datetime.date(1970, 1, 1),
-                     datetime.date(2040, 2, 26)]})
+                     date(1970, 1, 1),
+                     date(2040, 2, 26)]})
         table = pa.Table.from_pandas(df, preserve_index=False)
         field = pa.field('date', pa.date32())
         schema = pa.schema([field])
@@ -419,10 +435,10 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_date_objects_typed(self):
         arr = np.array([
-            datetime.date(2017, 4, 3),
+            date(2017, 4, 3),
             None,
-            datetime.date(2017, 4, 4),
-            datetime.date(2017, 4, 5)], dtype=object)
+            date(2017, 4, 4),
+            date(2017, 4, 5)], dtype=object)
 
         arr_i4 = np.array([17259, -1, 17260, 17261], dtype='int32')
         arr_i8 = arr_i4.astype('int64') * 86400000
@@ -465,7 +481,7 @@ class TestPandasConversion(unittest.TestCase):
         a1 = pa.Array.from_pandas(arr, type=t1)
         a2 = pa.Array.from_pandas(arr2, type=t2)
 
-        expected = datetime.date(2017, 4, 3)
+        expected = date(2017, 4, 3)
         assert a1[0].as_py() == expected
         assert a2[0].as_py() == expected
 
@@ -518,6 +534,21 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
+    def test_nested_lists_all_none(self):
+        data = np.array([[None, None], None], dtype=object)
+
+        arr = pa.Array.from_pandas(data)
+        expected = pa.array(list(data))
+        assert arr.equals(expected)
+        assert arr.type == pa.list_(pa.null())
+
+        data2 = np.array([None, None, [None, None],
+                          np.array([None, None], dtype=object)],
+                         dtype=object)
+        arr = pa.Array.from_pandas(data2)
+        expected = pa.array([None, None, [None, None], [None, None]])
+        assert arr.equals(expected)
+
     def test_threaded_conversion(self):
         df = _alltypes_example()
         self._check_pandas_roundtrip(df, nthreads=2,
@@ -531,6 +562,9 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'cat_strings': pd.Categorical(v1 * repeats),
                            'cat_ints': pd.Categorical(v2 * repeats),
                            'cat_binary': pd.Categorical(v3 * repeats),
+                           'cat_strings_ordered': pd.Categorical(
+                               v1 * repeats, categories=['bar', 'qux', 'foo'],
+                               ordered=True),
                            'ints': v2 * repeats,
                            'ints2': v2 * repeats,
                            'strings': v1 * repeats,
@@ -661,8 +695,8 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(df, expected)
 
     def test_pytime_from_pandas(self):
-        pytimes = [datetime.time(1, 2, 3, 1356),
-                   datetime.time(4, 5, 6, 1356)]
+        pytimes = [time(1, 2, 3, 1356),
+                   time(4, 5, 6, 1356)]
 
         # microseconds
         t1 = pa.time64('us')
@@ -698,9 +732,9 @@ class TestPandasConversion(unittest.TestCase):
         assert a4[0].as_py() == pytimes[0].replace(microsecond=0)
 
     def test_arrow_time_to_pandas(self):
-        pytimes = [datetime.time(1, 2, 3, 1356),
-                   datetime.time(4, 5, 6, 1356),
-                   datetime.time(0, 0, 0)]
+        pytimes = [time(1, 2, 3, 1356),
+                   time(4, 5, 6, 1356),
+                   time(0, 0, 0)]
 
         expected = np.array(pytimes[:2] + [None])
         expected_ms = np.array([x.replace(microsecond=1000)
@@ -905,7 +939,7 @@ def _pytime_from_micros(val):
     val //= 60
     minutes = val % 60
     hours = val // 60
-    return datetime.time(hours, minutes, seconds, microseconds)
+    return time(hours, minutes, seconds, microseconds)
 
 
 def _pytime_to_micros(pytime):

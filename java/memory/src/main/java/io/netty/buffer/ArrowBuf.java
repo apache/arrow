@@ -208,7 +208,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is
    * connected to the
    * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to
-   * the taret allocator. If
+   * the target allocator. If
    * this ArrowBuf does not currently own the memory underlying it (and is only associated with
    * it), this does not
    * transfer any ownership to the newly created ArrowBuf.
@@ -406,12 +406,12 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[]{nioBuffer()};
+    return new ByteBuffer[] {nioBuffer()};
   }
 
   @Override
   public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[]{nioBuffer(index, length)};
+    return new ByteBuffer[] {nioBuffer(index, length)};
   }
 
   @Override

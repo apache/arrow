@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<!-- From Apache HAWQ (incubating) -->
+
+<configuration>
+
+<!-- KDC
+	<property>
+		<name>hadoop.security.authentication</name>
+		<value>kerberos</value>
+	</property>
+KDC -->
+
+<!-- HA
+	<property>
+		<name>dfs.nameservices</name>
+		<value>phdcluster</value>
+	</property>
+
+	<property>
+		<name>dfs.ha.namenodes.phdcluster</name>
+		<value>nn1,nn2</value>
+	</property>6
+
+	<property>
+		<name>dfs.namenode.rpc-address.phdcluster.nn1</name>
+		<value>mdw:9000</value>
+	</property>
+
+	<property>
+		<name>dfs.namenode.rpc-address.phdcluster.nn2</name>
+		<value>smdw:9000</value>
+	</property>
+
+	<property>
+		<name>dfs.namenode.http-address.phdcluster.nn1</name>
+		<value>mdw:50070</value>
+	</property>
+
+	<property>
+		<name>dfs.namenode.http-address.phdcluster.nn2</name>
+		<value>smdw:50070</value>
+	</property>
+
+HA -->
+
+	<!-- RPC client configuration -->
+	<property>
+		<name>rpc.client.timeout</name>
+		<value>3600000</value>
+		<description>
+		timeout interval of a RPC invocation in millisecond. default is 3600000.
+		</description>
+	</property>
+	<property>
+		<name>rpc.client.connect.tcpnodelay</name>
+		<value>true</value>
+		<description>
+		whether set socket TCP_NODELAY to true when connect to RPC server. default is true.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.max.idle</name>
+		<value>10000</value>
+		<description>
+		the max idle time of a RPC connection in millisecond. default is 10000.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.ping.interval</name>
+		<value>10000</value>
+		<description>
+		the interval which the RPC client send a heart beat to server. 0 means disable, default is 10000.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.connect.timeout</name>
+		<value>600000</value>
+		<description>
+		the timeout interval in millisecond when the RPC client is trying to setup the connection. default is 600000.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.connect.retry</name>
+		<value>10</value>
+		<description>
+		the max retry times if the RPC client fail to setup the connection to server. default is 10.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.read.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the RPC client is trying to read from server. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.write.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the RPC client is trying to write to server. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>rpc.client.socket.linger.timeout</name>
+		<value>-1</value>
+		<description>
+		set value to socket SO_LINGER when connect to RPC server. -1 means default OS value. default is -1.
+		</description>
+	</property>
+
+	<!-- dfs client configuration -->
+	<property>
+		<name>dfs.client.read.shortcircuit</name>
+		<value>false</value>
+		<description>
+		whether reading block file bypass datanode if the block and the client are on the same node. default is true.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.default.replica</name>
+		<value>1</value>
+		<description>
+		the default number of replica. default is 3.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.prefetchsize</name>
+		<value>10</value>
+		<description>
+		the default number of blocks which information will be prefetched. default is 10.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.client.failover.max.attempts</name>
+		<value>15</value>
+		<description>
+		if multiply namenodes are configured, it is the max retry times when the dfs client try to issue a RPC call. default is 15.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.default.blocksize</name>
+		<value>134217728</value>
+		<description>
+		default block size. default is 134217728.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.client.log.severity</name>
+		<value>INFO</value>
+		<description>
+		the minimal log severity level, valid values include FATAL, ERROR, INFO, DEBUG1, DEBUG2, DEBUG3. default is INFO.
+		</description>
+	</property>
+
+	<!-- input client configuration -->
+	<property>
+		<name>input.connect.timeout</name>
+		<value>600000</value>
+		<description>
+		the timeout interval in millisecond when the input stream is trying to setup the connection to datanode. default is 600000.
+		</description>
+	</property>
+
+	<property>
+		<name>input.read.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the input stream is trying to read from datanode. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>input.write.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the input stream is trying to write to datanode. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>input.localread.default.buffersize</name>
+		<value>2097152</value>
+		<description>
+		number of bytes of the buffer which is used to hold the data from block file and verify checksum.
+		it is only used when "dfs.client.read.shortcircuit" is set to true. default is 1048576.
+		</description>
+	</property>
+
+	<property>
+		<name>input.localread.blockinfo.cachesize</name>
+		<value>1000</value>
+		<description>
+		the size of block file path information cache. default is 1000.
+		</description>
+	</property>
+
+	<property>
+		<name>input.read.getblockinfo.retry</name>
+		<value>3</value>
+		<description>
+		the max retry times when the client fail to get block information from namenode. default is 3.
+		</description>
+	</property>
+
+	<!-- output client configuration -->
+	<property>
+		<name>output.replace-datanode-on-failure</name>
+		<value>false</value>
+		<description>
+		whether the client add new datanode into pipeline if the number of nodes in pipeline is less the specified number of replicas. default is false.
+		</description>
+	</property>
+
+	<property>
+		<name>output.default.chunksize</name>
+		<value>512</value>
+		<description>
+		the number of bytes of a chunk in pipeline. default is 512.
+		</description>
+	</property>
+
+	<property>
+		<name>output.default.packetsize</name>
+		<value>65536</value>
+		<description>
+		the number of bytes of a packet in pipeline. default is 65536.
+		</description>
+	</property>
+
+	<property>
+		<name>output.default.write.retry</name>
+		<value>10</value>
+		<description>
+		the max retry times when the client fail to setup the pipeline. default is 10.
+		</description>
+	</property>
+
+	<property>
+		<name>output.connect.timeout</name>
+		<value>600000</value>
+		<description>
+		the timeout interval in millisecond when the output stream is trying to setup the connection to datanode. default is 600000.
+		</description>
+	</property>
+
+	<property>
+		<name>output.read.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the output stream is trying to read from datanode. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>output.write.timeout</name>
+		<value>3600000</value>
+		<description>
+		the timeout interval in millisecond when the output stream is trying to write to datanode. default is 3600000.
+		</description>
+	</property>
+
+	<property>
+		<name>output.packetpool.size</name>
+		<value>1024</value>
+		<description>
+		the max number of packets in a file's packet pool. default is 1024.
+		</description>
+	</property>
+
+	<property>
+		<name>output.close.timeout</name>
+		<value>900000</value>
+		<description>
+		the timeout interval in millisecond when close an output stream. default is 900000.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.domain.socket.path</name>
+		<value>/var/lib/hadoop-hdfs/dn_socket</value>
+		<description>
+		Optional.  This is a path to a UNIX domain socket that will be used for
+		communication between the DataNode and local HDFS clients.
+		If the string "_PORT" is present in this path, it will be replaced by the
+		TCP port of the DataNode.
+		</description>
+	</property>
+
+	<property>
+		<name>dfs.client.use.legacy.blockreader.local</name>
+		<value>false</value>
+		<description>
+		Legacy short-circuit reader implementation based on HDFS-2246 is used
+		if this configuration parameter is true.
+		This is for the platforms other than Linux
+		where the new implementation based on HDFS-347 is not available.
+		</description>
+	</property>
+
+</configuration>

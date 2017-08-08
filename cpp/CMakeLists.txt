@@ -100,7 +100,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
-    ON)
+    OFF)
 
   option(ARROW_JEMALLOC_USE_SHARED
     "Rely on jemalloc shared libraries where relevant"
@@ -113,6 +113,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_BOOST_USE_SHARED
     "Rely on boost shared libraries where relevant"
     ON)
+
+  option(ARROW_BOOST_VENDORED
+    "Use vendored Boost instead of existing Boost"
+    OFF)
 
   option(ARROW_PYTHON
     "Build the Arrow CPython extensions"
@@ -162,10 +166,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with zstd compression"
     ON)
 
+  option(ARROW_VERBOSE_THIRDPARTY_BUILD
+    "If off, output from ExternalProjects will be logged to files rather than shown"
+    ON)
+
   if (MSVC)
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default _static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
     set(ZLIB_MSVC_STATIC_LIB_SUFFIX "libstatic" CACHE STRING
       "Zlib static lib suffix used on Windows with MSVC (default libstatic)")
@@ -303,8 +311,28 @@ include_directories(src)
 # For generate_export_header() and add_compiler_export_flags().
 include(GenerateExportHeader)
 
-# Sets -fvisibility=hidden for gcc
-add_compiler_export_flags()
+# Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
+# Honor visibility properties for all target types. See
+# "cmake --help-policy CMP0063" for details.
+#
+# This policy was only added to cmake in version 3.3, so until the cmake in
+# thirdparty is updated, we must check if the policy exists before setting it.
+if(POLICY CMP0063)
+  cmake_policy(SET CMP0063 NEW)
+endif()
+
+if (PARQUET_BUILD_SHARED)
+  if (POLICY CMP0063)
+    set_target_properties(arrow_shared
+      PROPERTIES
+      C_VISIBILITY_PRESET hidden
+      CXX_VISIBILITY_PRESET hidden
+      VISIBILITY_INLINES_HIDDEN 1)
+  else()
+    # Sets -fvisibility=hidden for gcc
+    add_compiler_export_flags()
+  endif()
+endif()
 
 ############################################################
 # Benchmarking
@@ -582,20 +610,6 @@ if (ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_MIN_TEST_LIBS
-  arrow_static
-  ${ARROW_STATIC_LINK_LIBS}
-  gtest
-  gtest_main)
-
-if(NOT MSVC)
-  set(ARROW_MIN_TEST_LIBS
-    ${ARROW_MIN_TEST_LIBS}
-    ${CMAKE_DL_LIBS})
-endif()
-
-set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
-
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
@@ -617,6 +631,20 @@ if (NOT MSVC)
     ${ARROW_LINK_LIBS}
     ${CMAKE_DL_LIBS})
 endif()
+
+set(ARROW_MIN_TEST_LIBS
+  arrow_static
+  ${ARROW_STATIC_LINK_LIBS}
+  gtest
+  gtest_main)
+
+if(NOT MSVC)
+  set(ARROW_MIN_TEST_LIBS
+    ${ARROW_MIN_TEST_LIBS}
+    ${CMAKE_DL_LIBS})
+endif()
+
+set(ARROW_TEST_LINK_LIBS ${ARROW_MIN_TEST_LIBS})
 
 if (ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)

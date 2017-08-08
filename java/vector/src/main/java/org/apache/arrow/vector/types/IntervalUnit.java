@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.types;
 
 public enum IntervalUnit {
@@ -22,6 +23,7 @@ public enum IntervalUnit {
   DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME);
 
   private static final IntervalUnit[] valuesByFlatbufId = new IntervalUnit[IntervalUnit.values().length];
+
   static {
     for (IntervalUnit v : IntervalUnit.values()) {
       valuesByFlatbufId[v.flatbufID] = v;

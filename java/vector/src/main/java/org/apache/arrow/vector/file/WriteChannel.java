@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -62,7 +63,7 @@ public class WriteChannel implements AutoCloseable {
 
   public long align() throws IOException {
     if (currentPosition % 8 != 0) { // align on 8 byte boundaries
-      return writeZeros(8 - (int)(currentPosition % 8));
+      return writeZeros(8 - (int) (currentPosition % 8));
     }
     return 0;
   }
@@ -77,10 +78,10 @@ public class WriteChannel implements AutoCloseable {
 
   public static byte[] intToBytes(int value) {
     byte[] outBuffer = new byte[4];
-    outBuffer[3] = (byte)(value >>> 24);
-    outBuffer[2] = (byte)(value >>> 16);
-    outBuffer[1] = (byte)(value >>>  8);
-    outBuffer[0] = (byte)(value >>>  0);
+    outBuffer[3] = (byte) (value >>> 24);
+    outBuffer[2] = (byte) (value >>> 16);
+    outBuffer[1] = (byte) (value >>> 8);
+    outBuffer[0] = (byte) (value >>> 0);
     return outBuffer;
   }
 

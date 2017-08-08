@@ -89,7 +89,7 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
 
   std::shared_ptr<Array> array;
   auto type = fixed_size_binary(3);
-  FixedSizeBinaryBuilder builder(default_memory_pool(), type);
+  FixedSizeBinaryBuilder builder(type);
 
   ASSERT_OK(builder.Append(values[0]));
   ASSERT_OK(builder.Append(values[1]));

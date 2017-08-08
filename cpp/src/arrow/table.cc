@@ -387,7 +387,7 @@ Status Table::RemoveColumn(int i, std::shared_ptr<Table>* out) const {
   std::shared_ptr<Schema> new_schema;
   RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
 
-  *out = std::make_shared<Table>(new_schema, DeleteVectorElement(columns_, i));
+  *out = std::make_shared<Table>(new_schema, internal::DeleteVectorElement(columns_, i));
   return Status::OK();
 }
 
@@ -411,7 +411,8 @@ Status Table::AddColumn(int i, const std::shared_ptr<Column>& col,
   std::shared_ptr<Schema> new_schema;
   RETURN_NOT_OK(schema_->AddField(i, col->field(), &new_schema));
 
-  *out = std::make_shared<Table>(new_schema, AddVectorElement(columns_, i, col));
+  *out =
+      std::make_shared<Table>(new_schema, internal::AddVectorElement(columns_, i, col));
   return Status::OK();
 }
 

@@ -35,6 +35,16 @@ string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
+if (NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
+  set(EP_LOG_OPTIONS
+    LOG_CONFIGURE 1
+    LOG_BUILD 1
+    LOG_INSTALL 1
+    LOG_DOWNLOAD 1)
+else()
+  set(EP_LOG_OPTIONS)
+endif()
+
 if (NOT MSVC)
   # Set -fPIC on all external projects
   set(EP_CXX_FLAGS "${EP_CXX_FLAGS} -fPIC")
@@ -114,50 +124,100 @@ set(Boost_ADDITIONAL_VERSIONS
   "1.62.0" "1.61"
   "1.61.0" "1.62"
   "1.60.0" "1.60")
+list(GET Boost_ADDITIONAL_VERSIONS 0 BOOST_LATEST_VERSION)
+string(REPLACE "." "_" BOOST_LATEST_VERSION_IN_PATH ${BOOST_LATEST_VERSION})
+set(BOOST_LATEST_URL
+  "https://dl.bintray.com/boostorg/release/${BOOST_LATEST_VERSION}/source/boost_${BOOST_LATEST_VERSION_IN_PATH}.tar.gz")
 
-if (ARROW_BOOST_USE_SHARED)
-  # Find shared Boost libraries.
-  set(Boost_USE_STATIC_LIBS OFF)
-
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-
-    # force all boost libraries to dynamic link
-    add_definitions(-DBOOST_ALL_DYN_LINK)
-  endif()
-
+if (ARROW_BOOST_VENDORED)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+  set(BOOST_BUILD_LINK "static")
+  set(BOOST_STATIC_SYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(BOOST_STATIC_FILESYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(BOOST_SYSTEM_LIBRARY "${BOOST_STATIC_SYSTEM_LIBRARY}")
+  set(BOOST_FILESYSTEM_LIBRARY "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
   if (ARROW_BOOST_HEADER_ONLY)
-    find_package(Boost)
+    set(BOOST_BUILD_PRODUCTS)
+    set(BOOST_CONFIGURE_COMMAND "")
+    set(BOOST_BUILD_COMMAND "")
   else()
-    find_package(Boost COMPONENTS system filesystem REQUIRED)
+    set(BOOST_BUILD_PRODUCTS
+      ${BOOST_SYSTEM_LIBRARY}
+      ${BOOST_FILESYSTEM_LIBRARY})
+    set(BOOST_CONFIGURE_COMMAND
+      "./bootstrap.sh"
+      "--prefix=${BOOST_PREFIX}"
+      "--with-libraries=filesystem,system")
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+      set(BOOST_BUILD_VARIANT "debug")
     else()
-      set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      set(BOOST_BUILD_VARIANT "release")
     endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_shared)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+    set(BOOST_BUILD_COMMAND
+      "./b2"
+      "link=${BOOST_BUILD_LINK}"
+      "variant=${BOOST_BUILD_VARIANT}"
+      "cxxflags=-fPIC")
   endif()
+  ExternalProject_Add(boost_ep
+    URL ${BOOST_LATEST_URL}
+    BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+    BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+    INSTALL_COMMAND ""
+    ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(arrow_dependencies boost_ep)
 else()
-  # Find static boost headers and libs
-  # TODO Differentiate here between release and debug builds
-  set(Boost_USE_STATIC_LIBS ON)
-  if (ARROW_BOOST_HEADER_ONLY)
-    find_package(Boost)
-  else()
-    find_package(Boost COMPONENTS system filesystem REQUIRED)
-    if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
-    else()
-      set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
-      set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+  if (ARROW_BOOST_USE_SHARED)
+    # Find shared Boost libraries.
+    set(Boost_USE_STATIC_LIBS OFF)
+
+    if(MSVC)
+      # disable autolinking in boost
+      add_definitions(-DBOOST_ALL_NO_LIB)
+
+      # force all boost libraries to dynamic link
+      add_definitions(-DBOOST_ALL_DYN_LINK)
     endif()
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+
+    if (ARROW_BOOST_HEADER_ONLY)
+      find_package(Boost REQUIRED)
+    else()
+      find_package(Boost COMPONENTS system filesystem REQUIRED)
+      if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+      else()
+	set(BOOST_SHARED_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+	set(BOOST_SHARED_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      endif()
+      set(BOOST_SYSTEM_LIBRARY boost_system_shared)
+      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_shared)
+    endif()
+  else()
+    # Find static boost headers and libs
+    # TODO Differentiate here between release and debug builds
+    set(Boost_USE_STATIC_LIBS ON)
+    if (ARROW_BOOST_HEADER_ONLY)
+      find_package(Boost REQUIRED)
+    else()
+      find_package(Boost COMPONENTS system filesystem REQUIRED)
+      if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_DEBUG})
+	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_DEBUG})
+      else()
+	set(BOOST_STATIC_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY_RELEASE})
+	set(BOOST_STATIC_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY_RELEASE})
+      endif()
+      set(BOOST_SYSTEM_LIBRARY boost_system_static)
+      set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    endif()
   endif()
 endif()
 
@@ -205,7 +265,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
     ExternalProject_Add(googletest_ep
       URL "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
       BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
-      CMAKE_ARGS ${GTEST_CMAKE_ARGS})
+      CMAKE_ARGS ${GTEST_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
   else()
     find_package(GTest REQUIRED)
     set(GTEST_VENDORED 0)
@@ -250,6 +311,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
 
     ExternalProject_Add(gflags_ep
       URL ${GFLAGS_URL}
+      ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
@@ -300,7 +362,8 @@ if(ARROW_BUILD_BENCHMARKS)
     ExternalProject_Add(gbenchmark_ep
       URL "https://github.com/google/benchmark/archive/v${GBENCHMARK_VERSION}.tar.gz"
       BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
-      CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS})
+      CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS}
+      ${EP_LOG_OPTIONS})
   else()
     find_package(GBenchmark REQUIRED)
     set(GBENCHMARK_VENDORED 0)
@@ -327,6 +390,7 @@ if (ARROW_IPC)
       CONFIGURE_COMMAND ""
       BUILD_COMMAND ""
       BUILD_IN_SOURCE 1
+      ${EP_LOG_OPTIONS}
       INSTALL_COMMAND "")
 
     ExternalProject_Get_Property(rapidjson_ep SOURCE_DIR)
@@ -356,7 +420,8 @@ if (ARROW_IPC)
       CMAKE_ARGS
       "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
       "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-      "-DFLATBUFFERS_BUILD_TESTS=OFF")
+      "-DFLATBUFFERS_BUILD_TESTS=OFF"
+      ${EP_LOG_OPTIONS})
 
     set(FLATBUFFERS_INCLUDE_DIR "${FLATBUFFERS_PREFIX}/include")
     set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
@@ -395,6 +460,7 @@ if (ARROW_JEMALLOC)
     ExternalProject_Add(jemalloc_ep
       URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
       CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
+      ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_COMMAND ${MAKE}
       BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}" "${JEMALLOC_SHARED_LIB}"
@@ -475,6 +541,7 @@ if (ARROW_WITH_ZLIB)
 
     ExternalProject_Add(zlib_ep
       URL "http://zlib.net/fossils/zlib-1.2.8.tar.gz"
+      ${EP_LOG_OPTIONS}
       BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
       CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
     set(ZLIB_VENDORED 1)
@@ -501,7 +568,7 @@ if (ARROW_WITH_SNAPPY)
     set(SNAPPY_HOME "${SNAPPY_PREFIX}")
     set(SNAPPY_INCLUDE_DIR "${SNAPPY_PREFIX}/include")
     if (MSVC)
-      set(SNAPPY_STATIC_LIB_NAME snappystatic)
+      set(SNAPPY_STATIC_LIB_NAME snappy_static)
     else()
       set(SNAPPY_STATIC_LIB_NAME snappy)
     endif()
@@ -529,6 +596,7 @@ if (ARROW_WITH_SNAPPY)
                         ./config.h)
       ExternalProject_Add(snappy_ep
         UPDATE_COMMAND ${SNAPPY_UPDATE_COMMAND}
+        ${EP_LOG_OPTIONS}
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
         INSTALL_DIR ${SNAPPY_PREFIX}
@@ -538,6 +606,7 @@ if (ARROW_WITH_SNAPPY)
     else()
       ExternalProject_Add(snappy_ep
         CONFIGURE_COMMAND ./configure --with-pic "--prefix=${SNAPPY_PREFIX}" ${SNAPPY_CXXFLAGS}
+        ${EP_LOG_OPTIONS}
         BUILD_IN_SOURCE 1
         BUILD_COMMAND ${MAKE}
         INSTALL_DIR ${SNAPPY_PREFIX}
@@ -586,6 +655,7 @@ if (ARROW_WITH_BROTLI)
       URL "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
       BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}" "${BROTLI_STATIC_LIBRARY_DEC}" "${BROTLI_STATIC_LIBRARY_COMMON}"
       ${BROTLI_BUILD_BYPRODUCTS}
+      ${EP_LOG_OPTIONS}
       CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
       STEP_TARGETS headers_copy)
     if (MSVC)
@@ -624,41 +694,43 @@ if (ARROW_WITH_LZ4)
   if("${LZ4_HOME}" STREQUAL "")
     set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
     set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
-  
+
     if (MSVC)
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/visual/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/liblz4_static.lib")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND msbuild.exe /m /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /t:Build ${LZ4_BUILD_DIR}/visual/VS2010/lz4.sln)
+      set(LZ4_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/lz4_msbuild_wholeprogramoptimization_param.patch)
     else()
       set(LZ4_STATIC_LIB "${LZ4_BUILD_DIR}/lib/liblz4.a")
       set(LZ4_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-lz4-lib.sh)
     endif()
-  
+
     ExternalProject_Add(lz4_ep
         URL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz"
+        ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
-        PATCH_COMMAND ""
+        ${LZ4_PATCH_COMMAND}
         CONFIGURE_COMMAND ""
         INSTALL_COMMAND ""
         BINARY_DIR ${LZ4_BUILD_DIR}
         BUILD_BYPRODUCTS ${LZ4_STATIC_LIB}
         ${LZ4_BUILD_COMMAND}
         )
-  
+
     set(LZ4_VENDORED 1)
   else()
     find_package(Lz4 REQUIRED)
     set(LZ4_VENDORED 0)
   endif()
-  
+
   include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
   ADD_THIRDPARTY_LIB(lz4_static
     STATIC_LIB ${LZ4_STATIC_LIB})
-  
+
   if (LZ4_VENDORED)
     add_dependencies(lz4_static lz4_ep)
   endif()
 endif()
-  
+
 if (ARROW_WITH_ZSTD)
 # ----------------------------------------------------------------------
 # ZSTD
@@ -670,6 +742,7 @@ if (ARROW_WITH_ZSTD)
     if (MSVC)
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/libzstd_static.lib")
       set(ZSTD_BUILD_COMMAND BUILD_COMMAND msbuild ${ZSTD_BUILD_DIR}/build/VS2010/zstd.sln /t:Build /v:minimal /p:Configuration=${CMAKE_BUILD_TYPE} /p:Platform=x64 /p:PlatformToolset=v140 /p:OutDir=${ZSTD_BUILD_DIR}/build/VS2010/bin/x64_${CMAKE_BUILD_TYPE}/ /p:SolutionDir=${ZSTD_BUILD_DIR}/build/VS2010/ )
+      set(ZSTD_PATCH_COMMAND PATCH_COMMAND git --git-dir=. apply --verbose --whitespace=fix ${CMAKE_SOURCE_DIR}/build-support/zstd_msbuild_wholeprogramoptimization_param.patch)
     else()
       set(ZSTD_STATIC_LIB "${ZSTD_BUILD_DIR}/lib/libzstd.a")
       set(ZSTD_BUILD_COMMAND BUILD_COMMAND ${CMAKE_SOURCE_DIR}/build-support/build-zstd-lib.sh)
@@ -677,8 +750,9 @@ if (ARROW_WITH_ZSTD)
 
     ExternalProject_Add(zstd_ep
         URL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz"
+        ${EP_LOG_OPTIONS}
         UPDATE_COMMAND ""
-        PATCH_COMMAND ""
+        ${ZSTD_PATCH_COMMAND}
         CONFIGURE_COMMAND ""
         INSTALL_COMMAND ""
         BINARY_DIR ${ZSTD_BUILD_DIR}

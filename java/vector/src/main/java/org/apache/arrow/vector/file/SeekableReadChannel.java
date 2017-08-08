@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -22,18 +23,18 @@ import java.nio.channels.SeekableByteChannel;
 
 public class SeekableReadChannel extends ReadChannel {
 
-    private final SeekableByteChannel in;
+  private final SeekableByteChannel in;
 
-    public SeekableReadChannel(SeekableByteChannel in) {
-        super(in);
-        this.in = in;
-    }
+  public SeekableReadChannel(SeekableByteChannel in) {
+    super(in);
+    this.in = in;
+  }
 
-    public void setPosition(long position) throws IOException {
-        in.position(position);
-    }
+  public void setPosition(long position) throws IOException {
+    in.position(position);
+  }
 
-    public long size() throws IOException {
-        return in.size();
-    }
+  public long size() throws IOException {
+    return in.size();
+  }
 }

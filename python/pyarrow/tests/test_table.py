@@ -80,7 +80,7 @@ def test_recordbatch_basics():
         batch[2]
 
 
-def test_recordbatch_slice():
+def test_recordbatch_slice_getitem():
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10])
@@ -90,7 +90,6 @@ def test_recordbatch_slice():
     batch = pa.RecordBatch.from_arrays(data, names)
 
     sliced = batch.slice(2)
-
     assert sliced.num_rows == 3
 
     expected = pa.RecordBatch.from_arrays(
@@ -110,6 +109,14 @@ def test_recordbatch_slice():
 
     with pytest.raises(IndexError):
         batch.slice(-1)
+
+    # Check __getitem__-based slicing
+    assert batch.slice(0, 0).equals(batch[:0])
+    assert batch.slice(0, 2).equals(batch[:2])
+    assert batch.slice(2, 2).equals(batch[2:4])
+    assert batch.slice(2, len(batch) - 2).equals(batch[2:])
+    assert batch.slice(len(batch) - 2, 2).equals(batch[-2:])
+    assert batch.slice(len(batch) - 4, 2).equals(batch[-4:-2])
 
 
 def test_recordbatch_from_to_pandas():

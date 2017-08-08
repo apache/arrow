@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ public class JsonStringArrayList<E> extends ArrayList<E> {
   public final String toString() {
     try {
       return mapper.writeValueAsString(this);
-    } catch(JsonProcessingException e) {
+    } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot serialize array list to JSON string", e);
     }
   }

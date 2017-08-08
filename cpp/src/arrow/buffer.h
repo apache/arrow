@@ -25,6 +25,7 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -204,7 +205,8 @@ class ARROW_EXPORT BufferBuilder {
 
   Status Append(const uint8_t* data, int64_t length) {
     if (capacity_ < length + size_) {
-      RETURN_NOT_OK(Resize(length + size_));
+      int64_t new_capacity = BitUtil::NextPower2(length + size_);
+      RETURN_NOT_OK(Resize(new_capacity));
     }
     UnsafeAppend(data, length);
     return Status::OK();
@@ -213,7 +215,8 @@ class ARROW_EXPORT BufferBuilder {
   // Advance pointer and zero out memory
   Status Advance(int64_t length) {
     if (capacity_ < length + size_) {
-      RETURN_NOT_OK(Resize(length + size_));
+      int64_t new_capacity = BitUtil::NextPower2(length + size_);
+      RETURN_NOT_OK(Resize(new_capacity));
     }
     memset(data_ + size_, 0, static_cast<size_t>(length));
     size_ += length;

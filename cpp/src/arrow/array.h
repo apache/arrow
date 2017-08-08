@@ -292,8 +292,8 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   /// Does not account for any slice offset
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
 
-  /// Does not account for any slice offset
-  const uint8_t* raw_values() const { return raw_values_; }
+  /// \brief Return pointer to start of raw data
+  const uint8_t* raw_values() const;
 
  protected:
   PrimitiveArray() {}
@@ -521,7 +521,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width() const { return byte_width_; }
 
-  const uint8_t* raw_values() const { return raw_values_; }
+  const uint8_t* raw_values() const { return raw_values_ + byte_width_ * data_->offset; }
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
@@ -567,7 +567,9 @@ class ARROW_EXPORT DecimalArray : public FlatArray {
   int32_t byte_width() const {
     return static_cast<const DecimalType&>(*type()).byte_width();
   }
-  const uint8_t* raw_values() const { return raw_values_; }
+
+  /// \brief Return pointer to value data, accounting for any offset
+  const uint8_t* raw_values() const { return raw_values_ + byte_width() * data_->offset; }
 
  private:
   void SetData(const std::shared_ptr<internal::ArrayData>& data);

@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.dictionary;
 
 import java.lang.reflect.InvocationTargetException;
@@ -39,7 +40,7 @@ public class DictionaryEncoder {
   /**
    * Dictionary encodes a vector with a provided dictionary. The dictionary must contain all values in the vector.
    *
-   * @param vector vector to encode
+   * @param vector     vector to encode
    * @param dictionary dictionary used for encoding
    * @return dictionary encoded vector
    */
@@ -55,7 +56,7 @@ public class DictionaryEncoder {
 
     Field valueField = vector.getField();
     FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
-      dictionary.getEncoding(), valueField.getMetadata());
+        dictionary.getEncoding(), valueField.getMetadata());
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
@@ -65,11 +66,11 @@ public class DictionaryEncoder {
     // use reflection to pull out the set method
     // TODO implement a common interface for int vectors
     Method setter = null;
-    for (Class<?> c: ImmutableList.of(int.class, long.class)) {
+    for (Class<?> c : ImmutableList.of(int.class, long.class)) {
       try {
         setter = mutator.getClass().getMethod("set", int.class, c);
         break;
-      } catch(NoSuchMethodException e) {
+      } catch (NoSuchMethodException e) {
         // ignore
       }
     }
@@ -108,7 +109,7 @@ public class DictionaryEncoder {
   /**
    * Decodes a dictionary encoded array using the provided dictionary.
    *
-   * @param indices dictionary encoded values, must be int type
+   * @param indices    dictionary encoded values, must be int type
    * @param dictionary dictionary used to decode the values
    * @return vector with values restored from dictionary
    */

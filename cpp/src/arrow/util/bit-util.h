@@ -66,6 +66,8 @@ namespace arrow {
 //
 // We add a partial stub implementation here
 
+namespace detail {
+
 template <typename T>
 struct make_unsigned {};
 
@@ -88,6 +90,8 @@ template <>
 struct make_unsigned<int64_t> {
   typedef uint64_t type;
 };
+
+}  // namespace detail
 
 class Buffer;
 class MemoryPool;
@@ -253,7 +257,7 @@ static inline int Popcount(uint64_t x) {
 template <typename T>
 static inline int PopcountSigned(T v) {
   // Converting to same-width unsigned then extending preserves the bit pattern.
-  return BitUtil::Popcount(static_cast<typename make_unsigned<T>::type>(v));
+  return BitUtil::Popcount(static_cast<typename detail::make_unsigned<T>::type>(v));
 }
 
 /// Returns the 'num_bits' least-significant bits of 'v'.
@@ -364,7 +368,7 @@ static inline uint16_t FromBigEndian(uint16_t val) { return val; }
 template <typename T>
 static T ShiftRightLogical(T v, int shift) {
   // Conversion to unsigned ensures most significant bits always filled with 0's
-  return static_cast<typename make_unsigned<T>::type>(v) >> shift;
+  return static_cast<typename detail::make_unsigned<T>::type>(v) >> shift;
 }
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);

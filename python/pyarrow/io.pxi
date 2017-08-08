@@ -106,6 +106,9 @@ cdef class NativeFile:
             raise IOError("file not open")
 
     def size(self):
+        """
+        Return file size
+        """
         cdef int64_t size
         self._assert_readable()
         with nogil:
@@ -113,6 +116,9 @@ cdef class NativeFile:
         return size
 
     def tell(self):
+        """
+        Return current stream position
+        """
         cdef int64_t position
         with nogil:
             if self.is_readable:
@@ -121,10 +127,46 @@ cdef class NativeFile:
                 check_status(self.wr_file.get().Tell(&position))
         return position
 
-    def seek(self, int64_t position):
+    def seek(self, int64_t position, int whence=0):
+        """
+        Change current file stream position
+
+        Parameters
+        ----------
+        position : int
+            Byte offset, interpreted relative to value of whence argument
+        whence : int, default 0
+            Point of reference for seek offset
+
+        Notes
+        -----
+        Values of whence:
+        * 0 -- start of stream (the default); offset should be zero or positive
+        * 1 -- current stream position; offset may be negative
+        * 2 -- end of stream; offset is usually negative
+
+        Returns
+        -------
+        new_position : the new absolute stream position
+        """
+        cdef int64_t offset
         self._assert_readable()
         with nogil:
-            check_status(self.rd_file.get().Seek(position))
+            if whence == 0:
+                offset = position
+            elif whence == 1:
+                check_status(self.rd_file.get().Tell(&offset))
+                offset = offset + position
+            elif whence == 2:
+                check_status(self.rd_file.get().GetSize(&offset))
+                offset = offset + position
+            else:
+                with gil:
+                    raise ValueError("Invalid value of whence: {0}"
+                                     .format(whence))
+            check_status(self.rd_file.get().Seek(offset))
+
+        return self.tell()
 
     def write(self, data):
         """
@@ -144,6 +186,18 @@ cdef class NativeFile:
             check_status(self.wr_file.get().Write(buf, bufsize))
 
     def read(self, nbytes=None):
+        """
+        Read indicated number of bytes from file, or read all remaining bytes
+        if no argument passed
+
+        Parameters
+        ----------
+        nbytes : int, default None
+
+        Returns
+        -------
+        data : bytes
+        """
         cdef:
             int64_t c_nbytes
             int64_t bytes_read = 0
@@ -201,13 +255,18 @@ cdef class NativeFile:
 
         if not hasattr(stream_or_path, 'read'):
             stream = open(stream_or_path, 'wb')
-            cleanup = lambda: stream.close()
+
+            def cleanup():
+                stream.close()
         else:
             stream = stream_or_path
-            cleanup = lambda: None
+
+            def cleanup():
+                pass
 
         done = False
         exc_info = None
+
         def bg_write():
             try:
                 while not done or write_queue.qsize() > 0:
@@ -272,6 +331,7 @@ cdef class NativeFile:
 
         done = False
         exc_info = None
+
         def bg_write():
             try:
                 while not done or write_queue.qsize() > 0:
@@ -387,7 +447,8 @@ cdef class MemoryMappedFile(NativeFile):
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
-        check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
+        with nogil:
+            check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
 
         self.wr_file = <shared_ptr[OutputStream]> handle
         self.rd_file = <shared_ptr[RandomAccessFile]> handle
@@ -582,7 +643,8 @@ cdef class BufferOutputStream(NativeFile):
         self.is_open = True
 
     def get_result(self):
-        check_status(self.wr_file.get().Close())
+        with nogil:
+            check_status(self.wr_file.get().Close())
         self.is_open = False
         return pyarrow_wrap_buffer(<shared_ptr[CBuffer]> self.buffer)
 
@@ -679,301 +741,3 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     else:
         raise TypeError('Unable to read from object of type: {0}'
                         .format(type(source)))
-
-# ----------------------------------------------------------------------
-# HDFS IO implementation
-
-_HDFS_PATH_RE = re.compile('hdfs://(.*):(\d+)(.*)')
-
-try:
-    # Python 3
-    from queue import Queue, Empty as QueueEmpty, Full as QueueFull
-except ImportError:
-    from Queue import Queue, Empty as QueueEmpty, Full as QueueFull
-
-
-def have_libhdfs():
-    try:
-        check_status(HaveLibHdfs())
-        return True
-    except:
-        return False
-
-
-def have_libhdfs3():
-    try:
-        check_status(HaveLibHdfs3())
-        return True
-    except:
-        return False
-
-
-def strip_hdfs_abspath(path):
-    m = _HDFS_PATH_RE.match(path)
-    if m:
-        return m.group(3)
-    else:
-        return path
-
-
-cdef class _HdfsClient:
-    cdef:
-        shared_ptr[CHdfsClient] client
-
-    cdef readonly:
-        bint is_open
-
-    def __cinit__(self):
-        pass
-
-    def _connect(self, host, port, user, kerb_ticket, driver):
-        cdef HdfsConnectionConfig conf
-
-        if host is not None:
-            conf.host = tobytes(host)
-        conf.port = port
-        if user is not None:
-            conf.user = tobytes(user)
-        if kerb_ticket is not None:
-            conf.kerb_ticket = tobytes(kerb_ticket)
-
-        if driver == 'libhdfs':
-            check_status(HaveLibHdfs())
-            conf.driver = HdfsDriver_LIBHDFS
-        else:
-            check_status(HaveLibHdfs3())
-            conf.driver = HdfsDriver_LIBHDFS3
-
-        with nogil:
-            check_status(CHdfsClient.Connect(&conf, &self.client))
-        self.is_open = True
-
-    @classmethod
-    def connect(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
-
-    def __dealloc__(self):
-        if self.is_open:
-            self.close()
-
-    def close(self):
-        """
-        Disconnect from the HDFS cluster
-        """
-        self._ensure_client()
-        with nogil:
-            check_status(self.client.get().Disconnect())
-        self.is_open = False
-
-    cdef _ensure_client(self):
-        if self.client.get() == NULL:
-            raise IOError('HDFS client improperly initialized')
-        elif not self.is_open:
-            raise IOError('HDFS client is closed')
-
-    def exists(self, path):
-        """
-        Returns True if the path is known to the cluster, False if it does not
-        (or there is an RPC error)
-        """
-        self._ensure_client()
-
-        cdef c_string c_path = tobytes(path)
-        cdef c_bool result
-        with nogil:
-            result = self.client.get().Exists(c_path)
-        return result
-
-    def isdir(self, path):
-        cdef HdfsPathInfo info
-        self._path_info(path, &info)
-        return info.kind == ObjectType_DIRECTORY
-
-    def isfile(self, path):
-        cdef HdfsPathInfo info
-        self._path_info(path, &info)
-        return info.kind == ObjectType_FILE
-
-    cdef _path_info(self, path, HdfsPathInfo* info):
-        cdef c_string c_path = tobytes(path)
-
-        with nogil:
-            check_status(self.client.get()
-                         .GetPathInfo(c_path, info))
-
-
-    def ls(self, path, bint full_info):
-        cdef:
-            c_string c_path = tobytes(path)
-            vector[HdfsPathInfo] listing
-            list results = []
-            int i
-
-        self._ensure_client()
-
-        with nogil:
-            check_status(self.client.get()
-                         .ListDirectory(c_path, &listing))
-
-        cdef const HdfsPathInfo* info
-        for i in range(<int> listing.size()):
-            info = &listing[i]
-
-            # Try to trim off the hdfs://HOST:PORT piece
-            name = strip_hdfs_abspath(frombytes(info.name))
-
-            if full_info:
-                kind = ('file' if info.kind == ObjectType_FILE
-                        else 'directory')
-
-                results.append({
-                    'kind': kind,
-                    'name': name,
-                    'owner': frombytes(info.owner),
-                    'group': frombytes(info.group),
-                    'list_modified_time': info.last_modified_time,
-                    'list_access_time': info.last_access_time,
-                    'size': info.size,
-                    'replication': info.replication,
-                    'block_size': info.block_size,
-                    'permissions': info.permissions
-                })
-            else:
-                results.append(name)
-
-        return results
-
-    def mkdir(self, path):
-        """
-        Create indicated directory and any necessary parent directories
-        """
-        self._ensure_client()
-
-        cdef c_string c_path = tobytes(path)
-        with nogil:
-            check_status(self.client.get()
-                         .MakeDirectory(c_path))
-
-    def delete(self, path, bint recursive=False):
-        """
-        Delete the indicated file or directory
-
-        Parameters
-        ----------
-        path : string
-        recursive : boolean, default False
-            If True, also delete child paths for directories
-        """
-        self._ensure_client()
-
-        cdef c_string c_path = tobytes(path)
-        with nogil:
-            check_status(self.client.get()
-                         .Delete(c_path, recursive))
-
-    def open(self, path, mode='rb', buffer_size=None, replication=None,
-             default_block_size=None):
-        """
-        Parameters
-        ----------
-        mode : string, 'rb', 'wb', 'ab'
-        """
-        self._ensure_client()
-
-        cdef HdfsFile out = HdfsFile()
-
-        if mode not in ('rb', 'wb', 'ab'):
-            raise Exception("Mode must be 'rb' (read), "
-                            "'wb' (write, new file), or 'ab' (append)")
-
-        cdef c_string c_path = tobytes(path)
-        cdef c_bool append = False
-
-        # 0 in libhdfs means "use the default"
-        cdef int32_t c_buffer_size = buffer_size or 0
-        cdef int16_t c_replication = replication or 0
-        cdef int64_t c_default_block_size = default_block_size or 0
-
-        cdef shared_ptr[HdfsOutputStream] wr_handle
-        cdef shared_ptr[HdfsReadableFile] rd_handle
-
-        if mode in ('wb', 'ab'):
-            if mode == 'ab':
-                append = True
-
-            with nogil:
-                check_status(
-                    self.client.get()
-                    .OpenWriteable(c_path, append, c_buffer_size,
-                                   c_replication, c_default_block_size,
-                                   &wr_handle))
-
-            out.wr_file = <shared_ptr[OutputStream]> wr_handle
-
-            out.is_readable = False
-            out.is_writeable = 1
-        else:
-            with nogil:
-                check_status(self.client.get()
-                             .OpenReadable(c_path, &rd_handle))
-
-            out.rd_file = <shared_ptr[RandomAccessFile]> rd_handle
-            out.is_readable = True
-            out.is_writeable = 0
-
-        if c_buffer_size == 0:
-            c_buffer_size = 2 ** 16
-
-        out.mode = mode
-        out.buffer_size = c_buffer_size
-        out.parent = _HdfsFileNanny(self, out)
-        out.is_open = True
-        out.own_file = True
-
-        return out
-
-    def download(self, path, stream, buffer_size=None):
-        with self.open(path, 'rb') as f:
-            f.download(stream, buffer_size=buffer_size)
-
-    def upload(self, path, stream, buffer_size=None):
-        """
-        Upload file-like object to HDFS path
-        """
-        with self.open(path, 'wb') as f:
-            f.upload(stream, buffer_size=buffer_size)
-
-
-# ARROW-404: Helper class to ensure that files are closed before the
-# client. During deallocation of the extension class, the attributes are
-# decref'd which can cause the client to get closed first if the file has the
-# last remaining reference
-cdef class _HdfsFileNanny:
-    cdef:
-        object client
-        object file_handle_ref
-
-    def __cinit__(self, client, file_handle):
-        import weakref
-        self.client = client
-        self.file_handle_ref = weakref.ref(file_handle)
-
-    def __dealloc__(self):
-        fh = self.file_handle_ref()
-        if fh:
-            fh.close()
-        # avoid cyclic GC
-        self.file_handle_ref = None
-        self.client = None
-
-
-cdef class HdfsFile(NativeFile):
-    cdef readonly:
-        int32_t buffer_size
-        object mode
-        object parent
-
-    cdef object __weakref__
-
-    def __dealloc__(self):
-        self.parent = None

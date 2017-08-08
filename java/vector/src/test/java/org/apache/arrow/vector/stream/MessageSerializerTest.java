@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.stream;
 
 import static java.util.Arrays.asList;
@@ -107,13 +108,13 @@ public class MessageSerializerTest {
 
   @Test
   public void testSerializeRecordBatch() throws IOException {
-    byte[] validity = new byte[] { (byte)255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ArrowBuf validityb = buf(alloc, validity);
-    ArrowBuf valuesb =  buf(alloc, values);
+    ArrowBuf valuesb = buf(alloc, values);
 
     ArrowRecordBatch batch = new ArrowRecordBatch(
         16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));

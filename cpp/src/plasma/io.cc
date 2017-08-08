@@ -17,6 +17,11 @@
 
 #include "plasma/io.h"
 
+#include <cstdint>
+#include <sstream>
+
+#include "arrow/status.h"
+
 #include "plasma/common.h"
 
 using arrow::Status;
@@ -28,6 +33,8 @@ using arrow::Status;
 /* Number of times we try connecting to a socket. */
 #define NUM_CONNECT_ATTEMPTS 50
 #define CONNECT_TIMEOUT_MS 100
+
+namespace plasma {
 
 Status WriteBytes(int fd, uint8_t* cursor, size_t length) {
   ssize_t nbytes = 0;
@@ -140,8 +147,8 @@ int bind_ipc_sock(const std::string& pathname, bool shall_listen) {
   return socket_fd;
 }
 
-int connect_ipc_sock_retry(const std::string& pathname, int num_retries,
-                           int64_t timeout) {
+Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
+                             int64_t timeout, int* fd) {
   /* Pick the default values if the user did not specify. */
   if (num_retries < 0) {
     num_retries = NUM_CONNECT_ATTEMPTS;
@@ -150,23 +157,26 @@ int connect_ipc_sock_retry(const std::string& pathname, int num_retries,
     timeout = CONNECT_TIMEOUT_MS;
   }
 
-  int fd = -1;
+  *fd = -1;
   for (int num_attempts = 0; num_attempts < num_retries; ++num_attempts) {
-    fd = connect_ipc_sock(pathname);
-    if (fd >= 0) {
+    *fd = connect_ipc_sock(pathname);
+    if (*fd >= 0) {
       break;
     }
     if (num_attempts == 0) {
-      ARROW_LOG(ERROR) << "Connection to socket failed for pathname " << pathname;
+      ARROW_LOG(ERROR) << "Connection to IPC socket failed for pathname " << pathname
+                       << ", retrying " << num_retries << " times";
     }
     /* Sleep for timeout milliseconds. */
     usleep(static_cast<int>(timeout * 1000));
   }
   /* If we could not connect to the socket, exit. */
-  if (fd == -1) {
-    ARROW_LOG(FATAL) << "Could not connect to socket " << pathname;
+  if (*fd == -1) {
+    std::stringstream ss;
+    ss << "Could not connect to socket " << pathname;
+    return Status::IOError(ss.str());
   }
-  return fd;
+  return Status::OK();
 }
 
 int connect_ipc_sock(const std::string& pathname) {
@@ -224,3 +234,5 @@ uint8_t* read_message_async(int sock) {
   }
   return message;
 }
+
+}  // namespace plasma

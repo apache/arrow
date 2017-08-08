@@ -134,6 +134,16 @@ cdef class Column:
         self.sp_column = column
         self.column = column.get()
 
+    def __repr__(self):
+        from pyarrow.compat import StringIO
+        result = StringIO()
+        result.write(object.__repr__(self))
+        data = self.data
+        for i in range(len(data)):
+            result.write('\nchunk {0}: {1}'.format(i, repr(data.chunk(0))))
+
+        return result.getvalue()
+
     @staticmethod
     def from_array(object field_or_name, Array arr):
         cdef Field boxed_field
@@ -161,9 +171,10 @@ cdef class Column:
             
         options = PandasOptions(strings_to_categorical=strings_to_categorical)
 
-        check_status(libarrow.ConvertColumnToPandas(options,
-                                                    self.sp_column,
-                                                    self, &out))
+        with nogil:
+            check_status(libarrow.ConvertColumnToPandas(options,
+                                                        self.sp_column,
+                                                        self, &out))
 
         return pd.Series(wrap_array_output(out), name=self.name)
 
@@ -290,7 +301,7 @@ cdef int _schema_from_arrays(
         c_string c_name
         vector[shared_ptr[CField]] fields
         shared_ptr[CDataType] type_
-        int K = len(arrays)
+        Py_ssize_t K = len(arrays)
 
     fields.resize(K)
 
@@ -319,51 +330,6 @@ cdef int _schema_from_arrays(
 
     schema.reset(new CSchema(fields, unbox_metadata(metadata)))
     return 0
-
-
-cdef tuple _dataframe_to_arrays(
-    df,
-    bint timestamps_to_ms,
-    Schema schema,
-    bint preserve_index
-):
-    cdef:
-        list names = []
-        list arrays = []
-        list index_columns = []
-        list types = []
-        DataType type = None
-        dict metadata
-        Py_ssize_t i
-        Py_ssize_t n
-
-    if preserve_index:
-        n = len(getattr(df.index, 'levels', [df.index]))
-        index_columns.extend(df.index.get_level_values(i) for i in range(n))
-
-    for name in df.columns:
-        col = df[name]
-        if schema is not None:
-            field = schema.field_by_name(name)
-            type = getattr(field, "type", None)
-
-        array = Array.from_pandas(
-            col, type=type, timestamps_to_ms=timestamps_to_ms
-        )
-        arrays.append(array)
-        names.append(name)
-        types.append(array.type)
-
-    for i, column in enumerate(index_columns):
-        array = Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
-        arrays.append(array)
-        names.append(pdcompat.index_level_name(column, i))
-        types.append(array.type)
-
-    metadata = pdcompat.construct_metadata(
-        df, index_columns, preserve_index, types
-    )
-    return names, arrays, metadata
 
 
 cdef class RecordBatch:
@@ -479,8 +445,13 @@ cdef class RecordBatch:
             )
         return pyarrow_wrap_array(self.batch.column(i))
 
-    def __getitem__(self, i):
-        return self.column(i)
+    def __getitem__(self, key):
+        cdef:
+            Py_ssize_t start, stop
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+        else:
+            return self.column(key)
 
     def slice(self, offset=0, length=None):
         """
@@ -539,7 +510,6 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-
     def to_pandas(self, nthreads=None):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
@@ -569,7 +539,7 @@ cdef class RecordBatch:
         -------
         pyarrow.RecordBatch
         """
-        names, arrays, metadata = _dataframe_to_arrays(
+        names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df, False, schema, preserve_index
         )
         return cls.from_arrays(arrays, names, metadata)
@@ -708,13 +678,8 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(
-        cls,
-        df,
-        bint timestamps_to_ms=False,
-        Schema schema=None,
-        bint preserve_index=True
-    ):
+    def from_pandas(cls, df, bint timestamps_to_ms=False,
+                    Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -748,7 +713,7 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays, metadata = _dataframe_to_arrays(
+        names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df,
             timestamps_to_ms=timestamps_to_ms,
             schema=schema,
@@ -778,7 +743,7 @@ cdef class Table:
             vector[shared_ptr[CColumn]] columns
             shared_ptr[CSchema] schema
             shared_ptr[CTable] table
-            size_t K = len(arrays)
+            int i, K = <int> len(arrays)
 
         _schema_from_arrays(arrays, names, metadata, &schema)
 
@@ -890,7 +855,7 @@ cdef class Table:
         self._check_nullptr()
         return pyarrow_wrap_schema(self.table.schema())
 
-    def column(self, int64_t i):
+    def column(self, int i):
         """
         Select a column by its numeric index.
 
@@ -904,8 +869,8 @@ cdef class Table:
         """
         cdef:
             Column column = Column()
-            int64_t num_columns = self.num_columns
-            int64_t index
+            int num_columns = self.num_columns
+            int index
 
         self._check_nullptr()
         if not -num_columns <= i < num_columns:
@@ -946,7 +911,8 @@ cdef class Table:
         """
         Number of rows in this table.
 
-        Due to the definition of a table, all columns have the same number of rows.
+        Due to the definition of a table, all columns have the same number of
+        rows.
 
         Returns
         -------

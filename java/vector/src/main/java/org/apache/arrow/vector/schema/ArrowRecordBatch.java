@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import static org.apache.arrow.vector.schema.FBSerializables.writeAllStructsToVector;
@@ -36,10 +37,14 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowRecordBatch.class);
 
-  /** number of records */
+  /**
+   * number of records
+   */
   private final int length;
 
-  /** Nodes correspond to the pre-ordered flattened logical schema */
+  /**
+   * Nodes correspond to the pre-ordered flattened logical schema
+   */
   private final List<ArrowFieldNode> nodes;
 
   private final List<ArrowBuf> buffers;
@@ -53,8 +58,8 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
-   * @param length how many rows in this batch
-   * @param nodes field level info
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
    */
   public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers, boolean alignBuffers) {
@@ -119,7 +124,9 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   @Override
-  public <T> T accepts(ArrowMessageVisitor<T> visitor) { return visitor.visit(this); }
+  public <T> T accepts(ArrowMessageVisitor<T> visitor) {
+    return visitor.visit(this);
+  }
 
   /**
    * releases the buffers

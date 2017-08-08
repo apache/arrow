@@ -260,7 +260,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
   }
   // Remove the get request.
   if (get_req->timer != -1) {
-    ARROW_CHECK(loop_->remove_timer(get_req->timer) == AE_OK);
+    ARROW_CHECK(loop_->RemoveTimer(get_req->timer) == AE_OK);
   }
   delete get_req;
 }
@@ -330,7 +330,7 @@ void PlasmaStore::process_get_request(Client* client,
   } else if (timeout_ms != -1) {
     // Set a timer that will cause the get request to return to the client. Note
     // that a timeout of -1 is used to indicate that no timer should be set.
-    get_req->timer = loop_->add_timer(timeout_ms, [this, get_req](int64_t timer_id) {
+    get_req->timer = loop_->AddTimer(timeout_ms, [this, get_req](int64_t timer_id) {
       return_from_get(get_req);
       return kEventLoopTimerDone;
     });
@@ -412,11 +412,13 @@ void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
 
 void PlasmaStore::connect_client(int listener_sock) {
   int client_fd = AcceptClient(listener_sock);
-  // This is freed in disconnect_client.
+
   Client* client = new Client(client_fd);
+  connected_clients_[client_fd] = std::unique_ptr<Client>(client);
+
   // Add a callback to handle events on this socket.
   // TODO(pcm): Check return value.
-  loop_->add_file_event(client_fd, kEventLoopRead, [this, client](int events) {
+  loop_->AddFileEvent(client_fd, kEventLoopRead, [this, client](int events) {
     Status s = process_message(client);
     if (!s.ok()) {
       ARROW_LOG(FATAL) << "Failed to process file event: " << s;
@@ -425,23 +427,25 @@ void PlasmaStore::connect_client(int listener_sock) {
   ARROW_LOG(DEBUG) << "New connection with fd " << client_fd;
 }
 
-void PlasmaStore::disconnect_client(Client* client) {
-  ARROW_CHECK(client != NULL);
-  ARROW_CHECK(client->fd > 0);
-  loop_->remove_file_event(client->fd);
+void PlasmaStore::disconnect_client(int client_fd) {
+  ARROW_CHECK(client_fd > 0);
+  auto it = connected_clients_.find(client_fd);
+  ARROW_CHECK(it != connected_clients_.end());
+  loop_->RemoveFileEvent(client_fd);
   // Close the socket.
-  close(client->fd);
-  ARROW_LOG(INFO) << "Disconnecting client on fd " << client->fd;
+  close(client_fd);
+  ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // If this client was using any objects, remove it from the appropriate
   // lists.
   for (const auto& entry : store_info_.objects) {
-    remove_client_from_object_clients(entry.second.get(), client);
+    remove_client_from_object_clients(entry.second.get(), it->second.get());
   }
+
   // Note, the store may still attempt to send a message to the disconnected
   // client (for example, when an object ID that the client was waiting for
   // is ready). In these cases, the attempt to send the message will fail, but
   // the store should just ignore the failure.
-  delete client;
+  connected_clients_.erase(it);
 }
 
 /// Send notifications about sealed objects to the subscribers. This is called
@@ -478,7 +482,7 @@ void PlasmaStore::send_notifications(int client_fd) {
       // at the end of the method.
       // TODO(pcm): Introduce status codes and check in case the file descriptor
       // is added twice.
-      loop_->add_file_event(client_fd, kEventLoopWrite, [this, client_fd](int events) {
+      loop_->AddFileEvent(client_fd, kEventLoopWrite, [this, client_fd](int events) {
         send_notifications(client_fd);
       });
       break;
@@ -507,7 +511,7 @@ void PlasmaStore::send_notifications(int client_fd) {
 
   // If we have sent all notifications, remove the fd from the event loop.
   if (it->second.object_notifications.empty()) {
-    loop_->remove_file_event(client_fd);
+    loop_->RemoveFileEvent(client_fd);
   }
 }
 
@@ -553,6 +557,7 @@ Status PlasmaStore::process_message(Client* client) {
   ARROW_CHECK(s.ok() || s.IsIOError());
 
   uint8_t* input = input_buffer_.data();
+  size_t input_size = input_buffer_.size();
   ObjectID object_id;
   PlasmaObject object;
   // TODO(pcm): Get rid of the following.
@@ -563,7 +568,8 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
-      RETURN_NOT_OK(ReadCreateRequest(input, &object_id, &data_size, &metadata_size));
+      RETURN_NOT_OK(
+          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
       int error_code =
           create_object(object_id, data_size, metadata_size, client, &object);
       HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
@@ -575,15 +581,15 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
       int64_t timeout_ms;
-      RETURN_NOT_OK(ReadGetRequest(input, object_ids_to_get, &timeout_ms));
+      RETURN_NOT_OK(ReadGetRequest(input, input_size, object_ids_to_get, &timeout_ms));
       process_get_request(client, object_ids_to_get, timeout_ms);
     } break;
     case MessageType_PlasmaReleaseRequest:
-      RETURN_NOT_OK(ReadReleaseRequest(input, &object_id));
+      RETURN_NOT_OK(ReadReleaseRequest(input, input_size, &object_id));
       release_object(object_id, client);
       break;
     case MessageType_PlasmaContainsRequest:
-      RETURN_NOT_OK(ReadContainsRequest(input, &object_id));
+      RETURN_NOT_OK(ReadContainsRequest(input, input_size, &object_id));
       if (contains_object(object_id) == OBJECT_FOUND) {
         HANDLE_SIGPIPE(SendContainsReply(client->fd, object_id, 1), client->fd);
       } else {
@@ -592,13 +598,13 @@ Status PlasmaStore::process_message(Client* client) {
       break;
     case MessageType_PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, &object_id, &digest[0]));
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
       seal_object(object_id, &digest[0]);
     } break;
     case MessageType_PlasmaEvictRequest: {
       // This code path should only be used for testing.
       int64_t num_bytes;
-      RETURN_NOT_OK(ReadEvictRequest(input, &num_bytes));
+      RETURN_NOT_OK(ReadEvictRequest(input, input_size, &num_bytes));
       std::vector<ObjectID> objects_to_evict;
       int64_t num_bytes_evicted =
           eviction_policy_.choose_objects_to_evict(num_bytes, &objects_to_evict);
@@ -614,7 +620,7 @@ Status PlasmaStore::process_message(Client* client) {
     } break;
     case DISCONNECT_CLIENT:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
-      disconnect_client(client);
+      disconnect_client(client->fd);
       break;
     default:
       // This code should be unreachable.
@@ -623,9 +629,43 @@ Status PlasmaStore::process_message(Client* client) {
   return Status::OK();
 }
 
-// Report "success" to valgrind.
-void signal_handler(int signal) {
+class PlasmaStoreRunner {
+ public:
+  PlasmaStoreRunner() {}
+
+  void Start(char* socket_name, int64_t system_memory) {
+    // Create the event loop.
+    loop_.reset(new EventLoop);
+    store_.reset(new PlasmaStore(loop_.get(), system_memory));
+    int socket = bind_ipc_sock(socket_name, true);
+    // TODO(pcm): Check return value.
+    ARROW_CHECK(socket >= 0);
+
+    loop_->AddFileEvent(socket, kEventLoopRead, [this, socket](int events) {
+      this->store_->connect_client(socket);
+    });
+    loop_->Start();
+  }
+
+  void Shutdown() {
+    loop_->Stop();
+    loop_ = nullptr;
+    store_ = nullptr;
+  }
+
+ private:
+  std::unique_ptr<EventLoop> loop_;
+  std::unique_ptr<PlasmaStore> store_;
+};
+
+static PlasmaStoreRunner* g_runner = nullptr;
+
+void HandleSignal(int signal) {
   if (signal == SIGTERM) {
+    if (g_runner != nullptr) {
+      g_runner->Shutdown();
+    }
+    // Report "success" to valgrind.
     exit(0);
   }
 }
@@ -634,21 +674,16 @@ void start_server(char* socket_name, int64_t system_memory) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
-  // Create the event loop.
-  EventLoop loop;
-  PlasmaStore store(&loop, system_memory);
-  int socket = bind_ipc_sock(socket_name, true);
-  ARROW_CHECK(socket >= 0);
-  // TODO(pcm): Check return value.
-  loop.add_file_event(socket, kEventLoopRead,
-                      [&store, socket](int events) { store.connect_client(socket); });
-  loop.run();
+
+  PlasmaStoreRunner runner;
+  g_runner = &runner;
+  signal(SIGTERM, HandleSignal);
+  runner.Start(socket_name, system_memory);
 }
 
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
-  signal(SIGTERM, plasma::signal_handler);
   char* socket_name = NULL;
   int64_t system_memory = -1;
   int c;
