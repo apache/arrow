@@ -34,6 +34,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -59,6 +60,9 @@ class IpcComponentSource {
       *out = nullptr;
       return Status::OK();
     } else {
+      DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))
+          << "Buffer " << buffer_index
+          << " did not start on 8-byte aligned offset: " << buffer->offset();
       return file_->ReadAt(buffer->offset(), buffer->length(), out);
     }
   }
@@ -550,6 +554,10 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     DCHECK_LT(i, num_record_batches());
     FileBlock block = record_batch(i);
 
+    DCHECK(BitUtil::IsMultipleOf8(block.offset));
+    DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
+    DCHECK(BitUtil::IsMultipleOf8(block.body_length));
+
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(
         ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
@@ -564,6 +572,11 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     // Read all the dictionaries
     for (int i = 0; i < num_dictionaries(); ++i) {
       FileBlock block = dictionary(i);
+
+      DCHECK(BitUtil::IsMultipleOf8(block.offset));
+      DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
+      DCHECK(BitUtil::IsMultipleOf8(block.body_length));
+
       std::unique_ptr<Message> message;
       RETURN_NOT_OK(
           ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
