@@ -179,7 +179,7 @@ Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out
   // Make the schema
   auto f0 = field("f0", boolean());
   auto f1 = field("f1", boolean());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   std::shared_ptr<Array> a0, a1;
   RETURN_NOT_OK(MakeRandomBooleanArray(length, true, &a0));
@@ -196,7 +196,7 @@ Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   // Example data
   std::shared_ptr<Array> a0, a1;
@@ -237,7 +237,7 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto binary_type = binary();
   auto f0 = field("f0", string_type);
   auto f1 = field("f1", binary_type);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   std::shared_ptr<Array> a0, a1;
   MemoryPool* pool = default_memory_pool();
@@ -259,7 +259,7 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
 Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   const int64_t length = 500;
   auto f0 = field("f0", null());
-  std::shared_ptr<Schema> schema(new Schema({f0}));
+  auto schema = ::arrow::schema({f0});
   std::shared_ptr<Array> a0 = std::make_shared<NullArray>(length);
   out->reset(new RecordBatch(schema, length, {a0}));
   return Status::OK();
@@ -270,7 +270,7 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
   auto f2 = field("f2", int32());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
 
@@ -293,7 +293,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
   auto f2 = field("f2", int32());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
   MemoryPool* pool = default_memory_pool();
@@ -313,7 +313,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", kListInt32);
   auto f1 = field("f1", kListListInt32);
   auto f2 = field("f2", int32());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   // Example data
   MemoryPool* pool = default_memory_pool();
@@ -345,7 +345,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   }
 
   auto f0 = field("f0", type);
-  std::shared_ptr<Schema> schema(new Schema({f0}));
+  auto schema = ::arrow::schema({f0});
   std::vector<std::shared_ptr<Array>> arrays = {array};
   out->reset(new RecordBatch(schema, batch_length, arrays));
   return Status::OK();
@@ -364,7 +364,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
       {list_schema->field(0), list_schema->field(1), list_schema->field(2)}));
   auto f0 = field("non_null_struct", type);
   auto f1 = field("null_struct", type);
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   // construct individual nullable/non-nullable struct arrays
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
@@ -397,7 +397,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   auto f1 = field("sparse", sparse_type);
   auto f2 = field("dense", dense_type);
 
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   // Create data
   std::vector<std::shared_ptr<Array>> sparse_children(2);
@@ -520,9 +520,9 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4);
 
   // construct batch
-  std::shared_ptr<Schema> schema(new Schema(
+  auto schema = ::arrow::schema(
       {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type),
-       field("list of encoded string", f3_type), field("encoded list<int8>", f4_type)}));
+       field("list of encoded string", f3_type), field("encoded list<int8>", f4_type)});
 
   std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
 
@@ -560,8 +560,8 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
 
   // construct batch
-  std::shared_ptr<Schema> schema(new Schema(
-      {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type)}));
+  auto schema = ::arrow::schema(
+      {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type)});
 
   std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2};
   out->reset(new RecordBatch(schema, length, arrays));
@@ -572,7 +572,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
   auto f1 = field("f1", date64());
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   std::vector<int32_t> date32_values = {0, 1, 2, 3, 4, 5, 6};
   std::shared_ptr<Array> date32_array;
@@ -594,7 +594,7 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", timestamp(TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(TimeUnit::NANO, "America/New_York"));
   auto f2 = field("f2", timestamp(TimeUnit::SECOND));
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
                                     1489272000000, 1489272000000, 1489273000000};
@@ -615,7 +615,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   auto f1 = field("f1", time64(TimeUnit::NANO));
   auto f2 = field("f2", time32(TimeUnit::SECOND));
   auto f3 = field("f3", time64(TimeUnit::NANO));
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
   std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
                                      1489272000, 1489272000, 1489273000};
@@ -649,7 +649,7 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false};
   auto f0 = field("f0", fixed_size_binary(4));
   auto f1 = field("f1", fixed_size_binary(0));
-  std::shared_ptr<Schema> schema(new Schema({f0, f1}));
+  auto schema = ::arrow::schema({f0, f1});
 
   std::shared_ptr<Array> a1, a2;
 

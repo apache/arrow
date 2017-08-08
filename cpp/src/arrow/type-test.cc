@@ -97,15 +97,14 @@ TEST_F(TestSchema, Basics) {
 
   auto f2 = field("f2", utf8());
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
-  auto schema = std::make_shared<Schema>(fields);
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   ASSERT_EQ(3, schema->num_fields());
   ASSERT_TRUE(f0->Equals(schema->field(0)));
   ASSERT_TRUE(f1->Equals(schema->field(1)));
   ASSERT_TRUE(f2->Equals(schema->field(2)));
 
-  auto schema2 = std::make_shared<Schema>(fields);
+  auto schema2 = ::arrow::schema({f0, f1, f2});
 
   vector<shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
   auto schema3 = std::make_shared<Schema>(fields3);
@@ -119,8 +118,7 @@ TEST_F(TestSchema, ToString) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
-  auto schema = std::make_shared<Schema>(fields);
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
   std::string result = schema->ToString();
   std::string expected = R"(f0: int32
@@ -137,8 +135,7 @@ TEST_F(TestSchema, GetFieldByName) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
-  auto schema = std::make_shared<Schema>(fields);
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
   std::shared_ptr<Field> result;
 
@@ -158,13 +155,12 @@ TEST_F(TestSchema, GetFieldIndex) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", list(int16()));
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2, f3};
-  auto schema = std::make_shared<Schema>(fields);
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  ASSERT_EQ(0, schema->GetFieldIndex(fields[0]->name()));
-  ASSERT_EQ(1, schema->GetFieldIndex(fields[1]->name()));
-  ASSERT_EQ(2, schema->GetFieldIndex(fields[2]->name()));
-  ASSERT_EQ(3, schema->GetFieldIndex(fields[3]->name()));
+  ASSERT_EQ(0, schema->GetFieldIndex(f0->name()));
+  ASSERT_EQ(1, schema->GetFieldIndex(f1->name()));
+  ASSERT_EQ(2, schema->GetFieldIndex(f2->name()));
+  ASSERT_EQ(3, schema->GetFieldIndex(f3->name()));
   ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
 }
 
@@ -172,10 +168,9 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto metadata = std::shared_ptr<KeyValueMetadata>(
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
-  auto schema = std::make_shared<Schema>(fields, metadata);
+  auto schema = ::arrow::schema({f0, f1, f2}, metadata);
   ASSERT_TRUE(metadata->Equals(*schema->metadata()));
 }
 

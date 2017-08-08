@@ -534,8 +534,8 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
     if (obj == Py_None) {
       return typed_builder_->AppendNull();
     } else if (PyBytes_Check(obj)) {
-      tmp.reset(PyUnicode_FromStringAndSize(PyBytes_AS_STRING(obj),
-                                            PyBytes_GET_SIZE(obj)));
+      tmp.reset(
+          PyUnicode_FromStringAndSize(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj)));
       RETURN_IF_PYERROR();
       bytes_obj = obj;
     } else if (!PyUnicode_Check(obj)) {

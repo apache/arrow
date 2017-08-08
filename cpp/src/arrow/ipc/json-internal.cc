@@ -129,8 +129,7 @@ class SchemaWriter {
     writer_->Key("data");
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
-    auto schema = std::shared_ptr<Schema>(
-        new Schema({arrow::field("dictionary", dictionary->type())}));
+    auto schema = ::arrow::schema({arrow::field("dictionary", dictionary->type())});
     RecordBatch batch(schema, dictionary->length(), {dictionary});
     RETURN_NOT_OK(WriteRecordBatch(batch, writer_));
     writer_->EndObject();
