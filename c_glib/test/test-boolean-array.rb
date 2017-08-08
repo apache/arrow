@@ -17,6 +17,7 @@
 
 class TestBooleanArray < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def test_new
     assert_equal(build_boolean_array([true, false, nil]),
@@ -40,5 +41,15 @@ class TestBooleanArray < Test::Unit::TestCase
     builder.append(true)
     array = builder.finish
     assert_equal(true, array.get_value(0))
+  end
+
+  def test_values
+    require_gi(3, 1, 9)
+    builder = Arrow::BooleanArrayBuilder.new
+    builder.append(true)
+    builder.append(false)
+    builder.append(true)
+    array = builder.finish
+    assert_equal([true, false, true], array.values)
   end
 end

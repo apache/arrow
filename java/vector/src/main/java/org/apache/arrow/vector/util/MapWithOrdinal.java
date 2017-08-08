@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.util.AbstractMap;
@@ -95,16 +96,16 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
     public V put(K key, V value) {
       final Entry<Integer, V> oldPair = primary.get(key);
       // if key exists try replacing otherwise, assign a new ordinal identifier
-      final int ordinal = oldPair == null ? primary.size():oldPair.getKey();
+      final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
       primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
       secondary.put(ordinal, value);
-      return oldPair==null ? null:oldPair.getValue();
+      return oldPair == null ? null : oldPair.getValue();
     }
 
     @Override
     public V remove(Object key) {
       final Entry<Integer, V> oldPair = primary.remove(key);
-      if (oldPair!=null) {
+      if (oldPair != null) {
         final int lastOrdinal = secondary.size();
         final V last = secondary.get(lastOrdinal);
         // normalize mappings so that all numbers until primary.size() is assigned
@@ -112,7 +113,7 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
         secondary.put(oldPair.getKey(), last);
         primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
       }
-      return oldPair==null ? null:oldPair.getValue();
+      return oldPair == null ? null : oldPair.getValue();
     }
 
     @Override

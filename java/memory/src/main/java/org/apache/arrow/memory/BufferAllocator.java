@@ -117,9 +117,8 @@ public interface BufferAllocator extends AutoCloseable {
    * Create an allocation reservation. A reservation is a way of building up
    * a request for a buffer whose size is not known in advance. See
    *
-   * @see AllocationReservation
-   *
    * @return the newly created reservation
+   * @see AllocationReservation
    */
   public AllocationReservation newReservation();
 
@@ -128,6 +127,7 @@ public interface BufferAllocator extends AutoCloseable {
    * special because we don't
    * worry about them leaking or managing reference counts on them since they don't actually
    * point to any memory.
+   *
    * @return the empty buffer
    */
   public ArrowBuf getEmpty();
@@ -136,6 +136,7 @@ public interface BufferAllocator extends AutoCloseable {
    * Return the name of this allocator. This is a human readable name that can help debugging.
    * Typically provides
    * coordinates about where this allocator was created
+   *
    * @return the name of the allocator
    */
   public String getName();
@@ -145,6 +146,7 @@ public interface BufferAllocator extends AutoCloseable {
    * that an allocator is
    * over its limit, all consumers of that allocator should aggressively try to addrss the
    * overlimit situation.
+   *
    * @return whether or not this allocator (or one if its parents) is over its limits
    */
   public boolean isOverLimit();

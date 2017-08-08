@@ -58,7 +58,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     ARROW_BUILD_DIR=/arrow/cpp/build-PY${PYTHON}
     mkdir -p "${ARROW_BUILD_DIR}"
     pushd "${ARROW_BUILD_DIR}"
-    PATH="$(cpython_path $PYTHON)/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON ..
+    PATH="$(cpython_path $PYTHON)/bin:$PATH" cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=off -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF -DARROW_PYTHON=ON -DPythonInterp_FIND_VERSION=${PYTHON} -DARROW_PLASMA=ON ..
     make -j5 install
     popd
 
@@ -81,9 +81,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
 
-    # ARROW-1264; for some reason the test case added causes a segfault inside
-    # the Docker container when writing and error message to stderr
-    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v -s --disable-plasma
+    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v
     deactivate
 
     mv repaired_wheels/*.whl /io/dist

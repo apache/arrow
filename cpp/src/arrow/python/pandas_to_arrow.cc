@@ -17,6 +17,8 @@
 
 // Functions for pandas conversion via NumPy
 
+#define ARROW_NO_DEFAULT_MEMORY_POOL
+
 #include "arrow/python/numpy_interop.h"
 
 #include "arrow/python/pandas_to_arrow.h"
@@ -586,7 +588,7 @@ Status PandasConverter::ConvertDecimals() {
   type_ = std::make_shared<DecimalType>(precision, scale);
 
   const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
-  DecimalBuilder builder(pool_, type_);
+  DecimalBuilder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   for (int64_t i = 0; i < length_; ++i) {
@@ -619,7 +621,7 @@ Status PandasConverter::ConvertTimes() {
   PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
 
   // datetime.time stores microsecond resolution
-  Time64Builder builder(pool_, ::arrow::time64(TimeUnit::MICRO));
+  Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   PyObject* obj;
@@ -751,7 +753,7 @@ Status PandasConverter::ConvertObjectFixedWidthBytes(
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
-  FixedSizeBinaryBuilder builder(pool_, type);
+  FixedSizeBinaryBuilder builder(type, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   int64_t offset = 0;
@@ -942,10 +944,6 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
     return Status::NotImplemented("mask not supported in object conversions yet");
   }
 
-  if (is_strided()) {
-    return Status::NotImplemented("strided arrays not implemented for lists");
-  }
-
   BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
 
   auto foreach_item = [&](PyObject* object) {
@@ -990,6 +988,47 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
 }
 
 template <>
+inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
+    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
+  PyAcquireGIL lock;
+
+  // TODO: mask not supported here
+  if (mask_ != nullptr) {
+    return Status::NotImplemented("mask not supported in object conversions yet");
+  }
+
+  auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
+
+  auto foreach_item = [&](PyObject* object) {
+    if (PandasObjectIsNull(object)) {
+      return builder->AppendNull();
+    } else if (PyArray_Check(object)) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
+      RETURN_NOT_OK(builder->Append(true));
+
+      // TODO(uwe): Support more complex numpy array structures
+      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
+
+      for (int64_t i = 0; i < static_cast<int64_t>(PyArray_SIZE(numpy_array)); ++i) {
+        RETURN_NOT_OK(value_builder->AppendNull());
+      }
+      return Status::OK();
+    } else if (PyList_Check(object)) {
+      RETURN_NOT_OK(builder->Append(true));
+      const Py_ssize_t size = PySequence_Size(object);
+      for (Py_ssize_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(value_builder->AppendNull());
+      }
+      return Status::OK();
+    } else {
+      return Status::TypeError("Unsupported Python type for list items");
+    }
+  };
+
+  return LoopPySequence(list, foreach_item);
+}
+
+template <>
 inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
@@ -999,10 +1038,6 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   // TODO: mask not supported here
   if (mask_ != nullptr) {
     return Status::NotImplemented("mask not supported in object conversions yet");
-  }
-
-  if (is_strided()) {
-    return Status::NotImplemented("strided arrays not implemented for lists");
   }
 
   auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
@@ -1051,6 +1086,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
 Status PandasConverter::ConvertLists(const std::shared_ptr<DataType>& type,
                                      ListBuilder* builder, PyObject* list) {
   switch (type->id()) {
+    LIST_CASE(NA, NPY_OBJECT, NullType)
     LIST_CASE(UINT8, NPY_UINT8, UInt8Type)
     LIST_CASE(INT8, NPY_INT8, Int8Type)
     LIST_CASE(UINT16, NPY_UINT16, UInt16Type)

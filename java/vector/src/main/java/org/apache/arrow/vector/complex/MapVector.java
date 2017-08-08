@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -79,7 +80,7 @@ public class MapVector extends AbstractMapVector {
   transient private MapTransferPair ephPair;
 
   public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
-    if(ephPair == null || ephPair.from != from) {
+    if (ephPair == null || ephPair.from != from) {
       ephPair = (MapTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
@@ -107,7 +108,7 @@ public class MapVector extends AbstractMapVector {
       return 0;
     }
     long buffer = 0;
-    for (final ValueVector v : (Iterable<ValueVector>)this) {
+    for (final ValueVector v : (Iterable<ValueVector>) this) {
       buffer += v.getBufferSize();
     }
 
@@ -148,7 +149,7 @@ public class MapVector extends AbstractMapVector {
     return new MapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
   }
 
-  protected static class MapTransferPair implements TransferPair{
+  protected static class MapTransferPair implements TransferPair {
     private final TransferPair[] pairs;
     private final MapVector from;
     private final MapVector to;
@@ -165,7 +166,7 @@ public class MapVector extends AbstractMapVector {
 
       int i = 0;
       FieldVector vector;
-      for (String child:from.getChildFieldNames()) {
+      for (String child : from.getChildFieldNames()) {
         int preSize = to.size();
         vector = from.getChild(child);
         if (vector == null) {
@@ -252,7 +253,7 @@ public class MapVector extends AbstractMapVector {
     @Override
     public Object getObject(int index) {
       Map<String, Object> vv = new JsonStringHashMap<>();
-      for (String child:getChildFieldNames()) {
+      for (String child : getChildFieldNames()) {
         ValueVector v = getChild(child);
         if (v != null && index < v.getAccessor().getValueCount()) {
           Object value = v.getAccessor().getObject(index);
@@ -290,10 +291,12 @@ public class MapVector extends AbstractMapVector {
     }
 
     @Override
-    public void reset() { }
+    public void reset() {
+    }
 
     @Override
-    public void generateTestData(int values) { }
+    public void generateTestData(int values) {
+    }
   }
 
   @Override
@@ -329,11 +332,11 @@ public class MapVector extends AbstractMapVector {
     valueCount = 0;
 
     super.close();
- }
+  }
 
   public void initializeChildrenFromFields(List<Field> children) {
     for (Field field : children) {
-      FieldVector vector = (FieldVector)this.add(field.getName(), field.getFieldType());
+      FieldVector vector = (FieldVector) this.add(field.getName(), field.getFieldType());
       vector.initializeChildrenFromFields(field.getChildren());
     }
   }

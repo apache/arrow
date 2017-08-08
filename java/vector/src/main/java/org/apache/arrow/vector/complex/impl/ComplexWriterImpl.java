@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
@@ -38,13 +39,15 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableMapWriterFactory nullableMapWriterFactory;
 
-  private enum Mode { INIT, MAP, LIST };
+  private enum Mode {INIT, MAP, LIST}
 
-  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled, boolean caseSensitive){
+  ;
+
+  public ComplexWriterImpl(String name, MapVector container, boolean unionEnabled, boolean caseSensitive) {
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    nullableMapWriterFactory = caseSensitive? NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance() :
+    nullableMapWriterFactory = caseSensitive ? NullableMapWriterFactory.getNullableCaseSensitiveMapWriterFactoryInstance() :
         NullableMapWriterFactory.getNullableMapWriterFactoryInstance();
   }
 
@@ -52,7 +55,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     this(name, container, unionEnabled, false);
   }
 
-  public ComplexWriterImpl(String name, MapVector container){
+  public ComplexWriterImpl(String name, MapVector container) {
     this(name, container, false);
   }
 
@@ -66,12 +69,12 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     return container.getValueCapacity();
   }
 
-  private void check(Mode... modes){
+  private void check(Mode... modes) {
     StateTool.check(mode, modes);
   }
 
   @Override
-  public void reset(){
+  public void reset() {
     setPosition(0);
   }
 
@@ -85,58 +88,58 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public void clear(){
-    switch(mode){
-    case MAP:
-      mapRoot.clear();
-      break;
-    case LIST:
-      listRoot.clear();
-      break;
+  public void clear() {
+    switch (mode) {
+      case MAP:
+        mapRoot.clear();
+        break;
+      case LIST:
+        listRoot.clear();
+        break;
     }
   }
 
   @Override
-  public void setValueCount(int count){
-    switch(mode){
-    case MAP:
-      mapRoot.setValueCount(count);
-      break;
-    case LIST:
-      listRoot.setValueCount(count);
-      break;
+  public void setValueCount(int count) {
+    switch (mode) {
+      case MAP:
+        mapRoot.setValueCount(count);
+        break;
+      case LIST:
+        listRoot.setValueCount(count);
+        break;
     }
   }
 
   @Override
-  public void setPosition(int index){
+  public void setPosition(int index) {
     super.setPosition(index);
-    switch(mode){
-    case MAP:
-      mapRoot.setPosition(index);
-      break;
-    case LIST:
-      listRoot.setPosition(index);
-      break;
+    switch (mode) {
+      case MAP:
+        mapRoot.setPosition(index);
+        break;
+      case LIST:
+        listRoot.setPosition(index);
+        break;
     }
   }
 
 
-  public MapWriter directMap(){
+  public MapWriter directMap() {
     Preconditions.checkArgument(name == null);
 
-    switch(mode){
+    switch (mode) {
 
-    case INIT:
-      mapRoot = nullableMapWriterFactory.build((NullableMapVector) container);
-      mapRoot.setPosition(idx());
-      mode = Mode.MAP;
-      break;
+      case INIT:
+        mapRoot = nullableMapWriterFactory.build((NullableMapVector) container);
+        mapRoot.setPosition(idx());
+        mode = Mode.MAP;
+        break;
 
-    case MAP:
-      break;
+      case MAP:
+        break;
 
-    default:
+      default:
         check(Mode.INIT, Mode.MAP);
     }
 
@@ -145,20 +148,20 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   @Override
   public MapWriter rootAsMap() {
-    switch(mode){
+    switch (mode) {
 
-    case INIT:
-      // TODO allow dictionaries in complex types
-      NullableMapVector map = container.addOrGetMap(name);
-      mapRoot = nullableMapWriterFactory.build(map);
-      mapRoot.setPosition(idx());
-      mode = Mode.MAP;
-      break;
+      case INIT:
+        // TODO allow dictionaries in complex types
+        NullableMapVector map = container.addOrGetMap(name);
+        mapRoot = nullableMapWriterFactory.build(map);
+        mapRoot.setPosition(idx());
+        mode = Mode.MAP;
+        break;
 
-    case MAP:
-      break;
+      case MAP:
+        break;
 
-    default:
+      default:
         check(Mode.INIT, Mode.MAP);
     }
 
@@ -167,33 +170,33 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   @Override
   public void allocate() {
-    if(mapRoot != null) {
+    if (mapRoot != null) {
       mapRoot.allocate();
-    } else if(listRoot != null) {
+    } else if (listRoot != null) {
       listRoot.allocate();
     }
   }
 
   @Override
   public ListWriter rootAsList() {
-    switch(mode){
+    switch (mode) {
 
-    case INIT:
-      int vectorCount = container.size();
-      // TODO allow dictionaries in complex types
-      ListVector listVector = container.addOrGetList(name);
-      if (container.size() > vectorCount) {
-        listVector.allocateNew();
-      }
-      listRoot = new UnionListWriter(listVector, nullableMapWriterFactory);
-      listRoot.setPosition(idx());
-      mode = Mode.LIST;
-      break;
+      case INIT:
+        int vectorCount = container.size();
+        // TODO allow dictionaries in complex types
+        ListVector listVector = container.addOrGetList(name);
+        if (container.size() > vectorCount) {
+          listVector.allocateNew();
+        }
+        listRoot = new UnionListWriter(listVector, nullableMapWriterFactory);
+        listRoot.setPosition(idx());
+        mode = Mode.LIST;
+        break;
 
-    case LIST:
-      break;
+      case LIST:
+        break;
 
-    default:
+      default:
         check(Mode.INIT, Mode.MAP);
     }
 

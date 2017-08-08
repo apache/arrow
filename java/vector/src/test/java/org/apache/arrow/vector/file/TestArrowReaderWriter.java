@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import static java.nio.channels.Channels.newChannel;
@@ -77,15 +78,15 @@ public class TestArrowReaderWriter {
     FieldVector vector = TestUtils.newVector(FieldVector.class, "testField", type, allocator);
     vector.initializeChildrenFromFields(schema.getFields().get(0).getChildren());
 
-    byte[] validity = new byte[] { (byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(vector), 16);
          ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out))) {
       ArrowBuf validityb = buf(validity);
-      ArrowBuf valuesb =  buf(values);
+      ArrowBuf valuesb = buf(values);
       writer.writeRecordBatch(new ArrowRecordBatch(16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb)));
     }
 
@@ -113,7 +114,7 @@ public class TestArrowReaderWriter {
       // Read just the header. This demonstrates being able to read without need to
       // deserialize the buffer.
       ByteBuffer headerBuffer = ByteBuffer.allocate(recordBatches.get(0).getMetadataLength());
-      headerBuffer.put(byteArray, (int)recordBatches.get(0).getOffset(), headerBuffer.capacity());
+      headerBuffer.put(byteArray, (int) recordBatches.get(0).getOffset(), headerBuffer.capacity());
       headerBuffer.position(4);
       Message messageFB = Message.getRootAsMessage(headerBuffer);
       RecordBatch recordBatchFB = (RecordBatch) messageFB.header(new RecordBatch());

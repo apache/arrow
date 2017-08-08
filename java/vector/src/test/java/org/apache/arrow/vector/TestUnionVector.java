@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
@@ -98,7 +99,7 @@ public class TestUnionVector {
       mutator.setSafe(5, newBitHolder(false));
       mutator.setValueCount(6);
 
-      try(UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
         TransferPair pair = srcVector.makeTransferPair(destVector);
 
         // Creating the transfer should transfer the type of the field at least.
@@ -111,7 +112,7 @@ public class TestUnionVector {
 
         // now check the values are transferred
         assertEquals(srcVector.getAccessor().getValueCount(), destVector.getAccessor().getValueCount());
-        for(int i=0; i<srcVector.getAccessor().getValueCount(); i++) {
+        for (int i = 0; i < srcVector.getAccessor().getValueCount(); i++) {
           assertEquals("Different values at index " + i, srcVector.getAccessor().get(i), destVector.getAccessor().get(i));
         }
       }
@@ -172,18 +173,18 @@ public class TestUnionVector {
       assertEquals(false, sourceAccessor.isNull(9));
       assertEquals(50, sourceAccessor.getObject(9));
 
-      try(UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
         final UnionVector.Accessor toAccessor = toVector.getAccessor();
 
-        final int[][] transferLengths = { {0, 3},
-                                          {3, 1},
-                                          {4, 2},
-                                          {6, 1},
-                                          {7, 1},
-                                          {8, 2}
-                                        };
+        final int[][] transferLengths = {{0, 3},
+            {3, 1},
+            {4, 2},
+            {6, 1},
+            {7, 1},
+            {8, 2}
+        };
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -194,7 +195,7 @@ public class TestUnionVector {
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
             assertEquals("Different data at indexes: " + (start + i) + "and " + i, sourceAccessor.getObject(start + i),
-                         toAccessor.getObject(i));
+                toAccessor.getObject(i));
           }
         }
       }
@@ -264,17 +265,17 @@ public class TestUnionVector {
       assertEquals(false, sourceAccessor.isNull(9));
       assertEquals(30.5f, sourceAccessor.getObject(9));
 
-      try(UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
         final UnionVector.Accessor toAccessor = toVector.getAccessor();
 
-        final int[][] transferLengths = { {0, 2},
-                                          {2, 1},
-                                          {3, 2},
-                                          {5, 3},
-                                          {8, 2}
-                                        };
+        final int[][] transferLengths = {{0, 2},
+            {2, 1},
+            {3, 2},
+            {5, 3},
+            {8, 2}
+        };
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];

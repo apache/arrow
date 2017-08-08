@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import java.util.Map;
@@ -34,10 +35,11 @@ public class ArrowVectorType {
   public static final ArrowVectorType TYPE = new ArrowVectorType(VectorType.TYPE);
 
   private static final Map<String, ArrowVectorType> typeByName;
+
   static {
-    ArrowVectorType[] types = { DATA, OFFSET, VALIDITY, TYPE };
+    ArrowVectorType[] types = {DATA, OFFSET, VALIDITY, TYPE};
     Builder<String, ArrowVectorType> builder = ImmutableMap.builder();
-    for (ArrowVectorType type: types) {
+    for (ArrowVectorType type : types) {
       builder.put(type.getName(), type);
     }
     typeByName = builder.build();

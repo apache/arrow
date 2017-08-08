@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.reader;
 
 import org.apache.arrow.vector.complex.reader.BaseReader.ListReader;
@@ -22,7 +23,6 @@ import org.apache.arrow.vector.complex.reader.BaseReader.MapReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.RepeatedListReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.RepeatedMapReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.ScalarReader;
-
 
 
 public interface FieldReader extends MapReader, ListReader, ScalarReader, RepeatedMapReader, RepeatedListReader {

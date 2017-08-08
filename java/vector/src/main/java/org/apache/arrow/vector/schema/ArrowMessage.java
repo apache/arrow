@@ -15,16 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
-    public int computeBodyLength();
+  public int computeBodyLength();
 
-    public <T> T accepts(ArrowMessageVisitor<T> visitor);
+  public <T> T accepts(ArrowMessageVisitor<T> visitor);
 
-    public static interface ArrowMessageVisitor<T> {
-        public T visit(ArrowDictionaryBatch message);
-        public T visit(ArrowRecordBatch message);
-    }
+  public static interface ArrowMessageVisitor<T> {
+    public T visit(ArrowDictionaryBatch message);
+
+    public T visit(ArrowRecordBatch message);
+  }
 }

@@ -22,5 +22,6 @@
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/array-builder.h>
 
-GArrowArrayBuilder *garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder);
+GArrowArrayBuilder *garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
+                                                 GType type=G_TYPE_INVALID);
 arrow::ArrayBuilder *garrow_array_builder_get_raw(GArrowArrayBuilder *builder);

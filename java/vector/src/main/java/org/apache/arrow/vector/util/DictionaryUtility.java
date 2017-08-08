@@ -40,7 +40,7 @@ public class DictionaryUtility {
    * have the dictionary type
    *
    * NOTE: in the message format, fields have the dictionary type
-   *       in the memory format, they have the index type
+   * in the memory format, they have the index type
    */
   public static Field toMessageFormat(Field field, DictionaryProvider provider, Set<Long> dictionaryIdsUsed) {
     DictionaryEncoding encoding = field.getDictionary();
@@ -51,7 +51,7 @@ public class DictionaryUtility {
     }
 
     List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child: children) {
+    for (Field child : children) {
       updatedChildren.add(toMessageFormat(child, provider, dictionaryIdsUsed));
     }
 
@@ -85,7 +85,7 @@ public class DictionaryUtility {
     }
 
     List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child: children) {
+    for (Field child : children) {
       updatedChildren.add(toMemoryFormat(child, allocator, dictionaries));
     }
 
