@@ -124,62 +124,52 @@ namespace io {
 constexpr const char* kRangeExceptionError =
     "Range exception during wide-char string conversion";
 
-class PlatformFilename {
- public:
-  static Status Create(const std::string& utf8_path,
-                       std::unique_ptr<PlatformFilename>* out) {
-    std::wstring utf16_path;
+struct PlatformFilename {
+  static Status Init(const std::string& utf8_path, PlatformFilename* out) {
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
 
     if (!utf8_path.empty()) {
       try {
-        utf16_path = utf16_converter.from_bytes(utf8_path);
+        out->utf16_path = utf16_converter.from_bytes(utf8_path);
       } catch (const std::range_error&) {
         return Status::Invalid(kRangeExceptionError);
       }
+    } else {
+      out->utf16_path = std::wstring();
     }
-    out->reset(new PlatformFilename(utf8_path, utf16_path));
+    out->utf8_path = utf8_path;
     return Status::OK();
   }
 
-  const char* data() const { return reinterpret_cast<const char*>(utf16_path_.c_str()); }
+  const char* data() const { return reinterpret_cast<const char*>(utf16_path.c_str()); }
 
-  const char* utf8_data() const { return utf8_path_.c_str(); }
+  const char* utf8_data() const { return utf8_path.c_str(); }
 
-  const std::string& utf8_path() const { return utf8_path_; }
+  const std::string& utf8_path() const { return utf8_path; }
 
-  size_t length() const { return utf16_path_.size(); }
+  size_t length() const { return utf16_path.size(); }
 
- private:
-  PlatformFilename(const std::string& utf8_path, const std::wstring& utf16_path)
-      : utf8_path_(utf8_path), utf16_path_(utf16_path) {}
-
-  std::string utf8_path_;
-  std::wstring utf16_path_;
+  std::string utf8_path;
+  std::wstring utf16_path;
 };
 
 #else
 
-class PlatformFilename {
- public:
-  static Status Create(const std::string& utf8_path,
-                       std::unique_ptr<PlatformFilename>* out) {
-    out->reset(new PlatformFilename(utf8_path));
+struct PlatformFilename {
+  static Status Init(const std::string& utf8_path, PlatformFilename* out) {
+    out->path = utf8_path;
     return Status::OK();
   }
 
-  const char* data() const { return path_.c_str(); }
+  const char* data() const { return path.c_str(); }
 
   const char* utf8_data() const { return data(); }
 
-  const std::string& utf8_path() const { return path_; }
+  const std::string& utf8_path() const { return path; }
 
-  size_t length() const { return path_.size(); }
+  size_t length() const { return path.size(); }
 
- private:
-  explicit PlatformFilename(const std::string& path) : path_(path) {}
-
-  std::string path_;
+  std::string path;
 };
 
 #endif
@@ -371,9 +361,9 @@ class OSFile {
   ~OSFile() {}
 
   Status OpenWriteable(const std::string& path, bool append, bool write_only) {
-    RETURN_NOT_OK(PlatformFilename::Create(path, &path_));
+    RETURN_NOT_OK(PlatformFilename::Init(path, &path_));
 
-    RETURN_NOT_OK(FileOpenWriteable(*path_, write_only, !append, &fd_));
+    RETURN_NOT_OK(FileOpenWriteable(path_, write_only, !append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
@@ -386,9 +376,9 @@ class OSFile {
   }
 
   Status OpenReadable(const std::string& path) {
-    RETURN_NOT_OK(PlatformFilename::Create(path, &path_));
+    RETURN_NOT_OK(PlatformFilename::Init(path, &path_));
 
-    RETURN_NOT_OK(FileOpenReadable(*path_, &fd_));
+    RETURN_NOT_OK(FileOpenReadable(path_, &fd_));
     RETURN_NOT_OK(FileGetSize(fd_, &size_));
 
     is_open_ = true;
@@ -435,7 +425,7 @@ class OSFile {
   FileMode::type mode() const { return mode_; }
 
  protected:
-  std::unique_ptr<PlatformFilename> path_;
+  PlatformFilename path_;
 
   std::mutex lock_;
 
