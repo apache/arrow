@@ -231,11 +231,11 @@ class RangeEqualsVisitor {
     const uint8_t* right_data = nullptr;
 
     if (left.values()) {
-      left_data = left.raw_values() + left.offset() * width;
+      left_data = left.raw_values();
     }
 
     if (right.values()) {
-      right_data = right.raw_values() + right.offset() * width;
+      right_data = right.raw_values();
     }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
@@ -265,11 +265,11 @@ class RangeEqualsVisitor {
     const uint8_t* right_data = nullptr;
 
     if (left.values()) {
-      left_data = left.raw_values() + left.offset() * width;
+      left_data = left.raw_values();
     }
 
     if (right.values()) {
-      right_data = right.raw_values() + right.offset() * width;
+      right_data = right.raw_values();
     }
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
@@ -352,10 +352,10 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const uint8_t* right_data = nullptr;
 
   if (left.values()) {
-    left_data = left.values()->data() + left.offset() * byte_width;
+    left_data = left.raw_values();
   }
   if (right.values()) {
-    right_data = right.values()->data() + right.offset() * byte_width;
+    right_data = right.raw_values();
   }
 
   if (left.null_count() > 0) {
@@ -399,10 +399,10 @@ static bool IsEqualDecimal(const DecimalArray& left, const DecimalArray& right) 
   const uint8_t* right_data = nullptr;
 
   if (left.values()) {
-    left_data = left.values()->data();
+    left_data = left.raw_values();
   }
   if (right.values()) {
-    right_data = right.values()->data();
+    right_data = right.raw_values();
   }
 
   const int32_t byte_width = left.byte_width();
