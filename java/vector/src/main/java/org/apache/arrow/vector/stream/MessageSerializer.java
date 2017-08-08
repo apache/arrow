@@ -78,12 +78,19 @@ public class MessageSerializer {
    * @throws IOException if something went wrong
    */
   public static long serialize(WriteChannel out, Schema schema) throws IOException {
+    long start = out.getCurrentPosition();
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int schemaOffset = schema.getSchema(builder);
     ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
-    long size = out.writeIntLittleEndian(serializedMessage.remaining());
-    size += out.write(serializedMessage);
-    return size;
+    int size = serializedMessage.remaining();
+    // ensure that message aligns to 8 byte padding - start position, 4 bytes for size, message body
+    if ((start + 4 + size) % 8 != 0) {
+      size += 8 - (start + 4 + size) % 8;
+    }
+    out.writeIntLittleEndian(size);
+    out.write(serializedMessage);
+    out.align();
+    return size + 4;
   }
 
   /**
