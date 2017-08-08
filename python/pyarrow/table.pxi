@@ -168,7 +168,7 @@ cdef class Column:
         cdef:
             PyObject* out
             PandasOptions options
-            
+
         options = PandasOptions(strings_to_categorical=strings_to_categorical)
 
         with nogil:
@@ -584,7 +584,8 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-def table_to_blocks(PandasOptions options, Table table, int nthreads, MemoryPool memory_pool):
+def table_to_blocks(PandasOptions options, Table table, int nthreads,
+                    MemoryPool memory_pool):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
@@ -796,7 +797,8 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
-    def to_pandas(self, nthreads=None, strings_to_categorical=False, memory_pool=None):
+    def to_pandas(self, nthreads=None, strings_to_categorical=False,
+                  memory_pool=None):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -806,6 +808,8 @@ cdef class Table:
             For the default, we divide the CPU count by 2 because most modern
             computers have hyperthreading turned on, so doubling the CPU count
             beyond the number of physical cores does not help
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
             Specific memory pool to use to allocate casted columns
 
@@ -819,7 +823,8 @@ cdef class Table:
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
-        mgr = pdcompat.table_to_blockmanager(options, self, memory_pool, nthreads)
+        mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
+                                             nthreads)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):

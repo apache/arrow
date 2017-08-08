@@ -1060,6 +1060,7 @@ class CategoricalBlock : public PandasBlock {
     PyObject* dict;
     RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_type.dictionary(), nullptr, &dict));
     dictionary_.reset(dict);
+    ordered_ = dict_type.ordered();
 
     return Status::OK();
   }
@@ -1072,6 +1073,10 @@ class CategoricalBlock : public PandasBlock {
     PyDict_SetItemString(result, "dictionary", dictionary_.obj());
     PyDict_SetItemString(result, "placement", placement_arr_.obj());
 
+    PyObject* py_ordered = ordered_ ? Py_True : Py_False;
+    Py_INCREF(py_ordered);
+    PyDict_SetItemString(result, "ordered", py_ordered);
+
     *output = result;
 
     return Status::OK();
@@ -1080,6 +1085,7 @@ class CategoricalBlock : public PandasBlock {
  protected:
   MemoryPool* pool_;
   OwnedRef dictionary_;
+  bool ordered_;
 };
 
 Status MakeBlock(PandasOptions options, PandasBlock::type type, int64_t num_rows,

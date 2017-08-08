@@ -278,6 +278,11 @@ cdef class Array:
         """
         Convert to an array object suitable for use in pandas
 
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+
         See also
         --------
         Column.to_pandas
@@ -287,10 +292,11 @@ cdef class Array:
         cdef:
             PyObject* out
             PandasOptions options
-            
+
         options = PandasOptions(strings_to_categorical=strings_to_categorical)
         with nogil:
-            check_status(ConvertArrayToPandas(options, self.sp_array, self, &out))
+            check_status(ConvertArrayToPandas(options, self.sp_array,
+                                              self, &out))
         return wrap_array_output(out)
 
     def to_pylist(self):
