@@ -118,33 +118,78 @@ namespace io {
 
 // ----------------------------------------------------------------------
 // Cross-platform file compatability layer
+
 #if defined(_MSC_VER)
+
 constexpr const char* kRangeExceptionError =
     "Range exception during wide-char string conversion";
+
+class PlatformFilename {
+ public:
+  static Status Create(const std::string& utf8_path,
+                       std::unique_ptr<PlatformFilename>* out) {
+    std::wstring utf16_path;
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
+
+    if (!input.empty()) {
+      try {
+        *utf16_path = utf16_converter.from_bytes(utf8_path);
+      } catch (const std::range_error&) {
+        return Status::Invalid(kRangeExceptionError);
+      }
+    }
+    out->reset(new PlatformFilename(utf8_path, utf16_path));
+    return Status::OK();
+  }
+
+  const char* data() const { return utf16_path_.c_str(); }
+
+  const char* utf8_data() const { return utf8_path_.c_str(); }
+
+  const std::string& utf8_path() const { return utf8_path_; }
+
+  size_t length() const { return utf16_path_.size(); }
+
+ private:
+  PlatformFilename(const std::string& utf8_path, const std::wstring& utf16_path)
+      : utf8_path_(utf8_path), utf16_path_(utf16_path) {}
+
+  std::string utf8_path_;
+  std::wstring utf16_path_;
+};
+
+#else
+
+class PlatformFilename {
+ public:
+  static Status Create(const std::string& utf8_path,
+                       std::unique_ptr<PlatformFilename>* out) {
+    out->reset(new PlatformFilename(utf8_path));
+    return Status::OK();
+  }
+
+  const char* data() const { return path_.c_str(); }
+
+  const char* utf8_data() const { return data(); }
+
+  const std::string& utf8_path() const { return path_; }
+
+  size_t length() const { return path_.size(); }
+
+ private:
+  explicit PlatformFilename(const std::string& path) : path_(path) {}
+
+  std::string path_;
+};
+
 #endif
 
-static inline Status CheckOpenResult(int ret, int errno_actual, const char* filename,
-                                     size_t filename_length) {
+static inline Status CheckOpenResult(int ret, int errno_actual,
+                                     const PlatformFilename& filename) {
   if (ret == -1) {
     // TODO: errno codes to strings
     std::stringstream ss;
-    ss << "Failed to open file: ";
-#if defined(_MSC_VER)
-    // using wchar_t
-
-    // this requires c++11
-    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-    std::wstring wide_string(reinterpret_cast<const wchar_t*>(filename),
-                             filename_length / sizeof(wchar_t));
-    try {
-      std::string byte_string = converter.to_bytes(wide_string);
-      ss << byte_string;
-    } catch (const std::range_error&) {
-      ss << kRangeExceptionError;
-    }
-#else
-    ss << filename;
-#endif
+    ss << "Failed to open local file: " << filename.utf8_data();
     return Status::IOError(ss.str());
   }
   return Status::OK();
@@ -161,54 +206,27 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 #endif
 }
 
-#if defined(_MSC_VER)
-static inline Status ConvertToUtf16(const std::string& input, std::wstring* result) {
-  if (result == nullptr) {
-    return Status::Invalid("Pointer to result is not valid");
-  }
-
-  if (input.empty()) {
-    *result = std::wstring();
-    return Status::OK();
-  }
-
-  std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf16_converter;
-  try {
-    *result = utf16_converter.from_bytes(input);
-  } catch (const std::range_error&) {
-    return Status::Invalid(kRangeExceptionError);
-  }
-  return Status::OK();
-}
-#endif
-
-static inline Status FileOpenReadable(const std::string& filename, int* fd) {
+static inline Status FileOpenReadable(const PlatformFilename& filename, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
-  std::wstring wide_filename;
-  RETURN_NOT_OK(ConvertToUtf16(filename, &wide_filename));
-
   errno_actual =
-      _wsopen_s(fd, wide_filename.c_str(), _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
+      _wsopen_s(fd, filename.data(), _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
-  ret = *fd = open(filename.c_str(), O_RDONLY | O_BINARY);
+  ret = *fd = open(filename.data(), O_RDONLY | O_BINARY);
   errno_actual = errno;
 #endif
 
-  return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
+  return CheckOpenResult(ret, errno_actual, filename);
 }
 
-static inline Status FileOpenWriteable(const std::string& filename, bool write_only,
+static inline Status FileOpenWriteable(const PlatformFilename& filename, bool write_only,
                                        bool truncate, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 
 #if defined(_MSC_VER)
-  std::wstring wide_filename;
-  RETURN_NOT_OK(ConvertToUtf16(filename, &wide_filename));
-
   int oflag = _O_CREAT | _O_BINARY;
   int pmode = _S_IWRITE;
   if (!write_only) {
@@ -225,7 +243,7 @@ static inline Status FileOpenWriteable(const std::string& filename, bool write_o
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, wide_filename.c_str(), oflag, _SH_DENYNO, pmode);
+  errno_actual = _wsopen_s(fd, filename.data(), oflag, _SH_DENYNO, pmode);
   ret = *fd;
 
 #else
@@ -241,9 +259,9 @@ static inline Status FileOpenWriteable(const std::string& filename, bool write_o
     oflag |= O_RDWR;
   }
 
-  ret = *fd = open(filename.c_str(), oflag, ARROW_WRITE_SHMODE);
+  ret = *fd = open(filename.data(), oflag, ARROW_WRITE_SHMODE);
 #endif
-  return CheckOpenResult(ret, errno_actual, filename.c_str(), filename.size());
+  return CheckOpenResult(ret, errno_actual, filename);
 }
 
 static inline Status FileTell(int fd, int64_t* pos) {
@@ -352,8 +370,9 @@ class OSFile {
   ~OSFile() {}
 
   Status OpenWriteable(const std::string& path, bool append, bool write_only) {
-    RETURN_NOT_OK(FileOpenWriteable(path, write_only, !append, &fd_));
-    path_ = path;
+    RETURN_NOT_OK(PlatformFilename::Create(path, &path_));
+
+    RETURN_NOT_OK(FileOpenWriteable(*path_, write_only, !append, &fd_));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
@@ -366,10 +385,11 @@ class OSFile {
   }
 
   Status OpenReadable(const std::string& path) {
-    RETURN_NOT_OK(FileOpenReadable(path, &fd_));
+    RETURN_NOT_OK(PlatformFilename::Create(path, &path_));
+
+    RETURN_NOT_OK(FileOpenReadable(*path_, &fd_));
     RETURN_NOT_OK(FileGetSize(fd_, &size_));
 
-    path_ = path;
     is_open_ = true;
     mode_ = FileMode::READ;
     return Status::OK();
@@ -408,14 +428,13 @@ class OSFile {
   int fd() const { return fd_; }
 
   bool is_open() const { return is_open_; }
-  const std::string& path() const { return path_; }
 
   int64_t size() const { return size_; }
 
   FileMode::type mode() const { return mode_; }
 
  protected:
-  std::string path_;
+  std::unique_ptr<PlatformFilename> path_;
 
   std::mutex lock_;
 

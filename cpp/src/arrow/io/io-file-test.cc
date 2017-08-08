@@ -320,7 +320,12 @@ TEST_F(TestReadableFile, ReadAt) {
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {
-  ASSERT_RAISES(IOError, ReadableFile::Open("0xDEADBEEF.txt", &file_));
+  std::string path = "0xDEADBEEF.txt";
+  Status s = ReadableFile::Open(path, &file_);
+  ASSERT_TRUE(s.IsIOError());
+
+  std::string message = s.message();
+  ASSERT_NE(std::string::npos, message.find(path));
 }
 
 class MyMemoryPool : public MemoryPool {
