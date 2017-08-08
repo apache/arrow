@@ -230,6 +230,9 @@ TEST_F(TestTable, Ctors) {
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
 
+  auto array_ctor = std::make_shared<Table>(schema_, arrays_);
+  ASSERT_TRUE(table_->Equals(*array_ctor));
+
   table_.reset(new Table(schema_, columns_, length));
   ASSERT_OK(table_->ValidateColumns());
   ASSERT_EQ(length, table_->num_rows());
