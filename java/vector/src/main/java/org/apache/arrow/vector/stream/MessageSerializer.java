@@ -120,6 +120,9 @@ public class MessageSerializer {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    if (bodyLength % 8 != 0) {
+      bodyLength += 8 - (bodyLength % 8);
+    }
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -141,6 +144,7 @@ public class MessageSerializer {
     out.align();
 
     long bufferLength = writeBatchBuffers(out, batch);
+    bufferLength += out.align();
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
@@ -268,6 +272,9 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    if (bodyLength % 8 != 0) {
+      bodyLength += 8 - (bodyLength % 8);
+    }
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -290,9 +297,10 @@ public class MessageSerializer {
 
     // write the embedded record batch
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
+    bufferLength += out.align();
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength + 8);
+    return new ArrowBlock(start, metadataLength + 4, bufferLength);
   }
 
   /**
