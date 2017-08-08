@@ -1127,3 +1127,14 @@ def test_write_error_deletes_incomplete_file(tmpdir):
         pass
 
     assert not os.path.exists(filename)
+
+
+@parquet
+def test_read_non_existent_file(tmpdir):
+    import pyarrow.parquet as pq
+
+    path = 'non-existent-file.parquet'
+    try:
+        pq.read_table(path)
+    except Exception as e:
+        assert path in e.args[0]
