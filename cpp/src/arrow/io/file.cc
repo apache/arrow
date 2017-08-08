@@ -142,9 +142,7 @@ class PlatformFilename {
     return Status::OK();
   }
 
-  const char* data() const {
-    return reinterpret_cast<const char*>(utf16_path_.c_str());
-  }
+  const char* data() const { return reinterpret_cast<const char*>(utf16_path_.c_str()); }
 
   const char* utf8_data() const { return utf8_path_.c_str(); }
 
@@ -213,7 +211,7 @@ static inline Status FileOpenReadable(const PlatformFilename& filename, int* fd)
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
   errno_actual = _wsopen_s(fd, reinterpret_cast<const wchar_t*>(filename.data()),
-      _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
+                           _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
   ret = *fd = open(filename.data(), O_RDONLY | O_BINARY);
@@ -245,8 +243,8 @@ static inline Status FileOpenWriteable(const PlatformFilename& filename, bool wr
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, reinterpret_cast<const wchar_t*>(filename.data()),
-      oflag, _SH_DENYNO, pmode);
+  errno_actual = _wsopen_s(fd, reinterpret_cast<const wchar_t*>(filename.data()), oflag,
+                           _SH_DENYNO, pmode);
   ret = *fd;
 
 #else

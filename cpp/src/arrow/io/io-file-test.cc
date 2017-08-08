@@ -45,8 +45,8 @@ static bool FileExists(const std::string& path) {
 void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
                          const wchar_t* source_file, unsigned int source_line,
                          uintptr_t reserved) {
-  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s",
-      func, source_file, source_line, expr);
+  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s", func,
+          source_file, source_line, expr);
 }
 #endif
 
