@@ -27,7 +27,7 @@ Data components in the stream and file formats are represented as encapsulated
 * A length prefix indicating the metadata size
 * The message metadata as a [Flatbuffer][3]
 * Padding bytes to an 8-byte boundary
-* The message body
+* The message body, which must be a multiple of 8 bytes
 
 Schematically, we have:
 
@@ -37,6 +37,10 @@ Schematically, we have:
 <padding>
 <message body>
 ```
+
+The complete serialized message must be a multiple of 8 bytes so that messages
+can be relocated between streams. Otherwise the amount of padding between the
+metadata and the message body could be non-deterministic.
 
 The `metadata_size` includes the size of the flatbuffer plus padding. The
 `Message` flatbuffer includes a version number, the particular message (as a
@@ -153,6 +157,10 @@ struct Block {
   bodyLength: long;
 }
 ```
+
+The `metaDataLength` here includes the metadata length prefix, serialized
+metadata, and any additional padding bytes, and by construction must be a
+multiple of 8 bytes.
 
 Some notes about this
 
