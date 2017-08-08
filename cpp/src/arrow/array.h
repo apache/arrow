@@ -678,29 +678,6 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices_;
 };
 
-// class ARROW_EXPORT ChunkedDictionaryArray : public ChunkedArray {
-//  public:
-//   using TypeClass = DictionaryType;
-
-//   explicit DictionaryArray(const std::shared_ptr<internal::ArrayData>& data);
-
-//   DictionaryArray(const std::shared_ptr<DataType>& type,
-//                   const std::shared_ptr<Array>& indices);
-
-//   std::shared_ptr<Array> indices() const;
-//   std::shared_ptr<Array> dictionary() const;
-
-//   const DictionaryType* dict_type() const { return dict_type_; }
-
-//   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
-
-//  private:
-//   void SetData(const std::shared_ptr<internal::ArrayData>& data);
-
-//   const DictionaryType* dict_type_;
-//   std::shared_ptr<Array> indices_;
-// };
-
 // ----------------------------------------------------------------------
 // extern templates and other details
 
