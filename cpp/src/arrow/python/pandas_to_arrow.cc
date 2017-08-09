@@ -960,7 +960,7 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(builder->Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != type->id()) {
+      if (inferred_type->id() != Type::NA && inferred_type->id() != type->id()) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
@@ -1051,7 +1051,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(builder->Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != Type::STRING) {
+      if (inferred_type->id() != Type::NA && inferred_type->id() != Type::STRING) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
