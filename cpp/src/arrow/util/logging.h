@@ -21,6 +21,8 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 
 // Stubbed versions of macros defined in glog/logging.h, intended for
@@ -127,9 +129,9 @@ class CerrLog {
 class FatalLog : public CerrLog {
  public:
   explicit FatalLog(int /* severity */)  // NOLINT
-      : CerrLog(ARROW_FATAL){}           // NOLINT
+      : CerrLog(ARROW_FATAL) {}          // NOLINT
 
-            [[noreturn]] ~FatalLog() {
+  ARROW_NORETURN ~FatalLog() {
     if (has_logged_) {
       std::cerr << std::endl;
     }
