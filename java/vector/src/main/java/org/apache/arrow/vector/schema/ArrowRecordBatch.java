@@ -168,6 +168,9 @@ public class ArrowRecordBatch implements ArrowMessage {
       ByteBuffer nioBuffer =
           buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
       size += nioBuffer.remaining();
+      if (size % 8 != 0) {
+        size += 8 - (size % 8);
+      }
     }
     return size;
   }

@@ -28,8 +28,11 @@ public class ArrowMagic {
 
   public static final int MAGIC_LENGTH = MAGIC.length;
 
-  public static void writeMagic(WriteChannel out) throws IOException {
+  public static void writeMagic(WriteChannel out, boolean align) throws IOException {
     out.write(MAGIC);
+    if (align) {
+      out.align();
+    }
   }
 
   public static boolean validateMagic(byte[] array) {

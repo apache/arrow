@@ -156,7 +156,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
         size = buffer->size();
-        padding = BitUtil::RoundUpToMultipleOf64(size) - size;
+        padding = BitUtil::RoundUpToMultipleOf8(size) - size;
       }
 
       // TODO(wesm): We currently have no notion of shared memory page id's,
@@ -172,7 +172,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     }
 
     *body_length = offset - buffer_start_offset_;
-    DCHECK(BitUtil::IsMultipleOf64(*body_length));
+    DCHECK(BitUtil::IsMultipleOf8(*body_length));
 
     return Status::OK();
   }
@@ -216,7 +216,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
         size = buffer->size();
-        padding = BitUtil::RoundUpToMultipleOf64(size) - size;
+        padding = BitUtil::RoundUpToMultipleOf8(size) - size;
       }
 
       if (size > 0) {
@@ -251,7 +251,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
       // Send padding if it's available
       const int64_t buffer_length =
-          std::min(BitUtil::RoundUpToMultipleOf64(array.length() * type_width),
+          std::min(BitUtil::RoundUpToMultipleOf8(array.length() * type_width),
                    data->size() - byte_offset);
       data = SliceBuffer(data, byte_offset, buffer_length);
     }
@@ -618,20 +618,23 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
   }
 
   virtual Status Start() {
-    std::shared_ptr<Buffer> schema_fb;
-    RETURN_NOT_OK(WriteSchemaMessage(*schema_, &dictionary_memo_, &schema_fb));
-
-    int32_t flatbuffer_size = static_cast<int32_t>(schema_fb->size());
-    RETURN_NOT_OK(
-        Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
-
-    // Write the flatbuffer
-    RETURN_NOT_OK(Write(schema_fb->data(), flatbuffer_size));
+    RETURN_NOT_OK(WriteSchema());
 
     // If there are any dictionaries, write them as the next messages
     RETURN_NOT_OK(WriteDictionaries());
 
     started_ = true;
+    return Status::OK();
+  }
+
+  Status WriteSchema() {
+    std::shared_ptr<Buffer> schema_fb;
+    RETURN_NOT_OK(WriteSchemaMessage(*schema_, &dictionary_memo_, &schema_fb));
+
+    int32_t metadata_length = 0;
+    RETURN_NOT_OK(WriteMessage(*schema_fb, sink_, &metadata_length));
+    RETURN_NOT_OK(UpdatePosition());
+    DCHECK_EQ(0, position_ % 8) << "WriteSchema did not perform an aligned write";
     return Status::OK();
   }
 
@@ -701,9 +704,9 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl {
                             &record_batches_[record_batches_.size() - 1]);
   }
 
-  // Adds padding bytes if necessary to ensure all memory blocks are written on
-  // 64-byte (or other alignment) boundaries.
-  Status Align(int64_t alignment = kArrowAlignment) {
+  Status Align(int64_t alignment = kArrowIpcAlignment) {
+    // Adds padding bytes if necessary to ensure all memory blocks are written on
+    // 8-byte (or other alignment) boundaries.
     int64_t remainder = PaddedLength(position_, alignment) - position_;
     if (remainder > 0) {
       return Write(kPaddingBytes, remainder);
@@ -774,7 +777,7 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
     // It is only necessary to align to 8-byte boundary at the start of the file
     RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
                         strlen(kArrowMagicBytes)));
-    RETURN_NOT_OK(Align(8));
+    RETURN_NOT_OK(Align());
 
     // We write the schema at the start of the file (and the end). This also
     // writes all the dictionaries at the beginning of the file
