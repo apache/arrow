@@ -25,6 +25,7 @@
 #include "arrow/python/platform.h"
 
 #include <cstdint>
+#include <string>
 
 namespace arrow {
 namespace py {
