@@ -78,12 +78,25 @@ public class MessageSerializer {
    * @throws IOException if something went wrong
    */
   public static long serialize(WriteChannel out, Schema schema) throws IOException {
+    long start = out.getCurrentPosition();
+    assert start % 8 == 0;
+
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int schemaOffset = schema.getSchema(builder);
     ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
-    long size = out.writeIntLittleEndian(serializedMessage.remaining());
-    size += out.write(serializedMessage);
-    return size;
+
+    int size = serializedMessage.remaining();
+    // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
+    if ((size + 4) % 8 != 0) {
+      size += 8 - (size + 4) % 8;
+    }
+
+    out.writeIntLittleEndian(size);
+    out.write(serializedMessage);
+    out.align(); // any bytes written are already captured by our size modification above
+
+    assert (size + 4) % 8 == 0;
+    return size + 4;
   }
 
   /**
@@ -120,6 +133,7 @@ public class MessageSerializer {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    assert bodyLength % 8 == 0;
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -141,6 +155,7 @@ public class MessageSerializer {
     out.align();
 
     long bufferLength = writeBatchBuffers(out, batch);
+    assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
     return new ArrowBlock(start, metadataLength + 4, bufferLength);
@@ -164,6 +179,7 @@ public class MessageSerializer {
             " != " + startPosition + layout.getSize());
       }
     }
+    out.align();
     return out.getCurrentPosition() - bufferStart;
   }
 
@@ -268,6 +284,7 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
+    assert bodyLength % 8 == 0;
 
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
@@ -276,10 +293,10 @@ public class MessageSerializer {
 
     int metadataLength = serializedMessage.remaining();
 
-    // Add extra padding bytes so that length prefix + metadata is a multiple
-    // of 8 after alignment
-    if ((start + metadataLength + 4) % 8 != 0) {
-      metadataLength += 8 - (start + metadataLength + 4) % 8;
+    // calculate alignment bytes so that metadata length points to the correct location after alignment
+    int padding = (int) ((start + metadataLength + 4) % 8);
+    if (padding != 0) {
+      metadataLength += (8 - padding);
     }
 
     out.writeIntLittleEndian(metadataLength);
@@ -290,9 +307,10 @@ public class MessageSerializer {
 
     // write the embedded record batch
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
+    assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength + 8);
+    return new ArrowBlock(start, metadataLength + 4, bufferLength);
   }
 
   /**
