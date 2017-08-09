@@ -25,6 +25,7 @@
 #include "arrow/python/platform.h"
 
 #include <cstdint>
+#include <string>
 
 namespace arrow {
 namespace py {
@@ -51,13 +52,53 @@ class Ndarray1DIndexer {
 
   int64_t size() const { return PyArray_SIZE(arr_); }
 
+  T* data() const { return data_; }
+
+  bool is_strided() const { return stride_ == 1; }
+
   T& operator[](size_type index) { return *(data_ + index * stride_); }
+  T& operator[](size_type index) const { return *(data_ + index * stride_); }
 
  private:
   PyArrayObject* arr_;
   T* data_;
   int64_t stride_;
 };
+
+static inline std::string GetNumPyTypeName(int npy_type) {
+#define TYPE_CASE(TYPE, NAME) \
+  case NPY_##TYPE:            \
+    return NAME;
+
+  switch (npy_type) {
+    TYPE_CASE(BOOL, "bool")
+    TYPE_CASE(INT8, "int8")
+    TYPE_CASE(INT16, "int16")
+    TYPE_CASE(INT32, "int32")
+    TYPE_CASE(INT64, "int64")
+#if (NPY_INT64 != NPY_LONGLONG)
+    TYPE_CASE(LONGLONG, "longlong")
+#endif
+    TYPE_CASE(UINT8, "uint8")
+    TYPE_CASE(UINT16, "uint16")
+    TYPE_CASE(UINT32, "uint32")
+    TYPE_CASE(UINT64, "uint64")
+#if (NPY_UINT64 != NPY_ULONGLONG)
+    TYPE_CASE(ULONGLONG, "ulonglong")
+#endif
+    TYPE_CASE(FLOAT16, "float16")
+    TYPE_CASE(FLOAT32, "float32")
+    TYPE_CASE(FLOAT64, "float64")
+    TYPE_CASE(DATETIME, "datetime64")
+    TYPE_CASE(OBJECT, "object")
+    TYPE_CASE(VOID, "void")
+    default:
+      break;
+  }
+
+#undef TYPE_CASE
+  return "unrecognized type in GetNumPyTypeName";
+}
 
 }  // namespace py
 }  // namespace arrow

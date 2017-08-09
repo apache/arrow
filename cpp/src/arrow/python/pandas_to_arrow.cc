@@ -97,8 +97,6 @@ static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   int64_t null_count = 0;
 
   Ndarray1DIndexer<T> values(arr);
-
-  // TODO(wesm): striding
   for (int i = 0; i < values.size(); ++i) {
     if (traits::isnull(values[i])) {
       ++null_count;
@@ -125,22 +123,27 @@ static int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap
   return null_count;
 }
 
-template <int TYPE>
-static int64_t ValuesToValidBytes(const void* data, int64_t length,
-                                  uint8_t* valid_bytes) {
+template <int TYPE, typename BuilderType>
+static Status AppendNdarrayToBuilder(PyArrayObject* array, BuilderType* builder) {
   typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
-  int64_t null_count = 0;
-  const T* values = reinterpret_cast<const T*>(data);
-
-  // TODO(wesm): striding
-  for (int i = 0; i < length; ++i) {
-    valid_bytes[i] = !traits::isnull(values[i]);
-    if (traits::isnull(values[i])) null_count++;
+  // TODO(wesm): Vector append when not strided
+  Ndarray1DIndexer<T> values(array);
+  if (traits::supports_nulls) {
+    for (int64_t i = 0; i < values.size(); ++i) {
+      if (traits::isnull(values[i])) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder->Append(values[i]));
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < values.size(); ++i) {
+      RETURN_NOT_OK(builder->Append(values[i]));
+    }
   }
-
-  return null_count;
+  return Status::OK();
 }
 
 Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
@@ -148,14 +151,14 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  if (PyArray_DESCR(numpy_array)->type_num != np_type) {
-    return Status::Invalid("can only handle exact conversions");
+  const int received_type = PyArray_DESCR(numpy_array)->type_num;
+  if (received_type != np_type) {
+    std::stringstream ss;
+    ss << "trying to convert NumPy type " << GetNumPyTypeName(np_type) << " but got "
+       << GetNumPyTypeName(received_type);
+    return Status::Invalid(ss.str());
   }
 
-  npy_intp* astrides = PyArray_STRIDES(numpy_array);
-  if (astrides[0] != PyArray_DESCR(numpy_array)->elsize) {
-    return Status::Invalid("No support for strided arrays in lists yet");
-  }
   return Status::OK();
 }
 
@@ -577,7 +580,7 @@ Status PandasConverter::ConvertDecimals() {
   RETURN_NOT_OK(ImportModule("decimal", &decimal));
   RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
 
   int precision;
@@ -618,7 +621,7 @@ Status PandasConverter::ConvertTimes() {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
 
-  PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
+  Ndarray1DIndexer<PyObject*> objects(arr_);
 
   // datetime.time stores microsecond resolution
   Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
@@ -906,7 +909,7 @@ Status LoopPySequence(PyObject* sequence, T func) {
     Py_ssize_t size = PySequence_Size(sequence);
     if (PyArray_Check(sequence)) {
       auto array = reinterpret_cast<PyArrayObject*>(sequence);
-      PyObject** objects = reinterpret_cast<PyObject**>(PyArray_DATA(array));
+      Ndarray1DIndexer<PyObject*> objects(array);
       for (int64_t i = 0; i < size; ++i) {
         RETURN_NOT_OK(func(objects[i]));
       }
@@ -934,7 +937,6 @@ template <int ITEM_TYPE, typename ArrowType>
 inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
                                                  ListBuilder* builder, PyObject* list) {
   typedef internal::npy_traits<ITEM_TYPE> traits;
-  typedef typename traits::value_type T;
   typedef typename traits::BuilderClass BuilderT;
 
   PyAcquireGIL lock;
@@ -956,24 +958,13 @@ inline Status PandasConverter::ConvertTypedLists(const std::shared_ptr<DataType>
       // TODO(uwe): Support more complex numpy array structures
       RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, ITEM_TYPE));
 
-      int64_t size = PyArray_DIM(numpy_array, 0);
-      auto data = reinterpret_cast<const T*>(PyArray_DATA(numpy_array));
-      if (traits::supports_nulls) {
-        RETURN_NOT_OK(null_bitmap_->Resize(size, false));
-        // TODO(uwe): A bitmap would be more space-efficient but the Builder API doesn't
-        // currently support this.
-        // ValuesToBitmap<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
-        ValuesToValidBytes<ITEM_TYPE>(data, size, null_bitmap_->mutable_data());
-        return value_builder->Append(data, size, null_bitmap_->data());
-      } else {
-        return value_builder->Append(data, size);
-      }
+      return AppendNdarrayToBuilder<ITEM_TYPE, BuilderT>(numpy_array, value_builder);
     } else if (PyList_Check(object)) {
       int64_t size;
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(builder->Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != type->id()) {
+      if (inferred_type->id() != Type::NA && inferred_type->id() != type->id()) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to " << type->ToString();
         return Status::TypeError(ss.str());
@@ -1064,7 +1055,7 @@ inline Status PandasConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
       std::shared_ptr<DataType> inferred_type;
       RETURN_NOT_OK(builder->Append(true));
       RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
-      if (inferred_type->id() != Type::STRING) {
+      if (inferred_type->id() != Type::NA && inferred_type->id() != Type::STRING) {
         std::stringstream ss;
         ss << inferred_type->ToString() << " cannot be converted to STRING.";
         return Status::TypeError(ss.str());
