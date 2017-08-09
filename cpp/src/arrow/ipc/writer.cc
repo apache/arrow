@@ -188,7 +188,7 @@ class RecordBatchSerializer : public ArrayVisitor {
                int64_t* body_length) {
     RETURN_NOT_OK(Assemble(batch, body_length));
 
-#ifndef ARROW_NDEBUG
+#ifndef NDEBUG
     int64_t start_position, current_position;
     RETURN_NOT_OK(dst->Tell(&start_position));
 #endif
@@ -202,7 +202,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     RETURN_NOT_OK(WriteMetadataMessage(batch.num_rows(), *body_length, &metadata_fb));
     RETURN_NOT_OK(WriteMessage(*metadata_fb, dst, metadata_length));
 
-#ifndef ARROW_NDEBUG
+#ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
     DCHECK(BitUtil::IsMultipleOf8(current_position));
 #endif
@@ -228,7 +228,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       }
     }
 
-#ifndef ARROW_NDEBUG
+#ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
     DCHECK(BitUtil::IsMultipleOf8(current_position));
 #endif

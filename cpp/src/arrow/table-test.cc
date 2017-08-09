@@ -459,7 +459,7 @@ TEST_F(TestRecordBatch, Equals) {
   ASSERT_FALSE(b1.Equals(b4));
 }
 
-#ifdef ARROW_NDEBUG
+#ifdef NDEBUG
 // In debug builds, RecordBatch ctor aborts if you construct an invalid one
 
 TEST_F(TestRecordBatch, Validate) {

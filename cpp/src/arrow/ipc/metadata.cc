@@ -774,7 +774,7 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
 
-#ifndef ARROW_NDEBUG
+#ifndef NDEBUG
   for (size_t i = 0; i < dictionaries.size(); ++i) {
     DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].offset)) << i;
     DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].metadata_length)) << i;

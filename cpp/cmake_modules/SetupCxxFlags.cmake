@@ -80,7 +80,7 @@ endif()
 if (NOT MSVC)
   set(CXX_FLAGS_DEBUG "-ggdb -O0")
   set(CXX_FLAGS_FASTDEBUG "-ggdb -O1")
-  set(CXX_FLAGS_RELEASE "-O3 -DARROW_NDEBUG")
+  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 endif()
 
 set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
