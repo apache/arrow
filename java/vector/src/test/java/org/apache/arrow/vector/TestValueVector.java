@@ -124,15 +124,6 @@ public class TestValueVector {
       assertEquals(103, accessor.get(1022));
       assertEquals(104, accessor.get(1023));
 
-      for (int i = 2, j = 101; i <= 99 || j <= 1021; i++, j++) {
-        if (i <= 99) {
-          assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i));
-        }
-        if(j <= 1021) {
-          assertEquals(" non-zero data not expected at index: " + j, 0, accessor.get(j));
-        }
-      }
-
       try {
         mutator.set(1024, 10000);
       }
@@ -168,15 +159,6 @@ public class TestValueVector {
       assertEquals(103, accessor.get(1022));
       assertEquals(104, accessor.get(1023));
       assertEquals(10000, accessor.get(1024));
-
-      for (int i = 2, j = 101; i <= 99 || j < (initialCapacity * 2); i++, j++) {
-        if (i <= 99) {
-          assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i));
-        }
-        if(j <= 1021 || j > 1024) {
-          assertEquals(" non-zero data not expected at index: " + j, 0, accessor.get(j));
-        }
-      }
 
       /* reset the vector */
       vector.reset();
@@ -223,8 +205,7 @@ public class TestValueVector {
       /* underlying buffer should be able to store 16 values */
       assertEquals(initialCapacity, intVector.getValueCapacity());
 
-      intVector.zeroVector();
-
+      /* populate the vector */
       int j = 1;
       for(int i = 0; i < 16; i += 2) {
         mutator.set(i, j);
@@ -244,14 +225,9 @@ public class TestValueVector {
 
       /* check vector contents */
       j = 1;
-      for(int i = 0; i < 16; i++) {
-        if((i & 1) == 1) {
-          assertEquals("non-zero data not expected at index: "+ i, 0, accessor.get(i));
-        }
-        else {
-          assertEquals("zero data not expected at index: " + i, j, accessor.get(i));
-          j++;
-        }
+      for(int i = 0; i < 16; i += 2) {
+        assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+        j++;
       }
 
       try {
@@ -273,14 +249,9 @@ public class TestValueVector {
 
       /* vector data should still be intact after realloc */
       j = 1;
-      for(int i = 0; i < (initialCapacity * 2); i++) {
-        if(((i & 1) == 1) || (i > 16)) {
-          assertEquals("non-zero data not expected at index: "+ i, 0, accessor.get(i));
-        }
-        else {
-          assertEquals("zero data not expected at index: " + i, j, accessor.get(i));
-          j++;
-        }
+      for(int i = 0; i <= 16; i += 2) {
+        assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+        j++;
       }
 
       /* reset the vector */
@@ -330,6 +301,7 @@ public class TestValueVector {
 
       floatVector.zeroVector();
 
+      /* populate the vector */
       mutator.set(0, 1.5f);
       mutator.set(2, 2.5f);
       mutator.set(4, 3.3f);
@@ -352,21 +324,13 @@ public class TestValueVector {
 
       /* check vector contents */
       assertEquals(1.5f, accessor.get(0), 0);
-      assertEquals(0, accessor.get(1), 0);
       assertEquals(2.5f, accessor.get(2), 0);
-      assertEquals(0, accessor.get(3), 0);
       assertEquals(3.3f, accessor.get(4), 0);
-      assertEquals(0, accessor.get(5), 0);
       assertEquals(4.8f, accessor.get(6), 0);
-      assertEquals(0, accessor.get(7), 0);
       assertEquals(5.6f, accessor.get(8), 0);
-      assertEquals(0, accessor.get(9), 0);
       assertEquals(6.6f, accessor.get(10), 0);
-      assertEquals(0, accessor.get(11), 0);
       assertEquals(7.8f, accessor.get(12), 0);
-      assertEquals(0, accessor.get(13), 0);
       assertEquals(8.5f, accessor.get(14), 0);
-      assertEquals(0, accessor.get(15), 0);
 
       try {
         accessor.get(16);
@@ -387,21 +351,13 @@ public class TestValueVector {
 
       /* vector data should still be intact after realloc */
       assertEquals(1.5f, accessor.get(0), 0);
-      assertEquals(0, accessor.get(1), 0);
       assertEquals(2.5f, accessor.get(2), 0);
-      assertEquals(0, accessor.get(3), 0);
       assertEquals(3.3f, accessor.get(4), 0);
-      assertEquals(0, accessor.get(5), 0);
       assertEquals(4.8f, accessor.get(6), 0);
-      assertEquals(0, accessor.get(7), 0);
       assertEquals(5.6f, accessor.get(8), 0);
-      assertEquals(0, accessor.get(9), 0);
       assertEquals(6.6f, accessor.get(10), 0);
-      assertEquals(0, accessor.get(11), 0);
       assertEquals(7.8f, accessor.get(12), 0);
-      assertEquals(0, accessor.get(13), 0);
       assertEquals(8.5f, accessor.get(14), 0);
-      assertEquals(0, accessor.get(15), 0);
       assertEquals(9.5f, accessor.get(16), 0);
 
       /* reset the vector */
@@ -449,6 +405,7 @@ public class TestValueVector {
       /* underlying buffer should be able to store 16 values */
       assertEquals(initialCapacity, floatVector.getValueCapacity());
 
+      /* populate the vector */
       mutator.set(0, 1.55);
       mutator.set(2, 2.53);
       mutator.set(4, 3.36);
@@ -471,21 +428,13 @@ public class TestValueVector {
 
       /* check vector contents */
       assertEquals(1.55, accessor.get(0), 0);
-      assertEquals(0, accessor.get(1), 0);
       assertEquals(2.53, accessor.get(2), 0);
-      assertEquals(0, accessor.get(3), 0);
       assertEquals(3.36, accessor.get(4), 0);
-      assertEquals(0, accessor.get(5), 0);
       assertEquals(4.82, accessor.get(6), 0);
-      assertEquals(0, accessor.get(7), 0);
       assertEquals(5.67, accessor.get(8), 0);
-      assertEquals(0, accessor.get(9), 0);
       assertEquals(6.67, accessor.get(10), 0);
-      assertEquals(0, accessor.get(11), 0);
       assertEquals(7.87, accessor.get(12), 0);
-      assertEquals(0, accessor.get(13), 0);
       assertEquals(8.56, accessor.get(14), 0);
-      assertEquals(0, accessor.get(15), 0);
 
       try {
         accessor.get(16);
@@ -506,21 +455,13 @@ public class TestValueVector {
 
       /* vector data should still be intact after realloc */
       assertEquals(1.55, accessor.get(0), 0);
-      assertEquals(0, accessor.get(1), 0);
       assertEquals(2.53, accessor.get(2), 0);
-      assertEquals(0, accessor.get(3), 0);
       assertEquals(3.36, accessor.get(4), 0);
-      assertEquals(0, accessor.get(5), 0);
       assertEquals(4.82, accessor.get(6), 0);
-      assertEquals(0, accessor.get(7), 0);
       assertEquals(5.67, accessor.get(8), 0);
-      assertEquals(0, accessor.get(9), 0);
       assertEquals(6.67, accessor.get(10), 0);
-      assertEquals(0, accessor.get(11), 0);
       assertEquals(7.87, accessor.get(12), 0);
-      assertEquals(0, accessor.get(13), 0);
       assertEquals(8.56, accessor.get(14), 0);
-      assertEquals(0, accessor.get(15), 0);
       assertEquals(9.53, accessor.get(16), 0);
 
       /* reset the vector */
@@ -656,6 +597,7 @@ public class TestValueVector {
       vector.allocateNew();
       assertEquals(initialCapacity, vector.getValueCapacity());
 
+      /* populate the vector */
       mutator.set(0, 100.5f);
       mutator.set(2, 201.5f);
       mutator.set(4, 300.3f);
@@ -773,7 +715,7 @@ public class TestValueVector {
         }
         else {
           assertFalse("null data not expected at index: " + i, accessor.isNull(i));
-          assertEquals("unequal data not expected at index: " + i, j, accessor.get(i));
+          assertEquals("unexpected value at index: " + i, j, accessor.get(i));
           j++;
         }
       }
