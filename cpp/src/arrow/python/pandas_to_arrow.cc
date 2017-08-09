@@ -151,8 +151,12 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  if (PyArray_DESCR(numpy_array)->type_num != np_type) {
-    return Status::Invalid("can only handle exact conversions");
+  const int received_type = PyArray_DESCR(numpy_array)->type_num;
+  if (received_type != np_type) {
+    std::stringstream ss;
+    ss << "trying to convert NumPy type " << GetNumPyTypeName(np_type) << " but got "
+       << GetNumPyTypeName(received_type);
+    return Status::Invalid(ss.str());
   }
 
   return Status::OK();

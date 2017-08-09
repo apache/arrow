@@ -99,7 +99,8 @@ def dataframe_with_lists(include_index=False):
         [0, 1, 2, 3, 4],
         None,
         [0],
-        np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 2)[::2]
+        np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+                 dtype=np.int64)[::2]
     ]
     fields.append(pa.field('double', pa.list_(pa.float64())))
     arrays['double'] = [
