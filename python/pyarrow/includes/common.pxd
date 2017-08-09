@@ -42,6 +42,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus()
 
         c_string ToString()
+        c_string message()
 
         c_bool ok()
         c_bool IsIOError()
