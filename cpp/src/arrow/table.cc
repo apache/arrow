@@ -301,8 +301,8 @@ Table::Table(const std::shared_ptr<Schema>& schema,
 
   columns_.resize(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
-    columns_[i] = std::make_shared<Column>(schema->field(static_cast<int>(i)),
-                                           columns[i]);
+    columns_[i] =
+        std::make_shared<Column>(schema->field(static_cast<int>(i)), columns[i]);
   }
 }
 

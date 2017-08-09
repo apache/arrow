@@ -534,6 +534,15 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
+    def test_column_of_lists_strided(self):
+        df, schema = dataframe_with_lists()
+        df = pd.concat([df] * 6, ignore_index=True)
+
+        arr = df['int64'].values[::3]
+        assert arr.strides[0] != 8
+
+        self._check_array_roundtrip(arr)
+
     def test_nested_lists_all_none(self):
         data = np.array([[None, None], None], dtype=object)
 
