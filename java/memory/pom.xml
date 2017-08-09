@@ -23,13 +23,13 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-      <version>3.0.1</version>
+      <version>3.0.2</version>
     </dependency>
 
     <dependency>
       <groupId>com.carrotsearch</groupId>
       <artifactId>hppc</artifactId>
-      <version>0.7.1</version>
+      <version>0.7.2</version>
     </dependency>
   </dependencies>
 
