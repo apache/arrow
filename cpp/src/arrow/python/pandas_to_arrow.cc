@@ -97,8 +97,6 @@ static int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   int64_t null_count = 0;
 
   Ndarray1DIndexer<T> values(arr);
-
-  // TODO(wesm): striding
   for (int i = 0; i < values.size(); ++i) {
     if (traits::isnull(values[i])) {
       ++null_count;
@@ -157,10 +155,6 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
     return Status::Invalid("can only handle exact conversions");
   }
 
-  npy_intp* astrides = PyArray_STRIDES(numpy_array);
-  if (astrides[0] != PyArray_DESCR(numpy_array)->elsize) {
-    return Status::Invalid("No support for strided arrays in lists yet");
-  }
   return Status::OK();
 }
 
