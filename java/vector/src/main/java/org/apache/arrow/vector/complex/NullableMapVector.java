@@ -86,7 +86,8 @@ public class NullableMapVector extends MapVector implements FieldVector {
   @Override
   public Field getField() {
     Field f = super.getField();
-    return new Field(f.getName(), true, f.getType(), f.getChildren());
+    FieldType type = new FieldType(true, f.getType(), f.getFieldType().getDictionary(), f.getFieldType().getMetadata());
+    return new Field(f.getName(), type, f.getChildren());
   }
 
   @Override
