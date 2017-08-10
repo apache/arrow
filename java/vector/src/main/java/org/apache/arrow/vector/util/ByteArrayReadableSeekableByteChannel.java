@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.io.IOException;
@@ -58,7 +59,7 @@ public class ByteArrayReadableSeekableByteChannel implements SeekableByteChannel
 
   @Override
   public SeekableByteChannel position(final long newPosition) throws IOException {
-    this.position = (int)newPosition;
+    this.position = (int) newPosition;
     return this;
   }
 

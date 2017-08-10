@@ -44,6 +44,7 @@ public class FileRoundtrip {
   private final Options options;
   private final PrintStream out;
   private final PrintStream err;
+
   FileRoundtrip(PrintStream out, PrintStream err) {
     this.out = out;
     this.err = err;

@@ -17,6 +17,7 @@
 
 import re
 import json
+import numpy as np
 import pandas as pd
 
 import six
@@ -241,7 +242,34 @@ def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
     return names, arrays, metadata
 
 
-def table_to_blockmanager(table, nthreads=1):
+def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
+    if timestamps_to_ms:
+        import warnings
+        warnings.warn('timestamps_to_ms=True is deprecated', FutureWarning)
+
+    from pyarrow.compat import DatetimeTZDtype
+
+    if values.dtype.type != np.datetime64:
+        return values, type_
+
+    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
+
+    if coerce_ms:
+        values = values.astype('datetime64[ms]')
+        type_ = pa.timestamp('ms')
+
+    if isinstance(dtype, DatetimeTZDtype):
+        tz = dtype.tz
+        unit = 'ms' if coerce_ms else dtype.unit
+        type_ = pa.timestamp(unit, tz)
+    elif type_ is None:
+        # Trust the NumPy dtype
+        type_ = pa.from_numpy_dtype(values.dtype)
+
+    return values, type_
+
+
+def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pandas.core.internals as _int
     from pyarrow.compat import DatetimeTZDtype
     import pyarrow.lib as lib
@@ -277,7 +305,7 @@ def table_to_blockmanager(table, nthreads=1):
                 block_table.schema.get_field_index(name)
             )
 
-    result = lib.table_to_blocks(block_table, nthreads)
+    result = lib.table_to_blocks(options, block_table, nthreads, memory_pool)
 
     blocks = []
     for item in result:
@@ -286,7 +314,7 @@ def table_to_blockmanager(table, nthreads=1):
         if 'dictionary' in item:
             cat = pd.Categorical(block_arr,
                                  categories=item['dictionary'],
-                                 ordered=False, fastpath=True)
+                                 ordered=item['ordered'], fastpath=True)
             block = _int.make_block(cat, placement=placement,
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)

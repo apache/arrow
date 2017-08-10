@@ -154,11 +154,11 @@ cdef class Time32Value(ArrayValue):
             CTime32Type* dtype = <CTime32Type*> ap.type().get()
 
         if dtype.unit() == TimeUnit_SECOND:
-            return (datetime.datetime(1970, 1, 1) +
-                    datetime.timedelta(seconds=ap.Value(self.index))).time()
+            delta = datetime.timedelta(seconds=ap.Value(self.index))
+            return (datetime.datetime(1970, 1, 1) + delta).time()
         else:
-            return (datetime.datetime(1970, 1, 1) +
-                    datetime.timedelta(milliseconds=ap.Value(self.index))).time()
+            delta = datetime.timedelta(milliseconds=ap.Value(self.index))
+            return (datetime.datetime(1970, 1, 1) + delta).time()
 
 
 cdef class Time64Value(ArrayValue):

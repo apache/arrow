@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.schema;
 
 import org.apache.arrow.flatbuf.FieldNode;
@@ -34,7 +35,7 @@ public class ArrowFieldNode implements FBSerializable {
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return FieldNode.createFieldNode(builder, (long)length, (long)nullCount);
+    return FieldNode.createFieldNode(builder, (long) length, (long) nullCount);
   }
 
   public int getNullCount() {

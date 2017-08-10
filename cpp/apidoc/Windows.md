@@ -187,12 +187,16 @@ Command line to build Arrow in Debug might look as following:
 cd cpp
 mkdir build
 cd build
-cmake -G "Visual Studio 14 2015 Win64" -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=OFF -DCMAKE_BUILD_TYPE=Debug -DBOOST_ROOT=C:/local/boost_1_63_0  -DBOOST_LIBRARYDIR=C:/local/boost_1_63_0/lib64-msvc-14.0 ..
+cmake -G "Visual Studio 14 2015 Win64" ^
+      -DARROW_BOOST_USE_SHARED=OFF ^
+      -DCMAKE_BUILD_TYPE=Debug ^
+      -DBOOST_ROOT=C:/local/boost_1_63_0  ^
+      -DBOOST_LIBRARYDIR=C:/local/boost_1_63_0/lib64-msvc-14.0 ^
+      ..
 cmake --build . --config Debug
 ```
 
 To get the latest build instructions, you can reference [msvc-build.bat][5], which is used by automated Appveyor builds.
-
 
 
 [1]: https://conda.io/miniconda.html

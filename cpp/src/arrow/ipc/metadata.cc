@@ -36,6 +36,7 @@
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -492,7 +493,8 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
   auto index_type_offset = flatbuf::CreateInt(fbb, fw_index_type.bit_width(), true);
 
   // TODO(wesm): ordered dictionaries
-  return flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset);
+  return flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset,
+                                           type.ordered());
 }
 
 static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
@@ -551,7 +553,7 @@ static Status FieldFromFlatbuffer(const flatbuf::Field* field,
 
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(IntFromFlatbuffer(encoding->indexType(), &index_type));
-    type = std::make_shared<DictionaryType>(index_type, dictionary);
+    type = ::arrow::dictionary(index_type, dictionary, encoding->isOrdered());
   }
   *out = std::make_shared<Field>(field->name()->str(), type, field->nullable());
   return Status::OK();
@@ -771,6 +773,20 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
+
+#ifndef NDEBUG
+  for (size_t i = 0; i < dictionaries.size(); ++i) {
+    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].offset)) << i;
+    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].metadata_length)) << i;
+    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].body_length)) << i;
+  }
+
+  for (size_t i = 0; i < record_batches.size(); ++i) {
+    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].offset)) << i;
+    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].metadata_length)) << i;
+    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].body_length)) << i;
+  }
+#endif
 
   auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
@@ -1034,7 +1050,7 @@ Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_mem
     }
   }
 
-  *out = std::make_shared<Schema>(fields, metadata);
+  *out = ::arrow::schema(std::move(fields), metadata);
   return Status::OK();
 }
 

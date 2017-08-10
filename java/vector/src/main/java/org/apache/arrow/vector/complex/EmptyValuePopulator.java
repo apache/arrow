@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.vector.UInt4Vector;
@@ -34,8 +35,8 @@ public class EmptyValuePopulator {
   /**
    * Marks all values since the last set as empty. The last set value is obtained from underlying offsets vector.
    *
-   * @param lastIndex  the last index (inclusive) in the offsets vector until which empty population takes place
-   * @throws java.lang.IndexOutOfBoundsException  if lastIndex is negative or greater than offsets capacity.
+   * @param lastIndex the last index (inclusive) in the offsets vector until which empty population takes place
+   * @throws java.lang.IndexOutOfBoundsException if lastIndex is negative or greater than offsets capacity.
    */
   public void populate(int lastIndex) {
     if (lastIndex < 0) {
@@ -48,7 +49,7 @@ public class EmptyValuePopulator {
     for (int i = lastSet; i < lastIndex; i++) {
       mutator.setSafe(i + 1, previousEnd);
     }
-    mutator.setValueCount(lastIndex+1);
+    mutator.setValueCount(lastIndex + 1);
   }
 
 }

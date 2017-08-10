@@ -129,8 +129,7 @@ class SchemaWriter {
     writer_->Key("data");
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
-    auto schema = std::shared_ptr<Schema>(
-        new Schema({arrow::field("dictionary", dictionary->type())}));
+    auto schema = ::arrow::schema({arrow::field("dictionary", dictionary->type())});
     RecordBatch batch(schema, dictionary->length(), {dictionary});
     RETURN_NOT_OK(WriteRecordBatch(batch, writer_));
     writer_->EndObject();
@@ -977,7 +976,7 @@ class ArrayReader {
           std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value,
       Status>::type
   Visit(const T& type) {
-    typename TypeTraits<T>::BuilderType builder(pool_, type_);
+    typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     const auto& json_data = obj_->FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, *obj_);
@@ -1046,7 +1045,7 @@ class ArrayReader {
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, Status>::type
   Visit(const T& type) {
-    FixedSizeBinaryBuilder builder(pool_, type_);
+    FixedSizeBinaryBuilder builder(type_, pool_);
 
     const auto& json_data = obj_->FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, *obj_);

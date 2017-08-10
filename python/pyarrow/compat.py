@@ -132,7 +132,6 @@ else:
 
 def encode_file_path(path):
     import os
-    # Windows requires utf-16le encoding for unicode file names
     if isinstance(path, unicode_type):
         # POSIX systems can handle utf-8. UTF8 is converted to utf16-le in
         # libarrow
@@ -140,6 +139,8 @@ def encode_file_path(path):
     else:
         encoded_path = path
 
+    # Windows file system requires utf-16le for file names; Arrow C++ libraries
+    # will convert utf8 to utf16
     return encoded_path
 
 

@@ -303,7 +303,7 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
 TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto CheckArray = [this](const std::shared_ptr<Array>& array) {
     auto f0 = field("f0", array->type());
-    auto schema = std::shared_ptr<Schema>(new Schema({f0}));
+    auto schema = ::arrow::schema({f0});
     RecordBatch batch(schema, array->length(), {array});
     auto sliced_batch = batch.Slice(0, 5);
 
@@ -421,7 +421,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
     auto f0 = field("f0", type);
 
-    *schema = std::shared_ptr<Schema>(new Schema({f0}));
+    *schema = ::arrow::schema({f0});
 
     std::vector<std::shared_ptr<Array>> arrays = {array};
     *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);

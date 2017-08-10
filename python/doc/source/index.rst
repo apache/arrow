@@ -40,6 +40,7 @@ structures.
    data
    ipc
    filesystems
+   plasma
    pandas
    parquet
    api

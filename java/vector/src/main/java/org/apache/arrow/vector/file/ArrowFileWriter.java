@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -37,7 +38,7 @@ public class ArrowFileWriter extends ArrowWriter {
 
   @Override
   protected void startInternal(WriteChannel out) throws IOException {
-    ArrowMagic.writeMagic(out);
+    ArrowMagic.writeMagic(out, true);
   }
 
   @Override
@@ -47,13 +48,13 @@ public class ArrowFileWriter extends ArrowWriter {
                              List<ArrowBlock> records) throws IOException {
     long footerStart = out.getCurrentPosition();
     out.write(new ArrowFooter(schema, dictionaries, records), false);
-    int footerLength = (int)(out.getCurrentPosition() - footerStart);
+    int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");
     }
     out.writeIntLittleEndian(footerLength);
     LOGGER.debug(String.format("Footer starts at %d, length: %d", footerStart, footerLength));
-    ArrowMagic.writeMagic(out);
+    ArrowMagic.writeMagic(out, false);
     LOGGER.debug(String.format("magic written, now at %d", out.getCurrentPosition()));
   }
 }

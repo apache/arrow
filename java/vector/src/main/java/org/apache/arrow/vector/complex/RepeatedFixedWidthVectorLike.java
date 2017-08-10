@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 /**
@@ -25,8 +26,8 @@ public interface RepeatedFixedWidthVectorLike {
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
    *
-   * @param valueCount   Number of separate repeating groupings.
-   * @param innerValueCount   Number of supported values in the vector.
+   * @param valueCount      Number of separate repeating groupings.
+   * @param innerValueCount Number of supported values in the vector.
    */
   void allocateNew(int valueCount, int innerValueCount);
 

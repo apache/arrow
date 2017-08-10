@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import static java.util.Arrays.asList;
@@ -40,7 +41,7 @@ public class TestArrowFooter {
   public void test() {
     Schema schema = new Schema(asList(
         new Field("a", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())
-        ));
+    ));
     ArrowFooter footer = new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
     ArrowFooter newFooter = roundTrip(footer);
     assertEquals(footer, newFooter);

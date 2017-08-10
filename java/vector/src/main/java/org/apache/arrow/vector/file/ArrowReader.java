@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -94,12 +95,21 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     ArrowMessageVisitor<Boolean> visitor = new ArrowMessageVisitor<Boolean>() {
       @Override
       public Boolean visit(ArrowDictionaryBatch message) {
-        try { load(message); } finally { message.close(); }
+        try {
+          load(message);
+        } finally {
+          message.close();
+        }
         return true;
       }
+
       @Override
       public Boolean visit(ArrowRecordBatch message) {
-        try { loader.load(message); } finally { message.close(); }
+        try {
+          loader.load(message);
+        } finally {
+          message.close();
+        }
         return false;
       }
     };
@@ -119,13 +129,15 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     return readBatch;
   }
 
-  public long bytesRead() { return in.bytesRead(); }
+  public long bytesRead() {
+    return in.bytesRead();
+  }
 
   @Override
   public void close() throws IOException {
     if (initialized) {
       root.close();
-      for (Dictionary dictionary: dictionaries.values()) {
+      for (Dictionary dictionary : dictionaries.values()) {
         dictionary.getVector().close();
       }
     }
@@ -153,7 +165,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     Map<Long, Dictionary> dictionaries = new HashMap<>();
 
     // Convert fields with dictionaries to have the index type
-    for (Field field: originalSchema.getFields()) {
+    for (Field field : originalSchema.getFields()) {
       Field updated = DictionaryUtility.toMemoryFormat(field, allocator, dictionaries);
       fields.add(updated);
       vectors.add(updated.createVector(allocator));

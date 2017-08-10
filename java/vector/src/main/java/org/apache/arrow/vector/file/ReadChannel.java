@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import java.io.IOException;
@@ -37,11 +38,14 @@ public class ReadChannel implements AutoCloseable {
     this.in = in;
   }
 
-  public long bytesRead() { return bytesRead; }
+  public long bytesRead() {
+    return bytesRead;
+  }
 
   /**
    * Reads bytes into buffer until it is full (buffer.remaining() == 0). Returns the
    * number of bytes read which can be less than full if there are no more.
+   *
    * @param buffer The buffer to read to
    * @return the number of byte read
    * @throws IOException if nit enough bytes left to read
@@ -51,9 +55,13 @@ public class ReadChannel implements AutoCloseable {
     int totalRead = 0;
     while (buffer.remaining() != 0) {
       int read = in.read(buffer);
-      if (read < 0) return totalRead;
+      if (read < 0) {
+        return totalRead;
+      }
       totalRead += read;
-      if (read == 0) break;
+      if (read == 0) {
+        break;
+      }
     }
     this.bytesRead += totalRead;
     return totalRead;
@@ -61,8 +69,9 @@ public class ReadChannel implements AutoCloseable {
 
   /**
    * Reads up to len into buffer. Returns bytes read.
+   *
    * @param buffer the buffer to read to
-   * @param l the amount of bytes to read
+   * @param l      the amount of bytes to read
    * @return the number of bytes read
    * @throws IOException if nit enough bytes left to read
    */

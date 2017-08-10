@@ -17,6 +17,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.complex.impl;
 
 
@@ -27,7 +28,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 
 @SuppressWarnings("unused")
-public class SingleListReaderImpl extends AbstractFieldReader{
+public class SingleListReaderImpl extends AbstractFieldReader {
 
   private final String name;
   private final AbstractContainerVector container;

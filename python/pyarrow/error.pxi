@@ -65,7 +65,7 @@ cdef int check_status(const CStatus& status) nogil except -1:
         return 0
 
     with gil:
-        message = frombytes(status.ToString())
+        message = frombytes(status.message())
         if status.IsInvalid():
             raise ArrowInvalid(message)
         elif status.IsIOError():
@@ -85,4 +85,5 @@ cdef int check_status(const CStatus& status) nogil except -1:
         elif status.IsPlasmaStoreFull():
             raise PlasmaStoreFull(message)
         else:
+            message = frombytes(status.ToString())
             raise ArrowException(message)

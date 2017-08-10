@@ -126,6 +126,14 @@ This project follows [Google's C++ Style Guide][3] with minor exceptions. We do
 not encourage anonymous namespaces and we relax the line length restriction to
 90 characters.
 
+### Memory Pools
+
+We provide a default memory pool with `arrow::default_memory_pool()`. As a
+matter of convenience, some of the array builder classes have constructors
+which use the default pool without explicitly passing it. You can disable these
+constructors in your application (so that you are accounting properly for all
+memory allocations) by defining `ARROW_NO_DEFAULT_MEMORY_POOL`.
+
 ### Error Handling and Exceptions
 
 For error handling, we use `arrow::Status` values instead of throwing C++
@@ -148,6 +156,12 @@ be created. While it is possible for `std::bad_alloc` to be thrown in these
 constructors, the circumstances where they would are somewhat esoteric, and it
 is likely that an application would have encountered other more serious
 problems prior to having `std::bad_alloc` thrown in a constructor.
+
+### Deprecations and API Changes
+
+We use the compiler definition `ARROW_NO_DEPRECATED_API` to disable APIs that
+have been deprecated. It is a good practice to compile third party applications
+with this flag to proactively catch and account for API changes.
 
 ## Continuous Integration
 

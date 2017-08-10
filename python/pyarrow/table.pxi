@@ -134,6 +134,16 @@ cdef class Column:
         self.sp_column = column
         self.column = column.get()
 
+    def __repr__(self):
+        from pyarrow.compat import StringIO
+        result = StringIO()
+        result.write(object.__repr__(self))
+        data = self.data
+        for i in range(len(data)):
+            result.write('\nchunk {0}: {1}'.format(i, repr(data.chunk(0))))
+
+        return result.getvalue()
+
     @staticmethod
     def from_array(object field_or_name, Array arr):
         cdef Field boxed_field
@@ -147,7 +157,7 @@ cdef class Column:
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
         return pyarrow_wrap_column(sp_column)
 
-    def to_pandas(self):
+    def to_pandas(self, strings_to_categorical=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -157,9 +167,14 @@ cdef class Column:
         """
         cdef:
             PyObject* out
+            PandasOptions options
 
-        check_status(libarrow.ConvertColumnToPandas(self.sp_column,
-                                                    self, &out))
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+
+        with nogil:
+            check_status(libarrow.ConvertColumnToPandas(options,
+                                                        self.sp_column,
+                                                        self, &out))
 
         return pd.Series(wrap_array_output(out), name=self.name)
 
@@ -495,7 +510,6 @@ cdef class RecordBatch:
             entries.append((name, column))
         return OrderedDict(entries)
 
-
     def to_pandas(self, nthreads=None):
         """
         Convert the arrow::RecordBatch to a pandas DataFrame
@@ -570,20 +584,22 @@ cdef class RecordBatch:
         return pyarrow_wrap_batch(batch)
 
 
-def table_to_blocks(Table table, int nthreads):
+def table_to_blocks(PandasOptions options, Table table, int nthreads,
+                    MemoryPool memory_pool):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
+        CMemoryPool* pool
 
+    pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                c_table, nthreads, &result_obj
+                options, c_table, nthreads, pool, &result_obj
             )
         )
 
     return PyObject_to_object(result_obj)
-
 
 
 cdef class Table:
@@ -663,13 +679,8 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(
-        cls,
-        df,
-        bint timestamps_to_ms=False,
-        Schema schema=None,
-        bint preserve_index=True
-    ):
+    def from_pandas(cls, df, bint timestamps_to_ms=False,
+                    Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -786,7 +797,8 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
-    def to_pandas(self, nthreads=None):
+    def to_pandas(self, nthreads=None, strings_to_categorical=False,
+                  memory_pool=None):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -796,16 +808,23 @@ cdef class Table:
             For the default, we divide the CPU count by 2 because most modern
             computers have hyperthreading turned on, so doubling the CPU count
             beyond the number of physical cores does not help
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
+        memory_pool: MemoryPool, optional
+            Specific memory pool to use to allocate casted columns
 
         Returns
         -------
         pandas.DataFrame
         """
+        cdef:
+            PandasOptions options
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
-
-        mgr = pdcompat.table_to_blockmanager(self, nthreads)
+        mgr = pdcompat.table_to_blockmanager(options, self, memory_pool,
+                                             nthreads)
         return pd.DataFrame(mgr)
 
     def to_pydict(self):
@@ -897,7 +916,8 @@ cdef class Table:
         """
         Number of rows in this table.
 
-        Due to the definition of a table, all columns have the same number of rows.
+        Due to the definition of a table, all columns have the same number of
+        rows.
 
         Returns
         -------

@@ -90,7 +90,7 @@ public class TestOversizedAllocationForValueVector {
     // common: value count < MAX_VALUE_ALLOCATION
     try {
       vector.allocateNew(expectedValueCapacity);
-      for (int i=0; i<3;i++) {
+      for (int i = 0; i < 3; i++) {
         vector.reAlloc(); // expand buffer size
       }
       assertEquals(Integer.MAX_VALUE, vector.getValueCapacity());

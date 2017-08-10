@@ -225,7 +225,7 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   static const int kBufferSize = 10;
   static uint8_t buffer[kBufferSize];
   static uint32_t seed = 0;
-  StringBuilder string_builder(default_memory_pool());
+  StringBuilder string_builder;
   for (int i = 0; i < num_rows; ++i) {
     if (!is_valid[i]) {
       ASSERT_OK(string_builder.AppendNull());
@@ -247,8 +247,8 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   auto v2_type = int32();
   auto v3_type = utf8();
 
-  std::shared_ptr<Schema> schema(
-      new Schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)}));
+  auto schema =
+      ::arrow::schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type)});
 
   std::unique_ptr<JsonWriter> writer;
   ASSERT_OK(JsonWriter::Open(schema, &writer));
