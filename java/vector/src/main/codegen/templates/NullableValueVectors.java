@@ -435,6 +435,25 @@ protected final static byte[] emptyByteArray = new byte[]{};
     <#if type.major == "VarLen">mutator.lastSet = thisIndex;</#if>
   }
 
+  @Override
+  public long getValidityBufferAddress() {
+    return (bits.getBuffer().memoryAddress());
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    return (values.getBuffer().memoryAddress());
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    <#if type.major != "VarLen">
+        throw new UnsupportedOperationException();
+    <#else>
+        return (values.getOffsetAddr());
+    </#if>
+  }
+
   public final class Accessor extends BaseDataValueVector.BaseAccessor <#if type.major = "VarLen">implements VariableWidthVector.VariableWidthAccessor</#if> {
     final BitVector.Accessor bAccessor = bits.getAccessor();
     final ${valuesName}.Accessor vAccessor = values.getAccessor();

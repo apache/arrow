@@ -66,4 +66,25 @@ public interface FieldVector extends ValueVector {
    * @return the inner vectors for this field as defined by the TypeLayout
    */
   List<BufferBacked> getFieldInnerVectors();
+
+  /**
+   * Gets the starting address of the underlying buffer associated with validity vector
+   *
+   * @return buffer address
+   */
+  public long getValidityBufferAddress();
+
+  /**
+   * Gets the starting address of the underlying buffer associated with data vector
+   *
+   * @return buffer address
+   */
+  public long getDataBufferAddress();
+
+  /**
+   * Gets the starting address of the underlying buffer associated with offset vector
+   *
+   * @return buffer address
+   */
+  public long getOffsetBufferAddress();
 }
