@@ -90,18 +90,22 @@ install(FILES
   writer.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")
 
-if(MSVC)
-  set(UTIL_LINK_LIBS
-    arrow_static
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+if (ARROW_BUILD_STATIC)
+  set(ARROW_UTIL_LIB arrow_static)
 else()
+  set(ARROW_UTIL_LIB arrow_shared)
+endif()
+
+set(UTIL_LINK_LIBS
+  ${ARROW_UTIL_LIB}
+  ${BOOST_FILESYSTEM_LIBRARY}
+  ${BOOST_SYSTEM_LIBRARY})
+
+if(NOT MSVC)
   set(UTIL_LINK_LIBS
-    arrow_static
+    ${UTIL_LINK_LIBS}
     pthread
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY}
-    dl)
+    ${CMAKE_DL_LIBS})
 endif()
 
 if (ARROW_BUILD_UTILITIES)

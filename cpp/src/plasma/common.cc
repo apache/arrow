@@ -19,7 +19,9 @@
 
 #include <random>
 
-#include "format/plasma_generated.h"
+#include "plasma/plasma_generated.h"
+
+namespace plasma {
 
 using arrow::Status;
 
@@ -39,13 +41,9 @@ UniqueID UniqueID::from_binary(const std::string& binary) {
   return id;
 }
 
-const uint8_t* UniqueID::data() const {
-  return id_;
-}
+const uint8_t* UniqueID::data() const { return id_; }
 
-uint8_t* UniqueID::mutable_data() {
-  return id_;
-}
+uint8_t* UniqueID::mutable_data() { return id_; }
 
 std::string UniqueID::binary() const {
   return std::string(reinterpret_cast<const char*>(id_), kUniqueIDSize);
@@ -81,3 +79,8 @@ Status plasma_error_status(int plasma_error) {
   }
   return Status::OK();
 }
+
+ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
+ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
+
+}  // namespace plasma

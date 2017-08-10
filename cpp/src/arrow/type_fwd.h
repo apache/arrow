@@ -42,6 +42,7 @@ class DictionaryArray;
 
 class NullType;
 class NullArray;
+class NullBuilder;
 
 class BooleanType;
 class BooleanArray;

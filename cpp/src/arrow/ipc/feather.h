@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// Public API for the "Feather" file format, originally created at
-/// http://github.com/wesm/feather
+// Public API for the "Feather" file format, originally created at
+// http://github.com/wesm/feather
 
 #ifndef ARROW_IPC_FEATHER_H
 #define ARROW_IPC_FEATHER_H
@@ -56,7 +56,7 @@ class ARROW_EXPORT TableReader {
   ~TableReader();
 
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& source,
-      std::unique_ptr<TableReader>* out);
+                     std::unique_ptr<TableReader>* out);
 
   // Optional table description
   //
@@ -83,8 +83,8 @@ class ARROW_EXPORT TableWriter {
  public:
   ~TableWriter();
 
-  static Status Open(
-      const std::shared_ptr<io::OutputStream>& stream, std::unique_ptr<TableWriter>* out);
+  static Status Open(const std::shared_ptr<io::OutputStream>& stream,
+                     std::unique_ptr<TableWriter>* out);
 
   void SetDescription(const std::string& desc);
   void SetNumRows(int64_t num_rows);

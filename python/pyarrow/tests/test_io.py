@@ -277,6 +277,8 @@ def test_mock_output_stream():
 
     stream_writer1.write_batch(record_batch)
     stream_writer2.write_batch(record_batch)
+    stream_writer1.close()
+    stream_writer2.close()
 
     assert f1.size() == len(f2.get_result())
 
@@ -322,6 +324,15 @@ def _check_native_file_reader(FACTORY, sample_data):
     f.seek(len(data) + 1)
     assert f.tell() == len(data) + 1
     assert f.read(5) == b''
+
+    # Test whence argument of seek, ARROW-1287
+    assert f.seek(3) == 3
+    assert f.seek(3, os.SEEK_CUR) == 6
+    assert f.tell() == 6
+
+    ex_length = len(data) - 2
+    assert f.seek(-2, os.SEEK_END) == ex_length
+    assert f.tell() == ex_length
 
 
 def test_memory_map_reader(sample_disk_data):

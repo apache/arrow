@@ -133,11 +133,14 @@ Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_fi
 // Construct a complete Schema from the message. May be expensive for very
 // large schemas if you are only interested in a few fields
 Status ARROW_EXPORT GetSchema(const void* opaque_schema,
-    const DictionaryMemo& dictionary_memo, std::shared_ptr<Schema>* out);
+                              const DictionaryMemo& dictionary_memo,
+                              std::shared_ptr<Schema>* out);
 
 Status ARROW_EXPORT GetTensorMetadata(const Buffer& metadata,
-    std::shared_ptr<DataType>* type, std::vector<int64_t>* shape,
-    std::vector<int64_t>* strides, std::vector<std::string>* dim_names);
+                                      std::shared_ptr<DataType>* type,
+                                      std::vector<int64_t>* shape,
+                                      std::vector<int64_t>* strides,
+                                      std::vector<std::string>* dim_names);
 
 /// \brief An IPC message including metadata and body
 class ARROW_EXPORT Message {
@@ -157,7 +160,7 @@ class ARROW_EXPORT Message {
   /// \param[in] body a buffer containing the message body, which may be nullptr
   /// \param[out] out the created message
   static Status Open(const std::shared_ptr<Buffer>& metadata,
-      const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
+                     const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
 
   /// \brief Write length-prefixed metadata and body to output stream
   ///
@@ -242,22 +245,23 @@ class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
 /// \param[out] message the message read
 /// \return Status success or failure
 Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length,
-    io::RandomAccessFile* file, std::unique_ptr<Message>* message);
+                                io::RandomAccessFile* file,
+                                std::unique_ptr<Message>* message);
 
 /// \brief Read encapulated RPC message (metadata and body) from InputStream
 ///
 /// Read length-prefixed message with as-yet unknown length. Returns nullptr if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
-Status ARROW_EXPORT ReadMessage(
-    io::InputStream* stream, std::unique_ptr<Message>* message);
+Status ARROW_EXPORT ReadMessage(io::InputStream* stream,
+                                std::unique_ptr<Message>* message);
 
 /// Write a serialized message metadata with a length-prefix and padding to an
 /// 8-byte offset
 ///
 /// <message_size: int32><message: const void*><padding>
-Status ARROW_EXPORT WriteMessage(
-    const Buffer& message, io::OutputStream* file, int32_t* message_length);
+Status ARROW_EXPORT WriteMessage(const Buffer& message, io::OutputStream* file,
+                                 int32_t* message_length);
 
 // Serialize arrow::Schema as a Flatbuffer
 //
@@ -266,23 +270,26 @@ Status ARROW_EXPORT WriteMessage(
 // dictionary ids
 // \param[out] out the serialized arrow::Buffer
 // \return Status outcome
-Status ARROW_EXPORT WriteSchemaMessage(
-    const Schema& schema, DictionaryMemo* dictionary_memo, std::shared_ptr<Buffer>* out);
+Status ARROW_EXPORT WriteSchemaMessage(const Schema& schema,
+                                       DictionaryMemo* dictionary_memo,
+                                       std::shared_ptr<Buffer>* out);
 
 Status ARROW_EXPORT WriteRecordBatchMessage(int64_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out);
+                                            const std::vector<FieldMetadata>& nodes,
+                                            const std::vector<BufferMetadata>& buffers,
+                                            std::shared_ptr<Buffer>* out);
 
-Status ARROW_EXPORT WriteTensorMessage(
-    const Tensor& tensor, int64_t buffer_start_offset, std::shared_ptr<Buffer>* out);
+Status ARROW_EXPORT WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
+                                       std::shared_ptr<Buffer>* out);
 
 Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
-    const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    std::shared_ptr<Buffer>* out);
+                              const std::vector<FieldMetadata>& nodes,
+                              const std::vector<BufferMetadata>& buffers,
+                              std::shared_ptr<Buffer>* out);
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
-    const std::vector<FileBlock>& record_batches, DictionaryMemo* dictionary_memo,
-    io::OutputStream* out);
+                       const std::vector<FileBlock>& record_batches,
+                       DictionaryMemo* dictionary_memo, io::OutputStream* out);
 
 }  // namespace ipc
 }  // namespace arrow

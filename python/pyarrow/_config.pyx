@@ -1,18 +1,27 @@
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
 #   http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License. See accompanying LICENSE file.
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 
 # cython: profile=False
 # distutils: language = c++
 # cython: embedsignature = True
+
+import numpy as np
+import multiprocessing
+import os
 
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
@@ -22,14 +31,12 @@ cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
 
 arrow_init_numpy()
 
-import numpy as np
 set_numpy_nan(np.nan)
 
-import multiprocessing
-import os
 cdef int CPU_COUNT = int(
     os.environ.get('OMP_NUM_THREADS',
                    max(multiprocessing.cpu_count() // 2, 1)))
+
 
 def cpu_count():
     """
@@ -43,6 +50,7 @@ def cpu_count():
       help.
     """
     return CPU_COUNT
+
 
 def set_cpu_count(count):
     global CPU_COUNT

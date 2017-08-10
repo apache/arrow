@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.complex;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -38,6 +39,7 @@ import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -179,7 +181,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   private class TransferImpl implements TransferPair {
 
     ListVector to;
-    TransferPair pairs[] = new TransferPair[3];
+    TransferPair bitsTransferPair;
+    TransferPair offsetsTransferPair;
+    TransferPair dataTransferPair;
+
+    TransferPair[] pairs;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
       this(new ListVector(name, allocator, fieldType, callBack));
@@ -188,12 +194,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     public TransferImpl(ListVector to) {
       this.to = to;
       to.addOrGetVector(vector.getField().getFieldType());
-      pairs[0] = offsets.makeTransferPair(to.offsets);
-      pairs[1] = bits.makeTransferPair(to.bits);
+      offsetsTransferPair = offsets.makeTransferPair(to.offsets);
+      bitsTransferPair = bits.makeTransferPair(to.bits);
       if (to.getDataVector() instanceof ZeroVector) {
         to.addOrGetVector(vector.getField().getFieldType());
       }
-      pairs[2] = getDataVector().makeTransferPair(to.getDataVector());
+      dataTransferPair = getDataVector().makeTransferPair(to.getDataVector());
+      pairs = new TransferPair[] {bitsTransferPair, offsetsTransferPair, dataTransferPair};
     }
 
     @Override
@@ -206,10 +213,20 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      to.allocateNew();
-      for (int i = 0; i < length; i++) {
-        copyValueSafe(startIndex + i, i);
+      UInt4Vector.Accessor offsetVectorAccessor = ListVector.this.offsets.getAccessor();
+      final int startPoint = offsetVectorAccessor.get(startIndex);
+      final int sliceLength = offsetVectorAccessor.get(startIndex + length) - startPoint;
+      to.clear();
+      to.offsets.allocateNew(length + 1);
+      offsetVectorAccessor = ListVector.this.offsets.getAccessor();
+      final UInt4Vector.Mutator targetOffsetVectorMutator = to.offsets.getMutator();
+      for (int i = 0; i < length + 1; i++) {
+        targetOffsetVectorMutator.set(i, offsetVectorAccessor.get(startIndex + i) - startPoint);
       }
+      bitsTransferPair.splitAndTransfer(startIndex, length);
+      dataTransferPair.splitAndTransfer(startPoint, sliceLength);
+      to.lastSet = length;
+      to.mutator.setValueCount(length);
     }
 
     @Override
@@ -300,9 +317,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers = ObjectArrays.concat(offsets.getBuffers(false), ObjectArrays.concat(bits.getBuffers(false),
-            vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
+        vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
     if (clear) {
-      for (ArrowBuf buffer:buffers) {
+      for (ArrowBuf buffer : buffers) {
         buffer.retain();
       }
       clear();
@@ -335,7 +352,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       final int start = offsetsAccessor.get(index);
       final int end = offsetsAccessor.get(index + 1);
       final ValueVector.Accessor valuesAccessor = getDataVector().getAccessor();
-      for(int i = start; i < end; i++) {
+      for (int i = start; i < end; i++) {
         vals.add(valuesAccessor.getObject(i));
       }
       return vals;
@@ -372,7 +389,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      * End the current value
      *
      * @param index index of the value to end
-     * @param size number of elements in the list that was written
+     * @param size  number of elements in the list that was written
      */
     public void endValue(int index, int size) {
       offsets.getMutator().set(index + 1, offsets.getAccessor().get(index + 1) + size);
@@ -392,6 +409,14 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
       vector.getMutator().setValueCount(childValueCount);
       bits.getMutator().setValueCount(valueCount);
+    }
+
+    public void setLastSet(int value) {
+      lastSet = value;
+    }
+
+    public int getLastSet() {
+      return lastSet;
     }
   }
 

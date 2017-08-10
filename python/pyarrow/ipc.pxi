@@ -163,8 +163,7 @@ cdef class _RecordBatchWriter:
         self.closed = True
 
     def __dealloc__(self):
-        if not self.closed:
-            self.close()
+        pass
 
     def _open(self, sink, Schema schema):
         cdef:
@@ -182,11 +181,24 @@ cdef class _RecordBatchWriter:
         self.closed = False
 
     def write_batch(self, RecordBatch batch):
+        """
+        Write RecordBatch to stream
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        """
         with nogil:
             check_status(self.writer.get()
                          .WriteRecordBatch(deref(batch.batch)))
 
     def close(self):
+        """
+        Close stream and write end-of-stream 0 marker
+        """
+        if self.closed:
+            return
+
         with nogil:
             check_status(self.writer.get().Close())
         self.closed = True
@@ -279,7 +291,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchWriter):
         with nogil:
             check_status(
                 CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                      &writer))
+                                            &writer))
 
         # Cast to base class, because has same interface
         self.writer = <shared_ptr[CRecordBatchWriter]> writer

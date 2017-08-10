@@ -198,11 +198,11 @@ class TestTable : public TestBase {
     schema_ = std::make_shared<Schema>(fields);
 
     arrays_ = {MakePrimitive<Int32Array>(length), MakePrimitive<UInt8Array>(length),
-        MakePrimitive<Int16Array>(length)};
+               MakePrimitive<Int16Array>(length)};
 
     columns_ = {std::make_shared<Column>(schema_->field(0), arrays_[0]),
-        std::make_shared<Column>(schema_->field(1), arrays_[1]),
-        std::make_shared<Column>(schema_->field(2), arrays_[2])};
+                std::make_shared<Column>(schema_->field(1), arrays_[1]),
+                std::make_shared<Column>(schema_->field(2), arrays_[2])};
   }
 
  protected:
@@ -214,7 +214,7 @@ class TestTable : public TestBase {
 };
 
 TEST_F(TestTable, EmptySchema) {
-  auto empty_schema = shared_ptr<Schema>(new Schema({}));
+  auto empty_schema = ::arrow::schema({});
   table_.reset(new Table(empty_schema, columns_));
   ASSERT_OK(table_->ValidateColumns());
   ASSERT_EQ(0, table_->num_rows());
@@ -229,6 +229,9 @@ TEST_F(TestTable, Ctors) {
   ASSERT_OK(table_->ValidateColumns());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
+
+  auto array_ctor = std::make_shared<Table>(schema_, arrays_);
+  ASSERT_TRUE(table_->Equals(*array_ctor));
 
   table_.reset(new Table(schema_, columns_, length));
   ASSERT_OK(table_->ValidateColumns());
@@ -373,18 +376,17 @@ TEST_F(TestTable, RemoveColumn) {
   std::shared_ptr<Table> result;
   ASSERT_OK(table.RemoveColumn(0, &result));
 
-  auto ex_schema =
-      std::shared_ptr<Schema>(new Schema({schema_->field(1), schema_->field(2)}));
+  auto ex_schema = ::arrow::schema({schema_->field(1), schema_->field(2)});
   std::vector<std::shared_ptr<Column>> ex_columns = {table.column(1), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.RemoveColumn(1, &result));
-  ex_schema = std::shared_ptr<Schema>(new Schema({schema_->field(0), schema_->field(2)}));
+  ex_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
   ex_columns = {table.column(0), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.RemoveColumn(2, &result));
-  ex_schema = std::shared_ptr<Schema>(new Schema({schema_->field(0), schema_->field(1)}));
+  ex_schema = ::arrow::schema({schema_->field(0), schema_->field(1)});
   ex_columns = {table.column(0), table.column(1)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 }
@@ -410,27 +412,27 @@ TEST_F(TestTable, AddColumn) {
 
   // Add column 0 in different places
   ASSERT_OK(table.AddColumn(0, columns_[0], &result));
-  auto ex_schema = std::shared_ptr<Schema>(new Schema(
-      {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)}));
-  std::vector<std::shared_ptr<Column>> ex_columns = {
-      table.column(0), table.column(0), table.column(1), table.column(2)};
+  auto ex_schema = ::arrow::schema(
+      {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
+  std::vector<std::shared_ptr<Column>> ex_columns = {table.column(0), table.column(0),
+                                                     table.column(1), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.AddColumn(1, columns_[0], &result));
-  ex_schema = std::shared_ptr<Schema>(new Schema(
-      {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)}));
+  ex_schema = ::arrow::schema(
+      {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
   ex_columns = {table.column(0), table.column(0), table.column(1), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.AddColumn(2, columns_[0], &result));
-  ex_schema = std::shared_ptr<Schema>(new Schema(
-      {schema_->field(0), schema_->field(1), schema_->field(0), schema_->field(2)}));
+  ex_schema = ::arrow::schema(
+      {schema_->field(0), schema_->field(1), schema_->field(0), schema_->field(2)});
   ex_columns = {table.column(0), table.column(1), table.column(0), table.column(2)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 
   ASSERT_OK(table.AddColumn(3, columns_[0], &result));
-  ex_schema = std::shared_ptr<Schema>(new Schema(
-      {schema_->field(0), schema_->field(1), schema_->field(2), schema_->field(0)}));
+  ex_schema = ::arrow::schema(
+      {schema_->field(0), schema_->field(1), schema_->field(2), schema_->field(0)});
   ex_columns = {table.column(0), table.column(1), table.column(2), table.column(0)};
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 }
@@ -470,7 +472,7 @@ TEST_F(TestRecordBatch, Validate) {
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
-  auto schema = std::shared_ptr<Schema>(new Schema({f0, f1, f2}));
+  auto schema = ::arrow::schema({f0, f1, f2});
 
   auto a0 = MakePrimitive<Int32Array>(length);
   auto a1 = MakePrimitive<UInt8Array>(length);

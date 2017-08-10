@@ -68,6 +68,7 @@ from pyarrow.lib import (null, bool_,
                          Date32Value, Date64Value, TimestampValue)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+                         FixedSizeBufferOutputStream,
                          Buffer, BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          frombuffer,
@@ -87,7 +88,10 @@ from pyarrow.lib import (ArrowException,
                          ArrowTypeError)
 
 
-from pyarrow.filesystem import Filesystem, HdfsClient, LocalFilesystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem
+
+from pyarrow.hdfs import HadoopFileSystem
+import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import (Message, MessageReader,
                          RecordBatchFileReader, RecordBatchFileWriter,
@@ -99,23 +103,13 @@ from pyarrow.ipc import (Message, MessageReader,
                          open_file,
                          serialize_pandas, deserialize_pandas)
 
-
-localfs = LocalFilesystem.get_instance()
+localfs = LocalFileSystem.get_instance()
 
 
 # ----------------------------------------------------------------------
 # 0.4.0 deprecations
 
-import warnings
-
-def _deprecate_class(old_name, new_name, klass, next_version='0.5.0'):
-    msg = ('pyarrow.{0} has been renamed to '
-           '{1}, will be removed in {2}'
-           .format(old_name, new_name, next_version))
-    def deprecated_factory(*args, **kwargs):
-        warnings.warn(msg, FutureWarning)
-        return klass(*args)
-    return deprecated_factory
+from pyarrow.util import _deprecate_class
 
 FileReader = _deprecate_class('FileReader',
                               'RecordBatchFileReader',
@@ -136,3 +130,7 @@ StreamWriter = _deprecate_class('StreamWriter',
 InMemoryOutputStream = _deprecate_class('InMemoryOutputStream',
                                         'BufferOutputStream',
                                         BufferOutputStream, '0.5.0')
+
+# Backwards compatibility with pyarrow < 0.6.0
+HdfsClient = _deprecate_class('HdfsClient', 'pyarrow.hdfs.connect',
+                              hdfs.connect, '0.6.0')

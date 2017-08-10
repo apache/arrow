@@ -171,7 +171,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   @Override
   public ArrowBuf getEmpty() {
-    assertOpen();
     return empty;
   }
 
@@ -236,8 +235,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    assertOpen();
-
     return new ArrowBuf(new AtomicInteger(), null, AllocationManager.EMPTY, null, null, 0, 0, true);
   }
 
@@ -277,8 +274,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         throw new OutOfMemoryException(e);
       }
       throw e;
-    }
-    finally {
+    } finally {
       if (!success) {
         releaseBytes(actualRequestSize);
       }
@@ -640,7 +636,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         continue;
       }
       final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
-      sb.append("UnsafeDirectLittleEndian[dentityHashCode == ");
+      sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(udle)));
       sb.append("] size ");
       sb.append(Integer.toString(udle.capacity()));

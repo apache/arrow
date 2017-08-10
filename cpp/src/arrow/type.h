@@ -162,7 +162,8 @@ class ARROW_EXPORT DataType {
   DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
-typedef std::shared_ptr<DataType> TypePtr;
+// TODO(wesm): Remove this from parquet-cpp
+using TypePtr = std::shared_ptr<DataType>;
 
 class ARROW_EXPORT FixedWidthType : public DataType {
  public:
@@ -204,15 +205,15 @@ class NoExtraMeta {};
 class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
-      bool nullable = true,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
+        bool nullable = true,
+        const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
   /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-      std::shared_ptr<Field>* out) const;
+                     std::shared_ptr<Field>* out) const;
 
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -241,7 +242,7 @@ class ARROW_EXPORT Field {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-typedef std::shared_ptr<Field> FieldPtr;
+namespace detail {
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
@@ -260,6 +261,13 @@ class ARROW_EXPORT CTypeImpl : public BASE {
   std::string ToString() const override { return std::string(DERIVED::name()); }
 };
 
+template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
+  bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
+};
+
+}  // namespace detail
+
 class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
  public:
   static constexpr Type::type type_id = Type::NA;
@@ -272,11 +280,6 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   static std::string name() { return "null"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
-};
-
-template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
-  bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
 class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
@@ -292,65 +295,70 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   static std::string name() { return "bool"; }
 };
 
-class ARROW_EXPORT UInt8Type : public IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
+class ARROW_EXPORT UInt8Type
+    : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
   static std::string name() { return "uint8"; }
 };
 
-class ARROW_EXPORT Int8Type : public IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
+class ARROW_EXPORT Int8Type
+    : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
   static std::string name() { return "int8"; }
 };
 
 class ARROW_EXPORT UInt16Type
-    : public IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
+    : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
   static std::string name() { return "uint16"; }
 };
 
-class ARROW_EXPORT Int16Type : public IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
+class ARROW_EXPORT Int16Type
+    : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
   static std::string name() { return "int16"; }
 };
 
 class ARROW_EXPORT UInt32Type
-    : public IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
+    : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
   static std::string name() { return "uint32"; }
 };
 
-class ARROW_EXPORT Int32Type : public IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
+class ARROW_EXPORT Int32Type
+    : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
   static std::string name() { return "int32"; }
 };
 
 class ARROW_EXPORT UInt64Type
-    : public IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
+    : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
   static std::string name() { return "uint64"; }
 };
 
-class ARROW_EXPORT Int64Type : public IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
+class ARROW_EXPORT Int64Type
+    : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
   static std::string name() { return "int64"; }
 };
 
 class ARROW_EXPORT HalfFloatType
-    : public CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
   Precision precision() const override;
   static std::string name() { return "halffloat"; }
 };
 
 class ARROW_EXPORT FloatType
-    : public CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   static std::string name() { return "float"; }
 };
 
 class ARROW_EXPORT DoubleType
-    : public CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   static std::string name() { return "double"; }
@@ -489,7 +497,7 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+            const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
   static std::string name() { return "union"; }
@@ -669,7 +677,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   static constexpr Type::type type_id = Type::DICTIONARY;
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
-      const std::shared_ptr<Array>& dictionary, bool ordered = false);
+                 const std::shared_ptr<Array>& dictionary, bool ordered = false);
 
   int bit_width() const override;
 
@@ -699,7 +707,11 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+  explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
   virtual ~Schema() = default;
 
   /// Returns true if all of the schema fields are equal
@@ -724,13 +736,13 @@ class ARROW_EXPORT Schema {
   /// \brief Render a string representation of the schema suitable for debugging
   std::string ToString() const;
 
-  Status AddField(
-      int i, const std::shared_ptr<Field>& field, std::shared_ptr<Schema>* out) const;
+  Status AddField(int i, const std::shared_ptr<Field>& field,
+                  std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
   /// \deprecated
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
-      std::shared_ptr<Schema>* out) const;
+                     std::shared_ptr<Schema>* out) const;
 
   /// \brief Replace key-value metadata with new metadata
   ///
@@ -761,28 +773,58 @@ std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_
 std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
 
 std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(
-    TimeUnit::type unit, const std::string& timezone);
+std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit,
+                                                 const std::string& timezone);
 
+/// \brief Create an instance of 32-bit time type
 /// Unit can be either SECOND or MILLI
 std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 
+/// \brief Create an instance of 64-bit time type
 /// Unit can be either MICRO or NANO
 std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 
-std::shared_ptr<DataType> ARROW_EXPORT struct_(
-    const std::vector<std::shared_ptr<Field>>& fields);
+/// \brief Create an instance of Struct type
+std::shared_ptr<DataType> ARROW_EXPORT
+struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
-std::shared_ptr<DataType> ARROW_EXPORT union_(
-    const std::vector<std::shared_ptr<Field>>& child_fields,
-    const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+/// \brief Create an instance of Union type
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
-std::shared_ptr<DataType> ARROW_EXPORT dictionary(
-    const std::shared_ptr<DataType>& index_type, const std::shared_ptr<Array>& values);
+/// \brief Create an instance of Dictionary type
+std::shared_ptr<DataType> ARROW_EXPORT
+dictionary(const std::shared_ptr<DataType>& index_type,
+           const std::shared_ptr<Array>& values, bool ordered = false);
 
-std::shared_ptr<Field> ARROW_EXPORT field(const std::string& name,
-    const std::shared_ptr<DataType>& type, bool nullable = true,
+/// \brief Create a Field instance
+///
+/// \param name the field name
+/// \param type the field value type
+/// \param nullable whether the values are nullable, default true
+/// \param metadata any custom key-value metadata, default nullptr
+std::shared_ptr<Field> ARROW_EXPORT field(
+    const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param metadata any custom key-value metadata, default nullptr
+/// \return schema shared_ptr to Schema
+std::shared_ptr<Schema> ARROW_EXPORT
+schema(const std::vector<std::shared_ptr<Field>>& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields (rvalue reference)
+/// \param metadata any custom key-value metadata, default nullptr
+/// \return schema shared_ptr to Schema
+std::shared_ptr<Schema> ARROW_EXPORT
+schema(std::vector<std::shared_ptr<Field>>&& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //

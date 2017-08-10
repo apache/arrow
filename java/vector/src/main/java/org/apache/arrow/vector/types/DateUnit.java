@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.types;
 
 public enum DateUnit {
@@ -22,6 +23,7 @@ public enum DateUnit {
   MILLISECOND(org.apache.arrow.flatbuf.DateUnit.MILLISECOND);
 
   private static final DateUnit[] valuesByFlatbufId = new DateUnit[DateUnit.values().length];
+
   static {
     for (DateUnit v : DateUnit.values()) {
       valuesByFlatbufId[v.flatbufID] = v;

@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.io.DataInput;
@@ -74,13 +75,16 @@ public class Text {
 
   /**
    * Construct from a string.
+   *
    * @param string initialize from that string
    */
   public Text(String string) {
     set(string);
   }
 
-  /** Construct from another text.
+  /**
+   * Construct from another text.
+   *
    * @param utf8 initialize from that Text
    */
   public Text(Text utf8) {
@@ -89,6 +93,7 @@ public class Text {
 
   /**
    * Construct from a byte array.
+   *
    * @param utf8 initialize from that byte array
    */
   public Text(byte[] utf8) {
@@ -98,6 +103,7 @@ public class Text {
   /**
    * Get a copy of the bytes that is exactly the length of the data. See {@link #getBytes()} for faster access to the
    * underlying array.
+   *
    * @return a copy of the underlying array
    */
   public byte[] copyBytes() {
@@ -109,13 +115,16 @@ public class Text {
   /**
    * Returns the raw bytes; however, only data up to {@link #getLength()} is valid. Please use {@link #copyBytes()} if
    * you need the returned array to be precisely the length of the data.
+   *
    * @return the underlying array
    */
   public byte[] getBytes() {
     return bytes;
   }
 
-  /** @return the number of bytes in the byte array */
+  /**
+   * @return the number of bytes in the byte array
+   */
   public int getLength() {
     return length;
   }
@@ -128,12 +137,10 @@ public class Text {
    * @return the Unicode scalar value at position or -1 if the position is invalid or points to a trailing byte
    */
   public int charAt(int position) {
-    if (position > this.length)
-    {
+    if (position > this.length) {
       return -1; // too long
     }
-    if (position < 0)
-    {
+    if (position < 0) {
       return -1; // duh.
     }
 
@@ -150,7 +157,7 @@ public class Text {
    * starting position is measured in bytes and the return value is in terms of byte position in the buffer. The backing
    * buffer is not converted to a string for this operation.
    *
-   * @param what the string to search for
+   * @param what  the string to search for
    * @param start where to start from
    * @return byte position of the first occurence of the search string in the UTF-8 buffer or -1 if not found
    */
@@ -196,6 +203,7 @@ public class Text {
 
   /**
    * Set to contain the contents of a string.
+   *
    * @param string the string to initialize from
    */
   public void set(String string) {
@@ -210,14 +218,18 @@ public class Text {
 
   /**
    * Set to a utf8 byte array
+   *
    * @param utf8 the byte array to initialize from
    */
   public void set(byte[] utf8) {
     set(utf8, 0, utf8.length);
   }
 
-  /** copy a text.
-   * @param other the text to initialize from */
+  /**
+   * copy a text.
+   *
+   * @param other the text to initialize from
+   */
   public void set(Text other) {
     set(other.getBytes(), 0, other.getLength());
   }
@@ -225,12 +237,9 @@ public class Text {
   /**
    * Set the Text to range of bytes
    *
-   * @param utf8
-   *          the data to copy from
-   * @param start
-   *          the first position of the new string
-   * @param len
-   *          the number of bytes of the new string
+   * @param utf8  the data to copy from
+   * @param start the first position of the new string
+   * @param len   the number of bytes of the new string
    */
   public void set(byte[] utf8, int start, int len) {
     setCapacity(len, false);
@@ -241,12 +250,9 @@ public class Text {
   /**
    * Append a range of bytes to the end of the given text
    *
-   * @param utf8
-   *          the data to copy from
-   * @param start
-   *          the first position to append from utf8
-   * @param len
-   *          the number of bytes to append
+   * @param utf8  the data to copy from
+   * @param start the first position to append from utf8
+   * @param len   the number of bytes to append
    */
   public void append(byte[] utf8, int start, int len) {
     setCapacity(length + len, true);
@@ -270,7 +276,7 @@ public class Text {
    * then the capacity and existing content of the buffer are unchanged. If <code>len</code> is larger than the current
    * capacity, the Text object's capacity is increased to match.
    *
-   * @param len the number of bytes we need
+   * @param len      the number of bytes we need
    * @param keepData should the old data be kept
    */
   private void setCapacity(int len, boolean keepData) {
@@ -295,7 +301,8 @@ public class Text {
   /**
    * Read a Text object whose length is already known. This allows creating Text from a stream which uses a different
    * serialization format.
-   * @param in the input to initialize from
+   *
+   * @param in  the input to initialize from
    * @param len how many bytes to read from in
    * @throws IOException if something bad happens
    */
@@ -351,9 +358,11 @@ public class Text {
   }
 
   // / STATIC UTILITIES FROM HERE DOWN
+
   /**
    * Converts the provided byte array to a String using the UTF-8 encoding. If the input is malformed, replace by a
    * default value.
+   *
    * @param utf8 bytes to decode
    * @return the decoded string
    * @throws CharacterCodingException if this is not valid UTF-8
@@ -371,9 +380,10 @@ public class Text {
    * Converts the provided byte array to a String using the UTF-8 encoding. If <code>replace</code> is true, then
    * malformed input is replaced with the substitution character, which is U+FFFD. Otherwise the method throws a
    * MalformedInputException.
-   * @param utf8 the bytes to decode
-   * @param start where to start from
-   * @param length length of the bytes to decode
+   *
+   * @param utf8    the bytes to decode
+   * @param start   where to start from
+   * @param length  length of the bytes to decode
    * @param replace whether to replace malformed characters with U+FFFD
    * @return the decoded string
    * @throws CharacterCodingException if the input could not be decoded
@@ -418,8 +428,7 @@ public class Text {
    * input is replaced with the substitution character, which is U+FFFD. Otherwise the method throws a
    * MalformedInputException.
    *
-
-   * @param string the string to encode
+   * @param string  the string to encode
    * @param replace whether to replace malformed characters with U+FFFD
    * @return ByteBuffer: bytes stores at ByteBuffer.array() and length is ByteBuffer.limit()
    * @throws CharacterCodingException if the string could not be encoded
@@ -453,10 +462,8 @@ public class Text {
   /**
    * Check if a byte array contains valid utf-8
    *
-   * @param utf8
-   *          byte array
-   * @throws MalformedInputException
-   *           if the byte array contains invalid utf-8
+   * @param utf8 byte array
+   * @throws MalformedInputException if the byte array contains invalid utf-8
    */
   public static void validateUTF8(byte[] utf8) throws MalformedInputException {
     validateUTF8(utf8, 0, utf8.length);
@@ -465,14 +472,10 @@ public class Text {
   /**
    * Check to see if a byte array is valid utf-8
    *
-   * @param utf8
-   *          the array of bytes
-   * @param start
-   *          the offset of the first byte in the array
-   * @param len
-   *          the length of the byte sequence
-   * @throws MalformedInputException
-   *           if the byte array contains invalid bytes
+   * @param utf8  the array of bytes
+   * @param start the offset of the first byte in the array
+   * @param len   the length of the byte sequence
+   * @throws MalformedInputException if the byte array contains invalid bytes
    */
   public static void validateUTF8(byte[] utf8, int start, int len)
       throws MalformedInputException {
@@ -484,67 +487,67 @@ public class Text {
       int aByte = utf8[count] & 0xFF;
 
       switch (state) {
-      case LEAD_BYTE:
-        leadByte = aByte;
-        length = bytesFromUTF8[aByte];
+        case LEAD_BYTE:
+          leadByte = aByte;
+          length = bytesFromUTF8[aByte];
 
-        switch (length) {
-        case 0: // check for ASCII
-          if (leadByte > 0x7F) {
-            throw new MalformedInputException(count);
-          }
+          switch (length) {
+            case 0: // check for ASCII
+              if (leadByte > 0x7F) {
+                throw new MalformedInputException(count);
+              }
+              break;
+            case 1:
+              if (leadByte < 0xC2 || leadByte > 0xDF) {
+                throw new MalformedInputException(count);
+              }
+              state = TRAIL_BYTE_1;
+              break;
+            case 2:
+              if (leadByte < 0xE0 || leadByte > 0xEF) {
+                throw new MalformedInputException(count);
+              }
+              state = TRAIL_BYTE_1;
+              break;
+            case 3:
+              if (leadByte < 0xF0 || leadByte > 0xF4) {
+                throw new MalformedInputException(count);
+              }
+              state = TRAIL_BYTE_1;
+              break;
+            default:
+              // too long! Longest valid UTF-8 is 4 bytes (lead + three)
+              // or if < 0 we got a trail byte in the lead byte position
+              throw new MalformedInputException(count);
+          } // switch (length)
           break;
-        case 1:
-          if (leadByte < 0xC2 || leadByte > 0xDF) {
+
+        case TRAIL_BYTE_1:
+          if (leadByte == 0xF0 && aByte < 0x90) {
             throw new MalformedInputException(count);
           }
-          state = TRAIL_BYTE_1;
-          break;
-        case 2:
-          if (leadByte < 0xE0 || leadByte > 0xEF) {
+          if (leadByte == 0xF4 && aByte > 0x8F) {
             throw new MalformedInputException(count);
           }
-          state = TRAIL_BYTE_1;
-          break;
-        case 3:
-          if (leadByte < 0xF0 || leadByte > 0xF4) {
+          if (leadByte == 0xE0 && aByte < 0xA0) {
             throw new MalformedInputException(count);
           }
-          state = TRAIL_BYTE_1;
+          if (leadByte == 0xED && aByte > 0x9F) {
+            throw new MalformedInputException(count);
+          }
+          // falls through to regular trail-byte test!!
+        case TRAIL_BYTE:
+          if (aByte < 0x80 || aByte > 0xBF) {
+            throw new MalformedInputException(count);
+          }
+          if (--length == 0) {
+            state = LEAD_BYTE;
+          } else {
+            state = TRAIL_BYTE;
+          }
           break;
         default:
-          // too long! Longest valid UTF-8 is 4 bytes (lead + three)
-          // or if < 0 we got a trail byte in the lead byte position
-          throw new MalformedInputException(count);
-        } // switch (length)
-        break;
-
-      case TRAIL_BYTE_1:
-        if (leadByte == 0xF0 && aByte < 0x90) {
-          throw new MalformedInputException(count);
-        }
-        if (leadByte == 0xF4 && aByte > 0x8F) {
-          throw new MalformedInputException(count);
-        }
-        if (leadByte == 0xE0 && aByte < 0xA0) {
-          throw new MalformedInputException(count);
-        }
-        if (leadByte == 0xED && aByte > 0x9F) {
-          throw new MalformedInputException(count);
-        }
-        // falls through to regular trail-byte test!!
-      case TRAIL_BYTE:
-        if (aByte < 0x80 || aByte > 0xBF) {
-          throw new MalformedInputException(count);
-        }
-        if (--length == 0) {
-          state = LEAD_BYTE;
-        } else {
-          state = TRAIL_BYTE;
-        }
-        break;
-      default:
-        break;
+          break;
       } // switch (state)
       count++;
     }
@@ -556,25 +559,26 @@ public class Text {
    * six byte sequences.
    */
   static final int[] bytesFromUTF8 =
-  { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0,
-      // trail bytes
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,
-      3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5 };
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0,
+          // trail bytes
+          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,
+          3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5};
 
   /**
    * Returns the next code point at the current position in the buffer. The buffer's position will be incremented. Any
    * mark set on this buffer will be changed by this method!
+   *
    * @param bytes the incoming bytes
    * @return the corresponding unicode codepoint
    */
@@ -583,30 +587,29 @@ public class Text {
     byte b = bytes.get();
     bytes.reset();
     int extraBytesToRead = bytesFromUTF8[(b & 0xFF)];
-    if (extraBytesToRead < 0)
-    {
+    if (extraBytesToRead < 0) {
       return -1; // trailing byte!
     }
     int ch = 0;
 
     switch (extraBytesToRead) {
-    case 5:
-      ch += (bytes.get() & 0xFF);
-      ch <<= 6; /* remember, illegal UTF-8 */
-    case 4:
-      ch += (bytes.get() & 0xFF);
-      ch <<= 6; /* remember, illegal UTF-8 */
-    case 3:
-      ch += (bytes.get() & 0xFF);
-      ch <<= 6;
-    case 2:
-      ch += (bytes.get() & 0xFF);
-      ch <<= 6;
-    case 1:
-      ch += (bytes.get() & 0xFF);
-      ch <<= 6;
-    case 0:
-      ch += (bytes.get() & 0xFF);
+      case 5:
+        ch += (bytes.get() & 0xFF);
+        ch <<= 6; /* remember, illegal UTF-8 */
+      case 4:
+        ch += (bytes.get() & 0xFF);
+        ch <<= 6; /* remember, illegal UTF-8 */
+      case 3:
+        ch += (bytes.get() & 0xFF);
+        ch <<= 6;
+      case 2:
+        ch += (bytes.get() & 0xFF);
+        ch <<= 6;
+      case 1:
+        ch += (bytes.get() & 0xFF);
+        ch <<= 6;
+      case 0:
+        ch += (bytes.get() & 0xFF);
     }
     ch -= offsetsFromUTF8[extraBytesToRead];
 
@@ -614,14 +617,13 @@ public class Text {
   }
 
   static final int offsetsFromUTF8[] =
-  { 0x00000000, 0x00003080,
-      0x000E2080, 0x03C82080, 0xFA082080, 0x82082080 };
+      {0x00000000, 0x00003080,
+          0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
 
   /**
    * For the given string, returns the number of UTF-8 bytes required to encode the string.
    *
-   * @param string
-   *          text to encode
+   * @param string text to encode
    * @return number of UTF-8 bytes required to encode
    */
   public static int utf8Length(String string) {

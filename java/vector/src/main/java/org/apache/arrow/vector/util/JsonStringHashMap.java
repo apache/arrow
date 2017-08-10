@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import java.util.LinkedHashMap;
@@ -51,14 +52,14 @@ public class JsonStringHashMap<K, V> extends LinkedHashMap<K, V> {
       return false;
     }
     for (K key : this.keySet()) {
-      if (this.get(key) == null ) {
+      if (this.get(key) == null) {
         if (other.get(key) == null) {
           continue;
         } else {
           return false;
         }
       }
-      if ( ! this.get(key).equals(other.get(key))) {
+      if (!this.get(key).equals(other.get(key))) {
         return false;
       }
     }
@@ -69,7 +70,7 @@ public class JsonStringHashMap<K, V> extends LinkedHashMap<K, V> {
   public final String toString() {
     try {
       return mapper.writeValueAsString(this);
-    } catch(JsonProcessingException e) {
+    } catch (JsonProcessingException e) {
       throw new IllegalStateException("Cannot serialize hash map to JSON string", e);
     }
   }

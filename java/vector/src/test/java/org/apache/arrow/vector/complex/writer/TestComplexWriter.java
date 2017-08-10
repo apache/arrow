@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.writer;
 
 import static org.junit.Assert.*;
@@ -217,7 +218,7 @@ public class TestComplexWriter {
     for (int i = 0; i < COUNT; i++) {
       listWriter.startList();
       for (int j = 0; j < i % 7; j++) {
-        if (j%2 == 0) {
+        if (j % 2 == 0) {
           listWriter.writeInt(j);
         } else {
           IntHolder holder = new IntHolder();
@@ -259,7 +260,7 @@ public class TestComplexWriter {
       listReader.setPosition(i);
       if (i % 2 == 0) {
         assertTrue("index is set: " + i, listReader.isSet());
-        assertEquals("correct length at: " + i, i % 7, ((List<?>)listReader.readObject()).size());
+        assertEquals("correct length at: " + i, i % 7, ((List<?>) listReader.readObject()).size());
       } else {
         assertFalse("index is not set: " + i, listReader.isSet());
         assertNull("index is not set: " + i, listReader.readObject());
@@ -529,10 +530,10 @@ public class TestComplexWriter {
 
   private Set<String> getFieldNames(List<Field> fields) {
     Set<String> fieldNames = new HashSet<>();
-    for (Field field: fields) {
+    for (Field field : fields) {
       fieldNames.add(field.getName());
       if (!field.getChildren().isEmpty()) {
-        for (String name: getFieldNames(field.getChildren())) {
+        for (String name : getFieldNames(field.getChildren())) {
           fieldNames.add(field.getName() + "::" + name);
         }
       }
@@ -698,7 +699,7 @@ public class TestComplexWriter {
 
   private void checkTimestampTZField(Field field, String name, String tz) {
     checkTimestampField(field, name);
-    Assert.assertEquals(tz, ((Timestamp)field.getType()).getTimezone());
+    Assert.assertEquals(tz, ((Timestamp) field.getType()).getTimezone());
   }
 
   @Test
@@ -824,13 +825,13 @@ public class TestComplexWriter {
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     MapVector toMapVector = (MapVector) tp.getTo();
-    JsonStringHashMap<?,?> toMapValue = (JsonStringHashMap<?,?>) toMapVector.getAccessor().getObject(0);
+    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getAccessor().getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
     assertEquals(2, object.get(1));
-    JsonStringHashMap<?,?> innerMap = (JsonStringHashMap<?,?>) object.get(2);
+    JsonStringHashMap<?, ?> innerMap = (JsonStringHashMap<?, ?>) object.get(2);
     assertEquals(1, innerMap.get("a"));
-    innerMap = (JsonStringHashMap<?,?>) object.get(3);
+    innerMap = (JsonStringHashMap<?, ?>) object.get(3);
     assertEquals(2, innerMap.get("a"));
   }
 }

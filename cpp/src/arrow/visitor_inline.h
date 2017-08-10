@@ -65,6 +65,8 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
   return Status::NotImplemented("Type not implemented");
 }
 
+#undef TYPE_VISIT_INLINE
+
 #define ARRAY_VISIT_INLINE(TYPE_CLASS) \
   case TYPE_CLASS::type_id:            \
     return visitor->Visit(             \

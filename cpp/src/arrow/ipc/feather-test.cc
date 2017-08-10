@@ -354,7 +354,7 @@ TEST_F(TestTableWriter, TimeTypes) {
   auto f1 = field("f1", time32(TimeUnit::MILLI));
   auto f2 = field("f2", timestamp(TimeUnit::NANO));
   auto f3 = field("f3", timestamp(TimeUnit::SECOND, "US/Los_Angeles"));
-  std::shared_ptr<Schema> schema(new Schema({f0, f1, f2, f3}));
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
   std::vector<int64_t> values_vec = {0, 1, 2, 3, 4, 5, 6};
   std::shared_ptr<Array> values;
@@ -365,8 +365,8 @@ TEST_F(TestTableWriter, TimeTypes) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
   const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
-  std::vector<std::shared_ptr<Buffer>> buffers = {
-      prim_values.null_bitmap(), prim_values.values()};
+  std::vector<std::shared_ptr<Buffer>> buffers = {prim_values.null_bitmap(),
+                                                  prim_values.values()};
 
   std::vector<std::shared_ptr<internal::ArrayData>> arrays;
   arrays.push_back(date_array->data());
@@ -400,7 +400,8 @@ TEST_F(TestTableWriter, PrimitiveNullRoundTrip) {
     ASSERT_OK(reader_->GetColumn(i, &col));
     ASSERT_EQ(batch->column_name(i), col->name());
     StringArray str_values(batch->column(i)->length(), nullptr, nullptr,
-        batch->column(i)->null_bitmap(), batch->column(i)->null_count());
+                           batch->column(i)->null_bitmap(),
+                           batch->column(i)->null_count());
     CheckArrays(str_values, *col->data()->chunk(0));
   }
 }

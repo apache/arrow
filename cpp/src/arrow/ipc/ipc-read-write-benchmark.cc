@@ -42,8 +42,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
   std::vector<T> values;
   test::randint<T>(length, 0, 100, &values);
 
-  MemoryPool* pool = default_memory_pool();
-  typename TypeTraits<TYPE>::BuilderType builder(pool, type);
+  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
   for (size_t i = 0; i < values.size(); ++i) {
     if (is_valid[i]) {
       ABORT_NOT_OK(builder.Append(values[i]));
@@ -80,7 +79,7 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
     int32_t metadata_length;
     int64_t body_length;
     if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-            default_memory_pool())
+                               default_memory_pool())
              .ok()) {
       state.SkipWithError("Failed to write!");
     }
@@ -101,7 +100,7 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
   int32_t metadata_length;
   int64_t body_length;
   if (!ipc::WriteRecordBatch(*record_batch, 0, &stream, &metadata_length, &body_length,
-          default_memory_pool())
+                             default_memory_pool())
            .ok()) {
     state.SkipWithError("Failed to write!");
   }

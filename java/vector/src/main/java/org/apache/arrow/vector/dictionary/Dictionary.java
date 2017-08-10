@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
+
 package org.apache.arrow.vector.dictionary;
 
 import java.util.Objects;
@@ -53,8 +54,12 @@ public class Dictionary {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     Dictionary that = (Dictionary) o;
     return Objects.equals(encoding, that.encoding) && Objects.equals(dictionary, that.dictionary);
   }

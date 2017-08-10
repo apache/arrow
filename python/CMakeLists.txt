@@ -51,9 +51,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
+  option(PYARROW_BUILD_PLASMA
+    "Build the PyArrow Plasma integration"
+    OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
+  set(PYARROW_CXXFLAGS "" CACHE STRING
+    "Compiler flags to append when compiling Arrow")
 endif()
 
 find_program(CCACHE_FOUND ccache)
@@ -72,6 +77,7 @@ include(CompilerInfo)
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
 if (NOT MSVC)
   # Enable perf and other tools to work properly
@@ -79,6 +85,17 @@ if (NOT MSVC)
 
   # Suppress Cython warnings
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+else()
+  # MSVC version of -Wno-return-type-c-linkage
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
+
+  # Cython generates some bitshift expressions that MSVC does not like in
+  # __Pyx_PyFloat_DivideObjC
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
+
+  # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
+  # seem harmless, and probably not worth the effort of working around it
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -90,79 +107,17 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
   # Cython warnings in clang
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality -Wno-constant-logical-operand")
-endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
 
-set(PYARROW_LINK "a")
+  # We have public Cython APIs which return C++ types, which are in an extern
+  # "C" blog (no symbol mangling) and clang doesn't like this
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+endif()
 
 # For any C code, use the same flags.
 set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS}")
-
-# Code coverage
-if ("${PYARROW_GENERATE_COVERAGE}")
-  if("${CMAKE_CXX_COMPILER}" MATCHES ".*clang.*")
-    # There appears to be some bugs in clang 3.3 which cause code coverage
-    # to have link errors, not locating the llvm_gcda_* symbols.
-    # This should be fixed in llvm 3.4 with http://llvm.org/viewvc/llvm-project?view=revision&revision=184666
-    message(SEND_ERROR "Cannot currently generate coverage with clang")
-  endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -DCOVERAGE_BUILD")
-
-  # For coverage to work properly, we need to use static linkage. Otherwise,
-  # __gcov_flush() doesn't properly flush coverage from every module.
-  # See http://stackoverflow.com/questions/28164543/using-gcov-flush-within-a-library-doesnt-force-the-other-modules-to-yield-gc
-  if("${PYARROW_LINK}" STREQUAL "a")
-    message("Using static linking for coverage build")
-    set(PYARROW_LINK "s")
-  elseif("${PYARROW_LINK}" STREQUAL "d")
-    message(SEND_ERROR "Cannot use coverage with static linking")
-  endif()
-endif()
-
-# If we still don't know what kind of linking to perform, choose based on
-# build type (developers like fast builds).
-if ("${PYARROW_LINK}" STREQUAL "a")
-  if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG" OR
-      "${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-    message("Using dynamic linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "d")
-  else()
-    message("Using static linking for ${CMAKE_BUILD_TYPE} builds")
-    set(PYARROW_LINK "s")
-  endif()
-endif()
-
-# Are we using the gold linker? It doesn't work with dynamic linking as
-# weak symbols aren't properly overridden, causing tcmalloc to be omitted.
-# Let's flag this as an error in RELEASE builds (we shouldn't release a
-# product like this).
-#
-# See https://sourceware.org/bugzilla/show_bug.cgi?id=16979 for details.
-#
-# The gold linker is only for ELF binaries, which OSX doesn't use. We can
-# just skip.
-if (NOT APPLE AND NOT MSVC)
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} -Wl,--version OUTPUT_VARIABLE LINKER_OUTPUT)
-endif ()
-
-if (LINKER_OUTPUT MATCHES "gold")
-  if ("${PYARROW_LINK}" STREQUAL "d" AND
-      "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    message(SEND_ERROR "Cannot use gold with dynamic linking in a RELEASE build "
-      "as it would cause tcmalloc symbols to get dropped")
-  else()
-    message("Using gold linker")
-  endif()
-  set(PYARROW_USING_GOLD 1)
-else()
-  message("Using ld linker")
-endif()
-
-# Having set PYARROW_LINK due to build type and/or sanitizer, it's now safe to
-# act on its value.
-if ("${PYARROW_LINK}" STREQUAL "d")
-  set(BUILD_SHARED_LIBS ON)
-endif()
 
 # set compile output directory
 string (TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
@@ -331,6 +286,29 @@ if (PYARROW_BUILD_PARQUET)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)
+endif()
+
+## Plasma
+if (PYARROW_BUILD_PLASMA)
+  find_package(Plasma)
+
+  if(NOT PLASMA_FOUND)
+    message(FATAL_ERROR "Unable to locate Plasma libraries")
+  endif()
+
+  include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(libplasma
+    SHARED_LIB ${PLASMA_SHARED_LIB})
+
+  if (PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(PLASMA_SHARED_LIB)
+  endif()
+  set(LINK_LIBS
+    ${LINK_LIBS}
+    libplasma_shared)
+
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
+  file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
 
 ############################################################

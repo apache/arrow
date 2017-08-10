@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.stream;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -35,22 +36,23 @@ import java.util.List;
 
 public class ArrowStreamWriter extends ArrowWriter {
 
-    public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, OutputStream out) {
-       this(root, provider, Channels.newChannel(out));
-    }
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, OutputStream out) {
+    this(root, provider, Channels.newChannel(out));
+  }
 
-    public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-       super(root, provider, out);
-    }
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
+    super(root, provider, out);
+  }
 
-    @Override
-    protected void startInternal(WriteChannel out) throws IOException {}
+  @Override
+  protected void startInternal(WriteChannel out) throws IOException {
+  }
 
-    @Override
-    protected void endInternal(WriteChannel out,
-                               Schema schema,
-                               List<ArrowBlock> dictionaries,
-                               List<ArrowBlock> records) throws IOException {
-       out.writeIntLittleEndian(0);
-    }
+  @Override
+  protected void endInternal(WriteChannel out,
+                             Schema schema,
+                             List<ArrowBlock> dictionaries,
+                             List<ArrowBlock> records) throws IOException {
+    out.writeIntLittleEndian(0);
+  }
 }

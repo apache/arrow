@@ -21,6 +21,4 @@
 #include "arrow/python/init.h"
 #include "arrow/python/numpy_interop.h"
 
-int arrow_init_numpy() {
-  return arrow::py::import_numpy();
-}
+int arrow_init_numpy() { return arrow::py::import_numpy(); }

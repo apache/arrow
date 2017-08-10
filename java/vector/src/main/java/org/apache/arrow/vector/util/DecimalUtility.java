@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.util;
 
 import io.netty.buffer.ArrowBuf;
@@ -32,39 +33,39 @@ public class DecimalUtility {
   public final static int MAX_DIGITS = 9;
   public final static int DIGITS_BASE = 1000000000;
   public final static int DIGITS_MAX = 999999999;
-  public final static int INTEGER_SIZE = (Integer.SIZE/8);
+  public final static int INTEGER_SIZE = (Integer.SIZE / 8);
 
   public final static String[] decimalToString = {"",
-          "0",
-          "00",
-          "000",
-          "0000",
-          "00000",
-          "000000",
-          "0000000",
-          "00000000",
-          "000000000"};
+      "0",
+      "00",
+      "000",
+      "0000",
+      "00000",
+      "000000",
+      "0000000",
+      "00000000",
+      "000000000"};
 
   public final static long[] scale_long_constants = {
-          1,
-          10,
-          100,
-          1000,
-          10000,
-          100000,
-          1000000,
-          10000000,
-          100000000,
-          1000000000,
-          10000000000l,
-          100000000000l,
-          1000000000000l,
-          10000000000000l,
-          100000000000000l,
-          1000000000000000l,
-          10000000000000000l,
-          100000000000000000l,
-          1000000000000000000l};
+      1,
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000,
+      10000000,
+      100000000,
+      1000000000,
+      10000000000l,
+      100000000000l,
+      1000000000000l,
+      10000000000000l,
+      100000000000000l,
+      1000000000000000l,
+      10000000000000000l,
+      100000000000000000l,
+      1000000000000000000l};
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
 

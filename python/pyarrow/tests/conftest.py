@@ -18,17 +18,34 @@
 from pytest import skip
 
 
-groups = ['hdfs', 'parquet', 'large_memory']
+groups = [
+    'hdfs',
+    'parquet',
+    'plasma',
+    'large_memory',
+    's3',
+]
+
 
 defaults = {
     'hdfs': False,
+    'large_memory': False,
     'parquet': False,
-    'large_memory': False
+    'plasma': False,
+    'large_memory': False,
+    's3': False,
 }
 
 try:
     import pyarrow.parquet  # noqa
     defaults['parquet'] = True
+except ImportError:
+    pass
+
+
+try:
+    import pyarrow.plasma as plasma  # noqa
+    defaults['plasma'] = True
 except ImportError:
     pass
 
@@ -44,6 +61,11 @@ def pytest_addoption(parser):
                          help=('Enable the {0} test group'.format(group)))
 
     for group in groups:
+        parser.addoption('--disable-{0}'.format(group), action='store_true',
+                         default=False,
+                         help=('Disable the {0} test group'.format(group)))
+
+    for group in groups:
         parser.addoption('--only-{0}'.format(group), action='store_true',
                          default=False,
                          help=('Run only the {0} test group'.format(group)))
@@ -54,12 +76,14 @@ def pytest_runtest_setup(item):
 
     for group in groups:
         only_flag = '--only-{0}'.format(group)
+        disable_flag = '--disable-{0}'.format(group)
         flag = '--{0}'.format(group)
 
         if item.config.getoption(only_flag):
             only_set = True
         elif getattr(item.obj, group, None):
-            if not item.config.getoption(flag):
+            if (item.config.getoption(disable_flag) or
+                    not item.config.getoption(flag)):
                 skip('{0} NOT enabled'.format(flag))
 
     if only_set:

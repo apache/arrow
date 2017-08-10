@@ -21,8 +21,8 @@
 #ifndef ARROW_UTIL_RLE_ENCODING_H
 #define ARROW_UTIL_RLE_ENCODING_H
 
-#include <algorithm>
 #include <math.h>
+#include <algorithm>
 
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
@@ -122,7 +122,8 @@ class RleDecoder {
   /// Like GetBatchWithDict but add spacing for null entries
   template <typename T>
   int GetBatchWithDictSpaced(const T* dictionary, T* values, int batch_size,
-      int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset);
+                             int null_count, const uint8_t* valid_bits,
+                             int64_t valid_bits_offset);
 
  protected:
   BitReader bit_reader_;
@@ -289,7 +290,7 @@ inline int RleDecoder::GetBatch(T* values, int batch_size) {
       int repeat_batch =
           std::min(batch_size - values_read, static_cast<int>(repeat_count_));
       std::fill(values + values_read, values + values_read + repeat_batch,
-          static_cast<T>(current_value_));
+                static_cast<T>(current_value_));
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
     } else if (literal_count_ > 0) {
@@ -318,7 +319,7 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, T* values, int batc
       int repeat_batch =
           std::min(batch_size - values_read, static_cast<int>(repeat_count_));
       std::fill(values + values_read, values + values_read + repeat_batch,
-          dictionary[current_value_]);
+                dictionary[current_value_]);
       repeat_count_ -= repeat_batch;
       values_read += repeat_batch;
     } else if (literal_count_ > 0) {
@@ -345,8 +346,9 @@ inline int RleDecoder::GetBatchWithDict(const T* dictionary, T* values, int batc
 
 template <typename T>
 inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
-    int batch_size, int null_count, const uint8_t* valid_bits,
-    int64_t valid_bits_offset) {
+                                              int batch_size, int null_count,
+                                              const uint8_t* valid_bits,
+                                              int64_t valid_bits_offset) {
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
@@ -379,8 +381,8 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
         std::fill(values + values_read, values + values_read + repeat_batch, value);
         values_read += repeat_batch;
       } else if (literal_count_ > 0) {
-        int literal_batch = std::min(
-            batch_size - values_read - remaining_nulls, static_cast<int>(literal_count_));
+        int literal_batch = std::min(batch_size - values_read - remaining_nulls,
+                                     static_cast<int>(literal_count_));
 
         // Decode the literals
         constexpr int kBufferSize = 1024;
@@ -434,7 +436,7 @@ bool RleDecoder::NextCounts() {
     repeat_count_ = indicator_value >> 1;
     bool result =
         bit_reader_.GetAligned<T>(static_cast<int>(BitUtil::Ceil(bit_width_, 8)),
-            reinterpret_cast<T*>(&current_value_));
+                                  reinterpret_cast<T*>(&current_value_));
     DCHECK(result);
   }
   return true;
@@ -509,8 +511,8 @@ inline void RleEncoder::FlushRepeatedRun() {
   // The lsb of 0 indicates this is a repeated run
   int32_t indicator_value = repeat_count_ << 1 | 0;
   result &= bit_writer_.PutVlqInt(indicator_value);
-  result &= bit_writer_.PutAligned(
-      current_value_, static_cast<int>(BitUtil::Ceil(bit_width_, 8)));
+  result &= bit_writer_.PutAligned(current_value_,
+                                   static_cast<int>(BitUtil::Ceil(bit_width_, 8)));
   DCHECK(result);
   num_buffered_values_ = 0;
   repeat_count_ = 0;
@@ -552,7 +554,7 @@ inline void RleEncoder::FlushBufferedValues(bool done) {
 inline int RleEncoder::Flush() {
   if (literal_count_ > 0 || repeat_count_ > 0 || num_buffered_values_ > 0) {
     bool all_repeat = literal_count_ == 0 && (repeat_count_ == num_buffered_values_ ||
-                                                 num_buffered_values_ == 0);
+                                              num_buffered_values_ == 0);
     // There is something pending, figure out if it's a repeated or literal run
     if (repeat_count_ > 0 && all_repeat) {
       FlushRepeatedRun();

@@ -34,7 +34,7 @@ class Status;
 
 namespace io {
 
-class HdfsClient;
+class HadoopFileSystem;
 class HdfsReadableFile;
 class HdfsOutputStream;
 
@@ -66,29 +66,31 @@ struct HdfsConnectionConfig {
   HdfsDriver driver;
 };
 
-class ARROW_EXPORT HdfsClient : public FileSystemClient {
+class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
-  ~HdfsClient();
+  ~HadoopFileSystem();
 
   // Connect to an HDFS cluster given a configuration
   //
   // @param config (in): configuration for connecting
   // @param fs (out): the created client
   // @returns Status
-  static Status Connect(
-      const HdfsConnectionConfig* config, std::shared_ptr<HdfsClient>* fs);
+  static Status Connect(const HdfsConnectionConfig* config,
+                        std::shared_ptr<HadoopFileSystem>* fs);
 
   // Create directory and all parents
   //
   // @param path (in): absolute HDFS path
   // @returns Status
-  Status MakeDirectory(const std::string& path);
+  Status MakeDirectory(const std::string& path) override;
 
   // Delete file or directory
   // @param path: absolute path to data
   // @param recursive: if path is a directory, delete contents as well
   // @returns error status on failure
   Status Delete(const std::string& path, bool recursive = false);
+
+  Status DeleteDirectory(const std::string& path) override;
 
   // Disconnect from cluster
   //
@@ -112,18 +114,29 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // @returns Status
   Status GetUsed(int64_t* nbytes);
 
+  Status GetChildren(const std::string& path, std::vector<std::string>* listing) override;
+
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
 
-  // @param path file path to change
-  // @param owner pass nullptr for no change
-  // @param group pass nullptr for no change
+  /// Change
+  ///
+  /// @param path file path to change
+  /// @param owner pass nullptr for no change
+  /// @param group pass nullptr for no change
   Status Chown(const std::string& path, const char* owner, const char* group);
 
+  /// Change path permissions
+  ///
+  /// \param path Absolute path in file system
+  /// \param mode Mode bitset
+  /// \return Status
   Status Chmod(const std::string& path, int mode);
 
   // Move file or directory from source path to destination path within the
   // current filesystem
-  Status Rename(const std::string& src, const std::string& dst);
+  Status Rename(const std::string& src, const std::string& dst) override;
+
+  Status Stat(const std::string& path, FileStatistics* stat) override;
 
   // TODO(wesm): GetWorkingDirectory, SetWorkingDirectory
 
@@ -132,7 +145,7 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   //
   // @param path complete file path
   Status OpenReadable(const std::string& path, int32_t buffer_size,
-      std::shared_ptr<HdfsReadableFile>* file);
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
 
@@ -142,22 +155,27 @@ class ARROW_EXPORT HdfsClient : public FileSystemClient {
   // @param replication, 0 for default
   // @param default_block_size, 0 for default
   Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-      int16_t replication, int64_t default_block_size,
-      std::shared_ptr<HdfsOutputStream>* file);
+                       int16_t replication, int64_t default_block_size,
+                       std::shared_ptr<HdfsOutputStream>* file);
 
-  Status OpenWriteable(
-      const std::string& path, bool append, std::shared_ptr<HdfsOutputStream>* file);
+  Status OpenWriteable(const std::string& path, bool append,
+                       std::shared_ptr<HdfsOutputStream>* file);
 
  private:
   friend class HdfsReadableFile;
   friend class HdfsOutputStream;
 
-  class ARROW_NO_EXPORT HdfsClientImpl;
-  std::unique_ptr<HdfsClientImpl> impl_;
+  class ARROW_NO_EXPORT HadoopFileSystemImpl;
+  std::unique_ptr<HadoopFileSystemImpl> impl_;
 
-  HdfsClient();
-  DISALLOW_COPY_AND_ASSIGN(HdfsClient);
+  HadoopFileSystem();
+  DISALLOW_COPY_AND_ASSIGN(HadoopFileSystem);
 };
+
+// 0.6.0
+#ifndef ARROW_NO_DEPRECATED_API
+using HdfsClient = HadoopFileSystem;
+#endif
 
 class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
@@ -173,8 +191,8 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  Status ReadAt(
-      int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* buffer) override;
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
@@ -191,7 +209,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;
 
-  friend class HdfsClient::HdfsClientImpl;
+  friend class HadoopFileSystem::HadoopFileSystemImpl;
 
   DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
@@ -216,7 +234,7 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
   class ARROW_NO_EXPORT HdfsOutputStreamImpl;
   std::unique_ptr<HdfsOutputStreamImpl> impl_;
 
-  friend class HdfsClient::HdfsClientImpl;
+  friend class HadoopFileSystem::HadoopFileSystemImpl;
 
   HdfsOutputStream();
 

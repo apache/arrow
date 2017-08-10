@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.util.Iterator;
@@ -66,7 +67,8 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseAccessor implements ValueVector.Accessor {
-    protected BaseAccessor() { }
+    protected BaseAccessor() {
+    }
 
     @Override
     public boolean isNull(int index) {
@@ -79,7 +81,7 @@ public abstract class BaseValueVector implements ValueVector {
       int nullCount = 0;
       for (int i = 0; i < getValueCount(); i++) {
         if (isNull(i)) {
-          nullCount ++;
+          nullCount++;
         }
       }
       return nullCount;
@@ -87,14 +89,17 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public abstract static class BaseMutator implements ValueVector.Mutator {
-    protected BaseMutator() { }
+    protected BaseMutator() {
+    }
 
     @Override
-    public void generateTestData(int values) {}
+    public void generateTestData(int values) {
+    }
 
     //TODO: consider making mutator stateless(if possible) on another issue.
     @Override
-    public void reset() {}
+    public void reset() {
+    }
   }
 
   @Override
@@ -103,7 +108,7 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   public static boolean checkBufRefs(final ValueVector vv) {
-    for(final ArrowBuf buffer : vv.getBuffers(false)) {
+    for (final ArrowBuf buffer : vv.getBuffers(false)) {
       if (buffer.refCnt() <= 0) {
         throw new IllegalStateException("zero refcount");
       }

@@ -36,9 +36,7 @@
 namespace arrow {
 namespace py {
 
-TEST(PyBuffer, InvalidInputObject) {
-  PyBuffer buffer(Py_None);
-}
+TEST(PyBuffer, InvalidInputObject) { PyBuffer buffer(Py_None); }
 
 TEST(DecimalTest, TestPythonDecimalToString) {
   PyAcquireGIL lock;
@@ -58,8 +56,8 @@ TEST(DecimalTest, TestPythonDecimalToString) {
 
   auto c_string_size = decimal_string.size();
   ASSERT_GT(c_string_size, 0);
-  OwnedRef pydecimal(PyObject_CallFunction(
-      Decimal.obj(), const_cast<char*>(format), c_string, c_string_size));
+  OwnedRef pydecimal(PyObject_CallFunction(Decimal.obj(), const_cast<char*>(format),
+                                           c_string, c_string_size));
   ASSERT_NE(pydecimal.obj(), nullptr);
   ASSERT_EQ(PyErr_Occurred(), nullptr);
 
@@ -73,7 +71,7 @@ TEST(DecimalTest, TestPythonDecimalToString) {
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
-  StringBuilder builder(default_memory_pool());
+  StringBuilder builder;
   const char value[] = {'\xf1', '\0'};
 
   for (int i = 0; i < 1000; ++i) {
@@ -87,15 +85,16 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   auto f2 = field("f2", utf8());
   auto f3 = field("f3", utf8());
   std::vector<std::shared_ptr<Field>> fields = {f1, f2, f3};
-  std::vector<std::shared_ptr<Column>> cols = {std::make_shared<Column>(f1, arr),
-      std::make_shared<Column>(f2, arr), std::make_shared<Column>(f3, arr)};
+  std::vector<std::shared_ptr<Array>> cols = {arr, arr, arr};
 
   auto schema = std::make_shared<Schema>(fields);
   auto table = std::make_shared<Table>(schema, cols);
 
   PyObject* out;
   Py_BEGIN_ALLOW_THREADS;
-  ASSERT_RAISES(UnknownError, ConvertTableToPandas(table, 2, &out));
+  PandasOptions options;
+  MemoryPool* pool = default_memory_pool();
+  ASSERT_RAISES(UnknownError, ConvertTableToPandas(options, table, 2, pool, &out));
   Py_END_ALLOW_THREADS;
 }
 

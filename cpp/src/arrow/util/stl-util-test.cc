@@ -25,6 +25,7 @@
 #include "arrow/test-util.h"
 
 namespace arrow {
+namespace internal {
 
 TEST(StlUtilTest, VectorAddRemoveTest) {
   std::vector<int> values;
@@ -57,4 +58,5 @@ TEST(StlUtilTest, VectorAddRemoveTest) {
   EXPECT_TRUE(result3.empty());
 }
 
+}  // namespace internal
 }  // namespace arrow

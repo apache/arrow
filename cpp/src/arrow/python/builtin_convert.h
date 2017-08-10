@@ -39,14 +39,15 @@ class Status;
 
 namespace py {
 
-ARROW_EXPORT arrow::Status InferArrowType(
-    PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
+ARROW_EXPORT arrow::Status InferArrowType(PyObject* obj,
+                                          std::shared_ptr<arrow::DataType>* out_type);
 ARROW_EXPORT arrow::Status InferArrowTypeAndSize(
     PyObject* obj, int64_t* size, std::shared_ptr<arrow::DataType>* out_type);
 ARROW_EXPORT arrow::Status InferArrowSize(PyObject* obj, int64_t* size);
 
 ARROW_EXPORT arrow::Status AppendPySequence(PyObject* obj, int64_t size,
-    const std::shared_ptr<arrow::DataType>& type, arrow::ArrayBuilder* builder);
+                                            const std::shared_ptr<arrow::DataType>& type,
+                                            arrow::ArrayBuilder* builder);
 
 // Type and size inference
 ARROW_EXPORT
@@ -55,19 +56,19 @@ Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>
 // Size inference
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-    const std::shared_ptr<DataType>& type);
+                         const std::shared_ptr<DataType>& type);
 
 // No inference
 ARROW_EXPORT
 Status ConvertPySequence(PyObject* obj, MemoryPool* pool, std::shared_ptr<Array>* out,
-    const std::shared_ptr<DataType>& type, int64_t size);
+                         const std::shared_ptr<DataType>& type, int64_t size);
 
 ARROW_EXPORT
-Status InvalidConversion(
-    PyObject* obj, const std::string& expected_type_name, std::ostream* out);
+Status InvalidConversion(PyObject* obj, const std::string& expected_type_name,
+                         std::ostream* out);
 
-ARROW_EXPORT Status CheckPythonBytesAreFixedLength(
-    PyObject* obj, Py_ssize_t expected_length);
+ARROW_EXPORT Status CheckPythonBytesAreFixedLength(PyObject* obj,
+                                                   Py_ssize_t expected_length);
 
 }  // namespace py
 }  // namespace arrow

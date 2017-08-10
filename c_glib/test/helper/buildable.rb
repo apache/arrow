@@ -21,6 +21,10 @@ module Helper
       build_array(Arrow::BooleanArrayBuilder, values)
     end
 
+    def build_int_array(values)
+      build_array(Arrow::IntArrayBuilder, values)
+    end
+
     def build_int8_array(values)
       build_array(Arrow::Int8ArrayBuilder, values)
     end

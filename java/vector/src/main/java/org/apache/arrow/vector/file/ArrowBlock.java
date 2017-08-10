@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.file;
 
 import org.apache.arrow.flatbuf.Block;
@@ -64,19 +65,25 @@ public class ArrowBlock implements FBSerializable {
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj)
+    if (this == obj) {
       return true;
-    if (obj == null)
+    }
+    if (obj == null) {
       return false;
-    if (getClass() != obj.getClass())
+    }
+    if (getClass() != obj.getClass()) {
       return false;
+    }
     ArrowBlock other = (ArrowBlock) obj;
-    if (bodyLength != other.bodyLength)
+    if (bodyLength != other.bodyLength) {
       return false;
-    if (metadataLength != other.metadataLength)
+    }
+    if (metadataLength != other.metadataLength) {
       return false;
-    if (offset != other.offset)
+    }
+    if (offset != other.offset) {
       return false;
+    }
     return true;
   }
 }

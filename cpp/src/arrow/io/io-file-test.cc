@@ -43,9 +43,10 @@ static bool FileExists(const std::string& path) {
 
 #if defined(_MSC_VER)
 void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
-    const wchar_t* source_file, unsigned int source_line, uintptr_t reserved) {
-  wprintf(L"Invalid parameter in funcion %s. Source: %s line %d expression %s", func,
-      source_file, source_line, expr);
+                         const wchar_t* source_file, unsigned int source_line,
+                         uintptr_t reserved) {
+  wprintf(L"Invalid parameter in function %s. Source: %s line %d expression %s", func,
+          source_file, source_line, expr);
 }
 #endif
 
@@ -61,7 +62,9 @@ static bool FileIsClosed(int fd) {
   int ret = static_cast<int>(_close(fd));
   return (ret == -1);
 #else
-  if (-1 != fcntl(fd, F_GETFD)) { return false; }
+  if (-1 != fcntl(fd, F_GETFD)) {
+    return false;
+  }
   return errno == EBADF;
 #endif
 }
@@ -76,7 +79,9 @@ class FileTestFixture : public ::testing::Test {
   void TearDown() { EnsureFileDeleted(); }
 
   void EnsureFileDeleted() {
-    if (FileExists(path_)) { std::remove(path_.c_str()); }
+    if (FileExists(path_)) {
+      std::remove(path_.c_str());
+    }
   }
 
  protected:
@@ -315,7 +320,12 @@ TEST_F(TestReadableFile, ReadAt) {
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {
-  ASSERT_RAISES(IOError, ReadableFile::Open("0xDEADBEEF.txt", &file_));
+  std::string path = "0xDEADBEEF.txt";
+  Status s = ReadableFile::Open(path, &file_);
+  ASSERT_TRUE(s.IsIOError());
+
+  std::string message = s.message();
+  ASSERT_NE(std::string::npos, message.find(path));
 }
 
 class MyMemoryPool : public MemoryPool {
@@ -382,7 +392,9 @@ TEST_F(TestReadableFile, ThreadSafety) {
 
     for (int i = 0; i < niter; ++i) {
       ASSERT_OK(file_->ReadAt(0, 3, &buffer));
-      if (0 == memcmp(data.c_str(), buffer->data(), 3)) { correct_count += 1; }
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
+        correct_count += 1;
+      }
     }
   };
 
@@ -547,8 +559,8 @@ TEST_F(TestMemoryMappedFile, InvalidFile) {
   std::string non_existent_path = "invalid-file-name-asfd";
 
   std::shared_ptr<MemoryMappedFile> result;
-  ASSERT_RAISES(
-      IOError, MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
+  ASSERT_RAISES(IOError,
+                MemoryMappedFile::Open(non_existent_path, FileMode::READ, &result));
 }
 
 TEST_F(TestMemoryMappedFile, CastableToFileInterface) {
@@ -563,8 +575,8 @@ TEST_F(TestMemoryMappedFile, ThreadSafety) {
 
   std::shared_ptr<MemoryMappedFile> file;
   ASSERT_OK(MemoryMappedFile::Open(path, FileMode::READWRITE, &file));
-  ASSERT_OK(file->Write(
-      reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<int64_t>(data.size())));
+  ASSERT_OK(file->Write(reinterpret_cast<const uint8_t*>(data.c_str()),
+                        static_cast<int64_t>(data.size())));
 
   std::atomic<int> correct_count(0);
   const int niter = 10000;
@@ -574,7 +586,9 @@ TEST_F(TestMemoryMappedFile, ThreadSafety) {
 
     for (int i = 0; i < niter; ++i) {
       ASSERT_OK(file->ReadAt(0, 3, &buffer));
-      if (0 == memcmp(data.c_str(), buffer->data(), 3)) { correct_count += 1; }
+      if (0 == memcmp(data.c_str(), buffer->data(), 3)) {
+        correct_count += 1;
+      }
     }
   };
 

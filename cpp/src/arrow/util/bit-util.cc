@@ -36,12 +36,14 @@ namespace arrow {
 
 void BitUtil::FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] > 0) { SetBit(bits, i); }
+    if (bytes[i] > 0) {
+      SetBit(bits, i);
+    }
   }
 }
 
-Status BitUtil::BytesToBits(
-    const std::vector<uint8_t>& bytes, std::shared_ptr<Buffer>* out) {
+Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes,
+                            std::shared_ptr<Buffer>* out) {
   int64_t bit_length = BitUtil::BytesForBits(bytes.size());
 
   std::shared_ptr<MutableBuffer> buffer;
@@ -65,7 +67,9 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   // The number of bits until fast_count_start
   const int64_t initial_bits = std::min(length, fast_count_start - bit_offset);
   for (int64_t i = bit_offset; i < bit_offset + initial_bits; ++i) {
-    if (BitUtil::GetBit(data, i)) { ++count; }
+    if (BitUtil::GetBit(data, i)) {
+      ++count;
+    }
   }
 
   const int64_t fast_counts = (length - initial_bits) / pop_len;
@@ -85,21 +89,23 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   // versions of popcount but the code complexity is likely not worth it)
   const int64_t tail_index = bit_offset + initial_bits + fast_counts * pop_len;
   for (int64_t i = tail_index; i < bit_offset + length; ++i) {
-    if (BitUtil::GetBit(data, i)) { ++count; }
+    if (BitUtil::GetBit(data, i)) {
+      ++count;
+    }
   }
 
   return count;
 }
 
-Status GetEmptyBitmap(
-    MemoryPool* pool, int64_t length, std::shared_ptr<MutableBuffer>* result) {
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length,
+                      std::shared_ptr<MutableBuffer>* result) {
   RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
   memset((*result)->mutable_data(), 0, static_cast<size_t>((*result)->size()));
   return Status::OK();
 }
 
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
-    std::shared_ptr<Buffer>* out) {
+                  std::shared_ptr<Buffer>* out) {
   std::shared_ptr<MutableBuffer> buffer;
   RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
@@ -111,12 +117,14 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
-    int64_t right_offset, int64_t bit_length) {
+                  int64_t right_offset, int64_t bit_length) {
   if (left_offset % 8 == 0 && right_offset % 8 == 0) {
     // byte aligned, can use memcmp
     bool bytes_equal = std::memcmp(left + left_offset / 8, right + right_offset / 8,
-                           bit_length / 8) == 0;
-    if (!bytes_equal) { return false; }
+                                   bit_length / 8) == 0;
+    if (!bytes_equal) {
+      return false;
+    }
     for (int64_t i = (bit_length / 8) * 8; i < bit_length; ++i) {
       if (BitUtil::GetBit(left, left_offset + i) !=
           BitUtil::GetBit(right, right_offset + i)) {

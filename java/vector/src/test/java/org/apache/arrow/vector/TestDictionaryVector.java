@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
@@ -35,8 +36,8 @@ public class TestDictionaryVector {
   private BufferAllocator allocator;
 
   byte[] zero = "foo".getBytes(StandardCharsets.UTF_8);
-  byte[] one  = "bar".getBytes(StandardCharsets.UTF_8);
-  byte[] two  = "baz".getBytes(StandardCharsets.UTF_8);
+  byte[] one = "bar".getBytes(StandardCharsets.UTF_8);
+  byte[] two = "baz".getBytes(StandardCharsets.UTF_8);
 
   @Before
   public void init() {
@@ -74,7 +75,7 @@ public class TestDictionaryVector {
 
       Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
-      try(final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
+      try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
         assertEquals(NullableIntVector.class, encoded.getClass());
 

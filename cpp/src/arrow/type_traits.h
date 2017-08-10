@@ -31,6 +31,7 @@ struct TypeTraits {};
 template <>
 struct TypeTraits<NullType> {
   using ArrayType = NullArray;
+  using BuilderType = NullBuilder;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -296,6 +297,8 @@ struct TypeTraits<DictionaryType> {
   constexpr static bool is_parameter_free = false;
 };
 
+namespace detail {
+
 // Not all type classes have a c_type
 template <typename T>
 struct as_void {
@@ -319,10 +322,13 @@ GET_ATTR(TypeClass, void);
 
 #undef GET_ATTR
 
-#define PRIMITIVE_TRAITS(T)                                                           \
-  using TypeClass = typename std::conditional<std::is_base_of<DataType, T>::value, T, \
-      typename GetAttr_TypeClass<T>::type>::type;                                     \
-  using c_type = typename GetAttr_c_type<TypeClass>::type;
+}  // namespace detail
+
+#define PRIMITIVE_TRAITS(T)                                                         \
+  using TypeClass =                                                                 \
+      typename std::conditional<std::is_base_of<DataType, T>::value, T,             \
+                                typename detail::GetAttr_TypeClass<T>::type>::type; \
+  using c_type = typename detail::GetAttr_c_type<TypeClass>::type;
 
 template <typename T>
 struct IsUnsignedInt {

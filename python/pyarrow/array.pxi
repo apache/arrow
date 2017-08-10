@@ -16,30 +16,6 @@
 # under the License.
 
 
-cdef maybe_coerce_datetime64(values, dtype, DataType type,
-                             timestamps_to_ms=False):
-
-    from pyarrow.compat import DatetimeTZDtype
-
-    if values.dtype.type != np.datetime64:
-        return values, type
-
-    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
-
-    if coerce_ms:
-        values = values.astype('datetime64[ms]')
-
-    if isinstance(dtype, DatetimeTZDtype):
-        tz = dtype.tz
-        unit = 'ms' if coerce_ms else dtype.unit
-        type = timestamp(unit, tz)
-    elif type is None:
-        # Trust the NumPy dtype
-        type = from_numpy_dtype(values.dtype)
-
-    return values, type
-
-
 def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
           size=None):
     """
@@ -66,28 +42,50 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
     array : pyarrow.Array
     """
     cdef:
-       shared_ptr[CArray] sp_array
-       CMemoryPool* pool
+        shared_ptr[CArray] sp_array
+        CMemoryPool* pool
+        int64_t c_size
 
     pool = maybe_unbox_memory_pool(memory_pool)
     if type is None:
-        check_status(ConvertPySequence(sequence, pool, &sp_array))
+        with nogil:
+            check_status(ConvertPySequence(sequence, pool, &sp_array))
     else:
         if size is None:
-            check_status(
-                ConvertPySequence(
-                    sequence, pool, &sp_array, type.sp_type
+            with nogil:
+                check_status(
+                    ConvertPySequence(
+                        sequence, pool, &sp_array, type.sp_type
+                    )
                 )
-             )
         else:
-            check_status(
-                ConvertPySequence(
-                    sequence, pool, &sp_array, type.sp_type, size
+            c_size = size
+            with nogil:
+                check_status(
+                    ConvertPySequence(
+                        sequence, pool, &sp_array, type.sp_type, c_size
+                    )
                 )
-             )
 
     return pyarrow_wrap_array(sp_array)
 
+
+def _normalize_slice(object arrow_obj, slice key):
+    cdef Py_ssize_t n = len(arrow_obj)
+
+    start = key.start or 0
+    while start < 0:
+        start += n
+
+    stop = key.stop if key.stop is not None else n
+    while stop < 0:
+        stop += n
+
+    step = key.step or 1
+    if step != 1:
+        raise IndexError('only slices with step 1 supported')
+    else:
+        return arrow_obj.slice(start, stop - start)
 
 
 cdef class Array:
@@ -98,7 +96,8 @@ cdef class Array:
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
 
     def _debug_print(self):
-        check_status(DebugPrint(deref(self.ap), 0))
+        with nogil:
+            check_status(DebugPrint(deref(self.ap), 0))
 
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,
@@ -172,7 +171,8 @@ cdef class Array:
         if isinstance(values, Categorical):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
-                mask=mask, memory_pool=memory_pool)
+                mask=mask, ordered=values.ordered,
+                memory_pool=memory_pool)
         elif values.dtype == object:
             # Object dtype undergoes a different conversion path as more type
             # inference may be needed
@@ -187,11 +187,13 @@ cdef class Array:
             else:
                 out = chunked_out.get().chunk(0)
         else:
-            values, type = maybe_coerce_datetime64(
+            values, type = pdcompat.maybe_coerce_datetime64(
                 values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
 
             if type is None:
-                check_status(NumPyDtypeToArrow(values.dtype, &c_type))
+                dtype = values.dtype
+                with nogil:
+                    check_status(NumPyDtypeToArrow(dtype, &c_type))
             else:
                 c_type = type.sp_type
 
@@ -230,23 +232,10 @@ cdef class Array:
         raise NotImplemented
 
     def __getitem__(self, key):
-        cdef:
-            Py_ssize_t n = len(self)
+        cdef Py_ssize_t n = len(self)
 
         if PySlice_Check(key):
-            start = key.start or 0
-            while start < 0:
-                start += n
-
-            stop = key.stop if key.stop is not None else n
-            while stop < 0:
-                stop += n
-
-            step = key.step or 1
-            if step != 1:
-                raise IndexError('only slices with step 1 supported')
-            else:
-                return self.slice(start, stop - start)
+            return _normalize_slice(self, key)
 
         while key < 0:
             key += len(self)
@@ -285,9 +274,14 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self):
+    def to_pandas(self, c_bool strings_to_categorical=False):
         """
         Convert to an array object suitable for use in pandas
+
+        Parameters
+        ----------
+        strings_to_categorical : boolean, default False
+            Encode string (UTF8) and binary types to pandas.Categorical
 
         See also
         --------
@@ -297,9 +291,12 @@ cdef class Array:
         """
         cdef:
             PyObject* out
+            PandasOptions options
 
+        options = PandasOptions(strings_to_categorical=strings_to_categorical)
         with nogil:
-            check_status(ConvertArrayToPandas(self.sp_array, self, &out))
+            check_status(ConvertArrayToPandas(options, self.sp_array,
+                                              self, &out))
         return wrap_array_output(out)
 
     def to_pylist(self):
@@ -338,7 +335,9 @@ strides: {2}""".format(self.type, self.shape, self.strides)
     @staticmethod
     def from_numpy(obj):
         cdef shared_ptr[CTensor] ctensor
-        check_status(NdarrayToTensor(c_default_memory_pool(), obj, &ctensor))
+        with nogil:
+            check_status(NdarrayToTensor(c_default_memory_pool(), obj,
+                                         &ctensor))
         return pyarrow_wrap_tensor(ctensor)
 
     def to_numpy(self):
@@ -348,7 +347,8 @@ strides: {2}""".format(self.type, self.shape, self.strides)
         cdef:
             PyObject* out
 
-        check_status(TensorToNdarray(deref(self.tp), self, &out))
+        with nogil:
+            check_status(TensorToNdarray(deref(self.tp), self, &out))
         return PyObject_to_object(out)
 
     def equals(self, Tensor other):
@@ -394,7 +394,6 @@ strides: {2}""".format(self.type, self.shape, self.strides)
             for i in range(self.tp.strides().size()):
                 py_strides.append(self.tp.strides()[i])
             return py_strides
-
 
 
 cdef wrap_array_output(PyObject* output):
@@ -560,7 +559,7 @@ cdef class DictionaryArray(Array):
             return self._indices
 
     @staticmethod
-    def from_arrays(indices, dictionary, mask=None,
+    def from_arrays(indices, dictionary, mask=None, ordered=False,
                     MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
@@ -572,6 +571,8 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        ordered : boolean, default False
+            Set to True if the category values are ordered
 
         Returns
         -------
@@ -605,8 +606,10 @@ cdef class DictionaryArray(Array):
         if not isinstance(arrow_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
+        cdef c_bool c_ordered = ordered
+
         c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array))
+                                         arrow_dictionary.sp_array, c_ordered))
         c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
 
         result = DictionaryArray()
