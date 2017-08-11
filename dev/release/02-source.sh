@@ -89,10 +89,6 @@ git archive $release_hash --prefix ${tag}/ | tar xf -
 rm -rf ${tag}/c_glib
 mv tmp-c_glib ${tag}/c_glib
 
-# ARROW-1244 Remove cpp/src/plasma from source release until after IP clearance
-# is resolved
-rm -rf ${tag}/cpp/src/plasma
-
 # Create new tarball from modified source directory
 tar czf ${tarball} ${tag}
 rm -rf ${tag}
