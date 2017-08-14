@@ -789,8 +789,10 @@ class IntegrationRunner(object):
             self._compare_implementations(producer, consumer)
 
     def _compare_implementations(self, producer, consumer):
-        print('-- {0} producing, {1} consuming'.format(producer.name,
+        print('##########################################################')
+        print('{0} producing, {1} consuming'.format(producer.name,
                                                        consumer.name))
+        print('##########################################################')
 
         for json_path in self.json_files:
             print('==========================================================')
