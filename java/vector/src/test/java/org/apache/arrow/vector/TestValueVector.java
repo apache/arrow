@@ -17,6 +17,7 @@
  */
 
 package org.apache.arrow.vector;
+import org.apache.arrow.vector.util.OversizedAllocationException;
 
 import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
@@ -24,6 +25,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.nio.charset.Charset;
 import java.util.List;
@@ -64,38 +66,737 @@ public class TestValueVector {
   private final static byte[] STR4 = "DDDDDDDD4".getBytes(utf8Charset);
   private final static byte[] STR5 = "EEE5".getBytes(utf8Charset);
   private final static byte[] STR6 = "FFFFF6".getBytes(utf8Charset);
+  private final static int MAX_VALUE_COUNT =
+            Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE)/4;
+  private final static int MAX_VALUE_COUNT_8BYTE = MAX_VALUE_COUNT/2;
 
   @After
   public void terminate() throws Exception {
     allocator.close();
   }
 
-  @Test
-  public void testFixedType() {
+  /*
+   * Tests for Fixed-Width vectors
+   *
+   * Covered types as of now
+   *
+   *  -- UInt4Vector
+   *  -- IntVector
+   *  -- Float4Vector
+   *  -- Float8Vector
+   *
+   *  -- NullableUInt4Vector
+   *  -- NullableIntVector
+   *  -- NullableFloat4Vector
+   *
+   * TODO:
+   *
+   *  -- SmallIntVector
+   *  -- BigIntVector
+   *  -- TinyIntVector
+   */
+
+  @Test /* UInt4Vector */
+  public void testFixedType1() {
 
     // Create a new value vector for 1024 integers.
     try (final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator)) {
-      final UInt4Vector.Mutator m = vector.getMutator();
+
+      boolean error = false;
+      int initialCapacity = 0;
+      final UInt4Vector.Mutator mutator = vector.getMutator();
+      final UInt4Vector.Accessor accessor = vector.getAccessor();
+
       vector.allocateNew(1024);
+      initialCapacity = vector.getValueCapacity();
+      assertEquals(1024, initialCapacity);
 
       // Put and set a few values
-      m.setSafe(0, 100);
-      m.setSafe(1, 101);
-      m.setSafe(100, 102);
-      m.setSafe(1022, 103);
-      m.setSafe(1023, 104);
+      mutator.setSafe(0, 100);
+      mutator.setSafe(1, 101);
+      mutator.setSafe(100, 102);
+      mutator.setSafe(1022, 103);
+      mutator.setSafe(1023, 104);
 
-      final UInt4Vector.Accessor accessor = vector.getAccessor();
       assertEquals(100, accessor.get(0));
       assertEquals(101, accessor.get(1));
       assertEquals(102, accessor.get(100));
       assertEquals(103, accessor.get(1022));
       assertEquals(104, accessor.get(1023));
+
+      try {
+        mutator.set(1024, 10000);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      try {
+        accessor.get(1024);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(1024, 10000);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* check vector data after realloc */
+      assertEquals(100, accessor.get(0));
+      assertEquals(101, accessor.get(1));
+      assertEquals(102, accessor.get(100));
+      assertEquals(103, accessor.get(1022));
+      assertEquals(104, accessor.get(1023));
+      assertEquals(10000, accessor.get(1024));
+
+      /* reset the vector */
+      vector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should have been zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i));
+      }
     }
   }
 
-  @Test
-  public void testNullableVarLen2() {
+  @Test /* IntVector */
+  public void testFixedType2() {
+    try (final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+      final IntVector.Mutator mutator = intVector.getMutator();
+      final IntVector.Accessor accessor = intVector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      intVector.setInitialCapacity(MAX_VALUE_COUNT - 1);
+      intVector.setInitialCapacity(MAX_VALUE_COUNT);
+
+      try {
+        intVector.setInitialCapacity(MAX_VALUE_COUNT + 1);
+      }
+      catch (OversizedAllocationException oe) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      intVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, intVector.getValueCapacity());
+
+      /* allocate 64 bytes (16 * 4) */
+      intVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertEquals(initialCapacity, intVector.getValueCapacity());
+
+      /* populate the vector */
+      int j = 1;
+      for(int i = 0; i < 16; i += 2) {
+        mutator.set(i, j);
+        j++;
+      }
+
+      try {
+        mutator.set(16, 9);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      j = 1;
+      for(int i = 0; i < 16; i += 2) {
+        assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+        j++;
+      }
+
+      try {
+        accessor.get(16);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(16, 9);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, intVector.getValueCapacity());
+
+      /* vector data should still be intact after realloc */
+      j = 1;
+      for(int i = 0; i <= 16; i += 2) {
+        assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+        j++;
+      }
+
+      /* reset the vector */
+      intVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, intVector.getValueCapacity());
+
+      /* vector data should have been zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i));
+      }
+    }
+  }
+
+  @Test /* Float4Vector */
+  public void testFixedType3() {
+    try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      final Float4Vector.Mutator mutator = floatVector.getMutator();
+      final Float4Vector.Accessor accessor = floatVector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT - 1);
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT);
+
+      try {
+        floatVector.setInitialCapacity(MAX_VALUE_COUNT + 1);
+      }
+      catch (OversizedAllocationException oe) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      floatVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, floatVector.getValueCapacity());
+
+      /* allocate 64 bytes (16 * 4) */
+      floatVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertEquals(initialCapacity, floatVector.getValueCapacity());
+
+      floatVector.zeroVector();
+
+      /* populate the vector */
+      mutator.set(0, 1.5f);
+      mutator.set(2, 2.5f);
+      mutator.set(4, 3.3f);
+      mutator.set(6, 4.8f);
+      mutator.set(8, 5.6f);
+      mutator.set(10, 6.6f);
+      mutator.set(12, 7.8f);
+      mutator.set(14, 8.5f);
+
+      try {
+        mutator.set(16, 9.5f);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals(1.5f, accessor.get(0), 0);
+      assertEquals(2.5f, accessor.get(2), 0);
+      assertEquals(3.3f, accessor.get(4), 0);
+      assertEquals(4.8f, accessor.get(6), 0);
+      assertEquals(5.6f, accessor.get(8), 0);
+      assertEquals(6.6f, accessor.get(10), 0);
+      assertEquals(7.8f, accessor.get(12), 0);
+      assertEquals(8.5f, accessor.get(14), 0);
+
+      try {
+        accessor.get(16);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(16, 9.5f);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, floatVector.getValueCapacity());
+
+      /* vector data should still be intact after realloc */
+      assertEquals(1.5f, accessor.get(0), 0);
+      assertEquals(2.5f, accessor.get(2), 0);
+      assertEquals(3.3f, accessor.get(4), 0);
+      assertEquals(4.8f, accessor.get(6), 0);
+      assertEquals(5.6f, accessor.get(8), 0);
+      assertEquals(6.6f, accessor.get(10), 0);
+      assertEquals(7.8f, accessor.get(12), 0);
+      assertEquals(8.5f, accessor.get(14), 0);
+      assertEquals(9.5f, accessor.get(16), 0);
+
+      /* reset the vector */
+      floatVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, floatVector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i), 0);
+      }
+    }
+  }
+
+  @Test /* Float8Vector */
+  public void testFixedType4() {
+    try (final Float8Vector floatVector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      final Float8Vector.Mutator mutator = floatVector.getMutator();
+      final Float8Vector.Accessor accessor = floatVector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT_8BYTE - 1);
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT_8BYTE);
+
+      try {
+        floatVector.setInitialCapacity(MAX_VALUE_COUNT_8BYTE + 1);
+      }
+      catch (OversizedAllocationException oe) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      floatVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, floatVector.getValueCapacity());
+
+      /* allocate 128 bytes (16 * 8) */
+      floatVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertEquals(initialCapacity, floatVector.getValueCapacity());
+
+      /* populate the vector */
+      mutator.set(0, 1.55);
+      mutator.set(2, 2.53);
+      mutator.set(4, 3.36);
+      mutator.set(6, 4.82);
+      mutator.set(8, 5.67);
+      mutator.set(10, 6.67);
+      mutator.set(12, 7.87);
+      mutator.set(14, 8.56);
+
+      try {
+        mutator.set(16, 9.53);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals(1.55, accessor.get(0), 0);
+      assertEquals(2.53, accessor.get(2), 0);
+      assertEquals(3.36, accessor.get(4), 0);
+      assertEquals(4.82, accessor.get(6), 0);
+      assertEquals(5.67, accessor.get(8), 0);
+      assertEquals(6.67, accessor.get(10), 0);
+      assertEquals(7.87, accessor.get(12), 0);
+      assertEquals(8.56, accessor.get(14), 0);
+
+      try {
+        accessor.get(16);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(16, 9.53);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, floatVector.getValueCapacity());
+
+      /* vector data should still be intact after realloc */
+      assertEquals(1.55, accessor.get(0), 0);
+      assertEquals(2.53, accessor.get(2), 0);
+      assertEquals(3.36, accessor.get(4), 0);
+      assertEquals(4.82, accessor.get(6), 0);
+      assertEquals(5.67, accessor.get(8), 0);
+      assertEquals(6.67, accessor.get(10), 0);
+      assertEquals(7.87, accessor.get(12), 0);
+      assertEquals(8.56, accessor.get(14), 0);
+      assertEquals(9.53, accessor.get(16), 0);
+
+      /* reset the vector */
+      floatVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, floatVector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertEquals("non-zero data not expected at index: " + i, 0, accessor.get(i), 0);
+      }
+    }
+  }
+
+  @Test /* NullableUInt4Vector */
+  public void testNullableFixedType1() {
+
+    // Create a new value vector for 1024 integers.
+    try (final NullableUInt4Vector vector = newVector(NullableUInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
+      final NullableUInt4Vector.Mutator mutator = vector.getMutator();
+      final NullableUInt4Vector.Accessor accessor = vector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 1024;
+
+      vector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet */
+      assertEquals(0, vector.getValueCapacity());
+
+      vector.allocateNew();
+      assertEquals(initialCapacity, vector.getValueCapacity());
+
+      // Put and set a few values
+      mutator.set(0, 100);
+      mutator.set(1, 101);
+      mutator.set(100, 102);
+      mutator.set(1022, 103);
+      mutator.set(1023, 104);
+
+      /* check vector contents */
+      assertEquals(100, accessor.get(0));
+      assertEquals(101, accessor.get(1));
+      assertEquals(102, accessor.get(100));
+      assertEquals(103, accessor.get(1022));
+      assertEquals(104, accessor.get(1023));
+
+      int val = 0;
+
+      /* check unset bits/null values */
+      for (int i = 2, j = 101; i <= 99 || j <= 1021; i++, j++) {
+        if (i <= 99) {
+          assertTrue(accessor.isNull(i));
+        }
+        if(j <= 1021) {
+          assertTrue(accessor.isNull(j));
+        }
+      }
+
+      try {
+        mutator.set(1024, 10000);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      try {
+        accessor.get(1024);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* should trigger a realloc of the underlying bitvector and valuevector */
+      mutator.setSafe(1024, 10000);
+
+      /* check new capacity */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector contents should still be intact after realloc */
+      assertEquals(100, accessor.get(0));
+      assertEquals(101, accessor.get(1));
+      assertEquals(102, accessor.get(100));
+      assertEquals(103, accessor.get(1022));
+      assertEquals(104, accessor.get(1023));
+      assertEquals(10000, accessor.get(1024));
+
+      val = 0;
+
+      /* check unset bits/null values */
+      for (int i = 2, j = 101; i < 99 || j < 1021; i++, j++) {
+        if (i <= 99) {
+          assertTrue(accessor.isNull(i));
+        }
+        if(j <= 1021) {
+          assertTrue(accessor.isNull(j));
+        }
+      }
+
+      /* reset the vector */
+      vector.reset();
+
+       /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+      }
+    }
+  }
+
+  @Test /* NullableFloat4Vector */
+  public void testNullableFixedType2() {
+    // Create a new value vector for 1024 integers
+    try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
+      final NullableFloat4Vector.Mutator mutator = vector.getMutator();
+      final NullableFloat4Vector.Accessor accessor = vector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 16;
+
+      vector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet */
+      assertEquals(0, vector.getValueCapacity());
+
+      vector.allocateNew();
+      assertEquals(initialCapacity, vector.getValueCapacity());
+
+      /* populate the vector */
+      mutator.set(0, 100.5f);
+      mutator.set(2, 201.5f);
+      mutator.set(4, 300.3f);
+      mutator.set(6, 423.8f);
+      mutator.set(8, 555.6f);
+      mutator.set(10, 66.6f);
+      mutator.set(12, 78.8f);
+      mutator.set(14, 89.5f);
+
+      try {
+        mutator.set(16, 90.5f);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals(100.5f, accessor.get(0), 0);
+      assertTrue(accessor.isNull(1));
+      assertEquals(201.5f, accessor.get(2), 0);
+      assertTrue(accessor.isNull(3));
+      assertEquals(300.3f, accessor.get(4), 0);
+      assertTrue(accessor.isNull(5));
+      assertEquals(423.8f, accessor.get(6), 0);
+      assertTrue(accessor.isNull(7));
+      assertEquals(555.6f, accessor.get(8), 0);
+      assertTrue(accessor.isNull(9));
+      assertEquals(66.6f, accessor.get(10), 0);
+      assertTrue(accessor.isNull(11));
+      assertEquals(78.8f, accessor.get(12), 0);
+      assertTrue(accessor.isNull(13));
+      assertEquals(89.5f, accessor.get(14), 0);
+      assertTrue(accessor.isNull(15));
+
+      try {
+        accessor.get(16);
+      }
+      catch (IndexOutOfBoundsException ie) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(16, 90.5f);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should still be intact after realloc */
+      assertEquals(100.5f, accessor.get(0), 0);
+      assertTrue(accessor.isNull(1));
+      assertEquals(201.5f, accessor.get(2), 0);
+      assertTrue(accessor.isNull(3));
+      assertEquals(300.3f, accessor.get(4), 0);
+      assertTrue(accessor.isNull(5));
+      assertEquals(423.8f, accessor.get(6), 0);
+      assertTrue(accessor.isNull(7));
+      assertEquals(555.6f, accessor.get(8), 0);
+      assertTrue(accessor.isNull(9));
+      assertEquals(66.6f, accessor.get(10), 0);
+      assertTrue(accessor.isNull(11));
+      assertEquals(78.8f, accessor.get(12), 0);
+      assertTrue(accessor.isNull(13));
+      assertEquals(89.5f, accessor.get(14), 0);
+      assertTrue(accessor.isNull(15));
+      assertEquals(90.5f, accessor.get(16), 0);
+
+      /* reset the vector */
+      vector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+      }
+    }
+  }
+
+  @Test /* NullableIntVector */
+  public void testNullableFixedType3() {
+    // Create a new value vector for 1024 integers
+    try (final NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+      final NullableIntVector.Mutator mutator = vector.getMutator();
+      final NullableIntVector.Accessor accessor = vector.getAccessor();
+      boolean error = false;
+      int initialCapacity = 1024;
+
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, vector.getValueCapacity());
+      /* allocate space for 4KB data (1024 * 4) */
+      vector.allocateNew(initialCapacity);
+      /* underlying buffer should be able to store 16 values */
+      assertEquals(initialCapacity, vector.getValueCapacity());
+
+      mutator.set(0, 1);
+      mutator.set(1, 2);
+      mutator.set(100, 3);
+      mutator.set(1022, 4);
+      mutator.set(1023, 5);
+
+      /* check vector contents */
+      int j = 1;
+      for(int i = 0; i <= 1023; i++) {
+        if((i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
+          assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+        }
+        else {
+          assertFalse("null data not expected at index: " + i, accessor.isNull(i));
+          assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+          j++;
+        }
+      }
+
+      mutator.setValueCount(1024);
+      Field field = vector.getField();
+      TypeLayout typeLayout = field.getTypeLayout();
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+
+      assertEquals(2, typeLayout.getVectors().size());
+      assertEquals(2, buffers.size());
+
+      ArrowBuf validityVectorBuf = buffers.get(0);
+
+      /* bitvector tracks 1024 integers --> 1024 bits --> 128 bytes */
+      assertEquals(128, validityVectorBuf.readableBytes());
+      assertEquals(3, validityVectorBuf.getByte(0)); // 1st and second bit defined
+      for (int i = 1; i < 12; i++) {
+        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined until 100
+      }
+      assertEquals(16, validityVectorBuf.getByte(12)); // 100th bit is defined (12 * 8 + 4)
+      for (int i = 13; i < 127; i++) {
+        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined between 100th and 1022nd
+      }
+      assertEquals(-64, validityVectorBuf.getByte(127)); // 1022nd and 1023rd bit defined
+
+      /* this should trigger a realloc() */
+      mutator.setSafe(1024, 6);
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should still be intact after realloc */
+      j = 1;
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        if((i > 1024) || (i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
+          assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+        }
+        else {
+          assertFalse("null data not expected at index: " + i, accessor.isNull(i));
+          assertEquals("unexpected value at index: " + i, j, accessor.get(i));
+          j++;
+        }
+      }
+
+      /* reset the vector */
+      vector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(initialCapacity * 2, vector.getValueCapacity());
+
+      /* vector data should have been zeroed out */
+      for(int i = 0; i < (initialCapacity * 2); i++) {
+        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+      }
+
+      vector.allocateNew(4096);
+      // vector has been erased
+      for(int i = 0; i < 4096; i++) {
+        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+      }
+    }
+  }
+
+  /*
+   * Tests for Variable Width Vectors
+   *
+   * Covered types as of now
+   *
+   *  -- NullableVarCharVector
+   *
+   * TODO:
+   *
+   *  -- VarCharVector
+   *  -- VarBinaryVector
+   *  -- NullableVarBinaryVector
+   */
+
+  @Test /* NullableVarCharVector */
+  public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
     try (final NullableVarCharVector vector = newNullableVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
@@ -124,293 +825,19 @@ public class TestValueVector {
     }
   }
 
-  @Test
-  public void testNullableFixedType() {
-
-    // Create a new value vector for 1024 integers.
-    try (final NullableUInt4Vector vector = newVector(NullableUInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
-      final NullableUInt4Vector.Mutator m = vector.getMutator();
-      vector.allocateNew(1024);
-
-      // Put and set a few values
-      m.set(0, 100);
-      m.set(1, 101);
-      m.set(100, 102);
-      m.set(1022, 103);
-      m.set(1023, 104);
-
-      final NullableUInt4Vector.Accessor accessor = vector.getAccessor();
-      assertEquals(100, accessor.get(0));
-      assertEquals(101, accessor.get(1));
-      assertEquals(102, accessor.get(100));
-      assertEquals(103, accessor.get(1022));
-      assertEquals(104, accessor.get(1023));
-
-      // Ensure null values throw
-      {
-        boolean b = false;
-        try {
-          accessor.get(3);
-        } catch (IllegalStateException e) {
-          b = true;
-        } finally {
-          assertTrue(b);
-        }
-      }
-
-      vector.allocateNew(2048);
-      {
-        boolean b = false;
-        try {
-          accessor.get(0);
-        } catch (IllegalStateException e) {
-          b = true;
-        } finally {
-          assertTrue(b);
-        }
-      }
-
-      m.set(0, 100);
-      m.set(1, 101);
-      m.set(100, 102);
-      m.set(1022, 103);
-      m.set(1023, 104);
-      assertEquals(100, accessor.get(0));
-      assertEquals(101, accessor.get(1));
-      assertEquals(102, accessor.get(100));
-      assertEquals(103, accessor.get(1022));
-      assertEquals(104, accessor.get(1023));
-
-      // Ensure null values throw.
-      {
-        boolean b = false;
-        try {
-          vector.getAccessor().get(3);
-        } catch (IllegalStateException e) {
-          b = true;
-        } finally {
-          assertTrue(b);
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testNullableFloat() {
-    // Create a new value vector for 1024 integers
-    try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
-      final NullableFloat4Vector.Mutator m = vector.getMutator();
-      vector.allocateNew(1024);
-
-      // Put and set a few values.
-      m.set(0, 100.1f);
-      m.set(1, 101.2f);
-      m.set(100, 102.3f);
-      m.set(1022, 103.4f);
-      m.set(1023, 104.5f);
-
-      final NullableFloat4Vector.Accessor accessor = vector.getAccessor();
-      assertEquals(100.1f, accessor.get(0), 0);
-      assertEquals(101.2f, accessor.get(1), 0);
-      assertEquals(102.3f, accessor.get(100), 0);
-      assertEquals(103.4f, accessor.get(1022), 0);
-      assertEquals(104.5f, accessor.get(1023), 0);
-
-      // Ensure null values throw.
-      {
-        boolean b = false;
-        try {
-          vector.getAccessor().get(3);
-        } catch (IllegalStateException e) {
-          b = true;
-        } finally {
-          assertTrue(b);
-        }
-      }
-
-      vector.allocateNew(2048);
-      {
-        boolean b = false;
-        try {
-          accessor.get(0);
-        } catch (IllegalStateException e) {
-          b = true;
-        } finally {
-          assertTrue(b);
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testNullableInt() {
-    // Create a new value vector for 1024 integers
-    try (final NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
-      final NullableIntVector.Mutator m = vector.getMutator();
-      vector.allocateNew(1024);
-
-      // Put and set a few values.
-      m.set(0, 1);
-      m.set(1, 2);
-      m.set(100, 3);
-      m.set(1022, 4);
-      m.set(1023, 5);
-
-      m.setValueCount(1024);
-
-      final NullableIntVector.Accessor accessor = vector.getAccessor();
-      assertEquals(1, accessor.get(0));
-      assertEquals(2, accessor.get(1));
-      assertEquals(3, accessor.get(100));
-      assertEquals(4, accessor.get(1022));
-      assertEquals(5, accessor.get(1023));
-
-      // Ensure null values.
-      assertTrue(vector.getAccessor().isNull(3));
-
-      Field field = vector.getField();
-      TypeLayout typeLayout = field.getTypeLayout();
-
-      List<ArrowBuf> buffers = vector.getFieldBuffers();
-
-      assertEquals(2, typeLayout.getVectors().size());
-      assertEquals(2, buffers.size());
-
-      ArrowBuf validityVectorBuf = buffers.get(0);
-      assertEquals(128, validityVectorBuf.readableBytes());
-      assertEquals(3, validityVectorBuf.getByte(0)); // 1st and second bit defined
-      for (int i = 1; i < 12; i++) {
-        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined until 100
-      }
-      assertEquals(16, validityVectorBuf.getByte(12)); // 100th bit is defined (12 * 8 + 4)
-      for (int i = 13; i < 127; i++) {
-        assertEquals(0, validityVectorBuf.getByte(i)); // nothing defined between 100th and 1022nd
-      }
-      assertEquals(-64, validityVectorBuf.getByte(127)); // 1022nd and 1023rd bit defined
-
-      vector.allocateNew(2048);
-      // vector has been erased
-      assertTrue(vector.getAccessor().isNull(0));
-    }
-  }
-
-
-  @Test
-  public void testBitVector() {
-    // Create a new value vector for 1024 integers
-    try (final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
-      final BitVector.Mutator m = vector.getMutator();
-      vector.allocateNew(1024);
-      m.setValueCount(1024);
-
-      // Put and set a few values
-      m.set(0, 1);
-      m.set(1, 0);
-      m.set(100, 0);
-      m.set(1022, 1);
-
-      m.setValueCount(1024);
-
-      final BitVector.Accessor accessor = vector.getAccessor();
-      assertEquals(1, accessor.get(0));
-      assertEquals(0, accessor.get(1));
-      assertEquals(0, accessor.get(100));
-      assertEquals(1, accessor.get(1022));
-
-      assertEquals(1022, accessor.getNullCount());
-
-      // test setting the same value twice
-      m.set(0, 1);
-      m.set(0, 1);
-      m.set(1, 0);
-      m.set(1, 0);
-      assertEquals(1, accessor.get(0));
-      assertEquals(0, accessor.get(1));
-
-      // test toggling the values
-      m.set(0, 0);
-      m.set(1, 1);
-      assertEquals(0, accessor.get(0));
-      assertEquals(1, accessor.get(1));
-
-      // should not change
-      assertEquals(1022, accessor.getNullCount());
-
-      // Ensure unallocated space returns 0
-      assertEquals(0, accessor.get(3));
-
-      // unset the previously set bits
-      m.set(1, 0);
-      m.set(1022, 0);
-      // this should set all the array to 0
-      assertEquals(1024, accessor.getNullCount());
-
-      // set all the array to 1
-      for (int i = 0; i < 1024; ++i) {
-        assertEquals(1024 - i, accessor.getNullCount());
-        m.set(i, 1);
-      }
-
-      assertEquals(0, accessor.getNullCount());
-
-      vector.allocateNew(1015);
-      m.setValueCount(1015);
-
-      // ensure it has been zeroed
-      assertEquals(1015, accessor.getNullCount());
-
-      m.set(0, 1);
-      m.set(1014, 1); // ensure that the last item of the last byte is allocated
-
-      assertEquals(1013, accessor.getNullCount());
-
-      vector.zeroVector();
-      assertEquals(1015, accessor.getNullCount());
-
-      // set all the array to 1
-      for (int i = 0; i < 1015; ++i) {
-        assertEquals(1015 - i, accessor.getNullCount());
-        m.set(i, 1);
-      }
-
-      assertEquals(0, accessor.getNullCount());
-    }
-  }
-
-  @Test
-  public void testBitVectorRangeSetAllOnes() {
-    validateRange(1000, 0, 1000);
-    validateRange(1000, 0, 1);
-    validateRange(1000, 1, 2);
-    validateRange(1000, 5, 6);
-    validateRange(1000, 5, 10);
-    validateRange(1000, 5, 150);
-    validateRange(1000, 5, 27);
-    for (int i = 0; i < 8; i++) {
-      for (int j = 0; j < 8; j++) {
-        validateRange(1000, 10 + i, 27 + j);
-        validateRange(1000, i, j);
-      }
-    }
-  }
-
-  private void validateRange(int length, int start, int count) {
-    String desc = "[" + start + ", " + (start + count) + ") ";
-    try (BitVector bitVector = new BitVector("bits", allocator)) {
-      bitVector.reset();
-      bitVector.allocateNew(length);
-      bitVector.getMutator().setRangeToOne(start, count);
-      for (int i = 0; i < start; i++) {
-        Assert.assertEquals(desc + i, 0, bitVector.getAccessor().get(i));
-      }
-      for (int i = start; i < start + count; i++) {
-        Assert.assertEquals(desc + i, 1, bitVector.getAccessor().get(i));
-      }
-      for (int i = start + count; i < length; i++) {
-        Assert.assertEquals(desc + i, 0, bitVector.getAccessor().get(i));
-      }
-    }
-  }
+  /*
+   * generic tests
+   *
+   *  -- lastSet() and setValueCount()
+   *  -- fillEmpties()
+   *  -- VectorLoader and VectorUnloader
+   *  -- some realloc tests
+   *
+   *  TODO:
+   *
+   *  The realloc() related tests below should be moved up and we need to
+   *  realloc related tests (edge cases) for more vector types.
+   */
 
   @Test
   public void testReAllocNullableFixedWidthVector() {
