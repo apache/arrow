@@ -43,7 +43,10 @@ Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_obj
     // must be decremented. This is done in SerializeDict in this file.
     PyObject* result = PyObject_CallObject(pyarrow_serialize_callback, arglist);
     Py_XDECREF(arglist);
-    if (!result) { return Status::NotImplemented("python error"); }
+    if (!result || !PyDict_Check(result)) {
+      // TODO(pcm): Propagate Python error here if !result
+      return Status::TypeError("serialization callback must return a valid dictionary");
+    }
     *serialized_object = result;
   }
   return Status::OK();

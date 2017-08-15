@@ -20,25 +20,85 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import string
+import sys
 
 import pyarrow as pa
 import numpy as np
+from numpy.testing import assert_equal
 
-obj = pa.lib.serialize_sequence([np.array([1, 2, 3]), None, np.array([4, 5, 6])])
+def serialization_callback(value):
+    if isinstance(value, np.ndarray):
+        return {"data": value.tolist(), "_pytype_": str(value.dtype.str)}
+    else:
+        return {"data": str(value), "_pytype_": "long"}
 
-SIZE = 4096
+def deserialization_callback(value):
+    data = value["data"]
+    if value["_pytype_"] == "long":
+        return int(data)
+    else:
+        return np.array(data, dtype=np.dtype(value["_pytype_"]))
+
+pa.lib.set_serialization_callbacks(serialization_callback, deserialization_callback)
+
+def array_custom_serializer(obj):
+    return obj.tolist(), obj.dtype.str
+
+def array_custom_deserializer(serialized_obj):
+    return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
+
+pa.lib.register_type(np.ndarray, 20 * b"\x01", pickle=False,
+    custom_serializer=array_custom_serializer,
+    custom_deserializer=array_custom_deserializer)
+
+if sys.version_info >= (3, 0):
+    long_extras = [0, np.array([["hi", u"hi"], [1.3, 1]])]
+else:
+    long_extras = [long(0), np.array([["hi", u"hi"], [1.3, long(1)]])]  # noqa: E501,F821
+
+PRIMITIVE_OBJECTS = [
+    0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
+    [1 << 100, [1 << 100]], "a", string.printable, "\u262F",
+    u"hello world", u"\xff\xfe\x9c\x001\x000\x00", None, True,
+    False, [], (), {}, np.int8(3), np.int32(4), np.int64(5),
+    np.uint8(3), np.uint32(4), np.uint64(5), np.float32(1.9),
+    np.float64(1.9), np.zeros([100, 100]),
+    np.random.normal(size=[100, 100]), np.array(["hi", 3]),
+    np.array(["hi", 3], dtype=object)] + long_extras
+
+COMPLEX_OBJECTS = [
+    [[[[[[[[[[[[]]]]]]]]]]]],
+    {"obj{}".format(i): np.random.normal(size=[100, 100]) for i in range(10)},
+    {(): {(): {(): {(): {(): {(): {(): {(): {(): {(): {
+          (): {(): {}}}}}}}}}}}}},
+    ((((((((((),),),),),),),),),),
+    {"a": {"b": {"c": {"d": {}}}}}]
+
+def serialization_roundtrip(value, f):
+    f.seek(0)
+    serialized, num_tensors = pa.lib.serialize_sequence(value)
+    pa.lib.write_python_object(serialized, num_tensors, f)
+    f.seek(0)
+    res = pa.lib.read_python_object(f)
+    base = None
+    result = pa.lib.deserialize_sequence(res, base)
+    assert_equal(value, result)
+
+# Create a large memory mapped file
+SIZE = 100 * 1024 * 1024 # 100 MB
 arr = np.random.randint(0, 256, size=SIZE).astype('u1')
 data = arr.tobytes()[:SIZE]
-path = os.path.join("/tmp/temp")
+path = os.path.join("/tmp/pyarrow-temp-file")
 with open(path, 'wb') as f:
     f.write(data)
 
-f = pa.memory_map(path, mode="w")
+MEMORY_MAPPED_FILE = pa.memory_map(path, mode="r+")
 
-pa.lib.write_python_object(obj, f)
+def test_primitive_serialization():
+    for obj in PRIMITIVE_OBJECTS:
+        serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
 
-f = pa.memory_map(path, mode="r")
-
-res = pa.lib.read_python_object(f)
-
-pa.lib.deserialize_sequence(res, res)
+def test_complex_serialization():
+    for obj in COMPLEX_OBJECTS:
+        serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
