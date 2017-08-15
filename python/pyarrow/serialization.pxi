@@ -51,6 +51,30 @@ cdef class PythonObject:
     def __cinit__(self):
         pass
 
+
+def is_named_tuple(cls):
+    """Return True if cls is a namedtuple and False otherwise."""
+    b = cls.__bases__
+    if len(b) != 1 or b[0] != tuple:
+        return False
+    f = getattr(cls, "_fields", None)
+    if not isinstance(f, tuple):
+        return False
+    return all(type(n) == str for n in f)
+
+
+class SerializationException(Exception):
+    def __init__(self, message, example_object):
+        Exception.__init__(self, message)
+        self.example_object = example_object
+
+
+class DeserializationException(Exception):
+    def __init__(self, message, type_id):
+        Exception.__init__(self, message)
+        self.type_id = type_id
+
+
 # Types with special serialization handlers
 type_to_type_id = dict()
 whitelisted_types = dict()
@@ -81,17 +105,24 @@ def register_type(type, type_id, pickle=False, custom_serializer=None, custom_de
 
 def serialization_callback(obj):
     if type(obj) not in type_to_type_id:
-        raise "error"
+        raise SerializationException("pyarrow does not know how to "
+                                     "serialize objects of type {}."
+                                     .format(type(obj)),
+                                     obj)
     type_id = type_to_type_id[type(obj)]
     if type_id in types_to_pickle:
         serialized_obj = {"data": pickle.dumps(obj), "pickle": True}
     elif type_id in custom_serializers:
         serialized_obj = {"data": custom_serializers[type_id](obj)}
     else:
-        if hasattr(obj, "__dict__"):
+        if is_named_tuple(type(obj)):
+            serialized_obj = {}
+            serialized_obj["_pa_getnewargs_"] = obj.__getnewargs__()
+        elif hasattr(obj, "__dict__"):
             serialized_obj = obj.__dict__
         else:
-            raise "error"
+            raise SerializationException("We do not know how to serialize "
+                                         "the object '{}'".format(obj), obj)
     return dict(serialized_obj, **{"_pytype_": type_id})
 
 def deserialization_callback(serialized_obj):
@@ -109,22 +140,17 @@ def deserialization_callback(serialized_obj):
             obj = custom_deserializers[type_id](serialized_obj["data"])
         else:
             # In this case, serialized_obj should just be the __dict__ field.
-            if "_ray_getnewargs_" in serialized_obj:
-                obj = type.__new__(type, *serialized_obj["_ray_getnewargs_"])
+            if "_pa_getnewargs_" in serialized_obj:
+                obj = type.__new__(type, *serialized_obj["_pa_getnewargs_"])
             else:
                 obj = type.__new__(type)
                 serialized_obj.pop("_pytype_")
                 obj.__dict__.update(serialized_obj)
     return obj
 
-def set_serialization_callbacks(serialization_callback, deserialization_callback):
-    global pyarrow_serialize_callback, pyarrow_deserialize_callback
-    # TODO(pcm): Are refcounts correct here?
-    print("setting serialization callback")
-    pyarrow_serialize_callback = <PyObject*> serialization_callback
-    print("val1 is", <object> pyarrow_serialize_callback)
-    pyarrow_deserialize_callback = <PyObject*> deserialization_callback
-    print("val2 is", <object> pyarrow_deserialize_callback)
+pyarrow_serialize_callback = <PyObject*> serialization_callback
+
+pyarrow_deserialize_callback = <PyObject*> deserialization_callback
 
 # Main entry point for serialization
 def serialize_sequence(object value):

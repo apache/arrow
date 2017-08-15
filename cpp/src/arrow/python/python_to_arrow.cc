@@ -19,6 +19,8 @@
 
 #include <sstream>
 
+#include "common.h"
+#include "helpers.h"
 #include "scalars.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
@@ -27,6 +29,8 @@ extern "C" {
   PyObject* pyarrow_serialize_callback = NULL;
   PyObject* pyarrow_deserialize_callback = NULL;
 }
+
+using namespace arrow::py;
 
 namespace arrow {
 
@@ -43,8 +47,8 @@ Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_obj
     // must be decremented. This is done in SerializeDict in this file.
     PyObject* result = PyObject_CallObject(pyarrow_serialize_callback, arglist);
     Py_XDECREF(arglist);
-    if (!result || !PyDict_Check(result)) {
-      // TODO(pcm): Propagate Python error here if !result
+    RETURN_IF_PYERROR();
+    if (!PyDict_Check(result)) {
       return Status::TypeError("serialization callback must return a valid dictionary");
     }
     *serialized_object = result;
@@ -153,7 +157,9 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder& builder,
         // must be decremented. This is done in SerializeDict in python.cc.
         PyObject* result = PyObject_CallObject(pyarrow_serialize_callback, arglist);
         Py_XDECREF(arglist);
-        if (!result) { return Status::NotImplemented("python error"); }
+        if (!result) {
+          RETURN_IF_PYERROR();
+        }
         builder.AppendDict(PyDict_Size(result));
         subdicts.push_back(result);
       }

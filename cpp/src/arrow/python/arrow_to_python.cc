@@ -19,7 +19,11 @@
 
 #include <arrow/util/logging.h>
 
+#include "common.h"
+#include "helpers.h"
 #include "numpy_convert.h"
+
+using namespace arrow::py;
 
 namespace arrow {
 
@@ -143,7 +147,9 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
     Py_XDECREF(arglist);
     Py_XDECREF(result);
     result = callback_result;
-    if (!callback_result) { return Status::NotImplemented("python error"); }
+    if (!callback_result) {
+      RETURN_IF_PYERROR();
+    }
   }
   *out = result;
   return Status::OK();
