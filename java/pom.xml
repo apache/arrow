@@ -279,7 +279,7 @@
             <dependency>
               <groupId>com.puppycrawl.tools</groupId>
               <artifactId>checkstyle</artifactId>
-              <version>6.15</version>
+              <version>6.19</version>
             </dependency>
             <dependency>
               <groupId>com.google.guava</groupId>
@@ -493,9 +493,9 @@
 
     <dependency>
       <!-- JMockit needs to be on class path before JUnit. -->
-      <groupId>com.googlecode.jmockit</groupId>
+      <groupId>org.jmockit</groupId>
       <artifactId>jmockit</artifactId>
-      <version>1.7</version>
+      <version>1.33</version>
       <scope>test</scope>
     </dependency>
     <dependency>
