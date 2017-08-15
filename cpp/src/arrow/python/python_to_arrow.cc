@@ -38,8 +38,12 @@ Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_obj
   *serialized_object = NULL;
   if (!pyarrow_serialize_callback) {
     std::stringstream ss;
-    ss << "data type of " << PyUnicode_AsUTF8(PyObject_Repr(elem))
+    PyObject* repr = PyObject_Repr(elem);
+    PyObject* ascii = PyUnicode_AsASCIIString(repr);
+    ss << "data type of " << PyBytes_AsString(ascii)
        << " not recognized and custom serialization handler not registered";
+    Py_XDECREF(ascii);
+    Py_XDECREF(repr);
     return Status::NotImplemented(ss.str());
   } else {
     PyObject* arglist = Py_BuildValue("(O)", elem);
