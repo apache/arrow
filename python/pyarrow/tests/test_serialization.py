@@ -24,7 +24,6 @@ import os
 import string
 import sys
 
-from deepeq import deep_eq
 import pyarrow as pa
 import numpy as np
 
