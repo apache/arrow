@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_to_python.h"
+#include "arrow/python/arrow_to_python.h"
 
-#include <arrow/util/logging.h>
+#include "arrow/util/logging.h"
 
-#include "common.h"
-#include "helpers.h"
-#include "numpy_convert.h"
+#include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/numpy_convert.h"
 
 using namespace arrow::py;
 

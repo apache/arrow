@@ -18,46 +18,45 @@
 #ifndef ARROW_PYTHON_SCALARS_H
 #define ARROW_PYTHON_SCALARS_H
 
-#include <arrow/api.h>
-
-#include <Python.h>
-#include "numpy_interop.h"
 #include <numpy/arrayobject.h>
 #include <numpy/arrayscalars.h>
 
-#include "sequence.h"
+#include "arrow/api.h"
+#include "arrow/python/numpy_interop.h"
+#include "arrow/python/platform.h"
+#include "arrow/python/sequence.h"
 
 namespace arrow {
 
 Status AppendScalar(PyObject* obj, SequenceBuilder& builder) {
   if (PyArray_IsScalar(obj, Bool)) {
-    return builder.AppendBool(((PyBoolScalarObject*)obj)->obval != 0);
+    return builder.AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
   } else if (PyArray_IsScalar(obj, Float)) {
-    return builder.AppendFloat(((PyFloatScalarObject*)obj)->obval);
+    return builder.AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
   } else if (PyArray_IsScalar(obj, Double)) {
-    return builder.AppendDouble(((PyDoubleScalarObject*)obj)->obval);
+    return builder.AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
   }
   int64_t value = 0;
   if (PyArray_IsScalar(obj, Byte)) {
-    value = ((PyByteScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UByte)) {
-    value = ((PyUByteScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {
-    value = ((PyShortScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UShort)) {
-    value = ((PyUShortScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Int)) {
-    value = ((PyIntScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UInt)) {
-    value = ((PyUIntScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Long)) {
-    value = ((PyLongScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, ULong)) {
-    value = ((PyULongScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, LongLong)) {
-    value = ((PyLongLongScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, ULongLong)) {
-    value = ((PyULongLongScalarObject*)obj)->obval;
+    value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
   } else {
     DCHECK(false) << "scalar type not recognized";
   }

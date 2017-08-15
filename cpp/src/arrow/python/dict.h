@@ -18,9 +18,9 @@
 #ifndef PYTHON_ARROW_DICT_H
 #define PYTHON_ARROW_DICT_H
 
-#include <arrow/api.h>
+#include "arrow/api.h"
 
-#include "sequence.h"
+#include "arrow/python/sequence.h"
 
 namespace arrow {
 
@@ -30,7 +30,7 @@ namespace arrow {
 /// can be obtained via the Finish method.
 class DictBuilder {
  public:
-  DictBuilder(arrow::MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {}
+  explicit DictBuilder(arrow::MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {}
 
   /// Builder for the keys of the dictionary
   SequenceBuilder& keys() { return keys_; }

@@ -20,7 +20,9 @@
 
 #include <Python.h>
 
-#include <arrow/api.h>
+#include "arrow/api.h"
+
+#include <vector>
 
 extern "C" {
 extern PyObject* pyarrow_serialize_callback;

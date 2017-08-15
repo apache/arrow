@@ -20,11 +20,13 @@
 
 #include <Python.h>
 
-#include <arrow/api.h>
+#include "arrow/api.h"
 
-#include "dict.h"
-#include "numpy_interop.h"
-#include "sequence.h"
+#include "arrow/python/dict.h"
+#include "arrow/python/numpy_interop.h"
+#include "arrow/python/sequence.h"
+
+#include <vector>
 
 extern "C" {
 extern PyObject* pyarrow_serialize_callback;
@@ -45,6 +47,6 @@ arrow::Status SerializeArray(PyArrayObject* array, SequenceBuilder& builder,
 
 std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data);
 
-}
+} // namespace arrow
 
 #endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

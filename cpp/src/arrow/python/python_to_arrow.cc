@@ -19,9 +19,9 @@
 
 #include <sstream>
 
-#include "common.h"
-#include "helpers.h"
-#include "scalars.h"
+#include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/scalars.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 
@@ -116,7 +116,7 @@ Status append(PyObject* elem, SequenceBuilder& builder, std::vector<PyObject*>& 
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
   } else if (PyArray_Check(elem)) {
-    RETURN_NOT_OK(SerializeArray((PyArrayObject*)elem, builder, subdicts, tensors_out));
+    RETURN_NOT_OK(SerializeArray(reinterpret_cast<PyArrayObject*>(elem), builder, subdicts, tensors_out));
   } else if (elem == Py_None) {
     RETURN_NOT_OK(builder.AppendNone());
   } else {
@@ -226,7 +226,7 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
     while (PyDict_Next(dict, &pos, &key, &value)) {
       RETURN_NOT_OK(
           append(key, result.keys(), dummy, key_tuples, key_dicts, tensors_out));
-      DCHECK(dummy.size() == 0);
+      DCHECK_EQ(dummy.size(), 0);
       RETURN_NOT_OK(
           append(value, result.vals(), val_lists, val_tuples, val_dicts, tensors_out));
     }

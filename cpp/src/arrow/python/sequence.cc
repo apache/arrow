@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "sequence.h"
+#include "arrow/python/sequence.h"
 
 namespace arrow {
 
@@ -133,7 +133,7 @@ Status SequenceBuilder::AppendDict(int32_t size) {
     RETURN_NOT_OK(nones_.AppendToBitmap(true));                               \
     type_ids.push_back(TAG);                                                  \
   } else {                                                                    \
-    DCHECK(OFFSETS.size() == 1);                                              \
+    DCHECK_EQ(OFFSETS.size(), 1);                                             \
   }
 
 Status SequenceBuilder::Finish(std::shared_ptr<Array> list_data,

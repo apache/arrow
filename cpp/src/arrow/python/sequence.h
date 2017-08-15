@@ -18,8 +18,10 @@
 #ifndef PYTHON_ARROW_SEQUENCE_H
 #define PYTHON_ARROW_SEQUENCE_H
 
-#include <arrow/api.h>
-#include <arrow/util/logging.h>
+#include <vector>
+
+#include "arrow/api.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -27,7 +29,7 @@ class NullArrayBuilder : public arrow::ArrayBuilder {
  public:
   explicit NullArrayBuilder(arrow::MemoryPool* pool, const arrow::TypePtr& type)
       : arrow::ArrayBuilder(type, pool) {}
-  virtual ~NullArrayBuilder(){};
+  virtual ~NullArrayBuilder(){}
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out) override {
     return arrow::Status::OK();
   }
@@ -37,7 +39,7 @@ class NullArrayBuilder : public arrow::ArrayBuilder {
 /// scalar Python types, lists, tuples, dictionaries and tensors.
 class SequenceBuilder {
  public:
-  SequenceBuilder(arrow::MemoryPool* pool = nullptr);
+  explicit SequenceBuilder(arrow::MemoryPool* pool = nullptr);
 
   /// Appending a none to the sequence
   arrow::Status AppendNone();

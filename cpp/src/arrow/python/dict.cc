@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "dict.h"
+#include "arrow/python/dict.h"
+
+#include <vector>
 
 namespace arrow {
 
