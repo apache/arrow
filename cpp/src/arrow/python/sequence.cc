@@ -126,7 +126,7 @@ Status SequenceBuilder::AppendDict(int32_t size) {
     std::shared_ptr<Array> list_array;                                        \
     ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array);          \
     auto field = std::make_shared<Field>(NAME, list_array->type());           \
-    auto type = std::make_shared<StructType>(std::vector<FieldPtr>({field})); \
+    auto type = std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>({field})); \
     types[TAG] = std::make_shared<Field>("", type);                           \
     children[TAG] = std::shared_ptr<StructArray>(                             \
         new StructArray(type, list_array->length(), {list_array}));           \
