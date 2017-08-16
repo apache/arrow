@@ -31,7 +31,7 @@ namespace py {
 #endif
 
 Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObject* base,
-    const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
+                 const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
   switch (arr->type()->id()) {
     case Type::BOOL:
       *result =
@@ -67,13 +67,13 @@ Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObje
       auto l = std::static_pointer_cast<ListArray>(s->field(0));
       if (s->type()->child(0)->name() == "list") {
         return DeserializeList(l->values(), l->value_offset(index),
-            l->value_offset(index + 1), base, tensors, result);
+                               l->value_offset(index + 1), base, tensors, result);
       } else if (s->type()->child(0)->name() == "tuple") {
         return DeserializeTuple(l->values(), l->value_offset(index),
-            l->value_offset(index + 1), base, tensors, result);
+                                l->value_offset(index + 1), base, tensors, result);
       } else if (s->type()->child(0)->name() == "dict") {
         return DeserializeDict(l->values(), l->value_offset(index),
-            l->value_offset(index + 1), base, tensors, result);
+                               l->value_offset(index + 1), base, tensors, result);
       } else {
         DCHECK(false) << "error";
       }
@@ -112,17 +112,23 @@ Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObje
   return Status::OK();
 
 Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-    PyObject* base, const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** out) {
+                       PyObject* base,
+                       const std::vector<std::shared_ptr<Tensor>>& tensors,
+                       PyObject** out) {
   DESERIALIZE_SEQUENCE(PyList_New, PyList_SetItem)
 }
 
 Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-    PyObject* base, const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** out) {
+                        PyObject* base,
+                        const std::vector<std::shared_ptr<Tensor>>& tensors,
+                        PyObject** out) {
   DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SetItem)
 }
 
 Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-    PyObject* base, const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** out) {
+                       PyObject* base,
+                       const std::vector<std::shared_ptr<Tensor>>& tensors,
+                       PyObject** out) {
   auto data = std::dynamic_pointer_cast<StructArray>(array);
   // TODO(pcm): error handling, get rid of the temporary copy of the list
   PyObject *keys, *vals;
@@ -132,8 +138,8 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
   ARROW_RETURN_NOT_OK(
       DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, &vals));
   for (int32_t i = start_idx; i < stop_idx; ++i) {
-    PyDict_SetItem(
-        result, PyList_GetItem(keys, i - start_idx), PyList_GetItem(vals, i - start_idx));
+    PyDict_SetItem(result, PyList_GetItem(keys, i - start_idx),
+                   PyList_GetItem(vals, i - start_idx));
   }
   Py_XDECREF(keys);  // PyList_GetItem(keys, ...) incremented the reference count
   Py_XDECREF(vals);  // PyList_GetItem(vals, ...) incremented the reference count
@@ -142,7 +148,8 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
     PyObject* arglist = Py_BuildValue("(O)", result);
     // The result of the call to PyObject_CallObject will be passed to Python
     // and its reference count will be decremented by the interpreter.
-    PyObject* callback_result = PyObject_CallObject(pyarrow_deserialize_callback, arglist);
+    PyObject* callback_result =
+        PyObject_CallObject(pyarrow_deserialize_callback, arglist);
     Py_XDECREF(arglist);
     Py_XDECREF(result);
     result = callback_result;
@@ -155,7 +162,8 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
 }
 
 Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* base,
-    const std::vector<std::shared_ptr<arrow::Tensor>>& tensors, PyObject** out) {
+                        const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                        PyObject** out) {
   DCHECK(array);
   int32_t index = std::static_pointer_cast<Int32Array>(array)->Value(offset);
   RETURN_NOT_OK(py::TensorToNdarray(*tensors[index], base, out));

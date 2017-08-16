@@ -33,20 +33,24 @@ namespace arrow {
 namespace py {
 
 arrow::Status DeserializeList(std::shared_ptr<arrow::Array> array, int32_t start_idx,
-    int32_t stop_idx, PyObject* base,
-    const std::vector<std::shared_ptr<arrow::Tensor>>& tensors, PyObject** out);
+                              int32_t stop_idx, PyObject* base,
+                              const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                              PyObject** out);
 
 arrow::Status DeserializeTuple(std::shared_ptr<arrow::Array> array, int32_t start_idx,
-    int32_t stop_idx, PyObject* base,
-    const std::vector<std::shared_ptr<arrow::Tensor>>& tensors, PyObject** out);
+                               int32_t stop_idx, PyObject* base,
+                               const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                               PyObject** out);
 
 arrow::Status DeserializeDict(std::shared_ptr<arrow::Array> array, int32_t start_idx,
-    int32_t stop_idx, PyObject* base,
-    const std::vector<std::shared_ptr<arrow::Tensor>>& tensors, PyObject** out);
+                              int32_t stop_idx, PyObject* base,
+                              const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                              PyObject** out);
 
 arrow::Status DeserializeArray(std::shared_ptr<arrow::Array> array, int32_t offset,
-    PyObject* base, const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
-    PyObject** out);
+                               PyObject* base,
+                               const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                               PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

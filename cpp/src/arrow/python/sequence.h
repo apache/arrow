@@ -30,7 +30,7 @@ class NullArrayBuilder : public arrow::ArrayBuilder {
  public:
   explicit NullArrayBuilder(arrow::MemoryPool* pool, const arrow::TypePtr& type)
       : arrow::ArrayBuilder(type, pool) {}
-  virtual ~NullArrayBuilder(){}
+  virtual ~NullArrayBuilder() {}
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out) override {
     return arrow::Status::OK();
   }
@@ -92,8 +92,9 @@ class SequenceBuilder {
 
   /// Finish building the sequence and return the result.
   arrow::Status Finish(std::shared_ptr<arrow::Array> list_data,
-      std::shared_ptr<arrow::Array> tuple_data, std::shared_ptr<arrow::Array> dict_data,
-      std::shared_ptr<arrow::Array>* out);
+                       std::shared_ptr<arrow::Array> tuple_data,
+                       std::shared_ptr<arrow::Array> dict_data,
+                       std::shared_ptr<arrow::Array>* out);
 
  private:
   arrow::MemoryPool* pool_;

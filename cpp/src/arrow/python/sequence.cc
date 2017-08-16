@@ -117,29 +117,31 @@ Status SequenceBuilder::AppendDict(int32_t size) {
     type_ids.push_back(TAG);                                  \
   }
 
-#define ADD_SUBSEQUENCE(DATA, OFFSETS, BUILDER, TAG, NAME)                    \
-  if (DATA) {                                                                 \
-    DCHECK(DATA->length() == OFFSETS.back());                                 \
-    std::shared_ptr<Array> offset_array;                                      \
-    Int32Builder builder(pool_, std::make_shared<Int32Type>());               \
-    RETURN_NOT_OK(builder.Append(OFFSETS.data(), OFFSETS.size()));            \
-    RETURN_NOT_OK(builder.Finish(&offset_array));                             \
-    std::shared_ptr<Array> list_array;                                        \
-    ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array);          \
-    auto field = std::make_shared<Field>(NAME, list_array->type());           \
-    auto type = std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>({field})); \
-    types[TAG] = std::make_shared<Field>("", type);                           \
-    children[TAG] = std::shared_ptr<StructArray>(                             \
-        new StructArray(type, list_array->length(), {list_array}));           \
-    RETURN_NOT_OK(nones_.AppendToBitmap(true));                               \
-    type_ids.push_back(TAG);                                                  \
-  } else {                                                                    \
-    DCHECK_EQ(OFFSETS.size(), 1);                                             \
+#define ADD_SUBSEQUENCE(DATA, OFFSETS, BUILDER, TAG, NAME)                          \
+  if (DATA) {                                                                       \
+    DCHECK(DATA->length() == OFFSETS.back());                                       \
+    std::shared_ptr<Array> offset_array;                                            \
+    Int32Builder builder(pool_, std::make_shared<Int32Type>());                     \
+    RETURN_NOT_OK(builder.Append(OFFSETS.data(), OFFSETS.size()));                  \
+    RETURN_NOT_OK(builder.Finish(&offset_array));                                   \
+    std::shared_ptr<Array> list_array;                                              \
+    ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array);                \
+    auto field = std::make_shared<Field>(NAME, list_array->type());                 \
+    auto type =                                                                     \
+        std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>({field})); \
+    types[TAG] = std::make_shared<Field>("", type);                                 \
+    children[TAG] = std::shared_ptr<StructArray>(                                   \
+        new StructArray(type, list_array->length(), {list_array}));                 \
+    RETURN_NOT_OK(nones_.AppendToBitmap(true));                                     \
+    type_ids.push_back(TAG);                                                        \
+  } else {                                                                          \
+    DCHECK_EQ(OFFSETS.size(), 1);                                                   \
   }
 
 Status SequenceBuilder::Finish(std::shared_ptr<Array> list_data,
-    std::shared_ptr<Array> tuple_data, std::shared_ptr<Array> dict_data,
-    std::shared_ptr<Array>* out) {
+                               std::shared_ptr<Array> tuple_data,
+                               std::shared_ptr<Array> dict_data,
+                               std::shared_ptr<Array>* out) {
   std::vector<std::shared_ptr<Field>> types(num_tags);
   std::vector<std::shared_ptr<Array>> children(num_tags);
   std::vector<uint8_t> type_ids;
@@ -159,7 +161,7 @@ Status SequenceBuilder::Finish(std::shared_ptr<Array> list_data,
 
   TypePtr type = TypePtr(new UnionType(types, type_ids, UnionMode::DENSE));
   out->reset(new UnionArray(type, types_.length(), children, types_.data(),
-      offsets_.data(), nones_.null_bitmap(), nones_.null_count()));
+                            offsets_.data(), nones_.null_bitmap(), nones_.null_count()));
   return Status::OK();
 }
 
