@@ -19,9 +19,15 @@
 
 #include <sstream>
 
+#include <numpy/arrayobject.h>
+#include <numpy/arrayscalars.h>
+
+#include "arrow/api.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/scalars.h"
+#include "arrow/python/numpy_interop.h"
+#include "arrow/python/platform.h"
+#include "arrow/python/sequence.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 
@@ -38,7 +44,7 @@ Status DictBuilder::Finish(std::shared_ptr<Array> key_tuple_data,
                            std::shared_ptr<Array> val_list_data,
                            std::shared_ptr<Array> val_tuple_data,
                            std::shared_ptr<Array> val_dict_data,
-                           std::shared_ptr<arrow::Array>* out) {
+                           std::shared_ptr<Array>* out) {
   // lists and dicts can't be keys of dicts in Python, that is why for
   // the keys we do not need to collect sublists
   std::shared_ptr<Array> keys, vals;
@@ -81,6 +87,41 @@ Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_obj
     return Status::TypeError("serialization callback must return a valid dictionary");
   }
   return Status::OK();
+}
+
+Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
+  if (PyArray_IsScalar(obj, Bool)) {
+    return builder->AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
+  } else if (PyArray_IsScalar(obj, Float)) {
+    return builder->AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
+  } else if (PyArray_IsScalar(obj, Double)) {
+    return builder->AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
+  }
+  int64_t value = 0;
+  if (PyArray_IsScalar(obj, Byte)) {
+    value = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, UByte)) {
+    value = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, Short)) {
+    value = reinterpret_cast<PyShortScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, UShort)) {
+    value = reinterpret_cast<PyUShortScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, Int)) {
+    value = reinterpret_cast<PyIntScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, UInt)) {
+    value = reinterpret_cast<PyUIntScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, Long)) {
+    value = reinterpret_cast<PyLongScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, ULong)) {
+    value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, LongLong)) {
+    value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, ULongLong)) {
+    value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
+  } else {
+    DCHECK(false) << "scalar type not recognized";
+  }
+  return builder->AppendInt64(value);
 }
 
 Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* sublists,
@@ -174,8 +215,7 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
     default: {
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array),
-                                                    &serialized_object));
+      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array), &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
     }
@@ -197,6 +237,7 @@ Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_de
   for (const auto& sequence : sequences) {
     PyObject* item;
     PyObject* iterator = PyObject_GetIter(sequence);
+    RETURN_IF_PYERROR();
     while ((item = PyIter_Next(iterator))) {
       Status s = Append(item, &builder, &sublists, &subtuples, &subdicts, tensors_out);
       Py_DECREF(item);
@@ -240,8 +281,8 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
       RETURN_NOT_OK(
           Append(key, &result.keys(), &dummy, &key_tuples, &key_dicts, tensors_out));
       DCHECK_EQ(dummy.size(), 0);
-      RETURN_NOT_OK(Append(value, &result.vals(), &val_lists, &val_tuples, &val_dicts,
-                           tensors_out));
+      RETURN_NOT_OK(
+          Append(value, &result.vals(), &val_lists, &val_tuples, &val_dicts, tensors_out));
     }
   }
   std::shared_ptr<Array> key_tuples_arr;
@@ -290,7 +331,7 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
 
 std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   auto field = std::make_shared<Field>("list", data->type());
-  std::shared_ptr<Schema> schema(new Schema({field}));
+  auto schema = ::arrow::schema({field});
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
 }
 

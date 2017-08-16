@@ -129,6 +129,13 @@ else:
     def frombytes(o):
         return o.decode('utf8')
 
+try:
+    import cloudpickle as pickle
+except ImportError:
+    try:
+        import cPickle as pickle
+    except ImportError:
+        import pickle
 
 def encode_file_path(path):
     import os

@@ -20,15 +20,7 @@ from libcpp.vector cimport vector as c_vector
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref
 
-try:
-    import cloudpickle as pickle
-except ImportError:
-    try:
-        import cPickle as pickle
-    except ImportError:
-        import pickle
-
-from pyarrow.lib cimport Buffer, NativeFile, check_status, _RecordBatchFileWriter
+from pyarrow.compat import pickle
 
 cdef extern from "arrow/python/python_to_arrow.h" namespace 'arrow::py':
 

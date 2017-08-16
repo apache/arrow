@@ -111,6 +111,11 @@ class SequenceBuilder {
   std::vector<int32_t> tuple_offsets_;
   std::vector<int32_t> dict_offsets_;
 
+  // Tags for members of the sequence. If they are set to -1 it means
+  // they are not used and will not part be of the metadata when we call
+  // SequenceBuilder::Finish. If a member with one of the tags is added,
+  // the associated variable gets a unique index starting from 0. This
+  // happens in the UPDATE macro in sequence.cc.
   int8_t bool_tag = -1;
   int8_t int_tag = -1;
   int8_t string_tag = -1;

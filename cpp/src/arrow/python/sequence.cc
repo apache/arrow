@@ -22,16 +22,16 @@ namespace py {
 
 SequenceBuilder::SequenceBuilder(MemoryPool* pool)
     : pool_(pool),
-      types_(pool, std::make_shared<Int8Type>()),
-      offsets_(pool, std::make_shared<Int32Type>()),
+      types_(pool, ::arrow::int8()),
+      offsets_(pool, ::arrow::int32()),
       nones_(pool),
-      bools_(pool, std::make_shared<BooleanType>()),
-      ints_(pool, std::make_shared<Int64Type>()),
-      bytes_(pool, std::make_shared<BinaryType>()),
+      bools_(pool, ::arrow::boolean()),
+      ints_(pool, ::arrow::int64()),
+      bytes_(pool, ::arrow::binary()),
       strings_(pool),
-      floats_(pool, std::make_shared<FloatType>()),
-      doubles_(pool, std::make_shared<DoubleType>()),
-      tensor_indices_(pool, std::make_shared<Int32Type>()),
+      floats_(pool, ::arrow::float32()),
+      doubles_(pool, ::arrow::float64()),
+      tensor_indices_(pool, ::arrow::int32()),
       list_offsets_({0}),
       tuple_offsets_({0}),
       dict_offsets_({0}) {}
@@ -159,7 +159,7 @@ Status SequenceBuilder::Finish(std::shared_ptr<Array> list_data,
   ADD_SUBSEQUENCE(tuple_data, tuple_offsets_, tuple_builder, tuple_tag, "tuple");
   ADD_SUBSEQUENCE(dict_data, dict_offsets_, dict_builder, dict_tag, "dict");
 
-  TypePtr type = TypePtr(new UnionType(types, type_ids, UnionMode::DENSE));
+  auto type = ::arrow::union_(types, type_ids, UnionMode::DENSE);
   out->reset(new UnionArray(type, types_.length(), children, types_.data(),
                             offsets_.data(), nones_.null_bitmap(), nones_.null_count()));
   return Status::OK();
