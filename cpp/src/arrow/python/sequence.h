@@ -81,10 +81,8 @@ class SequenceBuilder {
   Status AppendDict(int32_t size);
 
   /// Finish building the sequence and return the result.
-  Status Finish(std::shared_ptr<Array> list_data,
-                std::shared_ptr<Array> tuple_data,
-                std::shared_ptr<Array> dict_data,
-                std::shared_ptr<Array>* out);
+  Status Finish(std::shared_ptr<Array> list_data, std::shared_ptr<Array> tuple_data,
+                std::shared_ptr<Array> dict_data, std::shared_ptr<Array>* out);
 
  private:
   MemoryPool* pool_;

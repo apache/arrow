@@ -28,8 +28,8 @@ namespace py {
 
 Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
-Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx,
-                        int32_t stop_idx, PyObject* base,
+Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+                        PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out);
 
@@ -140,12 +140,11 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
   return Status::OK();
 }
 
-template<typename CreateFn, typename SetItemFn>
-Status DeserializeSequence(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-                           PyObject* base,
+template <typename CreateFn, typename SetItemFn>
+Status DeserializeSequence(std::shared_ptr<Array> array, int32_t start_idx,
+                           int32_t stop_idx, PyObject* base,
                            const std::vector<std::shared_ptr<Tensor>>& tensors,
-                           CreateFn create_fn, SetItemFn set_item_fn,
-                           PyObject** out) {
+                           CreateFn create_fn, SetItemFn set_item_fn, PyObject** out) {
   auto data = std::dynamic_pointer_cast<UnionArray>(array);
   int32_t size = array->length();
   ScopedRef result(create_fn(stop_idx - start_idx));
@@ -172,14 +171,16 @@ Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
-  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyList_New, PyList_SetItem, out);
+  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyList_New,
+                             PyList_SetItem, out);
 }
 
 Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
                         PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
-  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyTuple_New, PyTuple_SetItem, out);
+  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyTuple_New,
+                             PyTuple_SetItem, out);
 }
 
 }  // namespace py

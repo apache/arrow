@@ -34,8 +34,8 @@ namespace py {
 
 Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
-Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx,
-                       int32_t stop_idx, PyObject* base,
+Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+                       PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
 

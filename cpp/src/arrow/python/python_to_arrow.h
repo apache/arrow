@@ -62,8 +62,7 @@ class DictBuilder {
                        std::shared_ptr<Array> key_dict_data,
                        std::shared_ptr<Array> val_list_data,
                        std::shared_ptr<Array> val_tuple_data,
-                       std::shared_ptr<Array> val_dict_data,
-                       std::shared_ptr<Array>* out);
+                       std::shared_ptr<Array> val_dict_data, std::shared_ptr<Array>* out);
 
  private:
   SequenceBuilder keys_;

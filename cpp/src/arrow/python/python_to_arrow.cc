@@ -174,7 +174,8 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
     default: {
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array), &serialized_object));
+      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array),
+                                                    &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
     }
@@ -239,8 +240,8 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
       RETURN_NOT_OK(
           Append(key, &result.keys(), &dummy, &key_tuples, &key_dicts, tensors_out));
       DCHECK_EQ(dummy.size(), 0);
-      RETURN_NOT_OK(
-          Append(value, &result.vals(), &val_lists, &val_tuples, &val_dicts, tensors_out));
+      RETURN_NOT_OK(Append(value, &result.vals(), &val_lists, &val_tuples, &val_dicts,
+                           tensors_out));
     }
   }
   std::shared_ptr<Array> key_tuples_arr;
