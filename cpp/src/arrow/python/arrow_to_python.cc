@@ -26,12 +26,8 @@
 namespace arrow {
 namespace py {
 
-#if PY_MAJOR_VERSION >= 3
-#define PyInt_FromLong PyLong_FromLong
-#endif
-
-Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObject* base,
-                 const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
+Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObject* base,
+                const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
   switch (arr->type()->id()) {
     case Type::BOOL:
       *result =
@@ -45,14 +41,14 @@ Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObje
       const uint8_t* str =
           std::static_pointer_cast<BinaryArray>(arr)->GetValue(index, &nchars);
       *result = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
-      return Status::OK();
+      return CheckPyError();
     }
     case Type::STRING: {
       int32_t nchars;
       const uint8_t* str =
           std::static_pointer_cast<StringArray>(arr)->GetValue(index, &nchars);
       *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
-      return Status::OK();
+      return CheckPyError();
     }
     case Type::FLOAT:
       *result =
@@ -104,7 +100,7 @@ Status get_value(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObje
       int8_t type = types->Value(i);                                        \
       std::shared_ptr<Array> arr = data->child(type);                       \
       PyObject* value;                                                      \
-      RETURN_NOT_OK(get_value(arr, offset, type, base, tensors, &value));   \
+      RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));    \
       SET_ITEM(result, i - start_idx, value);                               \
     }                                                                       \
   }                                                                         \

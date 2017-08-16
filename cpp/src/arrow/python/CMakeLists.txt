@@ -55,7 +55,7 @@ set(ARROW_PYTHON_SRCS
   pandas_to_arrow.cc
   python_to_arrow.cc
   pyarrow.cc
-  sequence
+  sequence.cc
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
