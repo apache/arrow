@@ -26,6 +26,61 @@
 namespace arrow {
 namespace py {
 
+Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
+
+Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx,
+                        int32_t stop_idx, PyObject* base,
+                        const std::vector<std::shared_ptr<Tensor>>& tensors,
+                        PyObject** out);
+
+Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+                       PyObject* base,
+                       const std::vector<std::shared_ptr<Tensor>>& tensors,
+                       PyObject** out) {
+  auto data = std::dynamic_pointer_cast<StructArray>(array);
+  // TODO(pcm): error handling, get rid of the temporary copy of the list
+  PyObject *keys, *vals;
+  PyObject* result = PyDict_New();
+  ARROW_RETURN_NOT_OK(
+      DeserializeList(data->field(0), start_idx, stop_idx, base, tensors, &keys));
+  ARROW_RETURN_NOT_OK(
+      DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, &vals));
+  for (int32_t i = start_idx; i < stop_idx; ++i) {
+    PyDict_SetItem(result, PyList_GET_ITEM(keys, i - start_idx),
+                   PyList_GET_ITEM(vals, i - start_idx));
+  }
+  // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
+  // The latter two steal references whereas PyDict_SetItem does not. So we need
+  // to steal it by hand here.
+  Py_XDECREF(keys);
+  Py_XDECREF(vals);
+  static PyObject* py_type = PyUnicode_FromString("_pytype_");
+  if (PyDict_Contains(result, py_type)) {
+    PyObject* callback_result;
+    CallCustomCallback(pyarrow_deserialize_callback, result, &callback_result);
+    Py_XDECREF(result);
+    result = callback_result;
+  }
+  *out = result;
+  return Status::OK();
+}
+
+Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* base,
+                        const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
+                        PyObject** out) {
+  DCHECK(array);
+  int32_t index = std::static_pointer_cast<Int32Array>(array)->Value(offset);
+  RETURN_NOT_OK(py::TensorToNdarray(*tensors[index], base, out));
+  /* Mark the array as immutable. */
+  PyObject* flags = PyObject_GetAttrString(*out, "flags");
+  DCHECK(flags != NULL) << "Could not mark Numpy array immutable";
+  Py_INCREF(Py_False);
+  int flag_set = PyObject_SetAttrString(flags, "writeable", Py_False);
+  DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
+  Py_XDECREF(flags);
+  return Status::OK();
+}
+
 Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObject* base,
                 const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
   switch (arr->type()->id()) {
@@ -125,53 +180,6 @@ Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
   return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyTuple_New, PyTuple_SetItem, out);
-}
-
-Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-                       PyObject* base,
-                       const std::vector<std::shared_ptr<Tensor>>& tensors,
-                       PyObject** out) {
-  auto data = std::dynamic_pointer_cast<StructArray>(array);
-  // TODO(pcm): error handling, get rid of the temporary copy of the list
-  PyObject *keys, *vals;
-  PyObject* result = PyDict_New();
-  ARROW_RETURN_NOT_OK(
-      DeserializeList(data->field(0), start_idx, stop_idx, base, tensors, &keys));
-  ARROW_RETURN_NOT_OK(
-      DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, &vals));
-  for (int32_t i = start_idx; i < stop_idx; ++i) {
-    PyDict_SetItem(result, PyList_GET_ITEM(keys, i - start_idx),
-                   PyList_GET_ITEM(vals, i - start_idx));
-  }
-  // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
-  // The latter two steal references whereas PyDict_SetItem does not. So we need
-  // to steal it by hand here.
-  Py_XDECREF(keys);
-  Py_XDECREF(vals);
-  static PyObject* py_type = PyUnicode_FromString("_pytype_");
-  if (PyDict_Contains(result, py_type)) {
-    PyObject* callback_result;
-    CallCustomCallback(pyarrow_deserialize_callback, result, &callback_result);
-    Py_XDECREF(result);
-    result = callback_result;
-  }
-  *out = result;
-  return Status::OK();
-}
-
-Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* base,
-                        const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
-                        PyObject** out) {
-  DCHECK(array);
-  int32_t index = std::static_pointer_cast<Int32Array>(array)->Value(offset);
-  RETURN_NOT_OK(py::TensorToNdarray(*tensors[index], base, out));
-  /* Mark the array as immutable. */
-  PyObject* flags = PyObject_GetAttrString(*out, "flags");
-  DCHECK(flags != NULL) << "Could not mark Numpy array immutable";
-  int flag_set = PyObject_SetAttrString(flags, "writeable", Py_False);
-  DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
-  Py_XDECREF(flags);
-  return Status::OK();
 }
 
 }  // namespace py
