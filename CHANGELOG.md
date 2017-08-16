@@ -36,26 +36,26 @@
 * ARROW-1265 - [Plasma] Plasma store memory leak warnings in Python test suite
 * ARROW-1267 - [Java] Handle zero length case in BitVector.splitAndTransfer
 * ARROW-1269 - [Packaging] Add Windows wheel build scripts from ARROW-1068 to arrow-dist
-* ARROW-1275 - [C++] Default static library prefix for Snappy should be "_static"
+* ARROW-1275 - [C++] Default static library prefix for Snappy should be "\_static"
 * ARROW-1276 - Cannot serializer empty DataFrame to parquet
 * ARROW-1283 - [Java] VectorSchemaRoot should be able to be closed() more than once
 * ARROW-1285 - PYTHON: NotImplemented exception creates empty parquet file
 * ARROW-1287 - [Python] Emulate "whence" argument of seek in NativeFile
 * ARROW-1290 - [C++] Use array capacity doubling in arrow::BufferBuilder
-* ARROW-1291 - [Python] pa.RecordBatch.from_pandas doesn't accept DataFrame with numeric column names
+* ARROW-1291 - [Python] `pa.RecordBatch.from_pandas` doesn't accept DataFrame with numeric column names
 * ARROW-1294 - [C++] New Appveyor build failures
 * ARROW-1296 - [Java] templates/FixValueVectors reset() method doesn't set allocationSizeInBytes correctly
 * ARROW-1300 - [JAVA] Fix ListVector Tests
-* ARROW-1306 - [Python] Encoding? issue with error reporting for parquet.read_table
-* ARROW-1308 - [C++] ld tries to link 'arrow_static' even when -DARROW_BUILD_STATIC=off
-* ARROW-1309 - [Python] Error inferring List type in Array.from_pandas when inner values are all None
+* ARROW-1306 - [Python] Encoding? issue with error reporting for `parquet.read_table`
+* ARROW-1308 - [C++] ld tries to link `arrow_static` even when -DARROW_BUILD_STATIC=off
+* ARROW-1309 - [Python] Error inferring List type in `Array.from_pandas` when inner values are all None
 * ARROW-1310 - [JAVA] Revert ARROW-886
-* ARROW-1312 - [C++] Set default value to ARROW_JEMALLOC to OFF until ARROW-1282 is resolved
+* ARROW-1312 - [C++] Set default value to `ARROW_JEMALLOC` to OFF until ARROW-1282 is resolved
 * ARROW-1326 - [Python] Fix Sphinx build in Travis CI
-* ARROW-1327 - [Python] Failing to release GIL in MemoryMappedFile._open causes deadlock
-* ARROW-1328 - [Python] pyarrow.Table.from_pandas option timestamps_to_ms changes column values
+* ARROW-1327 - [Python] Failing to release GIL in `MemoryMappedFile._open` causes deadlock
+* ARROW-1328 - [Python] `pyarrow.Table.from_pandas` option `timestamps_to_ms` changes column values
 * ARROW-1330 - [Plasma] Turn on plasma tests on manylinux1
-* ARROW-1335 - [C++] PrimitiveArray::raw_values has inconsistent semantics re: offsets compared with subclasses
+* ARROW-1335 - [C++] `PrimitiveArray::raw_values` has inconsistent semantics re: offsets compared with subclasses
 * ARROW-1338 - [Python] Investigate non-deterministic core dump on Python 2.7, Travis CI builds
 * ARROW-1340 - [Java] NullableMapVector field doesn't maintain metadata
 * ARROW-1342 - [Python] Support strided array of lists
@@ -75,7 +75,7 @@
 * ARROW-1140 - [C++] Allow optional build of plasma
 * ARROW-1149 - [Plasma] Create Cython client library for Plasma
 * ARROW-1173 - [Plasma] Blog post for Plasma
-* ARROW-1211 - [C++] Consider making default_memory_pool() the default for builder classes
+* ARROW-1211 - [C++] Consider making `default_memory_pool()` the default for builder classes
 * ARROW-1213 - [Python] Enable s3fs to be used with ParquetDataset and reader/writer functions
 * ARROW-1219 - [C++] Use more vanilla Google C++ formatting
 * ARROW-1224 - [Format] Clarify language around buffer padding and alignment in IPC
@@ -89,13 +89,13 @@
 * ARROW-1259 - [Plasma] Speed up Plasma tests
 * ARROW-1260 - [Plasma] Use factory method to create Python PlasmaClient
 * ARROW-1264 - [Plasma] Don't exit the Python interpreter if the plasma client can't connect to the store
-* ARROW-1274 - [C++] add_compiler_export_flags() throws warning with CMake >= 3.3
+* ARROW-1274 - [C++] `add_compiler_export_flags()` throws warning with CMake >= 3.3
 * ARROW-1288 - Clean up many ASF license headers
-* ARROW-1289 - [Python] Add PYARROW_BUILD_PLASMA option like Parquet
+* ARROW-1289 - [Python] Add `PYARROW_BUILD_PLASMA` option like Parquet
 * ARROW-1301 - [C++/Python] Add remaining supported libhdfs UNIX-like filesystem APIs
 * ARROW-1303 - [C++] Support downloading Boost
 * ARROW-1315 - [GLib] Status check of arrow::ArrayBuilder::Finish() is missing
-* ARROW-1323 - [GLib] Add garrow_boolean_array_get_values()
+* ARROW-1323 - [GLib] Add `garrow_boolean_array_get_values()`
 * ARROW-1333 - [Plasma] Sorting example for DataFrames in plasma
 * ARROW-1334 - [C++] Instantiate arrow::Table from vector of Array objects (instead of Columns)
 
@@ -108,8 +108,8 @@
 * ARROW-1281 - [C++/Python] Add Docker setup for running HDFS tests and other tests we may not run in Travis CI
 * ARROW-1305 - [GLib] Add GArrowIntArrayBuilder
 * ARROW-1336 - [C++] Add arrow::schema factory function
-* ARROW-439 - [Python] Add option in "to_pandas" conversions to yield Categorical from String/Binary arrays
-* ARROW-622 - [Python] Investigate alternatives to timestamps_to_ms argument in pandas conversion
+* ARROW-439 - [Python] Add option in `to_pandas` conversions to yield Categorical from String/Binary arrays
+* ARROW-622 - [Python] Investigate alternatives to `timestamps_to_ms` argument in pandas conversion
 
 ## Task
 
@@ -127,9 +127,9 @@
 
 ## Bug
 
-* ARROW-1074 - from_pandas doesnt convert ndarray to list
+* ARROW-1074 - `from_pandas` doesnt convert ndarray to list
 * ARROW-1079 - [Python] Empty "private" directories should be ignored by Parquet interface
-* ARROW-1081 - C++: arrow::test::TestBase::MakePrimitive doesn't fill null_bitmap
+* ARROW-1081 - C++: arrow::test::TestBase::MakePrimitive doesn't fill `null_bitmap`
 * ARROW-1096 - [C++] Memory mapping file over 4GB fails on Windows
 * ARROW-1097 - Reading tensor needs file to be opened in writeable mode
 * ARROW-1098 - Document Error?
