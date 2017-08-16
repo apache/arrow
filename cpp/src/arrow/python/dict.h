@@ -23,6 +23,7 @@
 #include "arrow/python/sequence.h"
 
 namespace arrow {
+namespace py {
 
 /// Constructing dictionaries of key/value pairs. Sequences of
 /// keys and values are built separately using a pair of
@@ -58,6 +59,7 @@ class DictBuilder {
   SequenceBuilder vals_;
 };
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // PYARROW_DICT_H

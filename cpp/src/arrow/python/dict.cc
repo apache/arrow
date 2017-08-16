@@ -20,6 +20,7 @@
 #include <vector>
 
 namespace arrow {
+namespace py {
 
 Status DictBuilder::Finish(std::shared_ptr<Array> key_tuple_data,
     std::shared_ptr<Array> key_dict_data, std::shared_ptr<Array> val_list_data,
@@ -40,4 +41,5 @@ Status DictBuilder::Finish(std::shared_ptr<Array> key_tuple_data,
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow

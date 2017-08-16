@@ -27,6 +27,7 @@
 #include "arrow/python/sequence.h"
 
 namespace arrow {
+namespace py {
 
 Status AppendScalar(PyObject* obj, SequenceBuilder& builder) {
   if (PyArray_IsScalar(obj, Bool)) {
@@ -63,6 +64,7 @@ Status AppendScalar(PyObject* obj, SequenceBuilder& builder) {
   return builder.AppendInt64(value);
 }
 
+}  // namespace py
 }  // namespace arrow
 
 #endif  // PYTHON_ARROW_SCALARS_H

@@ -18,6 +18,7 @@
 #include "arrow/python/sequence.h"
 
 namespace arrow {
+namespace py {
 
 SequenceBuilder::SequenceBuilder(MemoryPool* pool)
     : pool_(pool),
@@ -162,4 +163,5 @@ Status SequenceBuilder::Finish(std::shared_ptr<Array> list_data,
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow

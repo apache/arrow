@@ -30,6 +30,7 @@ extern PyObject* pyarrow_deserialize_callback;
 }
 
 namespace arrow {
+namespace py {
 
 arrow::Status DeserializeList(std::shared_ptr<arrow::Array> array, int32_t start_idx,
     int32_t stop_idx, PyObject* base,
@@ -47,6 +48,7 @@ arrow::Status DeserializeArray(std::shared_ptr<arrow::Array> array, int32_t offs
     PyObject* base, const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
     PyObject** out);
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // ARROW_PYTHON_ARROW_TO_PYTHON_H

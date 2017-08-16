@@ -24,6 +24,7 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+namespace py {
 
 class NullArrayBuilder : public arrow::ArrayBuilder {
  public:
@@ -136,6 +137,7 @@ class SequenceBuilder {
   int8_t num_tags = 0;
 };
 
+}  // namespace py
 }  // namespace arrow
 
 #endif  // PYTHON_ARROW_SEQUENCE_H

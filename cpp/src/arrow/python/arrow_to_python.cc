@@ -23,9 +23,8 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 
-using namespace arrow::py;
-
 namespace arrow {
+namespace py {
 
 #if PY_MAJOR_VERSION >= 3
 #define PyInt_FromLong PyLong_FromLong
@@ -169,4 +168,5 @@ Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* 
   return Status::OK();
 }
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow

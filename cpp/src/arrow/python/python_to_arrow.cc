@@ -30,9 +30,8 @@ extern "C" {
   PyObject* pyarrow_deserialize_callback = NULL;
 }
 
-using namespace arrow::py;
-
 namespace arrow {
+namespace py {
 
 Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_object) {
   *serialized_object = NULL;
@@ -281,4 +280,5 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
 }
 
+} // namespace py
 } // namespace arrow

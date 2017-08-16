@@ -34,6 +34,7 @@ extern PyObject* pyarrow_deserialize_callback;
 }
 
 namespace arrow {
+namespace py {
 
 arrow::Status SerializeSequences(std::vector<PyObject*> sequences,
     int32_t recursion_depth, std::shared_ptr<arrow::Array>* out,
@@ -47,6 +48,7 @@ arrow::Status SerializeArray(PyArrayObject* array, SequenceBuilder& builder,
 
 std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data);
 
-} // namespace arrow
+}  // namespace py
+}  // namespace arrow
 
 #endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

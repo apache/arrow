@@ -30,7 +30,7 @@ except ImportError:
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status, _RecordBatchFileWriter
 
-cdef extern from "arrow/python/python_to_arrow.h":
+cdef extern from "arrow/python/python_to_arrow.h" namespace 'arrow::py':
 
     cdef CStatus SerializeSequences(c_vector[PyObject*] sequences,
         int32_t recursion_depth, shared_ptr[CArray]* array_out,
@@ -38,11 +38,13 @@ cdef extern from "arrow/python/python_to_arrow.h":
 
     cdef shared_ptr[CRecordBatch] MakeBatch(shared_ptr[CArray] data)
 
+cdef extern from "arrow/python/python_to_arrow.h":
+
     cdef extern PyObject *pyarrow_serialize_callback
 
     cdef extern PyObject *pyarrow_deserialize_callback
 
-cdef extern from "arrow/python/arrow_to_python.h":
+cdef extern from "arrow/python/arrow_to_python.h" namespace 'arrow::py':
 
     cdef CStatus DeserializeList(shared_ptr[CArray] array, int32_t start_idx,
         int32_t stop_idx, PyObject* base,
