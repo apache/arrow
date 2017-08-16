@@ -175,7 +175,7 @@ These settings can also be set on a per-column basis:
 
 .. code-block:: python
 
-   pa.write_table(table, where, compression={'foo': 'snappy', 'bar': 'gzip'},
+   pq.write_table(table, where, compression={'foo': 'snappy', 'bar': 'gzip'},
                   use_dictionary=['foo', 'bar'])
 
 Reading Multiples Files and Partitioned Datasets
