@@ -34,7 +34,7 @@ cdef extern from "arrow/python/python_to_arrow.h" namespace 'arrow::py':
 
     cdef CStatus SerializeSequences(c_vector[PyObject*] sequences,
         int32_t recursion_depth, shared_ptr[CArray]* array_out,
-        c_vector[PyObject*]& tensors_out)
+        c_vector[PyObject*]* tensors_out)
 
     cdef shared_ptr[CRecordBatch] MakeBatch(shared_ptr[CArray] data)
 
@@ -170,7 +170,7 @@ def serialize_sequence(object value):
     cdef PyObject* tensor
     cdef shared_ptr[CTensor] out
     sequences.push_back(<PyObject*> value)
-    check_status(SerializeSequences(sequences, recursion_depth, &array, tensors))
+    check_status(SerializeSequences(sequences, recursion_depth, &array, &tensors))
     result.batch = MakeBatch(array)
     num_tensors = 0
     for tensor in tensors:

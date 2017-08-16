@@ -29,13 +29,13 @@
 namespace arrow {
 namespace py {
 
-Status AppendScalar(PyObject* obj, SequenceBuilder& builder) {
+Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
-    return builder.AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
+    return builder->AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
   } else if (PyArray_IsScalar(obj, Float)) {
-    return builder.AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
+    return builder->AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
   } else if (PyArray_IsScalar(obj, Double)) {
-    return builder.AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
+    return builder->AppendDouble(reinterpret_cast<PyDoubleScalarObject*>(obj)->obval);
   }
   int64_t value = 0;
   if (PyArray_IsScalar(obj, Byte)) {
@@ -61,7 +61,7 @@ Status AppendScalar(PyObject* obj, SequenceBuilder& builder) {
   } else {
     DCHECK(false) << "scalar type not recognized";
   }
-  return builder.AppendInt64(value);
+  return builder->AppendInt64(value);
 }
 
 }  // namespace py

@@ -73,15 +73,15 @@ class DictBuilder {
 arrow::Status SerializeSequences(std::vector<PyObject*> sequences,
                                  int32_t recursion_depth,
                                  std::shared_ptr<arrow::Array>* out,
-                                 std::vector<PyObject*>& tensors_out);
+                                 std::vector<PyObject*>* tensors_out);
 
 arrow::Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
                             std::shared_ptr<arrow::Array>* out,
-                            std::vector<PyObject*>& tensors_out);
+                            std::vector<PyObject*>* tensors_out);
 
-arrow::Status SerializeArray(PyArrayObject* array, SequenceBuilder& builder,
-                             std::vector<PyObject*>& subdicts,
-                             std::vector<PyObject*>& tensors_out);
+arrow::Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
+                             std::vector<PyObject*>* subdicts,
+                             std::vector<PyObject*>* tensors_out);
 
 std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data);
 
