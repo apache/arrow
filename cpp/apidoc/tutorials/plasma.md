@@ -183,7 +183,7 @@ You can also specify metadata for the object; the third argument is the
 metadata (as raw bytes) and the fourth argument is the size of the metadata.
 
 ```cpp
-// Create a Plasma object without metadata.
+// Create a Plasma object with metadata.
 int64_t data_size = 100;
 std::string metadata = "{'author': 'john'}";
 uint8_t* data;
