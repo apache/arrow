@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "python_to_arrow.h"
+#include "arrow/python/python_to_arrow.h"
 
 #include <sstream>
 
