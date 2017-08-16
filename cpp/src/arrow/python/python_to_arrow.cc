@@ -33,28 +33,30 @@ PyObject* pyarrow_deserialize_callback = NULL;
 namespace arrow {
 namespace py {
 
-Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_object) {
-  *serialized_object = NULL;
-  if (!pyarrow_serialize_callback) {
+Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result) {
+  *result = NULL;
+  if (!callback) {
     std::stringstream ss;
     PyObject* repr = PyObject_Repr(elem);
     PyObject* ascii = PyUnicode_AsASCIIString(repr);
-    ss << "data type of " << PyBytes_AsString(ascii)
-       << " not recognized and custom serialization handler not registered";
+    ss << "error while calling callback on " << PyBytes_AsString(ascii)
+       << ": handler not registered";
     Py_XDECREF(ascii);
     Py_XDECREF(repr);
     return Status::NotImplemented(ss.str());
   } else {
     PyObject* arglist = Py_BuildValue("(O)", elem);
-    // The reference count of the result of the call to PyObject_CallObject
-    // must be decremented. This is done in SerializeDict in this file.
-    PyObject* result = PyObject_CallObject(pyarrow_serialize_callback, arglist);
+    *result = PyObject_CallObject(callback, arglist);
     Py_XDECREF(arglist);
     RETURN_IF_PYERROR();
-    if (!PyDict_Check(result)) {
-      return Status::TypeError("serialization callback must return a valid dictionary");
-    }
-    *serialized_object = result;
+  }
+  return Status::OK();
+}
+
+Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_object) {
+  RETURN_NOT_OK(CallCustomCallback(pyarrow_serialize_callback, elem, serialized_object));
+  if (!PyDict_Check(*serialized_object)) {
+    return Status::TypeError("serialization callback must return a valid dictionary");
   }
   return Status::OK();
 }
@@ -75,9 +77,7 @@ Status append(PyObject* elem, SequenceBuilder& builder, std::vector<PyObject*>& 
     } else {
       // Attempt to serialize the object using the custom callback.
       PyObject* serialized_object;
-      // The reference count of serialized_object is incremented in the function
-      // CallCustomSerializationCallback (if the call is successful), and it will
-      // be decremented in SerializeDict in this file.
+      // The reference count of serialized_object will be decremented in SerializeDict
       RETURN_NOT_OK(CallCustomSerializationCallback(elem, &serialized_object));
       RETURN_NOT_OK(builder.AppendDict(PyDict_Size(serialized_object)));
       subdicts.push_back(serialized_object);
@@ -122,9 +122,7 @@ Status append(PyObject* elem, SequenceBuilder& builder, std::vector<PyObject*>& 
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
-    // The reference count of serialized_object is incremented in the function
-    // CallCustomSerializationCallback (if the call is successful), and it will
-    // be decremented in SerializeDict in this file.
+    // The reference count of serialized_object will be decremented in SerializeDict
     RETURN_NOT_OK(CallCustomSerializationCallback(elem, &serialized_object));
     RETURN_NOT_OK(builder.AppendDict(PyDict_Size(serialized_object)));
     subdicts.push_back(serialized_object);
@@ -151,23 +149,13 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder& builder,
       RETURN_NOT_OK(builder.AppendTensor(tensors_out.size()));
       tensors_out.push_back(reinterpret_cast<PyObject*>(array));
     } break;
-    default:
-      if (!pyarrow_serialize_callback) {
-        std::stringstream stream;
-        stream << "numpy data type not recognized: " << dtype;
-        return Status::NotImplemented(stream.str());
-      } else {
-        PyObject* arglist = Py_BuildValue("(O)", array);
-        // The reference count of the result of the call to PyObject_CallObject
-        // must be decremented. This is done in SerializeDict in python.cc.
-        PyObject* result = PyObject_CallObject(pyarrow_serialize_callback, arglist);
-        Py_XDECREF(arglist);
-        if (!result) {
-          RETURN_IF_PYERROR();
-        }
-        builder.AppendDict(PyDict_Size(result));
-        subdicts.push_back(result);
-      }
+    default: {
+      PyObject* serialized_object;
+      // The reference count of serialized_object will be decremented in SerializeDict
+      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array), &serialized_object));
+      RETURN_NOT_OK(builder.AppendDict(PyDict_Size(serialized_object)));
+      subdicts.push_back(serialized_object);
+    }
   }
   return Status::OK();
 }
@@ -262,8 +250,8 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
                 out);
 
   // This block is used to decrement the reference counts of the results
-  // returned by the serialization callback, which is called in SerializeArray
-  // in numpy.cc as well as in DeserializeDict and in append in this file.
+  // returned by the serialization callback, which is called in SerializeArray,
+  // in DeserializeDict and in Append
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
   for (const auto& dict : dicts) {
     if (PyDict_Contains(dict, py_type)) {

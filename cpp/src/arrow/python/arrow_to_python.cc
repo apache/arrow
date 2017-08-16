@@ -149,18 +149,11 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
   Py_XDECREF(keys);
   Py_XDECREF(vals);
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
-  if (PyDict_Contains(result, py_type) && pyarrow_deserialize_callback) {
-    PyObject* arglist = Py_BuildValue("(O)", result);
-    // The result of the call to PyObject_CallObject will be passed to Python
-    // and its reference count will be decremented by the interpreter.
-    PyObject* callback_result =
-        PyObject_CallObject(pyarrow_deserialize_callback, arglist);
-    Py_XDECREF(arglist);
+  if (PyDict_Contains(result, py_type)) {
+    PyObject* callback_result;
+    CallCustomCallback(pyarrow_deserialize_callback, result, &callback_result);
     Py_XDECREF(result);
     result = callback_result;
-    if (!callback_result) {
-      RETURN_IF_PYERROR();
-    }
   }
   *out = result;
   return Status::OK();
