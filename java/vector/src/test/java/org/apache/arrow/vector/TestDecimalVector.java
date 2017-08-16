@@ -41,15 +41,17 @@ public class TestDecimalVector {
     }
   }
 
-  private int scale = 3;
-
   @Test
   public void test() {
+    int precision = 10;
+    int scale = 3;
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);
-    try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, 10, scale);) {
+    NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(precision, scale), allocator);
+    try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, precision, scale);) {
       assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
     }
+    assertEquals(decimalVector.getPrecision(), precision);
+    assertEquals(decimalVector.getScale(), scale);
     decimalVector.allocateNew();
     BigDecimal[] values = new BigDecimal[intValues.length];
     for (int i = 0; i < intValues.length; i++) {
