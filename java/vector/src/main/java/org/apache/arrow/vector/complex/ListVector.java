@@ -178,6 +178,21 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return new TransferImpl((ListVector) target);
   }
 
+  @Override
+  public long getValidityBufferAddress() {
+    return (bits.getBuffer().memoryAddress());
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    return (offsets.getBuffer().memoryAddress());
+  }
+
   private class TransferImpl implements TransferPair {
 
     ListVector to;

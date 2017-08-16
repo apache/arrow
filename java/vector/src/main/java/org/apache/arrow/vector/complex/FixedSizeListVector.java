@@ -293,6 +293,21 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return vector;
   }
 
+  @Override
+  public long getValidityBufferAddress() {
+    return (bits.getBuffer().memoryAddress());
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
   public class Accessor extends BaseValueVector.BaseAccessor {
 
     @Override

@@ -42,6 +42,8 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.netty.buffer.ArrowBuf;
+
 
 public class TestListVector {
 
@@ -436,14 +438,14 @@ public class TestListVector {
             dataLength2 = offsetAccessor1.get(i + 1) - offsetAccessor1.get(i);
 
             assertEquals("Different data lengths at index: " + i + " and start: " + start,
-                dataLength1, dataLength2);
+                    dataLength1, dataLength2);
 
             offset1 = offsetAccessor.get(start + i);
             offset2 = offsetAccessor1.get(i);
 
             for (int j = 0; j < dataLength1; j++) {
               assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
-                  valueAccessor.getObject(offset1), valueAccessor1.getObject(offset2));
+                      valueAccessor.getObject(offset1), valueAccessor1.getObject(offset2));
 
               offset1++;
               offset2++;
@@ -567,6 +569,63 @@ public class TestListVector {
       assertEquals(0, offsetAccessor.get(0));
       assertEquals(2, offsetAccessor.get(1));
       assertEquals(5, offsetAccessor.get(2));
+    }
+  }
+
+  @Test
+  public void testGetBufferAddress() throws Exception {
+    try (ListVector listVector = ListVector.empty("vector", allocator)) {
+
+      UnionListWriter listWriter = listVector.getWriter();
+      boolean error = false;
+
+      listWriter.allocate();
+
+      listWriter.setPosition(0);
+      listWriter.startList();
+      listWriter.bigInt().writeBigInt(50);
+      listWriter.bigInt().writeBigInt(100);
+      listWriter.bigInt().writeBigInt(200);
+      listWriter.endList();
+
+      listWriter.setPosition(1);
+      listWriter.startList();
+      listWriter.bigInt().writeBigInt(250);
+      listWriter.bigInt().writeBigInt(300);
+      listWriter.endList();
+
+      final ListVector.Accessor accessor = listVector.getAccessor();
+
+      /* check listVector contents */
+      Object result = accessor.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(new Long(50), resultSet.get(0));
+      assertEquals(new Long(100), resultSet.get(1));
+      assertEquals(new Long(200), resultSet.get(2));
+
+      result = accessor.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(new Long(250), resultSet.get(0));
+      assertEquals(new Long(300), resultSet.get(1));
+
+      List<ArrowBuf> buffers = listVector.getFieldBuffers();
+
+      long bitAddress = listVector.getValidityBufferAddress();
+      long offsetAddress = listVector.getOffsetBufferAddress();
+
+      try {
+        long dataAddress = listVector.getDataBufferAddress();
+      } catch (UnsupportedOperationException ue) {
+        error = true;
+      } finally {
+        assertTrue(error);
+      }
+
+      assertEquals(2, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
     }
   }
 }

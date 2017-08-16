@@ -132,6 +132,21 @@ public class UnionVector implements FieldVector {
     return internalMap.addOrGet(fieldName(minorType), fieldType(minorType), c);
   }
 
+  @Override
+  public long getValidityBufferAddress() {
+    return typeVector.getBuffer().memoryAddress();
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
   public NullableMapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();

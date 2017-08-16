@@ -231,6 +231,21 @@ public class NullableMapVector extends MapVector implements FieldVector {
     super.reAlloc();
   }
 
+  @Override
+  public long getValidityBufferAddress() {
+    return bits.getBuffer().memoryAddress();
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
   public final class Accessor extends MapVector.Accessor {
     final BitVector.Accessor bAccessor = bits.getAccessor();
 
