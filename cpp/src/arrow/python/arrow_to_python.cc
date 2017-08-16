@@ -93,23 +93,23 @@ Status DeserializeSequence(std::shared_ptr<Array> array, int32_t start_idx, int3
                            PyObject** out) {
   auto data = std::dynamic_pointer_cast<UnionArray>(array);
   int32_t size = array->length();
-  PyObject* result = create_fn(stop_idx - start_idx);
+  ScopedRef result(create_fn(stop_idx - start_idx));
   auto types = std::make_shared<Int8Array>(size, data->type_ids());
   auto offsets = std::make_shared<Int32Array>(size, data->value_offsets());
   for (int32_t i = start_idx; i < stop_idx; ++i) {
     if (data->IsNull(i)) {
       Py_INCREF(Py_None);
-      set_item_fn(result, i - start_idx, Py_None);
+      set_item_fn(result.get(), i - start_idx, Py_None);
     } else {
       int32_t offset = offsets->Value(i);
       int8_t type = types->Value(i);
       std::shared_ptr<Array> arr = data->child(type);
       PyObject* value;
       RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));
-      set_item_fn(result, i - start_idx, value);
+      set_item_fn(result.get(), i - start_idx, value);
     }
   }
-  *out = result;
+  *out = result.release();
   return Status::OK();
 }
 
@@ -140,11 +140,14 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
   ARROW_RETURN_NOT_OK(
       DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, &vals));
   for (int32_t i = start_idx; i < stop_idx; ++i) {
-    PyDict_SetItem(result, PyList_GetItem(keys, i - start_idx),
-                   PyList_GetItem(vals, i - start_idx));
+    PyDict_SetItem(result, PyList_GET_ITEM(keys, i - start_idx),
+                   PyList_GET_ITEM(vals, i - start_idx));
   }
-  Py_XDECREF(keys);  // PyList_GetItem(keys, ...) incremented the reference count
-  Py_XDECREF(vals);  // PyList_GetItem(vals, ...) incremented the reference count
+  // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
+  // The latter two steal references whereas PyDict_SetItem does not. So we need
+  // to steal it by hand here.
+  Py_XDECREF(keys);
+  Py_XDECREF(vals);
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
   if (PyDict_Contains(result, py_type) && pyarrow_deserialize_callback) {
     PyObject* arglist = Py_BuildValue("(O)", result);

@@ -91,6 +91,27 @@ class ARROW_EXPORT OwnedRef {
   PyObject* obj_;
 };
 
+class ARROW_EXPORT ScopedRef {
+ public:
+  explicit ScopedRef(PyObject* obj) : obj_(obj) {}
+
+  ~ScopedRef() {
+    PyAcquireGIL lock;
+    Py_XDECREF(obj_);
+  }
+
+  PyObject* release() {
+    PyObject* result = obj_;
+    obj_ = nullptr;
+    return result;
+  }
+
+  PyObject* get() const { return obj_; }
+
+ private:
+  PyObject* obj_;
+};
+
 struct ARROW_EXPORT PyObjectStringify {
   OwnedRef tmp_obj;
   const char* bytes;
