@@ -1164,6 +1164,87 @@ public class TestValueVector {
     }
   }
 
+  @Test /* NullableVarCharVector */
+  public void testGetBufferAddress1() {
+
+    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+
+      final NullableVarCharVector.Mutator mutator = vector.getMutator();
+      final NullableVarCharVector.Accessor accessor = vector.getAccessor();
+
+      vector.allocateNew(1024 * 10, 1024);
+
+      /* populate the vector */
+      mutator.set(0, STR1);
+      mutator.set(1, STR2);
+      mutator.set(2, STR3);
+      mutator.set(3, STR4);
+      mutator.set(4, STR5);
+      mutator.set(5, STR6);
+
+      mutator.setValueCount(15);
+
+      /* check the vector output */
+      assertArrayEquals(STR1, accessor.get(0));
+      assertArrayEquals(STR2, accessor.get(1));
+      assertArrayEquals(STR3, accessor.get(2));
+      assertArrayEquals(STR4, accessor.get(3));
+      assertArrayEquals(STR5, accessor.get(4));
+      assertArrayEquals(STR6, accessor.get(5));
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+      long bitAddress = vector.getValidityBufferAddress();
+      long offsetAddress = vector.getOffsetBufferAddress();
+      long dataAddress = vector.getDataBufferAddress();
+
+      assertEquals(3, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+      assertEquals(dataAddress, buffers.get(2).memoryAddress());
+    }
+  }
+
+  @Test /* NullableIntVector */
+  public void testGetBufferAddress2() {
+
+    try (final NullableIntVector vector = new NullableIntVector("myvector", allocator)) {
+
+      final NullableIntVector.Mutator mutator = vector.getMutator();
+      final NullableIntVector.Accessor accessor = vector.getAccessor();
+      boolean error = false;
+
+      vector.allocateNew(16);
+
+      /* populate the vector */
+      for(int i = 0; i < 16; i += 2) {
+        mutator.set(i, i+10);
+      }
+
+      /* check the vector output */
+      for(int i = 0; i < 16; i += 2) {
+        assertEquals(i+10, accessor.get(i));
+      }
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+      long bitAddress = vector.getValidityBufferAddress();
+      long dataAddress = vector.getDataBufferAddress();
+
+      try {
+        long offsetAddress = vector.getOffsetBufferAddress();
+      }
+      catch (UnsupportedOperationException ue) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+      }
+
+      assertEquals(2, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(dataAddress, buffers.get(1).memoryAddress());
+    }
+  }
+
   @Test
   public void testMultipleClose() {
     BufferAllocator vectorAllocator = allocator.newChildAllocator("vector_allocator", 0, Long.MAX_VALUE);

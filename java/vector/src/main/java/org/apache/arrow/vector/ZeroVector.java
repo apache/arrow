@@ -229,4 +229,19 @@ public class ZeroVector implements FieldVector {
   public List<BufferBacked> getFieldInnerVectors() {
     return Collections.emptyList();
   }
+
+  @Override
+  public long getValidityBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getDataBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
 }

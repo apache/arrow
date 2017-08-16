@@ -19,6 +19,9 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -32,6 +35,8 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import io.netty.buffer.ArrowBuf;
 
 public class TestUnionVector {
   private final static String EMPTY_SCHEMA_PATH = "";
@@ -289,6 +294,71 @@ public class TestUnionVector {
           }
         }
       }
+    }
+  }
+
+  @Test
+  public void testGetBufferAddress() throws Exception {
+    try (UnionVector vector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      final UnionVector.Mutator mutator = vector.getMutator();
+      final UnionVector.Accessor accessor = vector.getAccessor();
+      boolean error = false;
+
+      vector.allocateNew();
+
+      /* populate the UnionVector */
+      mutator.setType(0, MinorType.INT);
+      mutator.setSafe(0, newIntHolder(5));
+
+      mutator.setType(1, MinorType.FLOAT4);
+      mutator.setSafe(1, newFloat4Holder(5.5f));
+
+      mutator.setType(2, MinorType.INT);
+      mutator.setSafe(2, newIntHolder(10));
+
+      mutator.setType(3, MinorType.FLOAT4);
+      mutator.setSafe(3, newFloat4Holder(10.5f));
+
+      mutator.setValueCount(10);
+
+      /* check the vector output */
+      assertEquals(10, accessor.getValueCount());
+      assertEquals(false, accessor.isNull(0));
+      assertEquals(5, accessor.getObject(0));
+      assertEquals(false, accessor.isNull(1));
+      assertEquals(5.5f, accessor.getObject(1));
+      assertEquals(false, accessor.isNull(2));
+      assertEquals(10, accessor.getObject(2));
+      assertEquals(false, accessor.isNull(3));
+      assertEquals(10.5f, accessor.getObject(3));
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+
+      long bitAddress = vector.getValidityBufferAddress();
+
+      try {
+        long offsetAddress = vector.getOffsetBufferAddress();
+      }
+      catch (UnsupportedOperationException ue) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      try {
+        long dataAddress = vector.getDataBufferAddress();
+      }
+      catch (UnsupportedOperationException ue) {
+        error = true;
+      }
+      finally {
+        assertTrue(error);
+      }
+
+      assertEquals(1, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
     }
   }
 
