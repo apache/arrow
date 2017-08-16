@@ -24,7 +24,7 @@ SequenceBuilder::SequenceBuilder(MemoryPool* pool)
     : pool_(pool),
       types_(pool, std::make_shared<Int8Type>()),
       offsets_(pool, std::make_shared<Int32Type>()),
-      nones_(pool, std::make_shared<NullType>()),
+      nones_(pool),
       bools_(pool, std::make_shared<BooleanType>()),
       ints_(pool, std::make_shared<Int64Type>()),
       bytes_(pool, std::make_shared<BinaryType>()),
