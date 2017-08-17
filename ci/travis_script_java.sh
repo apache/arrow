@@ -24,8 +24,7 @@ JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 pushd $JAVA_DIR
 
 export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-mvn -B test
 mvn -B install
-mvn -B site
+[ "${ARROW_TRAVIS_SKIP_SITE}" = "yes" ] || mvn -B site
 
 popd
