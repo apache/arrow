@@ -86,6 +86,12 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
   - language: java
     os: linux
+    env: ARROW_TRAVIS_SKIP_SITE=yes
+    jdk: oraclejdk9
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+  - language: java
+    os: linux
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk7
     before_script:
