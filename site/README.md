@@ -82,7 +82,7 @@ First, build PyArrow with all optional extensions (Apache Parquet).
 
 ```
 cd ../python
-python setup.py build_ext --inplace --with-parquet
+python setup.py build_ext --inplace --with-parquet --with-plasma
 python setup.py build_sphinx -s doc/source
 rsync -r doc/_build/html/ ../site/asf-site/docs/python/
 ```

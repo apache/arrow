@@ -142,18 +142,6 @@ the stream is garbaged-collected, all of the memory is freed:
    stream = None
    pa.total_allocated_bytes()
 
-Classes and functions that may allocate memory will often have an option to
-pass in a custom memory pool:
-
-.. ipython:: python
-
-   my_pool = pa.jemalloc_memory_pool()
-   my_pool
-   my_pool.bytes_allocated()
-   stream = pa.BufferOutputStream(my_pool)
-   stream.write(b'foo')
-   my_pool.bytes_allocated()
-
 On-Disk and Memory Mapped Files
 -------------------------------
 
