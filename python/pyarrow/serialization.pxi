@@ -30,6 +30,16 @@ cdef extern from "arrow/python/python_to_arrow.h" namespace 'arrow::py':
 
     cdef shared_ptr[CRecordBatch] MakeBatch(shared_ptr[CArray] data)
 
+cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
+
+    cdef CStatus WriteSerializedPythonSequence(shared_ptr[CRecordBatch] batch,
+                                     c_vector[shared_ptr[CTensor]] tensors,
+                                     OutputStream* dst)
+    
+    cdef CStatus ReadSerializedPythonSequence(shared_ptr[RandomAccessFile] src,
+                                    shared_ptr[CRecordBatch]* batch_out,
+                                    c_vector[shared_ptr[CTensor]]* tensors_out)
+
 cdef extern from "arrow/python/python_to_arrow.h":
 
     cdef extern PyObject *pyarrow_serialize_callback
@@ -180,46 +190,16 @@ def deserialize_sequence(PythonObject value, object base):
 def write_python_object(PythonObject value, int32_t num_tensors, NativeFile sink):
     cdef shared_ptr[OutputStream] stream
     sink.write_handle(&stream)
-    cdef shared_ptr[CRecordBatchStreamWriter] writer
-    cdef shared_ptr[CSchema] schema = deref(value.batch).schema()
-    cdef shared_ptr[CRecordBatch] batch = value.batch
-    cdef shared_ptr[CTensor] tensor
-    cdef int32_t metadata_length
-    cdef int64_t body_length
 
     with nogil:
-        # write number of tensors
-        check_status(stream.get().Write(<uint8_t*> &num_tensors, sizeof(int32_t)))
-
-        check_status(CRecordBatchStreamWriter.Open(stream.get(), schema, &writer))
-        check_status(deref(writer).WriteRecordBatch(deref(batch)))
-        check_status(deref(writer).Close())
-
-    for tensor in value.tensors:
-        check_status(WriteTensor(deref(tensor), stream.get(), &metadata_length, &body_length))
+        check_status(WriteSerializedPythonSequence(value.batch, value.tensors, stream.get()))
 
 def read_python_object(NativeFile source):
     cdef PythonObject result = PythonObject()
     cdef shared_ptr[RandomAccessFile] stream
     source.read_handle(&stream)
-    cdef shared_ptr[CRecordBatchStreamReader] reader
-    cdef shared_ptr[CTensor] tensor
-    cdef int64_t offset
-    cdef int64_t bytes_read
-    cdef int32_t num_tensors
     
     with nogil:
-        # read number of tensors
-        check_status(stream.get().Read(sizeof(int32_t), &bytes_read, <uint8_t*> &num_tensors))
-
-        check_status(CRecordBatchStreamReader.Open(<shared_ptr[InputStream]> stream, &reader))
-        check_status(reader.get().ReadNextRecordBatch(&result.batch))
-
-        check_status(deref(stream).Tell(&offset))
-
-        for i in range(num_tensors):
-            check_status(ReadTensor(offset, stream.get(), &tensor))
-            result.tensors.push_back(tensor)
-            check_status(deref(stream).Tell(&offset))
+        check_status(ReadSerializedPythonSequence(stream, &result.batch, &result.tensors))
 
     return result

@@ -19,6 +19,7 @@
 
 #include "arrow/util/logging.h"
 
+#include "arrow/ipc/reader.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
@@ -181,6 +182,27 @@ Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t
                         PyObject** out) {
   return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyTuple_New,
                              PyTuple_SetItem, out);
+}
+
+Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
+                                    std::shared_ptr<RecordBatch>* batch_out,
+                                    std::vector<std::shared_ptr<Tensor>>* tensors_out) {
+  std::shared_ptr<ipc::RecordBatchStreamReader> reader;
+  int64_t offset;
+  int64_t bytes_read;
+  int32_t num_tensors;
+  // Read number of tensors
+  RETURN_NOT_OK(src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
+  RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
+  RETURN_NOT_OK(reader->ReadNextRecordBatch(batch_out));
+  RETURN_NOT_OK(src->Tell(&offset));
+  for (int i = 0; i < num_tensors; ++i) {
+    std::shared_ptr<Tensor> tensor;
+    RETURN_NOT_OK(ipc::ReadTensor(offset, src.get(), &tensor));
+    tensors_out->push_back(tensor);
+    RETURN_NOT_OK(src->Tell(&offset));
+  }
+  return Status::OK();
 }
 
 }  // namespace py

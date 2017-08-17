@@ -21,6 +21,7 @@
 #include <Python.h>
 
 #include "arrow/api.h"
+#include "arrow/io/interfaces.h"
 
 #include <vector>
 
@@ -38,6 +39,10 @@ Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
+
+Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
+                                    std::shared_ptr<RecordBatch>* batch_out,
+                                    std::vector<std::shared_ptr<Tensor>>* tensors_out);
 
 }  // namespace py
 }  // namespace arrow

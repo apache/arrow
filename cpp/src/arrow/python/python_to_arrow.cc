@@ -22,7 +22,7 @@
 #include <numpy/arrayobject.h>
 #include <numpy/arrayscalars.h>
 
-#include "arrow/api.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_interop.h"
@@ -38,6 +38,40 @@ PyObject* pyarrow_deserialize_callback = NULL;
 
 namespace arrow {
 namespace py {
+
+/// Constructing dictionaries of key/value pairs. Sequences of
+/// keys and values are built separately using a pair of
+/// SequenceBuilders. The resulting Arrow representation
+/// can be obtained via the Finish method.
+class DictBuilder {
+ public:
+  explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {}
+
+  /// Builder for the keys of the dictionary
+  SequenceBuilder& keys() { return keys_; }
+  /// Builder for the values of the dictionary
+  SequenceBuilder& vals() { return vals_; }
+
+  /// Construct an Arrow StructArray representing the dictionary.
+  /// Contains a field "keys" for the keys and "vals" for the values.
+
+  /// \param list_data
+  ///    List containing the data from nested lists in the value
+  ///   list of the dictionary
+  ///
+  /// \param dict_data
+  ///   List containing the data from nested dictionaries in the
+  ///   value list of the dictionary
+  arrow::Status Finish(std::shared_ptr<Array> key_tuple_data,
+                       std::shared_ptr<Array> key_dict_data,
+                       std::shared_ptr<Array> val_list_data,
+                       std::shared_ptr<Array> val_tuple_data,
+                       std::shared_ptr<Array> val_dict_data, std::shared_ptr<Array>* out);
+
+ private:
+  SequenceBuilder keys_;
+  SequenceBuilder vals_;
+};
 
 Status DictBuilder::Finish(std::shared_ptr<Array> key_tuple_data,
                            std::shared_ptr<Array> key_dict_data,
@@ -88,6 +122,14 @@ Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_obj
   }
   return Status::OK();
 }
+
+Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
+                     std::shared_ptr<Array>* out,
+                     std::vector<PyObject*>* tensors_out);
+
+Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
+                      std::vector<PyObject*>* subdicts,
+                      std::vector<PyObject*>* tensors_out);
 
 Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
@@ -333,6 +375,26 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   auto field = std::make_shared<Field>("list", data->type());
   auto schema = ::arrow::schema({field});
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
+}
+
+Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,
+                                     std::vector<std::shared_ptr<Tensor>> tensors,
+                                     io::OutputStream* dst) {
+  int32_t num_tensors = tensors.size();
+  std::shared_ptr<ipc::RecordBatchStreamWriter> writer;
+  int32_t metadata_length;
+  int64_t body_length;
+
+  RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_tensors), sizeof(int32_t)));
+  RETURN_NOT_OK(ipc::RecordBatchStreamWriter::Open(dst, batch->schema(), &writer));
+  RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  RETURN_NOT_OK(writer->Close());
+
+  for (const auto& tensor : tensors) {
+    RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
+  }
+
+  return Status::OK();
 }
 
 }  // namespace py
