@@ -34,6 +34,11 @@ Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out);
 
+Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+                       PyObject* base,
+                       const std::vector<std::shared_ptr<Tensor>>& tensors,
+                       PyObject** out);
+
 Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
@@ -203,6 +208,13 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
     RETURN_NOT_OK(src->Tell(&offset));
   }
   return Status::OK();
+}
+
+Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
+                                 std::vector<std::shared_ptr<Tensor>> tensors,
+                                 PyObject* base,
+                                 PyObject** out) {
+  return DeserializeList(batch->column(0), 0, batch->num_rows(), base, tensors, out);
 }
 
 }  // namespace py

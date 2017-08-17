@@ -35,14 +35,14 @@ namespace py {
 
 Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
-Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
-                       PyObject* base,
-                       const std::vector<std::shared_ptr<Tensor>>& tensors,
-                       PyObject** out);
-
 Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
                                     std::shared_ptr<RecordBatch>* batch_out,
                                     std::vector<std::shared_ptr<Tensor>>* tensors_out);
+
+Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
+                                 std::vector<std::shared_ptr<Tensor>> tensors,
+                                 PyObject* base,
+                                 PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

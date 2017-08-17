@@ -22,35 +22,36 @@ from cython.operator cimport dereference as deref
 
 from pyarrow.compat import pickle
 
-cdef extern from "arrow/python/python_to_arrow.h" namespace 'arrow::py':
+cdef extern from "arrow/python/api.h" namespace 'arrow::py':
 
-    cdef CStatus SerializeSequences(c_vector[PyObject*] sequences,
-        int32_t recursion_depth, shared_ptr[CArray]* array_out,
-        c_vector[PyObject*]* tensors_out)
+    CStatus SerializePythonSequence(
+        PyObject* sequence,
+        shared_ptr[CRecordBatch]* batch_out,
+        c_vector[shared_ptr[CTensor]]* tensors_out)
 
-    cdef shared_ptr[CRecordBatch] MakeBatch(shared_ptr[CArray] data)
+    CStatus DeserializePythonSequence(
+        shared_ptr[CRecordBatch] batch,
+        c_vector[shared_ptr[CTensor]] tensors,
+        PyObject* base,
+        PyObject** out)
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
-    cdef CStatus WriteSerializedPythonSequence(shared_ptr[CRecordBatch] batch,
-                                     c_vector[shared_ptr[CTensor]] tensors,
-                                     OutputStream* dst)
+    cdef CStatus WriteSerializedPythonSequence(
+        shared_ptr[CRecordBatch] batch,
+        c_vector[shared_ptr[CTensor]] tensors,
+        OutputStream* dst)
     
-    cdef CStatus ReadSerializedPythonSequence(shared_ptr[RandomAccessFile] src,
-                                    shared_ptr[CRecordBatch]* batch_out,
-                                    c_vector[shared_ptr[CTensor]]* tensors_out)
+    cdef CStatus ReadSerializedPythonSequence(
+        shared_ptr[RandomAccessFile] src,
+        shared_ptr[CRecordBatch]* batch_out,
+        c_vector[shared_ptr[CTensor]]* tensors_out)
 
 cdef extern from "arrow/python/python_to_arrow.h":
 
     cdef extern PyObject *pyarrow_serialize_callback
 
     cdef extern PyObject *pyarrow_deserialize_callback
-
-cdef extern from "arrow/python/arrow_to_python.h" namespace 'arrow::py':
-
-    cdef CStatus DeserializeList(shared_ptr[CArray] array, int32_t start_idx,
-        int32_t stop_idx, PyObject* base,
-        const c_vector[shared_ptr[CTensor]]& tensors, PyObject** out)
 
 cdef class PythonObject:
 
@@ -164,27 +165,14 @@ pyarrow_deserialize_callback = <PyObject*> deserialization_callback
 
 # Main entry point for serialization
 def serialize_sequence(object value):
-    cdef int32_t recursion_depth = 0
     cdef PythonObject result = PythonObject()
-    cdef c_vector[PyObject*] sequences
-    cdef shared_ptr[CArray] array
-    cdef c_vector[PyObject*] tensors
-    cdef PyObject* tensor
-    cdef shared_ptr[CTensor] out
-    sequences.push_back(<PyObject*> value)
-    check_status(SerializeSequences(sequences, recursion_depth, &array, &tensors))
-    result.batch = MakeBatch(array)
-    num_tensors = 0
-    for tensor in tensors:
-        check_status(NdarrayToTensor(c_default_memory_pool(), <object> tensor, &out))
-        result.tensors.push_back(out)
-        num_tensors += 1
-    return result, num_tensors
+    check_status(SerializePythonSequence(<PyObject*> value, &result.batch, &result.tensors))
+    return result, result.tensors.size()
 
 # Main entry point for deserialization
 def deserialize_sequence(PythonObject value, object base):
     cdef PyObject* result
-    check_status(DeserializeList(deref(value.batch).column(0), 0, deref(value.batch).num_rows(), <PyObject*> base, value.tensors, &result))
+    check_status(DeserializePythonSequence(value.batch, value.tensors, <PyObject*> base, &result))
     return <object> result
 
 def write_python_object(PythonObject value, int32_t num_tensors, NativeFile sink):

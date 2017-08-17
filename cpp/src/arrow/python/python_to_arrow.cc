@@ -25,6 +25,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_interop.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/sequence.h"
@@ -130,6 +131,11 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
 Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts,
                       std::vector<PyObject*>* tensors_out);
+
+Status SerializeSequences(std::vector<PyObject*> sequences,
+                          int32_t recursion_depth,
+                          std::shared_ptr<Array>* out,
+                          std::vector<PyObject*>* tensors_out);
 
 Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
@@ -375,6 +381,22 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   auto field = std::make_shared<Field>("list", data->type());
   auto schema = ::arrow::schema({field});
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
+}
+
+Status SerializePythonSequence(PyObject* sequence,
+                               std::shared_ptr<RecordBatch>* batch_out,
+                               std::vector<std::shared_ptr<Tensor>>* tensors_out) {
+  std::vector<PyObject*> sequences = {sequence};
+  std::shared_ptr<Array> array;
+  std::vector<PyObject*> tensors;
+  RETURN_NOT_OK(SerializeSequences(sequences, 0, &array, &tensors));
+  *batch_out = MakeBatch(array);
+  for (const auto &tensor : tensors) {
+    std::shared_ptr<Tensor> out;
+    RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(), tensor, &out));
+    tensors_out->push_back(out);
+  }
+  return Status::OK();
 }
 
 Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,

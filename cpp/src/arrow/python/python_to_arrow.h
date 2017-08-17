@@ -35,16 +35,13 @@ extern PyObject* pyarrow_deserialize_callback;
 namespace arrow {
 namespace py {
 
+Status SerializePythonSequence(PyObject* sequence,
+                               std::shared_ptr<RecordBatch>* batch_out,
+                               std::vector<std::shared_ptr<Tensor>>* tensors_out);
+
 Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,
                                      std::vector<std::shared_ptr<Tensor>> tensors,
                                      io::OutputStream* dst);
-
-Status SerializeSequences(std::vector<PyObject*> sequences,
-                          int32_t recursion_depth,
-                          std::shared_ptr<Array>* out,
-                          std::vector<PyObject*>* tensors_out);
-
-std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data);
 
 }  // namespace py
 }  // namespace arrow
