@@ -53,15 +53,6 @@ cdef extern from "arrow/python/python_to_arrow.h":
 
     cdef extern PyObject *pyarrow_deserialize_callback
 
-cdef class PythonObject:
-
-    cdef:
-        shared_ptr[CRecordBatch] batch
-        c_vector[shared_ptr[CTensor]] tensors
-
-    def __cinit__(self):
-        pass
-
 
 def is_named_tuple(cls):
     """Return True if cls is a namedtuple and False otherwise."""
@@ -164,30 +155,29 @@ pyarrow_serialize_callback = <PyObject*> serialization_callback
 pyarrow_deserialize_callback = <PyObject*> deserialization_callback
 
 # Main entry point for serialization
-def serialize_sequence(object value):
-    cdef PythonObject result = PythonObject()
-    check_status(SerializePythonSequence(<PyObject*> value, &result.batch, &result.tensors))
-    return result, result.tensors.size()
-
-# Main entry point for deserialization
-def deserialize_sequence(PythonObject value, object base):
-    cdef PyObject* result
-    check_status(DeserializePythonSequence(value.batch, value.tensors, <PyObject*> base, &result))
-    return <object> result
-
-def write_python_object(PythonObject value, int32_t num_tensors, NativeFile sink):
+def serialize_sequence(object value, NativeFile sink):
     cdef shared_ptr[OutputStream] stream
     sink.write_handle(&stream)
 
-    with nogil:
-        check_status(WriteSerializedPythonSequence(value.batch, value.tensors, stream.get()))
+    cdef shared_ptr[CRecordBatch] batch
+    cdef c_vector[shared_ptr[CTensor]] tensors
 
-def read_python_object(NativeFile source):
-    cdef PythonObject result = PythonObject()
+    check_status(SerializePythonSequence(<PyObject*> value, &batch, &tensors))
+
+    with nogil:
+        check_status(WriteSerializedPythonSequence(batch, tensors, stream.get()))
+
+# Main entry point for deserialization
+def deserialize_sequence(NativeFile source, object base):
     cdef shared_ptr[RandomAccessFile] stream
     source.read_handle(&stream)
-    
-    with nogil:
-        check_status(ReadSerializedPythonSequence(stream, &result.batch, &result.tensors))
 
-    return result
+    cdef shared_ptr[CRecordBatch] batch
+    cdef c_vector[shared_ptr[CTensor]] tensors
+
+    with nogil:
+        check_status(ReadSerializedPythonSequence(stream, &batch, &tensors))
+
+    cdef PyObject* result
+    check_status(DeserializePythonSequence(batch, tensors, <PyObject*> base, &result))
+    return <object> result

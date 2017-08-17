@@ -185,12 +185,9 @@ pa.lib.register_type(NamedTupleExample, 20 * b"\x08")
 
 def serialization_roundtrip(value, f):
     f.seek(0)
-    serialized, num_tensors = pa.lib.serialize_sequence(value)
-    pa.lib.write_python_object(serialized, num_tensors, f)
+    pa.lib.serialize_sequence(value, f)
     f.seek(0)
-    res = pa.lib.read_python_object(f)
-    base = None
-    result = pa.lib.deserialize_sequence(res, base)
+    result = pa.lib.deserialize_sequence(f, None)
     assert_equal(value, result)
 
 # Create a large memory mapped file
