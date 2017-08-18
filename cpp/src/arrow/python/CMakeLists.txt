@@ -54,7 +54,6 @@ set(ARROW_PYTHON_SRCS
   pandas_to_arrow.cc
   python_to_arrow.cc
   pyarrow.cc
-  sequence.cc
 )
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS
@@ -99,7 +98,6 @@ install(FILES
   python_to_arrow.h
   platform.h
   pyarrow.h
-  sequence.h
   type_traits.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 

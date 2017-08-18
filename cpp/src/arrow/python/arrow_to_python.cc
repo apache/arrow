@@ -137,7 +137,7 @@ Status GetValue(std::shared_ptr<Array> arr, int64_t index, int32_t type, PyObjec
       }
     }
     // We use an Int32Builder here to distinguish the tensor indices from
-    // the Type::INT64 above (see tensor_indices_ in sequence.h).
+    // the Type::INT64 above (see tensor_indices_ in SequenceBuilder).
     case Type::INT32: {
       return DeserializeArray(arr, index, base, tensors, result);
     }
