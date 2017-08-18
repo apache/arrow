@@ -219,7 +219,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
   }
 
   public ArrowBuf getBuffer() {
-    return values.getBuffer();
+    return values.getDataBuffer();
   }
 
   @Override
