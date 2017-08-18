@@ -84,18 +84,25 @@ types_to_pickle = set()
 custom_serializers = dict()
 custom_deserializers = dict()
 
-def register_type(type, type_id, pickle=False, custom_serializer=None, custom_deserializer=None):
+def register_type(type, type_id, pickle=False,
+                  custom_serializer=None, custom_deserializer=None):
     """Add type to the list of types we can serialize.
 
-    Args:
-        type (type): The type that we can serialize.
-        type_id: A string of bytes used to identify the type.
-        pickle (bool): True if the serialization should be done with pickle.
-            False if it should be done efficiently with Arrow.
-        custom_serializer: This argument is optional, but can be provided to
-            serialize objects of the class in a particular way.
-        custom_deserializer: This argument is optional, but can be provided to
-            deserialize objects of the class in a particular way.
+    Parameters
+    ----------
+    type :type
+        The type that we can serialize.
+    type_id : bytes
+        A string of bytes used to identify the type.
+    pickle : bool
+        True if the serialization should be done with pickle.
+        False if it should be done efficiently with Arrow.
+    custom_serializer : callable
+        This argument is optional, but can be provided to
+        serialize objects of the class in a particular way.
+    custom_deserializer : callable
+        This argument is optional, but can be provided to
+        deserialize objects of the class in a particular way.
     """
     type_to_type_id[type] = type_id
     whitelisted_types[type_id] = type
@@ -105,7 +112,7 @@ def register_type(type, type_id, pickle=False, custom_serializer=None, custom_de
         custom_serializers[type_id] = custom_serializer
         custom_deserializers[type_id] = custom_deserializer
 
-def serialization_callback(obj):
+def _serialization_callback(obj):
     if type(obj) not in type_to_type_id:
         raise SerializationException("pyarrow does not know how to "
                                      "serialize objects of type {}."
@@ -127,7 +134,7 @@ def serialization_callback(obj):
                                          "the object '{}'".format(obj), obj)
     return dict(serialized_obj, **{"_pytype_": type_id})
 
-def deserialization_callback(serialized_obj):
+def _deserialization_callback(serialized_obj):
     type_id = serialized_obj["_pytype_"]
 
     if "pickle" in serialized_obj:
@@ -150,12 +157,20 @@ def deserialization_callback(serialized_obj):
                 obj.__dict__.update(serialized_obj)
     return obj
 
-pyarrow_serialize_callback = <PyObject*> serialization_callback
+pyarrow_serialize_callback = <PyObject*> _serialization_callback
 
-pyarrow_deserialize_callback = <PyObject*> deserialization_callback
+pyarrow_deserialize_callback = <PyObject*> _deserialization_callback
 
-# Main entry point for serialization
 def serialize_sequence(object value, NativeFile sink):
+    """Serialize a Python sequence to a file.
+
+    Parameters
+    ----------
+    value: object
+        Python object for the sequence that is to be serialized.
+    sink: NativeFile
+        File the sequence will be written to.
+    """
     cdef shared_ptr[OutputStream] stream
     sink.write_handle(&stream)
 
@@ -167,8 +182,22 @@ def serialize_sequence(object value, NativeFile sink):
     with nogil:
         check_status(WriteSerializedPythonSequence(batch, tensors, stream.get()))
 
-# Main entry point for deserialization
 def deserialize_sequence(NativeFile source, object base):
+    """Deserialize a Python sequence from a file.
+
+    Parameters
+    ----------
+    source: NativeFile
+        File to read the sequence from.
+    base: object
+        This object will be the base object of all the numpy arrays
+        contained in the sequence.
+
+    Returns
+    -------
+    object
+        Python object for the deserialized sequence.
+    """
     cdef shared_ptr[RandomAccessFile] stream
     source.read_handle(&stream)
 
