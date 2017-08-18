@@ -656,6 +656,8 @@ class PlasmaStoreRunner {
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
+    // Pre-warm the shared memory store.
+    ARROW_CHECK(dlmalloc(1024) != NULL);
 
     loop_->AddFileEvent(socket, kEventLoopRead, [this, socket](int events) {
       this->store_->connect_client(socket);
@@ -695,8 +697,6 @@ void start_server(char* socket_name, int64_t system_memory,
   PlasmaStoreRunner runner;
   g_runner = &runner;
   signal(SIGTERM, HandleSignal);
-  // Pre-warm the shared memory store.
-  ARROW_CHECK(dlmalloc(1024) != NULL);
   runner.Start(socket_name, system_memory, memfile_directory, hugetlb_enabled);
 }
 
