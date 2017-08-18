@@ -23,6 +23,7 @@
 #include "arrow/api.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/python/numpy_interop.h"
+#include "arrow/python/platform.h"
 #include "arrow/python/sequence.h"
 
 #include <vector>

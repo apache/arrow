@@ -96,7 +96,7 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
           PyBool_FromLong(std::static_pointer_cast<BooleanArray>(arr)->Value(index));
       return Status::OK();
     case Type::INT64:
-      *result = PyInt_FromLong(std::static_pointer_cast<Int64Array>(arr)->Value(index));
+      *result = PyLong_FromSsize_t(std::static_pointer_cast<Int64Array>(arr)->Value(index));
       return Status::OK();
     case Type::BINARY: {
       int32_t nchars;
@@ -149,16 +149,16 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
 
 #define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                        \
   auto data = std::dynamic_pointer_cast<UnionArray>(array);                 \
-  int32_t size = array->length();                                           \
+  int64_t size = array->length();                                           \
   ScopedRef result(CREATE_FN(stop_idx - start_idx));                        \
   auto types = std::make_shared<Int8Array>(size, data->type_ids());         \
   auto offsets = std::make_shared<Int32Array>(size, data->value_offsets()); \
-  for (int32_t i = start_idx; i < stop_idx; ++i) {                          \
+  for (int64_t i = start_idx; i < stop_idx; ++i) {                          \
     if (data->IsNull(i)) {                                                  \
       Py_INCREF(Py_None);                                                   \
       SET_ITEM_FN(result.get(), i - start_idx, Py_None);                    \
     } else {                                                                \
-      int32_t offset = offsets->Value(i);                                   \
+      int64_t offset = offsets->Value(i);                                   \
       int8_t type = types->Value(i);                                        \
       std::shared_ptr<Array> arr = data->child(type);                       \
       PyObject* value;                                                      \

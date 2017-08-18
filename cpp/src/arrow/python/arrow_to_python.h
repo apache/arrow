@@ -18,10 +18,9 @@
 #ifndef ARROW_PYTHON_ARROW_TO_PYTHON_H
 #define ARROW_PYTHON_ARROW_TO_PYTHON_H
 
-#include <Python.h>
-
 #include "arrow/api.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/python/platform.h"
 
 #include <vector>
 
