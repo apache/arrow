@@ -167,8 +167,12 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
     value = reinterpret_cast<PyULongScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, LongLong)) {
     value = reinterpret_cast<PyLongLongScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, Int64)) {
+    value = reinterpret_cast<PyInt64ScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, ULongLong)) {
     value = reinterpret_cast<PyULongLongScalarObject*>(obj)->obval;
+  } else if (PyArray_IsScalar(obj, UInt64)) {
+    value = reinterpret_cast<PyUInt64ScalarObject*>(obj)->obval;
   } else {
     DCHECK(false) << "scalar type not recognized";
   }
