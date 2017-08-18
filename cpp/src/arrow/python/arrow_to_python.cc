@@ -34,17 +34,17 @@ namespace py {
 
 Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
-Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+Status DeserializeTuple(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                         PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out);
 
-Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+Status DeserializeList(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
 
-Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+Status DeserializeDict(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
@@ -78,13 +78,12 @@ Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* 
   DCHECK(array);
   int32_t index = std::static_pointer_cast<Int32Array>(array)->Value(offset);
   RETURN_NOT_OK(py::TensorToNdarray(*tensors[index], base, out));
-  /* Mark the array as immutable. */
-  PyObject* flags = PyObject_GetAttrString(*out, "flags");
-  DCHECK(flags != NULL) << "Could not mark Numpy array immutable";
+  // Mark the array as immutable
+  ScopedRef flags(PyObject_GetAttrString(*out, "flags"));
+  DCHECK(flags.get() != NULL) << "Could not mark Numpy array immutable";
   Py_INCREF(Py_False);
-  int flag_set = PyObject_SetAttrString(flags, "writeable", Py_False);
+  int flag_set = PyObject_SetAttrString(flags.get(), "writeable", Py_False);
   DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
-  Py_XDECREF(flags);
   return Status::OK();
 }
 
@@ -133,7 +132,7 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
         return DeserializeDict(l->values(), l->value_offset(index),
                                l->value_offset(index + 1), base, tensors, result);
       } else {
-        DCHECK(false) << "error";
+        DCHECK(false) << "unexpected StructArray type " << s->type()->child(0)->name();
       }
     }
     // We use an Int32Builder here to distinguish the tensor indices from
@@ -142,7 +141,7 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
       return DeserializeArray(arr, index, base, tensors, result);
     }
     default:
-      DCHECK(false) << "union tag not recognized " << type;
+      DCHECK(false) << "union tag " << type << " not recognized";
   }
   return Status::OK();
 }
@@ -169,14 +168,14 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
   *out = result.release();                                                  \
   return Status::OK();
 
-Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+Status DeserializeList(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
   DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM)
 }
 
-Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
+Status DeserializeTuple(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                         PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {

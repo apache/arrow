@@ -167,10 +167,6 @@ class ARROW_EXPORT PyBuffer : public Buffer {
   PyObject* obj_;
 };
 
-#if PY_MAJOR_VERSION >= 3
-#define PyInt_FromLong PyLong_FromLong
-#endif
-
 }  // namespace py
 }  // namespace arrow
 
