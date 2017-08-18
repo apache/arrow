@@ -55,7 +55,7 @@ Status DeserializeDict(std::shared_ptr<Array> array, int64_t start_idx, int64_t 
       DeserializeList(data->field(0), start_idx, stop_idx, base, tensors, keys.ref()));
   RETURN_NOT_OK(
       DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, vals.ref()));
-  for (int32_t i = start_idx; i < stop_idx; ++i) {
+  for (int64_t i = start_idx; i < stop_idx; ++i) {
     // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
     // The latter two steal references whereas PyDict_SetItem does not. So we need
     // to make sure the reference count is decremented by letting the ScopedRef

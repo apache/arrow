@@ -88,20 +88,9 @@ def array_custom_serializer(obj):
 def array_custom_deserializer(serialized_obj):
     return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
 
-pa.lib.register_type(np.ndarray, 20 * b"\x01", pickle=False,
+pa.lib.register_type(np.ndarray, 20 * b"\x00", pickle=False,
     custom_serializer=array_custom_serializer,
     custom_deserializer=array_custom_deserializer)
-
-# TODO(pcm): This is currently a workaround until arrow supports
-# arbitrary precision integers. This is only called on long integers,
-# see the associated case in the append method in python_to_arrow.cc
-pa.lib.register_type(int, 20 * b"\x00", pickle=False,
-    custom_serializer=lambda obj: str(obj),
-    custom_deserializer=lambda serialized_obj: int(serialized_obj))
-if (sys.version_info < (3, 0)):
-    pa.lib.register_type(long, 20 * b"\x99", pickle=False,
-        custom_serializer=lambda obj: str(obj),
-        custom_deserializer=lambda serialized_obj: long(serialized_obj))
 
 if sys.version_info >= (3, 0):
     long_extras = [0, np.array([["hi", u"hi"], [1.3, 1]])]
@@ -172,16 +161,28 @@ NamedTupleExample = namedtuple("Example",
 
 
 CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
-                  Foo(), Bar()] # ,  # Qux(), SubQux(),
-                  # NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3])]
+                  Foo(), Bar(), Baz(), Qux(), SubQux(),
+                  NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3])]
 
-pa.lib.register_type(Foo, 20 * b"\x02")
-pa.lib.register_type(Bar, 20 * b"\x03")
-pa.lib.register_type(Baz, 20 * b"\x04")
+pa.lib.register_type(Foo, 20 * b"\x01")
+pa.lib.register_type(Bar, 20 * b"\x02")
+pa.lib.register_type(Baz, 20 * b"\x03")
+pa.lib.register_type(Qux, 20 * b"\x04")
 pa.lib.register_type(Exception, 20 * b"\x05")
 pa.lib.register_type(CustomError, 20 * b"\x06")
 pa.lib.register_type(Point, 20 * b"\x07")
 pa.lib.register_type(NamedTupleExample, 20 * b"\x08")
+
+# TODO(pcm): This is currently a workaround until arrow supports
+# arbitrary precision integers. This is only called on long integers,
+# see the associated case in the append method in python_to_arrow.cc
+pa.lib.register_type(int, 20 * b"\x09", pickle=False,
+    custom_serializer=lambda obj: str(obj),
+    custom_deserializer=lambda serialized_obj: int(serialized_obj))
+if (sys.version_info < (3, 0)):
+    pa.lib.register_type(long, 20 * b"\x10", pickle=False,
+        custom_serializer=lambda obj: str(obj),
+        custom_deserializer=lambda serialized_obj: long(serialized_obj))
 
 def serialization_roundtrip(value, f):
     f.seek(0)
