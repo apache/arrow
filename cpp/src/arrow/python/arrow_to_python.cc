@@ -208,6 +208,7 @@ Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
                                  std::vector<std::shared_ptr<Tensor>> tensors,
                                  PyObject* base,
                                  PyObject** out) {
+  PyAcquireGIL lock;
   return DeserializeList(batch->column(0), 0, batch->num_rows(), base, tensors, out);
 }
 

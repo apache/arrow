@@ -383,6 +383,7 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 Status SerializePythonSequence(PyObject* sequence,
                                std::shared_ptr<RecordBatch>* batch_out,
                                std::vector<std::shared_ptr<Tensor>>* tensors_out) {
+  PyAcquireGIL lock;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
   std::vector<PyObject*> tensors;

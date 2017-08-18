@@ -141,9 +141,8 @@ def serialize_sequence(object value, NativeFile sink):
     cdef shared_ptr[CRecordBatch] batch
     cdef vector[shared_ptr[CTensor]] tensors
 
-    check_status(SerializePythonSequence(<PyObject*> value, &batch, &tensors))
-
     with nogil:
+        check_status(SerializePythonSequence(<PyObject*> value, &batch, &tensors))
         check_status(WriteSerializedPythonSequence(batch, tensors, stream.get()))
 
 def deserialize_sequence(NativeFile source, object base):
@@ -167,10 +166,10 @@ def deserialize_sequence(NativeFile source, object base):
 
     cdef shared_ptr[CRecordBatch] batch
     cdef vector[shared_ptr[CTensor]] tensors
+    cdef PyObject* result
 
     with nogil:
         check_status(ReadSerializedPythonSequence(stream, &batch, &tensors))
+        check_status(DeserializePythonSequence(batch, tensors, <PyObject*> base, &result))
 
-    cdef PyObject* result
-    check_status(DeserializePythonSequence(batch, tensors, <PyObject*> base, &result))
     return <object> result

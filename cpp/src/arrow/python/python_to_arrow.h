@@ -33,6 +33,7 @@ namespace py {
 void set_serialization_callbacks(PyObject* serialize_callback,
                                  PyObject* deserialize_callback);
 
+// This acquires the GIL
 Status SerializePythonSequence(PyObject* sequence,
                                std::shared_ptr<RecordBatch>* batch_out,
                                std::vector<std::shared_ptr<Tensor>>* tensors_out);

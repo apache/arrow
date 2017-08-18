@@ -774,8 +774,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef struct PandasOptions:
         c_bool strings_to_categorical
 
-
-cdef extern from "arrow/python/api.h" namespace 'arrow::py':
+cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
     CStatus SerializePythonSequence(
         PyObject* sequence,
@@ -787,9 +786,6 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py':
         vector[shared_ptr[CTensor]] tensors,
         PyObject* base,
         PyObject** out)
-
-
-cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
     cdef CStatus WriteSerializedPythonSequence(
         shared_ptr[CRecordBatch] batch,
