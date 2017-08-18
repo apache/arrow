@@ -244,4 +244,19 @@ public class ZeroVector implements FieldVector {
   public long getOffsetBufferAddress() {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public ArrowBuf getValidityBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
+    throw new UnsupportedOperationException();
+  }
 }

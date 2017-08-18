@@ -295,7 +295,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public long getValidityBufferAddress() {
-    return (bits.getBuffer().memoryAddress());
+    return (bits.getDataBuffer().memoryAddress());
   }
 
   @Override
@@ -305,6 +305,21 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public long getOffsetBufferAddress() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getValidityBuffer() {
+    return (bits.getDataBuffer());
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
     throw new UnsupportedOperationException();
   }
 

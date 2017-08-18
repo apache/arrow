@@ -124,6 +124,24 @@ public final class ${className} extends BaseDataValueVector implements VariableW
   }
 
   @Override
+  public ArrowBuf getValidityBuffer() {
+    /* this operation is not supported for non-nullable vectors */
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    /* we are not throwing away getBuffer() of BaseDataValueVector so use it wherever applicable */
+    return getBuffer();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
+    /* dataBuffer associated with the underlying offsetVector */
+    return offsetVector.getDataBuffer();
+  }
+
+  @Override
   public int getValueCapacity(){
     return Math.max(offsetVector.getValueCapacity() - 1, 0);
   }
@@ -170,7 +188,7 @@ public final class ${className} extends BaseDataValueVector implements VariableW
   }
 
   public long getOffsetAddr(){
-    return offsetVector.getBuffer().memoryAddress();
+    return offsetVector.getDataBuffer().memoryAddress();
   }
 
   public UInt${type.width}Vector getOffsetVector(){

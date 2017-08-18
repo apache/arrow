@@ -32,6 +32,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
+import io.netty.buffer.ArrowBuf;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.FieldVector;
@@ -127,6 +129,21 @@ public class MapVector extends AbstractMapVector {
     }
 
     return (int) bufferSize;
+  }
+
+  @Override
+  public ArrowBuf getValidityBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
+    throw new UnsupportedOperationException();
   }
 
   @Override

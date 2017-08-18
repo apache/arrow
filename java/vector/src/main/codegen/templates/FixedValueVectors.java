@@ -97,6 +97,24 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
   }
 
   @Override
+  public ArrowBuf getValidityBuffer() {
+    /* this operation is not supported for non-nullable vectors */
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    /* we are not throwing away getBuffer() of BaseDataValueVector so use it wherever applicable */
+    return getBuffer();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
+    /* this operation is not supported for fixed-width vectors */
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public int getValueCapacity(){
     return (int) (data.capacity() *1.0 / ${type.width});
   }

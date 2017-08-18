@@ -234,4 +234,25 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
     @Deprecated
     void generateTestData(int values);
   }
+
+  /**
+   * Gets the underlying buffer associated with validity vector
+   *
+   * @return buffer
+   */
+  public ArrowBuf getValidityBuffer();
+
+  /**
+   * Gets the underlying buffer associated with data vector
+   *
+   * @return buffer
+   */
+  public ArrowBuf getDataBuffer();
+
+  /**
+   * Gets the underlying buffer associated with offset vector
+   *
+   * @return buffer
+   */
+  public ArrowBuf getOffsetBuffer();
 }
