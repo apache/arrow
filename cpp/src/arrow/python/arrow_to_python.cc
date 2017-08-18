@@ -147,47 +147,40 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
   return Status::OK();
 }
 
-template <typename CreateFn, typename SetItemFn>
-Status DeserializeSequence(std::shared_ptr<Array> array, int32_t start_idx,
-                           int32_t stop_idx, PyObject* base,
-                           const std::vector<std::shared_ptr<Tensor>>& tensors,
-                           CreateFn create_fn, SetItemFn set_item_fn, PyObject** out) {
-  auto data = std::dynamic_pointer_cast<UnionArray>(array);
-  int32_t size = array->length();
-  ScopedRef result(create_fn(stop_idx - start_idx));
-  auto types = std::make_shared<Int8Array>(size, data->type_ids());
-  auto offsets = std::make_shared<Int32Array>(size, data->value_offsets());
-  for (int32_t i = start_idx; i < stop_idx; ++i) {
-    if (data->IsNull(i)) {
-      Py_INCREF(Py_None);
-      set_item_fn(result.get(), i - start_idx, Py_None);
-    } else {
-      int32_t offset = offsets->Value(i);
-      int8_t type = types->Value(i);
-      std::shared_ptr<Array> arr = data->child(type);
-      PyObject* value;
-      RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));
-      set_item_fn(result.get(), i - start_idx, value);
-    }
-  }
-  *out = result.release();
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                           \
+  auto data = std::dynamic_pointer_cast<UnionArray>(array);                    \
+  int32_t size = array->length();                                              \
+  ScopedRef result(CREATE_FN(stop_idx - start_idx));                           \
+  auto types = std::make_shared<Int8Array>(size, data->type_ids());            \
+  auto offsets = std::make_shared<Int32Array>(size, data->value_offsets());    \
+  for (int32_t i = start_idx; i < stop_idx; ++i) {                             \
+    if (data->IsNull(i)) {                                                     \
+      Py_INCREF(Py_None);                                                      \
+      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                       \
+    } else {                                                                   \
+      int32_t offset = offsets->Value(i);                                      \
+      int8_t type = types->Value(i);                                           \
+      std::shared_ptr<Array> arr = data->child(type);                          \
+      PyObject* value;                                                         \
+      RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));       \
+      SET_ITEM_FN(result.get(), i - start_idx, value);                         \
+    }                                                                          \
+  }                                                                            \
+  *out = result.release();                                                     \
   return Status::OK();
-}
 
 Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
                        PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
-  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyList_New,
-                             PyList_SetItem, out);
+  DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM)
 }
 
 Status DeserializeTuple(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
                         PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
-  return DeserializeSequence(array, start_idx, stop_idx, base, tensors, PyTuple_New,
-                             PyTuple_SetItem, out);
+  DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM)
 }
 
 Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
