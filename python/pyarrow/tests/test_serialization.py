@@ -168,19 +168,20 @@ pa.lib.register_type(Foo, 20 * b"\x01")
 pa.lib.register_type(Bar, 20 * b"\x02")
 pa.lib.register_type(Baz, 20 * b"\x03")
 pa.lib.register_type(Qux, 20 * b"\x04")
-pa.lib.register_type(Exception, 20 * b"\x05")
-pa.lib.register_type(CustomError, 20 * b"\x06")
-pa.lib.register_type(Point, 20 * b"\x07")
-pa.lib.register_type(NamedTupleExample, 20 * b"\x08")
+pa.lib.register_type(SubQux, 20 * b"\x05")
+pa.lib.register_type(Exception, 20 * b"\x06")
+pa.lib.register_type(CustomError, 20 * b"\x07")
+pa.lib.register_type(Point, 20 * b"\x08")
+pa.lib.register_type(NamedTupleExample, 20 * b"\x09")
 
 # TODO(pcm): This is currently a workaround until arrow supports
 # arbitrary precision integers. This is only called on long integers,
 # see the associated case in the append method in python_to_arrow.cc
-pa.lib.register_type(int, 20 * b"\x09", pickle=False,
+pa.lib.register_type(int, 20 * b"\x10", pickle=False,
     custom_serializer=lambda obj: str(obj),
     custom_deserializer=lambda serialized_obj: int(serialized_obj))
 if (sys.version_info < (3, 0)):
-    pa.lib.register_type(long, 20 * b"\x10", pickle=False,
+    pa.lib.register_type(long, 20 * b"\x11", pickle=False,
         custom_serializer=lambda obj: str(obj),
         custom_deserializer=lambda serialized_obj: long(serialized_obj))
 

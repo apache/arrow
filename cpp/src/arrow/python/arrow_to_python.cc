@@ -195,6 +195,7 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNextRecordBatch(batch_out));
   RETURN_NOT_OK(src->Tell(&offset));
+  offset += 4; // TODO(pcm): Why is this neccessary?
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(offset, src.get(), &tensor));
