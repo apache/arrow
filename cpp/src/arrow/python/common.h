@@ -93,6 +93,8 @@ class ARROW_EXPORT OwnedRef {
 
 class ARROW_EXPORT ScopedRef {
  public:
+  ScopedRef() : obj_(nullptr) {}
+
   explicit ScopedRef(PyObject* obj) : obj_(obj) {}
 
   ~ScopedRef() {
@@ -107,6 +109,8 @@ class ARROW_EXPORT ScopedRef {
   }
 
   PyObject* get() const { return obj_; }
+
+  PyObject** ref() { return &obj_; }
 
  private:
   PyObject* obj_;

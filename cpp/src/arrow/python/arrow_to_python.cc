@@ -49,30 +49,26 @@ Status DeserializeDict(std::shared_ptr<Array> array, int32_t start_idx, int32_t 
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
   auto data = std::dynamic_pointer_cast<StructArray>(array);
-  // TODO(pcm): error handling, get rid of the temporary copy of the list
-  PyObject *keys, *vals;
-  PyObject* result = PyDict_New();
-  ARROW_RETURN_NOT_OK(
-      DeserializeList(data->field(0), start_idx, stop_idx, base, tensors, &keys));
-  ARROW_RETURN_NOT_OK(
-      DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, &vals));
+  ScopedRef keys, vals;
+  ScopedRef result(PyDict_New());
+  RETURN_NOT_OK(
+      DeserializeList(data->field(0), start_idx, stop_idx, base, tensors, keys.ref()));
+  RETURN_NOT_OK(
+      DeserializeList(data->field(1), start_idx, stop_idx, base, tensors, vals.ref()));
   for (int32_t i = start_idx; i < stop_idx; ++i) {
-    PyDict_SetItem(result, PyList_GET_ITEM(keys, i - start_idx),
-                   PyList_GET_ITEM(vals, i - start_idx));
+    // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
+    // The latter two steal references whereas PyDict_SetItem does not. So we need
+    // to make sure the reference count is decremented by letting the ScopedRef
+    // go out of scope at the end.
+    PyDict_SetItem(result.get(), PyList_GET_ITEM(keys.get(), i - start_idx),
+                   PyList_GET_ITEM(vals.get(), i - start_idx));
   }
-  // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
-  // The latter two steal references whereas PyDict_SetItem does not. So we need
-  // to steal it by hand here.
-  Py_XDECREF(keys);
-  Py_XDECREF(vals);
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
-  if (PyDict_Contains(result, py_type)) {
-    PyObject* callback_result;
-    CallCustomCallback(pyarrow_deserialize_callback, result, &callback_result);
-    Py_XDECREF(result);
-    result = callback_result;
+  if (PyDict_Contains(result.get(), py_type)) {
+    RETURN_NOT_OK(CallCustomCallback(pyarrow_deserialize_callback, result.get(), out));
+  } else {
+    *out = result.release();
   }
-  *out = result;
   return Status::OK();
 }
 
