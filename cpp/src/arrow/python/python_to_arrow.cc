@@ -283,19 +283,12 @@ Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_de
   SequenceBuilder builder(nullptr);
   std::vector<PyObject *> sublists, subtuples, subdicts;
   for (const auto& sequence : sequences) {
-    PyObject* item;
-    PyObject* iterator = PyObject_GetIter(sequence);
+    ScopedRef iterator(PyObject_GetIter(sequence));
     RETURN_IF_PYERROR();
-    while ((item = PyIter_Next(iterator))) {
-      Status s = Append(item, &builder, &sublists, &subtuples, &subdicts, tensors_out);
-      Py_DECREF(item);
-      // if an error occurs, we need to decrement the reference counts before returning
-      if (!s.ok()) {
-        Py_DECREF(iterator);
-        return s;
-      }
+    ScopedRef item;
+    while (item.reset(PyIter_Next(iterator.get())), item.get()) {
+      RETURN_NOT_OK(Append(item.get(), &builder, &sublists, &subtuples, &subdicts, tensors_out));
     }
-    Py_DECREF(iterator);
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {

@@ -91,7 +91,9 @@ class ARROW_EXPORT OwnedRef {
   PyObject* obj_;
 };
 
-// This assumes that the GIL is held by the caller
+// This is different from OwnedRef in that it assumes that
+// the GIL is held by the caller and doesn't decrement the
+// reference count when release is called.
 class ARROW_EXPORT ScopedRef {
  public:
   ScopedRef() : obj_(nullptr) {}
@@ -100,6 +102,11 @@ class ARROW_EXPORT ScopedRef {
 
   ~ScopedRef() {
     Py_XDECREF(obj_);
+  }
+
+  void reset(PyObject* obj) {
+    Py_XDECREF(obj_);
+    obj_ = obj;
   }
 
   PyObject* release() {
