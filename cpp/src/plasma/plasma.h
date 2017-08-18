@@ -56,7 +56,6 @@ namespace plasma {
 
 /// Allocation granularity used in plasma for object allocation.
 #define BLOCK_SIZE 64
-#define DEFAULT_HUGETLBFS_MOUNTDIR "/mnt/hugepages"
 
 struct Client;
 

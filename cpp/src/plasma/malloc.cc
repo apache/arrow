@@ -26,9 +26,7 @@
 #include <unistd.h>
 
 #include <unordered_map>
-#include <iostream>
 #include <cerrno>
-#include <cstring>
 
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -44,7 +42,7 @@ int fake_munmap(void*, int64_t);
 #define USE_DL_PREFIX
 #define HAVE_MORECORE 0
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
-#define DEFAULT_GRANULARITY ((size_t) 1024U * 1024U * 1024U) //1GB
+#define DEFAULT_GRANULARITY ((size_t) 1024U * 1024U * 1024U) // 1GB
 
 #include "thirdparty/dlmalloc.c"  // NOLINT
 
@@ -93,17 +91,7 @@ int create_buffer(int64_t size) {
     fd = -1;
   }
 #else
-#ifdef __linux__
-  if (plasma::plasma_config->hugetlb_enabled) {
-    file_template += "/hugepagefile";
-  } else {
-    file_template += "/plasmaXXXXXX"; // template
-  }
-  // constexpr char file_template[] = "/dev/shm/plasmaXXXXXX";
-#else
-  // constexpr char file_template[] = "/tmp/plasmaXXXXXX";
   file_template += "/plasmaXXXXXX";
-#endif
   std::vector<char> file_name(file_template.begin(), file_template.end());
   file_name.push_back('\0');
   if (plasma::plasma_config->hugetlb_enabled) {
@@ -113,27 +101,23 @@ int create_buffer(int64_t size) {
     fd = mkstemp(&file_name[0]);
   }
   if (fd < 0) {
-    perror("create_buffer: open failed");
     ARROW_LOG(FATAL) << "create_buffer failed to open file " << &file_name[0];
     return -1;
   }
 
   FILE* file = fdopen(fd, "a+");
   if (!file) {
-    perror("create_buffer: fdopen failed");
     close(fd);
     ARROW_LOG(FATAL) << "create_buffer: fdopen failed for " << &file_name[0];
     return -1;
   }
   if (unlink(&file_name[0]) != 0) {
-    perror("create_buffer: failed to unlink file");
-    ARROW_LOG(FATAL) << "unlink error";
+    ARROW_LOG(FATAL) << "failed to unlink file " << &file_name[0];
     return -1;
   }
   if (!plasma::plasma_config->hugetlb_enabled) {
     if (ftruncate(fd, (off_t)size) != 0) {
-      perror("create_buffer: failed to truncate file");
-      ARROW_LOG(FATAL) << "ftruncate error";
+      ARROW_LOG(FATAL) << "failed to ftruncate file " << &file_name[0];
       return -1;
     }
   }
@@ -154,14 +138,6 @@ void* fake_mmap(size_t size) {
     ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
     return pointer;
   }
-  // Attempt to mlock the mmaped region of memory (best effort).
-  int rv = mlock(pointer, size);
-  if (rv != 0) {
-    ARROW_LOG(WARNING) << "mlock failed with error : " << std::strerror(errno);
-  }
-  ARROW_LOG(INFO) << "mlocking pointer " << pointer << " size " << size
-                     << " success " << rv;
-  memset(pointer, 0xff, size);
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;

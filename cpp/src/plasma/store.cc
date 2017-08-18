@@ -117,13 +117,7 @@ PlasmaStore::~PlasmaStore() {
   }
 }
 
-// Get a const reference to the internal PlasmaStoreInfo object.
-const PlasmaStoreInfo& PlasmaStore::getPlasmaStoreInfoRef() {
-  return store_info_;
-}
-
-// Get a const pointer to the internal PlasmaStoreInfo object.
-const PlasmaStoreInfo* PlasmaStore::getPlasmaStoreInfoPtr() {
+const PlasmaStoreInfo* PlasmaStore::get_plasma_store_info() {
   return &store_info_;
 }
 
@@ -652,12 +646,10 @@ class PlasmaStoreRunner {
     loop_.reset(new EventLoop);
     store_.reset(new PlasmaStore(loop_.get(), system_memory, directory,
         hugetlb_enabled));
-    plasma_config = store_->getPlasmaStoreInfoPtr();
+    plasma_config = store_->get_plasma_store_info();
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
-    // Pre-warm the shared memory store.
-    ARROW_CHECK(dlmalloc(1024) != NULL);
 
     loop_->AddFileEvent(socket, kEventLoopRead, [this, socket](int events) {
       this->store_->connect_client(socket);
@@ -740,20 +732,14 @@ int main(int argc, char* argv[]) {
     ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
   }
   if (memfile_directory.empty()) {
-    ARROW_LOG(WARNING) << "Memory-backed file directory not specified.";
-    // Backward compatibility: deduce directory name automatically.
 #ifdef __linux__
-    if (hugetlb_enabled) {
-      memfile_directory = DEFAULT_HUGETLBFS_MOUNTDIR;
-    } else {
-      memfile_directory = "/dev/shm";
-    }
+    memfile_directory = "/dev/shm";
 #else
     memfile_directory = "/tmp";
 #endif
   }
-  ARROW_LOG(INFO) << "Starting object store in directory " << memfile_directory
-                  << " and HUGETLBFS " << (hugetlb_enabled?"enabled":"disabled");
+  ARROW_LOG(INFO) << "Starting object store with directory " << memfile_directory
+                  << " and huge page support " << (hugetlb_enabled ? "enabled" : "disabled");
 #ifdef __linux__
   // On Linux, check that the amount of memory available in /dev/shm is large
   // enough to accommodate the request. If it isn't, then fail.

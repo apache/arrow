@@ -52,9 +52,8 @@ class PlasmaStore {
 
   ~PlasmaStore();
 
-  /// Get a const reference to the internal PlasmaStoreInfo object.
-  const PlasmaStoreInfo& getPlasmaStoreInfoRef();
-  const PlasmaStoreInfo* getPlasmaStoreInfoPtr();
+  /// Get a const pointer to the internal PlasmaStoreInfo object.
+  const PlasmaStoreInfo* get_plasma_store_info();
 
   /// Create a new object. The client must do a call to release_object to tell
   /// the store when it is done with the object.
