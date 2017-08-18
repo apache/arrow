@@ -17,12 +17,18 @@
 
 #include "arrow/python/arrow_to_python.h"
 
-#include "arrow/util/logging.h"
+#include <cstdint>
+#include <memory>
+#include <vector>
 
+#include "arrow/array.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
+#include "arrow/table.h"
+#include "arrow/util/logging.h"
 
 extern "C" {
 extern PyObject* pyarrow_serialize_callback;

@@ -18,13 +18,25 @@
 #ifndef ARROW_PYTHON_ARROW_TO_PYTHON_H
 #define ARROW_PYTHON_ARROW_TO_PYTHON_H
 
-#include "arrow/api.h"
-#include "arrow/io/interfaces.h"
 #include "arrow/python/platform.h"
 
+#include <cstdint>
+#include <memory>
 #include <vector>
 
+#include "arrow/status.h"
+
 namespace arrow {
+
+class RecordBatch;
+class Tensor;
+
+namespace io {
+
+class RandomAccessFile;
+
+}  // namespace io
+
 namespace py {
 
 Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,

@@ -18,16 +18,24 @@
 #ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
 #define ARROW_PYTHON_PYTHON_TO_ARROW_H
 
-#include <Python.h>
-
-#include "arrow/api.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/python/numpy_interop.h"
 #include "arrow/python/platform.h"
 
+#include <memory>
 #include <vector>
 
+#include "arrow/status.h"
+
 namespace arrow {
+
+class RecordBatch;
+class Tensor;
+
+namespace io {
+
+class OutputStream;
+
+}  // namespace io
+
 namespace py {
 
 void set_serialization_callbacks(PyObject* serialize_callback,

@@ -16,17 +16,22 @@
 // under the License.
 
 #include "arrow/python/python_to_arrow.h"
+#include "arrow/python/numpy_interop.h"
 
+#include <cstdint>
+#include <limits>
+#include <memory>
 #include <sstream>
+#include <vector>
 
 #include <numpy/arrayobject.h>
 #include <numpy/arrayscalars.h>
 
+#include "arrow/io/interfaces.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/numpy_interop.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/python_to_arrow-internal.h"
 
@@ -149,8 +154,11 @@ Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* 
 #endif
   } else if (PyBytes_Check(elem)) {
     auto data = reinterpret_cast<uint8_t*>(PyBytes_AS_STRING(elem));
-    auto size = PyBytes_GET_SIZE(elem);
-    RETURN_NOT_OK(builder->AppendBytes(data, size));
+    const int64_t size = static_cast<int64_t>(PyBytes_GET_SIZE(elem));
+    if (size > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot writes bytes over 2GB");
+    }
+    RETURN_NOT_OK(builder->AppendBytes(data, static_cast<int32_t>(size)));
   } else if (PyUnicode_Check(elem)) {
     Py_ssize_t size;
 #if PY_MAJOR_VERSION >= 3
@@ -160,7 +168,10 @@ Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* 
     char* data = PyString_AS_STRING(str.get());
     size = PyString_GET_SIZE(str.get());
 #endif
-    RETURN_NOT_OK(builder->AppendString(data, size));
+    if (size > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("Cannot writes bytes over 2GB");
+    }
+    RETURN_NOT_OK(builder->AppendString(data, static_cast<int32_t>(size)));
   } else if (PyList_Check(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
@@ -204,7 +215,7 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
     case NPY_INT64:
     case NPY_FLOAT:
     case NPY_DOUBLE: {
-      RETURN_NOT_OK(builder->AppendTensor(tensors_out->size()));
+      RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(tensors_out->size())));
       tensors_out->push_back(reinterpret_cast<PyObject*>(array));
     } break;
     default: {
@@ -300,8 +311,8 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
     RETURN_NOT_OK(
         SerializeDict(val_dicts, recursion_depth + 1, &val_dict_arr, tensors_out));
   }
-  result.Finish(key_tuples_arr, key_dicts_arr, val_list_arr, val_tuples_arr, val_dict_arr,
-                out);
+  RETURN_NOT_OK(result.Finish(key_tuples_arr, key_dicts_arr, val_list_arr, val_tuples_arr,
+                              val_dict_arr, out));
 
   // This block is used to decrement the reference counts of the results
   // returned by the serialization callback, which is called in SerializeArray,
@@ -345,7 +356,7 @@ Status SerializePythonSequence(PyObject* sequence,
 Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,
                                      std::vector<std::shared_ptr<Tensor>> tensors,
                                      io::OutputStream* dst) {
-  int32_t num_tensors = tensors.size();
+  int32_t num_tensors = static_cast<int32_t>(tensors.size());
   std::shared_ptr<ipc::RecordBatchStreamWriter> writer;
   int32_t metadata_length;
   int64_t body_length;

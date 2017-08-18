@@ -26,13 +26,13 @@
 namespace arrow {
 namespace py {
 
-#define UPDATE(OFFSET, TAG)               \
-  if (TAG == -1) {                        \
-    TAG = num_tags;                       \
-    num_tags += 1;                        \
-  }                                       \
-  RETURN_NOT_OK(offsets_.Append(OFFSET)); \
-  RETURN_NOT_OK(types_.Append(TAG));      \
+#define UPDATE(OFFSET, TAG)                                     \
+  if (TAG == -1) {                                              \
+    TAG = num_tags;                                             \
+    num_tags += 1;                                              \
+  }                                                             \
+  RETURN_NOT_OK(offsets_.Append(static_cast<int32_t>(OFFSET))); \
+  RETURN_NOT_OK(types_.Append(TAG));                            \
   RETURN_NOT_OK(nones_.AppendToBitmap(true));
 
 #define ADD_ELEMENT(VARNAME, TAG)                             \
@@ -51,7 +51,7 @@ namespace py {
     RETURN_NOT_OK(builder.Append(OFFSETS.data(), OFFSETS.size()));                  \
     RETURN_NOT_OK(builder.Finish(&offset_array));                                   \
     std::shared_ptr<Array> list_array;                                              \
-    ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array);                \
+    RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array)); \
     auto field = std::make_shared<Field>(NAME, list_array->type());                 \
     auto type =                                                                     \
         std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>({field})); \
@@ -154,21 +154,21 @@ class SequenceBuilder {
 
   /// \param size
   /// The size of the sublist
-  Status AppendList(int32_t size) {
+  Status AppendList(Py_ssize_t size) {
     UPDATE(list_offsets_.size() - 1, list_tag);
-    list_offsets_.push_back(list_offsets_.back() + size);
+    list_offsets_.push_back(list_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
-  Status AppendTuple(int32_t size) {
+  Status AppendTuple(Py_ssize_t size) {
     UPDATE(tuple_offsets_.size() - 1, tuple_tag);
-    tuple_offsets_.push_back(tuple_offsets_.back() + size);
+    tuple_offsets_.push_back(tuple_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
-  Status AppendDict(int32_t size) {
+  Status AppendDict(Py_ssize_t size) {
     UPDATE(dict_offsets_.size() - 1, dict_tag);
-    dict_offsets_.push_back(dict_offsets_.back() + size);
+    dict_offsets_.push_back(dict_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
@@ -194,7 +194,8 @@ class SequenceBuilder {
 
     auto type = ::arrow::union_(types, type_ids, UnionMode::DENSE);
     out->reset(new UnionArray(type, types_.length(), children, types_.data(),
-                              offsets_.data(), nones_.null_bitmap(), nones_.null_count()));
+                              offsets_.data(), nones_.null_bitmap(),
+                              nones_.null_count()));
     return Status::OK();
   }
 
@@ -203,9 +204,6 @@ class SequenceBuilder {
 
   Int8Builder types_;
   Int32Builder offsets_;
-
-  /// Total number of bytes needed to represent this sequence.
-  int64_t total_num_bytes_;
 
   NullBuilder nones_;
   BooleanBuilder bools_;
@@ -272,8 +270,7 @@ class DictBuilder {
                 std::shared_ptr<Array> key_dict_data,
                 std::shared_ptr<Array> val_list_data,
                 std::shared_ptr<Array> val_tuple_data,
-                std::shared_ptr<Array> val_dict_data,
-                std::shared_ptr<Array>* out) {
+                std::shared_ptr<Array> val_dict_data, std::shared_ptr<Array>* out) {
     // lists and dicts can't be keys of dicts in Python, that is why for
     // the keys we do not need to collect sublists
     std::shared_ptr<Array> keys, vals;
