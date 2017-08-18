@@ -384,7 +384,7 @@ setup(
     },
     entry_points = {
         'console_scripts': [
-            'plasma_store = pyarrow:start_plasma_store'
+            'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__},
