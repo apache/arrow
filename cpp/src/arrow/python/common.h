@@ -100,9 +100,7 @@ class ARROW_EXPORT ScopedRef {
 
   explicit ScopedRef(PyObject* obj) : obj_(obj) {}
 
-  ~ScopedRef() {
-    Py_XDECREF(obj_);
-  }
+  ~ScopedRef() { Py_XDECREF(obj_); }
 
   void reset(PyObject* obj) {
     Py_XDECREF(obj_);

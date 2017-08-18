@@ -35,8 +35,7 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
 // This acquires the GIL
 Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
                                  std::vector<std::shared_ptr<Tensor>> tensors,
-                                 PyObject* base,
-                                 PyObject** out);
+                                 PyObject* base, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

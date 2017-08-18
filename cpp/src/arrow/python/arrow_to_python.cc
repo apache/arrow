@@ -147,26 +147,26 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
   return Status::OK();
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                           \
-  auto data = std::dynamic_pointer_cast<UnionArray>(array);                    \
-  int32_t size = array->length();                                              \
-  ScopedRef result(CREATE_FN(stop_idx - start_idx));                           \
-  auto types = std::make_shared<Int8Array>(size, data->type_ids());            \
-  auto offsets = std::make_shared<Int32Array>(size, data->value_offsets());    \
-  for (int32_t i = start_idx; i < stop_idx; ++i) {                             \
-    if (data->IsNull(i)) {                                                     \
-      Py_INCREF(Py_None);                                                      \
-      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                       \
-    } else {                                                                   \
-      int32_t offset = offsets->Value(i);                                      \
-      int8_t type = types->Value(i);                                           \
-      std::shared_ptr<Array> arr = data->child(type);                          \
-      PyObject* value;                                                         \
-      RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));       \
-      SET_ITEM_FN(result.get(), i - start_idx, value);                         \
-    }                                                                          \
-  }                                                                            \
-  *out = result.release();                                                     \
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                        \
+  auto data = std::dynamic_pointer_cast<UnionArray>(array);                 \
+  int32_t size = array->length();                                           \
+  ScopedRef result(CREATE_FN(stop_idx - start_idx));                        \
+  auto types = std::make_shared<Int8Array>(size, data->type_ids());         \
+  auto offsets = std::make_shared<Int32Array>(size, data->value_offsets()); \
+  for (int32_t i = start_idx; i < stop_idx; ++i) {                          \
+    if (data->IsNull(i)) {                                                  \
+      Py_INCREF(Py_None);                                                   \
+      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                    \
+    } else {                                                                \
+      int32_t offset = offsets->Value(i);                                   \
+      int8_t type = types->Value(i);                                        \
+      std::shared_ptr<Array> arr = data->child(type);                       \
+      PyObject* value;                                                      \
+      RETURN_NOT_OK(GetValue(arr, offset, type, base, tensors, &value));    \
+      SET_ITEM_FN(result.get(), i - start_idx, value);                      \
+    }                                                                       \
+  }                                                                         \
+  *out = result.release();                                                  \
   return Status::OK();
 
 Status DeserializeList(std::shared_ptr<Array> array, int32_t start_idx, int32_t stop_idx,
@@ -191,7 +191,8 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
   int64_t bytes_read;
   int32_t num_tensors;
   // Read number of tensors
-  RETURN_NOT_OK(src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
+  RETURN_NOT_OK(
+      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNextRecordBatch(batch_out));
   RETURN_NOT_OK(src->Tell(&offset));
@@ -206,8 +207,7 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
 
 Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
                                  std::vector<std::shared_ptr<Tensor>> tensors,
-                                 PyObject* base,
-                                 PyObject** out) {
+                                 PyObject* base, PyObject** out) {
   PyAcquireGIL lock;
   return DeserializeList(batch->column(0), 0, batch->num_rows(), base, tensors, out);
 }
