@@ -15,40 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from libcpp cimport bool as c_bool, nullptr
-from libcpp.vector cimport vector as c_vector
 from cpython.ref cimport PyObject
-from cython.operator cimport dereference as deref
 
 from pyarrow.compat import pickle
-
-cdef extern from "arrow/python/api.h" namespace 'arrow::py':
-
-    CStatus SerializePythonSequence(
-        PyObject* sequence,
-        shared_ptr[CRecordBatch]* batch_out,
-        c_vector[shared_ptr[CTensor]]* tensors_out)
-
-    CStatus DeserializePythonSequence(
-        shared_ptr[CRecordBatch] batch,
-        c_vector[shared_ptr[CTensor]] tensors,
-        PyObject* base,
-        PyObject** out)
-
-cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
-
-    cdef CStatus WriteSerializedPythonSequence(
-        shared_ptr[CRecordBatch] batch,
-        c_vector[shared_ptr[CTensor]] tensors,
-        OutputStream* dst)
-
-    cdef CStatus ReadSerializedPythonSequence(
-        shared_ptr[RandomAccessFile] src,
-        shared_ptr[CRecordBatch]* batch_out,
-        c_vector[shared_ptr[CTensor]]* tensors_out)
-
-    void set_serialization_callbacks(PyObject* serialize_callback,
-                                     PyObject* deserialize_callback);
 
 def is_named_tuple(cls):
     """Return True if cls is a namedtuple and False otherwise."""
@@ -170,7 +139,7 @@ def serialize_sequence(object value, NativeFile sink):
     sink.write_handle(&stream)
 
     cdef shared_ptr[CRecordBatch] batch
-    cdef c_vector[shared_ptr[CTensor]] tensors
+    cdef vector[shared_ptr[CTensor]] tensors
 
     check_status(SerializePythonSequence(<PyObject*> value, &batch, &tensors))
 
@@ -197,7 +166,7 @@ def deserialize_sequence(NativeFile source, object base):
     source.read_handle(&stream)
 
     cdef shared_ptr[CRecordBatch] batch
-    cdef c_vector[shared_ptr[CTensor]] tensors
+    cdef vector[shared_ptr[CTensor]] tensors
 
     with nogil:
         check_status(ReadSerializedPythonSequence(stream, &batch, &tensors))

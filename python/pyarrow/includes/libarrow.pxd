@@ -775,6 +775,36 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool strings_to_categorical
 
 
+cdef extern from "arrow/python/api.h" namespace 'arrow::py':
+
+    CStatus SerializePythonSequence(
+        PyObject* sequence,
+        shared_ptr[CRecordBatch]* batch_out,
+        vector[shared_ptr[CTensor]]* tensors_out)
+
+    CStatus DeserializePythonSequence(
+        shared_ptr[CRecordBatch] batch,
+        vector[shared_ptr[CTensor]] tensors,
+        PyObject* base,
+        PyObject** out)
+
+
+cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
+
+    cdef CStatus WriteSerializedPythonSequence(
+        shared_ptr[CRecordBatch] batch,
+        vector[shared_ptr[CTensor]] tensors,
+        OutputStream* dst)
+
+    cdef CStatus ReadSerializedPythonSequence(
+        shared_ptr[RandomAccessFile] src,
+        shared_ptr[CRecordBatch]* batch_out,
+        vector[shared_ptr[CTensor]]* tensors_out)
+
+    void set_serialization_callbacks(PyObject* serialize_callback,
+                                     PyObject* deserialize_callback);
+
+
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
 
