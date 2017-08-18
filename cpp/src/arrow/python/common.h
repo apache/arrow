@@ -91,6 +91,7 @@ class ARROW_EXPORT OwnedRef {
   PyObject* obj_;
 };
 
+// This assumes that the GIL is held by the caller
 class ARROW_EXPORT ScopedRef {
  public:
   ScopedRef() : obj_(nullptr) {}
@@ -98,7 +99,6 @@ class ARROW_EXPORT ScopedRef {
   explicit ScopedRef(PyObject* obj) : obj_(obj) {}
 
   ~ScopedRef() {
-    PyAcquireGIL lock;
     Py_XDECREF(obj_);
   }
 

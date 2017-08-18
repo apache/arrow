@@ -99,18 +99,15 @@ Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result)
   *result = NULL;
   if (!callback) {
     std::stringstream ss;
-    PyObject* repr = PyObject_Repr(elem);
+    ScopedRef repr(PyObject_Repr(elem));
     RETURN_IF_PYERROR();
-    PyObject* ascii = PyUnicode_AsASCIIString(repr);
-    ss << "error while calling callback on " << PyBytes_AsString(ascii)
+    ScopedRef ascii(PyUnicode_AsASCIIString(repr.get()));
+    ss << "error while calling callback on " << PyBytes_AsString(ascii.get())
        << ": handler not registered";
-    Py_XDECREF(ascii);
-    Py_XDECREF(repr);
     return Status::NotImplemented(ss.str());
   } else {
-    PyObject* arglist = Py_BuildValue("(O)", elem);
-    *result = PyObject_CallObject(callback, arglist);
-    Py_XDECREF(arglist);
+    ScopedRef arglist(Py_BuildValue("(O)", elem));
+    *result = PyObject_CallObject(callback, arglist.get());
     RETURN_IF_PYERROR();
   }
   return Status::OK();
@@ -211,15 +208,12 @@ Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* 
     Py_ssize_t size;
 #if PY_MAJOR_VERSION >= 3
     char* data = PyUnicode_AsUTF8AndSize(elem, &size);
-    Status s = builder->AppendString(data, size);
 #else
-    PyObject* str = PyUnicode_AsUTF8String(elem);
-    char* data = PyString_AS_STRING(str);
-    size = PyString_GET_SIZE(str);
-    Status s = builder->AppendString(data, size);
-    Py_XDECREF(str);
+    ScopedRef str(PyUnicode_AsUTF8String(elem));
+    char* data = PyString_AS_STRING(str.get());
+    size = PyString_GET_SIZE(str.get());
 #endif
-    RETURN_NOT_OK(s);
+    RETURN_NOT_OK(builder->AppendString(data, size));
   } else if (PyList_Check(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
