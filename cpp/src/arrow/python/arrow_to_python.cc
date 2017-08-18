@@ -72,7 +72,7 @@ Status DeserializeDict(std::shared_ptr<Array> array, int64_t start_idx, int64_t 
   return Status::OK();
 }
 
-Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* base,
+Status DeserializeArray(std::shared_ptr<Array> array, int64_t offset, PyObject* base,
                         const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
                         PyObject** out) {
   DCHECK(array);
@@ -87,7 +87,7 @@ Status DeserializeArray(std::shared_ptr<Array> array, int32_t offset, PyObject* 
   return Status::OK();
 }
 
-Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObject* base,
+Status GetValue(std::shared_ptr<Array> arr, int64_t index, int32_t type, PyObject* base,
                 const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
   switch (arr->type()->id()) {
     case Type::BOOL:
@@ -95,7 +95,8 @@ Status GetValue(std::shared_ptr<Array> arr, int32_t index, int32_t type, PyObjec
           PyBool_FromLong(std::static_pointer_cast<BooleanArray>(arr)->Value(index));
       return Status::OK();
     case Type::INT64:
-      *result = PyLong_FromSsize_t(std::static_pointer_cast<Int64Array>(arr)->Value(index));
+      *result =
+          PyLong_FromSsize_t(std::static_pointer_cast<Int64Array>(arr)->Value(index));
       return Status::OK();
     case Type::BINARY: {
       int32_t nchars;
@@ -195,7 +196,7 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNextRecordBatch(batch_out));
   RETURN_NOT_OK(src->Tell(&offset));
-  offset += 4; // TODO(pcm): Why is this neccessary?
+  offset += 4;  // Skip the end-of-stream message
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(offset, src.get(), &tensor));
