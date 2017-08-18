@@ -41,18 +41,14 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
         shared_ptr[CRecordBatch] batch,
         c_vector[shared_ptr[CTensor]] tensors,
         OutputStream* dst)
-    
+
     cdef CStatus ReadSerializedPythonSequence(
         shared_ptr[RandomAccessFile] src,
         shared_ptr[CRecordBatch]* batch_out,
         c_vector[shared_ptr[CTensor]]* tensors_out)
 
-cdef extern from "arrow/python/python_to_arrow.h":
-
-    cdef extern PyObject *pyarrow_serialize_callback
-
-    cdef extern PyObject *pyarrow_deserialize_callback
-
+    void set_serialization_callbacks(PyObject* serialize_callback,
+                                     PyObject* deserialize_callback);
 
 def is_named_tuple(cls):
     """Return True if cls is a namedtuple and False otherwise."""
@@ -157,9 +153,8 @@ def _deserialization_callback(serialized_obj):
                 obj.__dict__.update(serialized_obj)
     return obj
 
-pyarrow_serialize_callback = <PyObject*> _serialization_callback
-
-pyarrow_deserialize_callback = <PyObject*> _deserialization_callback
+set_serialization_callbacks(<PyObject*> _serialization_callback,
+                            <PyObject*> _deserialization_callback)
 
 def serialize_sequence(object value, NativeFile sink):
     """Serialize a Python sequence to a file.

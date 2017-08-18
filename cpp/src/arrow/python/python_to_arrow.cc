@@ -116,6 +116,12 @@ Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result)
   return Status::OK();
 }
 
+void set_serialization_callbacks(PyObject* serialize_callback,
+                                 PyObject* deserialize_callback) {
+  pyarrow_serialize_callback = serialize_callback;
+  pyarrow_deserialize_callback = deserialize_callback;
+}
+
 Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_object) {
   RETURN_NOT_OK(CallCustomCallback(pyarrow_serialize_callback, elem, serialized_object));
   if (!PyDict_Check(*serialized_object)) {

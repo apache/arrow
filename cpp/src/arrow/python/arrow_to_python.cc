@@ -24,6 +24,11 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 
+extern "C" {
+extern PyObject* pyarrow_serialize_callback;
+extern PyObject* pyarrow_deserialize_callback;
+}
+
 namespace arrow {
 namespace py {
 

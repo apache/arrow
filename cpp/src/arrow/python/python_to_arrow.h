@@ -27,13 +27,11 @@
 
 #include <vector>
 
-extern "C" {
-extern PyObject* pyarrow_serialize_callback;
-extern PyObject* pyarrow_deserialize_callback;
-}
-
 namespace arrow {
 namespace py {
+
+void set_serialization_callbacks(PyObject* serialize_callback,
+                                 PyObject* deserialize_callback);
 
 Status SerializePythonSequence(PyObject* sequence,
                                std::shared_ptr<RecordBatch>* batch_out,

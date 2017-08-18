@@ -25,15 +25,8 @@
 
 #include <vector>
 
-extern "C" {
-extern PyObject* pyarrow_serialize_callback;
-extern PyObject* pyarrow_deserialize_callback;
-}
-
 namespace arrow {
 namespace py {
-
-Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
 Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
                                     std::shared_ptr<RecordBatch>* batch_out,
