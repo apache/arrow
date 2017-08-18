@@ -105,6 +105,16 @@ from pyarrow.ipc import (Message, MessageReader,
 
 localfs = LocalFileSystem.get_instance()
 
+# Entry point for starting the plasma store
+
+def start_plasma_store():
+    import os
+    import pyarrow
+    import subprocess
+    import sys
+    plasma_store_executable = os.path.join(pyarrow.__path__[0], "plasma_store")
+    process = subprocess.Popen([plasma_store_executable] + sys.argv[1:])
+    process.wait()
 
 # ----------------------------------------------------------------------
 # 0.4.0 deprecations
