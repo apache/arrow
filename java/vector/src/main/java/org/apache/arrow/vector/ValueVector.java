@@ -234,4 +234,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
     @Deprecated
     void generateTestData(int values);
   }
+
+  public ArrowBuf getDataBuffer();
+  public ArrowBuf getValidityBuffer();
+  public ArrowBuf getOffsetBuffer();
 }
