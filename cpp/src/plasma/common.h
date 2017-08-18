@@ -95,6 +95,10 @@ enum ObjectRequestType {
 extern int ObjectStatusLocal;
 extern int ObjectStatusRemote;
 
+/// Globally accessible reference to plasma store configuration.
+/// TODO: may be avoided with some refactoring of existing code.
+struct PlasmaStoreInfo;
+extern const PlasmaStoreInfo* plasma_config;
 }  // namespace plasma
 
 #endif  // PLASMA_COMMON_H

@@ -47,9 +47,14 @@ struct Client {
 
 class PlasmaStore {
  public:
-  PlasmaStore(EventLoop* loop, int64_t system_memory);
+  PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
+              bool hugetlbfs_enabled);
 
   ~PlasmaStore();
+
+  /// Get a const reference to the internal PlasmaStoreInfo object.
+  const PlasmaStoreInfo& getPlasmaStoreInfoRef();
+  const PlasmaStoreInfo* getPlasmaStoreInfoPtr();
 
   /// Create a new object. The client must do a call to release_object to tell
   /// the store when it is done with the object.

@@ -96,9 +96,12 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory)
+PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory,
+                         std::string directory, bool hugetlb_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
   store_info_.memory_capacity = system_memory;
+  store_info_.directory = directory;
+  store_info_.hugetlb_enabled = hugetlb_enabled;
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -112,6 +115,16 @@ PlasmaStore::~PlasmaStore() {
       delete[] data;
     }
   }
+}
+
+// Get a const reference to the internal PlasmaStoreInfo object.
+const PlasmaStoreInfo& PlasmaStore::getPlasmaStoreInfoRef() {
+  return store_info_;
+}
+
+// Get a const pointer to the internal PlasmaStoreInfo object.
+const PlasmaStoreInfo* PlasmaStore::getPlasmaStoreInfoPtr() {
+  return &store_info_;
 }
 
 // If this client is not already using the object, add the client to the
@@ -633,10 +646,13 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, int64_t system_memory) {
+  void Start(char* socket_name, int64_t system_memory, std::string directory,
+             bool hugetlb_enabled) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(new PlasmaStore(loop_.get(), system_memory));
+    store_.reset(new PlasmaStore(loop_.get(), system_memory, directory,
+        hugetlb_enabled));
+    plasma_config = store_->getPlasmaStoreInfoPtr();
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
@@ -670,7 +686,8 @@ void HandleSignal(int signal) {
   }
 }
 
-void start_server(char* socket_name, int64_t system_memory) {
+void start_server(char* socket_name, int64_t system_memory,
+                  std::string memfile_directory, bool hugetlb_enabled) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
@@ -678,17 +695,27 @@ void start_server(char* socket_name, int64_t system_memory) {
   PlasmaStoreRunner runner;
   g_runner = &runner;
   signal(SIGTERM, HandleSignal);
-  runner.Start(socket_name, system_memory);
+  // Pre-warm the shared memory store.
+  ARROW_CHECK(dlmalloc(1024) != NULL);
+  runner.Start(socket_name, system_memory, memfile_directory, hugetlb_enabled);
 }
 
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
   char* socket_name = NULL;
+  std::string memfile_directory; // e.g., /dev/shm, /tmp, /mnt/hugepages
+  bool hugetlb_enabled = false;
   int64_t system_memory = -1;
   int c;
-  while ((c = getopt(argc, argv, "s:m:")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:h")) != -1) {
     switch (c) {
+      case 'd':
+        memfile_directory = std::string(optarg);
+        break;
+      case 'h':
+        hugetlb_enabled = true;
+        break;
       case 's':
         socket_name = optarg;
         break;
@@ -705,12 +732,28 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
   }
+  // Sanity check command line options.
   if (!socket_name) {
     ARROW_LOG(FATAL) << "please specify socket for incoming connections with -s switch";
   }
   if (system_memory == -1) {
     ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
   }
+  if (memfile_directory.empty()) {
+    ARROW_LOG(WARNING) << "Memory-backed file directory not specified.";
+    // Backward compatibility: deduce directory name automatically.
+#ifdef __linux__
+    if (hugetlb_enabled) {
+      memfile_directory = DEFAULT_HUGETLBFS_MOUNTDIR;
+    } else {
+      memfile_directory = "/dev/shm";
+    }
+#else
+    memfile_directory = "/tmp";
+#endif
+  }
+  ARROW_LOG(INFO) << "Starting object store in directory " << memfile_directory
+                  << " and HUGETLBFS " << (hugetlb_enabled?"enabled":"disabled");
 #ifdef __linux__
   // On Linux, check that the amount of memory available in /dev/shm is large
   // enough to accommodate the request. If it isn't, then fail.
@@ -736,5 +779,6 @@ int main(int argc, char* argv[]) {
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::start_server(socket_name, system_memory);
+  plasma::start_server(socket_name, system_memory, memfile_directory,
+                       hugetlb_enabled);
 }

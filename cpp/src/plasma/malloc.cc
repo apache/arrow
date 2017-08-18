@@ -26,8 +26,12 @@
 #include <unistd.h>
 
 #include <unordered_map>
+#include <iostream>
+#include <cerrno>
+#include <cstring>
 
 #include "plasma/common.h"
+#include "plasma/plasma.h"
 
 extern "C" {
 void* fake_mmap(size_t);
@@ -40,7 +44,7 @@ int fake_munmap(void*, int64_t);
 #define USE_DL_PREFIX
 #define HAVE_MORECORE 0
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
-#define DEFAULT_GRANULARITY ((size_t)128U * 1024U)
+#define DEFAULT_GRANULARITY ((size_t) 1024U * 1024U * 1024U) //1GB
 
 #include "thirdparty/dlmalloc.c"  // NOLINT
 
@@ -81,6 +85,7 @@ static ptrdiff_t pointer_distance(void const* pfrom, void const* pto) {
  * immediately unlinking it so we do not leave traces in the system. */
 int create_buffer(int64_t size) {
   int fd;
+  std::string file_template = plasma::plasma_config->directory;
 #ifdef _WIN32
   if (!CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
                          (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))),
@@ -89,26 +94,48 @@ int create_buffer(int64_t size) {
   }
 #else
 #ifdef __linux__
-  constexpr char file_template[] = "/dev/shm/plasmaXXXXXX";
+  if (plasma::plasma_config->hugetlb_enabled) {
+    file_template += "/hugepagefile";
+  } else {
+    file_template += "/plasmaXXXXXX"; // template
+  }
+  // constexpr char file_template[] = "/dev/shm/plasmaXXXXXX";
 #else
-  constexpr char file_template[] = "/tmp/plasmaXXXXXX";
+  // constexpr char file_template[] = "/tmp/plasmaXXXXXX";
+  file_template += "/plasmaXXXXXX";
 #endif
-  char file_name[32];
-  strncpy(file_name, file_template, 32);
-  fd = mkstemp(file_name);
-  if (fd < 0) return -1;
-  FILE* file = fdopen(fd, "a+");
-  if (!file) {
-    close(fd);
+  std::vector<char> file_name(file_template.begin(), file_template.end());
+  file_name.push_back('\0');
+  if (plasma::plasma_config->hugetlb_enabled) {
+    // create a file descriptor to a hugepage-based file.
+    fd = open(&file_name[0], O_CREAT | O_RDWR, 0755);
+  } else {
+    fd = mkstemp(&file_name[0]);
+  }
+  if (fd < 0) {
+    perror("create_buffer: open failed");
+    ARROW_LOG(FATAL) << "create_buffer failed to open file " << &file_name[0];
     return -1;
   }
-  if (unlink(file_name) != 0) {
+
+  FILE* file = fdopen(fd, "a+");
+  if (!file) {
+    perror("create_buffer: fdopen failed");
+    close(fd);
+    ARROW_LOG(FATAL) << "create_buffer: fdopen failed for " << &file_name[0];
+    return -1;
+  }
+  if (unlink(&file_name[0]) != 0) {
+    perror("create_buffer: failed to unlink file");
     ARROW_LOG(FATAL) << "unlink error";
     return -1;
   }
-  if (ftruncate(fd, (off_t)size) != 0) {
-    ARROW_LOG(FATAL) << "ftruncate error";
-    return -1;
+  if (!plasma::plasma_config->hugetlb_enabled) {
+    if (ftruncate(fd, (off_t)size) != 0) {
+      perror("create_buffer: failed to truncate file");
+      ARROW_LOG(FATAL) << "ftruncate error";
+      return -1;
+    }
   }
 #endif
   return fd;
@@ -122,10 +149,19 @@ void* fake_mmap(size_t size) {
 
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
-  void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (pointer == MAP_FAILED) {
+    ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
     return pointer;
   }
+  // Attempt to mlock the mmaped region of memory (best effort).
+  int rv = mlock(pointer, size);
+  if (rv != 0) {
+    ARROW_LOG(WARNING) << "mlock failed with error : " << std::strerror(errno);
+  }
+  ARROW_LOG(INFO) << "mlocking pointer " << pointer << " size " << size
+                     << " success " << rv;
+  memset(pointer, 0xff, size);
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;

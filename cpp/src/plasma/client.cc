@@ -91,7 +91,8 @@ uint8_t* PlasmaClient::lookup_or_mmap(int fd, int store_fd_val, int64_t map_size
     if (result == MAP_FAILED) {
       ARROW_LOG(FATAL) << "mmap failed";
     }
-    close(fd);
+    close(fd); // PERF: closing this fd has an effect on performance.
+
     ClientMmapTableEntry& entry = mmap_table_[store_fd_val];
     entry.pointer = result;
     entry.length = map_size;
@@ -465,7 +466,7 @@ Status PlasmaClient::Hash(const ObjectID& object_id, uint8_t* digest) {
     return Status::PlasmaObjectNonexistent("Object not found");
   }
   // Compute the hash.
-  uint64_t hash = compute_object_hash(object_buffer);
+  uint64_t hash = 0; //compute_object_hash(object_buffer);
   memcpy(digest, &hash, sizeof(hash));
   // Release the plasma object.
   return Release(object_id);

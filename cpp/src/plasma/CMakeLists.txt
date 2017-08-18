@@ -34,6 +34,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=20
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
+option(ARROW_PLASMA_HUGETLB
+  "Enable hugetlb support in plasma"
+  OFF)
+
+if(ARROW_PLASMA_HUGETLB)
+  add_definitions(-DARROW_PLASMA_HUGETLB)
+endif()
+
 # Compile flatbuffers
 
 set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs" "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
