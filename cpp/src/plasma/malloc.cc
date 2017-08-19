@@ -45,11 +45,7 @@ int fake_munmap(void*, int64_t);
 #define HAVE_MORECORE 0
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
 
-#ifndef ARROW_PLASMA_HUGEPAGES
-#define DEFAULT_GRANULARITY ((size_t)128U * 1024U)  // 128KB
-#else
-#define DEFAULT_GRANULARITY ((size_t)1024U * 1024U * 1024U)  // 1GB
-#endif
+#define DEFAULT_GRANULARITY ((size_t)128U * 1024U)
 
 #include "thirdparty/dlmalloc.c"  // NOLINT
 
@@ -198,4 +194,8 @@ void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offse
   *fd = -1;
   *map_size = 0;
   *offset = 0;
+}
+
+void set_malloc_granularity(int value) {
+  change_mparam(M_GRANULARITY, value);
 }

@@ -23,4 +23,6 @@
 
 void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_length, ptrdiff_t* offset);
 
+void set_malloc_granularity(int value);
+
 #endif  // MALLOC_H
