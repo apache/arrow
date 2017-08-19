@@ -99,11 +99,7 @@ int create_buffer(int64_t size) {
   file_template += "/plasmaXXXXXX";
   std::vector<char> file_name(file_template.begin(), file_template.end());
   file_name.push_back('\0');
-  if (plasma::plasma_config->hugepages_enabled) {
-    fd = open(&file_name[0], O_CREAT | O_RDWR, 0755);
-  } else {
-    fd = mkstemp(&file_name[0]);
-  }
+  fd = mkstemp(&file_name[0]);
   if (fd < 0) {
     ARROW_LOG(FATAL) << "create_buffer failed to open file " << &file_name[0];
     return -1;
@@ -145,6 +141,9 @@ void* fake_mmap(size_t size) {
 #endif
   if (pointer == MAP_FAILED) {
     ARROW_LOG(ERROR) << "mmap failed with error: " << std::strerror(errno);
+    if (errno == ENOMEM && plasma::plasma_config->hugepages_enabled) {
+      ARROW_LOG(ERROR) << "  (this probably means you have to increase /proc/sys/vm/nr_hugepages)";
+    }
     return pointer;
   }
 
