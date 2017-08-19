@@ -260,3 +260,20 @@ def deserialize_from(source, object base):
     """
     serialized = read_serialized(source, base=base)
     return serialized.deserialize()
+
+
+def deserialize(obj):
+    """
+    EXPERIMENTAL: Deserialize Python object from Buffer or other Python object
+    supporting the buffer protocol
+
+    Parameters
+    ----------
+    obj : pyarrow.Buffer or Python object supporting buffer protocol
+
+    Returns
+    -------
+    deserialized : object
+    """
+    source = BufferReader(obj)
+    return deserialize_from(source, obj)

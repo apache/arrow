@@ -202,6 +202,8 @@ Interprocess Communication and Serialization
    write_tensor
    get_tensor_size
    serialize
+   serialize_to
+   deserialize
    deserialized_from
    read_serialized
    SerializedPyObject
