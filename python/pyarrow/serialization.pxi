@@ -19,6 +19,7 @@ from cpython.ref cimport PyObject
 
 from pyarrow.compat import pickle
 
+
 def is_named_tuple(cls):
     """Return True if cls is a namedtuple and False otherwise."""
     b = cls.__bases__
@@ -49,6 +50,7 @@ types_to_pickle = set()
 custom_serializers = dict()
 custom_deserializers = dict()
 
+
 def register_type(type, type_id, pickle=False,
                   custom_serializer=None, custom_deserializer=None):
     """Add type to the list of types we can serialize.
@@ -77,6 +79,7 @@ def register_type(type, type_id, pickle=False,
         custom_serializers[type_id] = custom_serializer
         custom_deserializers[type_id] = custom_deserializer
 
+
 def _serialization_callback(obj):
     if type(obj) not in type_to_type_id:
         raise SerializationException("pyarrow does not know how to "
@@ -98,6 +101,7 @@ def _serialization_callback(obj):
             raise SerializationException("We do not know how to serialize "
                                          "the object '{}'".format(obj), obj)
     return dict(serialized_obj, **{"_pytype_": type_id})
+
 
 def _deserialization_callback(serialized_obj):
     type_id = serialized_obj["_pytype_"]
@@ -122,8 +126,10 @@ def _deserialization_callback(serialized_obj):
                 obj.__dict__.update(serialized_obj)
     return obj
 
-set_serialization_callbacks(<PyObject*> _serialization_callback,
-                            <PyObject*> _deserialization_callback)
+
+set_serialization_callbacks(_serialization_callback,
+                            _deserialization_callback)
+
 
 def serialize_sequence(object value, NativeFile sink):
     """Serialize a Python sequence to a file.
@@ -138,12 +144,12 @@ def serialize_sequence(object value, NativeFile sink):
     cdef shared_ptr[OutputStream] stream
     sink.write_handle(&stream)
 
-    cdef shared_ptr[CRecordBatch] batch
-    cdef vector[shared_ptr[CTensor]] tensors
+    cdef SerializedPyObject serialized
 
     with nogil:
-        check_status(SerializePythonSequence(<PyObject*> value, &batch, &tensors))
-        check_status(WriteSerializedPythonSequence(batch, tensors, stream.get()))
+        check_status(SerializeObject(value, &serialized))
+        check_status(WriteSerializedObject(serialized, stream.get()))
+
 
 def deserialize_sequence(NativeFile source, object base):
     """Deserialize a Python sequence from a file.
@@ -164,12 +170,12 @@ def deserialize_sequence(NativeFile source, object base):
     cdef shared_ptr[RandomAccessFile] stream
     source.read_handle(&stream)
 
-    cdef shared_ptr[CRecordBatch] batch
-    cdef vector[shared_ptr[CTensor]] tensors
+    cdef SerializedPyObject serialized
     cdef PyObject* result
 
     with nogil:
-        check_status(ReadSerializedPythonSequence(stream, &batch, &tensors))
-        check_status(DeserializePythonSequence(batch, tensors, <PyObject*> base, &result))
+        check_status(ReadSerializedObject(stream, &serialized))
+        check_status(DeserializeObject(serialized, <PyObject*> base, &result))
 
-    return <object> result
+    # This is necessary to avoid a memory leak
+    return PyObject_to_object(result)

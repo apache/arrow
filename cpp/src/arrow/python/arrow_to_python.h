@@ -24,7 +24,9 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/python/python_to_arrow.h"
 #include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -39,14 +41,24 @@ class RandomAccessFile;
 
 namespace py {
 
-Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
-                                    std::shared_ptr<RecordBatch>* batch_out,
-                                    std::vector<std::shared_ptr<Tensor>>* tensors_out);
+/// \brief Read serialized Python sequence from file interface using Arrow IPC
+/// \param[in] src a RandomAccessFile
+/// \param[out] out the reconstructed data
+/// \return Status
+ARROW_EXPORT
+Status ReadSerializedObject(std::shared_ptr<io::RandomAccessFile> src,
+                            SerializedPyObject* out);
 
-// This acquires the GIL
-Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
-                                 std::vector<std::shared_ptr<Tensor>> tensors,
-                                 PyObject* base, PyObject** out);
+/// \brief Reconstruct Python object from Arrow-serialized representation
+/// \param[in] object
+/// \param[in] base a Python object holding the underlying data that any NumPy
+/// arrays will reference, to avoid premature deallocation
+/// \param[out] out the returned object
+/// \return Status
+/// This acquires the GIL
+ARROW_EXPORT
+Status DeserializeObject(const SerializedPyObject& object, PyObject* base,
+                         PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

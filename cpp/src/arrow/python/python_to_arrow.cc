@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include <numpy/arrayobject.h>
@@ -35,6 +36,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
+#include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
@@ -46,44 +48,6 @@ PyObject* pyarrow_deserialize_callback = NULL;
 
 namespace arrow {
 namespace py {
-
-#define UPDATE(OFFSET, TAG)                                     \
-  if (TAG == -1) {                                              \
-    TAG = num_tags;                                             \
-    num_tags += 1;                                              \
-  }                                                             \
-  RETURN_NOT_OK(offsets_.Append(static_cast<int32_t>(OFFSET))); \
-  RETURN_NOT_OK(types_.Append(TAG));                            \
-  RETURN_NOT_OK(nones_.AppendToBitmap(true));
-
-#define ADD_ELEMENT(VARNAME, TAG)                             \
-  if (TAG != -1) {                                            \
-    types[TAG] = std::make_shared<Field>("", VARNAME.type()); \
-    RETURN_NOT_OK(VARNAME.Finish(&children[TAG]));            \
-    RETURN_NOT_OK(nones_.AppendToBitmap(true));               \
-    type_ids.push_back(TAG);                                  \
-  }
-
-#define ADD_SUBSEQUENCE(DATA, OFFSETS, BUILDER, TAG, NAME)                          \
-  if (DATA) {                                                                       \
-    DCHECK(DATA->length() == OFFSETS.back());                                       \
-    std::shared_ptr<Array> offset_array;                                            \
-    Int32Builder builder(pool_, std::make_shared<Int32Type>());                     \
-    RETURN_NOT_OK(builder.Append(OFFSETS.data(), OFFSETS.size()));                  \
-    RETURN_NOT_OK(builder.Finish(&offset_array));                                   \
-    std::shared_ptr<Array> list_array;                                              \
-    RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *DATA, pool_, &list_array)); \
-    auto field = std::make_shared<Field>(NAME, list_array->type());                 \
-    auto type =                                                                     \
-        std::make_shared<StructType>(std::vector<std::shared_ptr<Field>>({field})); \
-    types[TAG] = std::make_shared<Field>("", type);                                 \
-    children[TAG] = std::shared_ptr<StructArray>(                                   \
-        new StructArray(type, list_array->length(), {list_array}));                 \
-    RETURN_NOT_OK(nones_.AppendToBitmap(true));                                     \
-    type_ids.push_back(TAG);                                                        \
-  } else {                                                                          \
-    DCHECK_EQ(OFFSETS.size(), 1);                                                   \
-  }
 
 /// A Sequence is a heterogeneous collections of elements. It can contain
 /// scalar Python types, lists, tuples, dictionaries and tensors.
@@ -112,53 +76,64 @@ class SequenceBuilder {
     return nones_.AppendToBitmap(false);
   }
 
+  Status Update(int64_t offset, int8_t* tag) {
+    if (*tag == -1) {
+      *tag = num_tags_++;
+    }
+    RETURN_NOT_OK(offsets_.Append(static_cast<int32_t>(offset)));
+    RETURN_NOT_OK(types_.Append(*tag));
+    return nones_.AppendToBitmap(true);
+  }
+
+  template <typename BuilderType, typename T>
+  Status AppendPrimitive(const T val, int8_t* tag, BuilderType* out) {
+    RETURN_NOT_OK(Update(out->length(), tag));
+    return out->Append(val);
+  }
+
   /// Appending a boolean to the sequence
-  Status AppendBool(bool data) {
-    UPDATE(bools_.length(), bool_tag);
-    return bools_.Append(data);
+  Status AppendBool(const bool data) {
+    return AppendPrimitive(data, &bool_tag_, &bools_);
   }
 
   /// Appending an int64_t to the sequence
-  Status AppendInt64(int64_t data) {
-    UPDATE(ints_.length(), int_tag);
-    return ints_.Append(data);
+  Status AppendInt64(const int64_t data) {
+    return AppendPrimitive(data, &int_tag_, &ints_);
   }
 
   /// Appending an uint64_t to the sequence
-  Status AppendUInt64(uint64_t data) {
-    UPDATE(ints_.length(), int_tag);
-    return ints_.Append(data);
+  Status AppendUInt64(const uint64_t data) {
+    // TODO(wesm): Bounds check
+    return AppendPrimitive(static_cast<int64_t>(data), &int_tag_, &ints_);
   }
 
   /// Append a list of bytes to the sequence
   Status AppendBytes(const uint8_t* data, int32_t length) {
-    UPDATE(bytes_.length(), bytes_tag);
+    RETURN_NOT_OK(Update(bytes_.length(), &bytes_tag_));
     return bytes_.Append(data, length);
   }
 
   /// Appending a string to the sequence
   Status AppendString(const char* data, int32_t length) {
-    UPDATE(strings_.length(), string_tag);
+    RETURN_NOT_OK(Update(strings_.length(), &string_tag_));
     return strings_.Append(data, length);
   }
 
   /// Appending a float to the sequence
-  Status AppendFloat(float data) {
-    UPDATE(floats_.length(), float_tag);
-    return floats_.Append(data);
+  Status AppendFloat(const float data) {
+    return AppendPrimitive(data, &float_tag_, &floats_);
   }
 
   /// Appending a double to the sequence
-  Status AppendDouble(double data) {
-    UPDATE(doubles_.length(), double_tag);
-    return doubles_.Append(data);
+  Status AppendDouble(const double data) {
+    return AppendPrimitive(data, &double_tag_, &doubles_);
   }
 
   /// Appending a tensor to the sequence
   ///
   /// \param tensor_index Index of the tensor in the object.
-  Status AppendTensor(int32_t tensor_index) {
-    UPDATE(tensor_indices_.length(), tensor_tag);
+  Status AppendTensor(const int32_t tensor_index) {
+    RETURN_NOT_OK(Update(tensor_indices_.length(), &tensor_tag_));
     return tensor_indices_.Append(tensor_index);
   }
 
@@ -176,45 +151,78 @@ class SequenceBuilder {
   /// \param size
   /// The size of the sublist
   Status AppendList(Py_ssize_t size) {
-    UPDATE(list_offsets_.size() - 1, list_tag);
+    RETURN_NOT_OK(Update(list_offsets_.size() - 1, &list_tag_));
     list_offsets_.push_back(list_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
   Status AppendTuple(Py_ssize_t size) {
-    UPDATE(tuple_offsets_.size() - 1, tuple_tag);
+    RETURN_NOT_OK(Update(tuple_offsets_.size() - 1, &tuple_tag_));
     tuple_offsets_.push_back(tuple_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
   Status AppendDict(Py_ssize_t size) {
-    UPDATE(dict_offsets_.size() - 1, dict_tag);
+    RETURN_NOT_OK(Update(dict_offsets_.size() - 1, &dict_tag_));
     dict_offsets_.push_back(dict_offsets_.back() + static_cast<int32_t>(size));
     return Status::OK();
   }
 
+  template <typename BuilderType>
+  Status AddElement(const int8_t tag, BuilderType* out) {
+    if (tag != -1) {
+      fields_[tag] = ::arrow::field("", out->type());
+      RETURN_NOT_OK(out->Finish(&children_[tag]));
+      RETURN_NOT_OK(nones_.AppendToBitmap(true));
+      type_ids_.push_back(tag);
+    }
+    return Status::OK();
+  }
+
+  Status AddSubsequence(int8_t tag, const Array* data,
+                        const std::vector<int32_t>& offsets, const std::string& name) {
+    if (data != nullptr) {
+      DCHECK(data->length() == offsets.back());
+      std::shared_ptr<Array> offset_array;
+      Int32Builder builder(pool_, std::make_shared<Int32Type>());
+      RETURN_NOT_OK(builder.Append(offsets.data(), offsets.size()));
+      RETURN_NOT_OK(builder.Finish(&offset_array));
+      std::shared_ptr<Array> list_array;
+      RETURN_NOT_OK(ListArray::FromArrays(*offset_array, *data, pool_, &list_array));
+      auto field = ::arrow::field(name, list_array->type());
+      auto type = ::arrow::struct_({field});
+      fields_[tag] = ::arrow::field("", type);
+      children_[tag] = std::shared_ptr<StructArray>(
+          new StructArray(type, list_array->length(), {list_array}));
+      RETURN_NOT_OK(nones_.AppendToBitmap(true));
+      type_ids_.push_back(tag);
+    } else {
+      DCHECK_EQ(offsets.size(), 1);
+    }
+    return Status::OK();
+  }
+
   /// Finish building the sequence and return the result.
-  Status Finish(std::shared_ptr<Array> list_data, std::shared_ptr<Array> tuple_data,
-                std::shared_ptr<Array> dict_data, std::shared_ptr<Array>* out) {
-    std::vector<std::shared_ptr<Field>> types(num_tags);
-    std::vector<std::shared_ptr<Array>> children(num_tags);
-    std::vector<uint8_t> type_ids;
+  /// Input arrays may be nullptr
+  Status Finish(const Array* list_data, const Array* tuple_data, const Array* dict_data,
+                std::shared_ptr<Array>* out) {
+    fields_.resize(num_tags_);
+    children_.resize(num_tags_);
 
-    ADD_ELEMENT(bools_, bool_tag);
-    ADD_ELEMENT(ints_, int_tag);
-    ADD_ELEMENT(strings_, string_tag);
-    ADD_ELEMENT(bytes_, bytes_tag);
-    ADD_ELEMENT(floats_, float_tag);
-    ADD_ELEMENT(doubles_, double_tag);
+    RETURN_NOT_OK(AddElement(bool_tag_, &bools_));
+    RETURN_NOT_OK(AddElement(int_tag_, &ints_));
+    RETURN_NOT_OK(AddElement(string_tag_, &strings_));
+    RETURN_NOT_OK(AddElement(bytes_tag_, &bytes_));
+    RETURN_NOT_OK(AddElement(float_tag_, &floats_));
+    RETURN_NOT_OK(AddElement(double_tag_, &doubles_));
+    RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_));
 
-    ADD_ELEMENT(tensor_indices_, tensor_tag);
+    RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
+    RETURN_NOT_OK(AddSubsequence(tuple_tag_, tuple_data, tuple_offsets_, "tuple"));
+    RETURN_NOT_OK(AddSubsequence(dict_tag_, dict_data, dict_offsets_, "dict"));
 
-    ADD_SUBSEQUENCE(list_data, list_offsets_, list_builder, list_tag, "list");
-    ADD_SUBSEQUENCE(tuple_data, tuple_offsets_, tuple_builder, tuple_tag, "tuple");
-    ADD_SUBSEQUENCE(dict_data, dict_offsets_, dict_builder, dict_tag, "dict");
-
-    auto type = ::arrow::union_(types, type_ids, UnionMode::DENSE);
-    out->reset(new UnionArray(type, types_.length(), children, types_.data(),
+    auto type = ::arrow::union_(fields_, type_ids_, UnionMode::DENSE);
+    out->reset(new UnionArray(type, types_.length(), children_, types_.data(),
                               offsets_.data(), nones_.null_bitmap(),
                               nones_.null_count()));
     return Status::OK();
@@ -249,19 +257,24 @@ class SequenceBuilder {
   // SequenceBuilder::Finish. If a member with one of the tags is added,
   // the associated variable gets a unique index starting from 0. This
   // happens in the UPDATE macro in sequence.cc.
-  int8_t bool_tag = -1;
-  int8_t int_tag = -1;
-  int8_t string_tag = -1;
-  int8_t bytes_tag = -1;
-  int8_t float_tag = -1;
-  int8_t double_tag = -1;
+  int8_t bool_tag_ = -1;
+  int8_t int_tag_ = -1;
+  int8_t string_tag_ = -1;
+  int8_t bytes_tag_ = -1;
+  int8_t float_tag_ = -1;
+  int8_t double_tag_ = -1;
 
-  int8_t tensor_tag = -1;
-  int8_t list_tag = -1;
-  int8_t tuple_tag = -1;
-  int8_t dict_tag = -1;
+  int8_t tensor_tag_ = -1;
+  int8_t list_tag_ = -1;
+  int8_t tuple_tag_ = -1;
+  int8_t dict_tag_ = -1;
 
-  int8_t num_tags = 0;
+  int8_t num_tags_ = 0;
+
+  // Members for the output union constructed in Finish
+  std::vector<std::shared_ptr<Field>> fields_;
+  std::vector<std::shared_ptr<Array>> children_;
+  std::vector<uint8_t> type_ids_;
 };
 
 /// Constructing dictionaries of key/value pairs. Sequences of
@@ -287,11 +300,9 @@ class DictBuilder {
   /// \param dict_data
   ///   List containing the data from nested dictionaries in the
   ///   value list of the dictionary
-  Status Finish(std::shared_ptr<Array> key_tuple_data,
-                std::shared_ptr<Array> key_dict_data,
-                std::shared_ptr<Array> val_list_data,
-                std::shared_ptr<Array> val_tuple_data,
-                std::shared_ptr<Array> val_dict_data, std::shared_ptr<Array>* out) {
+  Status Finish(const Array* key_tuple_data, const Array* key_dict_data,
+                const Array* val_list_data, const Array* val_tuple_data,
+                const Array* val_dict_data, std::shared_ptr<Array>* out) {
     // lists and dicts can't be keys of dicts in Python, that is why for
     // the keys we do not need to collect sublists
     std::shared_ptr<Array> keys, vals;
@@ -530,7 +541,7 @@ Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_de
   if (subdicts.size() > 0) {
     RETURN_NOT_OK(SerializeDict(subdicts, recursion_depth + 1, &dict, tensors_out));
   }
-  return builder.Finish(list, tuple, dict, out);
+  return builder.Finish(list.get(), tuple.get(), dict.get(), out);
 }
 
 Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
@@ -578,8 +589,9 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
     RETURN_NOT_OK(
         SerializeDict(val_dicts, recursion_depth + 1, &val_dict_arr, tensors_out));
   }
-  RETURN_NOT_OK(result.Finish(key_tuples_arr, key_dicts_arr, val_list_arr, val_tuples_arr,
-                              val_dict_arr, out));
+  RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
+                              val_list_arr.get(), val_tuples_arr.get(),
+                              val_dict_arr.get(), out));
 
   // This block is used to decrement the reference counts of the results
   // returned by the serialization callback, which is called in SerializeArray,
@@ -605,37 +617,33 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
 }
 
-Status SerializePythonSequence(PyObject* sequence,
-                               std::shared_ptr<RecordBatch>* batch_out,
-                               std::vector<std::shared_ptr<Tensor>>* tensors_out) {
+Status SerializeObject(PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
-  std::vector<PyObject*> tensors;
-  RETURN_NOT_OK(SerializeSequences(sequences, 0, &array, &tensors));
-  *batch_out = MakeBatch(array);
-  for (const auto& tensor : tensors) {
-    std::shared_ptr<Tensor> out;
-    RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(), tensor, &out));
-    tensors_out->push_back(out);
+  std::vector<PyObject*> py_tensors;
+  RETURN_NOT_OK(SerializeSequences(sequences, 0, &array, &py_tensors));
+  out->batch = MakeBatch(array);
+  for (const auto& py_tensor : py_tensors) {
+    std::shared_ptr<Tensor> arrow_tensor;
+    RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(), py_tensor, &arrow_tensor));
+    out->tensors.push_back(arrow_tensor);
   }
   return Status::OK();
 }
 
-Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,
-                                     std::vector<std::shared_ptr<Tensor>> tensors,
-                                     io::OutputStream* dst) {
-  int32_t num_tensors = static_cast<int32_t>(tensors.size());
+Status WriteSerializedObject(const SerializedPyObject& obj, io::OutputStream* dst) {
+  int32_t num_tensors = static_cast<int32_t>(obj.tensors.size());
   std::shared_ptr<ipc::RecordBatchStreamWriter> writer;
   int32_t metadata_length;
   int64_t body_length;
 
   RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_tensors), sizeof(int32_t)));
-  RETURN_NOT_OK(ipc::RecordBatchStreamWriter::Open(dst, batch->schema(), &writer));
-  RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  RETURN_NOT_OK(ipc::RecordBatchStreamWriter::Open(dst, obj.batch->schema(), &writer));
+  RETURN_NOT_OK(writer->WriteRecordBatch(*obj.batch));
   RETURN_NOT_OK(writer->Close());
 
-  for (const auto& tensor : tensors) {
+  for (const auto& tensor : obj.tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
   }
 

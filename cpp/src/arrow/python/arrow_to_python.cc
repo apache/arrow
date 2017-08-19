@@ -189,9 +189,8 @@ Status DeserializeTuple(std::shared_ptr<Array> array, int64_t start_idx, int64_t
   DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM)
 }
 
-Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
-                                    std::shared_ptr<RecordBatch>* batch_out,
-                                    std::vector<std::shared_ptr<Tensor>>* tensors_out) {
+Status ReadSerializedObject(std::shared_ptr<io::RandomAccessFile> src,
+                            SerializedPyObject* out) {
   std::shared_ptr<ipc::RecordBatchStreamReader> reader;
   int64_t offset;
   int64_t bytes_read;
@@ -200,23 +199,22 @@ Status ReadSerializedPythonSequence(std::shared_ptr<io::RandomAccessFile> src,
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
-  RETURN_NOT_OK(reader->ReadNextRecordBatch(batch_out));
+  RETURN_NOT_OK(reader->ReadNextRecordBatch(&out->batch));
   RETURN_NOT_OK(src->Tell(&offset));
   offset += 4;  // Skip the end-of-stream message
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(ipc::ReadTensor(offset, src.get(), &tensor));
-    tensors_out->push_back(tensor);
+    out->tensors.push_back(tensor);
     RETURN_NOT_OK(src->Tell(&offset));
   }
   return Status::OK();
 }
 
-Status DeserializePythonSequence(std::shared_ptr<RecordBatch> batch,
-                                 std::vector<std::shared_ptr<Tensor>> tensors,
-                                 PyObject* base, PyObject** out) {
+Status DeserializeObject(const SerializedPyObject& obj, PyObject* base, PyObject** out) {
   PyAcquireGIL lock;
-  return DeserializeList(batch->column(0), 0, batch->num_rows(), base, tensors, out);
+  return DeserializeList(obj.batch->column(0), 0, obj.batch->num_rows(), base,
+                         obj.tensors, out);
 }
 
 }  // namespace py

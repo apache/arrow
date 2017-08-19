@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -38,17 +39,31 @@ class OutputStream;
 
 namespace py {
 
+ARROW_EXPORT
 void set_serialization_callbacks(PyObject* serialize_callback,
                                  PyObject* deserialize_callback);
 
-// This acquires the GIL
-Status SerializePythonSequence(PyObject* sequence,
-                               std::shared_ptr<RecordBatch>* batch_out,
-                               std::vector<std::shared_ptr<Tensor>>* tensors_out);
+struct ARROW_EXPORT SerializedPyObject {
+  std::shared_ptr<RecordBatch> batch;
+  std::vector<std::shared_ptr<Tensor>> tensors;
+};
 
-Status WriteSerializedPythonSequence(std::shared_ptr<RecordBatch> batch,
-                                     std::vector<std::shared_ptr<Tensor>> tensors,
-                                     io::OutputStream* dst);
+/// \brief Serialize Python sequence as a RecordBatch plus
+/// \param[in] sequence a Python sequence object to serialize to Arrow data
+/// structures
+/// \param[out] out the serialized representation
+/// \return Status
+///
+/// Release GIL before calling
+ARROW_EXPORT
+Status SerializeObject(PyObject* sequence, SerializedPyObject* out);
+
+/// \brief Write serialized Python object to OutputStream
+/// \param[in] object a serialized Python object to write out
+/// \param[out] dst an OutputStream
+/// \return Status
+ARROW_EXPORT
+Status WriteSerializedObject(const SerializedPyObject& object, io::OutputStream* dst);
 
 }  // namespace py
 }  // namespace arrow

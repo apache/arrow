@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 import os
 import string
 import sys
@@ -85,17 +85,20 @@ def assert_equal(obj1, obj2):
 def array_custom_serializer(obj):
     return obj.tolist(), obj.dtype.str
 
+
 def array_custom_deserializer(serialized_obj):
     return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
 
 pa.lib.register_type(np.ndarray, 20 * b"\x00", pickle=False,
-    custom_serializer=array_custom_serializer,
-    custom_deserializer=array_custom_deserializer)
+                     custom_serializer=array_custom_serializer,
+                     custom_deserializer=array_custom_deserializer)
 
 if sys.version_info >= (3, 0):
     long_extras = [0, np.array([["hi", u"hi"], [1.3, 1]])]
 else:
-    long_extras = [long(0), np.array([["hi", u"hi"], [1.3, long(1)]])]  # noqa: E501,F821
+    _LONG_ZERO, _LONG_ONE = long(0), long(1)  # noqa: E501,F821
+    long_extras = [_LONG_ZERO, np.array([["hi", u"hi"],
+                                         [1.3, _LONG_ONE]])]
 
 PRIMITIVE_OBJECTS = [
     0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
@@ -114,6 +117,7 @@ COMPLEX_OBJECTS = [
     #       (): {(): {}}}}}}}}}}}}},
     ((((((((((),),),),),),),),),),
     {"a": {"b": {"c": {"d": {}}}}}]
+
 
 class Foo(object):
     def __init__(self, value=0):
@@ -178,12 +182,18 @@ pa.lib.register_type(NamedTupleExample, 20 * b"\x09")
 # arbitrary precision integers. This is only called on long integers,
 # see the associated case in the append method in python_to_arrow.cc
 pa.lib.register_type(int, 20 * b"\x10", pickle=False,
-    custom_serializer=lambda obj: str(obj),
-    custom_deserializer=lambda serialized_obj: int(serialized_obj))
+                     custom_serializer=lambda obj: str(obj),
+                     custom_deserializer=(
+                         lambda serialized_obj: int(serialized_obj)))
+
+
 if (sys.version_info < (3, 0)):
-    pa.lib.register_type(long, 20 * b"\x11", pickle=False,
-        custom_serializer=lambda obj: str(obj),
-        custom_deserializer=lambda serialized_obj: long(serialized_obj))
+    deserializer = (
+        lambda serialized_obj: long(serialized_obj))  # noqa: E501,F821
+    pa.lib.register_type(long, 20 * b"\x11", pickle=False,  # noqa: E501,F821
+                         custom_serializer=lambda obj: str(obj),
+                         custom_deserializer=deserializer)
+
 
 def serialization_roundtrip(value, f):
     f.seek(0)
@@ -193,7 +203,7 @@ def serialization_roundtrip(value, f):
     assert_equal(value, result)
 
 # Create a large memory mapped file
-SIZE = 100 * 1024 * 1024 # 100 MB
+SIZE = 100 * 1024 * 1024  # 100 MB
 arr = np.random.randint(0, 256, size=SIZE).astype('u1')
 data = arr.tobytes()[:SIZE]
 path = os.path.join("/tmp/pyarrow-temp-file")
@@ -202,13 +212,16 @@ with open(path, 'wb') as f:
 
 MEMORY_MAPPED_FILE = pa.memory_map(path, mode="r+")
 
+
 def test_primitive_serialization():
     for obj in PRIMITIVE_OBJECTS:
         serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
 
+
 def test_complex_serialization():
     for obj in COMPLEX_OBJECTS:
         serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
+
 
 def test_custom_serialization():
     for obj in CUSTOM_OBJECTS:
