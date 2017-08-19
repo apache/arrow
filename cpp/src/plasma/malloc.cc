@@ -26,7 +26,9 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "plasma/common.h"
 #include "plasma/plasma.h"

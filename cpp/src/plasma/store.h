@@ -20,6 +20,7 @@
 
 #include <deque>
 #include <vector>
+#include <string>
 
 #include "plasma/common.h"
 #include "plasma/events.h"
