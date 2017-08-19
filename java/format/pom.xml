@@ -23,7 +23,6 @@
 <name>Arrow Format</name>
 
   <properties>
-    <fbs.version>1.2.0-3f79e055</fbs.version>
     <flatc.download.skip>false</flatc.download.skip>
     <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</flatc.executable>
     <flatc.generated.files>${project.build.directory}/generated-sources/flatc</flatc.generated.files>
@@ -36,7 +35,6 @@
     <dependency>
       <groupId>com.vlkan</groupId>
       <artifactId>flatbuffers</artifactId>
-      <version>${fbs.version}</version>
     </dependency>
   </dependencies>
 
