@@ -197,9 +197,9 @@ if (sys.version_info < (3, 0)):
 
 def serialization_roundtrip(value, f):
     f.seek(0)
-    pa.lib.serialize_sequence(value, f)
+    pa.serialize_to(value, f)
     f.seek(0)
-    result = pa.lib.deserialize_sequence(f, None)
+    result = pa.deserialize_from(f, None)
     assert_equal(value, result)
 
 

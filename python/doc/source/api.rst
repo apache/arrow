@@ -181,8 +181,8 @@ File Systems
 
 .. _api.ipc:
 
-Interprocess Communication and Messaging
-----------------------------------------
+Interprocess Communication and Serialization
+--------------------------------------------
 
 .. autosummary::
    :toctree: generated/
@@ -201,6 +201,10 @@ Interprocess Communication and Messaging
    read_tensor
    write_tensor
    get_tensor_size
+   serialize
+   deserialized_from
+   read_serialized
+   SerializedPyObject
 
 .. _api.memory_pool:
 

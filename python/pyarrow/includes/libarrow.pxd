@@ -776,20 +776,20 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
-    cdef cppclass SerializedPyObject:
+    cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
         shared_ptr[CRecordBatch] batch
         vector[shared_ptr[CTensor]] tensors
 
-    CStatus SerializeObject(object sequence, SerializedPyObject* out)
+    CStatus SerializeObject(object sequence, CSerializedPyObject* out)
 
-    CStatus WriteSerializedObject(const SerializedPyObject& obj,
+    CStatus WriteSerializedObject(const CSerializedPyObject& obj,
                                   OutputStream* dst)
 
-    CStatus DeserializeObject(const SerializedPyObject& obj,
+    CStatus DeserializeObject(const CSerializedPyObject& obj,
                               PyObject* base, PyObject** out)
 
     CStatus ReadSerializedObject(shared_ptr[RandomAccessFile] src,
-                                 SerializedPyObject* out)
+                                 CSerializedPyObject* out)
 
     void set_serialization_callbacks(object serialize_callback,
                                      object deserialize_callback)

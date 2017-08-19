@@ -87,6 +87,9 @@ from pyarrow.lib import (ArrowException,
                          ArrowNotImplementedError,
                          ArrowTypeError)
 
+# Serialization
+from pyarrow.lib import (deserialize_from, serialize, serialize_to,
+                         read_serialized)
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 

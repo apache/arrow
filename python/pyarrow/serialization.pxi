@@ -131,28 +131,119 @@ set_serialization_callbacks(_serialization_callback,
                             _deserialization_callback)
 
 
-def serialize_sequence(object value, NativeFile sink):
-    """Serialize a Python sequence to a file.
+cdef class SerializedPyObject:
+    """
+    Arrow-serialized representation of Python object
+    """
+    cdef:
+        CSerializedPyObject data
+
+    cdef readonly:
+        object base
+
+    property total_bytes:
+
+        def __get__(self):
+            cdef CMockOutputStream mock_stream
+            with nogil:
+                check_status(WriteSerializedObject(self.data, &mock_stream))
+
+            return mock_stream.GetExtentBytesWritten()
+
+    def write_to(self, sink):
+        """
+        Write serialized object to a sink
+        """
+        cdef shared_ptr[OutputStream] stream
+        get_writer(sink, &stream)
+        self._write_to(stream.get())
+
+    cdef _write_to(self, OutputStream* stream):
+        with nogil:
+            check_status(WriteSerializedObject(self.data, stream))
+
+    def deserialize(self):
+        """
+        Convert back to Python object
+        """
+        cdef PyObject* result
+
+        with nogil:
+            check_status(DeserializeObject(self.data, <PyObject*> self.base,
+                                           &result))
+
+        # This is necessary to avoid a memory leak
+        return PyObject_to_object(result)
+
+    def to_buffer(self):
+        """
+        Write serialized data as Buffer
+        """
+        sink = BufferOutputStream()
+        self.write_to(sink)
+        return sink.get_result()
+
+
+def serialize(object value):
+    """EXPERIMENTAL: Serialize a Python sequence
 
     Parameters
     ----------
     value: object
         Python object for the sequence that is to be serialized.
-    sink: NativeFile
+
+    Returns
+    -------
+    serialized : SerializedPyObject
+    """
+    cdef SerializedPyObject serialized = SerializedPyObject()
+    with nogil:
+        check_status(SerializeObject(value, &serialized.data))
+    return serialized
+
+
+def serialize_to(object value, sink):
+    """EXPERIMENTAL: Serialize a Python sequence to a file.
+
+    Parameters
+    ----------
+    value: object
+        Python object for the sequence that is to be serialized.
+    sink: NativeFile or file-like
         File the sequence will be written to.
     """
-    cdef shared_ptr[OutputStream] stream
-    sink.write_handle(&stream)
+    serialized = serialize(value)
+    serialized.write_to(sink)
 
-    cdef SerializedPyObject serialized
 
+def read_serialized(source, base=None):
+    """EXPERIMENTAL: Read serialized Python sequence from file-like object
+
+    Parameters
+    ----------
+    source: NativeFile
+        File to read the sequence from.
+    base: object
+        This object will be the base object of all the numpy arrays
+        contained in the sequence.
+
+    Returns
+    -------
+    serialized : the serialized data
+    """
+    cdef shared_ptr[RandomAccessFile] stream
+    get_reader(source, &stream)
+
+    cdef SerializedPyObject serialized = SerializedPyObject()
+    serialized.base = base
     with nogil:
-        check_status(SerializeObject(value, &serialized))
-        check_status(WriteSerializedObject(serialized, stream.get()))
+        check_status(ReadSerializedObject(stream, &serialized.data))
+
+    return serialized
 
 
-def deserialize_sequence(NativeFile source, object base):
-    """Deserialize a Python sequence from a file.
+def deserialize_from(source, object base):
+    """EXPERIMENTAL: Deserialize a Python sequence from a file.
 
     Parameters
     ----------
@@ -167,15 +258,5 @@ def deserialize_sequence(NativeFile source, object base):
     object
         Python object for the deserialized sequence.
     """
-    cdef shared_ptr[RandomAccessFile] stream
-    source.read_handle(&stream)
-
-    cdef SerializedPyObject serialized
-    cdef PyObject* result
-
-    with nogil:
-        check_status(ReadSerializedObject(stream, &serialized))
-        check_status(DeserializeObject(serialized, <PyObject*> base, &result))
-
-    # This is necessary to avoid a memory leak
-    return PyObject_to_object(result)
+    serialized = read_serialized(source, base=base)
+    return serialized.deserialize()
