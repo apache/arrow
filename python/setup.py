@@ -382,6 +382,11 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
+    entry_points = {
+        'console_scripts': [
+            'plasma_store = pyarrow:_plasma_store_entry_point'
+        ]
+    },
     use_scm_version={"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
     install_requires=['numpy >= 1.10', 'six >= 1.0.0'],
