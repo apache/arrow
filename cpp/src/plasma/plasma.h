@@ -27,9 +27,9 @@
 #include <string.h>
 #include <unistd.h>  // pid_t
 
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

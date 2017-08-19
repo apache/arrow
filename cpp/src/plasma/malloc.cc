@@ -25,8 +25,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include <unordered_map>
 #include <cerrno>
+#include <unordered_map>
 
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -44,9 +44,9 @@ int fake_munmap(void*, int64_t);
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
 
 #ifndef ARROW_PLASMA_HUGEPAGES
-#define DEFAULT_GRANULARITY ((size_t) 128U * 1024U) // 128KB
+#define DEFAULT_GRANULARITY ((size_t)128U * 1024U)  // 128KB
 #else
-#define DEFAULT_GRANULARITY ((size_t) 1024U * 1024U * 1024U) // 1GB
+#define DEFAULT_GRANULARITY ((size_t)1024U * 1024U * 1024U)  // 1GB
 #endif
 
 #include "thirdparty/dlmalloc.c"  // NOLINT
@@ -134,15 +134,16 @@ void* fake_mmap(size_t size) {
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
 #ifdef __linux__
-  void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE,
-                       MAP_SHARED | MAP_POPULATE, fd, 0);
+  void* pointer =
+      mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, 0);
 #else
-  void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 #endif
   if (pointer == MAP_FAILED) {
     ARROW_LOG(ERROR) << "mmap failed with error: " << std::strerror(errno);
     if (errno == ENOMEM && plasma::plasma_config->hugepages_enabled) {
-      ARROW_LOG(ERROR) << "  (this probably means you have to increase /proc/sys/vm/nr_hugepages)";
+      ARROW_LOG(ERROR)
+          << "  (this probably means you have to increase /proc/sys/vm/nr_hugepages)";
     }
     return pointer;
   }

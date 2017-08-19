@@ -96,8 +96,8 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory,
-                         std::string directory, bool hugepages_enabled)
+PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
+                         bool hugepages_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
@@ -117,9 +117,7 @@ PlasmaStore::~PlasmaStore() {
   }
 }
 
-const PlasmaStoreInfo* PlasmaStore::get_plasma_store_info() {
-  return &store_info_;
-}
+const PlasmaStoreInfo* PlasmaStore::get_plasma_store_info() { return &store_info_; }
 
 // If this client is not already using the object, add the client to the
 // object's list of clients, otherwise do nothing.
@@ -644,8 +642,8 @@ class PlasmaStoreRunner {
              bool hugepages_enabled) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(new PlasmaStore(loop_.get(), system_memory, directory,
-        hugepages_enabled));
+    store_.reset(
+        new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
     plasma_config = store_->get_plasma_store_info();
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -680,8 +678,8 @@ void HandleSignal(int signal) {
   }
 }
 
-void start_server(char* socket_name, int64_t system_memory,
-                  std::string plasma_directory, bool hugepages_enabled) {
+void start_server(char* socket_name, int64_t system_memory, std::string plasma_directory,
+                  bool hugepages_enabled) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
@@ -733,7 +731,8 @@ int main(int argc, char* argv[]) {
     ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
   }
   if (hugepages_enabled && plasma_directory.empty()) {
-    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages filesystem with -d";
+    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages "
+                        "filesystem with -d";
   }
   if (plasma_directory.empty()) {
 #ifdef __linux__
@@ -743,7 +742,8 @@ int main(int argc, char* argv[]) {
 #endif
   }
   ARROW_LOG(INFO) << "Starting object store with directory " << plasma_directory
-                  << " and huge page support " << (hugepages_enabled ? "enabled" : "disabled");
+                  << " and huge page support "
+                  << (hugepages_enabled ? "enabled" : "disabled");
 #ifdef __linux__
   if (!hugepages_enabled) {
     // On Linux, check that the amount of memory available in /dev/shm is large
@@ -756,14 +756,13 @@ int main(int argc, char* argv[]) {
     int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
     close(shm_fd);
     if (system_memory > shm_mem_avail) {
-      ARROW_LOG(FATAL) << "System memory request exceeds memory available in "
-                       << plasma_directory << ". The request is for "
-                       << system_memory << " bytes, and the amount available is "
-                       << shm_mem_avail
-                       << " bytes. You may be able to free up space by deleting files in "
-                          "/dev/shm. If you are inside a Docker container, you may need to "
-                          "pass "
-                          "an argument with the flag '--shm-size' to 'docker run'.";
+      ARROW_LOG(FATAL)
+          << "System memory request exceeds memory available in " << plasma_directory
+          << ". The request is for " << system_memory
+          << " bytes, and the amount available is " << shm_mem_avail
+          << " bytes. You may be able to free up space by deleting files in "
+             "/dev/shm. If you are inside a Docker container, you may need to "
+             "pass an argument with the flag '--shm-size' to 'docker run'.";
     }
   }
 #endif
@@ -771,6 +770,5 @@ int main(int argc, char* argv[]) {
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::start_server(socket_name, system_memory, plasma_directory,
-                       hugepages_enabled);
+  plasma::start_server(socket_name, system_memory, plasma_directory, hugepages_enabled);
 }
