@@ -133,11 +133,28 @@ void* fake_mmap(size_t size) {
 
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
+#ifdef __linux__
+  void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE,
+                       MAP_SHARED | MAP_POPULATE, fd, 0);
+  if (pointer == MAP_FAILED) {
+    ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
+    return pointer;
+  }
+#else
   void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (pointer == MAP_FAILED) {
     ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
     return pointer;
   }
+  // Attempt to mlock the mmaped region of memory (best effort).
+  int rv = mlock(pointer, size);
+  if (rv != 0) {
+    ARROW_LOG(WARNING) << "(best effort) mlock failed";
+    // Attempt to memset the mmaped region of memory (best effort).
+    memset(pointer, 0xff, size);
+  }
+#endif
+  ARROW_LOG(INFO) << "mmaping pointer " << pointer << " size " << size;
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;
