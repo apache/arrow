@@ -391,7 +391,7 @@ the next newly available object:
 ```cpp
 // Receive notification of the next newly available object.
 // Notification information is stored in object_id, data_size, and metadata_size
-ObjectID new_object_id;
+ObjectID object_id;
 int64_t data_size;
 int64_t metadata_size;
 ARROW_CHECK_OK(client.GetNotification(fd, &object_id, &data_size, &metadata_size));
