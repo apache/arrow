@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
+
+import pytest
 
 from collections import namedtuple
 import os
@@ -202,27 +202,34 @@ def serialization_roundtrip(value, f):
     result = pa.lib.deserialize_sequence(f, None)
     assert_equal(value, result)
 
-# Create a large memory mapped file
-SIZE = 100 * 1024 * 1024  # 100 MB
-arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-data = arr.tobytes()[:SIZE]
-path = os.path.join("/tmp/pyarrow-temp-file")
-with open(path, 'wb') as f:
-    f.write(data)
 
-MEMORY_MAPPED_FILE = pa.memory_map(path, mode="r+")
+@pytest.yield_fixture(scope='session')
+def large_memory_map(tmpdir_factory):
+    path = (tmpdir_factory.mktemp('data')
+            .join('pyarrow-serialization-tmp-file').strpath)
+
+    # Create a large memory mapped file
+    SIZE = 100 * 1024 * 1024  # 100 MB
+    with open(path, 'wb') as f:
+        f.write(np.random.randint(0, 256, size=SIZE)
+                .astype('u1')
+                .tobytes()
+                [:SIZE])
+
+    yield pa.memory_map(path, mode="r+")
+    os.remove(path)
 
 
-def test_primitive_serialization():
+def test_primitive_serialization(large_memory_map):
     for obj in PRIMITIVE_OBJECTS:
-        serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
+        serialization_roundtrip([obj], large_memory_map)
 
 
-def test_complex_serialization():
+def test_complex_serialization(large_memory_map):
     for obj in COMPLEX_OBJECTS:
-        serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
+        serialization_roundtrip([obj], large_memory_map)
 
 
-def test_custom_serialization():
+def test_custom_serialization(large_memory_map):
     for obj in CUSTOM_OBJECTS:
-        serialization_roundtrip([obj], MEMORY_MAPPED_FILE)
+        serialization_roundtrip([obj], large_memory_map)
