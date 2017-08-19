@@ -105,6 +105,22 @@ from pyarrow.ipc import (Message, MessageReader,
 
 localfs = LocalFileSystem.get_instance()
 
+# Entry point for starting the plasma store
+
+def _plasma_store_entry_point():
+    """Entry point for starting the plasma store.
+
+    This can be used by invoking e. g. ``plasma_store -s /tmp/plasma -m 1000000000``
+    from the command line and will start the plasma_store executable with the
+    given arguments.
+    """
+    import os
+    import pyarrow
+    import subprocess
+    import sys
+    plasma_store_executable = os.path.join(pyarrow.__path__[0], "plasma_store")
+    process = subprocess.Popen([plasma_store_executable] + sys.argv[1:])
+    process.wait()
 
 # ----------------------------------------------------------------------
 # 0.4.0 deprecations
