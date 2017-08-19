@@ -97,11 +97,11 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 Client::Client(int fd) : fd(fd) {}
 
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory,
-                         std::string directory, bool hugetlb_enabled)
+                         std::string directory, bool hugepages_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
-  store_info_.hugetlb_enabled = hugetlb_enabled;
+  store_info_.hugepages_enabled = hugepages_enabled;
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -641,11 +641,11 @@ class PlasmaStoreRunner {
   PlasmaStoreRunner() {}
 
   void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugetlb_enabled) {
+             bool hugepages_enabled) {
     // Create the event loop.
     loop_.reset(new EventLoop);
     store_.reset(new PlasmaStore(loop_.get(), system_memory, directory,
-        hugetlb_enabled));
+        hugepages_enabled));
     plasma_config = store_->get_plasma_store_info();
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -681,7 +681,7 @@ void HandleSignal(int signal) {
 }
 
 void start_server(char* socket_name, int64_t system_memory,
-                  std::string memfile_directory, bool hugetlb_enabled) {
+                  std::string plasma_directory, bool hugepages_enabled) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
@@ -689,24 +689,25 @@ void start_server(char* socket_name, int64_t system_memory,
   PlasmaStoreRunner runner;
   g_runner = &runner;
   signal(SIGTERM, HandleSignal);
-  runner.Start(socket_name, system_memory, memfile_directory, hugetlb_enabled);
+  runner.Start(socket_name, system_memory, plasma_directory, hugepages_enabled);
 }
 
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
   char* socket_name = NULL;
-  std::string memfile_directory; // e.g., /dev/shm, /tmp, /mnt/hugepages
-  bool hugetlb_enabled = false;
+  // Directory where plasma memory mapped files are stored.
+  std::string plasma_directory;
+  bool hugepages_enabled = false;
   int64_t system_memory = -1;
   int c;
   while ((c = getopt(argc, argv, "s:m:d:h")) != -1) {
     switch (c) {
       case 'd':
-        memfile_directory = std::string(optarg);
+        plasma_directory = std::string(optarg);
         break;
       case 'h':
-        hugetlb_enabled = true;
+        hugepages_enabled = true;
         break;
       case 's':
         socket_name = optarg;
@@ -731,40 +732,45 @@ int main(int argc, char* argv[]) {
   if (system_memory == -1) {
     ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
   }
-  if (memfile_directory.empty()) {
+  if (hugepages_enabled && plasma_directory.empty()) {
+    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages filesystem with -d";
+  }
+  if (plasma_directory.empty()) {
 #ifdef __linux__
-    memfile_directory = "/dev/shm";
+    plasma_directory = "/dev/shm";
 #else
-    memfile_directory = "/tmp";
+    plasma_directory = "/tmp";
 #endif
   }
-  ARROW_LOG(INFO) << "Starting object store with directory " << memfile_directory
-                  << " and huge page support " << (hugetlb_enabled ? "enabled" : "disabled");
+  ARROW_LOG(INFO) << "Starting object store with directory " << plasma_directory
+                  << " and huge page support " << (hugepages_enabled ? "enabled" : "disabled");
 #ifdef __linux__
-  // On Linux, check that the amount of memory available in /dev/shm is large
-  // enough to accommodate the request. If it isn't, then fail.
-  int shm_fd = open("/dev/shm", O_RDONLY);
-  struct statvfs shm_vfs_stats;
-  fstatvfs(shm_fd, &shm_vfs_stats);
-  // The value shm_vfs_stats.f_bsize is the block size, and the value
-  // shm_vfs_stats.f_bavail is the number of available blocks.
-  int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
-  close(shm_fd);
-  if (system_memory > shm_mem_avail) {
-    ARROW_LOG(FATAL) << "System memory request exceeds memory available in /dev/shm. The "
-                        "request is for "
-                     << system_memory << " bytes, and the amount available is "
-                     << shm_mem_avail
-                     << " bytes. You may be able to free up space by deleting files in "
-                        "/dev/shm. If you are inside a Docker container, you may need to "
-                        "pass "
-                        "an argument with the flag '--shm-size' to 'docker run'.";
+  if (!hugepages_enabled) {
+    // On Linux, check that the amount of memory available in /dev/shm is large
+    // enough to accommodate the request. If it isn't, then fail.
+    int shm_fd = open(plasma_directory.c_str(), O_RDONLY);
+    struct statvfs shm_vfs_stats;
+    fstatvfs(shm_fd, &shm_vfs_stats);
+    // The value shm_vfs_stats.f_bsize is the block size, and the value
+    // shm_vfs_stats.f_bavail is the number of available blocks.
+    int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
+    close(shm_fd);
+    if (system_memory > shm_mem_avail) {
+      ARROW_LOG(FATAL) << "System memory request exceeds memory available in "
+                       << plasma_directory << ". The request is for "
+                       << system_memory << " bytes, and the amount available is "
+                       << shm_mem_avail
+                       << " bytes. You may be able to free up space by deleting files in "
+                          "/dev/shm. If you are inside a Docker container, you may need to "
+                          "pass "
+                          "an argument with the flag '--shm-size' to 'docker run'.";
+    }
   }
 #endif
   // Make it so dlmalloc fails if we try to request more memory than is
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::start_server(socket_name, system_memory, memfile_directory,
-                       hugetlb_enabled);
+  plasma::start_server(socket_name, system_memory, plasma_directory,
+                       hugepages_enabled);
 }

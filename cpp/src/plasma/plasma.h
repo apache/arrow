@@ -132,7 +132,7 @@ struct PlasmaStoreInfo {
   int64_t memory_capacity;
   /// Boolean flag indicating whether to start the object store with hugepages
   /// support enabled.
-  bool hugetlb_enabled;
+  bool hugepages_enabled;
   /// A (platform-dependent) directory where to create the memory-backed file.
   std::string directory;
 };

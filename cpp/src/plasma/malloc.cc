@@ -42,7 +42,12 @@ int fake_munmap(void*, int64_t);
 #define USE_DL_PREFIX
 #define HAVE_MORECORE 0
 #define DEFAULT_MMAP_THRESHOLD MAX_SIZE_T
+
+#ifndef ARROW_PLASMA_HUGEPAGES
+#define DEFAULT_GRANULARITY ((size_t) 128U * 1024U) // 128KB
+#else
 #define DEFAULT_GRANULARITY ((size_t) 1024U * 1024U * 1024U) // 1GB
+#endif
 
 #include "thirdparty/dlmalloc.c"  // NOLINT
 
@@ -94,8 +99,7 @@ int create_buffer(int64_t size) {
   file_template += "/plasmaXXXXXX";
   std::vector<char> file_name(file_template.begin(), file_template.end());
   file_name.push_back('\0');
-  if (plasma::plasma_config->hugetlb_enabled) {
-    // create a file descriptor to a hugepage-based file.
+  if (plasma::plasma_config->hugepages_enabled) {
     fd = open(&file_name[0], O_CREAT | O_RDWR, 0755);
   } else {
     fd = mkstemp(&file_name[0]);
@@ -115,7 +119,7 @@ int create_buffer(int64_t size) {
     ARROW_LOG(FATAL) << "failed to unlink file " << &file_name[0];
     return -1;
   }
-  if (!plasma::plasma_config->hugetlb_enabled) {
+  if (!plasma::plasma_config->hugepages_enabled) {
     if (ftruncate(fd, (off_t)size) != 0) {
       ARROW_LOG(FATAL) << "failed to ftruncate file " << &file_name[0];
       return -1;
@@ -136,25 +140,13 @@ void* fake_mmap(size_t size) {
 #ifdef __linux__
   void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE,
                        MAP_SHARED | MAP_POPULATE, fd, 0);
-  if (pointer == MAP_FAILED) {
-    ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
-    return pointer;
-  }
 #else
   void *pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+#endif
   if (pointer == MAP_FAILED) {
-    ARROW_LOG(ERROR) << "mmap failed with error : " << std::strerror(errno);
+    ARROW_LOG(ERROR) << "mmap failed with error: " << std::strerror(errno);
     return pointer;
   }
-  // Attempt to mlock the mmaped region of memory (best effort).
-  int rv = mlock(pointer, size);
-  if (rv != 0) {
-    ARROW_LOG(WARNING) << "(best effort) mlock failed";
-    // Attempt to memset the mmaped region of memory (best effort).
-    memset(pointer, 0xff, size);
-  }
-#endif
-  ARROW_LOG(INFO) << "mmaping pointer " << pointer << " size " << size;
 
   /* Increase dlmalloc's allocation granularity directly. */
   mparams.granularity *= GRANULARITY_MULTIPLIER;
