@@ -39,14 +39,21 @@ class OutputStream;
 
 namespace py {
 
-ARROW_EXPORT
-void set_serialization_callbacks(PyObject* serialize_callback,
-                                 PyObject* deserialize_callback);
-
 struct ARROW_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
 };
+
+/// \brief Register callback functions to perform conversions to or from other
+/// Python representations en route to/from deserialization
+///
+/// \param[in] serialize_callback a Python callable
+/// \param[in] deserialize_callback a Python callable
+///
+/// Analogous to Python custom picklers / unpicklers
+ARROW_EXPORT
+void set_serialization_callbacks(PyObject* serialize_callback,
+                                 PyObject* deserialize_callback);
 
 /// \brief Serialize Python sequence as a RecordBatch plus
 /// \param[in] sequence a Python sequence object to serialize to Arrow data
