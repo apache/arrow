@@ -134,7 +134,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public long getValidityBufferAddress() {
-    return typeVector.getBuffer().memoryAddress();
+    return typeVector.getDataBuffer().memoryAddress();
   }
 
   @Override
@@ -146,6 +146,15 @@ public class UnionVector implements FieldVector {
   public long getOffsetBufferAddress() {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public ArrowBuf getValidityBuffer() { return typeVector.getDataBuffer(); }
+
+  @Override
+  public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() { throw new UnsupportedOperationException(); }
 
   public NullableMapVector getMap() {
     if (mapVector == null) {

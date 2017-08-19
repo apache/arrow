@@ -180,7 +180,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public long getValidityBufferAddress() {
-    return (bits.getBuffer().memoryAddress());
+    return (bits.getDataBuffer().memoryAddress());
   }
 
   @Override
@@ -190,8 +190,19 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public long getOffsetBufferAddress() {
-    return (offsets.getBuffer().memoryAddress());
+    return (offsets.getDataBuffer().memoryAddress());
   }
+
+  @Override
+  public ArrowBuf getValidityBuffer() { return bits.getDataBuffer(); }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() { return offsets.getDataBuffer(); }
 
   private class TransferImpl implements TransferPair {
 

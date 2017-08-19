@@ -219,7 +219,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
   }
 
   public ArrowBuf getBuffer() {
-    return values.getBuffer();
+    return values.getDataBuffer();
   }
 
   @Override
@@ -437,20 +437,47 @@ protected final static byte[] emptyByteArray = new byte[]{};
 
   @Override
   public long getValidityBufferAddress() {
-    return (bits.getBuffer().memoryAddress());
+    /* address of the databuffer associated with the bitVector */
+    return (bits.getDataBuffer().memoryAddress());
   }
 
   @Override
   public long getDataBufferAddress() {
-    return (values.getBuffer().memoryAddress());
+    /* address of the dataBuffer associated with the valueVector */
+    return (values.getDataBuffer().memoryAddress());
   }
 
   @Override
   public long getOffsetBufferAddress() {
+    /* address of the dataBuffer associated with the offsetVector
+     * this operation is not supported for fixed-width vector types.
+     */
     <#if type.major != "VarLen">
         throw new UnsupportedOperationException();
     <#else>
         return (values.getOffsetAddr());
+    </#if>
+  }
+
+  @Override
+  public ArrowBuf getValidityBuffer() {
+    /* dataBuffer associated with the bitVector */
+    return (bits.getDataBuffer());
+  }
+
+  @Override
+  public ArrowBuf getDataBuffer() {
+    /* dataBuffer associated with the valueVector */
+    return (values.getDataBuffer());
+  }
+
+  @Override
+  public ArrowBuf getOffsetBuffer() {
+    /* dataBuffer associated with the offsetVector of the valueVector */
+    <#if type.major != "VarLen">
+        throw new UnsupportedOperationException();
+    <#else>
+        return (values.getOffsetBuffer());
     </#if>
   }
 
