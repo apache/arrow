@@ -477,7 +477,6 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
         precision_(precision),
         scale_(scale) {}
 
-  std::vector<BufferDescr> GetBufferLayout() const override;
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "decimal"; }

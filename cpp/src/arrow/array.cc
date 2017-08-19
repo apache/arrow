@@ -353,24 +353,18 @@ DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data) {
 
 void DecimalArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto fixed_size_data = data->buffers[1];
-  auto sign_bitmap = data->buffers[2];
   this->Array::SetData(data);
 
   raw_values_ = fixed_size_data != nullptr ? fixed_size_data->data() : nullptr;
-  sign_bitmap_data_ = sign_bitmap != nullptr ? sign_bitmap->data() : nullptr;
 }
 
 DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
                            const std::shared_ptr<Buffer>& data,
                            const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                           int64_t offset, const std::shared_ptr<Buffer>& sign_bitmap) {
-  BufferVector buffers = {null_bitmap, data, sign_bitmap};
+                           int64_t offset) {
+  BufferVector buffers = {null_bitmap, data};
   SetData(
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
-}
-
-bool DecimalArray::IsNegative(int64_t i) const {
-  return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
 }
 
 const uint8_t* DecimalArray::GetValue(int64_t i) const {
@@ -396,7 +390,7 @@ std::string DecimalArray::FormatValue(int64_t i) const {
     }
     case 16: {
       decimal::Decimal128 value;
-      decimal::FromBytes(bytes, IsNegative(i), &value);
+      decimal::FromBytes(bytes, &value);
       return decimal::ToString(value, precision, scale);
     }
     default: {

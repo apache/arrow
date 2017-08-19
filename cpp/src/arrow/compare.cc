@@ -274,11 +274,6 @@ class RangeEqualsVisitor {
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
-      if (left.IsNegative(i) != right.IsNegative(o_i)) {
-        result_ = false;
-        return Status::OK();
-      }
-
       const bool is_null = left.IsNull(i);
       if (is_null != right.IsNull(o_i)) {
         result_ = false;
@@ -392,55 +387,49 @@ static inline bool CompareBuiltIn(const Array& left, const Array& right, const T
 }
 
 static bool IsEqualDecimal(const DecimalArray& left, const DecimalArray& right) {
-  const int64_t loffset = left.offset();
-  const int64_t roffset = right.offset();
-
   const uint8_t* left_data = nullptr;
   const uint8_t* right_data = nullptr;
 
-  if (left.values()) {
+  if (left.values() != nullptr) {
     left_data = left.raw_values();
   }
-  if (right.values()) {
+
+  if (right.values() != nullptr) {
     right_data = right.raw_values();
   }
 
   const int32_t byte_width = left.byte_width();
   if (byte_width == 4) {
-    return CompareBuiltIn<int32_t>(
-        left, right, reinterpret_cast<const int32_t*>(left_data) + loffset,
-        reinterpret_cast<const int32_t*>(right_data) + roffset);
-  } else if (byte_width == 8) {
-    return CompareBuiltIn<int64_t>(
-        left, right, reinterpret_cast<const int64_t*>(left_data) + loffset,
-        reinterpret_cast<const int64_t*>(right_data) + roffset);
-  } else {
-    // 128-bit
-
-    // Must also compare sign bitmap
-    const uint8_t* left_sign = nullptr;
-    const uint8_t* right_sign = nullptr;
-    if (left.sign_bitmap()) {
-      left_sign = left.sign_bitmap()->data();
-    }
-    if (right.sign_bitmap()) {
-      right_sign = right.sign_bitmap()->data();
-    }
-
-    for (int64_t i = 0; i < left.length(); ++i) {
-      bool left_null = left.IsNull(i);
-      if (!left_null && (memcmp(left_data, right_data, byte_width) || right.IsNull(i))) {
-        return false;
-      }
-      if (BitUtil::GetBit(left_sign, i + loffset) !=
-          BitUtil::GetBit(right_sign, i + roffset)) {
-        return false;
-      }
-      left_data += byte_width;
-      right_data += byte_width;
-    }
-    return true;
+    return CompareBuiltIn<int32_t>(left, right,
+                                   reinterpret_cast<const int32_t*>(left_data),
+                                   reinterpret_cast<const int32_t*>(right_data));
   }
+
+  if (byte_width == 8) {
+    return CompareBuiltIn<int64_t>(left, right,
+                                   reinterpret_cast<const int64_t*>(left_data),
+                                   reinterpret_cast<const int64_t*>(right_data));
+  }
+
+  // 128-bit
+  for (int64_t i = 0; i < left.length(); ++i) {
+    const bool left_null = left.IsNull(i);
+    const bool right_null = right.IsNull(i);
+
+    // one of left or right value is not null
+    if (left_null != right_null) {
+      return false;
+    }
+
+    // both are not null and their respective elements are byte for byte equal
+    if (!left_null && !right_null && memcmp(left_data, right_data, byte_width) != 0) {
+      return false;
+    }
+
+    left_data += byte_width;
+    right_data += byte_width;
+  }
+  return true;
 }
 
 class ArrayEqualsVisitor : public RangeEqualsVisitor {

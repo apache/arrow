@@ -957,9 +957,7 @@ template class DictionaryBuilder<StringType>;
 // DecimalBuilder
 
 DecimalBuilder::DecimalBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool),
-      sign_bitmap_(nullptr),
-      sign_bitmap_data_(nullptr) {}
+    : FixedSizeBinaryBuilder(type, pool) {}
 
 #ifndef ARROW_NO_DEPRECATED_API
 DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
@@ -968,9 +966,6 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
 
 template <typename T>
 ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal<T>& val) {
-  DCHECK_EQ(sign_bitmap_, nullptr) << "sign_bitmap_ is not null";
-  DCHECK_EQ(sign_bitmap_data_, nullptr) << "sign_bitmap_data_ is not null";
-
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   return FixedSizeBinaryBuilder::Append(reinterpret_cast<const uint8_t*>(&val.value));
 }
@@ -980,53 +975,11 @@ template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal64& va
 
 template <>
 ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
-  DCHECK_NE(sign_bitmap_, nullptr) << "sign_bitmap_ is null";
-  DCHECK_NE(sign_bitmap_data_, nullptr) << "sign_bitmap_data_ is null";
-
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   uint8_t stack_bytes[16] = {0};
   uint8_t* bytes = stack_bytes;
-  bool is_negative;
-  decimal::ToBytes(value, &bytes, &is_negative);
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Append(bytes));
-
-  // TODO(phillipc): calculate the proper storage size here (do we have a function to do
-  // this)?
-  // TODO(phillipc): Reserve number of elements
-  RETURN_NOT_OK(sign_bitmap_->Reserve(1));
-  BitUtil::SetBitTo(sign_bitmap_data_, length_ - 1, is_negative);
-  return Status::OK();
-}
-
-Status DecimalBuilder::Init(int64_t capacity) {
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Init(capacity));
-  if (byte_width_ == 16) {
-    RETURN_NOT_OK(AllocateResizableBuffer(pool_, null_bitmap_->size(), &sign_bitmap_));
-    sign_bitmap_data_ = sign_bitmap_->mutable_data();
-    memset(sign_bitmap_data_, 0, static_cast<size_t>(sign_bitmap_->capacity()));
-  }
-  return Status::OK();
-}
-
-Status DecimalBuilder::Resize(int64_t capacity) {
-  int64_t old_bytes = null_bitmap_ != nullptr ? null_bitmap_->size() : 0;
-  if (sign_bitmap_ == nullptr) {
-    return Init(capacity);
-  }
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Resize(capacity));
-
-  if (byte_width_ == 16) {
-    RETURN_NOT_OK(sign_bitmap_->Resize(null_bitmap_->size()));
-    int64_t new_bytes = sign_bitmap_->size();
-    sign_bitmap_data_ = sign_bitmap_->mutable_data();
-
-    // The buffer might be overpadded to deal with padding according to the spec
-    if (old_bytes < new_bytes) {
-      memset(sign_bitmap_data_ + old_bytes, 0,
-             static_cast<size_t>(sign_bitmap_->capacity() - old_bytes));
-    }
-  }
-  return Status::OK();
+  decimal::ToBytes(value, &bytes);
+  return FixedSizeBinaryBuilder::Append(bytes);
 }
 
 Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
@@ -1034,8 +987,8 @@ Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
   /// TODO(phillipc): not sure where to get the offset argument here
-  *out = std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_,
-                                        0, sign_bitmap_);
+  *out =
+      std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_, 0);
   return Status::OK();
 }
 

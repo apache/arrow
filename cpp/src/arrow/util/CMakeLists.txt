@@ -21,19 +21,20 @@
 
 # Headers: top level
 install(FILES
-  bit-util.h
   bit-stream-utils.h
+  bit-util.h
   bpacking.h
   compiler-util.h
-  compression.h
   compression_brotli.h
+  compression.h
   compression_lz4.h
   compression_snappy.h
   compression_zlib.h
   compression_zstd.h
   cpu-info.h
-  key_value_metadata.h
   hash-util.h
+  int128.h
+  key_value_metadata.h
   logging.h
   macros.h
   random.h
@@ -48,7 +49,7 @@ install(FILES
 #######################################
 
 if (ARROW_BUILD_BENCHMARKS)
-  add_library(arrow_benchmark_main benchmark_main.cc)
+  add_library(arrow_benchmark_main benchmark_main.cc int128.h)
   if (APPLE)
     target_link_libraries(arrow_benchmark_main
       benchmark

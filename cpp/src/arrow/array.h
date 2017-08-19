@@ -546,10 +546,7 @@ class ARROW_EXPORT DecimalArray : public FlatArray {
   DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
                const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = nullptr,
-               int64_t null_count = 0, int64_t offset = 0,
-               const std::shared_ptr<Buffer>& sign_bitmap = nullptr);
-
-  bool IsNegative(int64_t i) const;
+               int64_t null_count = 0, int64_t offset = 0);
 
   const uint8_t* GetValue(int64_t i) const;
 
@@ -558,11 +555,7 @@ class ARROW_EXPORT DecimalArray : public FlatArray {
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
   /// \brief The main decimal data
-  /// For 32/64-bit decimal this is everything
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
-
-  /// Only needed for 128 bit Decimals
-  std::shared_ptr<Buffer> sign_bitmap() const { return data_->buffers[2]; }
 
   int32_t byte_width() const {
     return static_cast<const DecimalType&>(*type()).byte_width();
@@ -574,7 +567,6 @@ class ARROW_EXPORT DecimalArray : public FlatArray {
  private:
   void SetData(const std::shared_ptr<internal::ArrayData>& data);
   const uint8_t* raw_values_;
-  const uint8_t* sign_bitmap_data_;
 };
 
 // ----------------------------------------------------------------------
