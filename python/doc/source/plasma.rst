@@ -342,18 +342,23 @@ Using Plasma with Huge Pages
 On Linux it is possible to use the Plasma store with huge pages for increased
 throughput. You first need to create a file system and activate huge pages with
 
-```
-sudo mkdir -p /mnt/hugepages
-sudo mount -t hugetlbfs -o uid=ubuntu -o gid=adm none /mnt/hugepages
-sudo bash -c "echo 4 > /proc/sys/vm/hugetlb_shm_group "
-sudo bash -c "echo 2048 >  /proc/sys/vm/nr_hugepages"
-```
+.. code-block:: shell
 
-and then start the Plasma store with
+  sudo mkdir -p /mnt/hugepages
+  gid=`id -g`
+  uid=`id -u`
+  sudo mount -t hugetlbfs -o uid=$uid -o gid=$gid none /mnt/hugepages
+  sudo bash -c "echo $gid > /proc/sys/vm/hugetlb_shm_group"
+  sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"
 
-```
-plasma_store -s /tmp/plasma -m 1000000000 -d /mnt/hugepages -h
-```
+Note that you only need root access to create the file system, not for
+running the object store. You can then start the Plasma store with the ``-d``
+flag for the mount point of the huge page file system and the ``-h`` flag
+which indicates that huge pages are activated:
+
+.. code-block:: shell
+
+  plasma_store -s /tmp/plasma -m 10000000000 -d /mnt/hugepages -h
 
 You can test this with the following script:
 
@@ -366,13 +371,14 @@ You can test this with the following script:
 
   client = plasma.connect("/tmp/plasma", "", 0)
 
-  data = np.random.randn(1000000000)
+  data = np.random.randn(100000000)
   tensor = pa.Tensor.from_numpy(data)
 
   object_id = plasma.ObjectID(np.random.bytes(20))
   buf = client.create(object_id, pa.get_tensor_size(tensor))
 
   stream = pa.FixedSizeBufferOutputStream(buf)
+  stream.set_memcopy_threads(4)
   a = time.time()
   pa.write_tensor(tensor, stream)
   print("Writing took ", time.time() - a)
