@@ -749,7 +749,7 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     if isinstance(source, NativeFile):
         nf = source
 
-        if nf.is_readable:
+        if not nf.is_writeable:
             raise IOError('Native file is not writeable')
 
         nf.write_handle(writer)

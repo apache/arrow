@@ -244,7 +244,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   using PrimitiveBuilder<T>::Reserve;
 
   /// Append a single scalar and increase the size if necessary.
-  Status Append(value_type val) {
+  Status Append(const value_type val) {
     RETURN_NOT_OK(ArrayBuilder::Reserve(1));
     UnsafeAppend(val);
     return Status::OK();
@@ -255,7 +255,7 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
   ///
   /// This method does not capacity-check; make sure to call Reserve
   /// beforehand.
-  void UnsafeAppend(value_type val) {
+  void UnsafeAppend(const value_type val) {
     BitUtil::SetBit(null_bitmap_data_, length_);
     raw_data_[length_++] = val;
   }
@@ -371,7 +371,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   using ArrayBuilder::Advance;
 
   /// Scalar append
-  Status Append(uint64_t val) {
+  Status Append(const uint64_t val) {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
@@ -430,7 +430,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   using ArrayBuilder::Advance;
 
   /// Scalar append
-  Status Append(int64_t val) {
+  Status Append(const int64_t val) {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
 
@@ -511,7 +511,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   std::shared_ptr<Buffer> data() const { return data_; }
 
   /// Scalar append
-  Status Append(bool val) {
+  Status Append(const bool val) {
     RETURN_NOT_OK(Reserve(1));
     BitUtil::SetBit(null_bitmap_data_, length_);
     if (val) {
@@ -523,7 +523,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status Append(uint8_t val) { return Append(val != 0); }
+  Status Append(const uint8_t val) { return Append(val != 0); }
 
   /// Vector append
   ///
