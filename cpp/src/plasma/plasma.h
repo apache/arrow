@@ -131,7 +131,9 @@ struct PlasmaStoreInfo {
   /// store.
   int64_t memory_capacity;
   /// Boolean flag indicating whether to start the object store with hugepages
-  /// support enabled.
+  /// support enabled. Huge pages are substantially larger than normal memory
+  /// pages (e.g. 2MB or 1GB instead of 4KB) and using them can reduce
+  /// bookkeeping overhead from the OS.
   bool hugepages_enabled;
   /// A (platform-dependent) directory where to create the memory-backed file.
   std::string directory;
