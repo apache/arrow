@@ -581,6 +581,10 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
             " arrow::io::FixedSizeBufferWriter"(WriteableFile):
         CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
 
+        void set_memcopy_threads(int num_threads)
+        void set_memcopy_blocksize(int64_t blocksize)
+        void set_memcopy_threshold(int64_t threshold)
+
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::Message::Type":

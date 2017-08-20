@@ -95,6 +95,11 @@ enum ObjectRequestType {
 extern int ObjectStatusLocal;
 extern int ObjectStatusRemote;
 
+/// Globally accessible reference to plasma store configuration.
+/// TODO(pcm): This can be avoided with some refactoring of existing code
+/// by making it possible to pass a context object through dlmalloc.
+struct PlasmaStoreInfo;
+extern const PlasmaStoreInfo* plasma_config;
 }  // namespace plasma
 
 #endif  // PLASMA_COMMON_H
