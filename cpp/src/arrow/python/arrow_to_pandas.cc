@@ -498,6 +498,7 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
 
   PyAcquireGIL lock;
 
+  int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
     auto arr = std::static_pointer_cast<ListArray>(data.chunk(c));
 
@@ -507,8 +508,8 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        PyObject* start = PyLong_FromLong(arr->value_offset(i));
-        PyObject* end = PyLong_FromLong(arr->value_offset(i + 1));
+        PyObject* start = PyLong_FromLongLong(arr->value_offset(i) + chunk_offset);
+        PyObject* end = PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset);
         PyObject* slice = PySlice_New(start, end, NULL);
         *out_values = PyObject_GetItem(numpy_array, slice);
         Py_DECREF(start);
@@ -517,6 +518,8 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
       }
       ++out_values;
     }
+
+    chunk_offset += arr->length();
   }
 
   Py_XDECREF(numpy_array);

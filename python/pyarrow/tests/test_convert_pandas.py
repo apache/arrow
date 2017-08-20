@@ -534,6 +534,31 @@ class TestPandasConversion(unittest.TestCase):
             field = schema.field_by_name(column)
             self._check_array_roundtrip(df[column], type=field.type)
 
+    def test_column_of_lists_chunked(self):
+        # ARROW-1357
+        df = pd.DataFrame({
+            'lists': np.array([
+                [1, 2],
+                None,
+                [2, 3],
+                [4, 5],
+                [6, 7],
+                [8, 9]
+            ], dtype=object)
+        })
+
+        schema = pa.schema([
+            pa.field('lists', pa.list_(pa.int64()))
+        ])
+
+        t1 = pa.Table.from_pandas(df[:2], schema=schema)
+        t2 = pa.Table.from_pandas(df[2:], schema=schema)
+
+        table = pa.concat_tables([t1, t2])
+        result = table.to_pandas()
+
+        tm.assert_frame_equal(result, df)
+
     def test_column_of_lists_strided(self):
         df, schema = dataframe_with_lists()
         df = pd.concat([df] * 6, ignore_index=True)

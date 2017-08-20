@@ -20,7 +20,6 @@ from __future__ import division
 import pytest
 
 from collections import namedtuple
-import os
 import string
 import sys
 
