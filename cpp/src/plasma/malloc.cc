@@ -195,6 +195,4 @@ void get_malloc_mapinfo(void* addr, int* fd, int64_t* map_size, ptrdiff_t* offse
   *offset = 0;
 }
 
-void set_malloc_granularity(int value) {
-  change_mparam(M_GRANULARITY, value);
-}
+void set_malloc_granularity(int value) { change_mparam(M_GRANULARITY, value); }

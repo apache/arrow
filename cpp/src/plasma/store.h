@@ -19,8 +19,8 @@
 #define PLASMA_STORE_H
 
 #include <deque>
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "plasma/common.h"
 #include "plasma/events.h"

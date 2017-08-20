@@ -765,7 +765,7 @@ int main(int argc, char* argv[]) {
              "pass an argument with the flag '--shm-size' to 'docker run'.";
     }
   } else {
-    set_malloc_granularity(1024 * 1024 * 1024); // 1 GB
+    set_malloc_granularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
   // Make it so dlmalloc fails if we try to request more memory than is
