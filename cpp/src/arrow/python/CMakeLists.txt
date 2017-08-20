@@ -43,6 +43,7 @@ set(ARROW_PYTHON_TEST_LINK_LIBS ${ARROW_PYTHON_MIN_TEST_LIBS})
 
 set(ARROW_PYTHON_SRCS
   arrow_to_pandas.cc
+  arrow_to_python.cc
   builtin_convert.cc
   common.cc
   config.cc
@@ -51,6 +52,7 @@ set(ARROW_PYTHON_SRCS
   io.cc
   numpy_convert.cc
   pandas_to_arrow.cc
+  python_to_arrow.cc
   pyarrow.cc
 )
 
@@ -83,6 +85,7 @@ endif()
 install(FILES
   api.h
   arrow_to_pandas.h
+  arrow_to_python.h
   builtin_convert.h
   common.h
   config.h
@@ -92,6 +95,7 @@ install(FILES
   numpy_convert.h
   numpy_interop.h
   pandas_to_arrow.h
+  python_to_arrow.h
   platform.h
   pyarrow.h
   type_traits.h

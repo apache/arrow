@@ -778,6 +778,26 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef struct PandasOptions:
         c_bool strings_to_categorical
 
+cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
+
+    cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
+        shared_ptr[CRecordBatch] batch
+        vector[shared_ptr[CTensor]] tensors
+
+    CStatus SerializeObject(object sequence, CSerializedPyObject* out)
+
+    CStatus WriteSerializedObject(const CSerializedPyObject& obj,
+                                  OutputStream* dst)
+
+    CStatus DeserializeObject(const CSerializedPyObject& obj,
+                              PyObject* base, PyObject** out)
+
+    CStatus ReadSerializedObject(shared_ptr[RandomAccessFile] src,
+                                 CSerializedPyObject* out)
+
+    void set_serialization_callbacks(object serialize_callback,
+                                     object deserialize_callback)
+
 
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
