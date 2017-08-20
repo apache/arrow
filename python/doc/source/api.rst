@@ -204,7 +204,7 @@ Interprocess Communication and Serialization
    serialize
    serialize_to
    deserialize
-   deserialized_from
+   deserialize_from
    read_serialized
    SerializedPyObject
 
