@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>  // pid_t
 
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -129,6 +130,13 @@ struct PlasmaStoreInfo {
   /// The amount of memory (in bytes) that we allow to be allocated in the
   /// store.
   int64_t memory_capacity;
+  /// Boolean flag indicating whether to start the object store with hugepages
+  /// support enabled. Huge pages are substantially larger than normal memory
+  /// pages (e.g. 2MB or 1GB instead of 4KB) and using them can reduce
+  /// bookkeeping overhead from the OS.
+  bool hugepages_enabled;
+  /// A (platform-dependent) directory where to create the memory-backed file.
+  std::string directory;
 };
 
 /// Get an entry from the object table and return NULL if the object_id

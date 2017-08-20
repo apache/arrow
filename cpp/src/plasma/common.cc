@@ -83,4 +83,6 @@ Status plasma_error_status(int plasma_error) {
 ARROW_EXPORT int ObjectStatusLocal = ObjectStatus_Local;
 ARROW_EXPORT int ObjectStatusRemote = ObjectStatus_Remote;
 
+const PlasmaStoreInfo* plasma_config;
+
 }  // namespace plasma

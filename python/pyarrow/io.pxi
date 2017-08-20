@@ -542,6 +542,21 @@ cdef class FixedSizeBufferOutputStream(NativeFile):
         self.is_writeable = 1
         self.is_open = True
 
+    def set_memcopy_threads(self, int num_threads):
+        cdef CFixedSizeBufferWriter* writer = \
+            <CFixedSizeBufferWriter*> self.wr_file.get()
+        writer.set_memcopy_threads(num_threads)
+
+    def set_memcopy_blocksize(self, int64_t blocksize):
+        cdef CFixedSizeBufferWriter* writer = \
+            <CFixedSizeBufferWriter*> self.wr_file.get()
+        writer.set_memcopy_blocksize(blocksize)
+
+    def set_memcopy_threshold(self, int64_t threshold):
+        cdef CFixedSizeBufferWriter* writer = \
+            <CFixedSizeBufferWriter*> self.wr_file.get()
+        writer.set_memcopy_threshold(threshold)
+
 
 # ----------------------------------------------------------------------
 # Arrow buffers

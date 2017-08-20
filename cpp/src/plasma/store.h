@@ -19,6 +19,7 @@
 #define PLASMA_STORE_H
 
 #include <deque>
+#include <string>
 #include <vector>
 
 #include "plasma/common.h"
@@ -47,9 +48,13 @@ struct Client {
 
 class PlasmaStore {
  public:
-  PlasmaStore(EventLoop* loop, int64_t system_memory);
+  PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
+              bool hugetlbfs_enabled);
 
   ~PlasmaStore();
+
+  /// Get a const pointer to the internal PlasmaStoreInfo object.
+  const PlasmaStoreInfo* get_plasma_store_info();
 
   /// Create a new object. The client must do a call to release_object to tell
   /// the store when it is done with the object.
