@@ -124,6 +124,8 @@ class ARROW_EXPORT ArrayBuilder {
   std::shared_ptr<DataType> type() const { return type_; }
 
  protected:
+  ArrayBuilder() {}
+
   std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
 

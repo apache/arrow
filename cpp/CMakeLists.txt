@@ -98,6 +98,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow IPC extensions"
     ON)
 
+  option(ARROW_GPU
+    "Build the Arrow GPU extensions (requires CUDA installation)"
+    OFF)
+
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
     OFF)
@@ -711,6 +715,10 @@ add_subdirectory(src/arrow/io)
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
   add_dependencies(arrow_dependencies metadata_fbs)
+endif()
+
+if (ARROW_GPU)
+  add_subdirectory(src/arrow/gpu)
 endif()
 
 set(ARROW_SRCS
