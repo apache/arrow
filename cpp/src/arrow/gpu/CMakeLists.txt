@@ -89,11 +89,6 @@ install(FILES
   cuda_memory.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
-set(ARROW_GPU_TEST_LINK_LIBS
-  arrow_shared
-  arrow_gpu_shared
-)
-
 # pkg-config support
 configure_file(arrow-gpu.pc.in
   "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
