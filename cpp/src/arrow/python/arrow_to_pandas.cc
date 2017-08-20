@@ -508,8 +508,8 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        PyObject* start = PyLong_FromLong(arr->value_offset(i) + chunk_offset);
-        PyObject* end = PyLong_FromLong(arr->value_offset(i + 1) + chunk_offset);
+        PyObject* start = PyLong_FromLongLong(arr->value_offset(i) + chunk_offset);
+        PyObject* end = PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset);
         PyObject* slice = PySlice_New(start, end, NULL);
         *out_values = PyObject_GetItem(numpy_array, slice);
         Py_DECREF(start);
