@@ -81,7 +81,8 @@ public class TypeLayout {
             break;
           case Sparse:
             vectors = asList(
-                typeVector() // type of the value at the index or 0 if null
+                validityVector(),
+                typeVector()
             );
             break;
           default:

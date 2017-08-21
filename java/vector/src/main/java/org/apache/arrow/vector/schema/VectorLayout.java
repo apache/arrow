@@ -32,7 +32,7 @@ public class VectorLayout implements FBSerializable {
 
   private static final VectorLayout VALIDITY_VECTOR = new VectorLayout(VALIDITY, 1);
   private static final VectorLayout OFFSET_VECTOR = new VectorLayout(OFFSET, 32);
-  private static final VectorLayout TYPE_VECTOR = new VectorLayout(TYPE, 32);
+  private static final VectorLayout TYPE_VECTOR = new VectorLayout(TYPE, 8);
   private static final VectorLayout BOOLEAN_VECTOR = new VectorLayout(DATA, 1);
   private static final VectorLayout VALUES_64 = new VectorLayout(DATA, 64);
   private static final VectorLayout VALUES_32 = new VectorLayout(DATA, 32);

@@ -357,7 +357,7 @@ public class TestUnionVector {
         assertTrue(error);
       }
 
-      assertEquals(1, buffers.size());
+      assertEquals(2, buffers.size());
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
     }
   }
