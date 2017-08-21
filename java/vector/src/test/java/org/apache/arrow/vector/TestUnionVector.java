@@ -76,11 +76,13 @@ public class TestUnionVector {
       assertEquals(4, accessor.getValueCount());
 
       assertEquals(false, accessor.isNull(0));
+      assertEquals(MinorType.UINT4.ordinal(), unionVector.getTypeValue(0));
       assertEquals(100, accessor.getObject(0));
 
       assertEquals(true, accessor.isNull(1));
 
       assertEquals(false, accessor.isNull(2));
+      assertEquals(MinorType.UINT4.ordinal(), unionVector.getTypeValue(2));
       assertEquals(100, accessor.getObject(2));
 
       assertEquals(true, accessor.isNull(3));

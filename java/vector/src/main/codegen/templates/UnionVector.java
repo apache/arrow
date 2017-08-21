@@ -132,7 +132,7 @@ public class UnionVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     // truncate types vector buffer to size (#0)
-    org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 0, typeVector.getBufferSizeFor(fieldNode.getLength()));
+    org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, typeVector.getBufferSizeFor(fieldNode.getLength()));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
     this.valueCount = fieldNode.getLength();
   }
@@ -262,7 +262,8 @@ public class UnionVector implements FieldVector {
 
   // TODO: Fix this. This is broken.
   public int getTypeValue(int index) {
-    return typeVector.getAccessor().get(index);
+    int childIndex = typeVector.getAccessor().get(index);
+    return internalMap.getChildByOrdinal(childIndex).getMinorType().ordinal();
   }
 
   public UInt1Vector getTypeVector() {
@@ -566,7 +567,6 @@ public class UnionVector implements FieldVector {
         <#assign uncappedName = name?uncap_first/>
         <#if !minor.typeParams?? >
     public void setSafe(int index, Nullable${name}Holder holder) {
-      bits.getMutator().setSafeToOne(index);
       setType(index, MinorType.${name?upper_case});
       get${name}Vector().getMutator().setSafe(index, holder);
     }
@@ -609,6 +609,7 @@ public class UnionVector implements FieldVector {
       }
 
       assert childIndex >= 0;
+      bits.getMutator().setSafeToOne(index);
       typeVector.getMutator().setSafe(index, (byte) childIndex);
     }
 
