@@ -54,11 +54,6 @@
       <version>0.7.2</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>3.6</version>
-    </dependency>
-    <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
       <version>1.10</version>
@@ -158,16 +153,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>analyze</id>
-            <configuration>
-              <ignoredUnusedDeclaredDependencies>
-                <ignoredUnusedDeclaredDependency>org.apache.commons:commons-lang3</ignoredUnusedDeclaredDependency>
-              </ignoredUnusedDeclaredDependencies>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
     <pluginManagement>
