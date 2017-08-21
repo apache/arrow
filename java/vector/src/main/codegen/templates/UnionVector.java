@@ -131,6 +131,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    // TODO: Check if need to truncate bits vector
     // truncate types vector buffer to size (#0)
     org.apache.arrow.vector.BaseDataValueVector.truncateBufferBasedOnSize(ownBuffers, 1, typeVector.getBufferSizeFor(fieldNode.getLength()));
     BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
