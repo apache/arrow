@@ -328,7 +328,7 @@ GET_ATTR(TypeClass, void);
   using TypeClass =                                                                 \
       typename std::conditional<std::is_base_of<DataType, T>::value, T,             \
                                 typename detail::GetAttr_TypeClass<T>::type>::type; \
-  using c_type = typename detail::GetAttr_c_type<TypeClass>::type;
+  using c_type = typename detail::GetAttr_c_type<TypeClass>::type
 
 template <typename T>
 struct IsUnsignedInt {
