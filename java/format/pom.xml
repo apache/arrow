@@ -53,7 +53,7 @@
       <executions>
         <execution>
           <id>copy-flatc</id>
-          <phase>generate-sources</phase>
+          <phase>initialize</phase>
           <goals>
             <goal>copy</goal>
           </goals>
