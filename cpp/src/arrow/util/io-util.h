@@ -33,13 +33,14 @@ class StdoutStream : public OutputStream {
   StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
   virtual ~StdoutStream() {}
 
-  Status Close() { return Status::OK(); }
-  Status Tell(int64_t* position) {
+  Status Close() override { return Status::OK(); }
+
+  Status Tell(int64_t* position) const override {
     *position = pos_;
     return Status::OK();
   }
 
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const uint8_t* data, int64_t nbytes) override {
     pos_ += nbytes;
     std::cout.write(reinterpret_cast<const char*>(data), nbytes);
     return Status::OK();
@@ -55,13 +56,14 @@ class StdinStream : public InputStream {
   StdinStream() : pos_(0) { set_mode(FileMode::READ); }
   virtual ~StdinStream() {}
 
-  Status Close() { return Status::OK(); }
-  Status Tell(int64_t* position) {
+  Status Close() override { return Status::OK(); }
+
+  Status Tell(int64_t* position) const override {
     *position = pos_;
     return Status::OK();
   }
 
-  virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override {
     std::cin.read(reinterpret_cast<char*>(out), nbytes);
     if (std::cin) {
       *bytes_read = nbytes;
@@ -72,7 +74,7 @@ class StdinStream : public InputStream {
     return Status::OK();
   }
 
-  virtual Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
     auto buffer = std::make_shared<PoolBuffer>(nullptr);
     RETURN_NOT_OK(buffer->Resize(nbytes));
     int64_t bytes_read;

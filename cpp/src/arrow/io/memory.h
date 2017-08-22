@@ -51,7 +51,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   // Implement the OutputStream interface
   Status Close() override;
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
   Status Write(const uint8_t* data, int64_t nbytes) override;
 
   /// Close the stream and return the buffer
@@ -74,7 +74,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
 
   // Implement the OutputStream interface
   Status Close() override;
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
   Status Write(const uint8_t* data, int64_t nbytes) override;
 
   int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
@@ -93,7 +93,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
 
   Status Close() override;
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
   Status Write(const uint8_t* data, int64_t nbytes) override;
   Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
 
@@ -101,7 +101,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   void set_memcopy_blocksize(int64_t blocksize);
   void set_memcopy_threshold(int64_t threshold);
 
- private:
+ protected:
   std::mutex lock_;
   std::shared_ptr<Buffer> buffer_;
   uint8_t* mutable_data_;
@@ -120,8 +120,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   virtual ~BufferReader();
 
   Status Close() override;
-  Status Tell(int64_t* position) override;
-
+  Status Tell(int64_t* position) const override;
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
 
   // Zero copy read
@@ -134,7 +133,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
- private:
+ protected:
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;
   int64_t size_;

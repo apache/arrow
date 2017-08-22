@@ -22,11 +22,14 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
 namespace arrow {
 namespace gpu {
 
+/// \class CudaBuffer
 /// \brief An Arrow buffer located on a GPU device
 ///
 /// Be careful using this in any Arrow code which may not be GPU-aware
@@ -40,7 +43,14 @@ class ARROW_EXPORT CudaBuffer : public MutableBuffer {
   /// \brief Copy memory from GPU device to CPU host
   /// \param[out] out a pre-allocated output buffer
   /// \return Status
-  Status CopyHost(uint8_t* out);
+  Status CopyToHost(uint8_t* out);
+
+  /// \brief Copy memory to device at position
+  /// \param[in] position start position to copy bytes
+  /// \param[in] data the host data to copy
+  /// \param[in] nbytes number of bytes to copy
+  /// \return Status
+  Status CopyFromHost(const int64_t position, const uint8_t* data, int64_t nbytes);
 
   int gpu_number() const { return gpu_number_; }
 
@@ -49,11 +59,64 @@ class ARROW_EXPORT CudaBuffer : public MutableBuffer {
   bool own_data_;
 };
 
+/// \class CudaHostBuffer
 /// \brief Device-accessible CPU memory created using cudaHostAlloc
 class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
   ~CudaHostBuffer();
+};
+
+/// \class CudaBufferReader
+/// \brief File interface for reading from CUDA buffers to CPU memory
+class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
+ public:
+  explicit CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer,
+                            MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  ~CudaBufferReader();
+
+  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  bool supports_zero_copy() const override;
+
+  std::shared_ptr<CudaBuffer> cuda_buffer() const {
+    return std::dynamic_pointer_cast<CudaBuffer>(buffer_);
+  }
+
+ private:
+  MemoryPool* pool_;
+};
+
+/// \class CudaBufferWriter
+/// \brief File interface for writing to CUDA buffers, with optional buffering
+class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
+ public:
+  explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
+  ~CudaBufferWriter();
+
+  /// \brief Flush buffered bytes to GPU
+  Status Flush() override;
+
+  // Seek requires flushing if any bytes are buffered
+  Status Seek(int64_t position) override;
+  Status Write(const uint8_t* data, int64_t nbytes) override;
+
+  /// \brief Set CPU buffer size to limit calls to cudaMemcpy
+  /// \param[in] buffer_size the size of CPU buffer to allocate
+  /// \return Status
+  ///
+  /// By default writes are unbuffered
+  Status SetBufferSize(const int64_t buffer_size);
+
+  int64_t buffer_size() const { return buffer_size_; }
+  int64_t num_bytes_buffered() const { return buffer_position_; }
+
+ private:
+  // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
+  int64_t buffer_size_;
+  int64_t buffer_position_;
+  std::shared_ptr<CudaHostBuffer> host_buffer_;
+  uint8_t* host_buffer_data_;
 };
 
 /// \brief Allocate CUDA memory on a GPU device

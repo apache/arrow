@@ -72,7 +72,7 @@ class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;
   virtual Status Close() = 0;
-  virtual Status Tell(int64_t* position) = 0;
+  virtual Status Tell(int64_t* position) const = 0;
 
   FileMode::type mode() const { return mode_; }
 
@@ -94,7 +94,7 @@ class ARROW_EXPORT Writeable {
  public:
   virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
 
-  // Default implementation is a no-op
+  /// \brief Flush buffered bytes, if any
   virtual Status Flush();
 
   Status Write(const std::string& data);
