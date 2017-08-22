@@ -194,13 +194,6 @@ Status ARROW_EXPORT ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64
 Status ARROW_EXPORT ReadTensor(int64_t offset, io::RandomAccessFile* file,
                                std::shared_ptr<Tensor>* out);
 
-/// Backwards-compatibility for Arrow < 0.4.0
-///
-#ifndef ARROW_NO_DEPRECATED_API
-using StreamReader = RecordBatchReader;
-using FileReader = RecordBatchFileReader;
-#endif
-
 }  // namespace ipc
 }  // namespace arrow
 
