@@ -27,7 +27,7 @@
 
 namespace arrow {
 
-Status Buffer::Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
+Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
                     std::shared_ptr<Buffer>* out) const {
   // Sanity checks
   DCHECK_LT(start, size_);
@@ -42,11 +42,12 @@ Status Buffer::Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
   return Status::OK();
 }
 
-Status Buffer::Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const {
+Status Buffer::Copy(const int64_t start, const int64_t nbytes,
+                    std::shared_ptr<Buffer>* out) const {
   return Copy(start, nbytes, default_memory_pool(), out);
 }
 
-bool Buffer::Equals(const Buffer& other, int64_t nbytes) const {
+bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {
   return this == &other || (size_ >= nbytes && other.size_ >= nbytes &&
                             (data_ == other.data_ ||
                              !memcmp(data_, other.data_, static_cast<size_t>(nbytes))));
@@ -71,10 +72,10 @@ PoolBuffer::~PoolBuffer() {
   }
 }
 
-Status PoolBuffer::Reserve(int64_t new_capacity) {
-  if (!mutable_data_ || new_capacity > capacity_) {
+Status PoolBuffer::Reserve(const int64_t capacity) {
+  if (!mutable_data_ || capacity > capacity_) {
     uint8_t* new_data;
-    new_capacity = BitUtil::RoundUpToMultipleOf64(new_capacity);
+    int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
     if (mutable_data_) {
       RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
     } else {
@@ -87,7 +88,7 @@ Status PoolBuffer::Reserve(int64_t new_capacity) {
   return Status::OK();
 }
 
-Status PoolBuffer::Resize(int64_t new_size, bool shrink_to_fit) {
+Status PoolBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   if (!shrink_to_fit || (new_size > size_)) {
     RETURN_NOT_OK(Reserve(new_size));
   } else {
@@ -113,18 +114,18 @@ Status PoolBuffer::Resize(int64_t new_size, bool shrink_to_fit) {
 }
 
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
-                                           int64_t offset, int64_t length) {
+                                           const int64_t offset, const int64_t length) {
   return std::make_shared<MutableBuffer>(buffer, offset, length);
 }
 
-MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, int64_t offset,
-                             int64_t size)
+MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
+                             const int64_t size)
     : MutableBuffer(parent->mutable_data() + offset, size) {
   DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
   parent_ = parent;
 }
 
-Status AllocateBuffer(MemoryPool* pool, int64_t size,
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<MutableBuffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(buffer->Resize(size));
@@ -132,7 +133,7 @@ Status AllocateBuffer(MemoryPool* pool, int64_t size,
   return Status::OK();
 }
 
-Status AllocateResizableBuffer(MemoryPool* pool, int64_t size,
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(buffer->Resize(size));

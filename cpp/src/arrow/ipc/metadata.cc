@@ -703,7 +703,7 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   return Status::OK();
 }
 
-Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
+Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
                                const std::vector<FieldMetadata>& nodes,
                                const std::vector<BufferMetadata>& buffers,
                                std::shared_ptr<Buffer>* out) {
@@ -714,7 +714,7 @@ Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
                         body_length, out);
 }
 
-Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
+Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
                           std::shared_ptr<Buffer>* out) {
   using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
   using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
@@ -743,7 +743,8 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
                         body_length, out);
 }
 
-Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
+Status WriteDictionaryMessage(const int64_t id, const int64_t length,
+                              const int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out) {
@@ -1106,8 +1107,8 @@ static Status ReadFullMessage(const std::shared_ptr<Buffer>& metadata,
   return Message::Open(metadata, body, message);
 }
 
-Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
-                   std::unique_ptr<Message>* message) {
+Status ReadMessage(const int64_t offset, const int32_t metadata_length,
+                   io::RandomAccessFile* file, std::unique_ptr<Message>* message) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
 

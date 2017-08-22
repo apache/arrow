@@ -59,7 +59,7 @@ class ARROW_EXPORT Buffer {
   /// This method makes no assertions about alignment or padding of the buffer but
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
-  Buffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size)
+  Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
       : Buffer(parent->data() + offset, size) {
     parent_ = parent;
   }
@@ -72,11 +72,12 @@ class ARROW_EXPORT Buffer {
   bool Equals(const Buffer& other) const;
 
   /// Copy a section of the buffer into a new Buffer.
-  Status Copy(int64_t start, int64_t nbytes, MemoryPool* pool,
+  Status Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
               std::shared_ptr<Buffer>* out) const;
 
   /// Copy a section of the buffer using the default memory pool into a new Buffer.
-  Status Copy(int64_t start, int64_t nbytes, std::shared_ptr<Buffer>* out) const;
+  Status Copy(const int64_t start, const int64_t nbytes,
+              std::shared_ptr<Buffer>* out) const;
 
   int64_t capacity() const { return capacity_; }
   const uint8_t* data() const { return data_; }
@@ -114,24 +115,27 @@ static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str
 /// Construct a view on passed buffer at the indicated offset and length. This
 /// function cannot fail and does not error checking (except in debug builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
-                                                  int64_t offset, int64_t length) {
+                                                  const int64_t offset,
+                                                  const int64_t length) {
   return std::make_shared<Buffer>(buffer, offset, length);
 }
 
 /// Construct a mutable buffer slice. If the parent buffer is not mutable, this
 /// will abort in debug builds
-std::shared_ptr<Buffer> ARROW_EXPORT
-SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length);
+ARROW_EXPORT
+std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
+                                           const int64_t offset, const int64_t length);
 
 /// A Buffer whose contents can be mutated. May or may not own its data.
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
-  MutableBuffer(uint8_t* data, int64_t size) : Buffer(data, size) {
+  MutableBuffer(uint8_t* data, const int64_t size) : Buffer(data, size) {
     mutable_data_ = data;
     is_mutable_ = true;
   }
 
-  MutableBuffer(const std::shared_ptr<Buffer>& parent, int64_t offset, int64_t size);
+  MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
+                const int64_t size);
 
  protected:
   MutableBuffer() : Buffer(nullptr, 0) {}
@@ -145,20 +149,20 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
   ///
   /// @param shrink_to_fit On deactivating this option, the capacity of the Buffer won't
   /// decrease.
-  virtual Status Resize(int64_t new_size, bool shrink_to_fit = true) = 0;
+  virtual Status Resize(const int64_t new_size, bool shrink_to_fit = true) = 0;
 
   /// Ensure that buffer has enough memory allocated to fit the indicated
   /// capacity (and meets the 64 byte padding requirement in Layout.md).
   /// It does not change buffer's reported size.
-  virtual Status Reserve(int64_t new_capacity) = 0;
+  virtual Status Reserve(const int64_t new_capacity) = 0;
 
   template <class T>
-  Status TypedResize(int64_t new_nb_elements, bool shrink_to_fit = true) {
+  Status TypedResize(const int64_t new_nb_elements, bool shrink_to_fit = true) {
     return Resize(sizeof(T) * new_nb_elements, shrink_to_fit);
   }
 
   template <class T>
-  Status TypedReserve(int64_t new_nb_elements) {
+  Status TypedReserve(const int64_t new_nb_elements) {
     return Reserve(sizeof(T) * new_nb_elements);
   }
 
@@ -172,8 +176,8 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
   explicit PoolBuffer(MemoryPool* pool = nullptr);
   virtual ~PoolBuffer();
 
-  Status Resize(int64_t new_size, bool shrink_to_fit = true) override;
-  Status Reserve(int64_t new_capacity) override;
+  Status Resize(const int64_t new_size, bool shrink_to_fit = true) override;
+  Status Reserve(const int64_t new_capacity) override;
 
  private:
   MemoryPool* pool_;
@@ -185,7 +189,7 @@ class ARROW_EXPORT BufferBuilder {
       : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
 
   /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
-  Status Resize(int64_t elements) {
+  Status Resize(const int64_t elements) {
     // Resize(0) is a no-op
     if (elements == 0) {
       return Status::OK();
@@ -213,7 +217,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   // Advance pointer and zero out memory
-  Status Advance(int64_t length) {
+  Status Advance(const int64_t length) {
     if (capacity_ < length + size_) {
       int64_t new_capacity = BitUtil::NextPower2(length + size_);
       RETURN_NOT_OK(Resize(new_capacity));
@@ -299,11 +303,20 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
 /// \param[out] out the allocated buffer with padding
 ///
 /// \return Status message
-Status ARROW_EXPORT AllocateBuffer(MemoryPool* pool, int64_t size,
-                                   std::shared_ptr<MutableBuffer>* out);
+ARROW_EXPORT
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::shared_ptr<MutableBuffer>* out);
 
-Status ARROW_EXPORT AllocateResizableBuffer(MemoryPool* pool, int64_t size,
-                                            std::shared_ptr<ResizableBuffer>* out);
+/// Allocate resizeable buffer from a memory pool
+///
+/// \param[in] pool a memory pool
+/// \param[in] size size of buffer to allocate
+/// \param[out] out the allocated buffer
+///
+/// \return Status message
+ARROW_EXPORT
+Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
+                               std::shared_ptr<ResizableBuffer>* out);
 
 }  // namespace arrow
 
