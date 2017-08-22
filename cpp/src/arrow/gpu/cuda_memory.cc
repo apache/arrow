@@ -100,6 +100,8 @@ CudaBufferWriter::CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer)
 
 CudaBufferWriter::~CudaBufferWriter() {}
 
+Status CudaBufferWriter::Close() { return Flush(); }
+
 Status CudaBufferWriter::Flush() {
   if (buffer_size_ > 0 && buffer_position_ > 0) {
     // Only need to flush when the write has been buffered

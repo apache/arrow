@@ -157,11 +157,8 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   ASSERT_OK(writer_->Write(host_data + 510, 390));
   ASSERT_OK(writer_->Write(host_data + 900, 100));
 
-  // Seek to beginning flushes buffered bytes
-  ASSERT_OK(writer_->Seek(0));
-  ASSERT_OK(writer_->Tell(&position));
-  ASSERT_EQ(0, position);
-  ASSERT_EQ(0, writer_->num_bytes_buffered());
+  // Close flushes
+  ASSERT_OK(writer_->Close());
 
   // Check that everything was written
   AssertCudaBufferEquals(*device_buffer_, host_data, 1000);

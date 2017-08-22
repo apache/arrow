@@ -94,6 +94,9 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   explicit CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer);
   ~CudaBufferWriter();
 
+  /// \brief Close writer and flush buffered bytes to GPU
+  Status Close() override;
+
   /// \brief Flush buffered bytes to GPU
   Status Flush() override;
 

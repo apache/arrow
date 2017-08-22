@@ -114,10 +114,19 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+set(ARROW_GPU_TEST_LINK_LIBS
+  arrow_gpu_shared
+  ${ARROW_TEST_LINK_LIBS})
+
 if (ARROW_BUILD_TESTS)
-  set(ARROW_GPU_TEST_LINK_LIBS
-    arrow_gpu_shared
-    ${ARROW_TEST_LINK_LIBS})
   ADD_ARROW_CUDA_TEST(cuda-test
     STATIC_LINK_LIBS ${ARROW_GPU_TEST_LINK_LIBS})
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
+  target_link_libraries(cuda-benchmark
+    arrow_gpu_shared
+    gtest
+    ${ARROW_BENCHMARK_LINK_LIBS})
 endif()
