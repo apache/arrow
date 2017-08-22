@@ -261,9 +261,9 @@ static int64_t fls(uint32_t value) {
   // Count leading zeros
   return __builtin_clz(value) + 1;
 #elif defined(_MSC_VER)
-  uint32_t index;
-  _BitScanReverse(&index, value);
-  return index + 1;
+  unsigned long index;
+  _BitScanReverse(&index, static_cast<unsigned long>(value));
+  return static_cast<int64_t>(index + 1UL);
 #endif
 }
 
