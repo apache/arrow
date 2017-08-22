@@ -155,7 +155,7 @@ def serialize_pandas(df):
         An object compatible with the buffer protocol
     """
     batch = pa.RecordBatch.from_pandas(df)
-    sink = pa.InMemoryOutputStream()
+    sink = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(sink, batch.schema)
     writer.write_batch(batch)
     writer.close()
