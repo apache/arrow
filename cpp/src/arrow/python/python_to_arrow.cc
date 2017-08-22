@@ -634,15 +634,11 @@ Status SerializeObject(PyObject* sequence, SerializedPyObject* out) {
 
 Status WriteSerializedObject(const SerializedPyObject& obj, io::OutputStream* dst) {
   int32_t num_tensors = static_cast<int32_t>(obj.tensors.size());
-  std::shared_ptr<ipc::RecordBatchStreamWriter> writer;
+  RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_tensors), sizeof(int32_t)));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({obj.batch}, dst));
+
   int32_t metadata_length;
   int64_t body_length;
-
-  RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_tensors), sizeof(int32_t)));
-  RETURN_NOT_OK(ipc::RecordBatchStreamWriter::Open(dst, obj.batch->schema(), &writer));
-  RETURN_NOT_OK(writer->WriteRecordBatch(*obj.batch));
-  RETURN_NOT_OK(writer->Close());
-
   for (const auto& tensor : obj.tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
   }

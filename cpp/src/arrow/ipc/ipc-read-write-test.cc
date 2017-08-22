@@ -137,27 +137,13 @@ static int g_file_number = 0;
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  Status DoStandardRoundTrip(const RecordBatch& batch, bool zero_data,
+  Status DoStandardRoundTrip(const RecordBatch& batch,
                              std::shared_ptr<RecordBatch>* batch_result) {
-    int32_t metadata_length;
-    int64_t body_length;
+    std::shared_ptr<Buffer> serialized_batch;
+    RETURN_NOT_OK(SerializeRecordBatch(batch, pool_, &serialized_batch));
 
-    const int64_t buffer_offset = 0;
-
-    if (zero_data) {
-      RETURN_NOT_OK(ZeroMemoryMap(mmap_.get()));
-    }
-    RETURN_NOT_OK(mmap_->Seek(0));
-
-    RETURN_NOT_OK(WriteRecordBatch(batch, buffer_offset, mmap_.get(), &metadata_length,
-                                   &body_length, pool_));
-
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
-
-    io::BufferReader buffer_reader(message->body());
-    return ReadRecordBatch(*message->metadata(), batch.schema(), &buffer_reader,
-                           batch_result);
+    io::BufferReader buf_reader(serialized_batch);
+    return ReadRecordBatch(batch.schema(), 0, &buf_reader, batch_result);
   }
 
   Status DoLargeRoundTrip(const RecordBatch& batch, bool zero_data,
@@ -197,7 +183,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str(), &mmap_));
 
     std::shared_ptr<RecordBatch> result;
-    ASSERT_OK(DoStandardRoundTrip(batch, true, &result));
+    ASSERT_OK(DoStandardRoundTrip(batch, &result));
     CheckReadResult(*result, batch);
 
     ASSERT_OK(DoLargeRoundTrip(batch, true, &result));
@@ -657,9 +643,6 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   CheckReadResult(*result, batch);
 
   ASSERT_EQ(length, result->num_rows());
-
-  // Fails if we try to write this with the normal code path
-  ASSERT_RAISES(Invalid, DoStandardRoundTrip(batch, false, &result));
 }
 
 void CheckBatchDictionaries(const RecordBatch& batch) {

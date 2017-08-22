@@ -244,9 +244,9 @@ class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
 /// \param[in] file the seekable file interface to read from
 /// \param[out] message the message read
 /// \return Status success or failure
-Status ARROW_EXPORT ReadMessage(int64_t offset, int32_t metadata_length,
-                                io::RandomAccessFile* file,
-                                std::unique_ptr<Message>* message);
+ARROW_EXPORT
+Status ReadMessage(const int64_t offset, const int32_t metadata_length,
+                   io::RandomAccessFile* file, std::unique_ptr<Message>* message);
 
 /// \brief Read encapulated RPC message (metadata and body) from InputStream
 ///
@@ -274,15 +274,18 @@ Status ARROW_EXPORT WriteSchemaMessage(const Schema& schema,
                                        DictionaryMemo* dictionary_memo,
                                        std::shared_ptr<Buffer>* out);
 
-Status ARROW_EXPORT WriteRecordBatchMessage(int64_t length, int64_t body_length,
-                                            const std::vector<FieldMetadata>& nodes,
-                                            const std::vector<BufferMetadata>& buffers,
-                                            std::shared_ptr<Buffer>* out);
+ARROW_EXPORT
+Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
+                               const std::vector<FieldMetadata>& nodes,
+                               const std::vector<BufferMetadata>& buffers,
+                               std::shared_ptr<Buffer>* out);
 
-Status ARROW_EXPORT WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
-                                       std::shared_ptr<Buffer>* out);
+ARROW_EXPORT
+Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
+                          std::shared_ptr<Buffer>* out);
 
-Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
+Status WriteDictionaryMessage(const int64_t id, const int64_t length,
+                              const int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);

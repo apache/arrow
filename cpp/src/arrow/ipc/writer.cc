@@ -542,6 +542,35 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
   return writer.Write(batch, dst, metadata_length, body_length);
 }
 
+Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+                            std::shared_ptr<Buffer>* out) {
+  int64_t size = 0;
+  RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
+  std::shared_ptr<MutableBuffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, size, &buffer));
+
+  io::FixedSizeBufferWriter stream(buffer);
+  int32_t metadata_length = 0;
+  int64_t body_length = 0;
+  RETURN_NOT_OK(WriteRecordBatch(batch, 0, &stream, &metadata_length, &body_length, pool,
+                                 kMaxNestingDepth, true));
+  *out = buffer;
+  return Status::OK();
+}
+
+Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                              io::OutputStream* dst) {
+  std::shared_ptr<RecordBatchStreamWriter> writer;
+  RETURN_NOT_OK(RecordBatchStreamWriter::Open(dst, batches[0]->schema(), &writer));
+  for (const auto& batch : batches) {
+    // allow sizes > INT32_MAX
+    DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch, true));
+  }
+  RETURN_NOT_OK(writer->Close());
+  return Status::OK();
+}
+
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                              io::OutputStream* dst, int32_t* metadata_length,
                              int64_t* body_length, MemoryPool* pool) {
