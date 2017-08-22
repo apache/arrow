@@ -37,14 +37,14 @@ CudaBuffer::~CudaBuffer() {
   }
 }
 
-Status CudaBuffer::CopyToHost(uint8_t* out) {
+Status CudaBuffer::CopyToHost(uint8_t* out) const {
   CUDA_RETURN_NOT_OK(cudaMemcpy(out, data_, size_, cudaMemcpyDeviceToHost));
   return Status::OK();
 }
 
 Status CudaBuffer::CopyFromHost(const int64_t position, const uint8_t* data,
                                 int64_t nbytes) {
-  DCHECK_LT(nbytes, size_ - position) << "Copy would overflow buffer";
+  DCHECK_LE(nbytes, size_ - position) << "Copy would overflow buffer";
   CUDA_RETURN_NOT_OK(
       cudaMemcpy(mutable_data_ + position, data, nbytes, cudaMemcpyHostToDevice));
   return Status::OK();

@@ -43,7 +43,7 @@ class ARROW_EXPORT CudaBuffer : public MutableBuffer {
   /// \brief Copy memory from GPU device to CPU host
   /// \param[out] out a pre-allocated output buffer
   /// \return Status
-  Status CopyToHost(uint8_t* out);
+  Status CopyToHost(uint8_t* out) const;
 
   /// \brief Copy memory to device at position
   /// \param[in] position start position to copy bytes
@@ -108,7 +108,10 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   /// By default writes are unbuffered
   Status SetBufferSize(const int64_t buffer_size);
 
+  /// \brief Returns size of host (CPU) buffer, 0 for unbuffered
   int64_t buffer_size() const { return buffer_size_; }
+
+  /// \brief Returns number of bytes buffered on host
   int64_t num_bytes_buffered() const { return buffer_position_; }
 
  private:

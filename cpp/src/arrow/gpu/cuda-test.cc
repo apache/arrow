@@ -34,16 +34,34 @@ constexpr int kGpuNumber = 0;
 class TestCudaBuffer : public ::testing::Test {};
 
 TEST_F(TestCudaBuffer, Allocate) {
-  const int device = 0;
-
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
 
-  ASSERT_OK(AllocateCudaBuffer(device, kSize, &buffer));
+  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &buffer));
   ASSERT_EQ(kSize, buffer->size());
 }
 
-TEST_F(TestCudaBuffer, CopyFromHost) {}
+void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
+                            const int64_t nbytes) {
+  std::shared_ptr<MutableBuffer> result;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), nbytes, &result));
+  ASSERT_OK(buffer.CopyToHost(result->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(result->data(), host_data, nbytes));
+}
+
+TEST_F(TestCudaBuffer, CopyFromHost) {
+  const int64_t kSize = 1000;
+  std::shared_ptr<CudaBuffer> device_buffer;
+  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &device_buffer));
+
+  std::shared_ptr<PoolBuffer> host_buffer;
+  ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
+
+  ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), 500));
+  ASSERT_OK(device_buffer->CopyFromHost(500, host_buffer->data() + 500, kSize - 500));
+
+  AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
+}
 
 class TestCudaBufferWriter : public ::testing::Test {
  public:
@@ -83,12 +101,7 @@ class TestCudaBufferWriter : public ::testing::Test {
 
     ASSERT_OK(writer_->Flush());
 
-    std::shared_ptr<MutableBuffer> result;
-    ASSERT_OK(AllocateBuffer(default_memory_pool(), total_bytes, &result));
-
-    ASSERT_OK(device_buffer_->CopyToHost(result->mutable_data()));
-
-    ASSERT_EQ(0, std::memcmp(result->data(), buffer->data(), total_bytes));
+    AssertCudaBufferEquals(*device_buffer_, buffer->data(), total_bytes);
   }
 
  protected:
@@ -151,10 +164,7 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   ASSERT_EQ(0, writer_->num_bytes_buffered());
 
   // Check that everything was written
-  std::shared_ptr<MutableBuffer> result;
-  ASSERT_OK(AllocateBuffer(default_memory_pool(), 1000, &result));
-  ASSERT_OK(device_buffer_->CopyToHost(result->mutable_data()));
-  ASSERT_EQ(0, std::memcmp(result->data(), host_data, 1000));
+  AssertCudaBufferEquals(*device_buffer_, host_data, 1000);
 }
 
 }  // namespace gpu
