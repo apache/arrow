@@ -564,6 +564,7 @@ Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& b
   RETURN_NOT_OK(RecordBatchStreamWriter::Open(dst, batches[0]->schema(), &writer));
   for (const auto& batch : batches) {
     // allow sizes > INT32_MAX
+    DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch, true));
   }
   RETURN_NOT_OK(writer->Close());
