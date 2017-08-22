@@ -172,8 +172,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   DISALLOW_COPY_AND_ASSIGN(HadoopFileSystem);
 };
 
-// 0.6.0
 #ifndef ARROW_NO_DEPRECATED_API
+/// \deprecated Since 0.6.0
 using HdfsClient = HadoopFileSystem;
 #endif
 

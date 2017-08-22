@@ -114,7 +114,8 @@ localfs = LocalFileSystem.get_instance()
 def _plasma_store_entry_point():
     """Entry point for starting the plasma store.
 
-    This can be used by invoking e. g. ``plasma_store -s /tmp/plasma -m 1000000000``
+    This can be used by invoking e.g.
+    ``plasma_store -s /tmp/plasma -m 1000000000``
     from the command line and will start the plasma_store executable with the
     given arguments.
     """
@@ -127,29 +128,9 @@ def _plasma_store_entry_point():
     process.wait()
 
 # ----------------------------------------------------------------------
-# 0.4.0 deprecations
+# Deprecations
 
 from pyarrow.util import _deprecate_class
-
-FileReader = _deprecate_class('FileReader',
-                              'RecordBatchFileReader',
-                              RecordBatchFileReader, '0.5.0')
-
-FileWriter = _deprecate_class('FileWriter',
-                              'RecordBatchFileWriter',
-                              RecordBatchFileWriter, '0.5.0')
-
-StreamReader = _deprecate_class('StreamReader',
-                                'RecordBatchStreamReader',
-                                RecordBatchStreamReader, '0.5.0')
-
-StreamWriter = _deprecate_class('StreamWriter',
-                                'RecordBatchStreamWriter',
-                                RecordBatchStreamWriter, '0.5.0')
-
-InMemoryOutputStream = _deprecate_class('InMemoryOutputStream',
-                                        'BufferOutputStream',
-                                        BufferOutputStream, '0.5.0')
 
 # Backwards compatibility with pyarrow < 0.6.0
 HdfsClient = _deprecate_class('HdfsClient', 'pyarrow.hdfs.connect',

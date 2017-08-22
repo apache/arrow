@@ -177,13 +177,6 @@ Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
 Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
                                 int32_t* metadata_length, int64_t* body_length);
 
-/// Backwards-compatibility for Arrow < 0.4.0
-///
-#ifndef ARROW_NO_DEPRECATED_API
-using FileWriter = RecordBatchFileWriter;
-using StreamWriter = RecordBatchStreamWriter;
-#endif
-
 }  // namespace ipc
 }  // namespace arrow
 
