@@ -18,10 +18,12 @@
 
 import java.util.Arrays;
 
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.complex.VectorWithOrdinal;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.CallBack;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -68,10 +70,11 @@ public class UnionVector implements FieldVector {
   private final Mutator mutator;
   int valueCount;
 
+  private int[] typeIds;
+
   final BitVector bits;
   final UInt1Vector typeVector;
   final MapVector internalMap;
-
 
   private NullableMapVector mapVector;
   private ListVector listVector;
@@ -89,14 +92,23 @@ public class UnionVector implements FieldVector {
   // Mapping from minor type ordinal to field name in internal MapVector
   String[] minorTypeToFieldName;
 
-  public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public UnionVector(String name, BufferAllocator allocator, CallBack callback) {
+    this(name, allocator, callback, null);
+  }
+
+  public UnionVector(String name, BufferAllocator allocator, CallBack callBack, int[] typeIds) {
     this.name = name;
     this.allocator = allocator;
-    this.internalMap = new MapVector("$internal$", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+
+    this.typeIds = typeIds;
+
     this.bits = new BitVector("$bits$", allocator);
     this.typeVector = new UInt1Vector("$types$", allocator);
+    this.internalMap = new MapVector("$internal$", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
+
     this.callBack = callBack;
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, typeVector));
+
     this.minorTypeToChildIndex = new int[128];
     Arrays.fill(this.minorTypeToChildIndex, -1);
     this.minorTypeToFieldName = new String[128];
@@ -261,7 +273,6 @@ public class UnionVector implements FieldVector {
     return listVector;
   }
 
-  // TODO: Fix this. This is broken.
   public int getTypeValue(int index) {
     int childIndex = typeVector.getAccessor().get(index);
     return internalMap.getChildByOrdinal(childIndex).getMinorType().ordinal();
@@ -326,11 +337,12 @@ public class UnionVector implements FieldVector {
   public Field getField() {
     List<org.apache.arrow.vector.types.pojo.Field> childFields = new ArrayList<>();
     List<FieldVector> children = internalMap.getChildren();
-    int[] typeIds = new int[children.size()];
     for (ValueVector v : children) {
-      typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
+
+    int[] typeIds = this.typeIds == null ? new int[0] : this.typeIds;
+
     return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
   }
 

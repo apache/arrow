@@ -269,10 +269,10 @@ class SchemaWriter {
     writer_->Key("mode");
     switch (type.mode()) {
       case UnionMode::SPARSE:
-        writer_->String("SPARSE");
+        writer_->String("Sparse");
         break;
       case UnionMode::DENSE:
-        writer_->String("DENSE");
+        writer_->String("Dense");
         break;
     }
 
@@ -763,9 +763,9 @@ static Status GetUnion(const RjObject& json_type,
   std::string mode_str = it_mode->value.GetString();
   UnionMode mode;
 
-  if (mode_str == "SPARSE") {
+  if (mode_str == "Sparse") {
     mode = UnionMode::SPARSE;
-  } else if (mode_str == "DENSE") {
+  } else if (mode_str == "Dense") {
     mode = UnionMode::DENSE;
   } else {
     std::stringstream ss;

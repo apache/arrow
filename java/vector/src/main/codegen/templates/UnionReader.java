@@ -78,6 +78,7 @@ public class UnionReader extends AbstractFieldReader {
     if (reader != null) {
       return reader;
     }
+
     switch (MinorType.values()[typeValue]) {
     case NULL:
       return NullReader.INSTANCE;
