@@ -21,6 +21,7 @@
 #define ARROW_IPC_WRITER_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -144,38 +145,67 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// including padding to a 64-byte boundary
 /// \param(out) body_length: the size of the contiguous buffer block plus
 /// padding bytes
-Status ARROW_EXPORT WriteRecordBatch(const RecordBatch& batch,
-                                     int64_t buffer_start_offset, io::OutputStream* dst,
-                                     int32_t* metadata_length, int64_t* body_length,
-                                     MemoryPool* pool,
-                                     int max_recursion_depth = kMaxNestingDepth,
-                                     bool allow_64bit = false);
+/// \return Status
+///
+/// Low-level API
+ARROW_EXPORT
+Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+                        io::OutputStream* dst, int32_t* metadata_length,
+                        int64_t* body_length, MemoryPool* pool,
+                        int max_recursion_depth = kMaxNestingDepth,
+                        bool allow_64bit = false);
 
-// Write Array as a DictionaryBatch message
+/// \brief Write dictionary message to output stream
+///
+/// Low-level API
+ARROW_EXPORT
 Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
                        int64_t buffer_start_offset, io::OutputStream* dst,
                        int32_t* metadata_length, int64_t* body_length, MemoryPool* pool);
 
+/// \brief Serialize record batch as encapsulated IPC message in a new buffer
+///
+/// \param[in] batch the record batch
+/// \param[in] pool a MemoryPool to allocate memory from
+/// \param[out] out the serialized message
+/// \return Status
+ARROW_EXPORT
+Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+                            std::shared_ptr<Buffer>* out);
+
+/// \brief Write multiple record batches to OutputStream
+/// \param[in] batches a vector of batches. Must all have same schema
+/// \param[out] dst an OutputStream
+ARROW_EXPORT
+Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
+                              io::OutputStream* dst);
+
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the record batch. This involves generating the complete serialized
 // Flatbuffers metadata.
-Status ARROW_EXPORT GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
+ARROW_EXPORT
+Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
 // Compute the precise number of bytes needed in a contiguous memory segment to
 // write the tensor including metadata, padding, and data
-Status ARROW_EXPORT GetTensorSize(const Tensor& tensor, int64_t* size);
-
-/// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
-/// may not be readable by all Arrow implementations
-Status ARROW_EXPORT WriteLargeRecordBatch(const RecordBatch& batch,
-                                          int64_t buffer_start_offset,
-                                          io::OutputStream* dst, int32_t* metadata_length,
-                                          int64_t* body_length, MemoryPool* pool);
+ARROW_EXPORT
+Status GetTensorSize(const Tensor& tensor, int64_t* size);
 
 /// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 /// <metadata size><metadata><tensor data>
-Status ARROW_EXPORT WriteTensor(const Tensor& tensor, io::OutputStream* dst,
-                                int32_t* metadata_length, int64_t* body_length);
+ARROW_EXPORT
+Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+                   int64_t* body_length);
+
+#ifndef ARROW_NO_DEPRECATED_API
+/// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
+/// may not be readable by all Arrow implementations
+/// \deprecated Since 0.7.0
+ARROW_EXPORT
+Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
+                             io::OutputStream* dst, int32_t* metadata_length,
+                             int64_t* body_length, MemoryPool* pool);
+#endif
 
 }  // namespace ipc
 }  // namespace arrow
