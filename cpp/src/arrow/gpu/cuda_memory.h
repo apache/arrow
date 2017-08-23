@@ -33,17 +33,23 @@ namespace gpu {
 /// \brief An Arrow buffer located on a GPU device
 ///
 /// Be careful using this in any Arrow code which may not be GPU-aware
-class ARROW_EXPORT CudaBuffer : public MutableBuffer {
+class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
   CudaBuffer(uint8_t* data, int64_t size, const int gpu_number, bool own_data = false)
-      : MutableBuffer(data, size), gpu_number_(gpu_number), own_data_(own_data) {}
+      : Buffer(data, size), gpu_number_(gpu_number), own_data_(own_data) {
+    is_mutable_ = true;
+    mutable_data_ = data;
+  }
+
+  CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
+             const int64_t size);
 
   ~CudaBuffer();
 
   /// \brief Copy memory from GPU device to CPU host
   /// \param[out] out a pre-allocated output buffer
   /// \return Status
-  Status CopyToHost(uint8_t* out) const;
+  Status CopyToHost(const int64_t position, const int64_t nbytes, uint8_t* out) const;
 
   /// \brief Copy memory to device at position
   /// \param[in] position start position to copy bytes
@@ -68,23 +74,31 @@ class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
 };
 
 /// \class CudaBufferReader
-/// \brief File interface for reading from CUDA buffers to CPU memory
+/// \brief File interface for zero-copy read from CUDA buffers
+///
+/// Note: Reads return pointers to device memory. This means you must be
+/// careful using this interface with any Arrow code which may expect to be
+/// able to do anything other than pointer arithmetic on the returned buffers
 class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
  public:
-  explicit CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer,
-                            MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer);
   ~CudaBufferReader();
 
+  /// \brief Read bytes into pre-allocated host memory
+  /// \param[in] nbytes number of bytes to read
+  /// \param[out] bytes_read actual number of bytes read
+  /// \param[out] buffer pre-allocated memory to write into
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  bool supports_zero_copy() const override;
 
-  std::shared_ptr<CudaBuffer> cuda_buffer() const {
-    return std::dynamic_pointer_cast<CudaBuffer>(buffer_);
-  }
+  /// \brief Zero-copy read from device memory
+  /// \param[in] nbytes number of bytes to read
+  /// \param[out] out a Buffer referencing device memory
+  /// \return Status
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
-  MemoryPool* pool_;
+  // In case we need to access anything GPU-specific, like device number
+  std::shared_ptr<CudaBuffer> cuda_buffer_;
 };
 
 /// \class CudaBufferWriter

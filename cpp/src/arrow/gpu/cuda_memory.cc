@@ -37,8 +37,13 @@ CudaBuffer::~CudaBuffer() {
   }
 }
 
-Status CudaBuffer::CopyToHost(uint8_t* out) const {
-  CUDA_RETURN_NOT_OK(cudaMemcpy(out, data_, size_, cudaMemcpyDeviceToHost));
+CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
+                       const int64_t size)
+    : Buffer(parent, offset, size), gpu_number_(parent->gpu_number()) {}
+
+Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
+                              uint8_t* out) const {
+  CUDA_RETURN_NOT_OK(cudaMemcpy(out, data_ + position, nbytes, cudaMemcpyDeviceToHost));
   return Status::OK();
 }
 
@@ -65,31 +70,25 @@ CudaHostBuffer::~CudaHostBuffer() { CUDA_DCHECK(cudaFreeHost(mutable_data_)); }
 // ----------------------------------------------------------------------
 // CudaBufferReader
 
-CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer,
-                                   MemoryPool* pool)
-    : io::BufferReader(buffer), pool_(pool) {}
+CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
+    : io::BufferReader(buffer), cuda_buffer_(buffer) {}
 
 CudaBufferReader::~CudaBufferReader() {}
 
-bool CudaBufferReader::supports_zero_copy() const { return false; }
-
 Status CudaBufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+  nbytes = std::min(nbytes, size_ - position_);
   CUDA_RETURN_NOT_OK(
       cudaMemcpy(buffer, data_ + position_, nbytes, cudaMemcpyDeviceToHost));
-  *bytes_read = std::min(nbytes, size_ - position_);
-  position_ += *bytes_read;
+  *bytes_read = nbytes;
+  position_ += nbytes;
   return Status::OK();
 }
 
 Status CudaBufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  const int64_t size = std::min(nbytes, size_ - position_);
-
-  std::shared_ptr<MutableBuffer> result;
-  RETURN_NOT_OK(AllocateBuffer(pool_, size, &result));
-  *out = result;
-
-  int64_t bytes_read = 0;
-  return Read(size, &bytes_read, result->mutable_data());
+  int64_t size = std::min(nbytes, size_ - position_);
+  *out = std::make_shared<CudaBuffer>(cuda_buffer_, position_, size);
+  position_ += size;
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
