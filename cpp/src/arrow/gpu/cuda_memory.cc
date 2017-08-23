@@ -71,12 +71,13 @@ CudaHostBuffer::~CudaHostBuffer() { CUDA_DCHECK(cudaFreeHost(mutable_data_)); }
 // CudaBufferReader
 
 CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::BufferReader(buffer), cuda_buffer_(buffer) {}
+    : io::BufferReader(buffer), cuda_buffer_(buffer), gpu_number_(buffer->gpu_number()) {}
 
 CudaBufferReader::~CudaBufferReader() {}
 
 Status CudaBufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
   nbytes = std::min(nbytes, size_ - position_);
+  CUDA_RETURN_NOT_OK(cudaSetDevice(gpu_number_));
   CUDA_RETURN_NOT_OK(
       cudaMemcpy(buffer, data_ + position_, nbytes, cudaMemcpyDeviceToHost));
   *bytes_read = nbytes;
@@ -95,7 +96,10 @@ Status CudaBufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 // CudaBufferWriter
 
 CudaBufferWriter::CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::FixedSizeBufferWriter(buffer), buffer_size_(0), buffer_position_(0) {}
+    : io::FixedSizeBufferWriter(buffer),
+      gpu_number_(buffer->gpu_number()),
+      buffer_size_(0),
+      buffer_position_(0) {}
 
 CudaBufferWriter::~CudaBufferWriter() {}
 
@@ -104,6 +108,7 @@ Status CudaBufferWriter::Close() { return Flush(); }
 Status CudaBufferWriter::Flush() {
   if (buffer_size_ > 0 && buffer_position_ > 0) {
     // Only need to flush when the write has been buffered
+    CUDA_RETURN_NOT_OK(cudaSetDevice(gpu_number_));
     CUDA_RETURN_NOT_OK(cudaMemcpy(mutable_data_ + position_ - buffer_position_,
                                   host_buffer_data_, buffer_position_,
                                   cudaMemcpyHostToDevice));
@@ -132,6 +137,7 @@ Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
     if (nbytes + buffer_position_ >= buffer_size_) {
       // Reach end of buffer, write everything
       RETURN_NOT_OK(Flush());
+      CUDA_RETURN_NOT_OK(cudaSetDevice(gpu_number_));
       CUDA_RETURN_NOT_OK(
           cudaMemcpy(mutable_data_ + position_, data, nbytes, cudaMemcpyHostToDevice));
     } else {
@@ -141,6 +147,7 @@ Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
     }
   } else {
     // Unbuffered write
+    CUDA_RETURN_NOT_OK(cudaSetDevice(gpu_number_));
     CUDA_RETURN_NOT_OK(
         cudaMemcpy(mutable_data_ + position_, data, nbytes, cudaMemcpyHostToDevice));
   }

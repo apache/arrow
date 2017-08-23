@@ -45,6 +45,17 @@ namespace gpu {
     }                                                                  \
   } while (0)
 
+#define CUDADRV_RETURN_NOT_OK(STMT)                                           \
+  do {                                                                        \
+    CUresult ret = (STMT);                                                    \
+    if (ret != CUDA_SUCCESS) {                                                \
+      std::stringstream ss;                                                   \
+      ss << "Cuda Driver API call in " << __FILE__ << " at line " << __LINE__ \
+         << " failed: " << #STMT;                                             \
+      return Status::IOError(ss.str());                                       \
+    }                                                                         \
+  } while (0)
+
 }  // namespace gpu
 }  // namespace arrow
 

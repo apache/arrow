@@ -97,8 +97,8 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
-  // In case we need to access anything GPU-specific, like device number
   std::shared_ptr<CudaBuffer> cuda_buffer_;
+  int gpu_number_;
 };
 
 /// \class CudaBufferWriter
@@ -132,6 +132,8 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   int64_t num_bytes_buffered() const { return buffer_position_; }
 
  private:
+  int gpu_number_;
+
   // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
   int64_t buffer_size_;
   int64_t buffer_position_;
