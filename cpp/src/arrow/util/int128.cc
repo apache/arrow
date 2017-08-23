@@ -63,7 +63,7 @@ Int128::Int128(const uint8_t* bytes)
 void Int128::ToBytes(uint8_t** out) const {
   DCHECK_NE(out, nullptr) << "Cannot fill nullptr of bytes from Int128";
   DCHECK_NE(*out, nullptr) << "Cannot fill nullptr of bytes from Int128";
-  uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
+  const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
   std::memcpy(*out, raw, 16);
 }
 
