@@ -29,7 +29,7 @@ namespace arrow {
 namespace decimal {
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
-static constexpr uint64_t kCarryBit = 1UL << 32UL;
+static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
 Int128::Int128(const std::string& str) : Int128() {
   const size_t length = str.length();
