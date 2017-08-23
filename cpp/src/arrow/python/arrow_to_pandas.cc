@@ -604,12 +604,12 @@ static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
 
 template <typename T>
 Status ValidateDecimalPrecision(int precision) {
-  constexpr static const int maximum_precision =
+  constexpr static const int kMaximumPrecision =
       decimal::DecimalPrecision<typename T::value_type>::maximum;
-  if (!(precision > 0 && precision <= maximum_precision)) {
+  if (!(precision > 0 && precision <= kMaximumPrecision)) {
     std::stringstream ss;
     ss << "Invalid precision: " << precision << ". Minimum is 1, maximum is "
-       << maximum_precision;
+       << kMaximumPrecision;
     return Status::Invalid(ss.str());
   }
   return Status::OK();
