@@ -947,8 +947,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    #testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
-    testers = [JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
 
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
