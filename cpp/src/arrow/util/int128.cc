@@ -195,15 +195,13 @@ Int128& Int128::operator*=(const Int128& right) {
   return *this;
 }
 
-/**
- * Expands the given value into an array of ints so that we can work on
- * it. The array will be converted to an absolute value and the wasNegative
- * flag will be set appropriately. The array will remove leading zeros from
- * the value.
- * @param array an array of length 4 to set with the value
- * @param was_negative a flag for whether the value was original negative
- * @result the output length of the array
- */
+/// Expands the given value into an array of ints so that we can work on
+/// it. The array will be converted to an absolute value and the wasNegative
+/// flag will be set appropriately. The array will remove leading zeros from
+/// the value.
+/// \param array an array of length 4 to set with the value
+/// \param was_negative a flag for whether the value was original negative
+/// \result the output length of the array
 static int64_t FillInArray(const Int128& value, uint32_t* array, bool& was_negative) {
   uint64_t high;
   uint64_t low;
@@ -252,10 +250,7 @@ static int64_t FillInArray(const Int128& value, uint32_t* array, bool& was_negat
   return 1;
 }
 
-/**
- * Find last set bit in a 32 bit integer. Bit 1 is the LSB and bit 32 is
- * the MSB. We can replace this with bsrq asm instruction on x64.
- */
+/// \brief Find last set bit in a 32 bit integer. Bit 1 is the LSB and bit 32 is the MSB.
 static int64_t FindLastSetBit(uint32_t value) {
 #if defined(__clang__) || defined(__GNUC__)
   // Count leading zeros
@@ -267,12 +262,10 @@ static int64_t FindLastSetBit(uint32_t value) {
 #endif
 }
 
-/**
- * Shift the number in the array left by bits positions.
- * @param array the number to shift, must have length elements
- * @param length the number of entries in the array
- * @param bits the number of bits to shift (0 <= bits < 32)
- */
+/// Shift the number in the array left by bits positions.
+/// \param array the number to shift, must have length elements
+/// \param length the number of entries in the array
+/// \param bits the number of bits to shift (0 <= bits < 32)
 static void ShiftArrayLeft(uint32_t* array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = 0; i < length - 1; ++i) {
@@ -282,12 +275,10 @@ static void ShiftArrayLeft(uint32_t* array, int64_t length, int64_t bits) {
   }
 }
 
-/**
- * Shift the number in the array right by bits positions.
- * @param array the number to shift, must have length elements
- * @param length the number of entries in the array
- * @param bits the number of bits to shift (0 <= bits < 32)
- */
+/// Shift the number in the array right by bits positions.
+/// \param array the number to shift, must have length elements
+/// \param length the number of entries in the array
+/// \param bits the number of bits to shift (0 <= bits < 32)
 static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = length - 1; i > 0; --i) {
@@ -297,10 +288,8 @@ static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
   }
 }
 
-/**
- * Fix the signs of the result and remainder at the end of the division
- * based on the signs of the dividend and divisor.
- */
+/// \brief Fix the signs of the result and remainder at the end of the division based on
+/// the signs of the dividend and divisor.
 static void FixDivisionSigns(Int128* result, Int128* remainder,
                              bool dividend_was_negative, bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
@@ -312,9 +301,7 @@ static void FixDivisionSigns(Int128* result, Int128* remainder,
   }
 }
 
-/**
- * Build a Int128 from a list of ints.
- */
+/// \brief Build a Int128 from a list of ints.
 static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
   switch (length) {
     case 0:
@@ -349,9 +336,7 @@ static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
   return Status::OK();
 }
 
-/**
- * Do a division where the divisor fits into a single 32 bit value.
- */
+/// \brief Do a division where the divisor fits into a single 32 bit value.
 static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
                            uint32_t divisor, Int128* remainder,
                            bool dividend_was_negative, bool divisor_was_negative,
