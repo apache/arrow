@@ -92,8 +92,8 @@ TEST(DecimalTest, TestStringToInt64) {
 TEST(DecimalTest, TestStringToInt128) {
   Int128 value = 0;
   StringToInteger("123456789", "456789123", 1, &value);
-  ASSERT_EQ(value.highbits(), 0);
-  ASSERT_EQ(value.lowbits(), 123456789456789123);
+  ASSERT_EQ(value.high_bits(), 0);
+  ASSERT_EQ(value.low_bits(), 123456789456789123);
 }
 
 TEST(DecimalTest, TestFromString128) {
@@ -103,7 +103,7 @@ TEST(DecimalTest, TestFromString128) {
   ASSERT_EQ(result.value, expected * 100 - 12);
 
   // Sanity check that our number is actually using more than 64 bits
-  ASSERT_NE(result.value.highbits(), 0);
+  ASSERT_NE(result.value.high_bits(), 0);
 }
 
 TEST(DecimalTest, TestFromDecimalString128) {
@@ -113,7 +113,7 @@ TEST(DecimalTest, TestFromDecimalString128) {
   ASSERT_EQ(result.value, expected * 100 - 12);
 
   // Sanity check that our number is actually using more than 64 bits
-  ASSERT_NE(result.value.highbits(), 0);
+  ASSERT_NE(result.value.high_bits(), 0);
 }
 
 TEST(DecimalTest, TestDecimal32Precision) {

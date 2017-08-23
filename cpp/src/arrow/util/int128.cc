@@ -51,7 +51,7 @@ Int128::Int128(const std::string& str) : Int128() {
     }
 
     if (is_negative) {
-      negate();
+      Negate();
     }
   }
 }
@@ -63,79 +63,79 @@ Int128::Int128(const uint8_t* bytes)
 void Int128::ToBytes(uint8_t** out) const {
   DCHECK_NE(out, nullptr) << "Cannot fill nullptr of bytes from Int128";
   DCHECK_NE(*out, nullptr) << "Cannot fill nullptr of bytes from Int128";
-  uint64_t raw[] = {static_cast<uint64_t>(highbits_), lowbits_};
+  uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
   std::memcpy(*out, raw, 16);
 }
 
-Int128& Int128::negate() {
-  lowbits_ = ~lowbits_ + 1;
-  highbits_ = ~highbits_;
-  if (lowbits_ == 0) {
-    ++highbits_;
+Int128& Int128::Negate() {
+  low_bits_ = ~low_bits_ + 1;
+  high_bits_ = ~high_bits_;
+  if (low_bits_ == 0) {
+    ++high_bits_;
   }
   return *this;
 }
 
 Int128& Int128::operator+=(const Int128& right) {
-  uint64_t sum = lowbits_ + right.lowbits_;
-  highbits_ += right.highbits_;
-  if (sum < lowbits_) {
-    ++highbits_;
+  const uint64_t sum = low_bits_ + right.low_bits_;
+  high_bits_ += right.high_bits_;
+  if (sum < low_bits_) {
+    ++high_bits_;
   }
-  lowbits_ = sum;
+  low_bits_ = sum;
   return *this;
 }
 
 Int128& Int128::operator-=(const Int128& right) {
-  uint64_t diff = lowbits_ - right.lowbits_;
-  highbits_ -= right.highbits_;
-  if (diff > lowbits_) {
-    --highbits_;
+  const uint64_t diff = low_bits_ - right.low_bits_;
+  high_bits_ -= right.high_bits_;
+  if (diff > low_bits_) {
+    --high_bits_;
   }
-  lowbits_ = diff;
+  low_bits_ = diff;
   return *this;
 }
 
 Int128& Int128::operator/=(const Int128& right) {
   Int128 remainder;
-  DCHECK(divide(right, this, &remainder).ok());
+  DCHECK(Divide(right, this, &remainder).ok());
   return *this;
 }
 
 Int128::operator char() const {
-  DCHECK(highbits_ == 0 || highbits_ == -1)
+  DCHECK(high_bits_ == 0 || high_bits_ == -1)
       << "Trying to cast an Int128 greater than the value range of a "
-         "char. highbits_ must be equal to 0 or -1, got: "
-      << highbits_;
-  DCHECK_LE(lowbits_, std::numeric_limits<char>::max())
-      << "lowbits_ too large for C type char, got: " << lowbits_;
-  return static_cast<char>(lowbits_);
+         "char. high_bits_ must be equal to 0 or -1, got: "
+      << high_bits_;
+  DCHECK_LE(low_bits_, std::numeric_limits<char>::max())
+      << "low_bits_ too large for C type char, got: " << low_bits_;
+  return static_cast<char>(low_bits_);
 }
 
 Int128& Int128::operator|=(const Int128& right) {
-  lowbits_ |= right.lowbits_;
-  highbits_ |= right.highbits_;
+  low_bits_ |= right.low_bits_;
+  high_bits_ |= right.high_bits_;
   return *this;
 }
 
 Int128& Int128::operator&=(const Int128& right) {
-  lowbits_ &= right.lowbits_;
-  highbits_ &= right.highbits_;
+  low_bits_ &= right.low_bits_;
+  high_bits_ &= right.high_bits_;
   return *this;
 }
 
 Int128& Int128::operator<<=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
-      highbits_ <<= bits;
-      highbits_ |= (lowbits_ >> (64 - bits));
-      lowbits_ <<= bits;
+      high_bits_ <<= bits;
+      high_bits_ |= (low_bits_ >> (64 - bits));
+      low_bits_ <<= bits;
     } else if (bits < 128) {
-      highbits_ = static_cast<int64_t>(lowbits_) << (bits - 64);
-      lowbits_ = 0;
+      high_bits_ = static_cast<int64_t>(low_bits_) << (bits - 64);
+      low_bits_ = 0;
     } else {
-      highbits_ = 0;
-      lowbits_ = 0;
+      high_bits_ = 0;
+      low_bits_ = 0;
     }
   }
   return *this;
@@ -144,15 +144,15 @@ Int128& Int128::operator<<=(uint32_t bits) {
 Int128& Int128::operator>>=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
-      lowbits_ >>= bits;
-      lowbits_ |= static_cast<uint64_t>(highbits_ << (64 - bits));
-      highbits_ = static_cast<int64_t>(static_cast<uint64_t>(highbits_) >> bits);
+      low_bits_ >>= bits;
+      low_bits_ |= static_cast<uint64_t>(high_bits_ << (64 - bits));
+      high_bits_ = static_cast<int64_t>(static_cast<uint64_t>(high_bits_) >> bits);
     } else if (bits < 128) {
-      lowbits_ = static_cast<uint64_t>(highbits_ >> (bits - 64));
-      highbits_ = static_cast<int64_t>(highbits_ >= 0L ? 0L : -1L);
+      low_bits_ = static_cast<uint64_t>(high_bits_ >> (bits - 64));
+      high_bits_ = static_cast<int64_t>(high_bits_ >= 0L ? 0L : -1L);
     } else {
-      highbits_ = static_cast<int64_t>(highbits_ >= 0L ? 0L : -1L);
-      lowbits_ = static_cast<uint64_t>(highbits_);
+      high_bits_ = static_cast<int64_t>(high_bits_ >= 0L ? 0L : -1L);
+      low_bits_ = static_cast<uint64_t>(high_bits_);
     }
   }
   return *this;
@@ -161,18 +161,18 @@ Int128& Int128::operator>>=(uint32_t bits) {
 Int128& Int128::operator*=(const Int128& right) {
   // Break the left and right numbers into 32 bit chunks
   // so that we can multiply them without overflow.
-  uint64_t L0 = static_cast<uint64_t>(highbits_) >> 32;
-  uint64_t L1 = static_cast<uint64_t>(highbits_) & kIntMask;
-  uint64_t L2 = lowbits_ >> 32;
-  uint64_t L3 = lowbits_ & kIntMask;
+  const uint64_t L0 = static_cast<uint64_t>(high_bits_) >> 32;
+  const uint64_t L1 = static_cast<uint64_t>(high_bits_) & kIntMask;
+  const uint64_t L2 = low_bits_ >> 32;
+  const uint64_t L3 = low_bits_ & kIntMask;
 
-  uint64_t R0 = static_cast<uint64_t>(right.highbits_) >> 32;
-  uint64_t R1 = static_cast<uint64_t>(right.highbits_) & kIntMask;
-  uint64_t R2 = right.lowbits_ >> 32;
-  uint64_t R3 = right.lowbits_ & kIntMask;
+  const uint64_t R0 = static_cast<uint64_t>(right.high_bits_) >> 32;
+  const uint64_t R1 = static_cast<uint64_t>(right.high_bits_) & kIntMask;
+  const uint64_t R2 = right.low_bits_ >> 32;
+  const uint64_t R3 = right.low_bits_ & kIntMask;
 
   uint64_t product = L3 * R3;
-  lowbits_ = product & kIntMask;
+  low_bits_ = product & kIntMask;
 
   uint64_t sum = product >> 32;
 
@@ -182,16 +182,16 @@ Int128& Int128::operator*=(const Int128& right) {
   product = L3 * R2;
   sum += product;
 
-  lowbits_ += sum << 32;
+  low_bits_ += sum << 32;
 
-  highbits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
+  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
   if (sum < product) {
-    highbits_ += kCarryBit;
+    high_bits_ += kCarryBit;
   }
 
-  highbits_ += static_cast<int64_t>(sum >> 32);
-  highbits_ += L1 * R3 + L2 * R2 + L3 * R1;
-  highbits_ += (L0 * R3 + L1 * R2 + L2 * R1 + L3 * R0) << 32;
+  high_bits_ += static_cast<int64_t>(sum >> 32);
+  high_bits_ += L1 * R3 + L2 * R2 + L3 * R1;
+  high_bits_ += (L0 * R3 + L1 * R2 + L2 * R1 + L3 * R0) << 32;
   return *this;
 }
 
@@ -204,11 +204,11 @@ Int128& Int128::operator*=(const Int128& right) {
  * @param was_negative a flag for whether the value was original negative
  * @result the output length of the array
  */
-static int64_t fill_in_array(const Int128& value, uint32_t* array, bool& was_negative) {
+static int64_t FillInArray(const Int128 &value, uint32_t *array, bool &was_negative) {
   uint64_t high;
   uint64_t low;
-  int64_t highbits = value.highbits();
-  uint64_t lowbits = value.lowbits();
+  const int64_t highbits = value.high_bits();
+  const uint64_t lowbits = value.low_bits();
 
   if (highbits < 0) {
     low = ~lowbits + 1;
@@ -256,7 +256,7 @@ static int64_t fill_in_array(const Int128& value, uint32_t* array, bool& was_neg
  * Find last set bit in a 32 bit integer. Bit 1 is the LSB and bit 32 is
  * the MSB. We can replace this with bsrq asm instruction on x64.
  */
-static int64_t fls(uint32_t value) {
+static int64_t FindLastSetBit(uint32_t value) {
 #if defined(__clang__) || defined(__GNUC__)
   // Count leading zeros
   return __builtin_clz(value) + 1;
@@ -273,7 +273,7 @@ static int64_t fls(uint32_t value) {
  * @param length the number of entries in the array
  * @param bits the number of bits to shift (0 <= bits < 32)
  */
-static void shift_array_left(uint32_t* array, int64_t length, int64_t bits) {
+static void ShiftArrayLeft(uint32_t *array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = 0; i < length - 1; ++i) {
       array[i] = (array[i] << bits) | (array[i + 1] >> (32 - bits));
@@ -288,7 +288,7 @@ static void shift_array_left(uint32_t* array, int64_t length, int64_t bits) {
  * @param length the number of entries in the array
  * @param bits the number of bits to shift (0 <= bits < 32)
  */
-static void shift_array_right(uint32_t* array, int64_t length, int64_t bits) {
+static void ShiftArrayRight(uint32_t *array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = length - 1; i > 0; --i) {
       array[i] = (array[i] >> bits) | (array[i - 1] << (32 - bits));
@@ -301,21 +301,21 @@ static void shift_array_right(uint32_t* array, int64_t length, int64_t bits) {
  * Fix the signs of the result and remainder at the end of the division
  * based on the signs of the dividend and divisor.
  */
-static void fix_division_signs(Int128* result, Int128* remainder,
-                               bool dividend_was_negative, bool divisor_was_negative) {
+static void FixDivisionSigns(Int128 *result, Int128 *remainder,
+                             bool dividend_was_negative, bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
-    result->negate();
+    result->Negate();
   }
 
   if (dividend_was_negative) {
-    remainder->negate();
+    remainder->Negate();
   }
 }
 
 /**
  * Build a Int128 from a list of ints.
  */
-static Status build_from_array(Int128* value, uint32_t* array, int64_t length) {
+static Status BuildFromArray(Int128 *value, uint32_t *array, int64_t length) {
   switch (length) {
     case 0:
       *value = {static_cast<int64_t>(0)};
@@ -352,10 +352,10 @@ static Status build_from_array(Int128* value, uint32_t* array, int64_t length) {
 /**
  * Do a division where the divisor fits into a single 32 bit value.
  */
-static Status single_divide(const uint32_t* dividend, int64_t dividend_length,
-                            uint32_t divisor, Int128* remainder,
-                            bool dividend_was_negative, bool divisor_was_negative,
-                            Int128* result) {
+static Status SingleDivide(const uint32_t *dividend, int64_t dividend_length,
+                           uint32_t divisor, Int128 *remainder,
+                           bool dividend_was_negative, bool divisor_was_negative,
+                           Int128 *result) {
   uint64_t r = 0;
   uint32_t result_array[5];
   for (int64_t j = 0; j < dividend_length; j++) {
@@ -364,13 +364,13 @@ static Status single_divide(const uint32_t* dividend, int64_t dividend_length,
     result_array[j] = static_cast<uint32_t>(r / divisor);
     r %= divisor;
   }
-  RETURN_NOT_OK(build_from_array(result, result_array, dividend_length));
+  RETURN_NOT_OK(BuildFromArray(result, result_array, dividend_length));
   *remainder = static_cast<int64_t>(r);
-  fix_division_signs(result, remainder, dividend_was_negative, divisor_was_negative);
+  FixDivisionSigns(result, remainder, dividend_was_negative, divisor_was_negative);
   return Status::OK();
 }
 
-Status Int128::divide(const Int128& divisor, Int128* result, Int128* remainder) const {
+Status Int128::Divide(const Int128 &divisor, Int128 *result, Int128 *remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[5];
@@ -380,8 +380,8 @@ Status Int128::divide(const Int128& divisor, Int128* result, Int128* remainder) 
   // leave an extra zero before the dividend
   dividend_array[0] = 0;
   int64_t dividend_length =
-      fill_in_array(*this, dividend_array + 1, dividend_was_negative) + 1;
-  int64_t divisor_length = fill_in_array(divisor, divisor_array, divisor_was_negative);
+      FillInArray(*this, dividend_array + 1, dividend_was_negative) + 1;
+  int64_t divisor_length = FillInArray(divisor, divisor_array, divisor_was_negative);
 
   // Handle some of the easy cases.
   if (dividend_length <= divisor_length) {
@@ -395,8 +395,8 @@ Status Int128::divide(const Int128& divisor, Int128* result, Int128* remainder) 
   }
 
   if (divisor_length == 1) {
-    return single_divide(dividend_array, dividend_length, divisor_array[0], remainder,
-                         dividend_was_negative, divisor_was_negative, result);
+    return SingleDivide(dividend_array, dividend_length, divisor_array[0], remainder,
+                        dividend_was_negative, divisor_was_negative, result);
   }
 
   int64_t result_length = dividend_length - divisor_length;
@@ -405,9 +405,9 @@ Status Int128::divide(const Int128& divisor, Int128* result, Int128* remainder) 
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
   // divisor_array[0] is greater than 2**31.
-  int64_t normalize_bits = 32 - fls(divisor_array[0]);
-  shift_array_left(divisor_array, divisor_length, normalize_bits);
-  shift_array_left(dividend_array, dividend_length, normalize_bits);
+  int64_t normalize_bits = 32 - FindLastSetBit(divisor_array[0]);
+  ShiftArrayLeft(divisor_array, divisor_length, normalize_bits);
+  ShiftArrayLeft(dividend_array, dividend_length, normalize_bits);
 
   // compute each digit in the result
   for (int64_t j = 0; j < result_length; ++j) {
@@ -464,17 +464,17 @@ Status Int128::divide(const Int128& divisor, Int128* result, Int128* remainder) 
   }
 
   // denormalize the remainder
-  shift_array_right(dividend_array, dividend_length, normalize_bits);
+  ShiftArrayRight(dividend_array, dividend_length, normalize_bits);
 
   // return result and remainder
-  RETURN_NOT_OK(build_from_array(result, result_array, result_length));
-  RETURN_NOT_OK(build_from_array(remainder, dividend_array, dividend_length));
-  fix_division_signs(result, remainder, dividend_was_negative, divisor_was_negative);
+  RETURN_NOT_OK(BuildFromArray(result, result_array, result_length));
+  RETURN_NOT_OK(BuildFromArray(remainder, dividend_array, dividend_length));
+  FixDivisionSigns(result, remainder, dividend_was_negative, divisor_was_negative);
   return Status::OK();
 }
 
 bool operator==(const Int128& left, const Int128& right) {
-  return left.highbits() == right.highbits() && left.lowbits() == right.lowbits();
+  return left.high_bits() == right.high_bits() && left.low_bits() == right.low_bits();
 }
 
 bool operator!=(const Int128& left, const Int128& right) {
@@ -482,8 +482,8 @@ bool operator!=(const Int128& left, const Int128& right) {
 }
 
 bool operator<(const Int128& left, const Int128& right) {
-  return left.highbits() < right.highbits() ||
-         (left.highbits() == right.highbits() && left.lowbits() < right.lowbits());
+  return left.high_bits() < right.high_bits() ||
+         (left.high_bits() == right.high_bits() && left.low_bits() < right.low_bits());
 }
 
 bool operator<=(const Int128& left, const Int128& right) {
@@ -497,24 +497,24 @@ bool operator>=(const Int128& left, const Int128& right) {
 }
 
 Int128 operator-(const Int128& operand) {
-  Int128 result(operand.highbits(), operand.lowbits());
-  return result.negate();
+  Int128 result(operand.high_bits(), operand.low_bits());
+  return result.Negate();
 }
 
 Int128 operator+(const Int128& left, const Int128& right) {
-  Int128 result(left.highbits(), left.lowbits());
+  Int128 result(left.high_bits(), left.low_bits());
   result += right;
   return result;
 }
 
 Int128 operator-(const Int128& left, const Int128& right) {
-  Int128 result(left.highbits(), left.lowbits());
+  Int128 result(left.high_bits(), left.low_bits());
   result -= right;
   return result;
 }
 
 Int128 operator*(const Int128& left, const Int128& right) {
-  Int128 result(left.highbits(), left.lowbits());
+  Int128 result(left.high_bits(), left.low_bits());
   result *= right;
   return result;
 }
@@ -522,14 +522,14 @@ Int128 operator*(const Int128& left, const Int128& right) {
 Int128 operator/(const Int128& left, const Int128& right) {
   Int128 remainder;
   Int128 result;
-  DCHECK(left.divide(right, &result, &remainder).ok());
+  DCHECK(left.Divide(right, &result, &remainder).ok());
   return result;
 }
 
 Int128 operator%(const Int128& left, const Int128& right) {
   Int128 remainder;
   Int128 result;
-  DCHECK(left.divide(right, &result, &remainder).ok());
+  DCHECK(left.Divide(right, &result, &remainder).ok());
   return remainder;
 }
 
