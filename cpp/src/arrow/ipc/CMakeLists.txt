@@ -83,9 +83,10 @@ add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
 # Headers: top level
 install(FILES
   api.h
+  dictionary.h
   feather.h
   json.h
-  metadata.h
+  message.h
   reader.h
   writer.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/ipc")

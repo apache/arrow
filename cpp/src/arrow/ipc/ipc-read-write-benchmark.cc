@@ -109,7 +109,7 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
     std::shared_ptr<RecordBatch> result;
     io::BufferReader reader(buffer);
 
-    if (!ipc::ReadRecordBatch(record_batch->schema(), 0, &reader, &result).ok()) {
+    if (!ipc::ReadRecordBatch(record_batch->schema(), &reader, &result).ok()) {
       state.SkipWithError("Failed to read!");
     }
   }

@@ -28,7 +28,8 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/metadata.h"
+#include "arrow/ipc/message.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -460,6 +461,22 @@ RecordBatchStreamReader::RecordBatchStreamReader() {
 RecordBatchStreamReader::~RecordBatchStreamReader() {}
 
 Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
+                                     std::shared_ptr<RecordBatchReader>* reader) {
+  // Private ctor
+  auto result = std::shared_ptr<RecordBatchStreamReader>(new RecordBatchStreamReader());
+  RETURN_NOT_OK(result->impl_->Open(std::move(message_reader)));
+  *reader = result;
+  return Status::OK();
+}
+
+Status RecordBatchStreamReader::Open(io::InputStream* stream,
+                                     std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
+  return Open(std::move(message_reader), out);
+}
+
+#ifndef ARROW_NO_DEPRECATED_API
+Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
                                      std::shared_ptr<RecordBatchStreamReader>* reader) {
   // Private ctor
   *reader = std::shared_ptr<RecordBatchStreamReader>(new RecordBatchStreamReader());
@@ -471,6 +488,7 @@ Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& str
   std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
   return Open(std::move(message_reader), out);
 }
+#endif
 
 std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
   return impl_->schema();
@@ -654,33 +672,46 @@ Status RecordBatchFileReader::ReadRecordBatch(int i,
   return impl_->ReadRecordBatch(i, batch);
 }
 
-static Status ReadContiguousPayload(int64_t offset, io::RandomAccessFile* file,
+static Status ReadContiguousPayload(io::InputStream* file,
                                     std::unique_ptr<Message>* message) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->Seek(offset));
   RETURN_NOT_OK(ReadMessage(file, message));
-
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
   return Status::OK();
 }
 
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
-                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
+  std::shared_ptr<RecordBatchReader> reader;
+  RETURN_NOT_OK(RecordBatchStreamReader::Open(stream, &reader));
+  *out = reader->schema();
+  return Status::OK();
+}
+
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* file,
+                       std::shared_ptr<RecordBatch>* out) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(offset, file, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   io::BufferReader buffer_reader(message->body());
   return ReadRecordBatch(*message->metadata(), schema, kMaxNestingDepth, &buffer_reader,
                          out);
+}
+
+// Deprecated
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
+                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+  RETURN_NOT_OK(file->Seek(offset));
+  return ReadRecordBatch(schema, file, out);
 }
 
 Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
                   std::shared_ptr<Tensor>* out) {
   // Respect alignment of Tensor messages (see WriteTensor)
   offset = PaddedLength(offset);
+  RETURN_NOT_OK(file->Seek(offset));
+
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(offset, file, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
 
   std::shared_ptr<DataType> type;
   std::vector<int64_t> shape;

@@ -217,11 +217,11 @@ include(BuildUtils)
 # Compiler flags
 ############################################################
 
-include(SetupCxxFlags)
-
 if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()
+
+include(SetupCxxFlags)
 
 ############################################################
 # Dependencies
@@ -780,10 +780,12 @@ endif()
 
 if (ARROW_IPC)
   set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/ipc/dictionary.cc
     src/arrow/ipc/feather.cc
     src/arrow/ipc/json.cc
     src/arrow/ipc/json-internal.cc
-    src/arrow/ipc/metadata.cc
+    src/arrow/ipc/message.cc
+    src/arrow/ipc/metadata-internal.cc
     src/arrow/ipc/reader.cc
     src/arrow/ipc/writer.cc
   )

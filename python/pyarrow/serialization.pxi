@@ -237,7 +237,7 @@ def read_serialized(source, base=None):
     cdef SerializedPyObject serialized = SerializedPyObject()
     serialized.base = base
     with nogil:
-        check_status(ReadSerializedObject(stream, &serialized.data))
+        check_status(ReadSerializedObject(stream.get(), &serialized.data))
 
     return serialized
 

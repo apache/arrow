@@ -166,18 +166,13 @@ cdef class _RecordBatchWriter:
         pass
 
     def _open(self, sink, Schema schema):
-        cdef:
-            shared_ptr[CRecordBatchStreamWriter] writer
-
         get_writer(sink, &self.sink)
 
         with nogil:
             check_status(
                 CRecordBatchStreamWriter.Open(self.sink.get(),
                                               schema.sp_schema,
-                                              &writer))
-
-        self.writer = <shared_ptr[CRecordBatchWriter]> writer
+                                              &self.writer))
         self.closed = False
 
     def write_batch(self, RecordBatch batch):
@@ -215,6 +210,7 @@ cdef get_input_stream(object source, shared_ptr[InputStream]* out):
 cdef class _RecordBatchReader:
     cdef:
         shared_ptr[CRecordBatchReader] reader
+        shared_ptr[InputStream] in_stream
 
     cdef readonly:
         Schema schema
@@ -223,16 +219,11 @@ cdef class _RecordBatchReader:
         pass
 
     def _open(self, source):
-        cdef:
-            shared_ptr[InputStream] in_stream
-            shared_ptr[CRecordBatchStreamReader] reader
-
-        get_input_stream(source, &in_stream)
-
+        get_input_stream(source, &self.in_stream)
         with nogil:
-            check_status(CRecordBatchStreamReader.Open(in_stream, &reader))
+            check_status(CRecordBatchStreamReader.Open(
+                self.in_stream.get(), &self.reader))
 
-        self.reader = <shared_ptr[CRecordBatchReader]> reader
         self.schema = Schema()
         self.schema.init_schema(self.reader.get().schema())
 
@@ -285,16 +276,13 @@ cdef class _RecordBatchReader:
 cdef class _RecordBatchFileWriter(_RecordBatchWriter):
 
     def _open(self, sink, Schema schema):
-        cdef shared_ptr[CRecordBatchFileWriter] writer
         get_writer(sink, &self.sink)
 
         with nogil:
             check_status(
                 CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                            &writer))
+                                            &self.writer))
 
-        # Cast to base class, because has same interface
-        self.writer = <shared_ptr[CRecordBatchWriter]> writer
         self.closed = False
 
 

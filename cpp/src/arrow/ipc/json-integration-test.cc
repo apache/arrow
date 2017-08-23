@@ -77,7 +77,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
     std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
   }
 
-  std::shared_ptr<ipc::RecordBatchFileWriter> writer;
+  std::shared_ptr<ipc::RecordBatchWriter> writer;
   RETURN_NOT_OK(
       ipc::RecordBatchFileWriter::Open(out_file.get(), reader->schema(), &writer));
 

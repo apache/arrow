@@ -632,8 +632,8 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
-        CStatus Open(const shared_ptr[InputStream]& stream,
-                     shared_ptr[CRecordBatchStreamReader]* out)
+        CStatus Open(const InputStream* stream,
+                     shared_ptr[CRecordBatchReader]* out)
 
         @staticmethod
         CStatus Open2" Open"(unique_ptr[CMessageReader] message_reader,
@@ -643,13 +643,13 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchStreamWriter]* out)
+                     shared_ptr[CRecordBatchWriter]* out)
 
     cdef cppclass CRecordBatchFileWriter \
             " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
         CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchFileWriter]* out)
+                     shared_ptr[CRecordBatchWriter]* out)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
@@ -792,7 +792,7 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
     CStatus DeserializeObject(const CSerializedPyObject& obj,
                               PyObject* base, PyObject** out)
 
-    CStatus ReadSerializedObject(shared_ptr[RandomAccessFile] src,
+    CStatus ReadSerializedObject(RandomAccessFile* src,
                                  CSerializedPyObject* out)
 
     void set_serialization_callbacks(object serialize_callback,
