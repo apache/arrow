@@ -54,12 +54,6 @@ struct Decimal;
 
 static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
-#ifdef ARROW_NO_DEFAULT_MEMORY_POOL
-#define ARROW_MEMORY_POOL_ARG pool
-#else
-#define ARROW_MEMORY_POOL_ARG pool = default_memory_pool()
-#endif
-
 /// Base class for all data array builders.
 //
 /// This class provides a facilities for incrementally building the null bitmap
@@ -167,7 +161,8 @@ class ARROW_EXPORT ArrayBuilder {
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
-  explicit NullBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG) : ArrayBuilder(null(), pool) {}
+  explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : ArrayBuilder(null(), pool) {}
 
   Status AppendNull() {
     ++null_count_;
@@ -236,8 +231,8 @@ class ARROW_EXPORT NumericBuilder : public PrimitiveBuilder<T> {
 
   template <typename T1 = T>
   explicit NumericBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type
-          ARROW_MEMORY_POOL_ARG)
+      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
+          ARROW_MEMORY_POOL_DEFAULT)
       : PrimitiveBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   using PrimitiveBuilder<T>::Append;
@@ -368,7 +363,7 @@ inline uint8_t ExpandedUIntSize(uint64_t val, uint8_t current_int_size) {
 
 class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveUIntBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG);
+  explicit AdaptiveUIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
 
@@ -427,7 +422,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
-  explicit AdaptiveIntBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG);
+  explicit AdaptiveIntBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using ArrayBuilder::Advance;
 
@@ -486,7 +481,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:
-  explicit BooleanBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG);
+  explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
@@ -607,7 +602,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 /// \brief Builder class for variable-length binary data
 class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
  public:
-  explicit BinaryBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG);
+  explicit BinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
 #ifndef ARROW_NO_DEPRECATED_API
   /// \deprecated Since 0.6.0
@@ -656,7 +651,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   using BinaryBuilder::BinaryBuilder;
-  explicit StringBuilder(MemoryPool* ARROW_MEMORY_POOL_ARG);
+  explicit StringBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using BinaryBuilder::Append;
 
@@ -676,7 +671,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 #endif
 
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                         MemoryPool* ARROW_MEMORY_POOL_ARG);
+                         MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value);
   Status Append(const uint8_t* data, int64_t length,
@@ -699,7 +694,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
  public:
   explicit DecimalBuilder(const std::shared_ptr<DataType>& type,
-                          MemoryPool* ARROW_MEMORY_POOL_ARG);
+                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
 #ifndef ARROW_NO_DEPRECATED_API
   /// \deprecated Since 0.6.0

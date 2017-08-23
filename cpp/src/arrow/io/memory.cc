@@ -75,7 +75,7 @@ Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
   return Status::OK();
 }
 
-Status BufferOutputStream::Tell(int64_t* position) {
+Status BufferOutputStream::Tell(int64_t* position) const {
   *position = position_;
   return Status::OK();
 }
@@ -104,9 +104,12 @@ Status BufferOutputStream::Reserve(int64_t nbytes) {
 // ----------------------------------------------------------------------
 // OutputStream that doesn't write anything
 
-Status MockOutputStream::Close() { return Status::OK(); }
+Status MockOutputStream::Close() {
+  // no-op
+  return Status::OK();
+}
 
-Status MockOutputStream::Tell(int64_t* position) {
+Status MockOutputStream::Tell(int64_t* position) const {
   *position = extent_bytes_written_;
   return Status::OK();
 }
@@ -128,6 +131,7 @@ FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buff
     : memcopy_num_threads_(kMemcopyDefaultNumThreads),
       memcopy_blocksize_(kMemcopyDefaultBlocksize),
       memcopy_threshold_(kMemcopyDefaultThreshold) {
+  DCHECK(buffer) << "Buffer was nullptr";
   buffer_ = buffer;
   DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
   mutable_data_ = buffer->mutable_data();
@@ -138,7 +142,7 @@ FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buff
 FixedSizeBufferWriter::~FixedSizeBufferWriter() {}
 
 Status FixedSizeBufferWriter::Close() {
-  // No-op
+  // no-op
   return Status::OK();
 }
 
@@ -150,7 +154,7 @@ Status FixedSizeBufferWriter::Seek(int64_t position) {
   return Status::OK();
 }
 
-Status FixedSizeBufferWriter::Tell(int64_t* position) {
+Status FixedSizeBufferWriter::Tell(int64_t* position) const {
   *position = position_;
   return Status::OK();
 }
@@ -201,7 +205,7 @@ Status BufferReader::Close() {
   return Status::OK();
 }
 
-Status BufferReader::Tell(int64_t* position) {
+Status BufferReader::Tell(int64_t* position) const {
   *position = position_;
   return Status::OK();
 }

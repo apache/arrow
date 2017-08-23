@@ -113,7 +113,7 @@ Status PyReadableFile::Seek(int64_t position) {
   return file_->Seek(position, 0);
 }
 
-Status PyReadableFile::Tell(int64_t* position) {
+Status PyReadableFile::Tell(int64_t* position) const {
   PyAcquireGIL lock;
   return file_->Tell(position);
 }
@@ -177,7 +177,7 @@ Status PyOutputStream::Close() {
   return file_->Close();
 }
 
-Status PyOutputStream::Tell(int64_t* position) {
+Status PyOutputStream::Tell(int64_t* position) const {
   *position = position_;
   return Status::OK();
 }

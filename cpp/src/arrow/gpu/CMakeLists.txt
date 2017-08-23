@@ -80,9 +80,26 @@ set(ARROW_GPU_SHARED_LINK_LIBS
   arrow_shared
 )
 
-cuda_add_library(arrow_gpu SHARED
+add_library(arrow_gpu_objlib OBJECT
   ${ARROW_GPU_SRCS}
 )
+set_property(TARGET arrow_gpu_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+
+if (ARROW_BUILD_SHARED)
+  cuda_add_library(arrow_gpu_shared SHARED $<TARGET_OBJECTS:arrow_gpu_objlib>)
+  install(TARGETS arrow_gpu_shared
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
+
+if (ARROW_BUILD_STATIC)
+  add_library(arrow_gpu_static STATIC $<TARGET_OBJECTS:arrow_gpu_objlib>)
+  install(TARGETS arrow_gpu_static
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
 
 install(FILES
   cuda_common.h
@@ -97,10 +114,19 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+set(ARROW_GPU_TEST_LINK_LIBS
+  arrow_gpu_shared
+  ${ARROW_TEST_LINK_LIBS})
+
 if (ARROW_BUILD_TESTS)
-  set(ARROW_GPU_TEST_LINK_LIBS
-    ${ARROW_TEST_LINK_LIBS}
-    arrow_gpu)
   ADD_ARROW_CUDA_TEST(cuda-test
     STATIC_LINK_LIBS ${ARROW_GPU_TEST_LINK_LIBS})
+endif()
+
+if (ARROW_BUILD_BENCHMARKS)
+  cuda_add_executable(cuda-benchmark cuda-benchmark.cc)
+  target_link_libraries(cuda-benchmark
+    arrow_gpu_shared
+    gtest
+    ${ARROW_BENCHMARK_LINK_LIBS})
 endif()

@@ -63,7 +63,7 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
 
   Status Seek(int64_t position) override;
 
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
 
   bool supports_zero_copy() const override;
 
@@ -77,7 +77,7 @@ class ARROW_EXPORT PyOutputStream : public io::OutputStream {
   virtual ~PyOutputStream();
 
   Status Close() override;
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
   Status Write(const uint8_t* data, int64_t nbytes) override;
 
  private:
