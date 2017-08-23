@@ -33,7 +33,7 @@ namespace decimal {
 /// Semi-numerical Algorithms section 4.3.1.
 ///
 /// Adapted from the Apache ORC C++ implementation
-class Int128 {
+class ARROW_EXPORT Int128 {
  public:
   constexpr Int128() : Int128(0, 0) {}
 
@@ -108,19 +108,19 @@ class Int128 {
   uint64_t low_bits_;
 };
 
-bool operator==(const Int128& left, const Int128& right);
-bool operator!=(const Int128& left, const Int128& right);
-bool operator<(const Int128& left, const Int128& right);
-bool operator<=(const Int128& left, const Int128& right);
-bool operator>(const Int128& left, const Int128& right);
-bool operator>=(const Int128& left, const Int128& right);
-
-Int128 operator-(const Int128& operand);
-Int128 operator+(const Int128& left, const Int128& right);
-Int128 operator-(const Int128& left, const Int128& right);
-Int128 operator*(const Int128& left, const Int128& right);
-Int128 operator/(const Int128& left, const Int128& right);
-Int128 operator%(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator==(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator!=(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator<(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator<=(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator>(const Int128& left, const Int128& right);
+ARROW_EXPORT bool operator>=(const Int128& left, const Int128& right);
+ARROW_EXPORT
+ARROW_EXPORT Int128 operator-(const Int128& operand);
+ARROW_EXPORT Int128 operator+(const Int128& left, const Int128& right);
+ARROW_EXPORT Int128 operator-(const Int128& left, const Int128& right);
+ARROW_EXPORT Int128 operator*(const Int128& left, const Int128& right);
+ARROW_EXPORT Int128 operator/(const Int128& left, const Int128& right);
+ARROW_EXPORT Int128 operator%(const Int128& left, const Int128& right);
 
 }  // namespace decimal
 }  // namespace arrow
