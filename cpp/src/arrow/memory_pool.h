@@ -109,6 +109,12 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
 
 ARROW_EXPORT MemoryPool* default_memory_pool();
 
+#ifdef ARROW_NO_DEFAULT_MEMORY_POOL
+#define ARROW_MEMORY_POOL_DEFAULT
+#else
+#define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
+#endif
+
 }  // namespace arrow
 
 #endif  // ARROW_MEMORY_POOL_H

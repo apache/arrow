@@ -440,7 +440,7 @@ Status ReadableFile::Open(const std::string& path, MemoryPool* memory_pool,
 
 Status ReadableFile::Close() { return impl_->Close(); }
 
-Status ReadableFile::Tell(int64_t* pos) { return impl_->Tell(pos); }
+Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
   return impl_->Read(nbytes, bytes_read, out);
@@ -492,7 +492,7 @@ Status FileOutputStream::Open(const std::string& path, bool append,
 
 Status FileOutputStream::Close() { return impl_->Close(); }
 
-Status FileOutputStream::Tell(int64_t* pos) { return impl_->Tell(pos); }
+Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status FileOutputStream::Write(const uint8_t* data, int64_t length) {
   return impl_->Write(data, length);
@@ -612,7 +612,7 @@ Status MemoryMappedFile::GetSize(int64_t* size) {
   return Status::OK();
 }
 
-Status MemoryMappedFile::Tell(int64_t* position) {
+Status MemoryMappedFile::Tell(int64_t* position) const {
   *position = memory_map_->position();
   return Status::OK();
 }

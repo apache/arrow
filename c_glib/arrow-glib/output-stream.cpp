@@ -312,7 +312,7 @@ namespace garrow {
       }
     }
 
-    arrow::Status Tell(int64_t *position) override {
+    arrow::Status Tell(int64_t *position) const override {
       if (!G_IS_SEEKABLE(output_stream_)) {
         std::string message("[gio-output-stream][tell] "
                             "not seekable output stream: <");

@@ -199,7 +199,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   bool supports_zero_copy() const override;
 
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
 
   void set_memory_pool(MemoryPool* pool);
 
@@ -228,7 +228,7 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   Status Flush() override;
 
-  Status Tell(int64_t* position) override;
+  Status Tell(int64_t* position) const override;
 
  private:
   class ARROW_NO_EXPORT HdfsOutputStreamImpl;

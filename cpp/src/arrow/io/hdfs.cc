@@ -230,7 +230,7 @@ Status HdfsReadableFile::GetSize(int64_t* size) { return impl_->GetSize(size); }
 
 Status HdfsReadableFile::Seek(int64_t position) { return impl_->Seek(position); }
 
-Status HdfsReadableFile::Tell(int64_t* position) { return impl_->Tell(position); }
+Status HdfsReadableFile::Tell(int64_t* position) const { return impl_->Tell(position); }
 
 // ----------------------------------------------------------------------
 // File writing
@@ -284,7 +284,7 @@ Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes) {
 
 Status HdfsOutputStream::Flush() { return impl_->Flush(); }
 
-Status HdfsOutputStream::Tell(int64_t* position) { return impl_->Tell(position); }
+Status HdfsOutputStream::Tell(int64_t* position) const { return impl_->Tell(position); }
 
 // ----------------------------------------------------------------------
 // HDFS client
