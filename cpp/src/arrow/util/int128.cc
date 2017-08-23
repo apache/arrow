@@ -261,8 +261,8 @@ static int64_t FindLastSetBit(uint32_t value) {
   // Count leading zeros
   return __builtin_clz(value) + 1;
 #elif defined(_MSC_VER)
-  unsigned long index;
-  _BitScanReverse(&index, static_cast<unsigned long>(value));
+  unsigned long index;  // NOLINT
+  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
   return static_cast<int64_t>(index + 1UL);
 #endif
 }
