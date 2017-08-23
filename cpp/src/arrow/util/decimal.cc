@@ -158,8 +158,9 @@ void StringToInteger(const std::string& whole, const std::string& fractional, in
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
+
   if (!whole.empty()) {
-    *out = std::stoi(whole, nullptr, 10) *
+    *out = std::stoi(whole) *
            static_cast<int32_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
   if (!fractional.empty()) {
@@ -174,7 +175,7 @@ void StringToInteger(const std::string& whole, const std::string& fractional, in
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
   if (!whole.empty()) {
-    *out = static_cast<int64_t>(std::stoll(whole, nullptr, 10)) *
+    *out = static_cast<int64_t>(std::stoll(whole)) *
            static_cast<int64_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
   if (!fractional.empty()) {
