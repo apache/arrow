@@ -220,14 +220,6 @@ ARROW_EXPORT
 Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                              io::OutputStream* dst, int32_t* metadata_length,
                              int64_t* body_length, MemoryPool* pool);
-
-/// \brief Write dictionary message to output stream
-///
-/// \deprecated Since 0.7.0 as public API
-ARROW_EXPORT
-Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                       int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool);
 #endif
 
 }  // namespace ipc
