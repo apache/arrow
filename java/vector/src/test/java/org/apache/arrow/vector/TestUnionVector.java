@@ -18,9 +18,11 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -31,6 +33,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -72,6 +75,10 @@ public class TestUnionVector {
       mutator.setValueCount(4);
 
       // check that what we wrote is correct
+      int[] typeIds = ((ArrowType.Union) unionVector.getField().getFieldType().getType())
+          .getTypeIds();
+      assertArrayEquals(new int[] {0}, typeIds);
+
       final UnionVector.Accessor accessor = unionVector.getAccessor();
       assertEquals(4, accessor.getValueCount());
 

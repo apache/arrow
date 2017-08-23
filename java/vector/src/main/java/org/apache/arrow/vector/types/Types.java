@@ -453,13 +453,13 @@ public class Types {
         throw new UnsupportedOperationException("FieldWriter not implemented for FixedSizeList type");
       }
     },
-    UNION(new Union(Sparse, null)) {
+    UNION(null) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
         if (fieldType.getDictionary() != null) {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex types");
         }
-        return new UnionVector(name, allocator, schemaChangeCallback);
+        return new UnionVector(name, allocator, schemaChangeCallback, ((Union) fieldType.getType()).getTypeIds());
       }
 
       @Override

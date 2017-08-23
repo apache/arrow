@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -64,13 +65,14 @@ import static org.apache.arrow.vector.types.UnionMode.Sparse;
  */
 public class UnionVector implements FieldVector {
 
+  private static final int MAX_TYPE_ID = 128;
+  private static final int MAX_MINOR_TYPE = 128;
+
   private final String name;
   private final BufferAllocator allocator;
   private final Accessor accessor;
   private final Mutator mutator;
   int valueCount;
-
-  private int[] typeIds;
 
   final BitVector bits;
   final UInt1Vector typeVector;
@@ -87,10 +89,10 @@ public class UnionVector implements FieldVector {
   private final CallBack callBack;
   private final List<BufferBacked> innerVectors;
 
-  // Mapping from minor type ordinal to child index in internal MapVector
-  int[] minorTypeToChildIndex;
-  // Mapping from minor type ordinal to field name in internal MapVector
-  String[] minorTypeToFieldName;
+  private int[] typeIds;
+  private int[] minorTypeToTypeId;
+  private int[] typeIdToMinorType;
+  private String[] minorTypeToFieldName;
 
   public UnionVector(String name, BufferAllocator allocator, CallBack callback) {
     this(name, allocator, callback, null);
@@ -100,8 +102,6 @@ public class UnionVector implements FieldVector {
     this.name = name;
     this.allocator = allocator;
 
-    this.typeIds = typeIds;
-
     this.bits = new BitVector("$bits$", allocator);
     this.typeVector = new UInt1Vector("$types$", allocator);
     this.internalMap = new MapVector("$internal$", allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
@@ -109,9 +109,17 @@ public class UnionVector implements FieldVector {
     this.callBack = callBack;
     this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits, typeVector));
 
-    this.minorTypeToChildIndex = new int[128];
-    Arrays.fill(this.minorTypeToChildIndex, -1);
-    this.minorTypeToFieldName = new String[128];
+    this.typeIds = new int[MAX_TYPE_ID];
+    Arrays.fill(this.typeIds, -1);
+    if (typeIds != null) {
+      System.arraycopy(typeIds, 0, this.typeIds, 0, typeIds.length);
+    }
+    this.minorTypeToTypeId = new int[MAX_MINOR_TYPE];
+    Arrays.fill(this.minorTypeToTypeId, -1);
+    this.typeIdToMinorType = new int[MAX_TYPE_ID];
+    Arrays.fill(this.typeIdToMinorType, -1);
+    this.minorTypeToFieldName = new String[MAX_MINOR_TYPE];
+
     this.accessor = new Accessor();
     this.mutator = new Mutator();
   }
@@ -125,13 +133,38 @@ public class UnionVector implements FieldVector {
     return MinorType.UNION;
   }
 
+  /**
+   * Get type id from a child index or assign one if the child index has not been assigned a type id.
+   *
+   * The assigned type id is the first avaiable id enumerating from 0.
+   *
+   * @return the type id for the child index
+   */
+  private int getOrAssignTypeId(int index) {
+    int typeId = typeIds[index];
+
+    if (typeId < 0) {
+      for (int i = 0; i < MAX_TYPE_ID; i++) {
+        if (typeIdToMinorType[i] < 0) {
+          typeId = i;
+          break;
+        }
+      }
+      typeIds[index] = typeId;
+    }
+
+    return typeId;
+  }
+
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
     internalMap.initializeChildrenFromFields(children);
     for (int i = 0; i < children.size(); ++i) {
       Field child = children.get(i);
       MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
-      setChildIndex(minorType, i);
+
+      int typeId = getOrAssignTypeId(i);
+      setTypeMapping(minorType, typeId);
       setFieldName(minorType, child.getName());
     }
   }
@@ -176,14 +209,17 @@ public class UnionVector implements FieldVector {
     }
 
     T typedVector = internalMap.addOrGet(fieldName, fieldType(minorType), c);
-    VectorWithOrdinal vector = internalMap.getChildVectorWithOrdinal(fieldName);
-    setChildIndex(minorType, vector.ordinal);
+    int index = internalMap.getChildVectorWithOrdinal(fieldName).ordinal;
+
+    int typeId = getOrAssignTypeId(index);
+    setTypeMapping(minorType, typeId);
 
     return typedVector;
   }
 
-  private void setChildIndex(Types.MinorType type, int index) {
-    minorTypeToChildIndex[type.ordinal()] = index;
+  private void setTypeMapping(Types.MinorType minorType, int typeId) {
+    minorTypeToTypeId[minorType.ordinal()] = typeId;
+    typeIdToMinorType[typeId] = minorType.ordinal();
   }
 
   private void setFieldName(Types.MinorType type, String fieldName) {
@@ -274,8 +310,8 @@ public class UnionVector implements FieldVector {
   }
 
   public int getTypeValue(int index) {
-    int childIndex = typeVector.getAccessor().get(index);
-    return internalMap.getChildByOrdinal(childIndex).getMinorType().ordinal();
+    int typeId = typeVector.getAccessor().get(index);
+    return typeIdToMinorType[typeId];
   }
 
   public UInt1Vector getTypeVector() {
@@ -341,9 +377,10 @@ public class UnionVector implements FieldVector {
       childFields.add(v.getField());
     }
 
-    int[] typeIds = this.typeIds == null ? new int[0] : this.typeIds;
+    int[] typeIds = Arrays.copyOfRange(this.typeIds, 0, children.size());
 
-    return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
+    return new Field(name,
+        FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
   }
 
   @Override
@@ -391,24 +428,30 @@ public class UnionVector implements FieldVector {
   private class TransferImpl implements TransferPair {
     private final TransferPair internalMapVectorTransferPair;
     private final TransferPair typeVectorTransferPair;
+    private final TransferPair bitsTransferPair;
     private final UnionVector to;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      to = new UnionVector(name, allocator, callBack);
-      internalMapVectorTransferPair = internalMap.makeTransferPair(to.internalMap);
-      typeVectorTransferPair = typeVector.makeTransferPair(to.typeVector);
+      this(new UnionVector(name, allocator, callBack));
     }
 
     public TransferImpl(UnionVector to) {
       this.to = to;
       internalMapVectorTransferPair = internalMap.makeTransferPair(to.internalMap);
       typeVectorTransferPair = typeVector.makeTransferPair(to.typeVector);
+      bitsTransferPair = bits.makeTransferPair(to.bits);
+
+      this.to.typeIds = typeIds;
+      this.to.minorTypeToTypeId = minorTypeToTypeId;
+      this.to.typeIdToMinorType = typeIdToMinorType;
+      this.to.minorTypeToFieldName = minorTypeToFieldName;
     }
 
     @Override
     public void transfer() {
       internalMapVectorTransferPair.transfer();
       typeVectorTransferPair.transfer();
+      bitsTransferPair.transfer();
       to.valueCount = valueCount;
     }
 
@@ -495,8 +538,29 @@ public class UnionVector implements FieldVector {
 
     @Override
     public Object getObject(int index) {
-      int childIndex = typeVector.getAccessor().get(index);
-      return internalMap.getChildByOrdinal(childIndex).getAccessor().getObject(index);
+      int minorType = typeIdToMinorType[typeVector.getAccessor().get(index)];
+      assert minorType >= 0;
+      switch (Types.MinorType.values()[minorType]) {
+        case NULL:
+          return null;
+      <#list vv.types as type>
+        <#list type.minor as minor>
+          <#assign name = minor.class?cap_first />
+          <#assign fields = minor.fields!type.fields />
+          <#assign uncappedName = name?uncap_first/>
+          <#if !minor.typeParams?? >
+        case ${name?upper_case}:
+        return get${name}Vector().getAccessor().getObject(index);
+          </#if>
+        </#list>
+      </#list>
+        case MAP:
+          return getMap().getAccessor().getObject(index);
+        case LIST:
+          return getList().getAccessor().getObject(index);
+        default:
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[minorType]);
+      }
     }
 
     public byte[] get(int index) {
@@ -591,10 +655,10 @@ public class UnionVector implements FieldVector {
     public void setNull(int index) {bits.getMutator().setSafe(index, 0);}
 
     public void setType(int index, MinorType type) {
-      int childIndex = minorTypeToChildIndex[type.ordinal()];
+      int typeId = minorTypeToTypeId[type.ordinal()];
 
-      // Intialize vector and child index if it doesn't exist
-      if (childIndex < 0) {
+      // Intialize vector and typeId if it doesn't exist
+      if (typeId < 0) {
         switch (type) {
           <#list vv.types as type>
             <#list type.minor as minor>
@@ -618,12 +682,12 @@ public class UnionVector implements FieldVector {
             throw new UnsupportedOperationException("Cannot support type: " + type);
         }
 
-        childIndex = minorTypeToChildIndex[type.ordinal()];
+        typeId = minorTypeToTypeId[type.ordinal()];
       }
 
-      assert childIndex >= 0;
+      assert typeId >= 0;
       bits.getMutator().setSafeToOne(index);
-      typeVector.getMutator().setSafe(index, (byte) childIndex);
+      typeVector.getMutator().setSafe(index, (byte) typeId);
     }
 
     @Override

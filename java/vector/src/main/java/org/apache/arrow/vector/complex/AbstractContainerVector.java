@@ -22,9 +22,10 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
@@ -109,6 +110,6 @@ public abstract class AbstractContainerVector implements ValueVector {
   }
 
   public UnionVector addOrGetUnion(String name) {
-    return addOrGet(name, FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
+    return addOrGet(name, FieldType.nullable(new Union(UnionMode.Sparse, null)), UnionVector.class);
   }
 }
