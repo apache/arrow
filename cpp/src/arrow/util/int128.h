@@ -74,7 +74,7 @@ class Int128 {
   ///  -21 / -5 ->  4, -1
   /// @param right the number to divide by
   /// @param remainder the remainder after the division
-  Status Divide(const Int128 &divisor, Int128 *result, Int128 *remainder) const;
+  Status Divide(const Int128& divisor, Int128* result, Int128* remainder) const;
 
   /// \brief In-place division.
   Int128& operator/=(const Int128& right);

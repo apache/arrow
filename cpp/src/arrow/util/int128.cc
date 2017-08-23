@@ -204,7 +204,7 @@ Int128& Int128::operator*=(const Int128& right) {
  * @param was_negative a flag for whether the value was original negative
  * @result the output length of the array
  */
-static int64_t FillInArray(const Int128 &value, uint32_t *array, bool &was_negative) {
+static int64_t FillInArray(const Int128& value, uint32_t* array, bool& was_negative) {
   uint64_t high;
   uint64_t low;
   const int64_t highbits = value.high_bits();
@@ -261,7 +261,7 @@ static int64_t FindLastSetBit(uint32_t value) {
   // Count leading zeros
   return __builtin_clz(value) + 1;
 #elif defined(_MSC_VER)
-  unsigned long index;  // NOLINT
+  unsigned long index;                                         // NOLINT
   _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
   return static_cast<int64_t>(index + 1UL);
 #endif
@@ -273,7 +273,7 @@ static int64_t FindLastSetBit(uint32_t value) {
  * @param length the number of entries in the array
  * @param bits the number of bits to shift (0 <= bits < 32)
  */
-static void ShiftArrayLeft(uint32_t *array, int64_t length, int64_t bits) {
+static void ShiftArrayLeft(uint32_t* array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = 0; i < length - 1; ++i) {
       array[i] = (array[i] << bits) | (array[i + 1] >> (32 - bits));
@@ -288,7 +288,7 @@ static void ShiftArrayLeft(uint32_t *array, int64_t length, int64_t bits) {
  * @param length the number of entries in the array
  * @param bits the number of bits to shift (0 <= bits < 32)
  */
-static void ShiftArrayRight(uint32_t *array, int64_t length, int64_t bits) {
+static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
   if (length > 0 && bits != 0) {
     for (int64_t i = length - 1; i > 0; --i) {
       array[i] = (array[i] >> bits) | (array[i - 1] << (32 - bits));
@@ -301,7 +301,7 @@ static void ShiftArrayRight(uint32_t *array, int64_t length, int64_t bits) {
  * Fix the signs of the result and remainder at the end of the division
  * based on the signs of the dividend and divisor.
  */
-static void FixDivisionSigns(Int128 *result, Int128 *remainder,
+static void FixDivisionSigns(Int128* result, Int128* remainder,
                              bool dividend_was_negative, bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
     result->Negate();
@@ -315,7 +315,7 @@ static void FixDivisionSigns(Int128 *result, Int128 *remainder,
 /**
  * Build a Int128 from a list of ints.
  */
-static Status BuildFromArray(Int128 *value, uint32_t *array, int64_t length) {
+static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
   switch (length) {
     case 0:
       *value = {static_cast<int64_t>(0)};
@@ -352,10 +352,10 @@ static Status BuildFromArray(Int128 *value, uint32_t *array, int64_t length) {
 /**
  * Do a division where the divisor fits into a single 32 bit value.
  */
-static Status SingleDivide(const uint32_t *dividend, int64_t dividend_length,
-                           uint32_t divisor, Int128 *remainder,
+static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
+                           uint32_t divisor, Int128* remainder,
                            bool dividend_was_negative, bool divisor_was_negative,
-                           Int128 *result) {
+                           Int128* result) {
   uint64_t r = 0;
   uint32_t result_array[5];
   for (int64_t j = 0; j < dividend_length; j++) {
@@ -370,7 +370,7 @@ static Status SingleDivide(const uint32_t *dividend, int64_t dividend_length,
   return Status::OK();
 }
 
-Status Int128::Divide(const Int128 &divisor, Int128 *result, Int128 *remainder) const {
+Status Int128::Divide(const Int128& divisor, Int128* result, Int128* remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[5];
