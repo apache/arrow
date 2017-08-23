@@ -28,27 +28,27 @@ namespace decimal {
 template <typename T>
 class DecimalTest : public ::testing::Test {
  public:
-  DecimalTest() : decimal_value(23423445), string_value("234.23445") {}
-  Decimal<T> decimal_value;
-  std::string string_value;
+  DecimalTest() : decimal_value_(23423445), string_value_("234.23445") {}
+  Decimal<T> decimal_value_;
+  std::string string_value_;
 };
 
 typedef ::testing::Types<int32_t, int64_t, Int128> DecimalTypes;
 TYPED_TEST_CASE(DecimalTest, DecimalTypes);
 
 TYPED_TEST(DecimalTest, TestToString) {
-  Decimal<TypeParam> decimal(this->decimal_value);
+  Decimal<TypeParam> decimal(this->decimal_value_);
   int precision = 8;
   int scale = 5;
   std::string result = ToString(decimal, precision, scale);
-  ASSERT_EQ(result, this->string_value);
+  ASSERT_EQ(result, this->string_value_);
 }
 
 TYPED_TEST(DecimalTest, TestFromString) {
-  Decimal<TypeParam> expected(this->decimal_value);
+  Decimal<TypeParam> expected(this->decimal_value_);
   Decimal<TypeParam> result;
   int precision, scale;
-  ASSERT_OK(FromString(this->string_value, &result, &precision, &scale));
+  ASSERT_OK(FromString(this->string_value_, &result, &precision, &scale));
   ASSERT_EQ(result.value, expected.value);
   ASSERT_EQ(precision, 8);
   ASSERT_EQ(scale, 5);
