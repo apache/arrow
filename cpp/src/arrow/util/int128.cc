@@ -39,7 +39,7 @@ Int128::Int128(const std::string& str) : Int128() {
     auto posn = static_cast<size_t>(is_negative);
 
     while (posn < length) {
-      const size_t group = std::min(18UL, length - posn);
+      const size_t group = std::min(static_cast<size_t>(18), length - posn);
       const auto chunk = static_cast<int64_t>(std::stoll(str.substr(posn, group)));
       const auto multiple =
           static_cast<int64_t>(std::pow(10.0, static_cast<double>(group)));
