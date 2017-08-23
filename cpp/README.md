@@ -101,15 +101,26 @@ all of these variables. Note that `ARROW_BUILD_TOOLCHAIN` will not set
 `BOOST_ROOT`, so if you have custom Boost installation, you must set this
 environment variable separately.
 
-### Building Python integration library
+### Building Python integration library (optional)
 
-The `arrow_python` shared library can be built by passing `-DARROW_PYTHON=on`
-to CMake. This must be installed or in your library load path to be able to
-build pyarrow, the Arrow Python bindings.
+The optional `arrow_python` shared library can be built by passing
+`-DARROW_PYTHON=on` to CMake. This must be installed or in your library load
+path to be able to build pyarrow, the Arrow Python bindings.
 
 The Python library must be built against the same Python version for which you
 are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must also be
 installed.
+
+### Building GPU extension library (optional)
+
+The optional `arrow_gpu` shared library can be built by passing
+`-DARROW_GPU=on`. This requires a CUDA installation to build, and to use many
+of the functions you must have a functioning GPU. Currently only CUDA
+functionality is supported, though if there is demand we can also add OpenCL
+interfaces in this library as needed.
+
+The CUDA toolchain used to build the library can be customized by using the
+`$CUDA_HOME` environment variable.
 
 ### API documentation
 
