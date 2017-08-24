@@ -22,6 +22,11 @@
 #include <limits>
 #include <sstream>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(_BitScanReverse)
+#endif
+
 #include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
