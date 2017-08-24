@@ -114,7 +114,7 @@ ARROW_EXPORT bool operator<(const Int128& left, const Int128& right);
 ARROW_EXPORT bool operator<=(const Int128& left, const Int128& right);
 ARROW_EXPORT bool operator>(const Int128& left, const Int128& right);
 ARROW_EXPORT bool operator>=(const Int128& left, const Int128& right);
-ARROW_EXPORT
+
 ARROW_EXPORT Int128 operator-(const Int128& operand);
 ARROW_EXPORT Int128 operator+(const Int128& left, const Int128& right);
 ARROW_EXPORT Int128 operator-(const Int128& left, const Int128& right);
