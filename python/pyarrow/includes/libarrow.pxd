@@ -684,6 +684,19 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                             const shared_ptr[CSchema]& schema,
                             shared_ptr[CRecordBatch]* out)
 
+    CStatus SerializeSchema(const CSchema& schema, CMemoryPool* pool,
+                            shared_ptr[CBuffer]* out)
+
+    CStatus SerializeRecordBatch(const CRecordBatch& schema,
+                                 CMemoryPool* pool,
+                                 shared_ptr[CBuffer]* out)
+
+    CStatus ReadSchema(InputStream* stream, shared_ptr[CSchema]* out)
+
+    CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
+                            InputStream* stream,
+                            shared_ptr[CRecordBatch]* out)
+
 
 cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
 

@@ -313,6 +313,8 @@ Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metada
   return Status::OK();
 }
 
+std::shared_ptr<const KeyValueMetadata> Schema::metadata() const { return metadata_; }
+
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(fields_);
 }

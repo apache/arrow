@@ -70,7 +70,7 @@ cdef class Message:
 
     def serialize(self, memory_pool=None):
         """
-        Write message to Buffer with length-prefixed metadata, then body
+        Write message as encapsulated IPC message
 
         Parameters
         ----------
@@ -464,24 +464,57 @@ def read_message(source):
     return result
 
 
-def read_record_batch(Message batch_message, Schema schema):
+def read_schema(obj):
+    """
+    Read Schema from message or buffer
+
+    Parameters
+    ----------
+    obj : buffer or Message
+
+    Returns
+    -------
+    schema : Schema
+    """
+    cdef:
+        shared_ptr[CSchema] result
+        shared_ptr[RandomAccessFile] cpp_file
+
+    if isinstance(obj, Message):
+        raise NotImplementedError(type(obj))
+
+    get_reader(obj, &cpp_file)
+
+    with nogil:
+        check_status(ReadSchema(cpp_file.get(), &result))
+
+    return pyarrow_wrap_schema(result)
+
+
+def read_record_batch(obj, Schema schema):
     """
     Read RecordBatch from message, given a known schema
 
     Parameters
     ----------
-    batch_message : Message
-        Such as that obtained from read_message
+    obj : Message or Buffer-like
     schema : Schema
 
     Returns
     -------
     batch : RecordBatch
     """
-    cdef shared_ptr[CRecordBatch] result
+    cdef:
+        shared_ptr[CRecordBatch] result
+        Message message
+
+    if isinstance(obj, Message):
+        message = obj
+    else:
+        message = read_message(obj)
 
     with nogil:
-        check_status(ReadRecordBatch(deref(batch_message.message.get()),
+        check_status(ReadRecordBatch(deref(message.message.get()),
                                      schema.sp_schema, &result))
 
     return pyarrow_wrap_batch(result)
