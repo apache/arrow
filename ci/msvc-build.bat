@@ -51,14 +51,11 @@ conda create -n arrow -q -y python=%PYTHON% ^
       six pytest setuptools numpy pandas cython ^
       thrift-cpp
 
-@rem ARROW-1294 CMake 3.9.0 in conda-forge breaks the build
-set ARROW_CMAKE_VERSION=3.8.0
-
 if "%JOB%" == "Toolchain" (
 
   conda install -n arrow -q -y -c conda-forge ^
       flatbuffers rapidjson ^
-      cmake=%ARROW_CMAKE_VERSION% ^
+      cmake ^
       git ^
       boost-cpp ^
       snappy zlib brotli gflags lz4-c zstd
