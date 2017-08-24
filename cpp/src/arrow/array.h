@@ -521,8 +521,6 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width() const { return byte_width_; }
 
-  const uint8_t* raw_values() const { return raw_values_ + byte_width_ * data_->offset; }
-
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
 
  protected:
@@ -536,9 +534,9 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
 // ----------------------------------------------------------------------
 // DecimalArray
-class ARROW_EXPORT DecimalArray : public FlatArray {
+class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
  public:
-  using TypeClass = Type;
+  using TypeClass = DecimalType;
 
   /// \brief Construct DecimalArray from internal::ArrayData instance
   explicit DecimalArray(const std::shared_ptr<internal::ArrayData>& data);
@@ -548,25 +546,9 @@ class ARROW_EXPORT DecimalArray : public FlatArray {
                const std::shared_ptr<Buffer>& null_bitmap = nullptr,
                int64_t null_count = 0, int64_t offset = 0);
 
-  const uint8_t* GetValue(int64_t i) const;
-
   std::string FormatValue(int64_t i) const;
 
   std::shared_ptr<Array> Slice(int64_t offset, int64_t length) const override;
-
-  /// \brief The main decimal data
-  std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
-
-  int32_t byte_width() const {
-    return static_cast<const DecimalType&>(*type()).byte_width();
-  }
-
-  /// \brief Return pointer to value data, accounting for any offset
-  const uint8_t* raw_values() const { return raw_values_ + byte_width() * data_->offset; }
-
- private:
-  void SetData(const std::shared_ptr<internal::ArrayData>& data);
-  const uint8_t* raw_values_;
 };
 
 // ----------------------------------------------------------------------

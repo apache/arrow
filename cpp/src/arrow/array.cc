@@ -323,7 +323,6 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(
     const std::shared_ptr<internal::ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_BINARY);
   SetData(data);
 }
 
@@ -346,22 +345,17 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 // ----------------------------------------------------------------------
 // Decimal
 
-DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data) {
+DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data)
+    : FixedSizeBinaryArray(data) {
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
   SetData(data);
-}
-
-void DecimalArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  auto fixed_size_data = data->buffers[1];
-  this->Array::SetData(data);
-
-  raw_values_ = fixed_size_data != nullptr ? fixed_size_data->data() : nullptr;
 }
 
 DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
                            const std::shared_ptr<Buffer>& data,
                            const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                           int64_t offset) {
+                           int64_t offset)
+    : FixedSizeBinaryArray(type, length, data, null_bitmap, null_count, offset) {
   BufferVector buffers = {null_bitmap, data};
   SetData(
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
