@@ -161,7 +161,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 
 const uint8_t* PrimitiveArray::raw_values() const {
   return raw_values_ +
-         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / 8;
+         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / CHAR_BIT;
 }
 
 template <typename T>
@@ -323,7 +323,6 @@ std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const 
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(
     const std::shared_ptr<internal::ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_BINARY);
   SetData(data);
 }
 
@@ -346,61 +345,30 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 // ----------------------------------------------------------------------
 // Decimal
 
-DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data) {
+DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data)
+    : FixedSizeBinaryArray(data) {
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
-  SetData(data);
 }
 
-void DecimalArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  auto fixed_size_data = data->buffers[1];
-  auto sign_bitmap = data->buffers[2];
-  this->Array::SetData(data);
-
-  raw_values_ = fixed_size_data != nullptr ? fixed_size_data->data() : nullptr;
-  sign_bitmap_data_ = sign_bitmap != nullptr ? sign_bitmap->data() : nullptr;
-}
-
-DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
-                           const std::shared_ptr<Buffer>& data,
-                           const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                           int64_t offset, const std::shared_ptr<Buffer>& sign_bitmap) {
-  BufferVector buffers = {null_bitmap, data, sign_bitmap};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
-}
-
-bool DecimalArray::IsNegative(int64_t i) const {
-  return sign_bitmap_data_ != nullptr ? BitUtil::GetBit(sign_bitmap_data_, i) : false;
-}
-
-const uint8_t* DecimalArray::GetValue(int64_t i) const {
-  return raw_values_ + (i + data_->offset) * byte_width();
-}
+#define DECIMAL_TO_STRING_CASE(bits, bytes, precision, scale) \
+  case bits: {                                                \
+    decimal::Decimal##bits value;                             \
+    decimal::FromBytes((bytes), &value);                      \
+    return decimal::ToString(value, (precision), (scale));    \
+  }
 
 std::string DecimalArray::FormatValue(int64_t i) const {
   const auto& type_ = static_cast<const DecimalType&>(*type());
   const int precision = type_.precision();
   const int scale = type_.scale();
-  const int byte_width = type_.byte_width();
-  const uint8_t* bytes = raw_values_ + (i + data_->offset) * byte_width;
-  switch (byte_width) {
-    case 4: {
-      decimal::Decimal32 value;
-      decimal::FromBytes(bytes, &value);
-      return decimal::ToString(value, precision, scale);
-    }
-    case 8: {
-      decimal::Decimal64 value;
-      decimal::FromBytes(bytes, &value);
-      return decimal::ToString(value, precision, scale);
-    }
-    case 16: {
-      decimal::Decimal128 value;
-      decimal::FromBytes(bytes, IsNegative(i), &value);
-      return decimal::ToString(value, precision, scale);
-    }
+  const int bit_width = type_.bit_width();
+  const uint8_t* bytes = GetValue(i);
+  switch (bit_width) {
+    DECIMAL_TO_STRING_CASE(32, bytes, precision, scale)
+    DECIMAL_TO_STRING_CASE(64, bytes, precision, scale)
+    DECIMAL_TO_STRING_CASE(128, bytes, precision, scale)
     default: {
-      DCHECK(false) << "Invalid byte width: " << byte_width;
+      DCHECK(false) << "Invalid bit width: " << bit_width;
       return "";
     }
   }
