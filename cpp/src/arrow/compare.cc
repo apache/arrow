@@ -257,37 +257,7 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const DecimalArray& left) {
-    const auto& right = static_cast<const DecimalArray&>(right_);
-
-    int32_t width = left.byte_width();
-
-    const uint8_t* left_data = nullptr;
-    const uint8_t* right_data = nullptr;
-
-    if (left.values()) {
-      left_data = left.raw_values();
-    }
-
-    if (right.values()) {
-      right_data = right.raw_values();
-    }
-
-    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
-         ++i, ++o_i) {
-      const bool is_null = left.IsNull(i);
-      if (is_null != right.IsNull(o_i)) {
-        result_ = false;
-        return Status::OK();
-      }
-      if (is_null) continue;
-
-      if (std::memcmp(left_data + width * i, right_data + width * o_i, width)) {
-        result_ = false;
-        return Status::OK();
-      }
-    }
-    result_ = true;
-    return Status::OK();
+    return Visit(static_cast<const FixedSizeBinaryArray&>(left));
   }
 
   Status Visit(const NullArray& left) {
@@ -341,7 +311,7 @@ class RangeEqualsVisitor {
 
 static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& right) {
   const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-  const int byte_width = size_meta.bit_width() / 8;
+  const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
   const uint8_t* left_data = nullptr;
   const uint8_t* right_data = nullptr;
@@ -372,6 +342,14 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
 template <typename T>
 static inline bool CompareBuiltIn(const Array& left, const Array& right, const T* ldata,
                                   const T* rdata) {
+  if (ldata == nullptr && rdata == nullptr) {
+    return true;
+  }
+
+  if (ldata == nullptr || rdata == nullptr) {
+    return false;
+  }
+
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
       if (left.IsNull(i) != right.IsNull(i)) {
@@ -381,55 +359,9 @@ static inline bool CompareBuiltIn(const Array& left, const Array& right, const T
       }
     }
     return true;
-  } else {
-    return memcmp(ldata, rdata, sizeof(T) * left.length()) == 0;
-  }
-}
-
-static bool IsEqualDecimal(const DecimalArray& left, const DecimalArray& right) {
-  const uint8_t* left_data = nullptr;
-  const uint8_t* right_data = nullptr;
-
-  if (left.values() != nullptr) {
-    left_data = left.raw_values();
   }
 
-  if (right.values() != nullptr) {
-    right_data = right.raw_values();
-  }
-
-  const int32_t byte_width = left.byte_width();
-  if (byte_width == 4) {
-    return CompareBuiltIn<int32_t>(left, right,
-                                   reinterpret_cast<const int32_t*>(left_data),
-                                   reinterpret_cast<const int32_t*>(right_data));
-  }
-
-  if (byte_width == 8) {
-    return CompareBuiltIn<int64_t>(left, right,
-                                   reinterpret_cast<const int64_t*>(left_data),
-                                   reinterpret_cast<const int64_t*>(right_data));
-  }
-
-  // 128-bit
-  for (int64_t i = 0; i < left.length(); ++i) {
-    const bool left_null = left.IsNull(i);
-    const bool right_null = right.IsNull(i);
-
-    // one of left or right value is not null
-    if (left_null != right_null) {
-      return false;
-    }
-
-    // both are not null and their respective elements are byte for byte equal
-    if (!left_null && !right_null && memcmp(left_data, right_data, byte_width) != 0) {
-      return false;
-    }
-
-    left_data += byte_width;
-    right_data += byte_width;
-  }
-  return true;
+  return memcmp(ldata, rdata, sizeof(T) * left.length()) == 0;
 }
 
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
@@ -471,11 +403,6 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
                           Status>::type
   Visit(const T& left) {
     result_ = IsEqualPrimitive(left, static_cast<const PrimitiveArray&>(right_));
-    return Status::OK();
-  }
-
-  Status Visit(const DecimalArray& left) {
-    result_ = IsEqualDecimal(left, static_cast<const DecimalArray&>(right_));
     return Status::OK();
   }
 
@@ -578,6 +505,27 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       result_ = left.indices()->Equals(right.indices());
     }
     return Status::OK();
+  }
+
+  Status Visit(const DecimalArray& left) {
+    const int byte_width = left.byte_width();
+    if (byte_width == 4) {
+      result_ = CompareBuiltIn<int32_t>(
+          left, right_, reinterpret_cast<const int32_t*>(left.raw_values()),
+          reinterpret_cast<const int32_t*>(
+              static_cast<const DecimalArray&>(right_).raw_values()));
+      return Status::OK();
+    }
+
+    if (byte_width == 8) {
+      result_ = CompareBuiltIn<int64_t>(
+          left, right_, reinterpret_cast<const int64_t*>(left.raw_values()),
+          reinterpret_cast<const int64_t*>(
+              static_cast<const DecimalArray&>(right_).raw_values()));
+      return Status::OK();
+    }
+
+    return RangeEqualsVisitor::Visit(left);
   }
 
   template <typename T>
@@ -812,7 +760,7 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
     }
 
     const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / 8;
+    const int byte_width = size_meta.bit_width() / CHAR_BIT;
     DCHECK_GT(byte_width, 0);
 
     const uint8_t* left_data = left.data()->data();
