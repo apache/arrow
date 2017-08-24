@@ -730,7 +730,7 @@ class ARROW_EXPORT Schema {
   /// \brief The custom key-value metadata, if any
   ///
   /// \return metadata may be nullptr
-  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
+  std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
   std::string ToString() const;

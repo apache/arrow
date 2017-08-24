@@ -215,14 +215,17 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
                                       GArrowSchema *schema,
                                       GError **error)
 {
+  using BaseType = arrow::ipc::RecordBatchWriter;
+  using WriterType = arrow::ipc::RecordBatchStreamWriter;
+
   auto arrow_sink = garrow_output_stream_get_raw(sink).get();
-  std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> arrow_writer;
-  auto status =
-    arrow::ipc::RecordBatchStreamWriter::Open(arrow_sink,
-                                              garrow_schema_get_raw(schema),
-                                              &arrow_writer);
+  std::shared_ptr<BaseType> arrow_writer;
+  auto status = WriterType::Open(arrow_sink,
+                                 garrow_schema_get_raw(schema),
+                                 &arrow_writer);
+  auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-stream-writer][open]")) {
-    return garrow_record_batch_stream_writer_new_raw(&arrow_writer);
+    return garrow_record_batch_stream_writer_new_raw(&subtype);
   } else {
     return NULL;
   }
@@ -259,14 +262,17 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                        GArrowSchema *schema,
                        GError **error)
 {
+  using BaseType = arrow::ipc::RecordBatchWriter;
+  using WriterType = arrow::ipc::RecordBatchFileWriter;
+
   auto arrow_sink = garrow_output_stream_get_raw(sink);
-  std::shared_ptr<arrow::ipc::RecordBatchFileWriter> arrow_writer;
-  auto status =
-    arrow::ipc::RecordBatchFileWriter::Open(arrow_sink.get(),
-                                            garrow_schema_get_raw(schema),
-                                            &arrow_writer);
+  std::shared_ptr<BaseType> arrow_writer;
+  auto status = WriterType::Open(arrow_sink.get(),
+                                 garrow_schema_get_raw(schema),
+                                 &arrow_writer);
+  auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-file-writer][open]")) {
-    return garrow_record_batch_file_writer_new_raw(&arrow_writer);
+    return garrow_record_batch_file_writer_new_raw(&subtype);
   } else {
     return NULL;
   }

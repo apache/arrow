@@ -237,12 +237,15 @@ GArrowRecordBatchStreamReader *
 garrow_record_batch_stream_reader_new(GArrowInputStream *stream,
                                       GError **error)
 {
+  using BaseType = arrow::ipc::RecordBatchReader;
+  using ReaderType = arrow::ipc::RecordBatchStreamReader;
+
   auto arrow_input_stream = garrow_input_stream_get_raw(stream);
-  std::shared_ptr<arrow::ipc::RecordBatchStreamReader> arrow_reader;
-  auto status =
-    arrow::ipc::RecordBatchStreamReader::Open(arrow_input_stream, &arrow_reader);
+  std::shared_ptr<BaseType> arrow_reader;
+  auto status = ReaderType::Open(arrow_input_stream, &arrow_reader);
+  auto subtype = std::dynamic_pointer_cast<ReaderType>(arrow_reader);
   if (garrow_error_check(error, status, "[record-batch-stream-reader][open]")) {
-    return garrow_record_batch_stream_reader_new_raw(&arrow_reader);
+    return garrow_record_batch_stream_reader_new_raw(&subtype);
   } else {
     return NULL;
   }
@@ -354,6 +357,7 @@ garrow_record_batch_file_reader_new(GArrowSeekableInputStream *file,
                                     GError **error)
 {
   auto arrow_random_access_file = garrow_seekable_input_stream_get_raw(file);
+
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> arrow_reader;
   auto status =
     arrow::ipc::RecordBatchFileReader::Open(arrow_random_access_file,

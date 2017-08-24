@@ -30,12 +30,12 @@ namespace ipc {
 // A typical usage would be:
 // $ <program that produces streaming output> | stream-to-file > file.arrow
 Status ConvertToFile() {
-  std::shared_ptr<io::InputStream> input(new io::StdinStream);
-  std::shared_ptr<RecordBatchStreamReader> reader;
-  RETURN_NOT_OK(RecordBatchStreamReader::Open(input, &reader));
+  io::StdinStream input;
+  std::shared_ptr<RecordBatchReader> reader;
+  RETURN_NOT_OK(RecordBatchStreamReader::Open(&input, &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<RecordBatchFileWriter> writer;
+  std::shared_ptr<RecordBatchWriter> writer;
   RETURN_NOT_OK(RecordBatchFileWriter::Open(&sink, reader->schema(), &writer));
 
   std::shared_ptr<RecordBatch> batch;

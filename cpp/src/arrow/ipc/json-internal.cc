@@ -32,7 +32,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/metadata.h"
+#include "arrow/ipc/metadata-internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"

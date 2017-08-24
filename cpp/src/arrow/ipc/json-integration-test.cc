@@ -77,7 +77,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
     std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
   }
 
-  std::shared_ptr<ipc::RecordBatchFileWriter> writer;
+  std::shared_ptr<ipc::RecordBatchWriter> writer;
   RETURN_NOT_OK(
       ipc::RecordBatchFileWriter::Open(out_file.get(), reader->schema(), &writer));
 
@@ -99,7 +99,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   RETURN_NOT_OK(io::FileOutputStream::Open(json_path, &out_file));
 
   std::shared_ptr<ipc::RecordBatchFileReader> reader;
-  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(in_file, &reader));
+  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(in_file.get(), &reader));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
@@ -140,7 +140,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   RETURN_NOT_OK(io::ReadableFile::Open(arrow_path, &arrow_file));
 
   std::shared_ptr<ipc::RecordBatchFileReader> arrow_reader;
-  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(arrow_file, &arrow_reader));
+  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(arrow_file.get(), &arrow_reader));
 
   auto json_schema = json_reader->schema();
   auto arrow_schema = arrow_reader->schema();
