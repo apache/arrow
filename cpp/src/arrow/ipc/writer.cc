@@ -621,7 +621,7 @@ RecordBatchWriter::~RecordBatchWriter() {}
 class StreamBookKeeper {
  public:
   StreamBookKeeper() : sink_(nullptr), position_(-1) {}
-  explicit StreamBookKeeper(io::OutputStream* sink) : sink_(sink) {}
+  explicit StreamBookKeeper(io::OutputStream* sink) : sink_(sink), position_(-1) {}
 
   Status UpdatePosition() { return sink_->Tell(&position_); }
 
