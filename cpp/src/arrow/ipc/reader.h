@@ -92,6 +92,10 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   /// \return Status
   static Status Open(io::InputStream* stream, std::shared_ptr<RecordBatchReader>* out);
 
+  /// \brief Version of Open that retains ownership of stream
+  static Status Open(const std::shared_ptr<io::InputStream>& stream,
+                     std::shared_ptr<RecordBatchReader>* out);
+
   std::shared_ptr<Schema> schema() const override;
   Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) override;
 
@@ -107,21 +111,31 @@ class ARROW_EXPORT RecordBatchFileReader {
  public:
   ~RecordBatchFileReader();
 
+  /// \brief Open a RecordBatchFileReader
   // Open a file-like object that is assumed to be self-contained; i.e., the
   // end of the file interface is the end of the Arrow file. Note that there
   // can be any amount of data preceding the Arrow-formatted data, because we
   // need only locate the end of the Arrow file stream to discover the metadata
   // and then proceed to read the data into memory.
+  static Status Open(io::RandomAccessFile* file,
+                     std::shared_ptr<RecordBatchFileReader>* reader);
+
+  /// \brief Open a RecordBatchFileReader
+  /// If the file is embedded within some larger file or memory region, you can
+  /// pass the absolute memory offset to the end of the file (which contains the
+  /// metadata footer). The metadata must have been written with memory offsets
+  /// relative to the start of the containing file
+  ///
+  /// @param file: the data source
+  /// @param footer_offset: the position of the end of the Arrow "file"
+  static Status Open(io::RandomAccessFile* file, int64_t footer_offset,
+                     std::shared_ptr<RecordBatchFileReader>* reader);
+
+  /// \brief Version of Open that retains ownership of file
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
                      std::shared_ptr<RecordBatchFileReader>* reader);
 
-  // If the file is embedded within some larger file or memory region, you can
-  // pass the absolute memory offset to the end of the file (which contains the
-  // metadata footer). The metadata must have been written with memory offsets
-  // relative to the start of the containing file
-  //
-  // @param file: the data source
-  // @param footer_offset: the position of the end of the Arrow "file"
+  /// \brief Version of Open that retains ownership of file
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file,
                      int64_t footer_offset,
                      std::shared_ptr<RecordBatchFileReader>* reader);

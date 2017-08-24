@@ -289,6 +289,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchWriter):
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
+        shared_ptr[RandomAccessFile] file
 
     cdef readonly:
         Schema schema
@@ -297,8 +298,7 @@ cdef class _RecordBatchFileReader:
         pass
 
     def _open(self, source, footer_offset=None):
-        cdef shared_ptr[RandomAccessFile] reader
-        get_reader(source, &reader)
+        get_reader(source, &self.file)
 
         cdef int64_t offset = 0
         if footer_offset is not None:
@@ -306,10 +306,12 @@ cdef class _RecordBatchFileReader:
 
         with nogil:
             if offset != 0:
-                check_status(CRecordBatchFileReader.Open2(
-                    reader, offset, &self.reader))
+                check_status(
+                    CRecordBatchFileReader.Open2(self.file.get(), offset,
+                                                 &self.reader))
             else:
-                check_status(CRecordBatchFileReader.Open(reader, &self.reader))
+                check_status(
+                    CRecordBatchFileReader.Open(self.file.get(), &self.reader))
 
         self.schema = pyarrow_wrap_schema(self.reader.get().schema())
 

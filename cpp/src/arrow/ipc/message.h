@@ -138,13 +138,10 @@ class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
  public:
   explicit InputStreamMessageReader(io::InputStream* stream) : stream_(stream) {}
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.7.0
   explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
       : InputStreamMessageReader(owned_stream.get()) {
     owned_stream_ = owned_stream;
   }
-#endif
 
   ~InputStreamMessageReader();
 
@@ -152,10 +149,7 @@ class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
 
  private:
   io::InputStream* stream_;
-
-#ifndef ARROW_NO_DEPRECATED_API
   std::shared_ptr<io::InputStream> owned_stream_;
-#endif
 };
 
 /// \brief Read encapulated RPC message from position in file

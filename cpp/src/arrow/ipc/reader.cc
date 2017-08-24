@@ -475,6 +475,12 @@ Status RecordBatchStreamReader::Open(io::InputStream* stream,
   return Open(std::move(message_reader), out);
 }
 
+Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
+                                     std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
+  return Open(std::move(message_reader), out);
+}
+
 #ifndef ARROW_NO_DEPRECATED_API
 Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_reader,
                                      std::shared_ptr<RecordBatchStreamReader>* reader) {
@@ -577,8 +583,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     DCHECK(BitUtil::IsMultipleOf8(block.body_length));
 
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(
-        ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
+    RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
 
     io::BufferReader reader(message->body());
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
@@ -596,8 +601,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       DCHECK(BitUtil::IsMultipleOf8(block.body_length));
 
       std::unique_ptr<Message> message;
-      RETURN_NOT_OK(
-          ReadMessage(block.offset, block.metadata_length, file_.get(), &message));
+      RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
 
       io::BufferReader reader(message->body());
 
@@ -613,6 +617,11 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
+    owned_file_ = file;
+    return Open(file.get(), footer_offset);
+  }
+
+  Status Open(io::RandomAccessFile* file, int64_t footer_offset) {
     file_ = file;
     footer_offset_ = footer_offset;
     RETURN_NOT_OK(ReadFooter());
@@ -622,7 +631,10 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:
-  std::shared_ptr<io::RandomAccessFile> file_;
+  io::RandomAccessFile* file_;
+
+  // Deprecated as of 0.7.0
+  std::shared_ptr<io::RandomAccessFile> owned_file_;
 
   // The location where the Arrow file layout ends. May be the end of the file
   // or some other location if embedded in a larger file.
@@ -644,6 +656,19 @@ RecordBatchFileReader::RecordBatchFileReader() {
 }
 
 RecordBatchFileReader::~RecordBatchFileReader() {}
+
+Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
+                                   std::shared_ptr<RecordBatchFileReader>* reader) {
+  int64_t footer_offset;
+  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  return Open(file, footer_offset, reader);
+}
+
+Status RecordBatchFileReader::Open(io::RandomAccessFile* file, int64_t footer_offset,
+                                   std::shared_ptr<RecordBatchFileReader>* reader) {
+  *reader = std::shared_ptr<RecordBatchFileReader>(new RecordBatchFileReader());
+  return (*reader)->impl_->Open(file, footer_offset);
+}
 
 Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
                                    std::shared_ptr<RecordBatchFileReader>* reader) {

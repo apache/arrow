@@ -160,7 +160,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(mmap_->Tell(&offset));
 
     std::shared_ptr<RecordBatchFileReader> file_reader;
-    RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_, offset, &file_reader));
+    RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_.get(), offset, &file_reader));
 
     return file_reader->ReadRecordBatch(0, result);
   }
@@ -519,7 +519,7 @@ class TestFileFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
     // Open the file
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
     std::shared_ptr<RecordBatchFileReader> reader;
-    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader, footer_offset, &reader));
+    RETURN_NOT_OK(RecordBatchFileReader::Open(buf_reader.get(), footer_offset, &reader));
 
     EXPECT_EQ(num_batches, reader->num_record_batches());
     for (int i = 0; i < num_batches; ++i) {

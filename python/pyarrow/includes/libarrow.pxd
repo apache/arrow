@@ -654,11 +654,11 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
         @staticmethod
-        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+        CStatus Open(RandomAccessFile* file,
                      shared_ptr[CRecordBatchFileReader]* out)
 
         @staticmethod
-        CStatus Open2" Open"(const shared_ptr[RandomAccessFile]& file,
+        CStatus Open2" Open"(RandomAccessFile* file,
                              int64_t footer_offset,
                              shared_ptr[CRecordBatchFileReader]* out)
 
