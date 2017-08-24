@@ -604,11 +604,12 @@ static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
 
 template <typename T>
 Status ValidateDecimalPrecision(int precision) {
-  constexpr static const int maximum_precision = decimal::DecimalPrecision<T>::maximum;
-  if (!(precision > 0 && precision <= maximum_precision)) {
+  constexpr static const int kMaximumPrecision =
+      decimal::DecimalPrecision<typename T::value_type>::maximum;
+  if (!(precision > 0 && precision <= kMaximumPrecision)) {
     std::stringstream ss;
     ss << "Invalid precision: " << precision << ". Minimum is 1, maximum is "
-       << maximum_precision;
+       << kMaximumPrecision;
     return Status::Invalid(ss.str());
   }
   return Status::OK();
@@ -620,27 +621,24 @@ Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
   DCHECK_NE(bytes, nullptr);
   DCHECK_NE(result, nullptr);
   RETURN_NOT_OK(ValidateDecimalPrecision<T>(precision));
-  decimal::Decimal<T> decimal;
-  FromBytes(bytes, &decimal);
-  *result = ToString(decimal, precision, scale);
+  T decimal;
+  decimal::FromBytes(bytes, &decimal);
+  *result = decimal::ToString(decimal, precision, scale);
   return Status::OK();
 }
 
-template Status RawDecimalToString<int32_t>(const uint8_t*, int, int,
-                                            std::string* result);
-template Status RawDecimalToString<int64_t>(const uint8_t*, int, int,
-                                            std::string* result);
+template Status RawDecimalToString<decimal::Decimal32>(const uint8_t*, int, int,
+                                                       std::string*);
+template Status RawDecimalToString<decimal::Decimal64>(const uint8_t*, int, int,
+                                                       std::string*);
+template Status RawDecimalToString<decimal::Decimal128>(const uint8_t*, int, int,
+                                                        std::string*);
 
-Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
-                          bool is_negative, std::string* result) {
-  DCHECK_NE(bytes, nullptr);
-  DCHECK_NE(result, nullptr);
-  RETURN_NOT_OK(ValidateDecimalPrecision<boost::multiprecision::int128_t>(precision));
-  decimal::Decimal128 decimal;
-  FromBytes(bytes, is_negative, &decimal);
-  *result = ToString(decimal, precision, scale);
-  return Status::OK();
-}
+#define RAW_DECIMAL_TO_STRING_CASE(bits, value, precision, scale, output)          \
+  case bits:                                                                       \
+    RETURN_NOT_OK(RawDecimalToString<decimal::Decimal##bits>((value), (precision), \
+                                                             (scale), (output)));  \
+    break;
 
 static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
                               PyObject** out_values) {
@@ -664,22 +662,18 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
         *out_values++ = Py_None;
       } else {
         const uint8_t* raw_value = arr->GetValue(i);
-        std::string s;
+        std::string decimal_string;
         switch (bit_width) {
-          case 32:
-            RETURN_NOT_OK(RawDecimalToString<int32_t>(raw_value, precision, scale, &s));
-            break;
-          case 64:
-            RETURN_NOT_OK(RawDecimalToString<int64_t>(raw_value, precision, scale, &s));
-            break;
-          case 128:
-            RETURN_NOT_OK(
-                RawDecimalToString(raw_value, precision, scale, arr->IsNegative(i), &s));
-            break;
-          default:
-            break;
+          RAW_DECIMAL_TO_STRING_CASE(32, raw_value, precision, scale, &decimal_string)
+          RAW_DECIMAL_TO_STRING_CASE(64, raw_value, precision, scale, &decimal_string)
+          RAW_DECIMAL_TO_STRING_CASE(128, raw_value, precision, scale, &decimal_string)
+          default: {
+            std::stringstream buf;
+            buf << "Invalid bit_width " << bit_width << " for decimal value";
+            return Status::Invalid(buf.str());
+          }
         }
-        RETURN_NOT_OK(DecimalFromString(Decimal, s, out_values++));
+        RETURN_NOT_OK(DecimalFromString(Decimal, decimal_string, out_values++));
       }
     }
   }

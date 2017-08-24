@@ -480,10 +480,6 @@ std::vector<BufferDescr> FixedSizeBinaryType::GetBufferLayout() const {
   return {kValidityBuffer, BufferDescr(BufferType::DATA, bit_width())};
 }
 
-std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
-  return {kValidityBuffer, kBooleanBuffer, BufferDescr(BufferType::DATA, bit_width())};
-}
-
 std::vector<BufferDescr> ListType::GetBufferLayout() const {
   return {kValidityBuffer, kOffsetBuffer};
 }
