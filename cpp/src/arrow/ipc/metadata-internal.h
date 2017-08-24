@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// C++ object model and user API for interprocess schema messaging
+// Internal metadata serialization matters
 
 #ifndef ARROW_IPC_METADATA_INTERNAL_H
 #define ARROW_IPC_METADATA_INTERNAL_H

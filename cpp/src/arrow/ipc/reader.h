@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Implement Arrow file layout for IPC/RPC purposes and short-lived storage
+// Read Arrow files and streams
 
 #ifndef ARROW_IPC_READER_H
 #define ARROW_IPC_READER_H
