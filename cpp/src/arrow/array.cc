@@ -350,7 +350,6 @@ DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data)
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
 }
 
-
 #define DECIMAL_TO_STRING_CASE(bits, bytes, precision, scale) \
   case bits: {                                                \
     decimal::Decimal##bits value;                             \
