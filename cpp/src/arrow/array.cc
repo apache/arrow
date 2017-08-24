@@ -161,7 +161,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 
 const uint8_t* PrimitiveArray::raw_values() const {
   return raw_values_ +
-         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / 8;
+         offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / CHAR_BIT;
 }
 
 template <typename T>
