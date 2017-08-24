@@ -538,13 +538,10 @@ class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
  public:
   using TypeClass = DecimalType;
 
+  using FixedSizeBinaryArray::FixedSizeBinaryArray;
+
   /// \brief Construct DecimalArray from internal::ArrayData instance
   explicit DecimalArray(const std::shared_ptr<internal::ArrayData>& data);
-
-  DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
-               const std::shared_ptr<Buffer>& data,
-               const std::shared_ptr<Buffer>& null_bitmap = nullptr,
-               int64_t null_count = 0, int64_t offset = 0);
 
   std::string FormatValue(int64_t i) const;
 

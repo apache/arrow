@@ -348,18 +348,8 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data)
     : FixedSizeBinaryArray(data) {
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
-  SetData(data);
 }
 
-DecimalArray::DecimalArray(const std::shared_ptr<DataType>& type, int64_t length,
-                           const std::shared_ptr<Buffer>& data,
-                           const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                           int64_t offset)
-    : FixedSizeBinaryArray(type, length, data, null_bitmap, null_count, offset) {
-  BufferVector buffers = {null_bitmap, data};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
-}
 
 #define DECIMAL_TO_STRING_CASE(bits, bytes, precision, scale) \
   case bits: {                                                \
