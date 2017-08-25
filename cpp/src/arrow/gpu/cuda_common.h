@@ -22,7 +22,7 @@
 
 #include <sstream>
 
-#include <cuda_runtime_api.h>
+#include <cuda.h>
 
 namespace arrow {
 namespace gpu {
@@ -34,18 +34,7 @@ namespace gpu {
     (void)ret;            \
   } while (0)
 
-#define CUDA_RETURN_NOT_OK(STMT)                                       \
-  do {                                                                 \
-    cudaError_t ret = (STMT);                                          \
-    if (ret != cudaSuccess) {                                          \
-      std::stringstream ss;                                            \
-      ss << "Cuda API call in " << __FILE__ << " at line " << __LINE__ \
-         << " failed: " << #STMT;                                      \
-      return Status::IOError(ss.str());                                \
-    }                                                                  \
-  } while (0)
-
-#define CUDADRV_RETURN_NOT_OK(STMT)                                           \
+#define CU_RETURN_NOT_OK(STMT)                                           \
   do {                                                                        \
     CUresult ret = (STMT);                                                    \
     if (ret != CUDA_SUCCESS) {                                                \

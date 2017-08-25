@@ -26,6 +26,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 
+#include "arrow/gpu/cuda_context.h"
+
 namespace arrow {
 namespace gpu {
 
@@ -35,8 +37,10 @@ namespace gpu {
 /// Be careful using this in any Arrow code which may not be GPU-aware
 class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
-  CudaBuffer(uint8_t* data, int64_t size, const int gpu_number, bool own_data = false)
-      : Buffer(data, size), gpu_number_(gpu_number), own_data_(own_data) {
+  CudaBuffer(uint8_t* data, int64_t size,
+             const std::shared_ptr<CudaContext>& context,
+             bool own_data = false)
+      : Buffer(data, size), context_(context), own_data_(own_data) {
     is_mutable_ = true;
     mutable_data_ = data;
   }
@@ -58,10 +62,10 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// \return Status
   Status CopyFromHost(const int64_t position, const uint8_t* data, int64_t nbytes);
 
-  int gpu_number() const { return gpu_number_; }
+  std::shared_ptr<CudaContext> context() const { return context_; }
 
  private:
-  const int gpu_number_;
+  std::shared_ptr<CudaContext> context_;
   bool own_data_;
 };
 
@@ -98,7 +102,7 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 
  private:
   std::shared_ptr<CudaBuffer> cuda_buffer_;
-  int gpu_number_;
+  std::shared_ptr<CudaContext> context_;
 };
 
 /// \class CudaBufferWriter
@@ -132,7 +136,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   int64_t num_bytes_buffered() const { return buffer_position_; }
 
  private:
-  int gpu_number_;
+  std::shared_ptr<CudaContext> context_;
 
   // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
   int64_t buffer_size_;
@@ -147,7 +151,8 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaBuffer(const int gpu_number, const int64_t size,
+Status AllocateCudaBuffer(const int64_t size,
+                          const std::shared_ptr<CudaContext>& context,
                           std::shared_ptr<CudaBuffer>* out);
 
 /// \brief Allocate CUDA-accessible memory on CPU host
@@ -155,7 +160,8 @@ Status AllocateCudaBuffer(const int gpu_number, const int64_t size,
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaHostBuffer(const int64_t size, std::shared_ptr<CudaHostBuffer>* out);
+Status AllocateCudaHostBuffer(const int64_t size,
+                              std::shared_ptr<CudaHostBuffer>* out);
 
 }  // namespace gpu
 }  // namespace arrow

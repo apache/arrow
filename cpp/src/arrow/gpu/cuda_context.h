@@ -22,28 +22,63 @@
 #include <memory>
 
 #include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace gpu {
 
-class ARROW_EXPORT CudaDevice {};
+class CudaBuffer;
+class CudaHostBuffer;
+
+// Forward declaration
+class CudaContext;
+
+class ARROW_EXPORT CudaDeviceManager {
+ public:
+  static Status GetInstance(CudaDeviceManager** manager);
+
+  /// \brief Create a CUDA driver context for a particular device
+  Status CreateContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
+
+  Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
+  Status FreeHost(uint8_t* data, int64_t nbytes);
+
+  int num_devices() const;
+
+ private:
+  std::unique_ptr<CudaDeviceManager> instance_;
+
+  class CudaDeviceManagerImpl;
+  std::unique_ptr<CudaDeviceManagerImpl> impl_;
+
+  friend CudaContext;
+};
+
+struct ARROW_EXPORT CudaDeviceInfo {};
 
 /// \class CudaContext
 /// \brief Friendlier interface to the CUDA driver API
 class ARROW_EXPORT CudaContext {
  public:
-  static Status Create(std::unique_ptr<CudaContext>* ctx);
+  ~CudaContext();
 
-  Status Close();
+  Status Destroy();
 
   Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes);
   Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes);
 
-  ~CudaContext();
+  Status Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* buffer);
+  Status Free(uint8_t* device_ptr, int64_t nbytes);
+
+  int64_t bytes_allocated() const;
 
  private:
+  CudaContext();
+
   class CudaContextImpl;
   std::unique_ptr<CudaContextImpl> impl_;
+
+  friend CudaDeviceManager::CudaDeviceManagerImpl;
 };
 
 }  // namespace gpu

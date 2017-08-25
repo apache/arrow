@@ -31,13 +31,29 @@ namespace gpu {
 
 constexpr int kGpuNumber = 0;
 
-class TestCudaBuffer : public ::testing::Test {};
+class TestCudaBufferBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(CudaDeviceManager::GetInstance(&manager_));
+    ASSERT_OK(manager_->CreateContext(kGpuNumber, &context));
+  }
+
+ protected:
+  CudaDeviceManager* manager_;
+  std::shared_ptr<CudaContext> context_;
+};
+
+class TestCudaBuffer : public TestCudaBufferBase {
+ public:
+  void SetUp() {
+    TestCudaBufferBase::SetUp();
+  }
+};
 
 TEST_F(TestCudaBuffer, Allocate) {
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
-
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &buffer));
+  ASSERT_OK(context_->Allocate(kSize, &buffer));
   ASSERT_EQ(kSize, buffer->size());
 }
 
@@ -52,7 +68,7 @@ void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
 TEST_F(TestCudaBuffer, CopyFromHost) {
   const int64_t kSize = 1000;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &device_buffer));
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
 
   std::shared_ptr<PoolBuffer> host_buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
@@ -63,10 +79,14 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
 }
 
-class TestCudaBufferWriter : public ::testing::Test {
+class TestCudaBufferWriter : public TestCudaBufferBase {
  public:
+  void SetUp() {
+    TestCudaBufferBase::SetUp();
+  }
+
   void Allocate(const int64_t size) {
-    ASSERT_OK(AllocateCudaBuffer(kGpuNumber, size, &device_buffer_));
+    ASSERT_OK(context_->Allocate(size, &device_buffer_));
     writer_.reset(new CudaBufferWriter(device_buffer_));
   }
 
@@ -105,6 +125,9 @@ class TestCudaBufferWriter : public ::testing::Test {
   }
 
  protected:
+  CudaDeviceManager* manager_;
+  std::shared_ptr<CudaContext> context_;
+
   std::shared_ptr<CudaBuffer> device_buffer_;
   std::unique_ptr<CudaBufferWriter> writer_;
 };
@@ -164,7 +187,14 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   AssertCudaBufferEquals(*device_buffer_, host_data, 1000);
 }
 
-TEST(TestCudaBufferReader, Basics) {
+class TestCudaBufferReader : public TestCudaBufferBase {
+ public:
+  void SetUp() {
+    TestCudaBufferBase::SetUp();
+  }
+};
+
+TEST_F(TestCudaBufferReader, Basics) {
   std::shared_ptr<CudaBuffer> device_buffer;
 
   const int64_t size = 1000;
