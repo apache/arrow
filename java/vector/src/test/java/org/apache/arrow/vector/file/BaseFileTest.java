@@ -430,8 +430,6 @@ public class BaseFileTest {
     for (int i = 0; i < count; i++) {
       writeIntAsDecimal(decimalVector1, i, i);
       writeIntAsDecimal(decimalVector2, i * (1 << 10), i);
-      //long blah = i * Long.valueOf(String.format("%0" + 10 + "d", 0).replace("0", "1"));
-      //System.out.println("*** Int val: " + blah); (Long.valueOf(String.format("%0" + 16 + "d", 0).replace("0", "1"))), i);
       writeIntAsDecimal(decimalVector3, i * 1111111111111111L, i);
     }
 
