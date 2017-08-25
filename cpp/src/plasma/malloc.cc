@@ -134,14 +134,10 @@ void* fake_mmap(size_t size) {
 
   int fd = create_buffer(size);
   ARROW_CHECK(fd >= 0) << "Failed to create buffer during mmap";
-#ifdef __linux__
-  // MAP_POPULATE will pre-populate the page tables for this memory region
-  // which avoids work when accessing the pages later. Only supported on Linux.
-  void* pointer =
-      mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, 0);
-#else
+  // MAP_POPULATE can be used to pre-populate the page tables for this memory region
+  // which avoids work when accessing the pages later. However it causes long pauses
+  // when mmapping the files. Only supported on Linux.
   void* pointer = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-#endif
   if (pointer == MAP_FAILED) {
     ARROW_LOG(ERROR) << "mmap failed with error: " << std::strerror(errno);
     if (errno == ENOMEM && plasma::plasma_config->hugepages_enabled) {
