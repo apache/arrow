@@ -19,13 +19,10 @@
 package org.apache.arrow.vector.util;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.UnpooledByteBufAllocator;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 
 public class DecimalUtility {
@@ -150,14 +147,29 @@ public class DecimalUtility {
     return new BigDecimal(unscaledValue, scale);
   }
 
+  public static byte[] getByteArrayFromArrowBuf(ArrowBuf bytebuf, int index) {
+    final byte[] value = new byte[DECIMAL_BYTE_LENGTH];
+    final int startIndex = index * DECIMAL_BYTE_LENGTH;
+    bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
+    return value;
+  }
+
   public static void writeBigDecimalToArrowBuf(BigDecimal value, ArrowBuf bytebuf, int index) {
     final byte[] bytes = value.unscaledValue().toByteArray();
+    final int padValue = value.signum() == -1 ? 0xFF : 0;
+    writeByteArrayToArrowBuf(bytes, bytebuf, index, padValue);
+  }
+
+  public static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index) {
+    writeByteArrayToArrowBuf(bytes, bytebuf, index, 0);
+  }
+
+  private static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index, int padValue) {
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
     if (bytes.length > DECIMAL_BYTE_LENGTH) {
       throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
     }
     final int padLength = DECIMAL_BYTE_LENGTH - bytes.length;
-    final int padValue = value.signum() == -1 ? 0xFF : 0;
     for (int i = 0; i < padLength; i++) {
       bytebuf.setByte(startIndex + i, padValue);
     }

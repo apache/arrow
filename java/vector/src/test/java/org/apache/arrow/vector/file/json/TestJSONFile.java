@@ -238,6 +238,38 @@ public class TestJSONFile extends BaseFileTest {
   }
 
   @Test
+  public void testWriteReadDecimalJSON() throws IOException {
+    File file = new File("target/mytest_decimal.json");
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+
+      try (VectorSchemaRoot root = writeDecimalData(vectorAllocator)) {
+        printVectors(root.getFieldVectors());
+        validateDecimalData(root);
+        writeJSON(file, root, null);
+      }
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateDecimalData(root);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
   public void testSetStructLength() throws IOException {
     File file = new File("../../integration/data/struct_example.json");
     try (
