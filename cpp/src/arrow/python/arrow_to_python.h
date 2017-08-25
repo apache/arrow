@@ -46,8 +46,7 @@ namespace py {
 /// \param[out] out the reconstructed data
 /// \return Status
 ARROW_EXPORT
-Status ReadSerializedObject(std::shared_ptr<io::RandomAccessFile> src,
-                            SerializedPyObject* out);
+Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
 /// \brief Reconstruct Python object from Arrow-serialized representation
 /// \param[in] object

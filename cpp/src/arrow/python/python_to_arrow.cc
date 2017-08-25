@@ -53,18 +53,18 @@ namespace py {
 /// scalar Python types, lists, tuples, dictionaries and tensors.
 class SequenceBuilder {
  public:
-  explicit SequenceBuilder(MemoryPool* pool = nullptr)
+  explicit SequenceBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
       : pool_(pool),
-        types_(pool, ::arrow::int8()),
-        offsets_(pool, ::arrow::int32()),
+        types_(::arrow::int8(), pool),
+        offsets_(::arrow::int32(), pool),
         nones_(pool),
-        bools_(pool, ::arrow::boolean()),
-        ints_(pool, ::arrow::int64()),
-        bytes_(pool, ::arrow::binary()),
+        bools_(::arrow::boolean(), pool),
+        ints_(::arrow::int64(), pool),
+        bytes_(::arrow::binary(), pool),
         strings_(pool),
-        floats_(pool, ::arrow::float32()),
-        doubles_(pool, ::arrow::float64()),
-        tensor_indices_(pool, ::arrow::int32()),
+        floats_(::arrow::float32(), pool),
+        doubles_(::arrow::float64(), pool),
+        tensor_indices_(::arrow::int32(), pool),
         list_offsets_({0}),
         tuple_offsets_({0}),
         dict_offsets_({0}) {}
@@ -184,7 +184,7 @@ class SequenceBuilder {
     if (data != nullptr) {
       DCHECK(data->length() == offsets.back());
       std::shared_ptr<Array> offset_array;
-      Int32Builder builder(pool_, std::make_shared<Int32Type>());
+      Int32Builder builder(::arrow::int32(), pool_);
       RETURN_NOT_OK(builder.Append(offsets.data(), offsets.size()));
       RETURN_NOT_OK(builder.Finish(&offset_array));
       std::shared_ptr<Array> list_array;

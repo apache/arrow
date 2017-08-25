@@ -453,6 +453,28 @@ cdef class RecordBatch:
         else:
             return self.column(key)
 
+    def serialize(self, memory_pool=None):
+        """
+        Write RecordBatch to Buffer as encapsulated IPC message
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            Uses default memory pool if not specified
+
+        Returns
+        -------
+        serialized : Buffer
+        """
+        cdef:
+            shared_ptr[CBuffer] buffer
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(SerializeRecordBatch(deref(self.batch),
+                                              pool, &buffer))
+        return pyarrow_wrap_buffer(buffer)
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this RecordBatch

@@ -25,7 +25,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/ipc/metadata.h"
+#include "arrow/ipc/message.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -86,7 +86,13 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+                     std::shared_ptr<RecordBatchWriter>* out);
+
+#ifndef ARROW_NO_DEPRECATED_API
+  /// \deprecated Since 0.7.0
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchStreamWriter>* out);
+#endif
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
@@ -114,7 +120,13 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param(out) out the created stream writer
   /// \return Status indicating success or failure
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+                     std::shared_ptr<RecordBatchWriter>* out);
+
+#ifndef ARROW_NO_DEPRECATED_API
+  /// \deprecated Since 0.7.0
+  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchFileWriter>* out);
+#endif
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
@@ -155,14 +167,6 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         int max_recursion_depth = kMaxNestingDepth,
                         bool allow_64bit = false);
 
-/// \brief Write dictionary message to output stream
-///
-/// Low-level API
-ARROW_EXPORT
-Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                       int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool);
-
 /// \brief Serialize record batch as encapsulated IPC message in a new buffer
 ///
 /// \param[in] batch the record batch
@@ -172,6 +176,17 @@ Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dict
 ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out);
+
+/// \brief Serialize schema using stream writer as a sequence of one or more
+/// IPC messages
+///
+/// \param[in] scheam the schema to write
+/// \param[in] pool a MemoryPool to allocate memory from
+/// \param[out] out the serialized schema
+/// \return Status
+ARROW_EXPORT
+Status SerializeSchema(const Schema& schema, MemoryPool* pool,
+                       std::shared_ptr<Buffer>* out);
 
 /// \brief Write multiple record batches to OutputStream
 /// \param[in] batches a vector of batches. Must all have same schema

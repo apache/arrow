@@ -32,10 +32,10 @@ Status ConvertToStream(const char* path) {
   std::shared_ptr<RecordBatchFileReader> reader;
 
   RETURN_NOT_OK(io::ReadableFile::Open(path, &in_file));
-  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(in_file, &reader));
+  RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(in_file.get(), &reader));
 
   io::StdoutStream sink;
-  std::shared_ptr<RecordBatchStreamWriter> writer;
+  std::shared_ptr<RecordBatchWriter> writer;
   RETURN_NOT_OK(RecordBatchStreamWriter::Open(&sink, reader->schema(), &writer));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> chunk;
