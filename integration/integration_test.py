@@ -532,6 +532,49 @@ class StructType(DataType):
             name = self.name
         return StructColumn(name, size, is_valid, field_values)
 
+class UnionType(DataType):
+    def __init__(self, name, mode, type_ids, field_types, nullable=True):
+        DataType.__init__(self, name, nullable=nullable)
+        self.mode = mode
+        self.type_ids = type_ids
+        self.field_types = field_types
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'union'),
+            ('mode', self.mode),
+            ('typeIds', self.type_ids),
+        ])
+
+    def _get_children(self):
+        return [type_.get_json() for type_ in self.field_types]
+
+    def _get_type_layout(self):
+        return OrderedDict([
+            ('vectors',
+             [OrderedDict([('type', 'VALIDITY'),
+                           ('typeBitWidth', 1)]),
+              OrderedDict([('type', 'TYPE'),
+                           ('typeBitWidth', 8)])])])
+
+    def _make_type(self, size):
+        if self.type_ids != []:
+            type_ids = self.type_ids
+        else:
+            type_ids = np.arange(len(self.field_types))
+
+        return np.random.choice(type_ids, size)
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        types = self._make_type(size)
+
+        field_values = [type_.generate_column(size)
+                        for type_ in self.field_types]
+        if name is None:
+            name = self.name
+        return UnionColumn(name, size, is_valid, types, field_values)
+
 
 class Dictionary(object):
 
@@ -597,6 +640,23 @@ class StructColumn(Column):
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [field.get_json() for field in self.field_values]
+
+
+class UnionColumn(Column):
+    def __init__(self, name, count, is_valid, types, field_values):
+        Column.__init__(self, name, count)
+        self.is_valid = is_valid
+        self.types = types
+        self.field_values = field_values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('TYPE', [int(v) for v in self.types])
         ]
 
     def _get_children(self):
@@ -747,6 +807,27 @@ def generate_dictionary_case():
                           dictionaries=[dict1, dict2])
 
 
+def _generate_union_field(type_ids=[]):
+    return UnionType('union_nullable', "Sparse", type_ids,
+                     [get_field('f1', 'int64'),
+                      get_field('f2', 'float64'),
+                      get_field('f3', 'utf8'),
+                      get_field('f4', 'binary'),
+                      StructType('f5', [get_field('f1', 'int32'),
+                                        get_field('f2', 'utf8')]),])
+
+
+def generate_union_case():
+    fields = [_generate_union_field([])]
+    return _generate_file("union", fields, [10])
+
+
+def generate_union_type_ids_case():
+    type_ids = np.random.choice(range(128), 5, replace=False).tolist()
+    fields = [_generate_union_field(type_ids)]
+    return _generate_file("union_type_ids", fields, [10])
+
+
 def get_generated_json_files():
     temp_dir = tempfile.mkdtemp()
 
@@ -759,6 +840,8 @@ def get_generated_json_files():
         generate_datetime_case(),
         generate_nested_case(),
         generate_dictionary_case(),
+        generate_union_case(),
+        generate_union_type_ids_case(),
     ]
 
     generated_paths = []
@@ -947,10 +1030,12 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    #testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [JavaTester(debug=debug)]
 
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
+    print(generated_json_files)
     json_files = static_json_files + generated_json_files
 
     runner = IntegrationRunner(json_files, testers, debug=debug)
