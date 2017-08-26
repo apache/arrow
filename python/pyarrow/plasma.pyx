@@ -26,7 +26,9 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status
+import pyarrow
+
+from pyarrow.lib cimport Buffer, NativeFile, check_status, SerializedPyObject
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -296,7 +298,7 @@ cdef class PlasmaClient:
         ----------
         object_ids : list
             A list of ObjectIDs used to identify some objects.
-        timeout_ms :int
+        timeout_ms : int
             The number of milliseconds that the get call should block before
             timing out and returning. Pass -1 if the call should block and 0
             if the call should return immediately.
@@ -588,3 +590,17 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
                               result.manager_socket_name,
                               release_delay, num_retries))
     return result
+
+def put(PlasmaClient client, value):
+    cdef ObjectID object_id = ObjectID.from_random()
+    cdef SerializedPyObject serialized = pyarrow.serialize(value)
+    buffer = client.create(object_id, serialized.total_bytes)
+    serialized.write_to(buffer)
+    return object_id
+
+def get(PlasmaClient client, object_ids, timeout_ms=-1):
+    results = []
+    buffers = client.get(object_ids, timeout_ms)
+    for buffer in buffers:
+        results.append(pyarrow.deserialize(buffer))
+    return results

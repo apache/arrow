@@ -135,11 +135,6 @@ cdef class SerializedPyObject:
     """
     Arrow-serialized representation of Python object
     """
-    cdef:
-        CSerializedPyObject data
-
-    cdef readonly:
-        object base
 
     property total_bytes:
 

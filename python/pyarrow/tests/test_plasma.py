@@ -119,7 +119,7 @@ def start_plasma_store(plasma_store_memory=DEFAULT_PLASMA_STORE_MEMORY,
     """
     if use_valgrind and use_profiler:
         raise Exception("Cannot use valgrind and profiler at the same time.")
-    plasma_store_executable = os.path.join(pa.__path__[0], "plasma_store")
+    plasma_store_executable = "plasma_store"
     plasma_store_name = "/tmp/plasma_store{}".format(random_name())
     command = [plasma_store_executable,
                "-s", plasma_store_name,
@@ -272,6 +272,12 @@ class TestPlasmaClient(object):
                     #     metadata_buffers[i // 2], metadata_results[i])
                 else:
                     assert results[i] is None
+
+    def test_put_and_get(self):
+        value = ["hello", "world", 3, 1.0]
+        object_id = pa.plasma.put(self.plasma_client, value)
+        [result] = pa.plasma.get(self.plasma_client, [object_id])
+        assert result == value
 
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
