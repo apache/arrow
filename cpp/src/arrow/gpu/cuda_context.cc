@@ -17,6 +17,7 @@
 
 #include "arrow/gpu/cuda_context.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>

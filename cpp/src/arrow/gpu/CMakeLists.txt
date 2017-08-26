@@ -73,6 +73,7 @@ find_package(CUDA REQUIRED)
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
 set(ARROW_GPU_SRCS
+  cuda_context.cc
   cuda_memory.cc
 )
 

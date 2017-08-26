@@ -35,7 +35,7 @@ class TestCudaBufferBase : public ::testing::Test {
  public:
   void SetUp() {
     ASSERT_OK(CudaDeviceManager::GetInstance(&manager_));
-    ASSERT_OK(manager_->CreateContext(kGpuNumber, &context));
+    ASSERT_OK(manager_->CreateContext(kGpuNumber, &context_));
   }
 
  protected:
@@ -198,7 +198,7 @@ TEST_F(TestCudaBufferReader, Basics) {
   std::shared_ptr<CudaBuffer> device_buffer;
 
   const int64_t size = 1000;
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, size, &device_buffer));
+  ASSERT_OK(context_->Allocate(size, &device_buffer));
 
   std::shared_ptr<PoolBuffer> buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(1000, default_memory_pool(), &buffer));
