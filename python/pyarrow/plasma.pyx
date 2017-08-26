@@ -591,12 +591,14 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
                               release_delay, num_retries))
     return result
 
-def put(PlasmaClient client, value):
-    cdef ObjectID object_id = ObjectID.from_random()
+def put(PlasmaClient client, value, object_id=None):
+    cdef ObjectID id = object_id if object_id else ObjectID.from_random()
     cdef SerializedPyObject serialized = pyarrow.serialize(value)
-    buffer = client.create(object_id, serialized.total_bytes)
-    serialized.write_to(buffer)
-    return object_id
+    buffer = client.create(id, serialized.total_bytes)
+    stream = pyarrow.FixedSizeBufferOutputStream(buffer)
+    stream.set_memcopy_threads(4)
+    serialized.write_to(stream)
+    return id
 
 def get(PlasmaClient client, object_ids, timeout_ms=-1):
     results = []
