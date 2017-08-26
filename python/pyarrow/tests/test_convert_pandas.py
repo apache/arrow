@@ -619,6 +619,10 @@ class TestPandasConversion(unittest.TestCase):
         with self.assertRaises(pa.ArrowException):
             pa.Table.from_pandas(data)
 
+        data = pd.DataFrame({'a': [1, True]})
+        with self.assertRaises(pa.ArrowException):
+            pa.Table.from_pandas(data)
+
     def test_strided_data_import(self):
         cases = []
 
