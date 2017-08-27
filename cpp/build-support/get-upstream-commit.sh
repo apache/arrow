@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,29 +16,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+#
+# Script which tries to determine the most recent git hash in the current
+# branch which was checked in by gerrit. This commit hash is printed to
+# stdout.
+#
+# It does so by looking for the 'Reviewed-on' tag added by gerrit. This is
+# more foolproof than trying to guess at the "origin/" branch name, since the
+# developer might be working on some local topic branch.
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-# Check licenses according to Apache policy
-git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar.gz
-./dev/release/run-rat.sh arrow-src.tar.gz
-
-pushd $CPP_BUILD_DIR
-
-$TRAVIS_MAKE lint
-
-$TRAVIS_MAKE iwyu
-
-# ARROW-209: checks depending on the LLVM toolchain are disabled temporarily
-# until we are able to install the full LLVM toolchain in Travis CI again
-
-# if [ $TRAVIS_OS_NAME == "linux" ]; then
-#   make check-format
-#   make check-clang-tidy
-# fi
-
-ctest -VV -L unittest
-
-popd
+git log --grep='Reviewed-on: ' -n1 --pretty=format:%H
