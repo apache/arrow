@@ -607,7 +607,7 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
                               release_delay, num_retries))
     return result
 
-def put(PlasmaClient client, value, object_id=None):
+def put(PlasmaClient client, list value, ObjectID object_id=None):
     """
     Store a Python value into the object store.
 
@@ -615,7 +615,7 @@ def put(PlasmaClient client, value, object_id=None):
     ----------
     client : PlasmaClient
         The client connected to the object store we put the value in.
-    value : object
+    value : list
         A Python object to store. Currently only lists are supported.
     object_id : ObjectID, default None
         If this is provided, the specified object ID will be used to refer
@@ -634,7 +634,7 @@ def put(PlasmaClient client, value, object_id=None):
     client.seal(id)
     return id
 
-def get(PlasmaClient client, object_ids, timeout_ms=-1):
+def get(PlasmaClient client, object_ids, int timeout_ms=-1):
     """
     Get one or more Python values from the object store.
 
