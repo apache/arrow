@@ -585,7 +585,7 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
         The maximum number of objects that the client will keep and
         delay releasing (for caching reasons).
     num_retries : int, default -1
-        Number of times tor ty to connect to plasma store. Default value of -1
+        Number of times to try to connect to plasma store. Default value of -1
         uses the default (50)
     """
     cdef PlasmaClient result = PlasmaClient()
@@ -599,6 +599,23 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
     return result
 
 def put(PlasmaClient client, value, object_id=None):
+    """
+    Store a Python value into the object store.
+
+    Parameters
+    ----------
+    client : PlasmaClient
+        The client connected to the object store we put the value in.
+    value : object
+        A Python object to store.
+    object_id : ObjectID, default None
+        If this is provided, the specified object ID will be used to refer
+        to the object.
+
+    Returns
+    -------
+    The object ID associated to the Python object.
+    """
     cdef ObjectID id = object_id if object_id else ObjectID.from_random()
     cdef SerializedPyObject serialized = pyarrow.serialize(value)
     buffer = client.create(id, serialized.total_bytes)
@@ -609,6 +626,26 @@ def put(PlasmaClient client, value, object_id=None):
     return id
 
 def get(PlasmaClient client, object_ids, timeout_ms=-1):
+    """
+    Get one or more Python values from the object store.
+
+    Parameters
+    ----------
+    client : PlasmaClient
+        The client connected to the object store we get objects from.
+    object_ids : list
+        The list of object IDs associated to the values we get from the store.
+    timeout_ms : int, default -1
+        The number of milliseconds that the get call should block before
+        timing out and returning. Pass -1 if the call should block and 0
+        if the call should return immediately.
+
+    Returns
+    -------
+    list
+        List of Python values for the data associated with the object_ids
+        and ObjectNotAvailable if the object was not available.
+    """
     results = []
     buffers = client.get(object_ids, timeout_ms)
     for i in range(len(object_ids)):
