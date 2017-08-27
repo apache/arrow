@@ -114,11 +114,8 @@ Status CudaBuffer::ExportForIpc(std::unique_ptr<CudaIpcMemHandle>* handle) {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
   }
-  CUipcMemHandle cu_handle;
-  CU_RETURN_NOT_OK(
-      cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(mutable_data_)));
-  is_ipc_ = true;
-  *handle = std::unique_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
+  RETURN_NOT_OK(context_->ExportIpcBuffer(mutable_data_, handle));
+  own_data_ = false;
   return Status::OK();
 }
 

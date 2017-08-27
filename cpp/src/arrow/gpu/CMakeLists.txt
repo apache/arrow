@@ -27,6 +27,7 @@ find_package(CUDA REQUIRED)
 include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
 set(ARROW_GPU_SRCS
+  cuda_arrow_ipc.cc
   cuda_context.cc
   cuda_memory.cc
 )
@@ -46,6 +47,7 @@ ADD_ARROW_LIB(arrow_gpu
 
 install(FILES
   cuda_api.h
+  cuda_arrow_ipc.h
   cuda_context.h
   cuda_memory.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")

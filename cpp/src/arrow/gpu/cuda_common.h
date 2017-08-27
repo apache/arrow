@@ -40,7 +40,7 @@ namespace gpu {
     if (ret != CUDA_SUCCESS) {                                                \
       std::stringstream ss;                                                   \
       ss << "Cuda Driver API call in " << __FILE__ << " at line " << __LINE__ \
-         << " failed: " << #STMT;                                             \
+         << " failed with code " << ret << ": " << #STMT;                     \
       return Status::IOError(ss.str());                                       \
     }                                                                         \
   } while (0)

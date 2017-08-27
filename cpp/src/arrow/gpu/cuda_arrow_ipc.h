@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GPU_CUDA_MEMORY_H
-#define ARROW_GPU_CUDA_MEMORY_H
+#ifndef ARROW_GPU_CUDA_ARROW_IPC_H
+#define ARROW_GPU_CUDA_ARROW_IPC_H
 
 #include <cstdint>
 #include <memory>
@@ -25,31 +25,25 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-#include "arrow/cuda_memory.h"
-
 namespace arrow {
+
+class RecordBatch;
+
 namespace gpu {
 
-/// \brief Write record batch message to GPU device memory
-///
-///
-ARROW_EXPORT
-SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
-                     std::shared_ptr<CudaBuffer>* out);
+class CudaBuffer;
+class CudaContext;
 
-/// \brief Write record batch to pre-allocated GPU device memory
-///
-/// \param[in] batch the record batch to write
-/// \param[in] out the CudaBufferWriter to write the output to
+/// \brief Write record batch message to GPU device memory
+/// \param[in] batch record batch to write
+/// \param[in] ctx CudaContext to allocate device memory from
+/// \param[out] out the returned device buffer which contains the record batch message
 /// \return Status
-///
-/// The CudaBufferWriter must have enough pre-allocated space to accommodate
-/// the record batch. You can use arrow::ipc::GetRecordBatchSize to compute
-/// this
 ARROW_EXPORT
-SerializeRecordBatch(const RecordBatch& batch, CudaBufferWriter* out);
+Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
+                            std::shared_ptr<CudaBuffer>* out);
 
 }  // namespace gpu
 }  // namespace arrow
 
-#endif  // ARROW_GPU_CUDA_MEMORY_H
+#endif  // ARROW_GPU_CUDA_ARROW_IPC_H

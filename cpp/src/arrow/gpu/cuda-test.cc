@@ -77,6 +77,43 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
 }
 
+// IPC only supported on Linux
+#if defined(__linux)
+
+TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
+  // For this test to work, a second process needs to be spawned
+  const int64_t kSize = 1000;
+  std::shared_ptr<CudaBuffer> device_buffer;
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+
+  std::shared_ptr<PoolBuffer> host_buffer;
+  ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), kSize));
+
+  // Export for IPC and serialize
+  std::unique_ptr<CudaIpcMemHandle> ipc_handle;
+  ASSERT_OK(device_buffer->ExportForIpc(&ipc_handle));
+
+  std::shared_ptr<Buffer> serialized_handle;
+  ASSERT_OK(ipc_handle->Serialize(default_memory_pool(), &serialized_handle));
+
+  // Deserialize IPC handle and open
+  std::unique_ptr<CudaIpcMemHandle> ipc_handle2;
+  ASSERT_OK(CudaIpcMemHandle::FromBuffer(serialized_handle->data(), &ipc_handle2));
+
+  std::shared_ptr<CudaBuffer> ipc_buffer;
+  ASSERT_OK(context_->OpenIpcBuffer(*ipc_handle2, &ipc_buffer));
+
+  ASSERT_EQ(kSize, ipc_buffer->size());
+
+  std::shared_ptr<MutableBuffer> ipc_data;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), kSize, &ipc_data));
+  ASSERT_OK(ipc_buffer->CopyToHost(0, kSize, ipc_data->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(ipc_buffer->data(), host_buffer->data(), kSize));
+}
+
+#endif
+
 class TestCudaBufferWriter : public TestCudaBufferBase {
  public:
   void SetUp() { TestCudaBufferBase::SetUp(); }

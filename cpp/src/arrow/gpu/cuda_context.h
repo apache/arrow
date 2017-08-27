@@ -36,8 +36,13 @@ class ARROW_EXPORT CudaDeviceManager {
  public:
   static Status GetInstance(CudaDeviceManager** manager);
 
-  /// \brief Get the CUDA driver context for a particular device
+  /// \brief Get the shared CUDA driver context for a particular device
   Status GetContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
+
+  /// \brief Create a new context for a given device number
+  ///
+  /// In general code will use GetContext
+  Status CreateNewContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
 
   Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
 
@@ -63,7 +68,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
  public:
   ~CudaContext();
 
-  Status Destroy();
+  Status Close();
 
   /// \brief Allocate CUDA memory on GPU device for this context
   /// \param[in] nbytes number of bytes
@@ -83,6 +88,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
  private:
   CudaContext();
 
+  Status ExportIpcBuffer(uint8_t* data, std::unique_ptr<CudaIpcMemHandle>* handle);
   Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes);
   Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes);
   Status Free(uint8_t* device_ptr, int64_t nbytes);
