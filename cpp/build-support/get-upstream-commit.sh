@@ -26,4 +26,4 @@
 # developer might be working on some local topic branch.
 set -e
 
-git log --grep='Reviewed-on: ' -n1 --pretty=format:%H
+git log --grep='^ARROW-[0-9]*:.*' -n1 --pretty=format:%H
