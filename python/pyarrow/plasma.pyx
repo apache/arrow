@@ -29,7 +29,7 @@ from cpython.pycapsule cimport *
 import collections
 import pyarrow
 
-from pyarrow.lib cimport Buffer, NativeFile, check_status, SerializedPyObject
+from pyarrow.lib cimport Buffer, NativeFile, check_status
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
@@ -616,7 +616,7 @@ def put(PlasmaClient client, value, object_id=None):
     client : PlasmaClient
         The client connected to the object store we put the value in.
     value : object
-        A Python object to store.
+        A Python object to store. Currently only lists are supported.
     object_id : ObjectID, default None
         If this is provided, the specified object ID will be used to refer
         to the object.
@@ -626,7 +626,7 @@ def put(PlasmaClient client, value, object_id=None):
     The object ID associated to the Python object.
     """
     cdef ObjectID id = object_id if object_id else ObjectID.from_random()
-    cdef SerializedPyObject serialized = pyarrow.serialize(value)
+    serialized = pyarrow.serialize(value)
     buffer = client.create(id, serialized.total_bytes)
     stream = pyarrow.FixedSizeBufferOutputStream(buffer)
     stream.set_memcopy_threads(4)
@@ -642,8 +642,9 @@ def get(PlasmaClient client, object_ids, timeout_ms=-1):
     ----------
     client : PlasmaClient
         The client connected to the object store we get objects from.
-    object_ids : list
-        The list of object IDs associated to the values we get from the store.
+    object_ids : list or ObjectID
+        Object ID or list of object IDs associated to the values we get from
+        the store.
     timeout_ms : int, default -1
         The number of milliseconds that the get call should block before
         timing out and returning. Pass -1 if the call should block and 0
@@ -651,9 +652,9 @@ def get(PlasmaClient client, object_ids, timeout_ms=-1):
 
     Returns
     -------
-    list
-        List of Python values for the data associated with the object_ids
-        and ObjectNotAvailable if the object was not available.
+    list or object
+        Python value or list of Python values for the data associated with
+        the object_ids and ObjectNotAvailable if the object was not available.
     """
     if isinstance(object_ids, collections.Sequence):
         results = []

@@ -330,15 +330,6 @@ cdef class NativeFile:
 cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
-cdef class SerializedPyObject:
-    cdef:
-        CSerializedPyObject data
-
-    cdef readonly:
-        object base
-
-    cdef _write_to(self, OutputStream* stream)
-
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
 cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
