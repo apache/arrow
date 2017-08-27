@@ -79,28 +79,16 @@ set(ARROW_GPU_SRCS
 
 set(ARROW_GPU_SHARED_LINK_LIBS
   arrow_shared
+  ${CUDA_LIBRARIES}
+  ${CUDA_CUDA_LIBRARY}
 )
 
-add_library(arrow_gpu_objlib OBJECT
-  ${ARROW_GPU_SRCS}
+ADD_ARROW_LIB(arrow_gpu
+  SOURCES ${ARROW_GPU_SRCS}
+  SHARED_LINK_FLAGS ""
+  SHARED_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
+  STATIC_LINK_LIBS ""
 )
-set_property(TARGET arrow_gpu_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
-
-if (ARROW_BUILD_SHARED)
-  cuda_add_library(arrow_gpu_shared SHARED $<TARGET_OBJECTS:arrow_gpu_objlib>)
-  install(TARGETS arrow_gpu_shared
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-if (ARROW_BUILD_STATIC)
-  add_library(arrow_gpu_static STATIC $<TARGET_OBJECTS:arrow_gpu_objlib>)
-  install(TARGETS arrow_gpu_static
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
 
 install(FILES
   cuda_common.h

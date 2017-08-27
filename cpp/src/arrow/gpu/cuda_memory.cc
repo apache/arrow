@@ -55,9 +55,12 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const uint8_t* data,
 }
 
 Status AllocateCudaBuffer(const int64_t size,
-                          std::shared_ptr<CudaContext>& context,
+                          const std::shared_ptr<CudaContext>& context,
                           std::shared_ptr<CudaBuffer>* out) {
-  return context->Allocate(size, out);
+  uint8_t* data = nullptr;
+  RETURN_NOT_OK(context->Allocate(size, &data));
+  *out = std::make_shared<CudaBuffer>(data, size, context);
+  return Status::OK();
 }
 
 CudaHostBuffer::~CudaHostBuffer() {
