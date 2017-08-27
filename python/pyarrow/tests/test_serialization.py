@@ -81,18 +81,6 @@ def assert_equal(obj1, obj2):
                                                                        obj2)
 
 
-def array_custom_serializer(obj):
-    return obj.tolist(), obj.dtype.str
-
-
-def array_custom_deserializer(serialized_obj):
-    return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
-
-
-pa.lib.register_type(np.ndarray, 20 * b"\x00", pickle=False,
-                     custom_serializer=array_custom_serializer,
-                     custom_deserializer=array_custom_deserializer)
-
 if sys.version_info >= (3, 0):
     long_extras = [0, np.array([["hi", u"hi"], [1.3, 1]])]
 else:
@@ -155,6 +143,11 @@ class SubQux(Qux):
         Qux.__init__(self)
 
 
+class SubQuxPickle(Qux):
+    def __init__(self):
+        Qux.__init__(self)
+
+
 class CustomError(Exception):
     pass
 
@@ -165,41 +158,61 @@ NamedTupleExample = namedtuple("Example",
 
 
 CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
-                  Foo(), Bar(), Baz(), Qux(), SubQux(),
+                  Foo(), Bar(), Baz(), Qux(), SubQux(), SubQuxPickle(),
                   NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3])]
 
-pa.lib.register_type(Foo, 20 * b"\x01")
-pa.lib.register_type(Bar, 20 * b"\x02")
-pa.lib.register_type(Baz, 20 * b"\x03")
-pa.lib.register_type(Qux, 20 * b"\x04")
-pa.lib.register_type(SubQux, 20 * b"\x05")
-pa.lib.register_type(Exception, 20 * b"\x06")
-pa.lib.register_type(CustomError, 20 * b"\x07")
-pa.lib.register_type(Point, 20 * b"\x08")
-pa.lib.register_type(NamedTupleExample, 20 * b"\x09")
 
-# TODO(pcm): This is currently a workaround until arrow supports
-# arbitrary precision integers. This is only called on long integers,
-# see the associated case in the append method in python_to_arrow.cc
-pa.lib.register_type(int, 20 * b"\x10", pickle=False,
-                     custom_serializer=lambda obj: str(obj),
-                     custom_deserializer=(
-                         lambda serialized_obj: int(serialized_obj)))
+def make_serialization_context():
+
+    def array_custom_serializer(obj):
+        return obj.tolist(), obj.dtype.str
+
+    def array_custom_deserializer(serialized_obj):
+        return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
+
+    context = pa.SerializationContext()
+
+    context.register_type(np.ndarray, 20 * b"\x00",
+                          custom_serializer=array_custom_serializer,
+                          custom_deserializer=array_custom_deserializer)
+
+    context.register_type(Foo, 20 * b"\x01")
+    context.register_type(Bar, 20 * b"\x02")
+    context.register_type(Baz, 20 * b"\x03")
+    context.register_type(Qux, 20 * b"\x04")
+    context.register_type(SubQux, 20 * b"\x05")
+    context.register_type(SubQuxPickle, 20 * b"\x05", pickle=True)
+    context.register_type(Exception, 20 * b"\x06")
+    context.register_type(CustomError, 20 * b"\x07")
+    context.register_type(Point, 20 * b"\x08")
+    context.register_type(NamedTupleExample, 20 * b"\x09")
+
+    # TODO(pcm): This is currently a workaround until arrow supports
+    # arbitrary precision integers. This is only called on long integers,
+    # see the associated case in the append method in python_to_arrow.cc
+    context.register_type(int, 20 * b"\x10", pickle=False,
+                          custom_serializer=lambda obj: str(obj),
+                          custom_deserializer=(
+                              lambda serialized_obj: int(serialized_obj)))
+
+    if (sys.version_info < (3, 0)):
+        deserializer = (
+            lambda serialized_obj: long(serialized_obj))  # noqa: E501,F821
+        context.register_type(long, 20 * b"\x11", pickle=False,  # noqa: E501,F821
+                              custom_serializer=lambda obj: str(obj),
+                              custom_deserializer=deserializer)
+
+    return context
 
 
-if (sys.version_info < (3, 0)):
-    deserializer = (
-        lambda serialized_obj: long(serialized_obj))  # noqa: E501,F821
-    pa.lib.register_type(long, 20 * b"\x11", pickle=False,  # noqa: E501,F821
-                         custom_serializer=lambda obj: str(obj),
-                         custom_deserializer=deserializer)
+serialization_context = make_serialization_context()
 
 
 def serialization_roundtrip(value, f):
     f.seek(0)
-    pa.serialize_to(value, f)
+    pa.serialize_to(value, f, serialization_context)
     f.seek(0)
-    result = pa.deserialize_from(f, None)
+    result = pa.deserialize_from(f, None, serialization_context)
     assert_equal(value, result)
 
 

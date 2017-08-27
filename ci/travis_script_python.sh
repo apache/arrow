@@ -95,10 +95,10 @@ python_version_tests() {
   conda install -y -q pip numpy pandas cython flake8
 
   # Fail fast on style checks
-  flake8 pyarrow
+  flake8 --count pyarrow
 
   # Check Cython files with some checks turned off
-  flake8 --config=.flake8.cython pyarrow
+  flake8 --count --config=.flake8.cython pyarrow
 
   # Build C++ libraries
   rebuild_arrow_libraries

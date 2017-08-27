@@ -91,7 +91,7 @@ from pyarrow.lib import (ArrowException,
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
                          serialize, serialize_to, read_serialized,
-                         SerializedPyObject,
+                         SerializedPyObject, SerializationContext,
                          SerializationException, DeserializationException)
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem
