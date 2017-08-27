@@ -223,8 +223,8 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
   auto status = WriterType::Open(arrow_sink,
                                  garrow_schema_get_raw(schema),
                                  &arrow_writer);
-  auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-stream-writer][open]")) {
+    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
     return garrow_record_batch_stream_writer_new_raw(&subtype);
   } else {
     return NULL;
@@ -270,8 +270,8 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
   auto status = WriterType::Open(arrow_sink.get(),
                                  garrow_schema_get_raw(schema),
                                  &arrow_writer);
-  auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
   if (garrow_error_check(error, status, "[record-batch-file-writer][open]")) {
+    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
     return garrow_record_batch_file_writer_new_raw(&subtype);
   } else {
     return NULL;
