@@ -18,12 +18,8 @@
 # under the License.
 #
 # Script which tries to determine the most recent git hash in the current
-# branch which was checked in by gerrit. This commit hash is printed to
-# stdout.
-#
-# It does so by looking for the 'Reviewed-on' tag added by gerrit. This is
-# more foolproof than trying to guess at the "origin/" branch name, since the
-# developer might be working on some local topic branch.
+# branch which originates from master by checking for the 
+# 'ARROW-1234: Description` commit message
 set -e
 
 git log --grep='^ARROW-[0-9]*:.*' -n1 --pretty=format:%H
