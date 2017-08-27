@@ -279,6 +279,9 @@ class TestPlasmaClient(object):
         [result] = pa.plasma.get(self.plasma_client, [object_id])
         assert result == value
 
+        result = pa.plasma.get(self.plasma_client, object_id)
+        assert result == value
+
         object_id = pa.plasma.ObjectID(np.bytes.random(20))
         [result] = pa.plasma.get(self.plasma_client, [object_id], timeout_ms=0)
         assert result == pa.plasma.ObjectNotAvailable

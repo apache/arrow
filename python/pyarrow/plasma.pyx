@@ -26,6 +26,7 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 
+import collections
 import pyarrow
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status, SerializedPyObject
@@ -42,6 +43,9 @@ cdef extern from "plasma/common.h" nogil:
 
         @staticmethod
         CUniqueID from_binary(const c_string& binary)
+
+        @staticmethod
+        CUniqueID from_random()
 
         c_bool operator==(const CUniqueID& rhs) const
 
@@ -161,9 +165,8 @@ cdef class ObjectID:
 
     @staticmethod
     def from_random():
-        cdef ObjectID result
-        result.data = CUniqueID.from_random()
-        return result
+        cdef CUniqueID data = CUniqueID.from_random()
+        return ObjectID(data.binary())
 
 
 cdef class ObjectNotAvailable:
@@ -652,13 +655,16 @@ def get(PlasmaClient client, object_ids, timeout_ms=-1):
         List of Python values for the data associated with the object_ids
         and ObjectNotAvailable if the object was not available.
     """
-    results = []
-    buffers = client.get(object_ids, timeout_ms)
-    for i in range(len(object_ids)):
-        # buffers[i] is None if this object was not available within the
-        # timeout
-        if buffers[i]:
-            results.append(pyarrow.deserialize(buffers[i]))
-        else:
-            results.append(ObjectNotAvailable)
-    return results
+    if isinstance(object_ids, collections.Sequence):
+        results = []
+        buffers = client.get(object_ids, timeout_ms)
+        for i in range(len(object_ids)):
+            # buffers[i] is None if this object was not available within the
+            # timeout
+            if buffers[i]:
+                results.append(pyarrow.deserialize(buffers[i]))
+            else:
+                results.append(ObjectNotAvailable)
+        return results
+    else:
+        return get(client, [object_ids], timeout_ms)[0]
