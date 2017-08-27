@@ -569,7 +569,7 @@ class ArrayWriter {
     WriteValidityField(array);
     const auto& type = static_cast<const UnionType&>(*array.type());
 
-    WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
+    WriteIntegerField("TYPE", array.raw_type_ids(), array.length());
     if (type.mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
@@ -774,13 +774,25 @@ static Status GetUnion(const RjObject& json_type,
   }
 
   const auto& it_type_codes = json_type.FindMember("typeIds");
-  RETURN_NOT_ARRAY("typeIds", it_type_codes, json_type);
 
   std::vector<uint8_t> type_codes;
-  const auto& id_array = it_type_codes->value.GetArray();
-  for (const rj::Value& val : id_array) {
-    DCHECK(val.IsUint());
-    type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
+  if (it_type_codes == json_type.MemberEnd()) {
+    for (uint8_t code = 0; code < static_cast<uint8_t>(children.size()); ++code) {
+      type_codes.push_back(code);
+    }
+  } else {
+    RETURN_NOT_ARRAY("typeIds", it_type_codes, json_type);
+    const auto& id_array = it_type_codes->value.GetArray();
+    if (id_array.Size() == 0) {
+      for (uint8_t code = 0; code < static_cast<uint8_t>(children.size()); ++code) {
+        type_codes.push_back(code);
+      }
+    } else {
+      for (const rj::Value& val : id_array) {
+        DCHECK(val.IsUint());
+        type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
+      }
+    }
   }
 
   *type = union_(children, type_codes, mode);
@@ -1142,8 +1154,8 @@ class ArrayReader {
 
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_type_ids = obj_->FindMember("TYPE_ID");
-    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, *obj_);
+    const auto& json_type_ids = obj_->FindMember("TYPE");
+    RETURN_NOT_ARRAY("TYPE", json_type_ids, *obj_);
     RETURN_NOT_OK(
         GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
 

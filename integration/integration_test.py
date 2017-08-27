@@ -532,7 +532,9 @@ class StructType(DataType):
             name = self.name
         return StructColumn(name, size, is_valid, field_values)
 
+
 class UnionType(DataType):
+
     def __init__(self, name, mode, type_ids, field_types, nullable=True):
         DataType.__init__(self, name, nullable=nullable)
         self.mode = mode
@@ -540,11 +542,15 @@ class UnionType(DataType):
         self.field_types = field_types
 
     def _get_type(self):
-        return OrderedDict([
+        type_ids = self.type_ids if self.type_ids is not None else []
+
+        attrs = [
             ('name', 'union'),
             ('mode', self.mode),
-            ('typeIds', self.type_ids),
-        ])
+            ('typeIds', type_ids)
+        ]
+
+        return OrderedDict(attrs)
 
     def _get_children(self):
         return [type_.get_json() for type_ in self.field_types]
@@ -558,7 +564,7 @@ class UnionType(DataType):
                            ('typeBitWidth', 8)])])])
 
     def _make_type(self, size):
-        if self.type_ids != []:
+        if self.type_ids is not None:
             type_ids = self.type_ids
         else:
             type_ids = np.arange(len(self.field_types))
@@ -807,7 +813,7 @@ def generate_dictionary_case():
                           dictionaries=[dict1, dict2])
 
 
-def _generate_union_field(type_ids=[]):
+def _generate_union_field(type_ids=None):
     return UnionType('union_nullable', "Sparse", type_ids,
                      [get_field('f1', 'int64'),
                       get_field('f2', 'float64'),
@@ -818,7 +824,7 @@ def _generate_union_field(type_ids=[]):
 
 
 def generate_union_case():
-    fields = [_generate_union_field([])]
+    fields = [_generate_union_field()]
     return _generate_file("union", fields, [10])
 
 
