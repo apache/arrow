@@ -160,6 +160,13 @@ cdef class ObjectID:
         return self.data.binary()
 
 
+cdef class ObjectNotAvailable:
+    """
+    Placeholder for an object that was not available within the given timeout.
+    """
+    pass
+
+
 cdef class PlasmaBuffer(Buffer):
     """
     This is the type returned by calls to get with a PlasmaClient.
@@ -598,11 +605,17 @@ def put(PlasmaClient client, value, object_id=None):
     stream = pyarrow.FixedSizeBufferOutputStream(buffer)
     stream.set_memcopy_threads(4)
     serialized.write_to(stream)
+    client.seal(id)
     return id
 
 def get(PlasmaClient client, object_ids, timeout_ms=-1):
     results = []
     buffers = client.get(object_ids, timeout_ms)
-    for buffer in buffers:
-        results.append(pyarrow.deserialize(buffer))
+    for i in range(len(object_ids)):
+        # buffers[i] is None if this object was not available within the
+        # timeout
+        if buffers[i]:
+            results.append(pyarrow.deserialize(buffers[i]))
+        else:
+            results.append(ObjectNotAvailable)
     return results
