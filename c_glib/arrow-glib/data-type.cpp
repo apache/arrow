@@ -67,6 +67,9 @@ G_BEGIN_DECLS
  * #GArrowStringDataType is a class for UTF-8 encoded string data
  * type.
  *
+ * #GArrowData32DataType is a class for UNIT time in 32-bit signed
+ * integer data type.
+ *
  * #GArrowListDataType is a class for list data type.
  *
  * #GArrowStructDataType is a class for struct data type.
@@ -654,6 +657,40 @@ garrow_string_data_type_new(void)
 }
 
 
+G_DEFINE_TYPE(GArrowDate32DataType,                \
+              garrow_date32_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_date32_data_type_init(GArrowDate32DataType *object)
+{
+}
+
+static void
+garrow_date32_data_type_class_init(GArrowDate32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_date32_data_type_new:
+ *
+ * Returns: The newly created 64-bit floating point data type.
+ *
+ * Since: 0.7.0
+ */
+GArrowDate32DataType *
+garrow_date32_data_type_new(void)
+{
+  auto arrow_data_type = arrow::date32();
+
+  GArrowDate32DataType *data_type =
+    GARROW_DATE32_DATA_TYPE(g_object_new(GARROW_TYPE_DATE32_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
 G_DEFINE_TYPE(GArrowListDataType,                \
               garrow_list_data_type,             \
               GARROW_TYPE_DATA_TYPE)
@@ -797,6 +834,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::STRING:
     type = GARROW_TYPE_STRING_DATA_TYPE;
+    break;
+  case arrow::Type::type::DATE32:
+    type = GARROW_TYPE_DATE32_DATA_TYPE;
     break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_DATA_TYPE;
