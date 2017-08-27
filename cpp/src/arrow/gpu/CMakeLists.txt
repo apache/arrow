@@ -114,6 +114,15 @@ install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+# CUDA build version
+configure_file(cuda_version.h.in
+  "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
+  @ONLY)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
+
 set(ARROW_GPU_TEST_LINK_LIBS
   arrow_gpu_shared
   ${ARROW_TEST_LINK_LIBS})
