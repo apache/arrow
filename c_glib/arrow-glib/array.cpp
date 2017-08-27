@@ -41,6 +41,25 @@ garrow_array_get_values_raw(std::shared_ptr<arrow::Array> arrow_array,
   return arrow_specific_array->raw_values();
 };
 
+template <typename T>
+GArrowArray *
+garrow_primitive_array_new(gint64 length,
+                           GArrowBuffer *data,
+                           GArrowBuffer *null_bitmap,
+                           gint64 n_nulls)
+{
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_specific_array =
+    std::make_shared<typename arrow::TypeTraits<T>::ArrayType>(length,
+                                                               arrow_data,
+                                                               arrow_bitmap,
+                                                               n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_specific_array);
+  return garrow_array_new_raw(&arrow_array);
+};
+
 G_BEGIN_DECLS
 
 /**
@@ -540,16 +559,11 @@ garrow_boolean_array_new(gint64 length,
                          GArrowBuffer *null_bitmap,
                          gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_boolean_array =
-    std::make_shared<arrow::BooleanArray>(length,
-                                          arrow_data,
-                                          arrow_bitmap,
-                                          n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_boolean_array);
-  return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::BooleanType>(length,
+                                                              data,
+                                                              null_bitmap,
+                                                              n_nulls);
+  return GARROW_BOOLEAN_ARRAY(array);
 }
 
 /**
@@ -627,16 +641,11 @@ garrow_int8_array_new(gint64 length,
                       GArrowBuffer *null_bitmap,
                       gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_int8_array =
-    std::make_shared<arrow::Int8Array>(length,
-                                       arrow_data,
-                                       arrow_bitmap,
-                                       n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_int8_array);
-  return GARROW_INT8_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Int8Type>(length,
+                                                           data,
+                                                           null_bitmap,
+                                                           n_nulls);
+  return GARROW_INT8_ARRAY(array);
 }
 
 /**
@@ -705,16 +714,11 @@ garrow_uint8_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_uint8_array =
-    std::make_shared<arrow::UInt8Array>(length,
-                                        arrow_data,
-                                        arrow_bitmap,
-                                        n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_uint8_array);
-  return GARROW_UINT8_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::UInt8Type>(length,
+                                                            data,
+                                                            null_bitmap,
+                                                            n_nulls);
+  return GARROW_UINT8_ARRAY(array);
 }
 
 /**
@@ -783,16 +787,11 @@ garrow_int16_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_int16_array =
-    std::make_shared<arrow::Int16Array>(length,
-                                        arrow_data,
-                                        arrow_bitmap,
-                                        n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_int16_array);
-  return GARROW_INT16_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Int16Type>(length,
+                                                            data,
+                                                            null_bitmap,
+                                                            n_nulls);
+  return GARROW_INT16_ARRAY(array);
 }
 
 /**
@@ -861,16 +860,11 @@ garrow_uint16_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_uint16_array =
-    std::make_shared<arrow::UInt16Array>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_uint16_array);
-  return GARROW_UINT16_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::UInt16Type>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_UINT16_ARRAY(array);
 }
 
 /**
@@ -939,16 +933,11 @@ garrow_int32_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_int32_array =
-    std::make_shared<arrow::Int32Array>(length,
-                                        arrow_data,
-                                        arrow_bitmap,
-                                        n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_int32_array);
-  return GARROW_INT32_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Int32Type>(length,
+                                                            data,
+                                                            null_bitmap,
+                                                            n_nulls);
+  return GARROW_INT32_ARRAY(array);
 }
 
 /**
@@ -1017,16 +1006,11 @@ garrow_uint32_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_uint32_array =
-    std::make_shared<arrow::UInt32Array>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_uint32_array);
-  return GARROW_UINT32_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::UInt32Type>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_UINT32_ARRAY(array);
 }
 
 /**
@@ -1095,16 +1079,11 @@ garrow_int64_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_int64_array =
-    std::make_shared<arrow::Int64Array>(length,
-                                        arrow_data,
-                                        arrow_bitmap,
-                                        n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_int64_array);
-  return GARROW_INT64_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Int64Type>(length,
+                                                            data,
+                                                            null_bitmap,
+                                                            n_nulls);
+  return GARROW_INT64_ARRAY(array);
 }
 
 /**
@@ -1175,16 +1154,11 @@ garrow_uint64_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_uint64_array =
-    std::make_shared<arrow::UInt64Array>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_uint64_array);
-  return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::UInt64Type>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_UINT64_ARRAY(array);
 }
 
 /**
@@ -1255,16 +1229,11 @@ garrow_float_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_float_array =
-    std::make_shared<arrow::FloatArray>(length,
-                                        arrow_data,
-                                        arrow_bitmap,
-                                        n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_float_array);
-  return GARROW_FLOAT_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::FloatType>(length,
+                                                            data,
+                                                            null_bitmap,
+                                                            n_nulls);
+  return GARROW_FLOAT_ARRAY(array);
 }
 
 /**
@@ -1333,16 +1302,11 @@ garrow_double_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_double_array =
-    std::make_shared<arrow::DoubleArray>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_double_array);
-  return GARROW_DOUBLE_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::DoubleType>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_DOUBLE_ARRAY(array);
 }
 
 /**
@@ -1587,16 +1551,11 @@ garrow_date32_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_date32_array =
-    std::make_shared<arrow::Date32Array>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_date32_array);
-  return GARROW_DATE32_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Date32Type>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_DATE32_ARRAY(array);
 }
 
 /**
@@ -1669,16 +1628,11 @@ garrow_date64_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  const auto arrow_data = garrow_buffer_get_raw(data);
-  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_date64_array =
-    std::make_shared<arrow::Date64Array>(length,
-                                         arrow_data,
-                                         arrow_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_date64_array);
-  return GARROW_DATE64_ARRAY(garrow_array_new_raw(&arrow_array));
+  auto array = garrow_primitive_array_new<arrow::Date64Type>(length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
+  return GARROW_DATE64_ARRAY(array);
 }
 
 /**
