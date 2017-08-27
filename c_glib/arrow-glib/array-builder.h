@@ -833,6 +833,57 @@ gboolean garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *build
                                                  GError **error);
 
 
+#define GARROW_TYPE_DATE64_ARRAY_BUILDER        \
+  (garrow_date64_array_builder_get_type())
+#define GARROW_DATE64_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_DATE64_ARRAY_BUILDER, \
+                              GArrowDate64ArrayBuilder))
+#define GARROW_DATE64_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_DATE64_ARRAY_BUILDER,    \
+                           GArrowDate64ArrayBuilderClass))
+#define GARROW_IS_DATE64_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_DATE64_ARRAY_BUILDER))
+#define GARROW_IS_DATE64_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_DATE64_ARRAY_BUILDER))
+#define GARROW_DATE64_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_DATE64_ARRAY_BUILDER,  \
+                             GArrowDate64ArrayBuilderClass))
+
+typedef struct _GArrowDate64ArrayBuilder         GArrowDate64ArrayBuilder;
+typedef struct _GArrowDate64ArrayBuilderClass    GArrowDate64ArrayBuilderClass;
+
+/**
+ * GArrowDate64ArrayBuilder:
+ *
+ * It wraps `arrow::Date64Builder`.
+ */
+struct _GArrowDate64ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowDate64ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_date64_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowDate64ArrayBuilder *garrow_date64_array_builder_new(void);
+
+gboolean garrow_date64_array_builder_append(GArrowDate64ArrayBuilder *builder,
+                                            gint64 value,
+                                            GError **error);
+gboolean garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
+                                                 GError **error);
+
+
 #define GARROW_TYPE_LIST_ARRAY_BUILDER          \
   (garrow_list_array_builder_get_type())
 #define GARROW_LIST_ARRAY_BUILDER(obj)                          \
