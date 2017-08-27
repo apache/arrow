@@ -159,6 +159,12 @@ cdef class ObjectID:
         """
         return self.data.binary()
 
+    @staticmethod
+    def from_random():
+        cdef ObjectID result
+        result.data = CUniqueID.from_random()
+        return result
+
 
 cdef class ObjectNotAvailable:
     """
