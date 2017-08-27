@@ -45,9 +45,7 @@ class TestCudaBufferBase : public ::testing::Test {
 
 class TestCudaBuffer : public TestCudaBufferBase {
  public:
-  void SetUp() {
-    TestCudaBufferBase::SetUp();
-  }
+  void SetUp() { TestCudaBufferBase::SetUp(); }
 };
 
 TEST_F(TestCudaBuffer, Allocate) {
@@ -81,9 +79,7 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
 
 class TestCudaBufferWriter : public TestCudaBufferBase {
  public:
-  void SetUp() {
-    TestCudaBufferBase::SetUp();
-  }
+  void SetUp() { TestCudaBufferBase::SetUp(); }
 
   void Allocate(const int64_t size) {
     ASSERT_OK(AllocateCudaBuffer(size, context_, &device_buffer_));
@@ -125,9 +121,6 @@ class TestCudaBufferWriter : public TestCudaBufferBase {
   }
 
  protected:
-  CudaDeviceManager* manager_;
-  std::shared_ptr<CudaContext> context_;
-
   std::shared_ptr<CudaBuffer> device_buffer_;
   std::unique_ptr<CudaBufferWriter> writer_;
 };
@@ -189,9 +182,7 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
 
 class TestCudaBufferReader : public TestCudaBufferBase {
  public:
-  void SetUp() {
-    TestCudaBufferBase::SetUp();
-  }
+  void SetUp() { TestCudaBufferBase::SetUp(); }
 };
 
 TEST_F(TestCudaBufferReader, Basics) {

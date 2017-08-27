@@ -103,8 +103,7 @@ class CudaContext::CudaContextImpl {
 
 class CudaDeviceManager::CudaDeviceManagerImpl {
  public:
-  CudaDeviceManagerImpl()
-      : host_bytes_allocated_(0) {}
+  CudaDeviceManagerImpl() : host_bytes_allocated_(0) {}
 
   Status Init() {
     CU_RETURN_NOT_OK(cuInit(0));
@@ -165,9 +164,7 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
   int host_bytes_allocated_;
 };
 
-CudaDeviceManager::CudaDeviceManager() {
-  impl_.reset(new CudaDeviceManagerImpl());
-}
+CudaDeviceManager::CudaDeviceManager() { impl_.reset(new CudaDeviceManagerImpl()); }
 
 std::unique_ptr<CudaDeviceManager> CudaDeviceManager::instance_ = nullptr;
 
@@ -197,16 +194,12 @@ Status CudaDeviceManager::FreeHost(uint8_t* data, int64_t nbytes) {
   return impl_->FreeHost(data, nbytes);
 }
 
-int CudaDeviceManager::num_devices() const {
-  return impl_->num_devices();
-}
+int CudaDeviceManager::num_devices() const { return impl_->num_devices(); }
 
 // ----------------------------------------------------------------------
 // CudaContext public API
 
-CudaContext::CudaContext() {
-  impl_.reset(new CudaContextImpl());
-}
+CudaContext::CudaContext() { impl_.reset(new CudaContextImpl()); }
 
 CudaContext::~CudaContext() {}
 

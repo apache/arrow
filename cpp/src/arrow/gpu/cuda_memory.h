@@ -37,8 +37,7 @@ namespace gpu {
 /// Be careful using this in any Arrow code which may not be GPU-aware
 class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
-  CudaBuffer(uint8_t* data, int64_t size,
-             const std::shared_ptr<CudaContext>& context,
+  CudaBuffer(uint8_t* data, int64_t size, const std::shared_ptr<CudaContext>& context,
              bool own_data = false)
       : Buffer(data, size), context_(context), own_data_(own_data) {
     is_mutable_ = true;
@@ -151,8 +150,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaBuffer(const int64_t size,
-                          const std::shared_ptr<CudaContext>& context,
+Status AllocateCudaBuffer(const int64_t size, const std::shared_ptr<CudaContext>& context,
                           std::shared_ptr<CudaBuffer>* out);
 
 /// \brief Allocate CUDA-accessible memory on CPU host
@@ -160,8 +158,7 @@ Status AllocateCudaBuffer(const int64_t size,
 /// \param[out] out the allocated buffer
 /// \return Status
 ARROW_EXPORT
-Status AllocateCudaHostBuffer(const int64_t size,
-                              std::shared_ptr<CudaHostBuffer>* out);
+Status AllocateCudaHostBuffer(const int64_t size, std::shared_ptr<CudaHostBuffer>* out);
 
 }  // namespace gpu
 }  // namespace arrow

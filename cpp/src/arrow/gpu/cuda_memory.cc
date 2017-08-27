@@ -40,8 +40,7 @@ CudaBuffer::~CudaBuffer() {
 
 CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
                        const int64_t size)
-    : Buffer(parent, offset, size),
-      context_(parent->context()) {}
+    : Buffer(parent, offset, size), context_(parent->context()) {}
 
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
                               uint8_t* out) const {
@@ -54,9 +53,9 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const uint8_t* data,
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
 }
 
-Status AllocateCudaBuffer(const int64_t size,
-                          const std::shared_ptr<CudaContext>& context,
+Status AllocateCudaBuffer(const int64_t size, const std::shared_ptr<CudaContext>& context,
                           std::shared_ptr<CudaBuffer>* out) {
+  DCHECK(context);
   uint8_t* data = nullptr;
   RETURN_NOT_OK(context->Allocate(size, &data));
   *out = std::make_shared<CudaBuffer>(data, size, context);
@@ -73,9 +72,7 @@ CudaHostBuffer::~CudaHostBuffer() {
 // CudaBufferReader
 
 CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::BufferReader(buffer),
-      cuda_buffer_(buffer),
-      context_(buffer->context()) {}
+    : io::BufferReader(buffer), cuda_buffer_(buffer), context_(buffer->context()) {}
 
 CudaBufferReader::~CudaBufferReader() {}
 
@@ -110,10 +107,8 @@ Status CudaBufferWriter::Close() { return Flush(); }
 Status CudaBufferWriter::Flush() {
   if (buffer_size_ > 0 && buffer_position_ > 0) {
     // Only need to flush when the write has been buffered
-    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_ -
-                                             buffer_position_,
-                                             host_buffer_data_,
-                                             buffer_position_));
+    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_ - buffer_position_,
+                                             host_buffer_data_, buffer_position_));
     buffer_position_ = 0;
   }
   return Status::OK();
@@ -139,8 +134,7 @@ Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
     if (nbytes + buffer_position_ >= buffer_size_) {
       // Reach end of buffer, write everything
       RETURN_NOT_OK(Flush());
-      RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_,
-                                               data, nbytes));
+      RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
     } else {
       // Write bytes to buffer
       std::memcpy(host_buffer_data_ + buffer_position_, data, nbytes);
@@ -148,8 +142,7 @@ Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
     }
   } else {
     // Unbuffered write
-    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_,
-                                             data, nbytes));
+    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
   }
   position_ += nbytes;
   return Status::OK();

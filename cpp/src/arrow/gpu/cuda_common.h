@@ -34,7 +34,7 @@ namespace gpu {
     (void)ret;            \
   } while (0)
 
-#define CU_RETURN_NOT_OK(STMT)                                           \
+#define CU_RETURN_NOT_OK(STMT)                                                \
   do {                                                                        \
     CUresult ret = (STMT);                                                    \
     if (ret != CUDA_SUCCESS) {                                                \
