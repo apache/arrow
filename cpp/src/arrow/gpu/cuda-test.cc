@@ -24,7 +24,7 @@
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 
-#include "arrow/gpu/cuda_memory.h"
+#include "arrow/gpu/cuda_api.h"
 
 namespace arrow {
 namespace gpu {
@@ -51,7 +51,7 @@ class TestCudaBuffer : public TestCudaBufferBase {
 TEST_F(TestCudaBuffer, Allocate) {
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
-  ASSERT_OK(AllocateCudaBuffer(kSize, context_, &buffer));
+  ASSERT_OK(context_->Allocate(kSize, &buffer));
   ASSERT_EQ(kSize, buffer->size());
 }
 
@@ -66,7 +66,7 @@ void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
 TEST_F(TestCudaBuffer, CopyFromHost) {
   const int64_t kSize = 1000;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(AllocateCudaBuffer(kSize, context_, &device_buffer));
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
 
   std::shared_ptr<PoolBuffer> host_buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
@@ -82,7 +82,7 @@ class TestCudaBufferWriter : public TestCudaBufferBase {
   void SetUp() { TestCudaBufferBase::SetUp(); }
 
   void Allocate(const int64_t size) {
-    ASSERT_OK(AllocateCudaBuffer(size, context_, &device_buffer_));
+    ASSERT_OK(context_->Allocate(size, &device_buffer_));
     writer_.reset(new CudaBufferWriter(device_buffer_));
   }
 
@@ -189,7 +189,7 @@ TEST_F(TestCudaBufferReader, Basics) {
   std::shared_ptr<CudaBuffer> device_buffer;
 
   const int64_t size = 1000;
-  ASSERT_OK(AllocateCudaBuffer(size, context_, &device_buffer));
+  ASSERT_OK(context_->Allocate(size, &device_buffer));
 
   std::shared_ptr<PoolBuffer> buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(1000, default_memory_pool(), &buffer));

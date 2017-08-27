@@ -24,11 +24,10 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
+#include "arrow/gpu/cuda_memory.h"
+
 namespace arrow {
 namespace gpu {
-
-class CudaBuffer;
-class CudaHostBuffer;
 
 // Forward declaration
 class CudaContext;
@@ -41,6 +40,7 @@ class ARROW_EXPORT CudaDeviceManager {
   Status GetContext(int gpu_number, std::shared_ptr<CudaContext>* ctx);
 
   Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
+
   Status FreeHost(uint8_t* data, int64_t nbytes);
 
   int num_devices() const;
@@ -59,26 +59,40 @@ struct ARROW_EXPORT CudaDeviceInfo {};
 
 /// \class CudaContext
 /// \brief Friendlier interface to the CUDA driver API
-class ARROW_EXPORT CudaContext {
+class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext> {
  public:
   ~CudaContext();
 
   Status Destroy();
 
-  Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes);
-  Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes);
+  /// \brief Allocate CUDA memory on GPU device for this context
+  /// \param[in] nbytes number of bytes
+  /// \param[out] out the allocated buffer
+  /// \return Status
+  Status Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out);
 
-  Status Allocate(int64_t nbytes, uint8_t** out);
-  Status Free(uint8_t* device_ptr, int64_t nbytes);
+  /// \brief Open existing CUDA IPC memory handle
+  /// \param[in] ipc_handle opaque pointer to CUipcMemHandle (driver API)
+  /// \param[out] buffer a CudaBuffer referencing
+  /// \return Status
+  Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
+                       std::shared_ptr<CudaBuffer>* buffer);
 
   int64_t bytes_allocated() const;
 
  private:
   CudaContext();
 
+  Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes);
+  Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes);
+  Status Free(uint8_t* device_ptr, int64_t nbytes);
+
   class CudaContextImpl;
   std::unique_ptr<CudaContextImpl> impl_;
 
+  friend CudaBuffer;
+  friend CudaBufferReader;
+  friend CudaBufferWriter;
   friend CudaDeviceManager::CudaDeviceManagerImpl;
 };
 

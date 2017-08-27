@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -18,6 +19,7 @@
 #ifndef ARROW_GPU_CUDA_API_H
 #define ARROW_GPU_CUDA_API_H
 
+#include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/gpu/cuda_version.h"
 

@@ -25,7 +25,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/test-util.h"
 
-#include "arrow/gpu/cuda_memory.h"
+#include "arrow/gpu/cuda_api.h"
 
 namespace arrow {
 namespace gpu {
@@ -41,7 +41,7 @@ static void CudaBufferWriterBenchmark(benchmark::State& state, const int64_t tot
   ABORT_NOT_OK(manager->GetContext(kGpuNumber, &context));
 
   std::shared_ptr<CudaBuffer> device_buffer;
-  ABORT_NOT_OK(AllocateCudaBuffer(total_bytes, context, &device_buffer));
+  ABORT_NOT_OK(context->Allocate(total_bytes, &device_buffer));
   CudaBufferWriter writer(device_buffer);
 
   if (buffer_size > 0) {

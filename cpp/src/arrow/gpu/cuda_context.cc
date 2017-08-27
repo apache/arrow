@@ -88,6 +88,17 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
+  Status OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle, uint8_t** out) {
+    CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
+    auto handle = reinterpret_cast<const CUipcMemHandle*>(ipc_handle.handle());
+
+    CUdeviceptr data;
+    CU_RETURN_NOT_OK(
+        cuIpcOpenMemHandle(&data, *handle, CU_IPC_MEM_LAZY_ENABLE_PEER_ACCESS));
+    *out = reinterpret_cast<uint8_t*>(data);
+    return Status::OK();
+  }
+
   const CudaDevice device() const { return device_; }
 
  private:
@@ -203,8 +214,11 @@ CudaContext::CudaContext() { impl_.reset(new CudaContextImpl()); }
 
 CudaContext::~CudaContext() {}
 
-Status CudaContext::Allocate(int64_t nbytes, uint8_t** out) {
-  return impl_->Allocate(nbytes, out);
+Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
+  uint8_t* data = nullptr;
+  RETURN_NOT_OK(impl_->Allocate(nbytes, &data));
+  *out = std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), true);
+  return Status::OK();
 }
 
 Status CudaContext::CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes) {
@@ -217,6 +231,21 @@ Status CudaContext::CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t n
 
 Status CudaContext::Free(uint8_t* device_ptr, int64_t nbytes) {
   return impl_->Free(device_ptr, nbytes);
+}
+
+Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
+                                  std::shared_ptr<CudaBuffer>* out) {
+  uint8_t* data = nullptr;
+  RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
+
+  // Need to ask the device how big the buffer is
+  size_t allocation_size = 0;
+  CU_RETURN_NOT_OK(cuMemGetAddressRange(nullptr, &allocation_size,
+                                        reinterpret_cast<CUdeviceptr>(data)));
+
+  *out = std::make_shared<CudaBuffer>(data, allocation_size, this->shared_from_this(),
+                                      true, true);
+  return Status::OK();
 }
 
 }  // namespace gpu

@@ -19,7 +19,10 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
+
+#include <cuda.h>
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
@@ -32,15 +35,69 @@
 namespace arrow {
 namespace gpu {
 
-CudaBuffer::~CudaBuffer() {
-  if (own_data_) {
-    DCHECK(context_->Free(mutable_data_, size_).ok());
+// ----------------------------------------------------------------------
+// CUDA IPC memory handle
+
+struct CudaIpcMemHandle::CudaIpcMemHandleImpl {
+  explicit CudaIpcMemHandleImpl(const void* handle) {
+    memcpy(&ipc_handle, handle, sizeof(CUipcMemHandle));
   }
+
+  CUipcMemHandle ipc_handle;
+};
+
+CudaIpcMemHandle::CudaIpcMemHandle(const void* handle) {
+  impl_.reset(new CudaIpcMemHandleImpl(handle));
+}
+
+CudaIpcMemHandle::~CudaIpcMemHandle() {}
+
+Status CudaIpcMemHandle::FromBuffer(const void* opaque_handle,
+                                    std::unique_ptr<CudaIpcMemHandle>* handle) {
+  *handle = std::unique_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(opaque_handle));
+  return Status::OK();
+}
+
+Status CudaIpcMemHandle::Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const {
+  std::shared_ptr<MutableBuffer> buffer;
+  constexpr size_t kHandleSize = sizeof(CUipcMemHandle);
+  RETURN_NOT_OK(AllocateBuffer(pool, static_cast<int64_t>(kHandleSize), &buffer));
+  memcpy(buffer->mutable_data(), &impl_->ipc_handle, kHandleSize);
+  *out = buffer;
+  return Status::OK();
+}
+
+const void* CudaIpcMemHandle::handle() const { return &impl_->ipc_handle; }
+
+// ----------------------------------------------------------------------
+
+CudaBuffer::CudaBuffer(uint8_t* data, int64_t size,
+                       const std::shared_ptr<CudaContext>& context, bool own_data,
+                       bool is_ipc)
+    : Buffer(data, size), context_(context), own_data_(own_data), is_ipc_(is_ipc) {
+  is_mutable_ = true;
+  mutable_data_ = data;
+}
+
+CudaBuffer::~CudaBuffer() { DCHECK(Close().ok()); }
+
+Status CudaBuffer::Close() {
+  if (own_data_) {
+    if (is_ipc_) {
+      CU_RETURN_NOT_OK(cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(mutable_data_)));
+    } else {
+      return context_->Free(mutable_data_, size_);
+    }
+  }
+  return Status::OK();
 }
 
 CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
                        const int64_t size)
-    : Buffer(parent, offset, size), context_(parent->context()) {}
+    : Buffer(parent, offset, size),
+      context_(parent->context()),
+      own_data_(false),
+      is_ipc_(false) {}
 
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
                               uint8_t* out) const {
@@ -53,12 +110,15 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const uint8_t* data,
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
 }
 
-Status AllocateCudaBuffer(const int64_t size, const std::shared_ptr<CudaContext>& context,
-                          std::shared_ptr<CudaBuffer>* out) {
-  DCHECK(context);
-  uint8_t* data = nullptr;
-  RETURN_NOT_OK(context->Allocate(size, &data));
-  *out = std::make_shared<CudaBuffer>(data, size, context);
+Status CudaBuffer::ExportForIpc(std::unique_ptr<CudaIpcMemHandle>* handle) {
+  if (is_ipc_) {
+    return Status::Invalid("Buffer has already been exported for IPC");
+  }
+  CUipcMemHandle cu_handle;
+  CU_RETURN_NOT_OK(
+      cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(mutable_data_)));
+  is_ipc_ = true;
+  *handle = std::unique_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
   return Status::OK();
 }
 

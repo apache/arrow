@@ -45,7 +45,8 @@ ADD_ARROW_LIB(arrow_gpu
 )
 
 install(FILES
-  cuda_common.h
+  cuda_api.h
+  cuda_context.h
   cuda_memory.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
