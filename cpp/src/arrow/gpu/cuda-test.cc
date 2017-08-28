@@ -21,9 +21,9 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/status.h"
-#include "arrow/ipc/test-common.h"
 #include "arrow/ipc/api.h"
+#include "arrow/ipc/test-common.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 
 #include "arrow/gpu/cuda_api.h"
@@ -280,12 +280,12 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK(ipc::MakeIntRecordBatch(&batch));
 
   std::shared_ptr<CudaBuffer> device_serialized;
-  ASSERT_OK(arrow::gpu::SerializeRecordBatch(*batch, context_.get(),
-                                             &device_serialized));
+  ASSERT_OK(arrow::gpu::SerializeRecordBatch(*batch, context_.get(), &device_serialized));
 
   // Test that ReadRecordBatch works properly
   std::shared_ptr<RecordBatch> device_batch;
-  ASSERT_OK(ReadRecordBatch(batch->schema(), device_serialized, &device_batch));
+  ASSERT_OK(ReadRecordBatch(batch->schema(), device_serialized, default_memory_pool(),
+                            &device_batch));
 
   // Copy data from device, read batch, and compare
   std::shared_ptr<MutableBuffer> host_buffer;

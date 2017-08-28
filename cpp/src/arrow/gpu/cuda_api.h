@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -24,4 +23,4 @@
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/gpu/cuda_version.h"
 
-#endif // ARROW_GPU_CUDA_API_H
+#endif  // ARROW_GPU_CUDA_API_H

@@ -45,6 +45,15 @@ ADD_ARROW_LIB(arrow_gpu
   STATIC_LINK_LIBS ""
 )
 
+# CUDA build version
+configure_file(cuda_version.h.in
+  "${CMAKE_CURRENT_SOURCE_DIR}/cuda_version.h"
+  @ONLY)
+
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/cuda_version.h"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
+
 install(FILES
   cuda_api.h
   cuda_arrow_ipc.h
@@ -56,18 +65,10 @@ install(FILES
 configure_file(arrow-gpu.pc.in
   "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
   @ONLY)
+
 install(
   FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-gpu.pc"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-
-# CUDA build version
-configure_file(cuda_version.h.in
-  "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
-  @ONLY)
-
-install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 set(ARROW_GPU_TEST_LINK_LIBS
   arrow_gpu_shared

@@ -15,11 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/gpu/cuda_arrow_ipc.h"
+
 #include <cstdint>
 #include <memory>
+#include <sstream>
+#include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -29,6 +35,9 @@
 #include "arrow/gpu/cuda_memory.h"
 
 namespace arrow {
+
+namespace flatbuf = org::apache::arrow::flatbuf;
+
 namespace gpu {
 
 Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
@@ -45,53 +54,56 @@ Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
   RETURN_NOT_OK(stream.SetBufferSize(1 << 23));
 
   // We use the default memory pool here since any allocations are ephemeral
-  RETURN_NOT_OK(ipc::SerializeRecordBatch(batch, default_memory_pool(),
-                                          &stream));
+  RETURN_NOT_OK(ipc::SerializeRecordBatch(batch, default_memory_pool(), &stream));
+  RETURN_NOT_OK(stream.Close());
   *out = buffer;
   return Status::OK();
 }
 
-Status ReadMessage(CudaBufferReader* stream, MemoryPool* pool,
-                   std::unique_ptr<Message>* message) {
-  uint8_t length_buf[4] = {0};
-
+Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
+                   std::unique_ptr<ipc::Message>* out) {
+  int32_t message_length = 0;
   int64_t bytes_read = 0;
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read, length_buf));
+
+  RETURN_NOT_OK(reader->Read(sizeof(int32_t), &bytes_read,
+                             reinterpret_cast<uint8_t*>(&message_length)));
   if (bytes_read != sizeof(int32_t)) {
-    *message = nullptr;
+    *out = nullptr;
     return Status::OK();
   }
 
-  const int32_t metadata_length = *reinterpret_cast<const int32_t*>(length_buf);
-
-  if (metadata_length == 0) {
+  if (message_length == 0) {
     // Optional 0 EOS control message
-    *message = nullptr;
+    *out = nullptr;
     return Status::OK();
   }
 
   std::shared_ptr<MutableBuffer> metadata;
-  RETURN_NOT_OK(AllocateBuffer(pool, metadata_length, &metadata));
-  RETURN_NOT_OK(file->Read(message_length, &bytes_read, metadata->mutable_data()));
-  if (bytes_read != metadata_length) {
-    return Status::IOError("Unexpected end of stream trying to read message");
-  }
-
-  auto fb_message = flatbuf::GetMessage(metadata->data());
-
-  int64_t body_length = fb_message->bodyLength();
-
-  // Zero copy
-  std::shared_ptr<Buffer> body;
-  RETURN_NOT_OK(stream->Read(body_length, &body));
-  if (body->size() < body_length) {
+  RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
+  RETURN_NOT_OK(reader->Read(message_length, &bytes_read, metadata->mutable_data()));
+  if (bytes_read != message_length) {
     std::stringstream ss;
-    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
-       << body->size();
+    ss << "Expected " << message_length << " metadata bytes, but only got " << bytes_read;
     return Status::IOError(ss.str());
   }
 
-  return Message::Open(metadata, body, message);
+  return ipc::Message::ReadFrom(metadata, reader, out);
+}
+
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
+                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
+                       std::shared_ptr<RecordBatch>* out) {
+  CudaBufferReader cuda_reader(buffer);
+
+  std::unique_ptr<ipc::Message> message;
+  RETURN_NOT_OK(ReadMessage(&cuda_reader, pool, &message));
+
+  if (!message) {
+    return Status::Invalid("Message is length 0");
+  }
+
+  // Zero-copy read on device memory
+  return ipc::ReadRecordBatch(*message, schema, out);
 }
 
 }  // namespace gpu

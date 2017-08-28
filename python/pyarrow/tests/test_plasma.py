@@ -187,8 +187,8 @@ class TestPlasmaClient(object):
         # Seal the object.
         self.plasma_client.seal(object_id)
         # Get the object.
-        memory_buffer = np.frombuffer(self.plasma_client.get_buffers([object_id])[0],
-                                      dtype="uint8")
+        memory_buffer = np.frombuffer(
+            self.plasma_client.get_buffers([object_id])[0], dtype="uint8")
         for i in range(length):
             assert memory_buffer[i] == i % 256
 
@@ -241,7 +241,8 @@ class TestPlasmaClient(object):
         # Test timing out of get with various timeouts.
         for timeout in [0, 10, 100, 1000]:
             object_ids = [random_object_id() for _ in range(num_object_ids)]
-            results = self.plasma_client.get_buffers(object_ids, timeout_ms=timeout)
+            results = self.plasma_client.get_buffers(object_ids,
+                                                     timeout_ms=timeout)
             assert results == num_object_ids * [None]
 
         data_buffers = []
@@ -257,7 +258,7 @@ class TestPlasmaClient(object):
         # timeouts.
         for timeout in [0, 10, 100, 1000]:
             data_results = self.plasma_client.get_buffers(object_ids,
-                                                         timeout_ms=timeout)
+                                                          timeout_ms=timeout)
             # metadata_results = self.plasma_client.get_metadata(
             #     object_ids, timeout_ms=timeout)
             for i in range(num_object_ids):
@@ -275,16 +276,16 @@ class TestPlasmaClient(object):
 
     def test_put_and_get(self):
         for value in [["hello", "world", 3, 1.0], None, "hello"]:
-             object_id = self.plasma_client.put(value)
-             [result] = self.plasma_client.get([object_id])
-             assert result == value
+            object_id = self.plasma_client.put(value)
+            [result] = self.plasma_client.get([object_id])
+            assert result == value
 
-             result = self.plasma_client.get(object_id)
-             assert result == value
+            result = self.plasma_client.get(object_id)
+            assert result == value
 
-             object_id = pa.plasma.ObjectID.from_random()
-             [result] = self.plasma_client.get([object_id], timeout_ms=0)
-             assert result == pa.plasma.ObjectNotAvailable
+            object_id = pa.plasma.ObjectID.from_random()
+            [result] = self.plasma_client.get([object_id], timeout_ms=0)
+            assert result == pa.plasma.ObjectNotAvailable
 
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
