@@ -29,17 +29,17 @@
 namespace arrow {
 namespace gpu {
 
+class CudaContext;
+class CudaIpcMemHandle;
+
 /// \class CudaBuffer
 /// \brief An Arrow buffer located on a GPU device
 ///
 /// Be careful using this in any Arrow code which may not be GPU-aware
 class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
-  CudaBuffer(uint8_t* data, int64_t size, const int gpu_number, bool own_data = false)
-      : Buffer(data, size), gpu_number_(gpu_number), own_data_(own_data) {
-    is_mutable_ = true;
-    mutable_data_ = data;
-  }
+  CudaBuffer(uint8_t* data, int64_t size, const std::shared_ptr<CudaContext>& context,
+             bool own_data = false, bool is_ipc = false);
 
   CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
              const int64_t size);
@@ -58,11 +58,22 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// \return Status
   Status CopyFromHost(const int64_t position, const uint8_t* data, int64_t nbytes);
 
-  int gpu_number() const { return gpu_number_; }
+  /// \brief Expose this device buffer as IPC memory which can be used in other processes
+  /// \param[out] handle the exported IPC handle
+  /// \return Status
+  ///
+  /// \note After calling this function, this device memory will not be freed
+  /// when the CudaBuffer is destructed
+  virtual Status ExportForIpc(std::unique_ptr<CudaIpcMemHandle>* handle);
 
- private:
-  const int gpu_number_;
+  std::shared_ptr<CudaContext> context() const { return context_; }
+
+ protected:
+  std::shared_ptr<CudaContext> context_;
   bool own_data_;
+  bool is_ipc_;
+
+  virtual Status Close();
 };
 
 /// \class CudaHostBuffer
@@ -71,6 +82,37 @@ class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
   ~CudaHostBuffer();
+};
+
+/// \class CudaIpcHandle
+/// \brief A container for a CUDA IPC handle
+class ARROW_EXPORT CudaIpcMemHandle {
+ public:
+  ~CudaIpcMemHandle();
+
+  /// \brief Create CudaIpcMemHandle from opaque buffer (e.g. from another process)
+  /// \param[in] opaque_handle a CUipcMemHandle as a const void*
+  /// \param[out] handle the CudaIpcMemHandle instance
+  /// \return Status
+  static Status FromBuffer(const void* opaque_handle,
+                           std::unique_ptr<CudaIpcMemHandle>* handle);
+
+  /// \brief Write CudaIpcMemHandle to a Buffer
+  /// \param[in] pool a MemoryPool to allocate memory from
+  /// \param[out] out the serialized buffer
+  /// \return Status
+  Status Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const;
+
+ private:
+  explicit CudaIpcMemHandle(const void* handle);
+
+  struct CudaIpcMemHandleImpl;
+  std::unique_ptr<CudaIpcMemHandleImpl> impl_;
+
+  const void* handle() const;
+
+  friend CudaBuffer;
+  friend CudaContext;
 };
 
 /// \class CudaBufferReader
@@ -98,7 +140,7 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 
  private:
   std::shared_ptr<CudaBuffer> cuda_buffer_;
-  int gpu_number_;
+  std::shared_ptr<CudaContext> context_;
 };
 
 /// \class CudaBufferWriter
@@ -132,7 +174,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   int64_t num_bytes_buffered() const { return buffer_position_; }
 
  private:
-  int gpu_number_;
+  std::shared_ptr<CudaContext> context_;
 
   // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
   int64_t buffer_size_;
@@ -140,15 +182,6 @@ class ARROW_EXPORT CudaBufferWriter : public io::FixedSizeBufferWriter {
   std::shared_ptr<CudaHostBuffer> host_buffer_;
   uint8_t* host_buffer_data_;
 };
-
-/// \brief Allocate CUDA memory on a GPU device
-/// \param[in] gpu_number Device number to allocate
-/// \param[in] size number of bytes
-/// \param[out] out the allocated buffer
-/// \return Status
-ARROW_EXPORT
-Status AllocateCudaBuffer(const int gpu_number, const int64_t size,
-                          std::shared_ptr<CudaBuffer>* out);
 
 /// \brief Allocate CUDA-accessible memory on CPU host
 /// \param[in] size number of bytes

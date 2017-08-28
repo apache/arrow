@@ -386,7 +386,8 @@ cdef class PlasmaClient:
         -------
         The object ID associated to the Python object.
         """
-        cdef ObjectID target_id = object_id if object_id else ObjectID.from_random()
+        cdef ObjectID target_id = (object_id if object_id
+                                   else ObjectID.from_random())
         # TODO(pcm): Make serialization code support non-sequences and
         # get rid of packing the value into a list here (and unpacking in get)
         serialized = pyarrow.serialize([value])
@@ -404,8 +405,8 @@ cdef class PlasmaClient:
         Parameters
         ----------
         object_ids : list or ObjectID
-            Object ID or list of object IDs associated to the values we get from
-            the store.
+            Object ID or list of object IDs associated to the values we get
+            from the store.
         timeout_ms : int, default -1
             The number of milliseconds that the get call should block before
             timing out and returning. Pass -1 if the call should block and 0
@@ -415,14 +416,15 @@ cdef class PlasmaClient:
         -------
         list or object
             Python value or list of Python values for the data associated with
-            the object_ids and ObjectNotAvailable if the object was not available.
+            the object_ids and ObjectNotAvailable if the object was not
+            available.
         """
         if isinstance(object_ids, collections.Sequence):
             results = []
             buffers = self.get_buffers(object_ids, timeout_ms)
             for i in range(len(object_ids)):
-                # buffers[i] is None if this object was not available within the
-                # timeout
+                # buffers[i] is None if this object was not available within
+                # the timeout
                 if buffers[i]:
                     value, = pyarrow.deserialize(buffers[i])
                     results.append(value)

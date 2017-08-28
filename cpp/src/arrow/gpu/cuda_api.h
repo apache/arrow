@@ -18,7 +18,9 @@
 #ifndef ARROW_GPU_CUDA_API_H
 #define ARROW_GPU_CUDA_API_H
 
+#include "arrow/gpu/cuda_arrow_ipc.h"
+#include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/gpu/cuda_version.h"
 
-#endif // ARROW_GPU_CUDA_API_H
+#endif  // ARROW_GPU_CUDA_API_H

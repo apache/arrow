@@ -21,23 +21,39 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/ipc/api.h"
+#include "arrow/ipc/test-common.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 
-#include "arrow/gpu/cuda_memory.h"
+#include "arrow/gpu/cuda_api.h"
 
 namespace arrow {
 namespace gpu {
 
 constexpr int kGpuNumber = 0;
 
-class TestCudaBuffer : public ::testing::Test {};
+class TestCudaBufferBase : public ::testing::Test {
+ public:
+  void SetUp() {
+    ASSERT_OK(CudaDeviceManager::GetInstance(&manager_));
+    ASSERT_OK(manager_->GetContext(kGpuNumber, &context_));
+  }
+
+ protected:
+  CudaDeviceManager* manager_;
+  std::shared_ptr<CudaContext> context_;
+};
+
+class TestCudaBuffer : public TestCudaBufferBase {
+ public:
+  void SetUp() { TestCudaBufferBase::SetUp(); }
+};
 
 TEST_F(TestCudaBuffer, Allocate) {
   const int64_t kSize = 100;
   std::shared_ptr<CudaBuffer> buffer;
-
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &buffer));
+  ASSERT_OK(context_->Allocate(kSize, &buffer));
   ASSERT_EQ(kSize, buffer->size());
 }
 
@@ -52,7 +68,7 @@ void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
 TEST_F(TestCudaBuffer, CopyFromHost) {
   const int64_t kSize = 1000;
   std::shared_ptr<CudaBuffer> device_buffer;
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, kSize, &device_buffer));
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
 
   std::shared_ptr<PoolBuffer> host_buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
@@ -63,10 +79,49 @@ TEST_F(TestCudaBuffer, CopyFromHost) {
   AssertCudaBufferEquals(*device_buffer, host_buffer->data(), kSize);
 }
 
-class TestCudaBufferWriter : public ::testing::Test {
+// IPC only supported on Linux
+#if defined(__linux)
+
+TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
+  // For this test to work, a second process needs to be spawned
+  const int64_t kSize = 1000;
+  std::shared_ptr<CudaBuffer> device_buffer;
+  ASSERT_OK(context_->Allocate(kSize, &device_buffer));
+
+  std::shared_ptr<PoolBuffer> host_buffer;
+  ASSERT_OK(test::MakeRandomBytePoolBuffer(kSize, default_memory_pool(), &host_buffer));
+  ASSERT_OK(device_buffer->CopyFromHost(0, host_buffer->data(), kSize));
+
+  // Export for IPC and serialize
+  std::unique_ptr<CudaIpcMemHandle> ipc_handle;
+  ASSERT_OK(device_buffer->ExportForIpc(&ipc_handle));
+
+  std::shared_ptr<Buffer> serialized_handle;
+  ASSERT_OK(ipc_handle->Serialize(default_memory_pool(), &serialized_handle));
+
+  // Deserialize IPC handle and open
+  std::unique_ptr<CudaIpcMemHandle> ipc_handle2;
+  ASSERT_OK(CudaIpcMemHandle::FromBuffer(serialized_handle->data(), &ipc_handle2));
+
+  std::shared_ptr<CudaBuffer> ipc_buffer;
+  ASSERT_OK(context_->OpenIpcBuffer(*ipc_handle2, &ipc_buffer));
+
+  ASSERT_EQ(kSize, ipc_buffer->size());
+
+  std::shared_ptr<MutableBuffer> ipc_data;
+  ASSERT_OK(AllocateBuffer(default_memory_pool(), kSize, &ipc_data));
+  ASSERT_OK(ipc_buffer->CopyToHost(0, kSize, ipc_data->mutable_data()));
+  ASSERT_EQ(0, std::memcmp(ipc_buffer->data(), host_buffer->data(), kSize));
+}
+
+#endif
+
+class TestCudaBufferWriter : public TestCudaBufferBase {
  public:
+  void SetUp() { TestCudaBufferBase::SetUp(); }
+
   void Allocate(const int64_t size) {
-    ASSERT_OK(AllocateCudaBuffer(kGpuNumber, size, &device_buffer_));
+    ASSERT_OK(context_->Allocate(size, &device_buffer_));
     writer_.reset(new CudaBufferWriter(device_buffer_));
   }
 
@@ -164,11 +219,16 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   AssertCudaBufferEquals(*device_buffer_, host_data, 1000);
 }
 
-TEST(TestCudaBufferReader, Basics) {
+class TestCudaBufferReader : public TestCudaBufferBase {
+ public:
+  void SetUp() { TestCudaBufferBase::SetUp(); }
+};
+
+TEST_F(TestCudaBufferReader, Basics) {
   std::shared_ptr<CudaBuffer> device_buffer;
 
   const int64_t size = 1000;
-  ASSERT_OK(AllocateCudaBuffer(kGpuNumber, size, &device_buffer));
+  ASSERT_OK(context_->Allocate(size, &device_buffer));
 
   std::shared_ptr<PoolBuffer> buffer;
   ASSERT_OK(test::MakeRandomBytePoolBuffer(1000, default_memory_pool(), &buffer));
@@ -202,6 +262,42 @@ TEST(TestCudaBufferReader, Basics) {
 
   ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, 75, stack_buffer));
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 925, 75));
+}
+
+class TestCudaArrowIpc : public TestCudaBufferBase {
+ public:
+  void SetUp() {
+    TestCudaBufferBase::SetUp();
+    pool_ = default_memory_pool();
+  }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+TEST_F(TestCudaArrowIpc, BasicWriteRead) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::MakeIntRecordBatch(&batch));
+
+  std::shared_ptr<CudaBuffer> device_serialized;
+  ASSERT_OK(arrow::gpu::SerializeRecordBatch(*batch, context_.get(), &device_serialized));
+
+  // Test that ReadRecordBatch works properly
+  std::shared_ptr<RecordBatch> device_batch;
+  ASSERT_OK(ReadRecordBatch(batch->schema(), device_serialized, default_memory_pool(),
+                            &device_batch));
+
+  // Copy data from device, read batch, and compare
+  std::shared_ptr<MutableBuffer> host_buffer;
+  int64_t size = device_serialized->size();
+  ASSERT_OK(AllocateBuffer(pool_, size, &host_buffer));
+  ASSERT_OK(device_serialized->CopyToHost(0, size, host_buffer->mutable_data()));
+
+  std::shared_ptr<RecordBatch> cpu_batch;
+  io::BufferReader cpu_reader(host_buffer);
+  ASSERT_OK(ipc::ReadRecordBatch(batch->schema(), &cpu_reader, &cpu_batch));
+
+  ipc::CompareBatch(*batch, *cpu_batch);
 }
 
 }  // namespace gpu

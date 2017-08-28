@@ -712,13 +712,15 @@ endif()
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 
+if (ARROW_GPU)
+  # IPC extensions required to build the GPU library
+  set(ARROW_IPC ON)
+  add_subdirectory(src/arrow/gpu)
+endif()
+
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
   add_dependencies(arrow_dependencies metadata_fbs)
-endif()
-
-if (ARROW_GPU)
-  add_subdirectory(src/arrow/gpu)
 endif()
 
 set(ARROW_SRCS
