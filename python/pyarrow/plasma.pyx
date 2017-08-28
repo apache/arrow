@@ -26,6 +26,9 @@ from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cpython.pycapsule cimport *
 
+import collections
+import pyarrow
+
 from pyarrow.lib cimport Buffer, NativeFile, check_status
 from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
                                         CFixedSizeBufferWriter, CStatus)
@@ -40,6 +43,9 @@ cdef extern from "plasma/common.h" nogil:
 
         @staticmethod
         CUniqueID from_binary(const c_string& binary)
+
+        @staticmethod
+        CUniqueID from_random()
 
         c_bool operator==(const CUniqueID& rhs) const
 
@@ -156,6 +162,18 @@ cdef class ObjectID:
             Binary representation of the ObjectID.
         """
         return self.data.binary()
+
+    @staticmethod
+    def from_random():
+        cdef CUniqueID data = CUniqueID.from_random()
+        return ObjectID(data.binary())
+
+
+cdef class ObjectNotAvailable:
+    """
+    Placeholder for an object that was not available within the given timeout.
+    """
+    pass
 
 
 cdef class PlasmaBuffer(Buffer):
@@ -285,7 +303,7 @@ cdef class PlasmaClient:
                                                   metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id, data, data_size)
 
-    def get(self, object_ids, timeout_ms=-1):
+    def get_buffers(self, object_ids, timeout_ms=-1):
         """
         Returns data buffer from the PlasmaStore based on object ID.
 
@@ -296,7 +314,7 @@ cdef class PlasmaClient:
         ----------
         object_ids : list
             A list of ObjectIDs used to identify some objects.
-        timeout_ms :int
+        timeout_ms : int
             The number of milliseconds that the get call should block before
             timing out and returning. Pass -1 if the call should block and 0
             if the call should return immediately.
@@ -351,6 +369,68 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata,
                                          object_buffers[i].metadata_size))
         return result
+
+    def put(self, object value, ObjectID object_id=None):
+        """
+        Store a Python value into the object store.
+
+        Parameters
+        ----------
+        value : object
+            A Python object to store.
+        object_id : ObjectID, default None
+            If this is provided, the specified object ID will be used to refer
+            to the object.
+
+        Returns
+        -------
+        The object ID associated to the Python object.
+        """
+        cdef ObjectID target_id = object_id if object_id else ObjectID.from_random()
+        # TODO(pcm): Make serialization code support non-sequences and
+        # get rid of packing the value into a list here (and unpacking in get)
+        serialized = pyarrow.serialize([value])
+        buffer = self.create(target_id, serialized.total_bytes)
+        stream = pyarrow.FixedSizeBufferOutputStream(buffer)
+        stream.set_memcopy_threads(4)
+        serialized.write_to(stream)
+        self.seal(target_id)
+        return target_id
+
+    def get(self, object_ids, int timeout_ms=-1):
+        """
+        Get one or more Python values from the object store.
+
+        Parameters
+        ----------
+        object_ids : list or ObjectID
+            Object ID or list of object IDs associated to the values we get from
+            the store.
+        timeout_ms : int, default -1
+            The number of milliseconds that the get call should block before
+            timing out and returning. Pass -1 if the call should block and 0
+            if the call should return immediately.
+
+        Returns
+        -------
+        list or object
+            Python value or list of Python values for the data associated with
+            the object_ids and ObjectNotAvailable if the object was not available.
+        """
+        if isinstance(object_ids, collections.Sequence):
+            results = []
+            buffers = self.get_buffers(object_ids, timeout_ms)
+            for i in range(len(object_ids)):
+                # buffers[i] is None if this object was not available within the
+                # timeout
+                if buffers[i]:
+                    value, = pyarrow.deserialize(buffers[i])
+                    results.append(value)
+                else:
+                    results.append(ObjectNotAvailable)
+            return results
+        else:
+            return self.get([object_ids], timeout_ms)[0]
 
     def seal(self, ObjectID object_id):
         """
@@ -576,7 +656,7 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
         The maximum number of objects that the client will keep and
         delay releasing (for caching reasons).
     num_retries : int, default -1
-        Number of times tor ty to connect to plasma store. Default value of -1
+        Number of times to try to connect to plasma store. Default value of -1
         uses the default (50)
     """
     cdef PlasmaClient result = PlasmaClient()
