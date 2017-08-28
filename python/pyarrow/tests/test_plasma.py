@@ -274,17 +274,17 @@ class TestPlasmaClient(object):
                     assert results[i] is None
 
     def test_put_and_get(self):
-        value = ["hello", "world", 3, 1.0]
-        object_id = self.plasma_client.put(value)
-        [result] = self.plasma_client.get([object_id])
-        assert result == value
+        for value in [["hello", "world", 3, 1.0], None, "hello"]:
+             object_id = self.plasma_client.put(value)
+             [result] = self.plasma_client.get([object_id])
+             assert result == value
 
-        result = self.plasma_client.get(object_id)
-        assert result == value
+             result = self.plasma_client.get(object_id)
+             assert result == value
 
-        object_id = pa.plasma.ObjectID.from_random()
-        [result] = self.plasma_client.get([object_id], timeout_ms=0)
-        assert result == pa.plasma.ObjectNotAvailable
+             object_id = pa.plasma.ObjectID.from_random()
+             [result] = self.plasma_client.get([object_id], timeout_ms=0)
+             assert result == pa.plasma.ObjectNotAvailable
 
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)

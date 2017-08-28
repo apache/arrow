@@ -370,14 +370,14 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata_size))
         return result
 
-    def put(self, list value, ObjectID object_id=None):
+    def put(self, object value, ObjectID object_id=None):
         """
         Store a Python value into the object store.
 
         Parameters
         ----------
-        value : list
-            A Python object to store. Currently only lists are supported.
+        value : object
+            A Python object to store.
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
@@ -387,7 +387,9 @@ cdef class PlasmaClient:
         The object ID associated to the Python object.
         """
         cdef ObjectID target_id = object_id if object_id else ObjectID.from_random()
-        serialized = pyarrow.serialize(value)
+        # TODO(pcm): Make serialization code support non-sequences and
+        # get rid of packing the value into a list here (and unpacking in get)
+        serialized = pyarrow.serialize([value])
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferOutputStream(buffer)
         stream.set_memcopy_threads(4)
@@ -422,7 +424,8 @@ cdef class PlasmaClient:
                 # buffers[i] is None if this object was not available within the
                 # timeout
                 if buffers[i]:
-                    results.append(pyarrow.deserialize(buffers[i]))
+                    value, = pyarrow.deserialize(buffers[i])
+                    results.append(value)
                 else:
                     results.append(ObjectNotAvailable)
             return results
