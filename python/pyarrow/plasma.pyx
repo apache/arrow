@@ -303,7 +303,7 @@ cdef class PlasmaClient:
                                                   metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id, data, data_size)
 
-    def get(self, object_ids, timeout_ms=-1):
+    def get_buffer(self, object_ids, timeout_ms=-1):
         """
         Returns data buffer from the PlasmaStore based on object ID.
 
@@ -369,6 +369,65 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata,
                                          object_buffers[i].metadata_size))
         return result
+
+    def put(self, list value, ObjectID object_id=None):
+        """
+        Store a Python value into the object store.
+
+        Parameters
+        ----------
+        value : list
+            A Python object to store. Currently only lists are supported.
+        object_id : ObjectID, default None
+            If this is provided, the specified object ID will be used to refer
+            to the object.
+
+        Returns
+        -------
+        The object ID associated to the Python object.
+        """
+        cdef ObjectID target_id = object_id if object_id else ObjectID.from_random()
+        serialized = pyarrow.serialize(value)
+        buffer = self.create(target_id, serialized.total_bytes)
+        stream = pyarrow.FixedSizeBufferOutputStream(buffer)
+        stream.set_memcopy_threads(4)
+        serialized.write_to(stream)
+        self.seal(target_id)
+        return target_id
+
+    def get(self, object_ids, int timeout_ms=-1):
+        """
+        Get one or more Python values from the object store.
+
+        Parameters
+        ----------
+        object_ids : list or ObjectID
+            Object ID or list of object IDs associated to the values we get from
+            the store.
+        timeout_ms : int, default -1
+            The number of milliseconds that the get call should block before
+            timing out and returning. Pass -1 if the call should block and 0
+            if the call should return immediately.
+
+        Returns
+        -------
+        list or object
+            Python value or list of Python values for the data associated with
+            the object_ids and ObjectNotAvailable if the object was not available.
+        """
+        if isinstance(object_ids, collections.Sequence):
+            results = []
+            buffers = self.get_buffer(object_ids, timeout_ms)
+            for i in range(len(object_ids)):
+                # buffers[i] is None if this object was not available within the
+                # timeout
+                if buffers[i]:
+                    results.append(pyarrow.deserialize(buffers[i]))
+                else:
+                    results.append(ObjectNotAvailable)
+            return results
+        else:
+            return self.get([object_ids], timeout_ms)[0]
 
     def seal(self, ObjectID object_id):
         """
@@ -606,66 +665,3 @@ def connect(store_socket_name, manager_socket_name, int release_delay,
                               result.manager_socket_name,
                               release_delay, num_retries))
     return result
-
-def put(PlasmaClient client, list value, ObjectID object_id=None):
-    """
-    Store a Python value into the object store.
-
-    Parameters
-    ----------
-    client : PlasmaClient
-        The client connected to the object store we put the value in.
-    value : list
-        A Python object to store. Currently only lists are supported.
-    object_id : ObjectID, default None
-        If this is provided, the specified object ID will be used to refer
-        to the object.
-
-    Returns
-    -------
-    The object ID associated to the Python object.
-    """
-    cdef ObjectID id = object_id if object_id else ObjectID.from_random()
-    serialized = pyarrow.serialize(value)
-    buffer = client.create(id, serialized.total_bytes)
-    stream = pyarrow.FixedSizeBufferOutputStream(buffer)
-    stream.set_memcopy_threads(4)
-    serialized.write_to(stream)
-    client.seal(id)
-    return id
-
-def get(PlasmaClient client, object_ids, int timeout_ms=-1):
-    """
-    Get one or more Python values from the object store.
-
-    Parameters
-    ----------
-    client : PlasmaClient
-        The client connected to the object store we get objects from.
-    object_ids : list or ObjectID
-        Object ID or list of object IDs associated to the values we get from
-        the store.
-    timeout_ms : int, default -1
-        The number of milliseconds that the get call should block before
-        timing out and returning. Pass -1 if the call should block and 0
-        if the call should return immediately.
-
-    Returns
-    -------
-    list or object
-        Python value or list of Python values for the data associated with
-        the object_ids and ObjectNotAvailable if the object was not available.
-    """
-    if isinstance(object_ids, collections.Sequence):
-        results = []
-        buffers = client.get(object_ids, timeout_ms)
-        for i in range(len(object_ids)):
-            # buffers[i] is None if this object was not available within the
-            # timeout
-            if buffers[i]:
-                results.append(pyarrow.deserialize(buffers[i]))
-            else:
-                results.append(ObjectNotAvailable)
-        return results
-    else:
-        return get(client, [object_ids], timeout_ms)[0]
