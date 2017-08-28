@@ -79,6 +79,15 @@ class ARROW_EXPORT Message {
   static Status Open(const std::shared_ptr<Buffer>& metadata,
                      const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
 
+  /// \brief Read message body and create Message given Flatbuffer metadata
+  /// \param[in] metadata containing a serialized Message flatbuffer
+  /// \param[in] stream an InputStream
+  /// \param[out] out the created Message
+  ///
+  /// \note If stream supports zero-copy, this is zero-copy
+  static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
+                         std::unique_ptr<Message>* out);
+
   /// \brief Write length-prefixed metadata and body to output stream
   ///
   /// \param[in] file output stream to write to

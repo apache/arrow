@@ -901,12 +901,17 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
   RETURN_NOT_OK(AllocateBuffer(pool, size, &buffer));
 
   io::FixedSizeBufferWriter stream(buffer);
-  int32_t metadata_length = 0;
-  int64_t body_length = 0;
-  RETURN_NOT_OK(WriteRecordBatch(batch, 0, &stream, &metadata_length, &body_length, pool,
-                                 kMaxNestingDepth, true));
+  RETURN_NOT_OK(SerializeRecordBatch(batch, pool, &stream));
   *out = buffer;
   return Status::OK();
+}
+
+Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+                            io::OutputStream* out) {
+  int32_t metadata_length = 0;
+  int64_t body_length = 0;
+  return WriteRecordBatch(batch, 0, out, &metadata_length, &body_length, pool,
+                          kMaxNestingDepth, true);
 }
 
 Status SerializeSchema(const Schema& schema, MemoryPool* pool,

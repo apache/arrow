@@ -177,6 +177,18 @@ ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out);
 
+/// \brief Write record batch to OutputStream
+///
+/// \param[in] batch the record batch to write
+/// \param[in] out the OutputStream to write the output to
+/// \return Status
+///
+/// If writing to pre-allocated memory, you can use
+/// arrow::ipc::GetRecordBatchSize to compute how much space is required
+ARROW_EXPORT
+Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+                            io::OutputStream* out);
+
 /// \brief Serialize schema using stream writer as a sequence of one or more
 /// IPC messages
 ///
