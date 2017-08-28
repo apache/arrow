@@ -824,14 +824,9 @@ def _generate_union_field(type_ids=None):
 
 
 def generate_union_case():
-    fields = [_generate_union_field()]
-    return _generate_file("union", fields, [10])
-
-
-def generate_union_type_ids_case():
     type_ids = np.random.choice(range(128), 5, replace=False).tolist()
     fields = [_generate_union_field(type_ids)]
-    return _generate_file("union_type_ids", fields, [10])
+    return _generate_file("union", fields, [10])
 
 
 def get_generated_json_files():
@@ -847,7 +842,6 @@ def get_generated_json_files():
         generate_nested_case(),
         generate_dictionary_case(),
         generate_union_case(),
-        generate_union_type_ids_case(),
     ]
 
     generated_paths = []
