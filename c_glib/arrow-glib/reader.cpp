@@ -243,8 +243,8 @@ garrow_record_batch_stream_reader_new(GArrowInputStream *stream,
   auto arrow_input_stream = garrow_input_stream_get_raw(stream);
   std::shared_ptr<BaseType> arrow_reader;
   auto status = ReaderType::Open(arrow_input_stream, &arrow_reader);
-  auto subtype = std::dynamic_pointer_cast<ReaderType>(arrow_reader);
   if (garrow_error_check(error, status, "[record-batch-stream-reader][open]")) {
+    auto subtype = std::dynamic_pointer_cast<ReaderType>(arrow_reader);
     return garrow_record_batch_stream_reader_new_raw(&subtype);
   } else {
     return NULL;
