@@ -187,7 +187,7 @@ public class Integration {
           LOGGER.debug("ARROW schema: " + arrowSchema);
           LOGGER.debug("JSON Input file size: " + jsonFile.length());
           LOGGER.debug("JSON schema: " + jsonSchema);
-          Validator.compareSchemas(jsonSchema, arrowSchema);
+          Validator.compareSchemas(arrowSchema, jsonSchema);
 
           List<ArrowBlock> recordBatches = arrowReader.getRecordBlocks();
           Iterator<ArrowBlock> iterator = recordBatches.iterator();

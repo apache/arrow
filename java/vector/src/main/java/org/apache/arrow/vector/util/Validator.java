@@ -46,7 +46,7 @@ public class Validator {
    */
   public static void compareSchemas(Schema schema1, Schema schema2) {
     if (!schema2.equals(schema1)) {
-      throw new IllegalArgumentException("Different schemas:\n" + schema2 + "\n" + schema1);
+      throw new IllegalArgumentException("Different schemas:\n" + schema1 + "\n" + schema2);
     }
   }
 
@@ -122,8 +122,18 @@ public class Validator {
       Object obj1 = vector1.getAccessor().getObject(j);
       Object obj2 = vector2.getAccessor().getObject(j);
       if (!equals(field1.getType(), obj1, obj2)) {
+        String obj1Str;
+        String obj2Str;
+        if (obj1 instanceof byte[] && obj2 instanceof byte[]) {
+          obj1Str = Arrays.toString((byte[]) obj1);
+          obj2Str = Arrays.toString((byte[]) obj2);
+        } else {
+          obj1Str = obj1.toString();
+          obj2Str = obj2.toString();
+        }
+
         throw new IllegalArgumentException(
-            "Different values in column:\n" + field1 + " at index " + j + ": " + obj1 + " != " + obj2);
+            "Different values in column:\n" + field1 + " at index " + j + ": " + obj1Str + " != " + obj2Str);
       }
     }
   }
@@ -140,7 +150,7 @@ public class Validator {
         default:
           throw new UnsupportedOperationException("unsupported precision: " + fpType);
       }
-    } else if (type instanceof ArrowType.Binary) {
+    } else if (o1 instanceof byte[] && o2 instanceof byte[]) {
       return Arrays.equals((byte[]) o1, (byte[]) o2);
     }
 

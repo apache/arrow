@@ -66,7 +66,6 @@ import org.apache.arrow.vector.ValueVector.Mutator;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
@@ -215,6 +214,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /*
+   * TODO: This method doesn't load some vectors correctly. For instance, it doesn't set `lastSet`
+   * in ListVector, VarCharVector, NullableVarBinaryVector A better way of implementing this
+   * function is to use `loadFieldBuffers` methods in FieldVector.
+   */
   private void readVector(Field field, FieldVector vector) throws JsonParseException, IOException {
     List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
     List<BufferBacked> fieldInnerVectors = vector.getFieldInnerVectors();
@@ -229,6 +233,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
       int count = readNextField("count", Integer.class);
+      vector.allocateNew();
+      vector.getMutator().setValueCount(count);
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
         BufferBacked innerVector = fieldInnerVectors.get(v);
@@ -261,9 +267,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           readVector(childField, childVector);
         }
         readToken(END_ARRAY);
-      }
-      if (vector instanceof NullableMapVector) {
-        ((NullableMapVector) vector).valueCount = count;
       }
     }
     readToken(END_OBJECT);
