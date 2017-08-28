@@ -214,8 +214,13 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
 
 Status DeserializeObject(const SerializedPyObject& obj, PyObject* base, PyObject** out) {
   PyAcquireGIL lock;
-  return DeserializeList(obj.batch->column(0), 0, obj.batch->num_rows(), base,
-                         obj.tensors, out);
+  RETURN_NOT_OK(DeserializeList(obj.batch->column(0), 0, obj.batch->num_rows(), base,
+                                obj.tensors, out));
+  DCHECK_EQ(PyList_Size(*out), 1);
+  PyObject *result = PyList_GET_ITEM(*out, 0);
+  Py_XDECREF(*out);
+  *out = result;
+  return Status::OK();
 }
 
 }  // namespace py
