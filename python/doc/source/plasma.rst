@@ -98,9 +98,46 @@ follows:
   def random_object_id():
     return plasma.ObjectID(np.random.bytes(20))
 
+Putting and Getting Python Objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Creating an Object
-^^^^^^^^^^^^^^^^^^
+Plasma supports two APIs for creating and accessing objects: A high level
+API that allows storing and retrieving Python objects and a low level
+API that allows creating, writing and sealing buffers and operating on
+the binary data directly. In this section we describe the high level API.
+
+This is how you can put and get a Python object:
+
+.. code-block:: python
+
+    # Create a python object.
+    object_id = client.put("hello, world")
+
+    # Get the object.
+    client.get(object_id)
+
+This works with all Python objects supported by the Arrow Python object
+serialization.
+
+You can also get multiple objects at the same time (which can be more
+efficient since it avoids IPC round trips):
+
+.. code-block:: python
+
+    # Create multiple python objects.
+    object_id1 = client.put(1)
+    object_id2 = client.put(2)
+    object_id3 = client.put(3)
+
+    # Get the objects.
+    client.get([object_id1, object_id2, object_id3])
+
+Furthermore, it is possible to provide a timeout for the get call. If the
+object is not available within the timeout, the special object
+`pyarrow.ObjectNotAvailable` will be returned.
+
+Creating an Object Buffer
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Objects are created in Plasma in two stages. First, they are **created**, which
 allocates a buffer for the object. At this point, the client can write to the
@@ -111,7 +148,7 @@ give the object's maximum size in bytes.
 
 .. code-block:: python
 
-  # Create an object.
+  # Create an object buffer.
   object_id = plasma.ObjectID(20 * b"a")
   object_size = 1000
   buffer = memoryview(client.create(object_id, object_size))
@@ -129,11 +166,11 @@ immutable, and making it available to other Plasma clients.
   client.seal(object_id)
 
 
-Getting an Object
-^^^^^^^^^^^^^^^^^
+Getting an Object Buffer
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 After an object has been sealed, any client who knows the object ID can get
-the object.
+the object buffer.
 
 .. code-block:: python
 
@@ -143,11 +180,11 @@ the object.
 
   # Get the object in the second client. This blocks until the object has been sealed.
   object_id2 = plasma.ObjectID(20 * b"a")
-  [buffer2] = client2.get([object_id])
+  [buffer2] = client2.get_buffers([object_id])
 
-If the object has not been sealed yet, then the call to client.get will block
-until the object has been sealed by the client constructing the object. Using
-the ``timeout_ms`` argument to get, you can specify a timeout for this (in
+If the object has not been sealed yet, then the call to client.get_buffers will
+block until the object has been sealed by the client constructing the object.
+Using the ``timeout_ms`` argument to get, you can specify a timeout for this (in
 milliseconds). After the timeout, the interpreter will yield control back.
 
 .. code-block:: shell
@@ -223,7 +260,7 @@ To read the object, first retrieve it as a ``PlasmaBuffer`` using its object ID.
 .. code-block:: python
 
   # Get the arrow object by ObjectID.
-  [buf2] = client.get([object_id])
+  [buf2] = client.get_buffers([object_id])
 
 To convert the ``PlasmaBuffer`` back into an Arrow ``Tensor``, first create a
 pyarrow ``BufferReader`` object from it. You can then pass the ``BufferReader``
@@ -310,13 +347,13 @@ Since we store the Pandas DataFrame as a PyArrow ``RecordBatch`` object,
 to get the object back from the Plasma store, we follow similar steps
 to those specified in `Getting Arrow Objects from Plasma`_.
 
-We first have to convert the ``PlasmaBuffer`` returned from ``client.get``
-into an Arrow ``BufferReader`` object.
+We first have to convert the ``PlasmaBuffer`` returned from
+``client.get_buffers`` into an Arrow ``BufferReader`` object.
 
 .. code-block:: python
 
   # Fetch the Plasma object
-  [data] = client.get([object_id])  # Get PlasmaBuffer from ObjectID
+  [data] = client.get_buffers([object_id])  # Get PlasmaBuffer from ObjectID
   buffer = pa.BufferReader(data)
 
 From the ``BufferReader``, we can create a specific ``RecordBatchStreamReader``
