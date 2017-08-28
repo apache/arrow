@@ -59,7 +59,7 @@ TEST_F(TestCudaBuffer, Allocate) {
 
 void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
                             const int64_t nbytes) {
-  std::shared_ptr<MutableBuffer> result;
+  std::shared_ptr<Buffer> result;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), nbytes, &result));
   ASSERT_OK(buffer.CopyToHost(0, buffer.size(), result->mutable_data()));
   ASSERT_EQ(0, std::memcmp(result->data(), host_data, nbytes));
@@ -108,7 +108,7 @@ TEST_F(TestCudaBuffer, DISABLED_ExportForIpc) {
 
   ASSERT_EQ(kSize, ipc_buffer->size());
 
-  std::shared_ptr<MutableBuffer> ipc_data;
+  std::shared_ptr<Buffer> ipc_data;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), kSize, &ipc_data));
   ASSERT_OK(ipc_buffer->CopyToHost(0, kSize, ipc_data->mutable_data()));
   ASSERT_EQ(0, std::memcmp(ipc_buffer->data(), host_buffer->data(), kSize));
@@ -288,7 +288,7 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
                             &device_batch));
 
   // Copy data from device, read batch, and compare
-  std::shared_ptr<MutableBuffer> host_buffer;
+  std::shared_ptr<Buffer> host_buffer;
   int64_t size = device_serialized->size();
   ASSERT_OK(AllocateBuffer(pool_, size, &host_buffer));
   ASSERT_OK(device_serialized->CopyToHost(0, size, host_buffer->mutable_data()));

@@ -387,8 +387,8 @@ ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buf
 // ----------------------------------------------------------------------
 // Bitmap utilities
 
-Status ARROW_EXPORT GetEmptyBitmap(MemoryPool* pool, int64_t length,
-                                   std::shared_ptr<MutableBuffer>* result);
+ARROW_EXPORT
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result);
 
 /// Copy a bit range of an existing bitmap
 ///
@@ -399,8 +399,9 @@ Status ARROW_EXPORT GetEmptyBitmap(MemoryPool* pool, int64_t length,
 /// \param[out] out the resulting copy
 ///
 /// \return Status message
-Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
-                               int64_t length, std::shared_ptr<Buffer>* out);
+ARROW_EXPORT
+Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
+                  std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///
@@ -409,12 +410,20 @@ Status ARROW_EXPORT CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t 
 /// \param[in] length the number of bits to inspect in the bitmap relative to the offset
 ///
 /// \return The number of set (1) bits in the range
-int64_t ARROW_EXPORT CountSetBits(const uint8_t* data, int64_t bit_offset,
-                                  int64_t length);
+ARROW_EXPORT
+int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 
-bool ARROW_EXPORT BitmapEquals(const uint8_t* left, int64_t left_offset,
-                               const uint8_t* right, int64_t right_offset,
-                               int64_t bit_length);
+ARROW_EXPORT
+bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                  int64_t right_offset, int64_t bit_length);
+
+#ifndef ARROW_NO_DEPRECATED_API
+/// \deprecated Since 0.7.0
+ARROW_EXPORT
+Status GetEmptyBitmap(MemoryPool* pool, int64_t length,
+                      std::shared_ptr<MutableBuffer>* result);
+#endif
+
 }  // namespace arrow
 
 #endif  // ARROW_UTIL_BIT_UTIL_H
