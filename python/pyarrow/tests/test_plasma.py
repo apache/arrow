@@ -82,8 +82,8 @@ def create_object(client, data_size, metadata_size, seal=True):
 def assert_get_object_equal(unit_test, client1, client2, object_id,
                             memory_buffer=None, metadata=None):
     import pyarrow.plasma as plasma
-    client1_buff = client1.get_buffer([object_id])[0]
-    client2_buff = client2.get_buffer([object_id])[0]
+    client1_buff = client1.get_buffers([object_id])[0]
+    client2_buff = client2.get_buffers([object_id])[0]
     client1_metadata = client1.get_metadata([object_id])[0]
     client2_metadata = client2.get_metadata([object_id])[0]
     assert len(client1_buff) == len(client2_buff)
@@ -187,7 +187,7 @@ class TestPlasmaClient(object):
         # Seal the object.
         self.plasma_client.seal(object_id)
         # Get the object.
-        memory_buffer = np.frombuffer(self.plasma_client.get_buffer([object_id])[0],
+        memory_buffer = np.frombuffer(self.plasma_client.get_buffers([object_id])[0],
                                       dtype="uint8")
         for i in range(length):
             assert memory_buffer[i] == i % 256
@@ -209,7 +209,7 @@ class TestPlasmaClient(object):
             self.plasma_client.seal(object_id)
             # Get the object.
             memory_buffer = np.frombuffer(
-                self.plasma_client.get_buffer([object_id])[0], dtype="uint8")
+                self.plasma_client.get_buffers([object_id])[0], dtype="uint8")
             for i in range(length):
                 assert memory_buffer[i] == i % 256
             # Get the metadata.
@@ -241,7 +241,7 @@ class TestPlasmaClient(object):
         # Test timing out of get with various timeouts.
         for timeout in [0, 10, 100, 1000]:
             object_ids = [random_object_id() for _ in range(num_object_ids)]
-            results = self.plasma_client.get_buffer(object_ids, timeout_ms=timeout)
+            results = self.plasma_client.get_buffers(object_ids, timeout_ms=timeout)
             assert results == num_object_ids * [None]
 
         data_buffers = []
@@ -256,7 +256,7 @@ class TestPlasmaClient(object):
         # Test timing out from some but not all get calls with various
         # timeouts.
         for timeout in [0, 10, 100, 1000]:
-            data_results = self.plasma_client.get_buffer(object_ids,
+            data_results = self.plasma_client.get_buffers(object_ids,
                                                          timeout_ms=timeout)
             # metadata_results = self.plasma_client.get_metadata(
             #     object_ids, timeout_ms=timeout)
@@ -297,7 +297,7 @@ class TestPlasmaClient(object):
         pa.write_tensor(tensor, stream)
         self.plasma_client.seal(object_id)
         # Read the arrow object.
-        [tensor] = self.plasma_client.get_buffer([object_id])
+        [tensor] = self.plasma_client.get_buffers([object_id])
         reader = pa.BufferReader(tensor)
         array = pa.read_tensor(reader).to_numpy()
         # Assert that they are equal.
@@ -326,7 +326,7 @@ class TestPlasmaClient(object):
         self.plasma_client.seal(object_id)
 
         # Read the DataFrame.
-        [data] = self.plasma_client.get_buffer([object_id])
+        [data] = self.plasma_client.get_buffers([object_id])
         reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
         result = reader.get_next_batch().to_pandas()
 
@@ -564,7 +564,7 @@ class TestPlasmaClient(object):
         # with pytest.raises(Exception):
         # illegal_assignment()
         # Get the object.
-        memory_buffer = self.plasma_client.get_buffer([object_id])[0]
+        memory_buffer = self.plasma_client.get_buffers([object_id])[0]
 
         # Make sure the object is read only.
         def illegal_assignment():

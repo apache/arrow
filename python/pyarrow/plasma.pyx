@@ -303,7 +303,7 @@ cdef class PlasmaClient:
                                                   metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id, data, data_size)
 
-    def get_buffer(self, object_ids, timeout_ms=-1):
+    def get_buffers(self, object_ids, timeout_ms=-1):
         """
         Returns data buffer from the PlasmaStore based on object ID.
 
@@ -419,7 +419,7 @@ cdef class PlasmaClient:
         """
         if isinstance(object_ids, collections.Sequence):
             results = []
-            buffers = self.get_buffer(object_ids, timeout_ms)
+            buffers = self.get_buffers(object_ids, timeout_ms)
             for i in range(len(object_ids)):
                 # buffers[i] is None if this object was not available within the
                 # timeout

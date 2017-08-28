@@ -81,7 +81,7 @@ def put_df(df):
 
 def get_dfs(object_ids):
     """Retrieve dataframes from the object store given their object IDs."""
-    buffers = client.get(object_ids)
+    buffers = client.get_buffers(object_ids)
     return [pa.RecordBatchStreamReader(buf).read_next_batch().to_pandas()
             for buf in buffers]
 
