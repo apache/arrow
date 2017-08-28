@@ -1666,7 +1666,9 @@ garrow_date64_array_get_values(GArrowDate64Array *array,
                                gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  return garrow_array_get_values_raw<arrow::Date64Type>(arrow_array, length);
+  auto values =
+    garrow_array_get_values_raw<arrow::Date64Type>(arrow_array, length);
+  return reinterpret_cast<const gint64 *>(values);
 }
 
 
