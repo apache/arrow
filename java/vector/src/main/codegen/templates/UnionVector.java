@@ -541,25 +541,25 @@ public class UnionVector implements FieldVector {
       int minorType = typeIdToMinorType[typeVector.getAccessor().get(index)];
       assert minorType >= 0;
       switch (Types.MinorType.values()[minorType]) {
-        case NULL:
-          return null;
+      case NULL:
+        return null;
       <#list vv.types as type>
         <#list type.minor as minor>
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
           <#if !minor.typeParams?? >
-        case ${name?upper_case}:
+      case ${name?upper_case}:
         return get${name}Vector().getAccessor().getObject(index);
           </#if>
         </#list>
       </#list>
-        case MAP:
-          return getMap().getAccessor().getObject(index);
-        case LIST:
-          return getList().getAccessor().getObject(index);
-        default:
-          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[minorType]);
+      case MAP:
+        return getMap().getAccessor().getObject(index);
+      case LIST:
+        return getList().getAccessor().getObject(index);
+      default:
+        throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[minorType]);
       }
     }
 

@@ -453,7 +453,6 @@ public class BaseFileTest {
       switch (i % 4) {
         case 0:
           Assert.assertEquals(i, unionReader.readInteger().intValue());
-          Assert.assertEquals(i, unionReader.readObject());
           break;
         case 1:
           Assert.assertEquals(i, unionReader.readLong().longValue());
