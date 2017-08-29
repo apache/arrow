@@ -552,7 +552,7 @@ Status PandasConverter::ConvertDates() {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Date: ";
       RETURN_NOT_OK(InvalidConversion(obj, "datetime.date", &ss));
       return Status::Invalid(ss.str());
     }
@@ -608,7 +608,7 @@ Status PandasConverter::ConvertDecimals() {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Decimal: ";
       RETURN_NOT_OK(InvalidConversion(object, "decimal.Decimal", &ss));
       return Status::Invalid(ss.str());
     }
@@ -636,7 +636,7 @@ Status PandasConverter::ConvertTimes() {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Time: ";
       RETURN_NOT_OK(InvalidConversion(obj, "datetime.time", &ss));
       return Status::Invalid(ss.str());
     }
@@ -704,7 +704,7 @@ Status PandasConverter::ConvertObjectFloats() {
       RETURN_NOT_OK(builder.Append(val));
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Double: ";
       RETURN_NOT_OK(InvalidConversion(obj, "float", &ss));
       return Status::Invalid(ss.str());
     }
@@ -739,7 +739,7 @@ Status PandasConverter::ConvertObjectIntegers() {
       RETURN_NOT_OK(builder.Append(val));
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Int64: ";
       RETURN_NOT_OK(InvalidConversion(obj, "integer", &ss));
       return Status::Invalid(ss.str());
     }
@@ -802,7 +802,7 @@ Status PandasConverter::ConvertBooleans() {
       BitUtil::SetBit(null_bitmap_data_, i);
     } else {
       std::stringstream ss;
-      ss << "Error converting from Python objects to " << type_->ToString() << ": ";
+      ss << "Error converting from Python objects to Boolean: ";
       RETURN_NOT_OK(InvalidConversion(obj, "bool", &ss));
       return Status::Invalid(ss.str());
     }

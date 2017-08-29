@@ -217,11 +217,11 @@ include(BuildUtils)
 # Compiler flags
 ############################################################
 
-include(SetupCxxFlags)
-
 if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()
+
+include(SetupCxxFlags)
 
 ############################################################
 # Dependencies
@@ -712,13 +712,15 @@ endif()
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 
+if (ARROW_GPU)
+  # IPC extensions required to build the GPU library
+  set(ARROW_IPC ON)
+  add_subdirectory(src/arrow/gpu)
+endif()
+
 if (ARROW_IPC)
   add_subdirectory(src/arrow/ipc)
   add_dependencies(arrow_dependencies metadata_fbs)
-endif()
-
-if (ARROW_GPU)
-  add_subdirectory(src/arrow/gpu)
 endif()
 
 set(ARROW_SRCS
@@ -742,6 +744,7 @@ set(ARROW_SRCS
   src/arrow/util/compression.cc
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
+  src/arrow/util/int128.cc
   src/arrow/util/key_value_metadata.cc
 )
 
@@ -779,10 +782,12 @@ endif()
 
 if (ARROW_IPC)
   set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/ipc/dictionary.cc
     src/arrow/ipc/feather.cc
     src/arrow/ipc/json.cc
     src/arrow/ipc/json-internal.cc
-    src/arrow/ipc/metadata.cc
+    src/arrow/ipc/message.cc
+    src/arrow/ipc/metadata-internal.cc
     src/arrow/ipc/reader.cc
     src/arrow/ipc/writer.cc
   )

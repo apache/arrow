@@ -189,22 +189,23 @@ Status DeserializeTuple(std::shared_ptr<Array> array, int64_t start_idx, int64_t
   DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM)
 }
 
-Status ReadSerializedObject(std::shared_ptr<io::RandomAccessFile> src,
-                            SerializedPyObject* out) {
-  std::shared_ptr<ipc::RecordBatchStreamReader> reader;
+Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
   int64_t offset;
   int64_t bytes_read;
   int32_t num_tensors;
   // Read number of tensors
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
+
+  std::shared_ptr<ipc::RecordBatchReader> reader;
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
   RETURN_NOT_OK(reader->ReadNextRecordBatch(&out->batch));
+
   RETURN_NOT_OK(src->Tell(&offset));
   offset += 4;  // Skip the end-of-stream message
   for (int i = 0; i < num_tensors; ++i) {
     std::shared_ptr<Tensor> tensor;
-    RETURN_NOT_OK(ipc::ReadTensor(offset, src.get(), &tensor));
+    RETURN_NOT_OK(ipc::ReadTensor(offset, src, &tensor));
     out->tensors.push_back(tensor);
     RETURN_NOT_OK(src->Tell(&offset));
   }

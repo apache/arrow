@@ -85,12 +85,14 @@ from pyarrow.lib import (ArrowException,
                          ArrowIOError,
                          ArrowMemoryError,
                          ArrowNotImplementedError,
-                         ArrowTypeError)
+                         ArrowTypeError,
+                         PlasmaObjectExists)
 
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
                          serialize, serialize_to, read_serialized,
-                         SerializedPyObject)
+                         SerializedPyObject,
+                         SerializationException, DeserializationException)
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 
@@ -100,8 +102,8 @@ import pyarrow.hdfs as hdfs
 from pyarrow.ipc import (Message, MessageReader,
                          RecordBatchFileReader, RecordBatchFileWriter,
                          RecordBatchStreamReader, RecordBatchStreamWriter,
-                         read_message, read_record_batch, read_tensor,
-                         write_tensor,
+                         read_message, read_record_batch, read_schema,
+                         read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size,
                          open_stream,
                          open_file,

@@ -67,6 +67,8 @@ def test_recordbatch_basics():
 
     batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
 
+    batch.schema.metadata
+
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
@@ -78,6 +80,16 @@ def test_recordbatch_basics():
     with pytest.raises(IndexError):
         # bounds checking
         batch[2]
+
+
+def test_recordbatch_empty_metadata():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+
+    batch = pa.RecordBatch.from_arrays(data, ['c0', 'c1'])
+    assert batch.schema.metadata is None
 
 
 def test_recordbatch_slice_getitem():

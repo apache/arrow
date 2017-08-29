@@ -32,9 +32,11 @@
     <dep.junit.version>4.11</dep.junit.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>18.0</dep.guava.version>
+    <dep.netty.version>4.0.49.Final</dep.netty.version>
+    <dep.jackson.version>2.7.9</dep.jackson.version>
+    <dep.hadoop.version>2.7.1</dep.hadoop.version>
+    <fbs.version>1.2.0-3f79e055</fbs.version>
     <forkCount>2</forkCount>
-    <jackson.version>2.7.9</jackson.version>
-    <hadoop.version>2.7.1</hadoop.version>
     <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
   </properties>
 
@@ -271,55 +273,75 @@
         </configuration>
       </plugin>
 
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>2.17</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>6.19</version>
+          </dependency>
+          <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${dep.guava.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>org.slf4j</groupId>
+              <artifactId>jcl-over-slf4j</artifactId>
+              <version>1.7.5</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <configLocation>google_checks.xml</configLocation>
+          <encoding>UTF-8</encoding>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+          <violationSeverity>warning</violationSeverity>
+          <format>xml</format>
+          <format>html</format>
+          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+          <linkXRef>false</linkXRef>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <ignoreNonCompile>true</ignoreNonCompile>
+              <failOnWarning>true</failOnWarning>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+
+    <pluginManagement>
+      <plugins>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-checkstyle-plugin</artifactId>
-          <version>2.17</version>
-          <dependencies>
-            <dependency>
-              <groupId>com.puppycrawl.tools</groupId>
-              <artifactId>checkstyle</artifactId>
-              <version>6.19</version>
-            </dependency>
-            <dependency>
-              <groupId>com.google.guava</groupId>
-              <artifactId>guava</artifactId>
-              <version>${dep.guava.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>jcl-over-slf4j</artifactId>
-                <version>1.7.5</version>
-            </dependency>
-          </dependencies>
-          <executions>
-            <execution>
-              <id>validate</id>
-              <phase>validate</phase>
-              <goals>
-                <goal>check</goal>
-              </goals>
-            </execution>
-          </executions>
-          <configuration>
-            <configLocation>google_checks.xml</configLocation>
-            <encoding>UTF-8</encoding>
-            <consoleOutput>true</consoleOutput>
-            <failsOnError>${checkstyle.failOnViolation}</failsOnError>
-            <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-            <violationSeverity>warning</violationSeverity>
-            <format>xml</format>
-            <format>html</format>
-            <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
-            <linkXRef>false</linkXRef>
-          </configuration>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.0.1</version>
         </plugin>
-
-
-    </plugins>
-    <pluginManagement>
-
-      <plugins>
         <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
@@ -449,26 +471,63 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.vlkan</groupId>
+        <artifactId>flatbuffers</artifactId>
+        <version>${fbs.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${dep.guava.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-handler</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-buffer</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-common</artifactId>
+        <version>${dep.netty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${dep.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>3.0.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${dep.slf4j.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-handler</artifactId>
-      <version>4.0.49.Final</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>${dep.guava.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${dep.slf4j.version}</version>
-    </dependency>
-
     <!-- Test Dependencies -->
     <dependency>
       <groupId>org.slf4j</groupId>

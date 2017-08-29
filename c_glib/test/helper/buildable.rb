@@ -65,6 +65,14 @@ module Helper
       build_array(Arrow::DoubleArrayBuilder, values)
     end
 
+    def build_date32_array(values)
+      build_array(Arrow::Date32ArrayBuilder, values)
+    end
+
+    def build_date64_array(values)
+      build_array(Arrow::Date64ArrayBuilder, values)
+    end
+
     def build_binary_array(values)
       build_array(Arrow::BinaryArrayBuilder, values)
     end

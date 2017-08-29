@@ -704,15 +704,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   template <typename T>
   ARROW_EXPORT Status Append(const decimal::Decimal<T>& val);
 
-  Status Init(int64_t capacity) override;
-  Status Resize(int64_t capacity) override;
   Status Finish(std::shared_ptr<Array>* out) override;
-
- private:
-  /// We only need these for 128 bit decimals, because boost stores the sign
-  /// separate from the underlying bytes.
-  std::shared_ptr<ResizableBuffer> sign_bitmap_;
-  uint8_t* sign_bitmap_data_;
 };
 
 // ----------------------------------------------------------------------

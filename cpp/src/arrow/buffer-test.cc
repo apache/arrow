@@ -172,7 +172,7 @@ TEST_F(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
-  std::shared_ptr<MutableBuffer> buffer;
+  std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), 50, &buffer));
 
   memcpy(buffer->mutable_data(), data, data_str.size());

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "arrow/util/decimal.h"
 
 namespace arrow {
@@ -156,8 +158,9 @@ void StringToInteger(const std::string& whole, const std::string& fractional, in
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
+
   if (!whole.empty()) {
-    *out = std::stoi(whole, nullptr, 10) *
+    *out = std::stoi(whole) *
            static_cast<int32_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
   if (!fractional.empty()) {
@@ -172,7 +175,7 @@ void StringToInteger(const std::string& whole, const std::string& fractional, in
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
   if (!whole.empty()) {
-    *out = static_cast<int64_t>(std::stoll(whole, nullptr, 10)) *
+    *out = static_cast<int64_t>(std::stoll(whole)) *
            static_cast<int64_t>(pow(10.0, static_cast<double>(fractional.size())));
   }
   if (!fractional.empty()) {
@@ -182,11 +185,11 @@ void StringToInteger(const std::string& whole, const std::string& fractional, in
 }
 
 void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
-                     int128_t* out) {
+                     Int128* out) {
   DCHECK(sign == -1 || sign == 1);
   DCHECK_NE(out, nullptr);
   DCHECK(!whole.empty() || !fractional.empty());
-  *out = int128_t(whole + fractional) * sign;
+  *out = Int128(whole + fractional) * sign;
 }
 
 void FromBytes(const uint8_t* bytes, Decimal32* decimal) {
@@ -201,22 +204,8 @@ void FromBytes(const uint8_t* bytes, Decimal64* decimal) {
   decimal->value = *reinterpret_cast<const int64_t*>(bytes);
 }
 
-constexpr static const size_t BYTES_IN_128_BITS = 128 / CHAR_BIT;
-constexpr static const size_t LIMB_SIZE =
-    sizeof(std::remove_pointer<int128_t::backend_type::limb_pointer>::type);
-constexpr static const size_t LIMBS_IN_INT128 = BYTES_IN_128_BITS / LIMB_SIZE;
-
-void FromBytes(const uint8_t* bytes, bool is_negative, Decimal128* decimal) {
-  DCHECK_NE(bytes, nullptr);
-  DCHECK_NE(decimal, nullptr);
-
-  auto& decimal_value(decimal->value);
-  int128_t::backend_type& backend(decimal_value.backend());
-  backend.resize(LIMBS_IN_INT128, LIMBS_IN_INT128);
-  std::memcpy(backend.limbs(), bytes, BYTES_IN_128_BITS);
-  if (is_negative) {
-    decimal->value = -decimal->value;
-  }
+void FromBytes(const uint8_t* bytes, Decimal128* decimal) {
+  decimal->value = Int128(bytes);
 }
 
 void ToBytes(const Decimal32& value, uint8_t** bytes) {
@@ -229,16 +218,10 @@ void ToBytes(const Decimal64& value, uint8_t** bytes) {
   *reinterpret_cast<int64_t*>(*bytes) = value.value;
 }
 
-void ToBytes(const Decimal128& decimal, uint8_t** bytes, bool* is_negative) {
+void ToBytes(const Decimal128& decimal, uint8_t** bytes) {
+  DCHECK_NE(bytes, nullptr);
   DCHECK_NE(*bytes, nullptr);
-  DCHECK_NE(is_negative, nullptr);
-
-  /// TODO(phillipc): boost multiprecision is unreliable here, int128_t can't be
-  /// roundtripped
-  const auto& backend(decimal.value.backend());
-  const size_t bytes_in_use = LIMB_SIZE * backend.size();
-  std::memcpy(*bytes, backend.limbs(), bytes_in_use);
-  *is_negative = backend.isneg();
+  decimal.value.ToBytes(bytes);
 }
 
 }  // namespace decimal

@@ -313,6 +313,8 @@ Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metada
   return Status::OK();
 }
 
+std::shared_ptr<const KeyValueMetadata> Schema::metadata() const { return metadata_; }
+
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
   return std::make_shared<Schema>(fields_);
 }
@@ -478,10 +480,6 @@ std::vector<BufferDescr> BinaryType::GetBufferLayout() const {
 
 std::vector<BufferDescr> FixedSizeBinaryType::GetBufferLayout() const {
   return {kValidityBuffer, BufferDescr(BufferType::DATA, bit_width())};
-}
-
-std::vector<BufferDescr> DecimalType::GetBufferLayout() const {
-  return {kValidityBuffer, kBooleanBuffer, BufferDescr(BufferType::DATA, bit_width())};
 }
 
 std::vector<BufferDescr> ListType::GetBufferLayout() const {

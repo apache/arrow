@@ -20,7 +20,7 @@
 import pyarrow as pa
 
 from pyarrow.lib import (Message, MessageReader,  # noqa
-                         read_message, read_record_batch,
+                         read_message, read_record_batch, read_schema,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
 import pyarrow.lib as lib

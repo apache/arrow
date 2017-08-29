@@ -38,8 +38,7 @@ class Status;
 
 namespace io {
 
-// An output stream that writes to a MutableBuffer, such as one obtained from a
-// memory map
+// \brief An output stream that writes to a resizable buffer
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
@@ -62,12 +61,13 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Reserve(int64_t nbytes);
 
   std::shared_ptr<ResizableBuffer> buffer_;
+  bool is_open_;
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
 };
 
-// A helper class to tracks the size of allocations
+// \brief A helper class to tracks the size of allocations
 class ARROW_EXPORT MockOutputStream : public OutputStream {
  public:
   MockOutputStream() : extent_bytes_written_(0) {}
@@ -84,7 +84,6 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
 };
 
 /// \brief Enables random writes into a fixed-size mutable buffer
-///
 class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
  public:
   /// Input buffer must be mutable, will abort if not
@@ -113,6 +112,8 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   int64_t memcopy_threshold_;
 };
 
+/// \class BufferReader
+/// \brief Random access zero-copy reads on an arrow::Buffer
 class ARROW_EXPORT BufferReader : public RandomAccessFile {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);

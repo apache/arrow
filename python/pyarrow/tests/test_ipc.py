@@ -384,6 +384,21 @@ def test_pandas_serialize_round_trip_not_string_columns():
     assert_frame_equal(result, df)
 
 
+def test_schema_batch_serialize_methods():
+    nrows = 5
+    df = pd.DataFrame({
+        'one': np.random.randn(nrows),
+        'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+    batch = pa.RecordBatch.from_pandas(df)
+
+    s_schema = batch.schema.serialize()
+    s_batch = batch.serialize()
+
+    recons_schema = pa.read_schema(s_schema)
+    recons_batch = pa.read_record_batch(s_batch, recons_schema)
+    assert recons_batch.equals(batch)
+
+
 def write_file(batch, sink):
     writer = pa.RecordBatchFileWriter(sink, batch.schema)
     writer.write_batch(batch)

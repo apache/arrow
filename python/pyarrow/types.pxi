@@ -235,7 +235,9 @@ cdef class Field:
 
         def __get__(self):
             self._check_null()
-            return box_metadata(self.field.metadata().get())
+            cdef shared_ptr[const CKeyValueMetadata] metadata = (
+                self.field.metadata())
+            return box_metadata(metadata.get())
 
     def _check_null(self):
         if self.field == NULL:
@@ -306,6 +308,11 @@ cdef class Schema:
 
         return result
 
+    def _check_null(self):
+        if self.schema == NULL:
+            raise ReferenceError(
+                'Schema not initialized (references NULL pointer)')
+
     cdef void init(self, const vector[shared_ptr[CField]]& fields):
         self.schema = new CSchema(fields)
         self.sp_schema.reset(self.schema)
@@ -327,7 +334,10 @@ cdef class Schema:
     property metadata:
 
         def __get__(self):
-            return box_metadata(self.schema.metadata().get())
+            self._check_null()
+            cdef shared_ptr[const CKeyValueMetadata] metadata = (
+                self.schema.metadata())
+            return box_metadata(metadata.get())
 
     def equals(self, other):
         """
@@ -376,6 +386,28 @@ cdef class Schema:
             new_schema = self.schema.AddMetadata(c_meta)
 
         return pyarrow_wrap_schema(new_schema)
+
+    def serialize(self, memory_pool=None):
+        """
+        Write Schema to Buffer as encapsulated IPC message
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            Uses default memory pool if not specified
+
+        Returns
+        -------
+        serialized : Buffer
+        """
+        cdef:
+            shared_ptr[CBuffer] buffer
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(SerializeSchema(deref(self.schema),
+                                         pool, &buffer))
+        return pyarrow_wrap_buffer(buffer)
 
     def remove_metadata(self):
         """

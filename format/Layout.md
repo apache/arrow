@@ -206,7 +206,7 @@ does not need to be adjacent in memory to the values buffer.
 ### Example Layout: Int32 Array
 For example a primitive array of int32s:
 
-[1, 2, null, 4, 8]
+[1, null, 2, 4, 8]
 
 Would look like:
 
@@ -216,13 +216,13 @@ Would look like:
 
   |Byte 0 (validity bitmap) | Bytes 1-63            |
   |-------------------------|-----------------------|
-  | 00011011                | 0 (padding)           |
+  | 00011101                | 0 (padding)           |
 
 * Value Buffer:
 
   |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
   |------------|-------------|-------------|-------------|-------------|-------------|
-  | 1          | 2           | unspecified | 4           | 8           | unspecified |
+  | 1          | unspecified | 2           | 4           | 8           | unspecified |
 ```
 
 ### Example Layout: Non-null int32 Array

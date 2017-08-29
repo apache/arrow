@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/ipc/metadata.h"
+#include "arrow/ipc/metadata-internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -29,9 +29,6 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/File_generated.h"
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Tensor_generated.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
@@ -52,12 +49,6 @@ using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
-
-static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion_V3;
-
-static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
-    flatbuf::MetadataVersion_V3;
 
 static Status IntFromFlatbuffer(const flatbuf::Int* int_data,
                                 std::shared_ptr<DataType>* out) {
@@ -100,7 +91,7 @@ static Status FloatFromFlatuffer(const flatbuf::FloatingPoint* float_data,
 }
 
 // Forward declaration
-static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
+static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
                                 DictionaryMemo* dictionary_memo, FieldOffset* offset);
 
 static Offset IntToFlatbuffer(FBB& fbb, int bitWidth, bool is_signed) {
@@ -111,18 +102,18 @@ static Offset FloatToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
   return flatbuf::CreateFloatingPoint(fbb, precision).Union();
 }
 
-static Status AppendChildFields(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status AppendChildFields(FBB& fbb, const DataType& type,
                                 std::vector<FieldOffset>* out_children,
                                 DictionaryMemo* dictionary_memo) {
   FieldOffset field;
-  for (int i = 0; i < type->num_children(); ++i) {
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, type->child(i), dictionary_memo, &field));
+  for (int i = 0; i < type.num_children(); ++i) {
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, *type.child(i), dictionary_memo, &field));
     out_children->push_back(field);
   }
   return Status::OK();
 }
 
-static Status ListToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status ListToFlatbuffer(FBB& fbb, const DataType& type,
                                std::vector<FieldOffset>* out_children,
                                DictionaryMemo* dictionary_memo, Offset* offset) {
   RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
@@ -130,7 +121,7 @@ static Status ListToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-static Status StructToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status StructToFlatbuffer(FBB& fbb, const DataType& type,
                                  std::vector<FieldOffset>* out_children,
                                  DictionaryMemo* dictionary_memo, Offset* offset) {
   RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
@@ -165,12 +156,12 @@ static Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   return Status::OK();
 }
 
-static Status UnionToFlatBuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status UnionToFlatBuffer(FBB& fbb, const DataType& type,
                                 std::vector<FieldOffset>* out_children,
                                 DictionaryMemo* dictionary_memo, Offset* offset) {
   RETURN_NOT_OK(AppendChildFields(fbb, type, out_children, dictionary_memo));
 
-  const auto& union_type = static_cast<const UnionType&>(*type);
+  const auto& union_type = static_cast<const UnionType&>(type);
 
   flatbuf::UnionMode mode = union_type.mode() == UnionMode::SPARSE
                                 ? flatbuf::UnionMode_Sparse
@@ -313,21 +304,12 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
 }
 
 // TODO(wesm): Convert this to visitor pattern
-static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
                                std::vector<FieldOffset>* children,
                                std::vector<VectorLayoutOffset>* layout,
                                flatbuf::Type* out_type, DictionaryMemo* dictionary_memo,
                                Offset* offset) {
-  if (type->id() == Type::DICTIONARY) {
-    // In this library, the dictionary "type" is a logical construct. Here we
-    // pass through to the value type, as we've already captured the index
-    // type in the DictionaryEncoding metadata in the parent field
-    const auto& dict_type = static_cast<const DictionaryType&>(*type);
-    return TypeToFlatbuffer(fbb, dict_type.dictionary()->type(), children, layout,
-                            out_type, dictionary_memo, offset);
-  }
-
-  std::vector<BufferDescr> buffer_layout = type->GetBufferLayout();
+  std::vector<BufferDescr> buffer_layout = type.GetBufferLayout();
   for (const BufferDescr& descr : buffer_layout) {
     flatbuf::VectorType vector_type;
     switch (descr.type()) {
@@ -352,7 +334,16 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     layout->push_back(offset);
   }
 
-  switch (type->id()) {
+  const DataType* value_type = &type;
+
+  if (type.id() == Type::DICTIONARY) {
+    // In this library, the dictionary "type" is a logical construct. Here we
+    // pass through to the value type, as we've already captured the index
+    // type in the DictionaryEncoding metadata in the parent field
+    value_type = static_cast<const DictionaryType&>(type).dictionary()->type().get();
+  }
+
+  switch (value_type->id()) {
     case Type::BOOL:
       *out_type = flatbuf::Type_Bool;
       *offset = flatbuf::CreateBool(fbb).Union();
@@ -382,7 +373,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_DOUBLE);
       break;
     case Type::FIXED_SIZE_BINARY: {
-      const auto& fw_type = static_cast<const FixedSizeBinaryType&>(*type);
+      const auto& fw_type = static_cast<const FixedSizeBinaryType&>(*value_type);
       *out_type = flatbuf::Type_FixedSizeBinary;
       *offset = flatbuf::CreateFixedSizeBinary(fbb, fw_type.byte_width()).Union();
     } break;
@@ -403,17 +394,17 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
       *offset = flatbuf::CreateDate(fbb, flatbuf::DateUnit_MILLISECOND).Union();
       break;
     case Type::TIME32: {
-      const auto& time_type = static_cast<const Time32Type&>(*type);
+      const auto& time_type = static_cast<const Time32Type&>(*value_type);
       *out_type = flatbuf::Type_Time;
       *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 32).Union();
     } break;
     case Type::TIME64: {
-      const auto& time_type = static_cast<const Time64Type&>(*type);
+      const auto& time_type = static_cast<const Time64Type&>(*value_type);
       *out_type = flatbuf::Type_Time;
       *offset = flatbuf::CreateTime(fbb, ToFlatbufferUnit(time_type.unit()), 64).Union();
     } break;
     case Type::TIMESTAMP: {
-      const auto& ts_type = static_cast<const TimestampType&>(*type);
+      const auto& ts_type = static_cast<const TimestampType&>(*value_type);
       *out_type = flatbuf::Type_Timestamp;
 
       flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(ts_type.unit());
@@ -425,25 +416,25 @@ static Status TypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
     } break;
     case Type::LIST:
       *out_type = flatbuf::Type_List;
-      return ListToFlatbuffer(fbb, type, children, dictionary_memo, offset);
+      return ListToFlatbuffer(fbb, *value_type, children, dictionary_memo, offset);
     case Type::STRUCT:
       *out_type = flatbuf::Type_Struct_;
-      return StructToFlatbuffer(fbb, type, children, dictionary_memo, offset);
+      return StructToFlatbuffer(fbb, *value_type, children, dictionary_memo, offset);
     case Type::UNION:
       *out_type = flatbuf::Type_Union;
-      return UnionToFlatBuffer(fbb, type, children, dictionary_memo, offset);
+      return UnionToFlatBuffer(fbb, *value_type, children, dictionary_memo, offset);
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
       std::stringstream ss;
-      ss << "Unable to convert type: " << type->ToString() << std::endl;
+      ss << "Unable to convert type: " << type.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
   }
   return Status::OK();
 }
 
-static Status TensorTypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& type,
+static Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type,
                                      flatbuf::Type* out_type, Offset* offset) {
-  switch (type->id()) {
+  switch (type.id()) {
     case Type::UINT8:
       INT_TO_FB_CASE(8, false);
     case Type::INT8:
@@ -475,7 +466,7 @@ static Status TensorTypeToFlatbuffer(FBB& fbb, const std::shared_ptr<DataType>& 
     default:
       *out_type = flatbuf::Type_NONE;  // Make clang-tidy happy
       std::stringstream ss;
-      ss << "Unable to convert type: " << type->ToString() << std::endl;
+      ss << "Unable to convert type: " << type.ToString() << std::endl;
       return Status::NotImplemented(ss.str());
   }
   return Status::OK();
@@ -497,9 +488,9 @@ static DictionaryOffset GetDictionaryEncoding(FBB& fbb, const DictionaryType& ty
                                            type.ordered());
 }
 
-static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
+static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
                                 DictionaryMemo* dictionary_memo, FieldOffset* offset) {
-  auto fb_name = fbb.CreateString(field->name());
+  auto fb_name = fbb.CreateString(field.name());
 
   flatbuf::Type type_enum;
   Offset type_offset;
@@ -507,19 +498,19 @@ static Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
   std::vector<FieldOffset> children;
   std::vector<VectorLayoutOffset> layout;
 
-  RETURN_NOT_OK(TypeToFlatbuffer(fbb, field->type(), &children, &layout, &type_enum,
+  RETURN_NOT_OK(TypeToFlatbuffer(fbb, *field.type(), &children, &layout, &type_enum,
                                  dictionary_memo, &type_offset));
   auto fb_children = fbb.CreateVector(children);
   auto fb_layout = fbb.CreateVector(layout);
 
   DictionaryOffset dictionary = 0;
-  if (field->type()->id() == Type::DICTIONARY) {
+  if (field.type()->id() == Type::DICTIONARY) {
     dictionary = GetDictionaryEncoding(
-        fbb, static_cast<const DictionaryType&>(*field->type()), dictionary_memo);
+        fbb, static_cast<const DictionaryType&>(*field.type()), dictionary_memo);
   }
 
   // TODO: produce the list of VectorTypes
-  *offset = flatbuf::CreateField(fbb, fb_name, field->nullable(), type_enum, type_offset,
+  *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
                                  dictionary, fb_children, fb_layout);
 
   return Status::OK();
@@ -597,9 +588,8 @@ static Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   /// Fields
   std::vector<FieldOffset> field_offsets;
   for (int i = 0; i < schema.num_fields(); ++i) {
-    std::shared_ptr<Field> field = schema.field(i);
     FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, field, dictionary_memo, &offset));
+    RETURN_NOT_OK(FieldToFlatbuffer(fbb, *schema.field(i), dictionary_memo, &offset));
     field_offsets.push_back(offset);
   }
 
@@ -703,7 +693,7 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   return Status::OK();
 }
 
-Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
+Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
                                const std::vector<FieldMetadata>& nodes,
                                const std::vector<BufferMetadata>& buffers,
                                std::shared_ptr<Buffer>* out) {
@@ -714,7 +704,7 @@ Status WriteRecordBatchMessage(const int64_t length, const int64_t body_length,
                         body_length, out);
 }
 
-Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offset,
+Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
                           std::shared_ptr<Buffer>* out) {
   using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
   using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
@@ -723,7 +713,7 @@ Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offse
 
   flatbuf::Type fb_type_type;
   Offset fb_type;
-  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, tensor.type(), &fb_type_type, &fb_type));
+  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
 
   std::vector<TensorDimOffset> dims;
   for (int i = 0; i < tensor.ndim(); ++i) {
@@ -743,8 +733,7 @@ Status WriteTensorMessage(const Tensor& tensor, const int64_t buffer_start_offse
                         body_length, out);
 }
 
-Status WriteDictionaryMessage(const int64_t id, const int64_t length,
-                              const int64_t body_length,
+Status WriteDictionaryMessage(int64_t id, int64_t length, int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out) {
@@ -800,206 +789,6 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   int32_t size = fbb.GetSize();
 
   return out->Write(fbb.GetBufferPointer(), size);
-}
-
-// ----------------------------------------------------------------------
-// Memoization data structure for handling shared dictionaries
-
-DictionaryMemo::DictionaryMemo() {}
-
-// Returns KeyError if dictionary not found
-Status DictionaryMemo::GetDictionary(int64_t id,
-                                     std::shared_ptr<Array>* dictionary) const {
-  auto it = id_to_dictionary_.find(id);
-  if (it == id_to_dictionary_.end()) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " not found";
-    return Status::KeyError(ss.str());
-  }
-  *dictionary = it->second;
-  return Status::OK();
-}
-
-int64_t DictionaryMemo::GetId(const std::shared_ptr<Array>& dictionary) {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  if (it != dictionary_to_id_.end()) {
-    // Dictionary already observed, return the id
-    return it->second;
-  } else {
-    int64_t new_id = static_cast<int64_t>(dictionary_to_id_.size());
-    dictionary_to_id_[address] = new_id;
-    id_to_dictionary_[new_id] = dictionary;
-    return new_id;
-  }
-}
-
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array>& dictionary) const {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  return it != dictionary_to_id_.end();
-}
-
-bool DictionaryMemo::HasDictionaryId(int64_t id) const {
-  auto it = id_to_dictionary_.find(id);
-  return it != id_to_dictionary_.end();
-}
-
-Status DictionaryMemo::AddDictionary(int64_t id,
-                                     const std::shared_ptr<Array>& dictionary) {
-  if (HasDictionaryId(id)) {
-    std::stringstream ss;
-    ss << "Dictionary with id " << id << " already exists";
-    return Status::KeyError(ss.str());
-  }
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  id_to_dictionary_[id] = dictionary;
-  dictionary_to_id_[address] = id;
-  return Status::OK();
-}
-
-//----------------------------------------------------------------------
-// Message reader
-
-class Message::MessageImpl {
- public:
-  explicit MessageImpl(const std::shared_ptr<Buffer>& metadata,
-                       const std::shared_ptr<Buffer>& body)
-      : metadata_(metadata), message_(nullptr), body_(body) {}
-
-  Status Open() {
-    message_ = flatbuf::GetMessage(metadata_->data());
-
-    // Check that the metadata version is supported
-    if (message_->version() < kMinMetadataVersion) {
-      return Status::Invalid("Old metadata version not supported");
-    }
-
-    return Status::OK();
-  }
-
-  Message::Type type() const {
-    switch (message_->header_type()) {
-      case flatbuf::MessageHeader_Schema:
-        return Message::SCHEMA;
-      case flatbuf::MessageHeader_DictionaryBatch:
-        return Message::DICTIONARY_BATCH;
-      case flatbuf::MessageHeader_RecordBatch:
-        return Message::RECORD_BATCH;
-      case flatbuf::MessageHeader_Tensor:
-        return Message::TENSOR;
-      default:
-        return Message::NONE;
-    }
-  }
-
-  MetadataVersion version() const {
-    switch (message_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        // Arrow 0.1
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        // Arrow 0.2
-        return MetadataVersion::V2;
-      case flatbuf::MetadataVersion_V3:
-        // Arrow >= 0.3
-        return MetadataVersion::V3;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V3;
-    }
-  }
-
-  const void* header() const { return message_->header(); }
-
-  std::shared_ptr<Buffer> body() const { return body_; }
-
-  std::shared_ptr<Buffer> metadata() const { return metadata_; }
-
- private:
-  // The Flatbuffer metadata
-  std::shared_ptr<Buffer> metadata_;
-  const flatbuf::Message* message_;
-
-  // The message body, if any
-  std::shared_ptr<Buffer> body_;
-};
-
-Message::Message(const std::shared_ptr<Buffer>& metadata,
-                 const std::shared_ptr<Buffer>& body) {
-  impl_.reset(new MessageImpl(metadata, body));
-}
-
-Status Message::Open(const std::shared_ptr<Buffer>& metadata,
-                     const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out) {
-  out->reset(new Message(metadata, body));
-  return (*out)->impl_->Open();
-}
-
-Message::~Message() {}
-
-std::shared_ptr<Buffer> Message::body() const { return impl_->body(); }
-
-std::shared_ptr<Buffer> Message::metadata() const { return impl_->metadata(); }
-
-Message::Type Message::type() const { return impl_->type(); }
-
-MetadataVersion Message::metadata_version() const { return impl_->version(); }
-
-const void* Message::header() const { return impl_->header(); }
-
-bool Message::Equals(const Message& other) const {
-  int64_t metadata_bytes = std::min(metadata()->size(), other.metadata()->size());
-
-  if (!metadata()->Equals(*other.metadata(), metadata_bytes)) {
-    return false;
-  }
-
-  // Compare bodies, if they have them
-  auto this_body = body();
-  auto other_body = other.body();
-
-  const bool this_has_body = (this_body != nullptr) && (this_body->size() > 0);
-  const bool other_has_body = (other_body != nullptr) && (other_body->size() > 0);
-
-  if (this_has_body && other_has_body) {
-    return this_body->Equals(*other_body);
-  } else if (this_has_body ^ other_has_body) {
-    // One has a body but not the other
-    return false;
-  } else {
-    // Neither has a body
-    return true;
-  }
-}
-
-Status Message::SerializeTo(io::OutputStream* file, int64_t* output_length) const {
-  int32_t metadata_length = 0;
-  RETURN_NOT_OK(WriteMessage(*metadata(), file, &metadata_length));
-
-  *output_length = metadata_length;
-
-  auto body_buffer = body();
-  if (body_buffer) {
-    RETURN_NOT_OK(file->Write(body_buffer->data(), body_buffer->size()));
-    *output_length += body_buffer->size();
-  }
-
-  return Status::OK();
-}
-
-std::string FormatMessageType(Message::Type type) {
-  switch (type) {
-    case Message::SCHEMA:
-      return "schema";
-    case Message::RECORD_BATCH:
-      return "record batch";
-    case Message::DICTIONARY_BATCH:
-      return "dictionary";
-    default:
-      break;
-  }
-  return "unknown";
 }
 
 // ----------------------------------------------------------------------
@@ -1083,81 +872,6 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 
   return TypeFromFlatbuffer(tensor->type_type(), tensor->type(), {}, type);
 }
-
-// ----------------------------------------------------------------------
-// Read and write messages
-
-static Status ReadFullMessage(const std::shared_ptr<Buffer>& metadata,
-                              io::InputStream* stream,
-                              std::unique_ptr<Message>* message) {
-  auto fb_message = flatbuf::GetMessage(metadata->data());
-
-  int64_t body_length = fb_message->bodyLength();
-
-  std::shared_ptr<Buffer> body;
-  RETURN_NOT_OK(stream->Read(body_length, &body));
-
-  if (body->size() < body_length) {
-    std::stringstream ss;
-    ss << "Expected to be able to read " << body_length << " bytes for message body, got "
-       << body->size();
-    return Status::IOError(ss.str());
-  }
-
-  return Message::Open(metadata, body, message);
-}
-
-Status ReadMessage(const int64_t offset, const int32_t metadata_length,
-                   io::RandomAccessFile* file, std::unique_ptr<Message>* message) {
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
-
-  int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  if (flatbuffer_size + static_cast<int>(sizeof(int32_t)) > metadata_length) {
-    std::stringstream ss;
-    ss << "flatbuffer size " << metadata_length << " invalid. File offset: " << offset
-       << ", metadata length: " << metadata_length;
-    return Status::Invalid(ss.str());
-  }
-
-  auto metadata = SliceBuffer(buffer, 4, buffer->size() - 4);
-  return ReadFullMessage(metadata, file, message);
-}
-
-Status ReadMessage(io::InputStream* file, std::unique_ptr<Message>* message) {
-  std::shared_ptr<Buffer> buffer;
-
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &buffer));
-  if (buffer->size() != sizeof(int32_t)) {
-    *message = nullptr;
-    return Status::OK();
-  }
-
-  int32_t message_length = *reinterpret_cast<const int32_t*>(buffer->data());
-
-  if (message_length == 0) {
-    // Optional 0 EOS control message
-    *message = nullptr;
-    return Status::OK();
-  }
-
-  RETURN_NOT_OK(file->Read(message_length, &buffer));
-  if (buffer->size() != message_length) {
-    return Status::IOError("Unexpected end of stream trying to read message");
-  }
-
-  return ReadFullMessage(buffer, file, message);
-}
-
-// ----------------------------------------------------------------------
-// Implement InputStream message reader
-
-Status InputStreamMessageReader::ReadNextMessage(std::unique_ptr<Message>* message) {
-  return ReadMessage(stream_.get(), message);
-}
-
-InputStreamMessageReader::~InputStreamMessageReader() {}
 
 // ----------------------------------------------------------------------
 // Implement message writing

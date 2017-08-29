@@ -67,8 +67,20 @@ TEST_F(TestBufferOutputStream, CloseResizes) {
   ASSERT_EQ(static_cast<int64_t>(K * data.size()), buffer_->size());
 }
 
+TEST_F(TestBufferOutputStream, WriteAfterFinish) {
+  std::string data = "data123456";
+  ASSERT_OK(stream_->Write(data));
+
+  auto buffer_stream = static_cast<BufferOutputStream*>(stream_.get());
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(buffer_stream->Finish(&buffer));
+
+  ASSERT_RAISES(IOError, stream_->Write(data));
+}
+
 TEST(TestFixedSizeBufferWriter, Basics) {
-  std::shared_ptr<MutableBuffer> buffer;
+  std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(default_memory_pool(), 1024, &buffer));
 
   FixedSizeBufferWriter writer(buffer);
@@ -101,7 +113,7 @@ TEST(TestBufferReader, RetainParentReference) {
   std::shared_ptr<Buffer> slice1;
   std::shared_ptr<Buffer> slice2;
   {
-    std::shared_ptr<MutableBuffer> buffer;
+    std::shared_ptr<Buffer> buffer;
     ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);

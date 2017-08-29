@@ -296,16 +296,15 @@ class ARROW_EXPORT TypedBufferBuilder : public BufferBuilder {
   int64_t length() const { return size_ / sizeof(T); }
 };
 
-/// Allocate a new mutable buffer from a memory pool
+/// \brief Allocate a fixed size mutable buffer from a memory pool
 ///
 /// \param[in] pool a memory pool
 /// \param[in] size size of buffer to allocate
-/// \param[out] out the allocated buffer with padding
+/// \param[out] out the allocated buffer (contains padding)
 ///
 /// \return Status message
 ARROW_EXPORT
-Status AllocateBuffer(MemoryPool* pool, const int64_t size,
-                      std::shared_ptr<MutableBuffer>* out);
+Status AllocateBuffer(MemoryPool* pool, const int64_t size, std::shared_ptr<Buffer>* out);
 
 /// Allocate resizeable buffer from a memory pool
 ///
@@ -317,6 +316,13 @@ Status AllocateBuffer(MemoryPool* pool, const int64_t size,
 ARROW_EXPORT
 Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
+
+#ifndef ARROW_NO_DEPRECATED_API
+/// \deprecated Since 0.7.0
+ARROW_EXPORT
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::shared_ptr<MutableBuffer>* out);
+#endif
 
 }  // namespace arrow
 

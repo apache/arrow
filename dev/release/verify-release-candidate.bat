@@ -20,14 +20,12 @@
 @rem libray build rem dependencies if you want to build them from source as well
 @rem
 
-@rem ARROW-1294 CMake 3.9.0 in conda-forge breaks the build
-@rem set ARROW_CMAKE_VERSION=3.8.0
 @rem set PYTHON=3.6
 @rem conda create -n arrow-verify-release -f -q -y python=%PYTHON%
 @rem conda install -y ^
 @rem       six pytest setuptools numpy pandas cython ^
 @rem       thrift-cpp flatbuffers rapidjson ^
-@rem       cmake=%ARROW_CMAKE_VERSION% ^
+@rem       cmake ^
 @rem       git ^
 @rem       boost-cpp ^
 @rem       snappy zlib brotli gflags lz4-c zstd || exit /B

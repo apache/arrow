@@ -23,12 +23,9 @@
 <name>Arrow Format</name>
 
   <properties>
-    <fbs.version>1.2.0-3f79e055</fbs.version>
     <flatc.download.skip>false</flatc.download.skip>
     <flatc.executable>${project.build.directory}/flatc-${os.detected.classifier}-${fbs.version}.exe</flatc.executable>
     <flatc.generated.files>${project.build.directory}/generated-sources/flatc</flatc.generated.files>
-    <maven-compiler-plugin.version>3.3</maven-compiler-plugin.version>
-    <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
     <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
   </properties>
 
@@ -36,7 +33,6 @@
     <dependency>
       <groupId>com.vlkan</groupId>
       <artifactId>flatbuffers</artifactId>
-      <version>${fbs.version}</version>
     </dependency>
   </dependencies>
 
@@ -54,11 +50,10 @@
     <plugin> <!-- download the flatbuffer compiler -->
       <groupId>org.apache.maven.plugins</groupId>
       <artifactId>maven-dependency-plugin</artifactId>
-      <version>${maven-dependency-plugin.version}</version>
       <executions>
         <execution>
           <id>copy-flatc</id>
-          <phase>generate-sources</phase>
+          <phase>initialize</phase>
           <goals>
             <goal>copy</goal>
           </goals>
