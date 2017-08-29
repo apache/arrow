@@ -639,7 +639,23 @@ Status ValidateArray(const Array& array) {
   internal::ValidateVisitor validate_visitor;
   return VisitArrayInline(array, &validate_visitor);
 }
+//-----------------------------------------------------------------------
+// Cast Util for the array
+namespace internal{
 
+class ArrayCast{
+    template <typename InType, typename OutType>
+    struct can_copy_ptr{
+        static constexpr bool value = 
+            std::is_same<InType , OutType>::value ||
+            (std::is_integral<InType>{} && std::is_integral<OutType>{} && (sizeof(InType) == sizeof(OutType));
+    }
+    public:
+        static Status SafeCast(const Array& input , const std::shared_ptr<DataType> & target_type, MemoryPool * pool , std::shared_ptr <Array> * out){
+
+        }
+}
+}
 // ----------------------------------------------------------------------
 // Loading from ArrayData
 
