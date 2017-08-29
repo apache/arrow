@@ -49,6 +49,11 @@ ARROW_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
 /// \brief Reconstruct Python object from Arrow-serialized representation
+/// \param[in] context Serialization context which contains custom serialization
+/// and deserialization callbacks. Can be any Python object with a
+/// _serialize_callback method for serialization and a _deserialize_callback
+/// method for deserialization. If context is None, no custom serialization
+/// will be attempted.
 /// \param[in] object
 /// \param[in] base a Python object holding the underlying data that any NumPy
 /// arrays will reference, to avoid premature deallocation
@@ -56,8 +61,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// \return Status
 /// This acquires the GIL
 ARROW_EXPORT
-Status DeserializeObject(const SerializedPyObject& object, PyObject* base,
-                         PyObject** out);
+Status DeserializeObject(PyObject* context, const SerializedPyObject& object,
+                         PyObject* base, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow
