@@ -238,13 +238,13 @@ public class JsonFileWriter implements AutoCloseable {
         break;
       case VARBINARY: {
           String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
-          generator.writeObject(hexString);
+          generator.writeString(hexString);
         }
         break;
       case DECIMAL: {
-          ArrowBuf bytebuf = ((DecimalVector) valueVector).getAccessor().get(i);
-          String hexString = Hex.encodeHexString(DecimalUtility.getByteArrayFromArrowBuf(bytebuf, 0));
-          generator.writeObject(hexString);
+          ArrowBuf bytebuf = valueVector.getDataBuffer();
+          String hexString = Hex.encodeHexString(DecimalUtility.getByteArrayFromArrowBuf(bytebuf, i));
+          generator.writeString(hexString);
         }
         break;
       default:
