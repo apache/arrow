@@ -62,6 +62,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Reserve(int64_t nbytes);
 
   std::shared_ptr<ResizableBuffer> buffer_;
+  bool is_open_;
   int64_t capacity_;
   int64_t position_;
   uint8_t* mutable_data_;
