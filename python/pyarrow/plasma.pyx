@@ -388,9 +388,7 @@ cdef class PlasmaClient:
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
-        # TODO(pcm): Make serialization code support non-sequences and
-        # get rid of packing the value into a list here (and unpacking in get)
-        serialized = pyarrow.serialize([value])
+        serialized = pyarrow.serialize(value)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferOutputStream(buffer)
         stream.set_memcopy_threads(4)
@@ -426,8 +424,7 @@ cdef class PlasmaClient:
                 # buffers[i] is None if this object was not available within
                 # the timeout
                 if buffers[i]:
-                    value, = pyarrow.deserialize(buffers[i])
-                    results.append(value)
+                    results.append(pyarrow.deserialize(buffers[i]))
                 else:
                     results.append(ObjectNotAvailable)
             return results
