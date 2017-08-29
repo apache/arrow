@@ -51,6 +51,8 @@ If you are developing on Windows, see the [Windows developer guide][2].
 
 Simple debug build:
 
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
     mkdir debug
     cd debug
     cmake ..
@@ -58,6 +60,8 @@ Simple debug build:
 
 Simple release build:
 
+    git clone https://github.com/apache/arrow.git
+    cd arrow/cpp
     mkdir release
     cd release
     cmake .. -DCMAKE_BUILD_TYPE=Release
