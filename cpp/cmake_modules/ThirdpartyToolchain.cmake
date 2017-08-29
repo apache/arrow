@@ -107,7 +107,7 @@ endif()
 
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
-    set(MAKE "make")
+    find_program(MAKE make)
 endif()
 
 # ----------------------------------------------------------------------
