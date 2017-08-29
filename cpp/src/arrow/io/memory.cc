@@ -63,7 +63,7 @@ BufferOutputStream::~BufferOutputStream() {
 
 Status BufferOutputStream::Close() {
   if (position_ < capacity_) {
-    return buffer_->Resize(position_);
+    return buffer_->Resize(position_, false);
   } else {
     return Status::OK();
   }
