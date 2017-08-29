@@ -41,6 +41,7 @@ static constexpr int64_t kBufferMinimumSize = 256;
 
 BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer)
     : buffer_(buffer),
+      is_open_(true),
       capacity_(buffer->size()),
       position_(0),
       mutable_data_(buffer->mutable_data()) {}
@@ -62,7 +63,7 @@ BufferOutputStream::~BufferOutputStream() {
 
 Status BufferOutputStream::Close() {
   if (position_ < capacity_) {
-    return buffer_->Resize(position_);
+    return buffer_->Resize(position_, false);
   } else {
     return Status::OK();
   }
@@ -72,6 +73,7 @@ Status BufferOutputStream::Finish(std::shared_ptr<Buffer>* result) {
   RETURN_NOT_OK(Close());
   *result = buffer_;
   buffer_ = nullptr;
+  is_open_ = false;
   return Status::OK();
 }
 
@@ -81,6 +83,9 @@ Status BufferOutputStream::Tell(int64_t* position) const {
 }
 
 Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+  if (ARROW_PREDICT_FALSE(!is_open_)) {
+    return Status::IOError("OutputStream is closed");
+  }
   DCHECK(buffer_);
   RETURN_NOT_OK(Reserve(nbytes));
   memcpy(mutable_data_ + position_, data, nbytes);
