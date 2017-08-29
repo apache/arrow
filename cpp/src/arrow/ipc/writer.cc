@@ -272,7 +272,7 @@ class RecordBatchSerializer : public ArrayVisitor {
       // zero. We must a) create a new offsets array with shifted offsets and
       // b) slice the values array accordingly
 
-      std::shared_ptr<MutableBuffer> shifted_offsets;
+      std::shared_ptr<Buffer> shifted_offsets;
       RETURN_NOT_OK(AllocateBuffer(pool_, sizeof(int32_t) * (array.length() + 1),
                                    &shifted_offsets));
 
@@ -425,7 +425,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         const uint8_t* type_ids = array.raw_type_ids();
 
         // Allocate the shifted offsets
-        std::shared_ptr<MutableBuffer> shifted_offsets_buffer;
+        std::shared_ptr<Buffer> shifted_offsets_buffer;
         RETURN_NOT_OK(
             AllocateBuffer(pool_, length * sizeof(int32_t), &shifted_offsets_buffer));
         int32_t* shifted_offsets =
@@ -897,7 +897,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out) {
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, &size));
-  std::shared_ptr<MutableBuffer> buffer;
+  std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, size, &buffer));
 
   io::FixedSizeBufferWriter stream(buffer);

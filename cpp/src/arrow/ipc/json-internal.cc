@@ -952,7 +952,7 @@ class ArrayReader {
                            std::shared_ptr<Buffer>* validity_buffer) {
     int length = static_cast<int>(is_valid.size());
 
-    std::shared_ptr<MutableBuffer> out_buffer;
+    std::shared_ptr<Buffer> out_buffer;
     RETURN_NOT_OK(GetEmptyBitmap(pool_, length, &out_buffer));
     uint8_t* bitmap = out_buffer->mutable_data();
 
@@ -1056,7 +1056,7 @@ class ArrayReader {
     int32_t byte_width = type.byte_width();
 
     // Allocate space for parsed values
-    std::shared_ptr<MutableBuffer> byte_buffer;
+    std::shared_ptr<Buffer> byte_buffer;
     RETURN_NOT_OK(AllocateBuffer(pool_, byte_width, &byte_buffer));
     uint8_t* byte_buffer_data = byte_buffer->mutable_data();
 
@@ -1084,7 +1084,7 @@ class ArrayReader {
   template <typename T>
   Status GetIntArray(const RjArray& json_array, const int32_t length,
                      std::shared_ptr<Buffer>* out) {
-    std::shared_ptr<MutableBuffer> buffer;
+    std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(AllocateBuffer(pool_, length * sizeof(T), &buffer));
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
