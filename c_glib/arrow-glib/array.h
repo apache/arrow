@@ -860,6 +860,112 @@ gchar *garrow_string_array_get_string(GArrowStringArray *array,
                                       gint64 i);
 
 
+#define GARROW_TYPE_DATE32_ARRAY                \
+  (garrow_date32_array_get_type())
+#define GARROW_DATE32_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_DATE32_ARRAY, \
+                              GArrowDate32Array))
+#define GARROW_DATE32_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_DATE32_ARRAY,    \
+                           GArrowDate32ArrayClass))
+#define GARROW_IS_DATE32_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_DATE32_ARRAY))
+#define GARROW_IS_DATE32_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_DATE32_ARRAY))
+#define GARROW_DATE32_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_DATE32_ARRAY,  \
+                             GArrowDate32ArrayClass))
+
+typedef struct _GArrowDate32Array         GArrowDate32Array;
+typedef struct _GArrowDate32ArrayClass    GArrowDate32ArrayClass;
+
+/**
+ * GArrowDate32Array:
+ *
+ * It wraps `arrow::Date32Array`.
+ */
+struct _GArrowDate32Array
+{
+  /*< private >*/
+  GArrowPrimitiveArray parent_instance;
+};
+
+struct _GArrowDate32ArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GType garrow_date32_array_get_type(void) G_GNUC_CONST;
+
+GArrowDate32Array *garrow_date32_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
+gint32 garrow_date32_array_get_value(GArrowDate32Array *array,
+                                     gint64 i);
+const gint32 *garrow_date32_array_get_values(GArrowDate32Array *array,
+                                             gint64 *length);
+
+
+#define GARROW_TYPE_DATE64_ARRAY                \
+  (garrow_date64_array_get_type())
+#define GARROW_DATE64_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_DATE64_ARRAY, \
+                              GArrowDate64Array))
+#define GARROW_DATE64_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_DATE64_ARRAY,    \
+                           GArrowDate64ArrayClass))
+#define GARROW_IS_DATE64_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_DATE64_ARRAY))
+#define GARROW_IS_DATE64_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_DATE64_ARRAY))
+#define GARROW_DATE64_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_DATE64_ARRAY,  \
+                             GArrowDate64ArrayClass))
+
+typedef struct _GArrowDate64Array         GArrowDate64Array;
+typedef struct _GArrowDate64ArrayClass    GArrowDate64ArrayClass;
+
+/**
+ * GArrowDate64Array:
+ *
+ * It wraps `arrow::Date64Array`.
+ */
+struct _GArrowDate64Array
+{
+  /*< private >*/
+  GArrowPrimitiveArray parent_instance;
+};
+
+struct _GArrowDate64ArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GType garrow_date64_array_get_type(void) G_GNUC_CONST;
+
+GArrowDate64Array *garrow_date64_array_new(gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
+gint64 garrow_date64_array_get_value(GArrowDate64Array *array,
+                                     gint64 i);
+const gint64 *garrow_date64_array_get_values(GArrowDate64Array *array,
+                                             gint64 *length);
+
+
 #define GARROW_TYPE_LIST_ARRAY                  \
   (garrow_list_array_get_type())
 #define GARROW_LIST_ARRAY(obj)                          \

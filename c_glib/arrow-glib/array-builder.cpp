@@ -107,6 +107,12 @@ G_BEGIN_DECLS
  * #GArrowStringArrayBuilder is the class to create a new
  * #GArrowStringArray.
  *
+ * #GArrowDate32ArrayBuilder is the class to create a new
+ * #GArrowDate32Array.
+ *
+ * #GArrowDate64ArrayBuilder is the class to create a new
+ * #GArrowDate64Array.
+ *
  * #GArrowListArrayBuilder is the class to create a new
  * #GArrowListArray.
  *
@@ -1158,6 +1164,150 @@ garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowDate32ArrayBuilder,
+              garrow_date32_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_date32_array_builder_init(GArrowDate32ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_date32_array_builder_class_init(GArrowDate32ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_date32_array_builder_new:
+ *
+ * Returns: A newly created #GArrowDate32ArrayBuilder.
+ *
+ * Since: 0.7.0
+ */
+GArrowDate32ArrayBuilder *
+garrow_date32_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::date32(),
+                                          NULL,
+                                          "[date32-array-builder][new]");
+  return GARROW_DATE32_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_date32_array_builder_append:
+ * @builder: A #GArrowDate32ArrayBuilder.
+ * @value: The number of days since UNIX epoch in signed 32bit integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_date32_array_builder_append(GArrowDate32ArrayBuilder *builder,
+                                   gint32 value,
+                                   GError **error)
+{
+  return garrow_array_builder_append<arrow::Date32Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[date32-array-builder][append]");
+}
+
+/**
+ * garrow_date32_array_builder_append_null:
+ * @builder: A #GArrowDate32ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder,
+                                        GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Date32Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[date32-array-builder][append-null]");
+}
+
+
+G_DEFINE_TYPE(GArrowDate64ArrayBuilder,
+              garrow_date64_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_date64_array_builder_init(GArrowDate64ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_date64_array_builder_class_init(GArrowDate64ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_date64_array_builder_new:
+ *
+ * Returns: A newly created #GArrowDate64ArrayBuilder.
+ *
+ * Since: 0.7.0
+ */
+GArrowDate64ArrayBuilder *
+garrow_date64_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::date64(),
+                                          NULL,
+                                          "[date64-array-builder][new]");
+  return GARROW_DATE64_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_date64_array_builder_append:
+ * @builder: A #GArrowDate64ArrayBuilder.
+ * @value: The number of milliseconds since UNIX epoch in signed 64bit integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_date64_array_builder_append(GArrowDate64ArrayBuilder *builder,
+                                   gint64 value,
+                                   GError **error)
+{
+  return garrow_array_builder_append<arrow::Date64Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[date64-array-builder][append]");
+}
+
+/**
+ * garrow_date64_array_builder_append_null:
+ * @builder: A #GArrowDate64ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
+                                        GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Date64Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[date64-array-builder][append-null]");
+}
+
+
 typedef struct GArrowListArrayBuilderPrivate_ {
   GArrowArrayBuilder *value_builder;
 } GArrowListArrayBuilderPrivate;
@@ -1546,6 +1696,12 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::STRING:
       type = GARROW_TYPE_STRING_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DATE32:
+      type = GARROW_TYPE_DATE32_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DATE64:
+      type = GARROW_TYPE_DATE64_ARRAY_BUILDER;
       break;
     case arrow::Type::type::LIST:
       type = GARROW_TYPE_LIST_ARRAY_BUILDER;
