@@ -105,6 +105,13 @@ if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
 endif()
 
+# Ensure that a default make is set
+if ("${MAKE}" STREQUAL "")
+    if (NOT MSVC)
+        find_program(MAKE make)
+    endif()
+endif()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
