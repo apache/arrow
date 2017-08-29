@@ -1269,7 +1269,7 @@ garrow_date64_array_builder_new(void)
 /**
  * garrow_date64_array_builder_append:
  * @builder: A #GArrowDate64ArrayBuilder.
- * @value: The number of days since UNIX epoch in signed 64bit integer.
+ * @value: The number of milliseconds since UNIX epoch in signed 64bit integer.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
