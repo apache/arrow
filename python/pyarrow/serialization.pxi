@@ -172,8 +172,9 @@ cdef class SerializedPyObject:
             check_status(DeserializeObject(self.data, <PyObject*> self.base,
                                            &result))
 
-        # This is necessary to avoid a memory leak
-        return PyObject_to_object(result)
+        # PyObject_to_object is necessary to avoid a memory leak
+        # and unpack the list created in serialize
+        return PyObject_to_object(result)[0]
 
     def to_buffer(self):
         """
@@ -197,8 +198,11 @@ def serialize(object value):
     serialized : SerializedPyObject
     """
     cdef SerializedPyObject serialized = SerializedPyObject()
+    wrapped_value = [value]
     with nogil:
-        check_status(SerializeObject(value, &serialized.data))
+        # Pack the object in a list for the serialization code,
+        # unpacking is done in self.deserialize
+        check_status(SerializeObject(wrapped_value, &serialized.data))
     return serialized
 
 

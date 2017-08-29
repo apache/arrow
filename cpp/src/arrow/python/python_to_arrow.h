@@ -56,7 +56,7 @@ void set_serialization_callbacks(PyObject* serialize_callback,
                                  PyObject* deserialize_callback);
 
 /// \brief Serialize Python sequence as a RecordBatch plus
-/// \param[in] object a Python object to serialize to Arrow data
+/// \param[in] sequence a Python sequence object to serialize to Arrow data
 /// structures
 /// \param[out] out the serialized representation
 /// \return Status

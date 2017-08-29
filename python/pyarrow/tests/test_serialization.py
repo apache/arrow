@@ -221,16 +221,16 @@ def large_memory_map(tmpdir_factory):
 def test_primitive_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in PRIMITIVE_OBJECTS:
-            serialization_roundtrip([obj], mmap)
+            serialization_roundtrip(obj, mmap)
 
 
 def test_complex_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in COMPLEX_OBJECTS:
-            serialization_roundtrip([obj], mmap)
+            serialization_roundtrip(obj, mmap)
 
 
 def test_custom_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in CUSTOM_OBJECTS:
-            serialization_roundtrip([obj], mmap)
+            serialization_roundtrip(obj, mmap)

@@ -617,12 +617,9 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
 }
 
-Status SerializeObject(PyObject* object, SerializedPyObject* out) {
+Status SerializeObject(PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
-  ScopedRef list(PyList_New(0));
-  PyList_Append(list.get(), object);
-  // TODO(pcm): Do error handling here.
-  std::vector<PyObject*> sequences = {list.get()};
+  std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
   std::vector<PyObject*> py_tensors;
   RETURN_NOT_OK(SerializeSequences(sequences, 0, &array, &py_tensors));
