@@ -107,7 +107,9 @@ endif()
 
 # Ensure that a default make is set
 if ("${MAKE}" STREQUAL "")
-    find_program(MAKE make)
+    if (NOT MSVC)
+        find_program(MAKE make)
+    endif()
 endif()
 
 # ----------------------------------------------------------------------
