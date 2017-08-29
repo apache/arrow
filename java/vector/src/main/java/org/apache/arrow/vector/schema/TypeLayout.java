@@ -156,6 +156,11 @@ public class TypeLayout {
       }
 
       @Override
+      public TypeLayout visit(ArrowType.FixedSizeBinary type) {
+        return newFixedWidthTypeLayout(dataVector(type.getByteWidth() * 8));
+      }
+
+      @Override
       public TypeLayout visit(Utf8 type) {
         return newVariableWidthTypeLayout();
       }

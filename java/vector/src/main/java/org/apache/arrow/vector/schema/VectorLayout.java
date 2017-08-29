@@ -58,7 +58,7 @@ public class VectorLayout implements FBSerializable {
       case 64:
         return VALUES_64;
       default:
-        throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
+        return new VectorLayout(DATA, typeBitWidth);
     }
   }
 
