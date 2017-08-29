@@ -44,18 +44,12 @@ struct ARROW_EXPORT SerializedPyObject {
   std::vector<std::shared_ptr<Tensor>> tensors;
 };
 
-/// \brief Register callback functions to perform conversions to or from other
-/// Python representations en route to/from deserialization
-///
-/// \param[in] serialize_callback a Python callable
-/// \param[in] deserialize_callback a Python callable
-///
-/// Analogous to Python custom picklers / unpicklers
-ARROW_EXPORT
-void set_serialization_callbacks(PyObject* serialize_callback,
-                                 PyObject* deserialize_callback);
-
 /// \brief Serialize Python sequence as a RecordBatch plus
+/// \param[in] context Serialization context which contains custom serialization
+/// and deserialization callbacks. Can be any Python object with a
+/// _serialize_callback method for serialization and a _deserialize_callback
+/// method for deserialization. If context is None, no custom serialization
+/// will be attempted.
 /// \param[in] sequence a Python sequence object to serialize to Arrow data
 /// structures
 /// \param[out] out the serialized representation
@@ -63,7 +57,7 @@ void set_serialization_callbacks(PyObject* serialize_callback,
 ///
 /// Release GIL before calling
 ARROW_EXPORT
-Status SerializeObject(PyObject* sequence, SerializedPyObject* out);
+Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
 
 /// \brief Write serialized Python object to OutputStream
 /// \param[in] object a serialized Python object to write out
