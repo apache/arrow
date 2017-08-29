@@ -78,7 +78,7 @@ Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
     return Status::OK();
   }
 
-  std::shared_ptr<MutableBuffer> metadata;
+  std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
   RETURN_NOT_OK(reader->Read(message_length, &bytes_read, metadata->mutable_data()));
   if (bytes_read != message_length) {

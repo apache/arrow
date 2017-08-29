@@ -33,7 +33,6 @@ namespace arrow {
 
 class Buffer;
 class MemoryPool;
-class MutableBuffer;
 class Status;
 
 static inline bool is_tensor_supported(Type::type type_id) {

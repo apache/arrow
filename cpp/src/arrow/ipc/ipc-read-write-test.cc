@@ -273,7 +273,7 @@ TEST_P(TestIpcRoundTrip, ZeroLengthArrays) {
   CheckRoundtrip(*zero_length_batch, 1 << 20);
 
   // ARROW-544: check binary array
-  std::shared_ptr<MutableBuffer> value_offsets;
+  std::shared_ptr<Buffer> value_offsets;
   ASSERT_OK(AllocateBuffer(pool_, sizeof(int32_t), &value_offsets));
   *reinterpret_cast<int32_t*>(value_offsets->mutable_data()) = 0;
 

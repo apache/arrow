@@ -126,10 +126,18 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
 }
 
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
-                      std::shared_ptr<MutableBuffer>* out) {
+                      std::shared_ptr<Buffer>* out) {
   auto buffer = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(buffer->Resize(size));
   *out = buffer;
+  return Status::OK();
+}
+
+Status AllocateBuffer(MemoryPool* pool, const int64_t size,
+                      std::shared_ptr<MutableBuffer>* out) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, size, &buffer));
+  *out = std::dynamic_pointer_cast<MutableBuffer>(buffer);
   return Status::OK();
 }
 
