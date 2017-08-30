@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+set -x
 
 ROOT=$(cd $(dirname $BASH_SOURCE)/../../..; pwd)
 
