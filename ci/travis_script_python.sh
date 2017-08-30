@@ -75,6 +75,8 @@ function rebuild_arrow_libraries() {
   ninja
   ninja install
 
+  ninja iwyu
+
   popd
 }
 

@@ -77,6 +77,11 @@ import argparse
 import subprocess
 import re
 
+import logging
+
+logging.basicConfig(filename='iwyu.log')
+LOGGER = logging.getLogger("iwyu")
+
 
 def iwyu_formatter(output):
     """ Process iwyu's output, basically a no-op. """
@@ -100,7 +105,7 @@ def clang_formatter(output):
     for line in output:
         match = CORRECT_RE.match(line)
         if match:
-            print('%s:1:1: note: #includes/fwd-decls are correct' % match.groups(1))
+            print('%s:1:1: note: #includes/fwd-decls are correct', match.groups(1))
             continue
         match = SHOULD_ADD_RE.match(line)
         if match:
@@ -120,12 +125,12 @@ def clang_formatter(output):
         elif state[0] == GENERAL:
             print(line)
         elif state[0] == ADD:
-            print('%s:1:1: error: add the following line' % state[1])
+            print('%s:1:1: error: add the following line', state[1])
             print(line)
         elif state[0] == REMOVE:
             match = LINES_RE.match(line)
             line_no = match.group(2) if match else '1'
-            print('%s:%s:1: error: remove the following line' % (state[1], line_no))
+            print('%s:%s:1: error: remove the following line', state[1], line_no)
             print(match.group(1))
 
 
@@ -159,7 +164,7 @@ def run_iwyu(cwd, compile_command, iwyu_args, verbose, formatter):
     command = '%s %s' % (' '.join(command), args.strip())
 
     if verbose:
-        print('%s:' % command)
+        print('%s:', command)
 
     formatter(get_output(cwd, command))
 
@@ -173,7 +178,7 @@ def main(compilation_db_path, source_files, verbose, formatter, iwyu_args):
 
     compilation_db_path = os.path.realpath(compilation_db_path)
     if not os.path.isfile(compilation_db_path):
-        print('ERROR: No such file or directory: \'%s\'' % compilation_db_path)
+        print('ERROR: No such file or directory: \'%s\'', compilation_db_path)
         return 1
 
     # Read compilation db from disk
@@ -198,8 +203,9 @@ def main(compilation_db_path, source_files, verbose, formatter, iwyu_args):
             if matches:
                 entries.extend(matches)
             else:
-                print('WARNING: \'%s\' not found in compilation database.' %
-                      source)
+                # TODO: As long as there is no complete compilation database available this check cannot be performed
+                pass
+                #print('WARNING: \'%s\' not found in compilation database.', source)
 
     # Run analysis
     try:
@@ -207,7 +213,7 @@ def main(compilation_db_path, source_files, verbose, formatter, iwyu_args):
             cwd, compile_command = entry['directory'], entry['command']
             run_iwyu(cwd, compile_command, iwyu_args, verbose, formatter)
     except OSError as why:
-        print('ERROR: Failed to launch include-what-you-use: %s' % why)
+        print('ERROR: Failed to launch include-what-you-use: %s', why)
         return 1
 
     return 0

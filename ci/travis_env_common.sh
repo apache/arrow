@@ -34,6 +34,8 @@ export ARROW_CPP_INSTALL=$TRAVIS_BUILD_DIR/cpp-install
 export ARROW_CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp-build
 export ARROW_C_GLIB_INSTALL=$TRAVIS_BUILD_DIR/c-glib-install
 
+export CMAKE_EXPORT_COMPILE_COMMANDS=1
+
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
