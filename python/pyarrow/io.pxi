@@ -151,6 +151,7 @@ cdef class NativeFile:
         """
         cdef int64_t offset
         self._assert_readable()
+
         with nogil:
             if whence == 0:
                 offset = position
@@ -534,7 +535,7 @@ cdef class OSFile(NativeFile):
         self.wr_file = <shared_ptr[OutputStream]> handle
 
 
-cdef class FixedSizeBufferOutputStream(NativeFile):
+cdef class FixedSizeBufferWriter(NativeFile):
 
     def __cinit__(self, Buffer buffer):
         self.wr_file.reset(new CFixedSizeBufferWriter(buffer.buffer))
@@ -579,6 +580,11 @@ cdef class Buffer:
 
         def __get__(self):
             return self.buffer.get().size()
+
+    property is_mutable:
+
+        def __get__(self):
+            return self.buffer.get().is_mutable()
 
     property parent:
 
@@ -638,10 +644,31 @@ cdef class Buffer:
         return self.size
 
 
-cdef shared_ptr[PoolBuffer] allocate_buffer(CMemoryPool* pool):
+cdef shared_ptr[PoolBuffer] _allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))
     return result
+
+
+def allocate_buffer(int64_t size, MemoryPool pool=None):
+    """
+    Allocate mutable fixed-size buffer
+
+    Parameters
+    ----------
+    size : int
+        Number of bytes to allocate (plus internal padding)
+    pool : MemoryPool, optional
+        Uses default memory pool if not provided
+    """
+    cdef:
+        shared_ptr[CBuffer] buffer
+        CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+    with nogil:
+        check_status(AllocateBuffer(cpool, size, &buffer))
+
+    return pyarrow_wrap_buffer(buffer)
 
 
 cdef class BufferOutputStream(NativeFile):
@@ -650,7 +677,7 @@ cdef class BufferOutputStream(NativeFile):
         shared_ptr[PoolBuffer] buffer
 
     def __cinit__(self, MemoryPool memory_pool=None):
-        self.buffer = allocate_buffer(maybe_unbox_memory_pool(memory_pool))
+        self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))
         self.wr_file.reset(new CBufferOutputStream(
             <shared_ptr[ResizableBuffer]> self.buffer))
         self.is_readable = 0

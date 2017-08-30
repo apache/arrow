@@ -235,14 +235,14 @@ API such as ``pyarrow.get_tensor_size``.
   buf = client.create(object_id, data_size)
 
 To write the Arrow ``Tensor`` object into the buffer, you can use Plasma to
-convert the ``memoryview`` buffer into a ``pyarrow.FixedSizeBufferOutputStream``
-object. A ``pyarrow.FixedSizeBufferOutputStream`` is a format suitable for Arrow's
+convert the ``memoryview`` buffer into a ``pyarrow.FixedSizeBufferWriter``
+object. A ``pyarrow.FixedSizeBufferWriter`` is a format suitable for Arrow's
 ``pyarrow.write_tensor``:
 
 .. code-block:: python
 
   # Write the tensor into the Plasma-allocated buffer
-  stream = pa.FixedSizeBufferOutputStream(buf)
+  stream = pa.FixedSizeBufferWriter(buf)
   pa.write_tensor(tensor, stream)  # Writes tensor's 552 bytes to Plasma stream
 
 To finish storing the Arrow object in Plasma, call ``seal``:
@@ -328,7 +328,7 @@ The DataFrame can now be written to the buffer as follows.
 .. code-block:: python
 
   # Write the PyArrow RecordBatch to Plasma
-  stream = pa.FixedSizeBufferOutputStream(buf)
+  stream = pa.FixedSizeBufferWriter(buf)
   stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
   stream_writer.write_batch(record_batch)
   stream_writer.close()
@@ -414,7 +414,7 @@ You can test this with the following script:
   object_id = plasma.ObjectID(np.random.bytes(20))
   buf = client.create(object_id, pa.get_tensor_size(tensor))
 
-  stream = pa.FixedSizeBufferOutputStream(buf)
+  stream = pa.FixedSizeBufferWriter(buf)
   stream.set_memcopy_threads(4)
   a = time.time()
   pa.write_tensor(tensor, stream)
