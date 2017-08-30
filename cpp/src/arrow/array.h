@@ -276,6 +276,13 @@ class ARROW_EXPORT NullArray : public FlatArray {
 
   explicit NullArray(const std::shared_ptr<internal::ArrayData>& data) { SetData(data); }
   explicit NullArray(int64_t length);
+
+ private:
+  inline void SetData(const std::shared_ptr<internal::ArrayData>& data) {
+    null_bitmap_data_ = nullptr;
+    data->null_count = data->length;
+    data_ = data;
+  }
 };
 
 /// Base class for fixed-size logical types
