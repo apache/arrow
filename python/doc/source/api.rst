@@ -158,6 +158,7 @@ Input / Output and Shared Memory
 .. autosummary::
    :toctree: generated/
 
+   allocate_buffer
    Buffer
    BufferReader
    BufferOutputStream

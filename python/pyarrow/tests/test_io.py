@@ -170,6 +170,18 @@ def test_buffer_numpy():
     assert array.base == buf
 
 
+def test_allocate_buffer():
+    buf = pa.allocate_buffer(100)
+    assert buf.size == 100
+    assert buf.is_mutable
+
+    bit = b'abcde'
+    writer = pa.FixedSizeBufferWriter(buf)
+    writer.write(bit)
+
+    assert buf.to_pybytes()[:5] == bit
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
