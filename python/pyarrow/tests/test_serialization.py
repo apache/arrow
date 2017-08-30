@@ -237,6 +237,14 @@ def test_primitive_serialization(large_memory_map):
             serialization_roundtrip(obj, mmap)
 
 
+def test_serialize_to_buffer():
+    for nthreads in [1, 4]:
+        for value in COMPLEX_OBJECTS:
+            buf = pa.serialize(value).to_buffer(nthreads=nthreads)
+            result = pa.deserialize(buf)
+            assert_equal(value, result)
+
+
 def test_complex_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in COMPLEX_OBJECTS:
