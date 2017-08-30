@@ -21,6 +21,8 @@
 # requirements: pip install jira
 # Set $JIRA_USERNAME, $JIRA_PASSWORD environment variables
 
+from __future__ import print_function
+
 from collections import defaultdict
 from io import StringIO
 import os
@@ -99,19 +101,52 @@ def format_changelog_website(issues, out):
         out.write('\n')
 
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('Usage: make_changelog.py $FIX_VERSION [$IS_WEBSITE]')
+def get_changelog(version, for_website=False):
+    issues_for_version = get_issues_for_version(version)
 
     buf = StringIO()
-
-    for_website = len(sys.argv) > 2 and sys.argv[2] == '1'
-
-    issues_for_version = get_issues_for_version(sys.argv[1])
 
     if for_website:
         format_changelog_website(issues_for_version, buf)
     else:
         format_changelog_markdown(issues_for_version, buf)
 
-    print(buf.getvalue())
+    return buf.getvalue()
+
+
+def append_changelog(version, changelog_path):
+    new_changelog = get_changelog(version)
+
+    with open(changelog_path, 'r') as f:
+        old_changelog = f.readlines()
+
+    result = StringIO()
+    # Header
+    print(''.join(old_changelog[:18]), file=result)
+
+    # New version
+    print('# Apache Arrow {0}'.format(version), end='', file=result)
+    print('\n', file=result)
+    print(new_changelog.replace('_', '\_'),
+          end='', file=result)
+
+    # Prior versions
+    print(''.join(old_changelog[19:]), file=result)
+
+    with open(changelog_path, 'w') as f:
+        f.write(result.getvalue())
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('Usage: changelog.py $FIX_VERSION [$IS_WEBSITE] '
+              '[$CHANGELOG_TO_UPDATE]')
+
+    for_website = len(sys.argv) > 2 and sys.argv[2] == '1'
+
+    version = sys.argv[1]
+    if len(sys.argv) > 3:
+        changelog_path = sys.argv[3]
+        append_changelog(version, changelog_path)
+    else:
+        print(get_changelog(version, for_website=for_website))
