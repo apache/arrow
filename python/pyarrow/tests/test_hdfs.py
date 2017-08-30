@@ -262,6 +262,12 @@ class HdfsTestCases(object):
                                .sort_values(by='index').reset_index(drop=True),
                                expected.to_pandas())
 
+    @test_parquet.parquet
+    def test_read_common_metadata_files(self):
+        tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
+        self.hdfs.mkdir(tmpdir)
+        test_parquet._test_read_common_metadata_files(self.hdfs, tmpdir)
+
 
 class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
