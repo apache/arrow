@@ -55,8 +55,7 @@ public class TestDecimalVector {
     for (int i = 0; i < intValues.length; i++) {
       BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
       values[i] = decimal;
-      decimalVector.getMutator().setIndexDefined(i);
-      DecimalUtility.writeBigDecimalToArrowBuf(decimal, decimalVector.getBuffer(), i);
+      decimalVector.getMutator().setSafe(i, decimal);
     }
 
     decimalVector.getMutator().setValueCount(intValues.length);

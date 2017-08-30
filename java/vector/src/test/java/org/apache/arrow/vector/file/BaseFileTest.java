@@ -59,7 +59,6 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
-import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
@@ -410,13 +409,6 @@ public class BaseFileTest {
     Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
   }
 
-  private void writeIntAsDecimal(NullableDecimalVector vector, long value, int index) {
-    ArrowType.Decimal type = (ArrowType.Decimal) vector.getField().getType();
-    BigDecimal decimalValue = new BigDecimal(BigInteger.valueOf(value), type.getScale());
-    DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, vector.getBuffer(), index);
-    vector.getValidityVector().getMutator().setToOne(index);
-  }
-
   protected VectorSchemaRoot writeDecimalData(BufferAllocator bufferAllocator) {
     NullableDecimalVector decimalVector1 = new NullableDecimalVector("decimal1", bufferAllocator, 10, 3);
     NullableDecimalVector decimalVector2 = new NullableDecimalVector("decimal2", bufferAllocator, 4, 2);
@@ -428,9 +420,9 @@ public class BaseFileTest {
     decimalVector3.allocateNew(count);
 
     for (int i = 0; i < count; i++) {
-      writeIntAsDecimal(decimalVector1, i, i);
-      writeIntAsDecimal(decimalVector2, i * (1 << 10), i);
-      writeIntAsDecimal(decimalVector3, i * 1111111111111111L, i);
+      decimalVector1.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i), 3));
+      decimalVector2.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i * (1 << 10)), 2));
+      decimalVector3.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), 8));
     }
 
     decimalVector1.getMutator().setValueCount(count);
