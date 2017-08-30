@@ -35,6 +35,7 @@ while true; do
 	*) break ;;
     esac
 done
+        avro \
 
 if [ "$only_library_mode" == "no" ]; then
   source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh

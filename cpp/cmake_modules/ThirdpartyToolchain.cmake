@@ -22,6 +22,7 @@ add_custom_target(toolchain)
 
 set(ARROW_RE2_LINKAGE "static" CACHE STRING
   "How to link the re2 library. static|shared (default static)")
+set(AVRO_VERSION "1.8.1")
 
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
@@ -1058,6 +1059,63 @@ if (ARROW_WITH_SNAPPY)
     add_dependencies(snappy_static snappy_ep)
   endif()
 endif()
+
+
+if (ARROW_AVRO)
+  # ----------------------------------------------------------------------
+  # Avro
+
+  if("${AVRO_HOME}" STREQUAL "")
+    set(AVRO_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/avro_ep/src/avro_ep-install")
+    set(AVRO_HOME "${AVRO_PREFIX}")
+    set(AVRO_INCLUDE_DIR "${AVRO_PREFIX}/include")
+    if (MSVC)
+      set(AVRO_STATIC_LIB_NAME avro_static)
+    else()
+      set(AVRO_STATIC_LIB_NAME avro)
+    endif()
+    set(AVRO_STATIC_LIB "${AVRO_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${AVRO_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(AVRO_SRC_URL "https://archive.apache.org/dist/avro/avro-${AVRO_VERSION}/c/avro-c-${AVRO_VERSION}.tar.gz")
+
+    if (${UPPERCASE_BUILD_TYPE} EQUAL "RELEASE")
+      if (APPLE)
+        set(AVRO_CXXFLAGS "CXXFLAGS='-DNDEBUG -O1'")
+      else()
+        set(AVRO_CXXFLAGS "CXXFLAGS='-DNDEBUG -O2'")
+      endif()
+    endif()
+
+    if (MSVC)
+      set(AVRO_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+              "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+              "-DCMAKE_C_FLAGS=${EX_C_FLAGS}"
+              "-DCMAKE_INSTALL_PREFIX=${AVRO_PREFIX}")
+      ExternalProject_Add(avro_ep
+              URL ${AVRO_SRC_URL}
+              CMAKE_ARGS ${AVRO_CMAKE_ARGS}
+              BUILD_BYPRODUCTS "${AVRO_STATIC_LIB}")
+    else()
+      ExternalProject_Add(avro_ep
+              URL ${AVRO_SRC_URL}
+              CMAKE_ARGS
+              "-DCMAKE_INSTALL_PREFIX:PATH=${AVRO_PREFIX}"
+              )
+    endif()
+    set(AVRO_VENDORED 1)
+  else()
+    find_package(Avro REQUIRED)
+    set(AVRO_VENDORED 0)
+  endif()
+
+  include_directories(SYSTEM ${AVRO_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(avro
+          STATIC_LIB ${AVRO_STATIC_LIB})
+
+  if (_VENDORED)
+    add_dependencies(avro avro_ep)
+  endif()
+endif()
+
 
 if (ARROW_WITH_BROTLI)
 # ----------------------------------------------------------------------

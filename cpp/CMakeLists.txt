@@ -182,6 +182,10 @@ static|shared (default shared)")
     "Build with C++ code coverage enabled"
     OFF)
 
+  option(ARROW_AVRO
+    "Build the Arrow Avro extensions"
+    ON)
+
   option(ARROW_VERBOSE_LINT
     "If off, 'quiet' flags will be passed to linting tools"
     OFF)
@@ -888,6 +892,16 @@ if(NOT WIN32 AND ARROW_PLASMA)
 endif()
 
 add_subdirectory(src/arrow)
+
+        src/arrow/adapters/avro/adapter.cc
+endif()
+
+
+if (ARROW_AVRO)
+  add_subdirectory(src/arrow/adapters/avro)
+  set(ARROW_SRC ${ARROW_SRCS}
+    src/arrow/adapters/avro/adapter.cc
+  )
 
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
