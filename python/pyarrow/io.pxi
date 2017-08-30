@@ -150,6 +150,7 @@ cdef class NativeFile:
         new_position : the new absolute stream position
         """
         cdef int64_t offset
+        self._assert_readable()
 
         with nogil:
             if whence == 0:
