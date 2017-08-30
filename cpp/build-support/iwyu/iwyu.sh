@@ -47,7 +47,7 @@ IWYU_ARGS="\
     --mapping_file=$IWYU_MAPPINGS_PATH/glog.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp"
 
-#PATH="$PATH:$PWD/../../thirdparty/clang-toolchain/bin"
+set -e
 python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . $IWYU_FILE_LIST  -- \
      $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
      tee $IWYU_LOG

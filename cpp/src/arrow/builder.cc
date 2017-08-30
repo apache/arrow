@@ -158,6 +158,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 
   // Fill up the bytes until we have a byte alignment
   int64_t pad_to_byte = std::min<int64_t>(8 - (length_ % 8), length);
+
   if (pad_to_byte == 8) {
     pad_to_byte = 0;
   }
