@@ -185,9 +185,10 @@ cdef class SerializedPyObject:
         """
         Write serialized data as Buffer
         """
-        sink = BufferOutputStream()
+        cdef Buffer output = allocate_buffer(self.total_bytes)
+        sink = FixedSizeBufferWriter(output)
         self.write_to(sink)
-        return sink.get_result()
+        return output
 
 
 def serialize(object value, SerializationContext context=None):
