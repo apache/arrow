@@ -121,6 +121,15 @@ class PARQUET_EXPORT ParquetFileReader {
 std::shared_ptr<FileMetaData> PARQUET_EXPORT
 ReadMetaData(const std::shared_ptr<::arrow::io::ReadableFileInterface>& source);
 
+/// \brief Scan all values in file. Useful for performance testing
+/// \param[in] columns the column numbers to scan. If empty scans all
+/// \param[in] column_batch_size number of values to read at a time when scanning column
+/// \param[in] reader a ParquetFileReader instance
+/// \return number of semantic rows in file
+PARQUET_EXPORT
+int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_size,
+                         ParquetFileReader* reader);
+
 }  // namespace parquet
 
 #endif  // PARQUET_FILE_READER_H
