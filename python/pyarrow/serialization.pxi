@@ -181,13 +181,16 @@ cdef class SerializedPyObject:
         # also unpack the list the object was wrapped in in serialize
         return PyObject_to_object(result)[0]
 
-    def to_buffer(self):
+    def to_buffer(self, nthreads=1):
         """
         Write serialized data as Buffer
         """
-        sink = BufferOutputStream()
+        cdef Buffer output = allocate_buffer(self.total_bytes)
+        sink = FixedSizeBufferWriter(output)
+        if nthreads > 1:
+            sink.set_memcopy_threads(nthreads)
         self.write_to(sink)
-        return sink.get_result()
+        return output
 
 
 def serialize(object value, SerializationContext context=None):
