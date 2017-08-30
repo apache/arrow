@@ -294,7 +294,7 @@ class TestPlasmaClient(object):
         tensor = pa.Tensor.from_numpy(data)
         data_size = pa.get_tensor_size(tensor)
         buf = self.plasma_client.create(object_id, data_size)
-        stream = pa.FixedSizeBufferOutputStream(buf)
+        stream = pa.FixedSizeBufferWriter(buf)
         pa.write_tensor(tensor, stream)
         self.plasma_client.seal(object_id)
         # Read the arrow object.
@@ -320,7 +320,7 @@ class TestPlasmaClient(object):
         object_id = plasma.ObjectID(np.random.bytes(20))
 
         buf = self.plasma_client.create(object_id, data_size)
-        stream = pa.FixedSizeBufferOutputStream(buf)
+        stream = pa.FixedSizeBufferWriter(buf)
         stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
         stream_writer.write_batch(record_batch)
 
