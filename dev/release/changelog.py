@@ -24,7 +24,9 @@
 from __future__ import print_function
 
 from collections import defaultdict
+from datetime import datetime
 from io import StringIO
+import locale
 import os
 import sys
 
@@ -39,6 +41,9 @@ JIRA_API_BASE = "https://issues.apache.org/jira"
 
 asf_jira = jira.client.JIRA({'server': JIRA_API_BASE},
                             basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
+
+
+locale.setlocale(locale.LC_ALL, 'en_US.utf8')
 
 
 def get_issues_for_version(version):
@@ -125,7 +130,9 @@ def append_changelog(version, changelog_path):
     print(''.join(old_changelog[:18]), file=result)
 
     # New version
-    print('# Apache Arrow {0}'.format(version), end='', file=result)
+    today = datetime.today().strftime('%d %B %Y')
+    print('# Apache Arrow {0} ({1})'.format(version, today),
+          end='', file=result)
     print('\n', file=result)
     print(new_changelog.replace('_', '\_'),
           end='', file=result)
