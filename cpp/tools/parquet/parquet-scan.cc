@@ -57,50 +57,16 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::vector<int16_t> rep_levels(batch_size);
-  std::vector<int16_t> def_levels(batch_size);
   try {
     double total_time;
     std::clock_t start_time = std::clock();
     std::unique_ptr<parquet::ParquetFileReader> reader =
         parquet::ParquetFileReader::OpenFile(filename);
-    // columns are not specified explicitly. Add all columns
-    if (num_columns == 0) {
-      num_columns = reader->metadata()->num_columns();
-      columns.resize(num_columns);
-      for (int i = 0; i < num_columns; i++) {
-        columns[i] = i;
-      }
-    }
 
-    std::vector<int64_t> total_rows(num_columns);
-
-    for (int r = 0; r < reader->metadata()->num_row_groups(); ++r) {
-      auto group_reader = reader->RowGroup(r);
-      int col = 0;
-      for (auto i : columns) {
-        total_rows[col] = 0;
-        std::shared_ptr<parquet::ColumnReader> col_reader = group_reader->Column(i);
-        size_t value_byte_size = GetTypeByteSize(col_reader->descr()->physical_type());
-        std::vector<uint8_t> values(batch_size * value_byte_size);
-
-        int64_t values_read = 0;
-        while (col_reader->HasNext()) {
-          total_rows[col] +=
-              ScanAllValues(batch_size, def_levels.data(), rep_levels.data(),
-                            values.data(), &values_read, col_reader.get());
-        }
-        col++;
-      }
-    }
+    int64_t total_rows = parquet::ScanFileContents(columns, batch_size, reader.get());
 
     total_time = (std::clock() - start_time) / static_cast<double>(CLOCKS_PER_SEC);
-    for (int ct = 1; ct < num_columns; ++ct) {
-      if (total_rows[0] != total_rows[ct]) {
-        std::cerr << "Parquet error: Total rows among columns do not match" << std::endl;
-      }
-    }
-    std::cout << total_rows[0] << " rows scanned in " << total_time << " seconds."
+    std::cout << total_rows << " rows scanned in " << total_time << " seconds."
               << std::endl;
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: " << e.what() << std::endl;
