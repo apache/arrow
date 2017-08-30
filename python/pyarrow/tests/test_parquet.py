@@ -832,8 +832,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     _visit_level(base_dir, 0, [])
 
 
-@parquet
-def test_read_common_metadata_files(tmpdir):
+def _test_read_common_metadata_files(fs, base_path):
     import pyarrow.parquet as pq
 
     N = 100
@@ -842,24 +841,34 @@ def test_read_common_metadata_files(tmpdir):
         'values': np.random.randn(N)
     }, columns=['index', 'values'])
 
-    base_path = str(tmpdir)
     data_path = pjoin(base_path, 'data.parquet')
 
     table = pa.Table.from_pandas(df)
-    _write_table(table, data_path)
+
+    with fs.open(data_path, 'wb') as f:
+        _write_table(table, f)
 
     metadata_path = pjoin(base_path, '_metadata')
-    pq.write_metadata(table.schema, metadata_path)
+    with fs.open(metadata_path, 'wb') as f:
+        pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(base_path)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs)
     assert dataset.metadata_path == metadata_path
 
-    common_schema = pq.read_metadata(data_path).schema
+    with fs.open(data_path) as f:
+        common_schema = pq.read_metadata(f).schema
     assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
-    dataset2 = pq.ParquetDataset([base_path])
+    dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
     assert dataset2.schema.equals(dataset.schema)
+
+
+@parquet
+def test_read_common_metadata_files(tmpdir):
+    base_path = str(tmpdir)
+    fs = LocalFileSystem.get_instance()
+    _test_read_common_metadata_files(fs, base_path)
 
 
 @parquet
