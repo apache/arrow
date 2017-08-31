@@ -23,6 +23,7 @@
 
 #include "arrow/python/pandas_to_arrow.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
