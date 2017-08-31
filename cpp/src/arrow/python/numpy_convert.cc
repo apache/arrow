@@ -170,24 +170,25 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
     case NPY_DATETIME: {
       auto date_dtype =
           reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
-      TimeUnit::type unit;
       switch (date_dtype->meta.base) {
         case NPY_FR_s:
-          unit = TimeUnit::SECOND;
+          *out = timestamp(TimeUnit::SECOND);
           break;
         case NPY_FR_ms:
-          unit = TimeUnit::MILLI;
+          *out = timestamp(TimeUnit::MILLI);
           break;
         case NPY_FR_us:
-          unit = TimeUnit::MICRO;
+          *out = timestamp(TimeUnit::MICRO);
           break;
         case NPY_FR_ns:
-          unit = TimeUnit::NANO;
+          *out = timestamp(TimeUnit::NANO);
+          break;
+        case NPY_FR_D:
+          *out = date32();
           break;
         default:
           return Status::NotImplemented("Unsupported datetime64 time unit");
       }
-      *out = timestamp(unit);
     } break;
     default: {
       std::stringstream ss;
