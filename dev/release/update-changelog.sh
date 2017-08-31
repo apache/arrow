@@ -21,28 +21,11 @@ set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ "$#" -eq 2 ]; then
-  version=$1
-  nextVersion=$2
-  nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
-  tag=apache-arrow-${version}
+version=$1
 
-  echo "Updating changelog for $version"
-  # Update changelog
-  $SOURCE_DIR/update-changelog.sh $version
+CHANGELOG=$SOURCE_DIR/../../CHANGELOG.md
 
-  echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}"
+python $SOURCE_DIR/changelog.py $version 0 $CHANGELOG
 
-  cd "${SOURCE_DIR}/../../java"
-
-  mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${nextVersionSNAPSHOT}
-
-  cd -
-
-  echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
-
-else
-  echo "Usage: $0 <version> <nextVersion>"
-  exit
-fi
+git add $CHANGELOG
+git commit -m "[Release] Update CHANGELOG.md for $version"
