@@ -445,8 +445,8 @@ void CopyStrided(T* input_data, int64_t length, int64_t stride, T2* output_data)
 }
 
 template <>
-void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length, int64_t stride,
-                            PyObject** output_data) {
+void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length,
+                                       int64_t stride, PyObject** output_data) {
   int64_t j = 0;
   for (int64_t i = 0; i < length; ++i) {
     output_data[i] = input_data[j];
@@ -468,7 +468,8 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
     std::stringstream ss;
     ss << "NumPy type casts not yet implemented, type sizes differ: ";
-    ss << NumPyTypeSize(traits::npy_type) << " compared to " << NumPyTypeSize(type_num_compat);
+    ss << NumPyTypeSize(traits::npy_type) << " compared to "
+       << NumPyTypeSize(type_num_compat);
     return Status::NotImplemented(ss.str());
   }
 
@@ -496,8 +497,8 @@ inline Status PandasConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* 
   int type_size = NumPyTypeSize(type_num_compat);
 
   if (type_size == 4) {
-      // Source and target are INT32, so can refer to the main implementation.
-      return ConvertData<Int32Type>(data);
+    // Source and target are INT32, so can refer to the main implementation.
+    return ConvertData<Int32Type>(data);
   } else if (type_size == 8) {
     // We need to scale down from int64 to int32
     auto new_buffer = std::make_shared<PoolBuffer>(pool_);
@@ -507,17 +508,20 @@ inline Status PandasConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* 
       const int64_t stride = PyArray_STRIDES(arr_)[0];
       const int64_t stride_elements = stride / sizeof(int64_t);
 
-      CopyStrided(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)), length_, stride_elements,
+      CopyStrided(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)), length_,
+                  stride_elements,
                   reinterpret_cast<int32_t*>(new_buffer->mutable_data()));
     } else {
-      std::copy(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)), reinterpret_cast<int64_t*>(PyArray_DATA(arr_)) + length_, reinterpret_cast<int32_t*>(new_buffer->mutable_data()));
+      std::copy(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)),
+                reinterpret_cast<int64_t*>(PyArray_DATA(arr_)) + length_,
+                reinterpret_cast<int32_t*>(new_buffer->mutable_data()));
     }
     *data = new_buffer;
   } else {
-      std::stringstream ss;
-      ss << "Cannot convert NumPy array of element size ";
-      ss << type_size << " to a Date32 array";
-      return Status::NotImplemented(ss.str());
+    std::stringstream ss;
+    ss << "Cannot convert NumPy array of element size ";
+    ss << type_size << " to a Date32 array";
+    return Status::NotImplemented(ss.str());
   }
 
   return Status::OK();
