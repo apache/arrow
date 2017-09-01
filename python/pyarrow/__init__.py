@@ -86,13 +86,15 @@ from pyarrow.lib import (ArrowException,
                          ArrowMemoryError,
                          ArrowNotImplementedError,
                          ArrowTypeError,
+                         ArrowSerializationError,
                          PlasmaObjectExists)
 
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
                          serialize, serialize_to, read_serialized,
                          SerializedPyObject, SerializationContext,
-                         SerializationException, DeserializationException)
+                         SerializationCallbackError,
+                         DeserializationCallbackError)
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem
 

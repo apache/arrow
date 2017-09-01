@@ -328,7 +328,7 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     ScopedRef ascii(PyUnicode_AsASCIIString(repr.get()));
     ss << "error while calling callback on " << PyBytes_AsString(ascii.get())
        << ": handler not registered";
-    return Status::NotImplemented(ss.str());
+    return Status::SerializationError(ss.str());
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     RETURN_IF_PYERROR();

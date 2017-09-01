@@ -436,7 +436,7 @@ cdef class PlasmaClient:
                     results.append(ObjectNotAvailable)
             return results
         else:
-            return self.get([object_ids], timeout_ms)[0]
+            return self.get([object_ids], timeout_ms, serialization_context)[0]
 
     def seal(self, ObjectID object_id):
         """
