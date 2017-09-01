@@ -178,6 +178,30 @@ We use the compiler definition `ARROW_NO_DEPRECATED_API` to disable APIs that
 have been deprecated. It is a good practice to compile third party applications
 with this flag to proactively catch and account for API changes.
 
+### Keeping includes clean with include-what-you-use
+
+We have provided a `build-support/iwyu/iwyu.sh` convenience script for invoking
+Google's [include-what-you-use][4] tool, also known as IWYU. This includes
+various suppressions for more informative output. After building IWYU
+(following instructions in the README), you can run it on all files by running:
+
+```shell
+CC="clang-4.0" CXX="clang++-4.0" cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+../build-support/iwyu/iwyu.sh all
+```
+
+This presumes that `include-what-you-use` and `iwyu_tool.py` are in your
+`$PATH`. If you compiled IWYU using a different version of clang, then
+substitute the version number above accordingly. The results of this script are
+logged to a temporary file, whose location can be found by examining the shell
+output:
+
+```
+...
+Logging IWYU to /tmp/arrow-cpp-iwyu.gT7XXV
+...
+```
+
 ## Continuous Integration
 
 Pull requests are run through travis-ci for continuous integration.  You can avoid
@@ -203,3 +227,4 @@ both of these options would be used rarely.  Current known uses-cases whent hey 
 [1]: https://brew.sh/
 [2]: https://github.com/apache/arrow/blob/master/cpp/apidoc/Windows.md
 [3]: https://google.github.io/styleguide/cppguide.html
+[4]: https://github.com/include-what-you-use/include-what-you-use
