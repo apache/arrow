@@ -1454,6 +1454,7 @@ class ArrowDeserializer {
   Visit(const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
+    using c_type = typename Type::c_type;
 
     typedef typename traits::T T;
 
@@ -1465,10 +1466,10 @@ class ArrowDeserializer {
 
     for (int c = 0; c < data_.num_chunks(); c++) {
       const auto& arr = static_cast<const PrimitiveArray&>(*data_.chunk(c));
-      auto in_values = reinterpret_cast<const T*>(arr.raw_values());
+      auto in_values = reinterpret_cast<const c_type*>(arr.raw_values());
 
       for (int64_t i = 0; i < arr.length(); ++i) {
-        *out_values++ = arr.IsNull(i) ? na_value : in_values[i] / kShift;
+        *out_values++ = arr.IsNull(i) ? na_value : static_cast<T>(in_values[i]) / kShift;
       }
     }
     return Status::OK();
