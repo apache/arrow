@@ -747,7 +747,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
         ByteBuffer newBuf = src.duplicate();
         newBuf.position(srcIndex);
         newBuf.limit(srcIndex + length);
-        udle.setBytes(index + offset, src);
+        udle.setBytes(index + offset, newBuf);
       }
     }
 
