@@ -24,6 +24,8 @@ ROOT=$(cd $(dirname $BASH_SOURCE)/../../..; pwd)
 IWYU_LOG=$(mktemp -t arrow-cpp-iwyu.XXXXXX)
 trap "rm -f $IWYU_LOG" EXIT
 
+echo "Logging IWYU to $IWYU_LOG"
+
 # Build the list of updated files which are of IWYU interest.
 file_list_tmp=$(git diff --name-only \
     $($ROOT/cpp/build-support/get-upstream-commit.sh) | grep -E '\.(c|cc|h)$')
@@ -49,9 +51,16 @@ IWYU_ARGS="\
     --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp"
 
 set -e
-python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . $IWYU_FILE_LIST  -- \
-     $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
-     tee $IWYU_LOG
+
+if [ "$1" == "all" ]; then
+  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . -- \
+       $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
+       tee $IWYU_LOG
+else
+  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . $IWYU_FILE_LIST  -- \
+       $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
+       tee $IWYU_LOG
+fi
 
 if [ -s "$IWYU_LOG" ]; then
   # The output is not empty: the changelist needs correction.
