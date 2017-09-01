@@ -583,9 +583,9 @@ endif()
 ############################################################
 # "make iwyu" target
 ############################################################
-if (UNIX)
-add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-endif (UNIX)
+if(UNIX)
+  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
+endif(UNIX)
 
 ############################################################
 # Linker and Dependencies
