@@ -31,15 +31,15 @@ def is_named_tuple(cls):
     return all(type(n) == str for n in f)
 
 
-class SerializationException(Exception):
+class SerializationCallbackError(ArrowSerializationError):
     def __init__(self, message, example_object):
-        Exception.__init__(self, message)
+        ArrowSerializationError.__init__(self, message)
         self.example_object = example_object
 
 
-class DeserializationException(Exception):
+class DeserializationCallbackError(ArrowSerializationError):
     def __init__(self, message, type_id):
-        Exception.__init__(self, message)
+        ArrowSerializationError.__init__(self, message)
         self.type_id = type_id
 
 
@@ -89,10 +89,9 @@ cdef class SerializationContext:
 
     def _serialize_callback(self, obj):
         if type(obj) not in self.type_to_type_id:
-            raise SerializationException("pyarrow does not know how to "
-                                         "serialize objects of type {}."
-                                         .format(type(obj)),
-                                         obj)
+            raise SerializationCallbackError(
+                "pyarrow does not know how to "
+                "serialize objects of type {}.".format(type(obj)), obj)
         type_id = self.type_to_type_id[type(obj)]
         if type_id in self.types_to_pickle:
             serialized_obj = {"data": pickle.dumps(obj), "pickle": True}
@@ -107,7 +106,7 @@ cdef class SerializationContext:
             else:
                 msg = "We do not know how to serialize " \
                       "the object '{}'".format(obj)
-                raise SerializationException(msg, obj)
+                raise SerializationCallbackError(msg, obj)
         return dict(serialized_obj, **{"_pytype_": type_id})
 
     def _deserialize_callback(self, serialized_obj):

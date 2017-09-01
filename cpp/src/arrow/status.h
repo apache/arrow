@@ -71,6 +71,7 @@ enum class StatusCode : char {
   IOError = 5,
   UnknownError = 9,
   NotImplemented = 10,
+  SerializationError = 11,
   PlasmaObjectExists = 20,
   PlasmaObjectNonexistent = 21,
   PlasmaStoreFull = 22
@@ -125,6 +126,10 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::IOError, msg);
   }
 
+  static Status SerializationError(const std::string& msg) {
+    return Status(StatusCode::SerializationError, msg);
+  }
+
   static Status PlasmaObjectExists(const std::string& msg) {
     return Status(StatusCode::PlasmaObjectExists, msg);
   }
@@ -147,6 +152,8 @@ class ARROW_EXPORT Status {
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   bool IsUnknownError() const { return code() == StatusCode::UnknownError; }
   bool IsNotImplemented() const { return code() == StatusCode::NotImplemented; }
+  // An object could not be serialized or deserialized.
+  bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
   // An object with this object ID already exists in the plasma store.
   bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
   // An object was requested that doesn't exist in the plasma store.

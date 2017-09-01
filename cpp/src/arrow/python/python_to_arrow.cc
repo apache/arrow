@@ -325,10 +325,16 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     std::stringstream ss;
     ScopedRef repr(PyObject_Repr(elem));
     RETURN_IF_PYERROR();
+#if PY_MAJOR_VERSION >= 3
     ScopedRef ascii(PyUnicode_AsASCIIString(repr.get()));
+    RETURN_IF_PYERROR();
     ss << "error while calling callback on " << PyBytes_AsString(ascii.get())
        << ": handler not registered";
-    return Status::NotImplemented(ss.str());
+#else
+    ss << "error while calling callback on " << PyString_AsString(repr.get())
+       << ": handler not registered";
+#endif
+    return Status::SerializationError(ss.str());
   } else {
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     RETURN_IF_PYERROR();
