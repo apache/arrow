@@ -46,8 +46,6 @@ class OutputStream;
 
 namespace ipc {
 
-class DictionaryMemo;
-
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
     flatbuf::MetadataVersion_V3;
 

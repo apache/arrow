@@ -41,6 +41,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 

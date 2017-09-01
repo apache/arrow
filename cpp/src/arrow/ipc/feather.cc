@@ -19,9 +19,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <memory>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <vector>
 
@@ -32,7 +31,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/feather-internal.h"
 #include "arrow/ipc/feather_generated.h"
-#include "arrow/ipc/util.h"
+#include "arrow/ipc/util.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

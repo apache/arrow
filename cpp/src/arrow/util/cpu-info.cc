@@ -38,7 +38,8 @@
 
 #endif
 
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <algorithm>
 #include <cstdint>

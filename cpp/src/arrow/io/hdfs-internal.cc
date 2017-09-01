@@ -32,11 +32,12 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <mutex>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <vector>
+
+#include <dlfcn.h>
 
 #include <boost/filesystem.hpp>  // NOLINT
 

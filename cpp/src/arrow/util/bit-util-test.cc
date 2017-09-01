@@ -27,6 +27,8 @@
 #include <boost/utility.hpp>  // IWYU pragma: export
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"

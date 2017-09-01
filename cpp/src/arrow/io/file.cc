@@ -59,7 +59,7 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/types.h>  // IWYU pragma: keep
 
 #ifndef _MSC_VER  // POSIX-like platforms
 
@@ -107,7 +107,8 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include <boost/filesystem.hpp>  // NOLINT
+#include <boost/filesystem.hpp>           // NOLINT
+#include <boost/system/system_error.hpp>  // NOLINT
 
 namespace fs = boost::filesystem;
 

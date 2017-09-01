@@ -39,8 +39,6 @@ class Buffer;
 
 namespace decimal {
 
-class Int128;
-
 template <typename T>
 class DecimalTestBase {
  public:

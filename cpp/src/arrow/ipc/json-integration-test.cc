@@ -15,14 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "gflags/gflags.h"
-#include "gtest/gtest.h"
+#include <gflags/gflags.h>
+#include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>  // NOLINT
 
@@ -47,6 +49,8 @@ DEFINE_bool(verbose, true, "Verbose output");
 namespace fs = boost::filesystem;
 
 namespace arrow {
+
+class Buffer;
 
 bool file_exists(const char* path) {
   std::ifstream handle(path);

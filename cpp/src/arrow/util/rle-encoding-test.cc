@@ -17,16 +17,17 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
-#include <gtest/gtest.h>
-#include <stdio.h>
-
-#include <boost/utility.hpp>  // IWYU pragma: export
-
 #include <cstdint>
+#include <cstring>
 #include <random>
 #include <vector>
 
+#include <gtest/gtest.h>
+
+#include <boost/utility.hpp>  // IWYU pragma: export
+
 #include "arrow/util/bit-stream-utils.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/rle-encoding.h"
 
 using std::vector;

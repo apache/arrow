@@ -18,6 +18,7 @@
 #ifndef ARROW_UTIL_KEY_VALUE_METADATA_H
 #define ARROW_UTIL_KEY_VALUE_METADATA_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>

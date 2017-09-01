@@ -33,7 +33,8 @@ IWYU_ARGS="\
     --mapping_file=$IWYU_MAPPINGS_PATH/boost-extra.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gflags.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/glog.imp \
-    --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp"
+    --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp \
+    --mapping_file=$IWYU_MAPPINGS_PATH/arrow-misc.imp"
 
 set -e
 

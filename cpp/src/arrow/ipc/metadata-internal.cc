@@ -22,8 +22,9 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
