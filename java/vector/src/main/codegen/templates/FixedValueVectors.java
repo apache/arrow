@@ -615,6 +615,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
    }
 
    public void set(int index, ${friendlyType} value){
+     DecimalUtility.checkPrecisionAndScale(value, precision, scale);
      DecimalUtility.writeBigDecimalToArrowBuf(value, data, index);
    }
 

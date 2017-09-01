@@ -19,6 +19,8 @@
 package org.apache.arrow.vector.util;
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -66,7 +68,7 @@ public class DecimalUtility {
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
 
-  /*
+  /**
    * Simple function that returns the static precomputed
    * power of ten, instead of using Math.pow
    */
@@ -75,7 +77,7 @@ public class DecimalUtility {
     return scale_long_constants[(power)];
   }
 
-  /*
+  /**
    * Math.pow returns a double and while multiplying with large digits
    * in the decimal data type we encounter noise. So instead of multiplying
    * with Math.pow we use the static constants to perform the multiplication
@@ -100,7 +102,8 @@ public class DecimalUtility {
     }
   }
 
-  /* Returns a string representation of the given integer
+  /**
+   * Returns a string representation of the given integer
    * If the length of the given integer is less than the
    * passed length, this function will prepend zeroes to the string
    */
@@ -133,6 +136,10 @@ public class DecimalUtility {
     return str;
   }
 
+  /**
+   * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal
+   * with the given scale.
+   */
   public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale) {
     byte[] value = new byte[DECIMAL_BYTE_LENGTH];
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
@@ -141,13 +148,21 @@ public class DecimalUtility {
     return new BigDecimal(unscaledValue, scale);
   }
 
-  public static BigDecimal getBigDecimalFromByteBuffer(ByteBuffer bytebuf, int start, int scale) {
+  /**
+   * Read an ArrowType.Decimal from the ByteBuffer and convert to a BigDecimal with the given
+   * scale.
+   */
+  public static BigDecimal getBigDecimalFromByteBuffer(ByteBuffer bytebuf, int scale) {
     byte[] value = new byte[DECIMAL_BYTE_LENGTH];
     bytebuf.get(value);
     BigInteger unscaledValue = new BigInteger(value);
     return new BigDecimal(unscaledValue, scale);
   }
 
+  /**
+   * Read an ArrowType.Decimal from the ArrowBuf at the given value index and return it as a byte
+   * array.
+   */
   public static byte[] getByteArrayFromArrowBuf(ArrowBuf bytebuf, int index) {
     final byte[] value = new byte[DECIMAL_BYTE_LENGTH];
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
@@ -155,12 +170,39 @@ public class DecimalUtility {
     return value;
   }
 
+  /**
+   * Check that the BigDecimal scale equals the vectorScale and that the BigDecimal precision is
+   * less than or equal to the vectorPrecision. If not, then an UnsupportedOperationException is
+   * thrown, otherwise returns true.
+   */
+  public static boolean checkPrecisionAndScale(BigDecimal value, int vectorPrecision, int vectorScale) {
+    if (value.scale() != vectorScale) {
+      throw new UnsupportedOperationException("BigDecimal scale must equal that in the Arrow vector: " +
+          value.scale() + " != " + vectorScale);
+    }
+    if (value.precision() > vectorPrecision) {
+      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow vector: " +
+          value.precision() + " > " + vectorPrecision);
+    }
+    return true;
+  }
+
+  /**
+   * Write the given BigDecimal to the ArrowBuf at the given value index. Will throw an
+   * UnsupportedOperationException if the decimal size is greater than the Decimal vector byte
+   * width.
+   */
   public static void writeBigDecimalToArrowBuf(BigDecimal value, ArrowBuf bytebuf, int index) {
     final byte[] bytes = value.unscaledValue().toByteArray();
     final int padValue = value.signum() == -1 ? 0xFF : 0;
     writeByteArrayToArrowBuf(bytes, bytebuf, index, padValue);
   }
 
+  /**
+   * Write the given byte array to the ArrowBuf at the given value index. Will throw an
+   * UnsupportedOperationException if the decimal size is greater than the Decimal vector byte
+   * width.
+   */
   public static void writeByteArrayToArrowBuf(byte[] bytes, ArrowBuf bytebuf, int index) {
     writeByteArrayToArrowBuf(bytes, bytebuf, index, 0);
   }
