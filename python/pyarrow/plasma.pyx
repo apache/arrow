@@ -370,7 +370,8 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata_size))
         return result
 
-    def put(self, object value, ObjectID object_id=None):
+    def put(self, object value, ObjectID object_id=None,
+            serialization_context=None):
         """
         Store a Python value into the object store.
 
@@ -381,6 +382,8 @@ cdef class PlasmaClient:
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
+        serialization_context : pyarrow.SerializationContext, default None
+            Custom serialization and deserialization context.
 
         Returns
         -------
@@ -388,7 +391,7 @@ cdef class PlasmaClient:
         """
         cdef ObjectID target_id = (object_id if object_id
                                    else ObjectID.from_random())
-        serialized = pyarrow.serialize(value)
+        serialized = pyarrow.serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferWriter(buffer)
         stream.set_memcopy_threads(4)
@@ -396,7 +399,7 @@ cdef class PlasmaClient:
         self.seal(target_id)
         return target_id
 
-    def get(self, object_ids, int timeout_ms=-1):
+    def get(self, object_ids, int timeout_ms=-1, serialization_context=None):
         """
         Get one or more Python values from the object store.
 
@@ -409,6 +412,8 @@ cdef class PlasmaClient:
             The number of milliseconds that the get call should block before
             timing out and returning. Pass -1 if the call should block and 0
             if the call should return immediately.
+        serialization_context : pyarrow.SerializationContext, default None
+            Custom serialization and deserialization context.
 
         Returns
         -------
@@ -424,12 +429,14 @@ cdef class PlasmaClient:
                 # buffers[i] is None if this object was not available within
                 # the timeout
                 if buffers[i]:
-                    results.append(pyarrow.deserialize(buffers[i]))
+                    val = pyarrow.deserialize(buffers[i],
+                                              serialization_context)
+                    results.append(val)
                 else:
                     results.append(ObjectNotAvailable)
             return results
         else:
-            return self.get([object_ids], timeout_ms)[0]
+            return self.get([object_ids], timeout_ms, serialization_context)[0]
 
     def seal(self, ObjectID object_id):
         """
