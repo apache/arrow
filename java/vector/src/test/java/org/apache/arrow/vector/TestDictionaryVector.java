@@ -39,7 +39,7 @@ public class TestDictionaryVector {
   byte[] one = "bar".getBytes(StandardCharsets.UTF_8);
   byte[] two = "baz".getBytes(StandardCharsets.UTF_8);
 
-  byte[][] data = new byte[][]{zero, one ,two};
+  byte[][] data = new byte[][] {zero, one, two};
 
   @Before
   public void init() {
