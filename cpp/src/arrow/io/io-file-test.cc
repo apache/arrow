@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>  // IWYU pragma: keep
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
