@@ -15,17 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// From Apache Impala as of 2016-01-29
+// From Apache Impala (incubating) as of 2016-01-29
 
 #include <gtest/gtest.h>
-#include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 
-#include <boost/utility.hpp>
+#include <boost/utility.hpp>  // IWYU pragma: export
 
 #include <cstdint>
-#include <iostream>
 #include <random>
 #include <vector>
 

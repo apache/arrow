@@ -17,16 +17,14 @@
 
 #include "arrow/util/compression_brotli.h"
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <sstream>
-#include <string>
 
 #include <brotli/decode.h>
 #include <brotli/encode.h>
+#include <brotli/types.h>
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -35,7 +33,7 @@ namespace arrow {
 
 Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
                                int64_t output_len, uint8_t* output_buffer) {
-  size_t output_size = output_len;
+  std::size_t output_size = output_len;
   if (BrotliDecoderDecompress(input_len, input, &output_size, output_buffer) !=
       BROTLI_DECODER_RESULT_SUCCESS) {
     return Status::IOError("Corrupt brotli compressed data.");
@@ -50,7 +48,7 @@ int64_t BrotliCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
 Status BrotliCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer,
                              int64_t* output_length) {
-  size_t output_len = output_buffer_len;
+  std::size_t output_len = output_buffer_len;
   // TODO: Make quality configurable. We use 8 as a default as it is the best
   //       trade-off for Parquet workload
   if (BrotliEncoderCompress(8, BROTLI_DEFAULT_WINDOW, BROTLI_DEFAULT_MODE, input_len,

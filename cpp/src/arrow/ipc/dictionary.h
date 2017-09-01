@@ -22,9 +22,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -33,16 +31,7 @@
 namespace arrow {
 
 class Array;
-class Buffer;
 class Field;
-
-namespace io {
-
-class InputStream;
-class OutputStream;
-class RandomAccessFile;
-
-}  // namespace io
 
 namespace ipc {
 

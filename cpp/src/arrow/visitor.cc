@@ -17,6 +17,8 @@
 
 #include "arrow/visitor.h"
 
+#include <memory>
+
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

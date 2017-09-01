@@ -18,11 +18,11 @@
 #ifndef ARROW_BUFFER_H
 #define ARROW_BUFFER_H
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
+#include <type_traits>
 
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
@@ -32,7 +32,6 @@
 namespace arrow {
 
 class MemoryPool;
-class Status;
 
 // ----------------------------------------------------------------------
 // Buffer classes

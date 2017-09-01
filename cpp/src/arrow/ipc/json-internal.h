@@ -30,7 +30,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
-#include "arrow/type_fwd.h"
+#include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace rj = rapidjson;

@@ -16,7 +16,6 @@
 // under the License.
 
 #include <iostream>
-#include "arrow/io/file.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"

@@ -19,9 +19,11 @@
 #ifndef ARROW_INT128_H
 #define ARROW_INT128_H
 
+#include <cstdint>
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace decimal {

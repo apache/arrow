@@ -45,6 +45,18 @@
 #include <sys/mman.h>
 #endif
 
+#include <algorithm>
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
+#include <mutex>
+#include <sstream>  // IWYU pragma: keep
+
+#if defined(_MSC_VER)
+#include <codecvt>
+#include <locale>
+#endif
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -70,22 +82,6 @@
 #endif
 
 // ----------------------------------------------------------------------
-// C++ standard library
-
-#include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <mutex>
-#include <sstream>
-#include <vector>
-
-#if defined(_MSC_VER)
-#include <codecvt>
-#include <locale>
-#endif
-
-// ----------------------------------------------------------------------
 // file compatibility stuff
 
 #if defined(__MINGW32__)  // MinGW
@@ -95,8 +91,6 @@
 #else  // POSIX / Linux
 // nothing
 #endif
-
-#include <cstdio>
 
 // POSIX systems do not have this
 #ifndef O_BINARY

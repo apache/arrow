@@ -515,7 +515,7 @@ inline Status PandasConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* 
       CopyStrided(input, length_, stride_elements, output);
     } else {
       // TODO(wesm): int32 overflow checks
-      for (int64_t i= 0; i < length_; ++i) {
+      for (int64_t i = 0; i < length_; ++i) {
         *output++ = static_cast<int32_t>(*input++);
       }
     }

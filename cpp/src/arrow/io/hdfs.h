@@ -30,11 +30,11 @@
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
 class Status;
 
 namespace io {
 
-class HadoopFileSystem;
 class HdfsReadableFile;
 class HdfsOutputStream;
 

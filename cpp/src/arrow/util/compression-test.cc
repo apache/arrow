@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/status.h"
-#include "arrow/test-common.h"
+#include <gtest/gtest.h>
+
+#include "arrow/test-util.h"
 #include "arrow/util/compression.h"
 
 using std::string;

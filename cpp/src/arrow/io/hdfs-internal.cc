@@ -30,17 +30,17 @@
 
 #include "arrow/io/hdfs-internal.h"
 
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace fs = boost::filesystem;
 

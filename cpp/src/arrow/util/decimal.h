@@ -18,15 +18,14 @@
 #ifndef ARROW_DECIMAL_H
 #define ARROW_DECIMAL_H
 
-#include <cmath>
+#include <cstdint>
 #include <cstdlib>
-#include <iterator>
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/int128.h"
+#include "arrow/util/int128.h"  // IWYU pragma: export
 #include "arrow/util/logging.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace decimal {

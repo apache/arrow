@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <climits>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
+#include <cstring>
 #include <limits>
+#include <memory>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
-#include <boost/utility.hpp>
+#include <boost/utility.hpp>  // IWYU pragma: export
 
 #include "arrow/buffer.h"
 #include "arrow/test-util.h"

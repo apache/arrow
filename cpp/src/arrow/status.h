@@ -15,8 +15,8 @@
 #ifndef ARROW_STATUS_H_
 #define ARROW_STATUS_H_
 
-#include <cstdint>
 #include <cstring>
+#include <iosfwd>
 #include <string>
 
 #include "arrow/util/macros.h"

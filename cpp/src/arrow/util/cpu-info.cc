@@ -43,9 +43,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <mutex>
-#include <sstream>
 #include <string>
 
 #include "arrow/util/logging.h"

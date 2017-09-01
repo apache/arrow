@@ -22,18 +22,17 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace io {
 
-class OutputStream;
-class RandomAccessFile;
-
-}  // namespace io
+class Buffer;
+class MemoryPool;
+class RecordBatch;
+class Schema;
 
 namespace ipc {
 

@@ -18,7 +18,6 @@
 #include "arrow/buffer.h"
 
 #include <cstdint>
-#include <limits>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"

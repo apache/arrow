@@ -20,10 +20,9 @@
 #include <cstdint>
 #include <memory>
 #include <sstream>
+#include <utility>
 
-#include "arrow/array.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
 
 namespace arrow {
 namespace ipc {
