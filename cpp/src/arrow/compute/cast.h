@@ -26,7 +26,17 @@
 namespace arrow {
 namespace compute {
 
+using internal::ArrayData;
+
 class FunctionContext;
+
+typedef std::function<void(FunctionContext*, const ArrayData&, ArrayData*)>
+CastFunction;
+
+ARROW_EXPORT
+Status GetCastFunction(const DataType& in_type,
+                       const std::shared_ptr<DataType>& out_type,
+                       CastFunction* out);
 
 /// \brief Perform an safe type cast, returning error on overflows or other issues
 ARROW_EXPORT

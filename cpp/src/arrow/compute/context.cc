@@ -27,5 +27,21 @@ FunctionContext::FunctionContext(MemoryPool* pool)
 
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 
+Status FunctionContext::Allocate(const int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  return AllocateBuffer(pool_, nbytes, out);
+}
+
+void FunctionContext::SetStatus(const Status& status) {
+  if (ARROW_PREDICT_FALSE(!status_.ok())) {
+    return;
+  }
+  status_ = status;
+}
+
+/// \brief Clear any error status
+void FunctionContext::ResetStatus() {
+  status_ = Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

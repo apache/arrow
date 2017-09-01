@@ -845,7 +845,7 @@ std::shared_ptr<Schema> schema(
 // ----------------------------------------------------------------------
 //
 
-static inline bool is_integer(Type::type type_id) {
+static inline bool IsInteger(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::INT8:
@@ -862,7 +862,7 @@ static inline bool is_integer(Type::type type_id) {
   return false;
 }
 
-static inline bool is_floating(Type::type type_id) {
+static inline bool IsFloating(Type::type type_id) {
   switch (type_id) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
@@ -874,7 +874,7 @@ static inline bool is_floating(Type::type type_id) {
   return false;
 }
 
-static inline bool is_primitive(Type::type type_id) {
+static inline bool IsPrimitive(Type::type type_id) {
   switch (type_id) {
     case Type::NA:
     case Type::BOOL:
@@ -902,7 +902,7 @@ static inline bool is_primitive(Type::type type_id) {
   return false;
 }
 
-static inline bool is_binary_like(Type::type type_id) {
+static inline bool IsBinaryLike(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::STRING:
@@ -912,6 +912,14 @@ static inline bool is_binary_like(Type::type type_id) {
   }
   return false;
 }
+
+#ifndef ARROW_NO_DEPRECATED_API
+/// \deprecated since 0.7.0
+using is_primitive = IsPrimitive;
+using is_integer = IsInteger;
+using is_floating = IsFloating;
+using is_binary_like = IsBinaryLike;
+#endif
 
 }  // namespace arrow
 

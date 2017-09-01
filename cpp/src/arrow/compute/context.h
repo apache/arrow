@@ -18,6 +18,7 @@
 #ifndef ARROW_COMPUTE_CONTEXT_H
 #define ARROW_COMPUTE_CONTEXT_H
 
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -30,7 +31,27 @@ class ARROW_EXPORT FunctionContext {
   explicit FunctionContext(MemoryPool* pool);
   MemoryPool* memory_pool() const;
 
+  /// \brief Allocate buffer from the context's memory pool
+  Status Allocate(const int64_t nbytes, std::shared_ptr<Buffer>* out);
+
+  /// \brief Indicate that an error has occurred, to be checked by a parent caller
+  /// \param[in] status a Status instance
+  ///
+  /// \note Will not overwrite a prior set Status, so we will have the first
+  /// error that occurred until FunctionContext::ResetStatus is called
+  void SetStatus(const Status& status);
+
+  /// \brief Clear any error status
+  void ResetStatus();
+
+  /// \brief Return true if an error has occurred
+  bool HasError() const { return !status_.ok(); }
+
+  /// \brief Return the current status of the context
+  const Status& status() const { return status_; }
+
  private:
+  Status status_;
   MemoryPool* pool_;
 };
 

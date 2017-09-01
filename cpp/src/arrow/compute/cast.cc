@@ -34,9 +34,6 @@ struct CastContext {
   bool safe;
 };
 
-typedef std::function<void(CastContext*, const ArrayData&, ArrayData*)>
-CastFunction;
-
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
@@ -107,9 +104,9 @@ static CastFunction GetBoolCastFunc(const std::shared_ptr<DataType>& type) {
   }
 }
 
-static Status GetCastFunction(const DataType& in_type,
-                              const std::shared_ptr<DataType>& out_type,
-                              CastFunction* out) {
+Status GetCastFunction(const DataType& in_type,
+                       const std::shared_ptr<DataType>& out_type,
+                       CastFunction* out) {
   switch (in_type.type_id()) {
     case Type::BOOL:
       *out = GetBoolCastFunc(out_type);
@@ -126,13 +123,38 @@ static Status GetCastFunction(const DataType& in_type,
   return Status::OK();
 }
 
+static Status EmptyLike(FunctionContext* ctx,
+                        const Array& array,
+                        const std::shared_ptr<DataType>& out_type,
+                        std::shared_ptr<ArrayData>* out) {
+  if (!IsPrimitive(out_type->id())) {
+    return Status::NotImplemented(out_type.ToString());
+  }
+
+  const auto& fw_type = static_cast<const FixedWidthType&>(out_type);
+
+  auto result = std::make_shared<ArrayData>();
+  result->type = out_type;
+  result->length = array.length();
+  result->offset = 0;
+  result->null_count = array.null_count();
+  result->buffers.push_back(array.data().buffers[0]);
+
+  std::shared_ptr<Buffer> out_data;
+  RETURN_NOT_OK(ctx->Allocate(array.length() * fw_type.bit_width() / 8,
+                              &out_data));
+  result->buffers.push_back(out_data);
+
+  *out = result;
+}
+
 Status CastSafe(FunctionContext* context, const Array& array,
                 const std::shared_ptr<DataType>& out_type,
                 std::shared_ptr<Array>* out) {
   CastFunction func;
   RETURN_NOT_OK(GetCastFunction(*array.type(), out_type, &func));
 
-  auto result = std::make_shared<ArrayData>();
+
   func(cast_context, array.data(), &result);
   return internal::MakeArray(result, out);
 }
