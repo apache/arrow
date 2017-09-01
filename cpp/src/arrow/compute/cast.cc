@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <type_traits>
@@ -31,16 +32,18 @@ namespace arrow {
 namespace compute {
 
 struct CastContext {
+  FunctionContext* func_ctx;
   bool safe;
 };
+
+typedef std::function<void(CastContext*, const ArrayData&, ArrayData*)> CastFunction;
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
 // Type is the same, no computation required
-template <O, I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_same<I, O>::value, I>::type> {
+template <typename O, typename I>
+struct CastFunctor<O, I, typename std::enable_if<std::is_same<I, O>::value>::type> {
   void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
     output->type = input.type;
     output->buffers = input.buffers;
@@ -56,113 +59,239 @@ struct CastFunctor<O, I,
 
 template <typename T>
 struct CastFunctor<T, NullType,
-                   typename std::enable_if<!std::is_same<T, NullType>::value, T>::type> {
+                   typename std::enable_if<!std::is_same<T, NullType>::value>::type> {
   void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
+    ctx->func_ctx->SetStatus(Status::NotImplemented("NullType"));
   }
 };
 
 // ----------------------------------------------------------------------
 // Boolean to other things
 
+// Cast from Boolean to other numbers
 template <typename T>
-struct CastFunctor<std::enable_if<IsNumeric<T>::value, T>::type, BooleanType> {
+struct CastFunctor<T, BooleanType,
+                   typename std::enable_if<std::is_base_of<Number, T>::value>::type> {
   void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
-    using T = typename OutType::c_type;
+    using c_type = typename T::c_type;
     const uint8_t* data = input.buffers[1]->data();
-    T* out = reinterpret_cast<T*>(output->buffers[1]->mutable_data());
-    for (int64_t i = 0; i < input.length(); ++i) {
-      *out++ = static_cast<T>(BitUtil::GetBit(data, i));
+    auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    for (int64_t i = 0; i < input.length; ++i) {
+      *out++ = BitUtil::GetBit(data, i) ? 1 : 0;
     }
   }
 };
 
-#define CAST_CASE(InType, OutType)                                      \
-  case InType::type_id:                                                 \
+// ----------------------------------------------------------------------
+// Integers and Floating Point
+
+template <typename O, typename I>
+struct is_numeric_cast {
+  static constexpr bool value =
+      (std::is_base_of<Number, O>::value && std::is_base_of<Number, I>::value) &&
+      (!std::is_same<O, I>::value);
+};
+
+template <typename O, typename I>
+struct is_integer_downcast {
+  static constexpr bool value =
+      ((std::is_base_of<Integer, O>::value && std::is_base_of<Integer, I>::value) &&
+       (!std::is_same<O, I>::value) &&
+
+       // same size, but unsigned to signed
+       ((sizeof(O) == sizeof(I) && std::is_signed<O>::value &&
+         std::is_unsigned<I>::value) ||
+
+        // Smaller output size
+        (sizeof(O) < sizeof(I))));
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::value &&
+                                                 std::is_base_of<Number, I>::value &&
+                                                 !std::is_same<O, I>::value>::type> {
+  void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
+    using in_type = typename I::c_type;
+    auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data());
+    uint8_t* out_data = reinterpret_cast<uint8_t*>(output->buffers[1]->mutable_data());
+    for (int64_t i = 0; i < input.length; ++i) {
+      BitUtil::SetBitTo(out_data, i, (*in_data++) != 0);
+    }
+  }
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   typename std::enable_if<is_integer_downcast<O, I>::value>::type> {
+  void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
+    using in_type = typename I::c_type;
+    using out_type = typename O::c_type;
+
+    auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data());
+    auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
+
+    if (ctx->safe) {
+      for (int64_t i = 0; i < input.length; ++i) {
+        if (ARROW_PREDICT_FALSE(*in_data > std::numeric_limits<O>::max ||
+                                *in_data < std::numeric_limits<O>::min)) {
+          ctx->func_ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+        }
+        *out_data++ = static_cast<out_type>(*in_data++);
+      }
+    } else {
+      for (int64_t i = 0; i < input.length; ++i) {
+        *out_data++ = static_cast<out_type>(*in_data++);
+      }
+    }
+  }
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   typename std::enable_if<is_numeric_cast<O, I>::value &&
+                                           !is_integer_downcast<O, I>::value>::type> {
+  void operator()(CastContext* ctx, const ArrayData& input, ArrayData* output) {
+    using in_type = typename I::c_type;
+    using out_type = typename O::c_type;
+
+    auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data());
+    auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
+    for (int64_t i = 0; i < input.length; ++i) {
+      *out_data++ = static_cast<out_type>(*in_data++);
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
+
+#define CAST_CASE(InType, OutType)                                            \
+  case OutType::type_id:                                                      \
     return [type](CastContext* ctx, const ArrayData& input, ArrayData* out) { \
-      CastFunctor<InType, OutType> func(type);                          \
-      func(ctx, input, out);                                            \
+      CastFunctor<OutType, InType> func;                                      \
+      func(ctx, input, out);                                                  \
     }
 
-#define NUMERIC_CASES(FN, IN_TYPE)              \
-   FN(arg0, BooleanType);                       \
-   FN(arg0, UInt8Type);                         \
-   FN(arg0, Int8Type);                          \
-   FN(arg0, UInt16Type);                        \
-   FN(arg0, Int16Type);                         \
-   FN(arg0, UInt32Type);                        \
-   FN(arg0, Int32Type);                         \
-   FN(arg0, UInt64Type);                        \
-   FN(arg0, Int64Type);                         \
-   FN(arg0, FloatType);                         \
-   FN(arg0, DoubleType);
+#define NUMERIC_CASES(FN, IN_TYPE) \
+  FN(IN_TYPE, BooleanType);        \
+  FN(IN_TYPE, UInt8Type);          \
+  FN(IN_TYPE, Int8Type);           \
+  FN(IN_TYPE, UInt16Type);         \
+  FN(IN_TYPE, Int16Type);          \
+  FN(IN_TYPE, UInt32Type);         \
+  FN(IN_TYPE, Int32Type);          \
+  FN(IN_TYPE, UInt64Type);         \
+  FN(IN_TYPE, Int64Type);          \
+  FN(IN_TYPE, FloatType);          \
+  FN(IN_TYPE, DoubleType);
 
-static CastFunction GetBoolCastFunc(const std::shared_ptr<DataType>& type) {
-  switch (type->id()) {
-    NUMERIC_CASES(CAST_CASE, BooleanType);
-    default:
-      break;
+#define GET_CAST_FUNCTION(CapType)                                                    \
+  static CastFunction Get##CapType##CastFunc(const std::shared_ptr<DataType>& type) { \
+    switch (type->id()) {                                                             \
+      NUMERIC_CASES(CAST_CASE, CapType);                                              \
+      default:                                                                        \
+        break;                                                                        \
+    }                                                                                 \
+    return nullptr;                                                                   \
   }
-}
 
-Status GetCastFunction(const DataType& in_type,
-                       const std::shared_ptr<DataType>& out_type,
-                       CastFunction* out) {
-  switch (in_type.type_id()) {
-    case Type::BOOL:
-      *out = GetBoolCastFunc(out_type);
-      break;
-    default
+#define CAST_FUNCTION_CASE(CapType)          \
+  case CapType::type_id:                     \
+    *out = Get##CapType##CastFunc(out_type); \
+    break
+
+GET_CAST_FUNCTION(BooleanType);
+GET_CAST_FUNCTION(UInt8Type);
+GET_CAST_FUNCTION(Int8Type);
+GET_CAST_FUNCTION(UInt16Type);
+GET_CAST_FUNCTION(Int16Type);
+GET_CAST_FUNCTION(UInt32Type);
+GET_CAST_FUNCTION(Int32Type);
+GET_CAST_FUNCTION(UInt64Type);
+GET_CAST_FUNCTION(Int64Type);
+GET_CAST_FUNCTION(FloatType);
+GET_CAST_FUNCTION(DoubleType);
+
+static Status GetCastFunction(const DataType& in_type,
+                              const std::shared_ptr<DataType>& out_type,
+                              CastFunction* out) {
+  switch (in_type.id()) {
+    CAST_FUNCTION_CASE(BooleanType);
+    CAST_FUNCTION_CASE(UInt8Type);
+    CAST_FUNCTION_CASE(Int8Type);
+    CAST_FUNCTION_CASE(UInt16Type);
+    CAST_FUNCTION_CASE(Int16Type);
+    CAST_FUNCTION_CASE(UInt32Type);
+    CAST_FUNCTION_CASE(Int32Type);
+    CAST_FUNCTION_CASE(UInt64Type);
+    CAST_FUNCTION_CASE(Int64Type);
+    CAST_FUNCTION_CASE(FloatType);
+    CAST_FUNCTION_CASE(DoubleType);
+    default:
       break;
   }
   if (*out == nullptr) {
     std::stringstream ss;
-    ss << "No cast implemented from " << in_type.ToString()
-       << " to " << out_type->ToString();
+    ss << "No cast implemented from " << in_type.ToString() << " to "
+       << out_type->ToString();
     return Status::NotImplemented(ss.str());
   }
   return Status::OK();
 }
 
-static Status EmptyLike(FunctionContext* ctx,
-                        const Array& array,
-                        const std::shared_ptr<DataType>& out_type,
-                        std::shared_ptr<ArrayData>* out) {
-  if (!IsPrimitive(out_type->id())) {
-    return Status::NotImplemented(out_type.ToString());
+static Status AllocateLike(FunctionContext* ctx, const Array& array,
+                           const std::shared_ptr<DataType>& out_type,
+                           std::shared_ptr<ArrayData>* out) {
+  if (!is_primitive(out_type->id())) {
+    return Status::NotImplemented(out_type->ToString());
   }
 
-  const auto& fw_type = static_cast<const FixedWidthType&>(out_type);
+  const auto& fw_type = static_cast<const FixedWidthType&>(*out_type);
 
   auto result = std::make_shared<ArrayData>();
   result->type = out_type;
   result->length = array.length();
   result->offset = 0;
   result->null_count = array.null_count();
-  result->buffers.push_back(array.data().buffers[0]);
+
+  // Propagate null bitmap
+  // TODO(wesm): handling null bitmap when input type is NullType
+  result->buffers.push_back(array.data()->buffers[0]);
 
   std::shared_ptr<Buffer> out_data;
-  RETURN_NOT_OK(ctx->Allocate(array.length() * fw_type.bit_width() / 8,
-                              &out_data));
+  RETURN_NOT_OK(ctx->Allocate(array.length() * fw_type.bit_width() / 8, &out_data));
   result->buffers.push_back(out_data);
 
   *out = result;
+  return Status::OK();
 }
 
-Status CastSafe(FunctionContext* context, const Array& array,
-                const std::shared_ptr<DataType>& out_type,
-                std::shared_ptr<Array>* out) {
+static Status Cast(CastContext* cast_ctx, const Array& array,
+                   const std::shared_ptr<DataType>& out_type,
+                   std::shared_ptr<Array>* out) {
+  // Dynamic dispatch to obtain right cast function
   CastFunction func;
   RETURN_NOT_OK(GetCastFunction(*array.type(), out_type, &func));
 
+  // Allocate memory for output
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(AllocateLike(cast_ctx->func_ctx, array, out_type, &out_data));
 
-  func(cast_context, array.data(), &result);
-  return internal::MakeArray(result, out);
+  func(cast_ctx, *array.data(), out_data.get());
+  RETURN_IF_ERROR(cast_ctx->func_ctx);
+  return internal::MakeArray(out_data, out);
 }
 
-Status CastUnsafe(FunctionContext* context, const Array& array,
+Status CastSafe(FunctionContext* ctx, const Array& array,
+                const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array>* out) {
+  CastContext cast_ctx{ctx, true};
+  return Cast(&cast_ctx, array, out_type, out);
+}
+
+Status CastUnsafe(FunctionContext* ctx, const Array& array,
                   const std::shared_ptr<DataType>& out_type,
                   std::shared_ptr<Array>* out) {
-  return Status::NotImplemented("CastSafe");
+  CastContext cast_ctx{ctx, false};
+  return Cast(&cast_ctx, array, out_type, out);
 }
 
 }  // namespace compute

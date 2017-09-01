@@ -19,11 +19,12 @@
 
 #include <memory>
 
+#include "arrow/buffer.h"
+
 namespace arrow {
 namespace compute {
 
-FunctionContext::FunctionContext(MemoryPool* pool)
-    : pool_(pool) {}
+FunctionContext::FunctionContext(MemoryPool* pool) : pool_(pool) {}
 
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 
@@ -39,9 +40,7 @@ void FunctionContext::SetStatus(const Status& status) {
 }
 
 /// \brief Clear any error status
-void FunctionContext::ResetStatus() {
-  status_ = Status::OK();
-}
+void FunctionContext::ResetStatus() { status_ = Status::OK(); }
 
 }  // namespace compute
 }  // namespace arrow

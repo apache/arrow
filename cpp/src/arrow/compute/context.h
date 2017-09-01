@@ -25,6 +25,13 @@
 namespace arrow {
 namespace compute {
 
+#define RETURN_IF_ERROR(ctx)                  \
+  if (ARROW_PREDICT_FALSE(ctx->HasError())) { \
+    Status s = ctx->status();                 \
+    ctx->ResetStatus();                       \
+    return s;                                 \
+  }
+
 /// \brief Container for variables and options used by function evaluation
 class ARROW_EXPORT FunctionContext {
  public:

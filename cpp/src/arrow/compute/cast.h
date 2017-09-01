@@ -20,35 +20,26 @@
 
 #include <memory>
 
-#include "arrow/type_fwd.h"
+#include "arrow/array.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace compute {
 
 using internal::ArrayData;
 
+namespace compute {
+
 class FunctionContext;
-
-typedef std::function<void(FunctionContext*, const ArrayData&, ArrayData*)>
-CastFunction;
-
-ARROW_EXPORT
-Status GetCastFunction(const DataType& in_type,
-                       const std::shared_ptr<DataType>& out_type,
-                       CastFunction* out);
 
 /// \brief Perform an safe type cast, returning error on overflows or other issues
 ARROW_EXPORT
 Status CastSafe(FunctionContext* context, const Array& array,
-                const std::shared_ptr<DataType>& to_type,
-                std::shared_ptr<Array>* out);
+                const std::shared_ptr<DataType>& to_type, std::shared_ptr<Array>* out);
 
 /// \brief Perform an unsafe type cast, ignoring overflows or other issues
 ARROW_EXPORT
 Status CastUnsafe(FunctionContext* context, const Array& array,
-                  const std::shared_ptr<DataType>& to_type,
-                  std::shared_ptr<Array>* out);
+                  const std::shared_ptr<DataType>& to_type, std::shared_ptr<Array>* out);
 
 }  // namespace compute
 }  // namespace arrow

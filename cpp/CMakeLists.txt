@@ -751,6 +751,9 @@ set(ARROW_SRCS
   src/arrow/type.cc
   src/arrow/visitor.cc
 
+  src/arrow/compute/cast.cc
+  src/arrow/compute/context.cc
+
   src/arrow/io/file.cc
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
