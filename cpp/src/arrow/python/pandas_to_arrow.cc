@@ -504,26 +504,21 @@ inline Status PandasConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* 
     // We need to scale down from int64 to int32
     auto new_buffer = std::make_shared<PoolBuffer>(pool_);
     RETURN_NOT_OK(new_buffer->Resize(sizeof(int32_t) * length_));
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4244)
-#endif
+
+    auto input = reinterpret_cast<const int64_t*>(PyArray_DATA(arr_));
+    auto output = reinterpret_cast<int32_t*>(new_buffer->mutable_data());
+
     if (is_strided()) {
       // Strided, must copy into new contiguous memory
       const int64_t stride = PyArray_STRIDES(arr_)[0];
       const int64_t stride_elements = stride / sizeof(int64_t);
-
-      CopyStrided(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)), length_,
-                  stride_elements,
-                  reinterpret_cast<int32_t*>(new_buffer->mutable_data()));
+      CopyStrided(input, length_, stride_elements, output);
     } else {
-      std::copy(reinterpret_cast<int64_t*>(PyArray_DATA(arr_)),
-                reinterpret_cast<int64_t*>(PyArray_DATA(arr_)) + length_,
-                reinterpret_cast<int32_t*>(new_buffer->mutable_data()));
+      // TODO(wesm): int32 overflow checks
+      for (int64_t i= 0; i < length_; ++i) {
+        *output++ = static_cast<int32_t>(*input++);
+      }
     }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
     *data = new_buffer;
   } else {
     std::stringstream ss;
