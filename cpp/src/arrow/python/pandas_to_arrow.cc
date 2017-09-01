@@ -23,6 +23,7 @@
 
 #include "arrow/python/pandas_to_arrow.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -357,7 +358,7 @@ class PandasConverter {
     return VisitNative<T>();
   }
 
-  Status Visit(const Date32Type& type) { return VisitNative<Int32Type>(); }
+  Status Visit(const Date32Type& type) { return VisitNative<Date32Type>(); }
   Status Visit(const Date64Type& type) { return VisitNative<Int64Type>(); }
   Status Visit(const TimestampType& type) { return VisitNative<TimestampType>(); }
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
@@ -434,19 +435,19 @@ class PandasConverter {
   uint8_t* null_bitmap_data_;
 };
 
-template <typename T>
-void CopyStrided(T* input_data, int64_t length, int64_t stride, T* output_data) {
+template <typename T, typename T2>
+void CopyStrided(T* input_data, int64_t length, int64_t stride, T2* output_data) {
   // Passing input_data as non-const is a concession to PyObject*
   int64_t j = 0;
   for (int64_t i = 0; i < length; ++i) {
-    output_data[i] = input_data[j];
+    output_data[i] = static_cast<T2>(input_data[j]);
     j += stride;
   }
 }
 
 template <>
-void CopyStrided<PyObject*>(PyObject** input_data, int64_t length, int64_t stride,
-                            PyObject** output_data) {
+void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length,
+                                       int64_t stride, PyObject** output_data) {
   int64_t j = 0;
   for (int64_t i = 0; i < length; ++i) {
     output_data[i] = input_data[j];
@@ -466,7 +467,11 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
 
   if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
-    return Status::NotImplemented("NumPy type casts not yet implemented");
+    std::stringstream ss;
+    ss << "NumPy type casts not yet implemented, type sizes differ: ";
+    ss << NumPyTypeSize(traits::npy_type) << " compared to "
+       << NumPyTypeSize(type_num_compat);
+    return Status::NotImplemented(ss.str());
   }
 
   if (is_strided()) {
@@ -483,6 +488,45 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
+  return Status::OK();
+}
+
+template <>
+inline Status PandasConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
+  // Handle LONGLONG->INT64 and other fun things
+  int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
+  int type_size = NumPyTypeSize(type_num_compat);
+
+  if (type_size == 4) {
+    // Source and target are INT32, so can refer to the main implementation.
+    return ConvertData<Int32Type>(data);
+  } else if (type_size == 8) {
+    // We need to scale down from int64 to int32
+    auto new_buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(new_buffer->Resize(sizeof(int32_t) * length_));
+
+    auto input = reinterpret_cast<const int64_t*>(PyArray_DATA(arr_));
+    auto output = reinterpret_cast<int32_t*>(new_buffer->mutable_data());
+
+    if (is_strided()) {
+      // Strided, must copy into new contiguous memory
+      const int64_t stride = PyArray_STRIDES(arr_)[0];
+      const int64_t stride_elements = stride / sizeof(int64_t);
+      CopyStrided(input, length_, stride_elements, output);
+    } else {
+      // TODO(wesm): int32 overflow checks
+      for (int64_t i= 0; i < length_; ++i) {
+        *output++ = static_cast<int32_t>(*input++);
+      }
+    }
+    *data = new_buffer;
+  } else {
+    std::stringstream ss;
+    ss << "Cannot convert NumPy array of element size ";
+    ss << type_size << " to a Date32 array";
+    return Status::NotImplemented(ss.str());
+  }
+
   return Status::OK();
 }
 
