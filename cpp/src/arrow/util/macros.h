@@ -25,7 +25,7 @@
   TypeName& operator=(const TypeName&) = delete
 #endif
 
-#define UNUSED(x) (void)x
+#define ARROW_UNUSED(x) (void)x
 
 //
 // GCC can be told that a certain branch is not likely to be taken (for
