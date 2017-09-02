@@ -793,8 +793,8 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
     hash_slots_[j] = index;
     RETURN_NOT_OK(AppendDictionary(value));
 
-    if (UNLIKELY(static_cast<int32_t>(dict_builder_.length()) >
-                 hash_table_size_ * kMaxHashTableLoad)) {
+    if (ARROW_PREDICT_FALSE(static_cast<int32_t>(dict_builder_.length()) >
+                            hash_table_size_ * kMaxHashTableLoad)) {
       RETURN_NOT_OK(DoubleTableSize());
     }
   }

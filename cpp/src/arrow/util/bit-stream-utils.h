@@ -26,8 +26,8 @@
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/bpacking.h"
-#include "arrow/util/compiler-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -171,12 +171,13 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
   DCHECK_LE(num_bits, 32);
   DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
 
-  if (UNLIKELY(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8)) return false;
+  if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
+    return false;
 
   buffered_values_ |= v << bit_offset_;
   bit_offset_ += num_bits;
 
-  if (UNLIKELY(bit_offset_ >= 64)) {
+  if (ARROW_PREDICT_FALSE(bit_offset_ >= 64)) {
     // Flush buffered_values_ and write out bits of v that did not fit
     memcpy(buffer_ + byte_offset_, &buffered_values_, 8);
     buffered_values_ = 0;
@@ -247,7 +248,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     *bit_offset -= 64;
 
     int bytes_remaining = max_bytes - *byte_offset;
-    if (LIKELY(bytes_remaining >= 8)) {
+    if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
       memcpy(buffered_values, buffer + *byte_offset, 8);
     } else {
       memcpy(buffered_values, buffer + *byte_offset, bytes_remaining);
@@ -293,7 +294,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   }
 
   int i = 0;
-  if (UNLIKELY(bit_offset != 0)) {
+  if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
     for (; i < batch_size && bit_offset != 0; ++i) {
       detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
                         &buffered_values);
@@ -355,7 +356,8 @@ template <typename T>
 inline bool BitReader::GetAligned(int num_bytes, T* v) {
   DCHECK_LE(num_bytes, static_cast<int>(sizeof(T)));
   int bytes_read = static_cast<int>(BitUtil::Ceil(bit_offset_, 8));
-  if (UNLIKELY(byte_offset_ + bytes_read + num_bytes > max_bytes_)) return false;
+  if (ARROW_PREDICT_FALSE(byte_offset_ + bytes_read + num_bytes > max_bytes_))
+    return false;
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
@@ -365,7 +367,7 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   // Reset buffered_values_
   bit_offset_ = 0;
   int bytes_remaining = max_bytes_ - byte_offset_;
-  if (LIKELY(bytes_remaining >= 8)) {
+  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
     memcpy(&buffered_values_, buffer_ + byte_offset_, 8);
   } else {
     memcpy(&buffered_values_, buffer_ + byte_offset_, bytes_remaining);

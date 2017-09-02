@@ -26,7 +26,7 @@
 
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/compiler-util.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -446,9 +446,9 @@ bool RleDecoder::NextCounts() {
 /// it decides whether they should be encoded as a literal or repeated run.
 inline bool RleEncoder::Put(uint64_t value) {
   DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
-  if (UNLIKELY(buffer_full_)) return false;
+  if (ARROW_PREDICT_FALSE(buffer_full_)) return false;
 
-  if (LIKELY(current_value_ == value)) {
+  if (ARROW_PREDICT_TRUE(current_value_ == value)) {
     ++repeat_count_;
     if (repeat_count_ > 8) {
       // This is just a continuation of the current run, no need to buffer the
