@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>  // IWYU pragma: keep
 #include <iostream>
 #include <memory>
 #include <string>
