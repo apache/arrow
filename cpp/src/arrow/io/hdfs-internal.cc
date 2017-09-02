@@ -37,7 +37,9 @@
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 
 #include <boost/filesystem.hpp>  // NOLINT
 

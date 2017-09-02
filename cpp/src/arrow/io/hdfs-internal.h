@@ -21,10 +21,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#ifndef _WIN32
-#include <dlfcn.h>  // IWYU pragma: keep
-#endif
-
 #include <hdfs.h>
 
 #include "arrow/io/windows_compatibility.h"  // IWYU pragma: keep
