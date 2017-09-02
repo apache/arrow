@@ -18,10 +18,12 @@
 #include "arrow/util/compression_zlib.h"
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
 
+#include <zconf.h>
 #include <zlib.h>
 
 #include "arrow/status.h"

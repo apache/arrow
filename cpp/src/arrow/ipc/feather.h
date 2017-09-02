@@ -24,14 +24,12 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
 
-#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Buffer;
+class Array;
 class Column;
 class Status;
 

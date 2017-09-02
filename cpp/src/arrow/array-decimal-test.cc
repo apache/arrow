@@ -15,14 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type.h"
-#include "gtest/gtest.h"
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
+#include <gtest/gtest.h>
+
+#include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/type.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 
+using std::size_t;
+
 namespace arrow {
+
+class Buffer;
+
 namespace decimal {
 
 template <typename T>

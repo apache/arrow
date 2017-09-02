@@ -22,7 +22,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <vector>
 
 #include "arrow/ipc/message.h"
 #include "arrow/util/visibility.h"

@@ -16,23 +16,31 @@
 // under the License.
 
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>  // IWYU pragma: keep
+#include <memory>
+#include <sstream>  // IWYU pragma: keep
+#include <string>
+#include <thread>
+#include <vector>
+
 #ifndef _MSC_VER
 #include <fcntl.h>
 #endif
-#include <fstream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <thread>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/io/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 namespace io {

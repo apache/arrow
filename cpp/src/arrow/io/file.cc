@@ -45,9 +45,21 @@
 #include <sys/mman.h>
 #endif
 
+#include <algorithm>
+#include <cerrno>
+#include <cstdint>
+#include <cstring>
+#include <mutex>
+#include <sstream>  // IWYU pragma: keep
+
+#if defined(_MSC_VER)
+#include <codecvt>
+#include <locale>
+#endif
+
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/types.h>  // IWYU pragma: keep
 
 #ifndef _MSC_VER  // POSIX-like platforms
 
@@ -70,22 +82,6 @@
 #endif
 
 // ----------------------------------------------------------------------
-// C++ standard library
-
-#include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <mutex>
-#include <sstream>
-#include <vector>
-
-#if defined(_MSC_VER)
-#include <codecvt>
-#include <locale>
-#endif
-
-// ----------------------------------------------------------------------
 // file compatibility stuff
 
 #if defined(__MINGW32__)  // MinGW
@@ -95,8 +91,6 @@
 #else  // POSIX / Linux
 // nothing
 #endif
-
-#include <cstdio>
 
 // POSIX systems do not have this
 #ifndef O_BINARY
@@ -113,7 +107,8 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include <boost/filesystem.hpp>  // NOLINT
+#include <boost/filesystem.hpp>           // NOLINT
+#include <boost/system/system_error.hpp>  // NOLINT
 
 namespace fs = boost::filesystem;
 

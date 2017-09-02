@@ -26,21 +26,6 @@ trap "rm -f $IWYU_LOG" EXIT
 
 echo "Logging IWYU to $IWYU_LOG"
 
-# Build the list of updated files which are of IWYU interest.
-file_list_tmp=$(git diff --name-only \
-    $($ROOT/cpp/build-support/get-upstream-commit.sh) | grep -E '\.(c|cc|h)$')
-if [ -z "$file_list_tmp" ]; then
-  echo "IWYU verification: no updates on related files, declaring success"
-  exit 0
-fi
-
-# Adjust the path for every element in the list. The iwyu_tool.py normalizes
-# paths (via realpath) to match the records from the compilation database.
-IWYU_FILE_LIST=
-for p in $file_list_tmp; do
-  IWYU_FILE_LIST="$IWYU_FILE_LIST $ROOT/$p"
-done
-
 IWYU_MAPPINGS_PATH="$ROOT/cpp/build-support/iwyu/mappings"
 IWYU_ARGS="\
     --mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
@@ -48,7 +33,8 @@ IWYU_ARGS="\
     --mapping_file=$IWYU_MAPPINGS_PATH/boost-extra.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/gflags.imp \
     --mapping_file=$IWYU_MAPPINGS_PATH/glog.imp \
-    --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp"
+    --mapping_file=$IWYU_MAPPINGS_PATH/gtest.imp \
+    --mapping_file=$IWYU_MAPPINGS_PATH/arrow-misc.imp"
 
 set -e
 
@@ -57,6 +43,21 @@ if [ "$1" == "all" ]; then
        $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
        tee $IWYU_LOG
 else
+  # Build the list of updated files which are of IWYU interest.
+  file_list_tmp=$(git diff --name-only \
+      $($ROOT/cpp/build-support/get-upstream-commit.sh) | grep -E '\.(c|cc|h)$')
+  if [ -z "$file_list_tmp" ]; then
+    echo "IWYU verification: no updates on related files, declaring success"
+    exit 0
+  fi
+
+  # Adjust the path for every element in the list. The iwyu_tool.py normalizes
+  # paths (via realpath) to match the records from the compilation database.
+  IWYU_FILE_LIST=
+  for p in $file_list_tmp; do
+    IWYU_FILE_LIST="$IWYU_FILE_LIST $ROOT/$p"
+  done
+
   python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p . $IWYU_FILE_LIST  -- \
        $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
        tee $IWYU_LOG

@@ -16,12 +16,15 @@
 // under the License.
 
 #include <cstdint>
+#include <cstring>
 #include <limits>
+#include <memory>
 #include <string>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 

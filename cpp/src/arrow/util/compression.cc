@@ -17,10 +17,7 @@
 
 #include "arrow/util/compression.h"
 
-#include <cstdint>
 #include <memory>
-#include <sstream>
-#include <string>
 
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
@@ -43,7 +40,6 @@
 #endif
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 

@@ -67,6 +67,10 @@ BEGIN {
   # suggestions are addressed and invalid ones are taken care either by proper
   # IWYU pragmas or adding special mappings (e.g. like boost mappings).
   # muted["relative/path/to/file"]
+  muted["arrow/util/bit-util-test.cc"]
+  muted["arrow/util/rle-encoding-test.cc"]
+  muted["include/hdfs.h"]
+  muted["arrow/visitor.h"]
 }
 
 # mute all suggestions for the auto-generated files

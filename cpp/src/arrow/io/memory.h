@@ -23,16 +23,14 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <string>
 
 #include "arrow/io/interfaces.h"
-
-#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
+class MemoryPool;
 class ResizableBuffer;
 class Status;
 

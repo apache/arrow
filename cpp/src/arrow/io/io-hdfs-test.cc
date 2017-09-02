@@ -15,18 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
-#include <sstream>
+#include <memory>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
+#include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>  // NOLINT
 
+#include "arrow/buffer.h"
 #include "arrow/io/hdfs-internal.h"
 #include "arrow/io/hdfs.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/test-util.h"
 

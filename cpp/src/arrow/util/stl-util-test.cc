@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/stl.h"
-
-#include <cstdint>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/util/stl.h"
 
 namespace arrow {
 namespace internal {

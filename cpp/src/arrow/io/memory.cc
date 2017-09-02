@@ -18,17 +18,13 @@
 #include "arrow/io/memory.h"
 
 #include <algorithm>
-#include <cerrno>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <sstream>
-#include <string>
 
 #include "arrow/buffer.h"
-#include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
 
 namespace arrow {
