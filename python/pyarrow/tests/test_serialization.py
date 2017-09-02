@@ -270,9 +270,7 @@ def test_serialization_callback_error():
     assert err.value.example_object == val
 
     serialization_context.register_type(TempClass, 20*b"\x00")
-
     serialized_object = pa.serialize(TempClass(), serialization_context)
-
     deserialization_context = pa.SerializationContext()
     
     # Pass a Serialization Context into deserialize, but TempClass
