@@ -21,7 +21,6 @@
 #include <memory>
 #include <mutex>
 
-#include "arrow/buffer.h"
 #include "arrow/status.h"
 
 namespace arrow {

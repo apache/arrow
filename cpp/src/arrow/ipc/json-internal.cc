@@ -17,23 +17,17 @@
 
 #include "arrow/ipc/json-internal.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
-
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/ipc/metadata-internal.h"
-#include "arrow/memory_pool.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"

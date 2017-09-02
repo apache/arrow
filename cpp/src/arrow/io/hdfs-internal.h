@@ -18,14 +18,17 @@
 #ifndef ARROW_IO_HDFS_INTERNAL
 #define ARROW_IO_HDFS_INTERNAL
 
-#ifndef _WIN32
-#include <dlfcn.h>
-#endif
+#include <cstddef>
+#include <cstdint>
 
 #include <hdfs.h>
 
-#include "arrow/io/windows_compatibility.h"
+#include "arrow/io/windows_compatibility.h"  // IWYU pragma: keep
 #include "arrow/util/visibility.h"
+
+using std::size_t;
+
+struct hdfsBuilder;
 
 namespace arrow {
 

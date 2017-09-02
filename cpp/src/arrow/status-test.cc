@@ -17,10 +17,9 @@
 
 #include <sstream>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "arrow/status.h"
-#include "arrow/test-util.h"
 
 namespace arrow {
 

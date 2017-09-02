@@ -21,13 +21,19 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include <flatbuffers/flatbuffers.h>  // IWYU pragma: export
+
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/File_generated.h"
 #include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/Schema_generated.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"

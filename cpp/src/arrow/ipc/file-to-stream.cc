@@ -16,6 +16,9 @@
 // under the License.
 
 #include <iostream>
+#include <memory>
+#include <string>
+
 #include "arrow/io/file.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -24,6 +27,9 @@
 #include "arrow/util/io-util.h"
 
 namespace arrow {
+
+class RecordBatch;
+
 namespace ipc {
 
 // Reads a file on the file system and prints to stdout the stream version of it.

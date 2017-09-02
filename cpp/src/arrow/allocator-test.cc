@@ -15,10 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gtest/gtest.h"
+#include <cstdint>
+#include <limits>
+#include <new>
+
+#include <gtest/gtest.h>
 
 #include "arrow/allocator.h"
-#include "arrow/test-util.h"
+#include "arrow/memory_pool.h"
 
 namespace arrow {
 

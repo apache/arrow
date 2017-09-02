@@ -16,17 +16,19 @@
 // under the License.
 
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
-#include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/io/test-common.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/test-util.h"
 
 namespace arrow {
 namespace io {

@@ -23,23 +23,15 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
-#include "arrow/ipc/File_generated.h"
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Tensor_generated.h"
+#include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/message.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Array;
 class Buffer;
 class DataType;
-class Field;
 class Schema;
 class Status;
 class Tensor;
@@ -48,9 +40,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace io {
 
-class InputStream;
 class OutputStream;
-class RandomAccessFile;
 
 }  // namespace io
 

@@ -17,12 +17,10 @@
 
 #include "arrow/ipc/json.h"
 
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <string>
-#include <vector>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/memory_pool.h"
@@ -30,6 +28,8 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+
+using std::size_t;
 
 namespace arrow {
 namespace ipc {

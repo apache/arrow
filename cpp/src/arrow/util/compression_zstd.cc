@@ -17,15 +17,14 @@
 
 #include "arrow/util/compression_zstd.h"
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <sstream>
-#include <string>
 
 #include <zstd.h>
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+
+using std::size_t;
 
 namespace arrow {
 

@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cctype>
+#include <cmath>
 #include <sstream>
 
 #include "arrow/util/decimal.h"
+#include "arrow/util/int128.h"
 
 namespace arrow {
 namespace decimal {

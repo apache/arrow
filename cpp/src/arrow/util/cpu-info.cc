@@ -38,14 +38,13 @@
 
 #endif
 
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <mutex>
-#include <sstream>
 #include <string>
 
 #include "arrow/util/logging.h"

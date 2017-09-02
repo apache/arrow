@@ -19,10 +19,10 @@
 #define ARROW_UTIL_COMPRESSION_SNAPPY_H
 
 #include <cstdint>
-#include <memory>
 
 #include "arrow/status.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
