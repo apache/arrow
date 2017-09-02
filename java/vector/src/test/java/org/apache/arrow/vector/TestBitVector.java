@@ -99,47 +99,138 @@ public class TestBitVector {
         }
       }
 
-      final TransferPair transferPair = sourceVector.getTransferPair(allocator);
-      final BitVector toVector = (BitVector) transferPair.getTo();
-      final BitVector.Accessor toAccessor = toVector.getAccessor();
-      final BitVector.Mutator toMutator = toVector.getMutator();
+      try (final BitVector toVector = new BitVector("toVector", allocator)) {
+        final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
+        final BitVector.Accessor toAccessor = toVector.getAccessor();
+        final BitVector.Mutator toMutator = toVector.getMutator();
 
-      /*
-       * form test cases such that we cover:
-       *
-       * (1) the start index is exactly where a particular byte starts in the source bit vector
-       * (2) the start index is randomly positioned within a byte in the source bit vector
-       *    (2.1) the length is a multiple of 8
-       *    (2.2) the length is not a multiple of 8
-       */
-      final int[][] transferLengths = {{0, 8},     /* (1) */
-          {8, 10},    /* (1) */
-          {18, 0},    /* zero length scenario */
-          {18, 8},    /* (2.1) */
-          {26, 0},    /* zero length scenario */
-          {26, 14}    /* (2.2) */
-      };
+        /*
+         * form test cases such that we cover:
+         *
+         * (1) the start index is exactly where a particular byte starts in the source bit vector
+         * (2) the start index is randomly positioned within a byte in the source bit vector
+         *    (2.1) the length is a multiple of 8
+         *    (2.2) the length is not a multiple of 8
+         */
+        final int[][] transferLengths = {{0, 8}, {8, 10}, {18, 0}, {18, 8}, {26, 0}, {26, 14}};
 
-      for (final int[] transferLength : transferLengths) {
-        final int start = transferLength[0];
-        final int length = transferLength[1];
+        for (final int[] transferLength : transferLengths) {
+          final int start = transferLength[0];
+          final int length = transferLength[1];
 
-        transferPair.splitAndTransfer(start, length);
+          transferPair.splitAndTransfer(start, length);
 
-        /* check the toVector output after doing splitAndTransfer */
-        for (int i = 0; i < length; i++) {
-          int result = toAccessor.get(i);
-          if ((i & 1) == 1) {
-            assertEquals(Integer.toString(1), Integer.toString(result));
-          } else {
-            assertEquals(Integer.toString(0), Integer.toString(result));
+          /* check the toVector output after doing splitAndTransfer */
+          for (int i = 0; i < length; i++) {
+            int actual = toAccessor.get(i);
+            int expected = sourceAccessor.get(start + i);
+            assertEquals("different data values not expected --> sourceVector index: " + (start + i) + " toVector index: " + i,
+                    expected, actual);
           }
         }
+      }
+    }
+  }
 
-        toVector.clear();
+  @Test
+  public void testSplitAndTransfer1() throws Exception {
+
+    try (final BitVector sourceVector = new BitVector("bitvector", allocator)) {
+      final BitVector.Mutator sourceMutator = sourceVector.getMutator();
+      final BitVector.Accessor sourceAccessor = sourceVector.getAccessor();
+
+      sourceVector.allocateNew(8190);
+
+      /* populate the bitvector */
+      for (int i = 0; i < 8190; i++) {
+        sourceMutator.set(i, 1);
       }
 
-      sourceVector.close();
+      sourceMutator.setValueCount(8190);
+
+      /* check the vector output */
+      for (int i = 0; i < 8190; i++) {
+        int result = sourceAccessor.get(i);
+        assertEquals(Integer.toString(1), Integer.toString(result));
+      }
+
+      try (final BitVector toVector = new BitVector("toVector", allocator)) {
+        final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
+        final BitVector.Accessor toAccessor = toVector.getAccessor();
+        final BitVector.Mutator toMutator = toVector.getMutator();
+
+        final int[][] transferLengths = {{0, 4095}, {4095, 4095}};
+
+        for (final int[] transferLength : transferLengths) {
+          final int start = transferLength[0];
+          final int length = transferLength[1];
+
+          transferPair.splitAndTransfer(start, length);
+
+          /* check the toVector output after doing splitAndTransfer */
+          for (int i = 0; i < length; i++) {
+            int actual = toAccessor.get(i);
+            int expected = sourceAccessor.get(start + i);
+            assertEquals("different data values not expected --> sourceVector index: " + (start + i) + " toVector index: " + i,
+                    expected, actual);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSplitAndTransfer2() throws Exception {
+
+    try (final BitVector sourceVector = new BitVector("bitvector", allocator)) {
+      final BitVector.Mutator sourceMutator = sourceVector.getMutator();
+      final BitVector.Accessor sourceAccessor = sourceVector.getAccessor();
+
+      sourceVector.allocateNew(32);
+
+      /* populate the bitvector */
+      for (int i = 0; i < 32; i++) {
+        if ((i & 1) == 1) {
+          sourceMutator.set(i, 1);
+        } else {
+          sourceMutator.set(i, 0);
+        }
+      }
+
+      sourceMutator.setValueCount(32);
+
+      /* check the vector output */
+      for (int i = 0; i < 32; i++) {
+        int result = sourceAccessor.get(i);
+        if ((i & 1) == 1) {
+          assertEquals(Integer.toString(1), Integer.toString(result));
+        } else {
+          assertEquals(Integer.toString(0), Integer.toString(result));
+        }
+      }
+
+      try (final BitVector toVector = new BitVector("toVector", allocator)) {
+        final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
+        final BitVector.Accessor toAccessor = toVector.getAccessor();
+        final BitVector.Mutator toMutator = toVector.getMutator();
+
+        final int[][] transferLengths = {{5,22}, {5,24}, {5,25}, {5,27}, {0,31}, {5,7}, {2,3}};
+
+        for (final int[] transferLength : transferLengths) {
+          final int start = transferLength[0];
+          final int length = transferLength[1];
+
+          transferPair.splitAndTransfer(start, length);
+
+          /* check the toVector output after doing splitAndTransfer */
+          for (int i = 0; i < length; i++) {
+            int actual = toAccessor.get(i);
+            int expected = sourceAccessor.get(start + i);
+            assertEquals("different data values not expected --> sourceVector index: " + (start + i) + " toVector index: " + i,
+                    expected, actual);
+          }
+        }
+      }
     }
   }
 
