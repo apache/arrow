@@ -256,15 +256,27 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
-def test_serializaton_callback_error():
+def test_serialization_callback_error():
 
     class TempClass(object):
             pass
 
-    # Have a SerializationContext but TempClass is not
-    # registered
+    # Pass a SerializationContext into serialize, but TempClass
+    # is not registered
 
     serialization_context = pa.SerializationContext()
 
     with pytest.raises(pa.SerializationCallbackError):
-        serialized_object = pa.serialize(TempClass, serialization_context)
+        serialized_object = pa.serialize(TempClass(), serialization_context)
+
+    serialization_context.register_type(TempClass, 20*b"\x00")
+
+    serialized_object = pa.serialize(TempClass(), serialization_context)
+
+    deserialization_context = pa.SerializationContext()
+    
+    # Pass a Serialization Context into deserialize, but TempClass
+    # is not registered
+
+    with pytest.raises(pa.DeserializationCallbackError):
+        serialized_object.deserialize(deserialization_context)
