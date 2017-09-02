@@ -81,7 +81,7 @@ class ARROW_EXPORT FileInterface {
   void set_mode(FileMode::type mode) { mode_ = mode; }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(FileInterface);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(FileInterface);
 };
 
 class ARROW_EXPORT Seekable {

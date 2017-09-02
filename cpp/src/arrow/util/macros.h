@@ -19,9 +19,9 @@
 #define ARROW_UTIL_MACROS_H
 
 // From Google gutil
-#ifndef DISALLOW_COPY_AND_ASSIGN
-#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
-  TypeName(const TypeName&) = delete;      \
+#ifndef ARROW_DISALLOW_COPY_AND_ASSIGN
+#define ARROW_DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&) = delete;            \
   TypeName& operator=(const TypeName&) = delete
 #endif
 

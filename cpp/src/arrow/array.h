@@ -256,7 +256,7 @@ class ARROW_EXPORT Array {
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Array);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {

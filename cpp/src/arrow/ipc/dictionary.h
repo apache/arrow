@@ -68,7 +68,7 @@ class ARROW_EXPORT DictionaryMemo {
   // Map of dictionary id to dictionary array
   DictionaryMap id_to_dictionary_;
 
-  DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
 };
 
 }  // namespace ipc

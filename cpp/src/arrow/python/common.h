@@ -56,7 +56,7 @@ class ARROW_EXPORT PyAcquireGIL {
  private:
   bool acquired_gil_;
   PyGILState_STATE state_;
-  DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
