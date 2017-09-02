@@ -454,25 +454,12 @@ class ARROW_EXPORT StructType : public NestedType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-static inline int decimal_byte_width(int precision) {
-  if (precision >= 0 && precision < 10) {
-    return 4;
-  } else if (precision >= 10 && precision < 19) {
-    return 8;
-  } else {
-    // TODO(phillipc): validate that we can't construct > 128 bit types
-    return 16;
-  }
-}
-
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
   explicit DecimalType(int precision, int scale)
-      : FixedSizeBinaryType(decimal_byte_width(precision), Type::DECIMAL),
-        precision_(precision),
-        scale_(scale) {}
+      : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
