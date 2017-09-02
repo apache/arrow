@@ -263,11 +263,11 @@ def test_serialization_callback_error():
 
     # Pass a SerializationContext into serialize, but TempClass
     # is not registered
-
     serialization_context = pa.SerializationContext()
-
-    with pytest.raises(pa.SerializationCallbackError):
-        serialized_object = pa.serialize(TempClass(), serialization_context)
+    val = TempClass()
+    with pytest.raises(pa.SerializationCallbackError) as err:
+        serialized_object = pa.serialize(val, serialization_context)
+    assert err.value.example_object == val
 
     serialization_context.register_type(TempClass, 20*b"\x00")
 
@@ -277,6 +277,6 @@ def test_serialization_callback_error():
     
     # Pass a Serialization Context into deserialize, but TempClass
     # is not registered
-
-    with pytest.raises(pa.DeserializationCallbackError):
+    with pytest.raises(pa.DeserializationCallbackError) as err:
         serialized_object.deserialize(deserialization_context)
+    assert err.value.type_id == 20*b"\x00"
