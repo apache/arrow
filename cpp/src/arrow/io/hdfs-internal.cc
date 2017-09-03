@@ -30,17 +30,20 @@
 
 #include "arrow/io/hdfs-internal.h"
 
-#include <iostream>
+#include <cstdint>
+#include <cstdlib>
 #include <mutex>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 #include <string>
-#include <type_traits>
 #include <vector>
+
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
 
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace fs = boost::filesystem;
 

@@ -22,6 +22,7 @@
 #define ARROW_IPC_FEATHER_INTERNAL_H
 
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>

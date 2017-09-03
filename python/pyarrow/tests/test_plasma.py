@@ -287,6 +287,28 @@ class TestPlasmaClient(object):
             [result] = self.plasma_client.get([object_id], timeout_ms=0)
             assert result == pa.plasma.ObjectNotAvailable
 
+    def test_put_and_get_serialization_context(self):
+
+        class CustomType(object):
+            def __init__(self, val):
+                self.val = val
+
+        val = CustomType(42)
+
+        with pytest.raises(pa.ArrowSerializationError):
+            self.plasma_client.put(val)
+
+        serialization_context = pa.SerializationContext()
+        serialization_context.register_type(CustomType, 20*b"\x00")
+
+        object_id = self.plasma_client.put(val, None, serialization_context)
+
+        with pytest.raises(pa.ArrowSerializationError):
+            result = self.plasma_client.get(object_id)
+
+        result = self.plasma_client.get(object_id, -1, serialization_context)
+        assert result.val == val.val
+
     def test_store_arrow_objects(self):
         data = np.random.randn(10, 4)
         # Write an arrow object.
@@ -294,7 +316,7 @@ class TestPlasmaClient(object):
         tensor = pa.Tensor.from_numpy(data)
         data_size = pa.get_tensor_size(tensor)
         buf = self.plasma_client.create(object_id, data_size)
-        stream = pa.FixedSizeBufferOutputStream(buf)
+        stream = pa.FixedSizeBufferWriter(buf)
         pa.write_tensor(tensor, stream)
         self.plasma_client.seal(object_id)
         # Read the arrow object.
@@ -320,7 +342,7 @@ class TestPlasmaClient(object):
         object_id = plasma.ObjectID(np.random.bytes(20))
 
         buf = self.plasma_client.create(object_id, data_size)
-        stream = pa.FixedSizeBufferOutputStream(buf)
+        stream = pa.FixedSizeBufferWriter(buf)
         stream_writer = pa.RecordBatchStreamWriter(stream, record_batch.schema)
         stream_writer.write_batch(record_batch)
 

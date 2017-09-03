@@ -27,7 +27,11 @@ if [ "$#" -eq 2 ]; then
   nextVersionSNAPSHOT=${nextVersion}-SNAPSHOT
   tag=apache-arrow-${version}
 
-  echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}" 
+  echo "Updating changelog for $version"
+  # Update changelog
+  $SOURCE_DIR/update-changelog.sh $version
+
+  echo "prepare release ${version} rc ${rcnum} on tag ${tag} then reset to version ${nextVersionSNAPSHOT}"
 
   cd "${SOURCE_DIR}/../../java"
 
@@ -38,8 +42,7 @@ if [ "$#" -eq 2 ]; then
 
   echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
 
-else  
+else
   echo "Usage: $0 <version> <nextVersion>"
   exit
 fi
-

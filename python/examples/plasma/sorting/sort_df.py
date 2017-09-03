@@ -39,7 +39,7 @@ import multimerge
 #     num_cols = 1
 
 client = None
-object_store_size = 2 * 10 ** 9 # 2 GB
+object_store_size = 2 * 10 ** 9  # 2 GB
 num_cores = 8
 num_rows = 200000
 num_cols = 2
@@ -69,7 +69,7 @@ def put_df(df):
     buf = client.create(object_id, data_size)
 
     # Write the serialized DataFrame to the object store
-    sink = pa.FixedSizeBufferOutputStream(buf)
+    sink = pa.FixedSizeBufferWriter(buf)
     stream_writer = pa.RecordBatchStreamWriter(sink, record_batch.schema)
     stream_writer.write_batch(record_batch)
 

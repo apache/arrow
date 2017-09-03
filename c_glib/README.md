@@ -19,7 +19,7 @@
 
 # Arrow GLib
 
-Arrow GLib is a wrapper library for Arrow C++. Arrow GLib provides C
+Arrow GLib is a wrapper library for [Arrow C++](https://github.com/apache/arrow/tree/master/cpp). Arrow GLib provides C
 API.
 
 Arrow GLib supports

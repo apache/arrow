@@ -105,6 +105,13 @@ if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
 endif()
 
+# Ensure that a default make is set
+if ("${MAKE}" STREQUAL "")
+    if (NOT MSVC)
+        find_program(MAKE make)
+    endif()
+endif()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -459,7 +466,7 @@ if (ARROW_JEMALLOC)
     set(JEMALLOC_VENDORED 1)
     ExternalProject_Add(jemalloc_ep
       URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
-      CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix="
+      CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
       ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_COMMAND ${MAKE}

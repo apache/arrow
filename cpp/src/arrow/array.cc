@@ -105,13 +105,23 @@ bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
   return are_equal;
 }
 
-// Last two parameters are in-out parameters
-static inline void ConformSliceParams(int64_t array_offset, int64_t array_length,
-                                      int64_t* offset, int64_t* length) {
-  DCHECK_LE(*offset, array_length);
-  DCHECK_NE(offset, nullptr);
-  *length = std::min(array_length - *offset, *length);
-  *offset = array_offset + *offset;
+static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_t offset,
+                                                   int64_t length) {
+  DCHECK_LE(offset, data.length);
+  length = std::min(data.length - offset, length);
+  offset += data.offset;
+
+  auto new_data = data.ShallowCopy();
+  new_data->length = length;
+  new_data->offset = offset;
+  new_data->null_count = kUnknownNullCount;
+  return new_data;
+}
+
+std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
+  std::shared_ptr<Array> result;
+  DCHECK(MakeArray(SliceData(*data_, offset, length), &result).ok());
+  return result;
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
@@ -125,26 +135,9 @@ std::string Array::ToString() const {
   return ss.str();
 }
 
-static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_t offset,
-                                                   int64_t length) {
-  ConformSliceParams(data.offset, data.length, &offset, &length);
-
-  auto new_data = data.ShallowCopy();
-  new_data->length = length;
-  new_data->offset = offset;
-  new_data->null_count = kUnknownNullCount;
-  return new_data;
-}
-
 NullArray::NullArray(int64_t length) {
   BufferVector buffers = {nullptr};
   SetData(std::make_shared<ArrayData>(null(), length, std::move(buffers), length));
-}
-
-std::shared_ptr<Array> NullArray::Slice(int64_t offset, int64_t length) const {
-  DCHECK_LE(offset, data_->length);
-  length = std::min(data_->length - offset, length);
-  return std::make_shared<NullArray>(length);
 }
 
 // ----------------------------------------------------------------------
@@ -170,11 +163,6 @@ NumericArray<T>::NumericArray(const std::shared_ptr<internal::ArrayData>& data)
   DCHECK_EQ(data->type->id(), T::type_id);
 }
 
-template <typename T>
-std::shared_ptr<Array> NumericArray<T>::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<NumericArray<T>>(SliceData(*data_, offset, length));
-}
-
 // ----------------------------------------------------------------------
 // BooleanArray
 
@@ -187,10 +175,6 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                            const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                            int64_t offset)
     : PrimitiveArray(boolean(), length, data, null_bitmap, null_count, offset) {}
-
-std::shared_ptr<Array> BooleanArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<BooleanArray>(SliceData(*data_, offset, length));
-}
 
 // ----------------------------------------------------------------------
 // ListArray
@@ -254,12 +238,6 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 
 std::shared_ptr<Array> ListArray::values() const { return values_; }
 
-std::shared_ptr<Array> ListArray::Slice(int64_t offset, int64_t length) const {
-  ConformSliceParams(data_->offset, data_->length, &offset, &length);
-  return std::make_shared<ListArray>(type(), length, value_offsets(), values(),
-                                     null_bitmap(), kUnknownNullCount, offset);
-}
-
 // ----------------------------------------------------------------------
 // String and binary
 
@@ -298,10 +276,6 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
       std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
 }
 
-std::shared_ptr<Array> BinaryArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<BinaryArray>(SliceData(*data_, offset, length));
-}
-
 StringArray::StringArray(const std::shared_ptr<internal::ArrayData>& data) {
   DCHECK_EQ(data->type->id(), Type::STRING);
   SetData(data);
@@ -312,10 +286,6 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset)
     : BinaryArray(kString, length, value_offsets, data, null_bitmap, null_count, offset) {
-}
-
-std::shared_ptr<Array> StringArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<StringArray>(SliceData(*data_, offset, length));
 }
 
 // ----------------------------------------------------------------------
@@ -333,10 +303,6 @@ FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type
                                            int64_t null_count, int64_t offset)
     : PrimitiveArray(type, length, data, null_bitmap, null_count, offset),
       byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
-
-std::shared_ptr<Array> FixedSizeBinaryArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<FixedSizeBinaryArray>(SliceData(*data_, offset, length));
-}
 
 const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
   return raw_values_ + (i + data_->offset) * byte_width_;
@@ -374,10 +340,6 @@ std::string DecimalArray::FormatValue(int64_t i) const {
   }
 }
 
-std::shared_ptr<Array> DecimalArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<DecimalArray>(SliceData(*data_, offset, length));
-}
-
 // ----------------------------------------------------------------------
 // Struct
 
@@ -402,10 +364,6 @@ std::shared_ptr<Array> StructArray::field(int pos) const {
   std::shared_ptr<Array> result;
   DCHECK(internal::MakeArray(data_->child_data[pos], &result).ok());
   return result;
-}
-
-std::shared_ptr<Array> StructArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<StructArray>(SliceData(*data_, offset, length));
 }
 
 // ----------------------------------------------------------------------
@@ -449,10 +407,6 @@ std::shared_ptr<Array> UnionArray::child(int pos) const {
   return result;
 }
 
-std::shared_ptr<Array> UnionArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<UnionArray>(SliceData(*data_, offset, length));
-}
-
 // ----------------------------------------------------------------------
 // DictionaryArray
 
@@ -484,10 +438,6 @@ std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 
 std::shared_ptr<Array> DictionaryArray::dictionary() const {
   return dict_type_->dictionary();
-}
-
-std::shared_ptr<Array> DictionaryArray::Slice(int64_t offset, int64_t length) const {
-  return std::make_shared<DictionaryArray>(SliceData(*data_, offset, length));
 }
 
 // ----------------------------------------------------------------------

@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gtest/gtest.h"
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/util/key_value_metadata.h"
-
-#include "arrow/test-util.h"
 
 namespace arrow {
 

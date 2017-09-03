@@ -17,22 +17,28 @@
 
 #include "arrow/ipc/metadata-internal.h"
 
-#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
-#include <vector>
+#include <utility>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/ipc/File_generated.h"
+#include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/Tensor_generated.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/bit-util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

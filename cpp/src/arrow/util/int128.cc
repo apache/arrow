@@ -18,9 +18,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iomanip>
+#include <cstring>
 #include <limits>
-#include <sstream>
 
 #ifdef _MSC_VER
 #include <intrin.h>

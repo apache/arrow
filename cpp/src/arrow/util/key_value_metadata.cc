@@ -16,9 +16,13 @@
 // under the License.
 
 #include <algorithm>
+#include <cstddef>
+#include <utility>
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+
+using std::size_t;
 
 namespace arrow {
 

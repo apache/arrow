@@ -158,6 +158,7 @@ Input / Output and Shared Memory
 .. autosummary::
    :toctree: generated/
 
+   allocate_buffer
    Buffer
    BufferReader
    BufferOutputStream
@@ -207,6 +208,7 @@ Interprocess Communication and Serialization
    deserialize_from
    read_serialized
    SerializedPyObject
+   SerializationContext
 
 .. _api.memory_pool:
 

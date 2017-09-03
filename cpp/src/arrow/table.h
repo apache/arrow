@@ -29,15 +29,7 @@
 
 namespace arrow {
 
-namespace internal {
-
-struct ArrayData;
-
-}  // namespace internal
-
-class Array;
-class Column;
-class Schema;
+class KeyValueMetadata;
 class Status;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;

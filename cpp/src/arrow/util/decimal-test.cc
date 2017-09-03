@@ -16,11 +16,14 @@
 // under the License.
 //
 
-#include "arrow/util/decimal.h"
+#include <cstdint>
+#include <string>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
+#include "arrow/status.h"
 #include "arrow/test-util.h"
+#include "arrow/util/decimal.h"
 
 namespace arrow {
 namespace decimal {

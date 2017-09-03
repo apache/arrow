@@ -17,7 +17,6 @@
 
 #include "arrow/tensor.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -25,11 +24,9 @@
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

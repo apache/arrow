@@ -19,7 +19,7 @@
 wget https://github.com/jemalloc/jemalloc/releases/download/4.4.0/jemalloc-4.4.0.tar.bz2 -O jemalloc-4.4.0.tar.bz2
 tar xf jemalloc-4.4.0.tar.bz2
 pushd /jemalloc-4.4.0
-./configure
+./configure "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
 make -j5
 make install
 popd

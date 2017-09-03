@@ -532,7 +532,8 @@ class ParquetDataset(object):
          self.metadata_path) = _make_manifest(path_or_paths, self.fs)
 
         if self.metadata_path is not None:
-            self.common_metadata = ParquetFile(self.metadata_path).metadata
+            with self.fs.open(self.metadata_path) as f:
+                self.common_metadata = ParquetFile(f).metadata
         else:
             self.common_metadata = None
 

@@ -18,14 +18,10 @@
 #include "arrow/util/compression_lz4.h"
 
 #include <cstdint>
-#include <memory>
-#include <sstream>
-#include <string>
 
 #include <lz4.h>
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 

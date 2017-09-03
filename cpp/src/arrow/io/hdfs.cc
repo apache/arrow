@@ -18,7 +18,10 @@
 #include <hdfs.h>
 
 #include <algorithm>
+#include <cerrno>
+#include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <sstream>
 #include <string>
 
@@ -28,6 +31,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+
+using std::size_t;
 
 namespace arrow {
 namespace io {

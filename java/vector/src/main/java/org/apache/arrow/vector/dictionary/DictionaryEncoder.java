@@ -68,7 +68,7 @@ public class DictionaryEncoder {
     Method setter = null;
     for (Class<?> c : ImmutableList.of(int.class, long.class)) {
       try {
-        setter = mutator.getClass().getMethod("set", int.class, c);
+        setter = mutator.getClass().getMethod("setSafe", int.class, c);
         break;
       } catch (NoSuchMethodException e) {
         // ignore

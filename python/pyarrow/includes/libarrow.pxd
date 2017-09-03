@@ -160,6 +160,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMutableBuffer(const uint8_t* data, int64_t size)
         uint8_t* mutable_data()
 
+    CStatus AllocateBuffer(CMemoryPool* pool, const int64_t size,
+                           shared_ptr[CBuffer]* out)
+
+    CStatus AllocateResizableBuffer(CMemoryPool* pool, const int64_t size,
+                                    shared_ptr[ResizableBuffer]* out)
+
     cdef cppclass ResizableBuffer(CBuffer):
         CStatus Resize(int64_t nbytes)
         CStatus Reserve(int64_t nbytes)
@@ -797,19 +803,18 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
         shared_ptr[CRecordBatch] batch
         vector[shared_ptr[CTensor]] tensors
 
-    CStatus SerializeObject(object sequence, CSerializedPyObject* out)
+    CStatus SerializeObject(object context, object sequence,
+                            CSerializedPyObject* out)
 
     CStatus WriteSerializedObject(const CSerializedPyObject& obj,
                                   OutputStream* dst)
 
-    CStatus DeserializeObject(const CSerializedPyObject& obj,
+    CStatus DeserializeObject(object context,
+                              const CSerializedPyObject& obj,
                               PyObject* base, PyObject** out)
 
     CStatus ReadSerializedObject(RandomAccessFile* src,
                                  CSerializedPyObject* out)
-
-    void set_serialization_callbacks(object serialize_callback,
-                                     object deserialize_callback)
 
 
 cdef extern from 'arrow/python/init.h':

@@ -26,6 +26,7 @@ import json
 import pytest
 
 import numpy as np
+import numpy.testing as npt
 
 import pandas as pd
 import pandas.util.testing as tm
@@ -820,6 +821,52 @@ class TestPandasConversion(unittest.TestCase):
                                    columns=names)
 
         tm.assert_frame_equal(df, expected_df)
+
+    def _check_numpy_array_roundtrip(self, np_array):
+        arr = pa.Array.from_pandas(np_array)
+        result = arr.to_pandas()
+        npt.assert_array_equal(result, np_array)
+
+    def test_numpy_datetime64_columns(self):
+        datetime64_ns = np.array([
+                '2007-07-13T01:23:34.123456789',
+                None,
+                '2006-01-13T12:34:56.432539784',
+                '2010-08-13T05:46:57.437699912'],
+                dtype='datetime64[ns]')
+        self._check_numpy_array_roundtrip(datetime64_ns)
+
+        datetime64_us = np.array([
+                '2007-07-13T01:23:34.123456',
+                None,
+                '2006-01-13T12:34:56.432539',
+                '2010-08-13T05:46:57.437699'],
+                dtype='datetime64[us]')
+        self._check_numpy_array_roundtrip(datetime64_us)
+
+        datetime64_ms = np.array([
+                '2007-07-13T01:23:34.123',
+                None,
+                '2006-01-13T12:34:56.432',
+                '2010-08-13T05:46:57.437'],
+                dtype='datetime64[ms]')
+        self._check_numpy_array_roundtrip(datetime64_ms)
+
+        datetime64_s = np.array([
+                '2007-07-13T01:23:34',
+                None,
+                '2006-01-13T12:34:56',
+                '2010-08-13T05:46:57'],
+                dtype='datetime64[s]')
+        self._check_numpy_array_roundtrip(datetime64_s)
+
+        datetime64_d = np.array([
+                '2007-07-13',
+                None,
+                '2006-01-15',
+                '2010-08-19'],
+                dtype='datetime64[D]')
+        self._check_numpy_array_roundtrip(datetime64_d)
 
     def test_all_nones(self):
         def _check_series(s):

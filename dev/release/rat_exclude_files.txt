@@ -8,6 +8,7 @@ cpp/src/arrow/status.h
 cpp/build-support/asan_symbolize.py
 cpp/build-support/cpplint.py
 cpp/build-support/clang_format_exclusions.txt
+cpp/build-support/iwyu/*
 cpp/cmake_modules/BuildUtils.cmake
 cpp/cmake_modules/FindPythonLibsNew.cmake
 cpp/cmake_modules/FindNumPy.cmake

@@ -22,15 +22,15 @@
 #undef DISALLOW_COPY_AND_ASSIGN
 #endif
 
+#include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <sstream>
-#include <string>
 
 #include <snappy.h>
 
 #include "arrow/status.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+
+using std::size_t;
 
 namespace arrow {
 
