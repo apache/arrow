@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <string>
 
 #include "arrow/status.h"
@@ -37,19 +38,17 @@ namespace decimal {
 /// Adapted from the Apache ORC C++ implementation
 class ARROW_EXPORT Int128 {
  public:
-  constexpr Int128() : Int128(0, 0) {}
-
-  /// \brief Convert a signed 64 bit value into an Int128.
-  template <typename T,
-            typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
-  constexpr Int128(const T& value)
-      : Int128(value >= 0 ? 0 : -1, static_cast<uint64_t>(value)) {}
-
-  /// \brief Convert a signed 32 bit value into an Int128.
-  constexpr Int128(int32_t value) : Int128(static_cast<int64_t>(value)) {}
-
   /// \brief Create an Int128 from the two's complement representation.
   constexpr Int128(int64_t high, uint64_t low) : high_bits_(high), low_bits_(low) {}
+
+  /// \brief Empty constructor creates an Int128 with a value of 0.
+  constexpr Int128() : Int128(0, 0) {}
+
+  /// \brief Convert any integer value into an Int128.
+  template <typename T,
+            typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+  constexpr Int128(T value)
+      : Int128(static_cast<int64_t>(value) >= 0 ? 0 : -1, static_cast<uint64_t>(value)) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Int128(const std::string& value);
