@@ -675,7 +675,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status Append(const uint8_t* value);
 
   template <size_t NBYTES>
-  Status Append(const std::array<uint8_t, NBYTES>& data);
+  Status Append(const std::array<uint8_t, NBYTES>& value) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    return byte_builder_.Append(value);
+  }
 
   Status Append(const uint8_t* data, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
