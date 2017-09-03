@@ -401,7 +401,7 @@ TEST(TestStructType, Basics) {
   // TODO(wesm): out of bounds for field(...)
 }
 
-TEST(TypesTest, TestDecimal32Type) {
+TEST(TypesTest, TestDecimal128Small) {
   DecimalType t1(8, 4);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);
@@ -411,11 +411,11 @@ TEST(TypesTest, TestDecimal32Type) {
   ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 4);
-  ASSERT_EQ(t1.bit_width(), 32);
+  ASSERT_EQ(t1.byte_width(), 16);
+  ASSERT_EQ(t1.bit_width(), 128);
 }
 
-TEST(TypesTest, TestDecimal64Type) {
+TEST(TypesTest, TestDecimal128Medium) {
   DecimalType t1(12, 5);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);
@@ -425,11 +425,11 @@ TEST(TypesTest, TestDecimal64Type) {
   ASSERT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 8);
-  ASSERT_EQ(t1.bit_width(), 64);
+  ASSERT_EQ(t1.byte_width(), 16);
+  ASSERT_EQ(t1.bit_width(), 128);
 }
 
-TEST(TypesTest, TestDecimal128Type) {
+TEST(TypesTest, TestDecimal128Large) {
   DecimalType t1(27, 7);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);

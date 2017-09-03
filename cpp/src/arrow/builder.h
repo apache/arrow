@@ -47,8 +47,7 @@ struct ArrayData;
 
 namespace decimal {
 
-template <typename T>
-struct Decimal;
+class Int128;
 
 }  // namespace decimal
 
@@ -674,6 +673,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value);
+
+  template <size_t NBYTES>
+  Status Append(const std::array<uint8_t, NBYTES>& value) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    return byte_builder_.Append(value);
+  }
+
   Status Append(const uint8_t* data, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
   Status Append(const std::string& value);
@@ -701,8 +708,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 #endif
 
-  template <typename T>
-  ARROW_EXPORT Status Append(const decimal::Decimal<T>& val);
+  Status Append(const decimal::Int128& val);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 };

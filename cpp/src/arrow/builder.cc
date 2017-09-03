@@ -34,6 +34,7 @@
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hash-util.h"
+#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -965,31 +966,17 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
     : DecimalBuilder(type, pool) {}
 #endif
 
-template <typename T>
-ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal<T>& val) {
+Status DecimalBuilder::Append(const decimal::Int128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  return FixedSizeBinaryBuilder::Append(reinterpret_cast<const uint8_t*>(&val.value));
-}
-
-template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal32& val);
-template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal64& val);
-
-template <>
-ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  uint8_t stack_bytes[16] = {0};
-  uint8_t* bytes = stack_bytes;
-  decimal::ToBytes(value, &bytes);
+  std::array<uint8_t, 16> bytes;
+  RETURN_NOT_OK(value.ToBytes(&bytes));
   return FixedSizeBinaryBuilder::Append(bytes);
 }
 
 Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
-
-  /// TODO(phillipc): not sure where to get the offset argument here
-  *out =
-      std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_, 0);
+  *out = std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_);
   return Status::OK();
 }
 

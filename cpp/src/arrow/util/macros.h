@@ -64,7 +64,7 @@
 #if !defined(MANUALLY_ALIGNED_STRUCT)
 #if defined(_MSC_VER)
 #define MANUALLY_ALIGNED_STRUCT(alignment) \
-  __pragma(pack(1));                             \
+  __pragma(pack(1));                       \
   struct __declspec(align(alignment))
 #define STRUCT_END(name, size) \
   __pragma(pack());            \
@@ -77,6 +77,6 @@
 #else
 #error Unknown compiler, please define structure alignment macros
 #endif
-#endif // !defined(MANUALLY_ALIGNED_STRUCT)
+#endif  // !defined(MANUALLY_ALIGNED_STRUCT)
 
 #endif  // ARROW_UTIL_MACROS_H

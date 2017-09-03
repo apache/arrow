@@ -18,6 +18,7 @@
 #ifndef ARROW_BUFFER_H
 #define ARROW_BUFFER_H
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -212,6 +213,19 @@ class ARROW_EXPORT BufferBuilder {
       RETURN_NOT_OK(Resize(new_capacity));
     }
     UnsafeAppend(data, length);
+    return Status::OK();
+  }
+
+  template <size_t NBYTES>
+  Status Append(const std::array<uint8_t, NBYTES>& data) {
+    constexpr auto nbytes = static_cast<int64_t>(NBYTES);
+    if (capacity_ < static_cast<int64_t>(nbytes) + size_) {
+      int64_t new_capacity = BitUtil::NextPower2(nbytes + size_);
+      RETURN_NOT_OK(Resize(new_capacity));
+    }
+
+    std::copy(data.cbegin(), data.cend(), data_ + size_);
+    size_ += nbytes;
     return Status::OK();
   }
 

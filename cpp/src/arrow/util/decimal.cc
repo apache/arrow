@@ -15,19 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cctype>
-#include <cmath>
+#include <cstdlib>
 #include <sstream>
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int128.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace decimal {
 
-template <typename T>
-ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* precision,
-                               int* scale) {
+void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
+                     Int128* out) {
+  DCHECK(sign == -1 || sign == 1);
+  DCHECK_NE(out, nullptr);
+  DCHECK(!whole.empty() || !fractional.empty());
+  *out = Int128(whole + fractional) * sign;
+}
+
+Status FromString(const std::string& s, Int128* out, int* precision, int* scale) {
   // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?";
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
@@ -56,14 +65,12 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* preci
   DCHECK_LT(charp, end);
 
   // skip leading zeros
-  while (charp != end && *charp == '0') {
-    ++charp;
-  }
+  charp = std::find_if_not(charp, end, [](char c) { return c == '0'; });
 
   // all zeros and no decimal point
   if (charp == end) {
     if (out != nullptr) {
-      out->value = static_cast<T>(0);
+      *out = Int128(0);
     }
 
     // Not sure what other libraries assign precision to for this case (this case of
@@ -81,9 +88,7 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* preci
 
   std::string::const_iterator whole_part_start = charp;
 
-  while (charp != end && isdigit(*charp)) {
-    ++charp;
-  }
+  charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
 
   std::string::const_iterator whole_part_end = charp;
   std::string whole_part(whole_part_start, whole_part_end);
@@ -97,7 +102,7 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* preci
           "end of the string.");
     }
 
-    if (!isdigit(*charp)) {
+    if (std::isdigit(*charp) == 0) {
       std::stringstream ss;
       ss << "Decimal point must be followed by a base ten digit. Found '" << *charp
          << "'";
@@ -117,9 +122,7 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* preci
   // The rest must be digits, because if we have a decimal point it must be followed by
   // digits
   if (charp != end) {
-    while (charp != end && isdigit(*charp)) {
-      ++charp;
-    }
+    charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
 
     // The while loop has ended before the end of the string which means we've hit a
     // character that isn't a base ten digit
@@ -143,88 +146,64 @@ ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out, int* preci
   }
 
   if (out != nullptr) {
-    StringToInteger(whole_part, fractional_part, sign, &out->value);
+    StringToInteger(whole_part, fractional_part, sign, out);
   }
 
   return Status::OK();
 }
 
-template ARROW_EXPORT Status FromString(const std::string& s, Decimal32* out,
-                                        int* precision, int* scale);
-template ARROW_EXPORT Status FromString(const std::string& s, Decimal64* out,
-                                        int* precision, int* scale);
-template ARROW_EXPORT Status FromString(const std::string& s, Decimal128* out,
-                                        int* precision, int* scale);
+std::string ToString(const Int128& decimal_value, int precision, int scale) {
+  Int128 value(decimal_value);
 
-void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
-                     int32_t* out) {
-  DCHECK(sign == -1 || sign == 1);
-  DCHECK_NE(out, nullptr);
-  DCHECK(!whole.empty() || !fractional.empty());
+  // Decimal values are sent to clients as strings so in the interest of
+  // speed the string will be created without the using stringstream with the
+  // whole/fractional_part().
+  size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
+                         + (scale == precision)   // Add a space for leading 0
+                         + (value < 0);           // Add a space for negative sign
+  std::string str(last_char_idx, '0');
 
-  if (!whole.empty()) {
-    *out = std::stoi(whole) *
-           static_cast<int32_t>(pow(10.0, static_cast<double>(fractional.size())));
+  // Start filling in the values in reverse order by taking the last digit
+  // of the value. Use a positive value and worry about the sign later. At this
+  // point the last_char_idx points to the string terminator.
+  Int128 remaining_value(value);
+
+  size_t first_digit_idx = 0;
+  if (value < 0) {
+    remaining_value = -value;
+    first_digit_idx = 1;
   }
-  if (!fractional.empty()) {
-    *out += std::stoi(fractional, nullptr, 10);
+
+  if (scale > 0) {
+    int remaining_scale = scale;
+    do {
+      str[--last_char_idx] =
+          static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
+      remaining_value /= 10;
+    } while (--remaining_scale > 0);
+    str[--last_char_idx] = '.';
+    DCHECK_GT(last_char_idx, first_digit_idx) << "Not enough space remaining";
   }
-  *out *= sign;
-}
 
-void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
-                     int64_t* out) {
-  DCHECK(sign == -1 || sign == 1);
-  DCHECK_NE(out, nullptr);
-  DCHECK(!whole.empty() || !fractional.empty());
-  if (!whole.empty()) {
-    *out = static_cast<int64_t>(std::stoll(whole)) *
-           static_cast<int64_t>(pow(10.0, static_cast<double>(fractional.size())));
+  do {
+    str[--last_char_idx] = static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
+    remaining_value /= 10;
+    if (remaining_value == 0) {
+      // Trim any extra leading 0's.
+      if (last_char_idx > first_digit_idx) {
+        str.erase(0, last_char_idx - first_digit_idx);
+      }
+
+      break;
+    }
+    // For safety, enforce string length independent of remaining_value.
+  } while (last_char_idx > first_digit_idx);
+
+  if (value < 0) {
+    str[0] = '-';
   }
-  if (!fractional.empty()) {
-    *out += std::stoll(fractional, nullptr, 10);
-  }
-  *out *= sign;
-}
 
-void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
-                     Int128* out) {
-  DCHECK(sign == -1 || sign == 1);
-  DCHECK_NE(out, nullptr);
-  DCHECK(!whole.empty() || !fractional.empty());
-  *out = Int128(whole + fractional) * sign;
-}
-
-void FromBytes(const uint8_t* bytes, Decimal32* decimal) {
-  DCHECK_NE(bytes, nullptr);
-  DCHECK_NE(decimal, nullptr);
-  decimal->value = *reinterpret_cast<const int32_t*>(bytes);
-}
-
-void FromBytes(const uint8_t* bytes, Decimal64* decimal) {
-  DCHECK_NE(bytes, nullptr);
-  DCHECK_NE(decimal, nullptr);
-  decimal->value = *reinterpret_cast<const int64_t*>(bytes);
-}
-
-void FromBytes(const uint8_t* bytes, Decimal128* decimal) {
-  decimal->value = Int128(bytes);
-}
-
-void ToBytes(const Decimal32& value, uint8_t** bytes) {
-  DCHECK_NE(*bytes, nullptr);
-  *reinterpret_cast<int32_t*>(*bytes) = value.value;
-}
-
-void ToBytes(const Decimal64& value, uint8_t** bytes) {
-  DCHECK_NE(*bytes, nullptr);
-  *reinterpret_cast<int64_t*>(*bytes) = value.value;
-}
-
-void ToBytes(const Decimal128& decimal, uint8_t** bytes) {
-  DCHECK_NE(bytes, nullptr);
-  DCHECK_NE(*bytes, nullptr);
-  decimal.value.ToBytes(bytes);
+  return str;
 }
 
 }  // namespace decimal

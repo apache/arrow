@@ -28,6 +28,7 @@
 #include "arrow/api.h"
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"
@@ -579,43 +580,23 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
   std::shared_ptr<SeqConverter> value_converter_;
 };
 
-#define DECIMAL_CONVERT_CASE(bit_width, item, builder)         \
-  case bit_width: {                                            \
-    arrow::decimal::Decimal##bit_width out;                    \
-    std::string string_out;                                    \
-    RETURN_NOT_OK(PythonDecimalToString((item), &string_out)); \
-    RETURN_NOT_OK(FromString(string_out, &out));               \
-    return ((builder)->Append(out));                           \
-    break;                                                     \
-  }
-
 class DecimalConverter
     : public TypedConverterVisitor<arrow::DecimalBuilder, DecimalConverter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
-    /// Can the compiler figure out that the case statement below isn't necessary
-    /// once we're running?
-    const int bit_width =
-        std::dynamic_pointer_cast<arrow::DecimalType>(typed_builder_->type())
-            ->bit_width();
-
     /// TODO(phillipc): Check for nan?
     if (item.obj() != Py_None) {
-      switch (bit_width) {
-        DECIMAL_CONVERT_CASE(32, item.obj(), typed_builder_)
-        DECIMAL_CONVERT_CASE(64, item.obj(), typed_builder_)
-        DECIMAL_CONVERT_CASE(128, item.obj(), typed_builder_)
-        default:
-          return Status::OK();
-      }
-      RETURN_IF_PYERROR();
-    } else {
-      return typed_builder_->AppendNull();
+      std::string string;
+      RETURN_NOT_OK(PythonDecimalToString(item.obj(), &string));
+
+      decimal::Int128 value;
+      RETURN_NOT_OK(decimal::FromString(string, &value));
+      return typed_builder_->Append(value);
     }
+
+    return typed_builder_->AppendNull();
   }
 };
-
-#undef DECIMAL_CONVERT_CASE
 
 // Dynamic constructor for sequence converters
 std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type) {
