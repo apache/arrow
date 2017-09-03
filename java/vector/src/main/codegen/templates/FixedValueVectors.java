@@ -403,7 +403,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
     @Override
     public ${friendlyType} getObject(int index) {
-      return org.apache.arrow.vector.util.DecimalUtility.getBigDecimalFromArrowBuf(data, ${type.width} * index, scale);
+      return DecimalUtility.getBigDecimalFromArrowBuf(data, index, scale);
     }
 
       <#else>
@@ -596,10 +596,10 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
      set(index, holder.start, holder.buffer);
    }
 
-   public void setSafe(int index,  Nullable${minor.class}Holder holder){
+   public void setSafe(int index, Nullable${minor.class}Holder holder){
      setSafe(index, holder.start, holder.buffer);
    }
-   public void setSafe(int index,  ${minor.class}Holder holder){
+   public void setSafe(int index, ${minor.class}Holder holder){
      setSafe(index, holder.start, holder.buffer);
    }
 
@@ -612,6 +612,18 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
    public void set(int index, int start, ArrowBuf buffer){
      data.setBytes(index * ${type.width}, buffer, start, ${type.width});
+   }
+
+   public void set(int index, ${friendlyType} value){
+     DecimalUtility.checkPrecisionAndScale(value, precision, scale);
+     DecimalUtility.writeBigDecimalToArrowBuf(value, data, index);
+   }
+
+   public void setSafe(int index, ${friendlyType} value){
+     while(index >= getValueCapacity()) {
+       reAlloc();
+     }
+     set(index, value);
    }
 
        <#else>

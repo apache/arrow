@@ -26,10 +26,12 @@ import java.util.List;
 import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -54,6 +56,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.commons.codec.binary.Hex;
 
@@ -233,9 +236,16 @@ public class JsonFileWriter implements AutoCloseable {
       case BIT:
         generator.writeNumber(((BitVector) valueVector).getAccessor().get(i));
         break;
-      case VARBINARY:
-        String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
-        generator.writeObject(hexString);
+      case VARBINARY: {
+          String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
+          generator.writeString(hexString);
+        }
+        break;
+      case DECIMAL: {
+          ArrowBuf bytebuf = valueVector.getDataBuffer();
+          String hexString = Hex.encodeHexString(DecimalUtility.getByteArrayFromArrowBuf(bytebuf, i));
+          generator.writeString(hexString);
+        }
         break;
       default:
         // TODO: each type

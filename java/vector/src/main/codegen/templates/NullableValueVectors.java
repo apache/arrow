@@ -724,6 +724,19 @@ protected final static byte[] emptyByteArray = new byte[]{};
     }
 
     </#if>
+    <#if minor.class == "Decimal">
+    public void set(int index, ${friendlyType} value) {
+      bits.getMutator().setToOne(index);
+      values.getMutator().set(index, value);
+    }
+
+    public void setSafe(int index, ${friendlyType} value) {
+      bits.getMutator().setSafeToOne(index);
+      values.getMutator().setSafe(index, value);
+      setCount++;
+    }
+
+    </#if>
     @Override
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;
