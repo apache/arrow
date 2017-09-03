@@ -161,6 +161,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenWriteable(const std::string& path, bool append,
                        std::shared_ptr<HdfsOutputStream>* file);
 
+  Status GetFileBlockLocations(const std::string& path , int64_t offset, int64_t size , std::vector<std::vector<std::string>> * block_locations);
+
  private:
   friend class HdfsReadableFile;
   friend class HdfsOutputStream;
