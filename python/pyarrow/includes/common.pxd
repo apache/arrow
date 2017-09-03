@@ -52,6 +52,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsNotImplemented()
         c_bool IsTypeError()
         c_bool IsSerializationError()
+        c_bool IsPythonError()
         c_bool IsPlasmaObjectExists()
         c_bool IsPlasmaObjectNonexistent()
         c_bool IsPlasmaStoreFull()
