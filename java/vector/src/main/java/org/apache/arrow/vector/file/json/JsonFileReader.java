@@ -64,6 +64,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ValueVector.Mutator;
 import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.NullableMapVector;
@@ -314,6 +315,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         break;
       case VARBINARY:
         ((VarBinaryVector) valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
+        break;
+      case FIXEDSIZEBINARY:
+        ((FixedSizeBinaryVector) valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
         break;
       case VARCHAR:
         ((VarCharVector) valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));

@@ -53,6 +53,7 @@ import org.apache.arrow.vector.NullableUInt2Vector;
 import org.apache.arrow.vector.NullableUInt4Vector;
 import org.apache.arrow.vector.NullableUInt8Vector;
 import org.apache.arrow.vector.NullableVarBinaryVector;
+import org.apache.arrow.vector.NullableFixedSizeBinaryVector;
 import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -92,11 +93,13 @@ import org.apache.arrow.vector.complex.impl.UInt8WriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
+import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
@@ -376,6 +379,17 @@ public class Types {
         return new VarBinaryWriterImpl((NullableVarBinaryVector) vector);
       }
     },
+    FIXEDSIZEBINARY(null) {
+      @Override
+      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new NullableFixedSizeBinaryVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new FixedSizeBinaryWriterImpl((NullableFixedSizeBinaryVector) vector);
+      }
+    },
     DECIMAL(null) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
@@ -595,6 +609,11 @@ public class Types {
       @Override
       public MinorType visit(Binary type) {
         return MinorType.VARBINARY;
+      }
+
+      @Override
+      public MinorType visit(FixedSizeBinary type) {
+        return MinorType.FIXEDSIZEBINARY;
       }
 
       @Override

@@ -572,7 +572,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
      * @param index   position of the bit to set
      * @param value   array of bytes (or int if smaller than 4 bytes) to write
      */
-    public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
+    public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width >= 0 && type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setCount++;
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       final BitVector.Mutator bitsMutator = bits.getMutator();
@@ -673,7 +673,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
     }
 
     <#assign fields = minor.fields!type.fields />
-    public void set(int index, int isSet<#list fields as field>, ${field.type} ${field.name}Field</#list> ){
+    public void set(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {

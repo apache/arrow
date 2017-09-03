@@ -798,6 +798,51 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void fixedSizeBinaryWriters() throws Exception {
+    // test values
+    int numValues = 10;
+    int byteWidth = 9;
+    byte[][] values = new byte[numValues][byteWidth];
+    for (int i = 0; i < numValues; i++) {
+      for (int j = 0; j < byteWidth; j++) {
+        values[i][j] = ((byte) i);
+      }
+    }
+    ArrowBuf[] bufs = new ArrowBuf[numValues];
+    for (int i = 0; i < numValues; i++) {
+      bufs[i] = allocator.buffer(byteWidth);
+      bufs[i].setBytes(0, values[i]);
+    }
+
+    // write
+    MapVector parent = new MapVector("parent", allocator, null);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+
+    String fieldName = "fixedSizeBinary";
+    FixedSizeBinaryWriter fixedSizeBinaryWriter = rootWriter.fixedSizeBinary(fieldName, byteWidth);
+    for (int i = 0; i < numValues; i++) {
+      fixedSizeBinaryWriter.setPosition(i);
+      fixedSizeBinaryWriter.writeFixedSizeBinary(i, bufs[i]);
+    }
+
+    // schema
+    List<Field> children = parent.getField().getChildren().get(0).getChildren();
+    Assert.assertEquals(fieldName, children.get(0).getName());
+    Assert.assertEquals(ArrowType.FixedSizeBinary.TYPE_TYPE, children.get(0).getType().getTypeID());
+
+    // read
+    MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
+
+    FieldReader fixedSizeBinaryReader = rootReader.reader(fieldName);
+    for (int i = 0; i < numValues; i++) {
+      fixedSizeBinaryReader.setPosition(i);
+      byte[] readValues = fixedSizeBinaryReader.readByteArray();
+      Assert.assertArrayEquals(values[i], readValues);
+    }
+  }
+
+  @Test
   public void complexCopierWithList() {
     MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
