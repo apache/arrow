@@ -262,10 +262,10 @@ class Int128Test : public ::testing::Test {
 
 using Int128Types = ::testing::Types<
     char, unsigned char,
-    short, unsigned short,
+    short, unsigned short,  // NOLINT
     int, unsigned int,
-    long, unsigned long,
-    long long, unsigned long long
+    long, unsigned long,  // NOLINT
+    long long, unsigned long long  // NOLINT
 >;
 
 TYPED_TEST_CASE(Int128Test, Int128Types);
