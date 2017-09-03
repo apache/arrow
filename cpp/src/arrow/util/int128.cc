@@ -1,20 +1,19 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 #include <algorithm>
 #include <cmath>
@@ -64,11 +63,15 @@ Int128::Int128(const uint8_t* bytes)
     : Int128(reinterpret_cast<const int64_t*>(bytes)[0],
              reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 
-void Int128::ToBytes(uint8_t** out) const {
-  DCHECK_NE(out, nullptr) << "Cannot fill nullptr of bytes from Int128";
-  DCHECK_NE(*out, nullptr) << "Cannot fill nullptr of bytes from Int128";
+Status Int128::ToBytes(std::array<uint8_t, 16>* out) const {
+  if (out == nullptr) {
+    return Status::Invalid("Cannot fill nullptr of bytes from Int128");
+  }
+
   const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
-  std::memcpy(*out, raw, 16);
+  const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
+  std::copy(raw_data, raw_data + out->size(), out->begin());
+  return Status::OK();
 }
 
 Int128& Int128::Negate() {

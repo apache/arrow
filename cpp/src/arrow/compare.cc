@@ -313,20 +313,14 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
   const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
-  const uint8_t* left_data = nullptr;
-  const uint8_t* right_data = nullptr;
-
-  if (left.values()) {
-    left_data = left.raw_values();
-  }
-  if (right.values()) {
-    right_data = right.raw_values();
-  }
+  const uint8_t* left_data = left.values() ? left.raw_values() : nullptr;
+  const uint8_t* right_data = right.values() ? right.raw_values() : nullptr;
 
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
-      bool left_null = left.IsNull(i);
-      if (!left_null && (memcmp(left_data, right_data, byte_width) || right.IsNull(i))) {
+      const bool left_null = left.IsNull(i);
+      const bool right_null = right.IsNull(i);
+      if (!left_null && (memcmp(left_data, right_data, byte_width) != 0 || right_null)) {
         return false;
       }
       left_data += byte_width;
@@ -334,34 +328,9 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
     }
     return true;
   } else {
-    return memcmp(left_data, right_data,
-                  static_cast<size_t>(byte_width * left.length())) == 0;
+    auto number_of_bytes_to_compare = static_cast<size_t>(byte_width * left.length());
+    return memcmp(left_data, right_data, number_of_bytes_to_compare) == 0;
   }
-}
-
-template <typename T>
-static inline bool CompareBuiltIn(const Array& left, const Array& right, const T* ldata,
-                                  const T* rdata) {
-  if (ldata == nullptr && rdata == nullptr) {
-    return true;
-  }
-
-  if (ldata == nullptr || rdata == nullptr) {
-    return false;
-  }
-
-  if (left.null_count() > 0) {
-    for (int64_t i = 0; i < left.length(); ++i) {
-      if (left.IsNull(i) != right.IsNull(i)) {
-        return false;
-      } else if (!left.IsNull(i) && (ldata[i] != rdata[i])) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  return memcmp(ldata, rdata, sizeof(T) * left.length()) == 0;
 }
 
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
@@ -370,6 +339,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
   Status Visit(const NullArray& left) {
+    ARROW_UNUSED(left);
     result_ = true;
     return Status::OK();
   }
@@ -505,27 +475,6 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       result_ = left.indices()->Equals(right.indices());
     }
     return Status::OK();
-  }
-
-  Status Visit(const DecimalArray& left) {
-    const int byte_width = left.byte_width();
-    if (byte_width == 4) {
-      result_ = CompareBuiltIn<int32_t>(
-          left, right_, reinterpret_cast<const int32_t*>(left.raw_values()),
-          reinterpret_cast<const int32_t*>(
-              static_cast<const DecimalArray&>(right_).raw_values()));
-      return Status::OK();
-    }
-
-    if (byte_width == 8) {
-      result_ = CompareBuiltIn<int64_t>(
-          left, right_, reinterpret_cast<const int64_t*>(left.raw_values()),
-          reinterpret_cast<const int64_t*>(
-              static_cast<const DecimalArray&>(right_).raw_values()));
-      return Status::OK();
-    }
-
-    return RangeEqualsVisitor::Visit(left);
   }
 
   template <typename T>

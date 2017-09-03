@@ -39,6 +39,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
@@ -605,16 +606,6 @@ Status PandasConverter::ConvertDates() {
   return PushBuilderResult(&builder);
 }
 
-#define CONVERT_DECIMAL_CASE(bit_width, builder, object)         \
-  case bit_width: {                                              \
-    decimal::Decimal##bit_width d;                               \
-    std::string string_out;                                      \
-    RETURN_NOT_OK(PythonDecimalToString((object), &string_out)); \
-    RETURN_NOT_OK(FromString(string_out, &d));                   \
-    RETURN_NOT_OK((builder).Append(d));                          \
-    break;                                                       \
-  }
-
 Status PandasConverter::ConvertDecimals() {
   PyAcquireGIL lock;
 
@@ -634,20 +625,18 @@ Status PandasConverter::ConvertDecimals() {
 
   type_ = std::make_shared<DecimalType>(precision, scale);
 
-  const int bit_width = std::dynamic_pointer_cast<DecimalType>(type_)->bit_width();
   DecimalBuilder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
     if (PyObject_IsInstance(object, Decimal.obj())) {
-      switch (bit_width) {
-        CONVERT_DECIMAL_CASE(32, builder, object)
-        CONVERT_DECIMAL_CASE(64, builder, object)
-        CONVERT_DECIMAL_CASE(128, builder, object)
-        default:
-          break;
-      }
+      std::string string;
+      RETURN_NOT_OK(PythonDecimalToString(object, &string));
+
+      decimal::Int128 value;
+      RETURN_NOT_OK(decimal::FromString(string, &value));
+      RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
@@ -687,8 +676,6 @@ Status PandasConverter::ConvertTimes() {
   }
   return PushBuilderResult(&builder);
 }
-
-#undef CONVERT_DECIMAL_CASE
 
 Status PandasConverter::ConvertObjectStrings() {
   PyAcquireGIL lock;
