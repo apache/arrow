@@ -161,7 +161,7 @@ std::string ToString(const Int128& decimal_value, int precision, int scale) {
   size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
                          + (scale == precision)   // Add a space for leading 0
                          + (value < 0);           // Add a space for negative sign
-  std::string str = std::string(last_char_idx, '0');
+  std::string str(last_char_idx, '0');
 
   // Start filling in the values in reverse order by taking the last digit
   // of the value. Use a positive value and worry about the sign later. At this
