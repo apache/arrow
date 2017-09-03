@@ -563,23 +563,46 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
                           pool, kMaxNestingDepth, true);
 }
 
-Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
-                   int64_t* body_length) {
-  if (!tensor.is_contiguous()) {
-    return Status::Invalid("No support yet for writing non-contiguous tensors");
+Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size, const Tensor& tensor, io::OutputStream* dst) {
+  // TODO(pcm): optimize recursion base case by doing bulk write if possible
+  if (dim_index == tensor.ndim()) {
+    for(int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+      RETURN_NOT_OK(dst->Write(tensor.raw_data() + offset + i * tensor.strides()[dim_index], elem_size));
+    }
+    return Status::OK();
   }
+  for(int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+    RETURN_NOT_OK(WriteStridedTensorData(dim_index + 1, offset, elem_size, tensor, dst));
+    offset += tensor.strides()[dim_index];
+  }
+  return Status::OK();
+}
 
+Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+                   int64_t* body_length) {
   RETURN_NOT_OK(AlignStreamPosition(dst));
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(WriteTensorMessage(tensor, 0, &metadata));
-  RETURN_NOT_OK(WriteMessage(*metadata, dst, metadata_length));
-  auto data = tensor.data();
-  if (data) {
-    *body_length = data->size();
-    return dst->Write(data->data(), *body_length);
+  return WriteMessage(*metadata, dst, metadata_length);
+}
+
+Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+                   int64_t* body_length) {
+  if (tensor.is_contiguous()) {
+    RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
+    auto data = tensor.data();
+    if (data) {
+      *body_length = data->size();
+      return dst->Write(data->data(), *body_length);
+    } else {
+      *body_length = 0;
+      return Status::OK();
+    }
   } else {
-    *body_length = 0;
-    return Status::OK();
+    Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
+    const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
+    RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
+    return WriteStridedTensorData(0, 0, type.bit_width() / 8, tensor, dst);
   }
 }
 

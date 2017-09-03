@@ -93,14 +93,17 @@ PRIMITIVE_OBJECTS = [
     np.uint8(3), np.uint32(4), np.uint64(5), np.float32(1.9),
     np.float64(1.9), np.zeros([100, 100]),
     np.random.normal(size=[100, 100]), np.array(["hi", 3]),
-    np.array(["hi", 3], dtype=object)]
+    np.array(["hi", 3], dtype=object),
+    np.random.normal(size=[45, 22]).T]
+
 
 if sys.version_info >= (3, 0):
     PRIMITIVE_OBJECTS += [0, np.array([["hi", u"hi"], [1.3, 1]])]
 else:
-    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0), \
-                          np.array([["hi", u"hi"], \
-                          [1.3, long(1)]])] # noqa: E501,F821
+    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0),
+                          np.array([["hi", u"hi"],
+                          [1.3, long(1)]])]  # noqa: E501,F821
+
 
 COMPLEX_OBJECTS = [
     [[[[[[[[[[[[]]]]]]]]]]]],
@@ -261,12 +264,14 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
+
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for t in ["int8", "uint8", "int16", "uint16",
                   "int32", "uint32", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)
+
 
 def test_numpy_immutable(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
@@ -278,9 +283,12 @@ def test_numpy_immutable(large_memory_map):
         with pytest.raises(ValueError):
             result[0] = 1.0
 
+
 @pytest.mark.skip(reason="extensive memory requirements")
 def test_arrow_limits(self):
-    huge_memory_map = lambda temp_dir: large_memory_map(temp_dir, 100 * 1024 * 1024 * 1024)
+    def huge_memory_map(temp_dir):
+        return large_memory_map(temp_dir, 100 * 1024 * 1024 * 1024)
+
     with pa.memory_map(huge_memory_map, mode="r+") as mmap:
         # Test that objects that are too large for Arrow throw a Python
         # exception. These tests give out of memory errors on Travis and need
@@ -294,8 +302,8 @@ def test_arrow_limits(self):
         l = 2 ** 29 * [["1"], 2, 3, [{"s": 4}]]
         serialization_roundtrip(l, mmap)
         del l
-        serialization_roundtrip(l, mmap)
         l = 2 ** 29 * [{"s": 1}] + 2 ** 29 * [1.0]
+        serialization_roundtrip(l, mmap)
         del l
         l = np.zeros(2 ** 25)
         serialization_roundtrip(l, mmap)
@@ -303,6 +311,7 @@ def test_arrow_limits(self):
         l = [np.zeros(2 ** 18) for _ in range(2 ** 7)]
         serialization_roundtrip(l, mmap)
         del l
+
 
 def test_serialization_callback_error():
 
@@ -320,7 +329,7 @@ def test_serialization_callback_error():
     serialization_context.register_type(TempClass, 20*b"\x00")
     serialized_object = pa.serialize(TempClass(), serialization_context)
     deserialization_context = pa.SerializationContext()
-    
+
     # Pass a Serialization Context into deserialize, but TempClass
     # is not registered
     with pytest.raises(pa.DeserializationCallbackError) as err:
