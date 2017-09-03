@@ -89,7 +89,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
 
   std::string::const_iterator whole_part_start = charp;
 
-  while (charp != end && isdigit(*charp)) {
+  while (charp != end && std::isdigit(*charp) == 1) {
     ++charp;
   }
 
@@ -105,7 +105,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
           "end of the string.");
     }
 
-    if (!isdigit(*charp)) {
+    if (std::isdigit(*charp) == 0) {
       std::stringstream ss;
       ss << "Decimal point must be followed by a base ten digit. Found '" << *charp
          << "'";
@@ -167,28 +167,31 @@ std::string ToString(const Int128& decimal_value, int precision, int scale) {
                          + (scale == precision)   // Add a space for leading 0
                          + (value < 0);           // Add a space for negative sign
   std::string str = std::string(last_char_idx, '0');
+
   // Start filling in the values in reverse order by taking the last digit
   // of the value. Use a positive value and worry about the sign later. At this
   // point the last_char_idx points to the string terminator.
-  Int128 remaining_value = value;
+  Int128 remaining_value(value);
+
   size_t first_digit_idx = 0;
   if (value < 0) {
     remaining_value = -value;
     first_digit_idx = 1;
   }
+
   if (scale > 0) {
     int remaining_scale = scale;
     do {
-      str[--last_char_idx] = static_cast<char>(remaining_value % 10 +
-                                               static_cast<Int128>('0'));  // Ascii offset
+      str[--last_char_idx] =
+          static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
       remaining_value /= 10;
     } while (--remaining_scale > 0);
     str[--last_char_idx] = '.';
     DCHECK_GT(last_char_idx, first_digit_idx) << "Not enough space remaining";
   }
+
   do {
-    str[--last_char_idx] = static_cast<char>(remaining_value % 10 +
-                                             static_cast<Int128>('0'));  // Ascii offset
+    str[--last_char_idx] = static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
     remaining_value /= 10;
     if (remaining_value == 0) {
       // Trim any extra leading 0's.
@@ -200,7 +203,11 @@ std::string ToString(const Int128& decimal_value, int precision, int scale) {
     }
     // For safety, enforce string length independent of remaining_value.
   } while (last_char_idx > first_digit_idx);
-  if (value < 0) str[0] = '-';
+
+  if (value < 0) {
+    str[0] = '-';
+  }
+
   return str;
 }
 
