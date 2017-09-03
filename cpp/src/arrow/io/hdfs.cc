@@ -511,22 +511,24 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status GetFileBlockLocations(const std::string & path , int64_t offset , int64_t size , std::vector<std::vector<std::string>> * block_location){
-      char *** blocks = driver_->GetHosts(fs_ , path.c_str() , offset , size);
-      if (blocks == nullptr){
-          //TODO : Create a error over here and return
-          return Status::IOError("HDFS:GetFileBlockLocations failed");
+  Status GetFileBlockLocations(const std::string& path, int64_t offset, int64_t size,
+                               std::vector<std::vector<std::string>>* block_location) {
+    char*** blocks = driver_->GetHosts(fs_, path.c_str(), offset, size);
+    if (blocks == nullptr) {
+      // TODO : Create a error over here and return
+      return Status::IOError("HDFS:GetFileBlockLocations failed");
+    }
+    for (size_t b = 0; blocks[b]; b++) {
+      std::vector<std::string> host_list;
+      for (size_t h = 0; blocks[b]++; h++) {
+        host_list.push_back(std::string(blocks[b][h]));
       }
-      for(size_t b = 0 ; blocks[b] ; b++){
-          std::vector <std::string> host_list;
-          for(size_t h = 0 ; blocks[b]++ ; h++){
-              host_list.push_back(std::string(blocks[b][h]));
-          }
-          block_location->push_back(host_list);
-      }
-      driver_->FreeHosts(blocks);
-      return Status::OK();
+      block_location->push_back(host_list);
+    }
+    driver_->FreeHosts(blocks);
+    return Status::OK();
   }
+
  private:
   internal::LibHdfsShim* driver_;
 
@@ -630,8 +632,10 @@ Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) 
   return impl_->Rename(src, dst);
 }
 
-Status HadoopFileSystem::GetFileBlockLocations(const std::string & path , int64_t offset , int64_t size , std::vector<std::vector<std::string>> *block_location){
-    return impl_->GetFileBlockLocations(path , offset , size,block_location);
+Status HadoopFileSystem::GetFileBlockLocations(
+    const std::string& path, int64_t offset, int64_t size,
+    std::vector<std::vector<std::string>>* block_location) {
+  return impl_->GetFileBlockLocations(path, offset, size, block_location);
 }
 
 // ----------------------------------------------------------------------
