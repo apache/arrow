@@ -97,7 +97,7 @@ class ARROW_EXPORT Buffer {
   std::shared_ptr<Buffer> parent_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Buffer);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
 /// \brief Create Buffer referencing std::string memory

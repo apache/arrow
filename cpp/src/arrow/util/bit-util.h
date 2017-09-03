@@ -39,7 +39,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/util/compiler-util.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 #ifdef ARROW_USE_SSE
@@ -251,7 +251,7 @@ static inline int PopcountNoHw(uint64_t x) {
 /// Returns the number of set bits in x
 static inline int Popcount(uint64_t x) {
 #ifdef ARROW_USE_SSE
-  if (LIKELY(CpuInfo::IsSupported(CpuInfo::POPCNT))) {
+  if (ARROW_PREDICT_TRUE(CpuInfo::IsSupported(CpuInfo::POPCNT))) {
     return POPCNT_popcnt_u64(x);
   } else {
     return PopcountNoHw(x);
@@ -270,8 +270,8 @@ static inline int PopcountSigned(T v) {
 
 /// Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
-  if (UNLIKELY(num_bits == 0)) return 0;
-  if (UNLIKELY(num_bits >= 64)) return v;
+  if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
+  if (ARROW_PREDICT_FALSE(num_bits >= 64)) return v;
   int n = 64 - num_bits;
   return (v << n) >> n;
 }

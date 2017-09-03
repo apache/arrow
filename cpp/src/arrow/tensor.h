@@ -111,7 +111,7 @@ class ARROW_EXPORT Tensor {
   std::vector<std::string> dim_names_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Tensor);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Tensor);
 };
 
 }  // namespace arrow

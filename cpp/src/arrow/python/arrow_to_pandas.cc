@@ -260,7 +260,7 @@ class PandasBlock {
   int64_t* placement_data_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(PandasBlock);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(PandasBlock);
 };
 
 template <typename T>

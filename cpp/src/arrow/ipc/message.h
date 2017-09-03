@@ -117,7 +117,7 @@ class ARROW_EXPORT Message {
   class MessageImpl;
   std::unique_ptr<MessageImpl> impl_;
 
-  DISALLOW_COPY_AND_ASSIGN(Message);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Message);
 };
 
 ARROW_EXPORT std::string FormatMessageType(Message::Type type);

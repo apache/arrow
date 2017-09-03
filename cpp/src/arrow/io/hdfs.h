@@ -169,7 +169,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   std::unique_ptr<HadoopFileSystemImpl> impl_;
 
   HadoopFileSystem();
-  DISALLOW_COPY_AND_ASSIGN(HadoopFileSystem);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HadoopFileSystem);
 };
 
 #ifndef ARROW_NO_DEPRECATED_API
@@ -211,7 +211,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   friend class HadoopFileSystem::HadoopFileSystemImpl;
 
-  DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
 };
 
 // Naming this file OutputStream because it does not support seeking (like the
@@ -238,7 +238,7 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   HdfsOutputStream();
 
-  DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
 };
 
 Status ARROW_EXPORT HaveLibHdfs();
