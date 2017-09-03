@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <sstream>
@@ -64,9 +65,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
   DCHECK_LT(charp, end);
 
   // skip leading zeros
-  while (charp != end && *charp == '0') {
-    ++charp;
-  }
+  charp = std::find_if_not(charp, end, [](char c) { return c == '0'; });
 
   // all zeros and no decimal point
   if (charp == end) {
@@ -89,9 +88,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
 
   std::string::const_iterator whole_part_start = charp;
 
-  while (charp != end && std::isdigit(*charp) != 0) {
-    ++charp;
-  }
+  charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
 
   std::string::const_iterator whole_part_end = charp;
   std::string whole_part(whole_part_start, whole_part_end);
@@ -125,9 +122,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
   // The rest must be digits, because if we have a decimal point it must be followed by
   // digits
   if (charp != end) {
-    while (charp != end && std::isdigit(*charp) != 0) {
-      ++charp;
-    }
+    charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
 
     // The while loop has ended before the end of the string which means we've hit a
     // character that isn't a base ten digit
