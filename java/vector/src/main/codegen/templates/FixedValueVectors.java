@@ -67,6 +67,12 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
     this.${typeParam.name} = ${typeParam.name};
     </#list>
   }
+
+    <#list typeParams as typeParam>
+  public ${typeParam.type} get${typeParam.name?cap_first}() {
+    return ${typeParam.name};
+  }
+    </#list>
   <#else>
   public ${className}(String name, BufferAllocator allocator) {
     super(name, allocator);
@@ -80,12 +86,12 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
   @Override
   public Field getField() {
-        throw new UnsupportedOperationException("internal vector");
+    throw new UnsupportedOperationException("internal vector");
   }
 
   @Override
   public FieldReader getReader(){
-        throw new UnsupportedOperationException("non-nullable vectors cannot be used in readers");
+    throw new UnsupportedOperationException("non-nullable vectors cannot be used in readers");
   }
 
   @Override
@@ -305,7 +311,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
 
   public void copyFromSafe(int fromIndex, int thisIndex, ${className} from){
     while(thisIndex >= getValueCapacity()) {
-        reAlloc();
+      reAlloc();
     }
     copyFrom(fromIndex, thisIndex, from);
   }

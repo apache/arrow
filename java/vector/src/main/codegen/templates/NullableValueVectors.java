@@ -65,7 +65,9 @@ protected final static byte[] emptyByteArray = new byte[]{};
   <#if minor.typeParams??>
     <#assign typeParams = minor.typeParams?reverse>
     <#list typeParams as typeParam>
-  private final ${typeParam.type} ${typeParam.name};
+  public ${typeParam.type} get${typeParam.name?cap_first}() {
+    return values.get${typeParam.name?cap_first}();
+  }
     </#list>
 
   /**
@@ -97,7 +99,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
     <#assign typeParams = minor.typeParams?reverse>
     ${minor.arrowType} arrowType = (${minor.arrowType})fieldType.getType();
     <#list typeParams as typeParam>
-    this.${typeParam.name} = arrowType.get${typeParam.name?cap_first}();
+    ${typeParam.type} ${typeParam.name} = arrowType.get${typeParam.name?cap_first}();
     </#list>
     this.values = new ${valuesName}(valuesField, allocator<#list typeParams as typeParam>, ${typeParam.name}</#list>);
     <#else>
@@ -331,7 +333,7 @@ protected final static byte[] emptyByteArray = new byte[]{};
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-        return getTransferPair(ref, allocator);
+    return getTransferPair(ref, allocator);
   }
 
   @Override
