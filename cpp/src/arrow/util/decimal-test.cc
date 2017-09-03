@@ -252,5 +252,38 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   ASSERT_EQ(d, 0);
 }
 
+
+template <typename T>
+class Int128Test : public ::testing::Test {
+ public:
+  Int128Test() : value_(42) {}
+  const T value_;
+};
+
+using Int128Types = ::testing::Types<
+    char, unsigned char,
+    short, unsigned short,
+    int, unsigned int,
+    long, unsigned long,
+    long long, unsigned long long
+>;
+
+TYPED_TEST_CASE(Int128Test, Int128Types);
+
+TYPED_TEST(Int128Test, ConstructibleFromAnyIntegerType) {
+  Int128 value(this->value_);
+  ASSERT_EQ(42, value.low_bits());
+}
+
+TEST(Int128TestTrue, ConstructibleFromBool) {
+  Int128 value(true);
+  ASSERT_EQ(1, value.low_bits());
+}
+
+TEST(Int128TestFalse, ConstructibleFromBool) {
+  Int128 value(false);
+  ASSERT_EQ(0, value.low_bits());
+}
+
 }  // namespace decimal
 }  // namespace arrow

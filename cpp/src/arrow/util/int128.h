@@ -40,7 +40,9 @@ class ARROW_EXPORT Int128 {
   constexpr Int128() : Int128(0, 0) {}
 
   /// \brief Convert a signed 64 bit value into an Int128.
-  constexpr Int128(int64_t value)
+  template <typename T,
+            typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+  constexpr Int128(const T& value)
       : Int128(value >= 0 ? 0 : -1, static_cast<uint64_t>(value)) {}
 
   /// \brief Convert a signed 32 bit value into an Int128.
