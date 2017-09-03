@@ -339,7 +339,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
   Status Visit(const NullArray& left) {
-    UNUSED(left);
+    ARROW_UNUSED(left);
     result_ = true;
     return Status::OK();
   }
