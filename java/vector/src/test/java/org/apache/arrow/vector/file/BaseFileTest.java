@@ -18,6 +18,8 @@
 
 package org.apache.arrow.vector.file;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullableDateMilliVector;
+import org.apache.arrow.vector.NullableDecimalVector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTimeMilliVector;
 import org.apache.arrow.vector.NullableVarCharVector;
@@ -56,7 +59,6 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
-import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.arrow.vector.util.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
@@ -314,7 +316,6 @@ public class BaseFileTest {
     Assert.assertEquals(1, accessor.getObject(4));
     Assert.assertEquals(0, accessor.getObject(5));
 
-
     FieldVector vector2 = root.getVector("sizes");
     Assert.assertNotNull(vector2);
 
@@ -408,28 +409,57 @@ public class BaseFileTest {
     Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
   }
 
-  protected void validateNestedDictionary(ListVector vector, DictionaryProvider provider) {
-    Assert.assertNotNull(vector);
-    Assert.assertNull(vector.getField().getDictionary());
-    Field nestedField = vector.getField().getChildren().get(0);
+  protected VectorSchemaRoot writeDecimalData(BufferAllocator bufferAllocator) {
+    NullableDecimalVector decimalVector1 = new NullableDecimalVector("decimal1", bufferAllocator, 10, 3);
+    NullableDecimalVector decimalVector2 = new NullableDecimalVector("decimal2", bufferAllocator, 4, 2);
+    NullableDecimalVector decimalVector3 = new NullableDecimalVector("decimal3", bufferAllocator, 16, 8);
 
-    DictionaryEncoding encoding = nestedField.getDictionary();
-    Assert.assertNotNull(encoding);
-    Assert.assertEquals(2L, encoding.getId());
-    Assert.assertEquals(new ArrowType.Int(32, true), encoding.getIndexType());
+    int count = 10;
+    decimalVector1.allocateNew(count);
+    decimalVector2.allocateNew(count);
+    decimalVector3.allocateNew(count);
 
-    ListVector.Accessor accessor = vector.getAccessor();
-    Assert.assertEquals(3, accessor.getValueCount());
-    Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
-    Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
-    Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+    for (int i = 0; i < count; i++) {
+      decimalVector1.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i), 3));
+      decimalVector2.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i * (1 << 10)), 2));
+      decimalVector3.getMutator().setSafe(i, new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), 8));
+    }
 
-    Dictionary dictionary = provider.lookup(2L);
-    Assert.assertNotNull(dictionary);
-    NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary.getVector()).getAccessor();
-    Assert.assertEquals(2, dictionaryAccessor.getValueCount());
-    Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-    Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+    decimalVector1.getMutator().setValueCount(count);
+    decimalVector2.getMutator().setValueCount(count);
+    decimalVector3.getMutator().setValueCount(count);
+
+    List<Field> fields = ImmutableList.of(decimalVector1.getField(), decimalVector2.getField(), decimalVector3.getField());
+    List<FieldVector> vectors = ImmutableList.<FieldVector>of(decimalVector1, decimalVector2, decimalVector3);
+    return new VectorSchemaRoot(fields, vectors, count);
+  }
+
+  protected void validateDecimalData(VectorSchemaRoot root) {
+    NullableDecimalVector decimalVector1 = (NullableDecimalVector) root.getVector("decimal1");
+    NullableDecimalVector decimalVector2 = (NullableDecimalVector) root.getVector("decimal2");
+    NullableDecimalVector decimalVector3 = (NullableDecimalVector) root.getVector("decimal3");
+    int count = 10;
+    Assert.assertEquals(count, root.getRowCount());
+
+    for (int i = 0; i < count; i++) {
+      // Verify decimal 1 vector
+      BigDecimal readValue = decimalVector1.getAccessor().getObject(i);
+      ArrowType.Decimal type = (ArrowType.Decimal) decimalVector1.getField().getType();
+      BigDecimal genValue = new BigDecimal(BigInteger.valueOf(i), type.getScale());
+      Assert.assertEquals(genValue, readValue);
+
+      // Verify decimal 2 vector
+      readValue = decimalVector2.getAccessor().getObject(i);
+      type = (ArrowType.Decimal) decimalVector2.getField().getType();
+      genValue = new BigDecimal(BigInteger.valueOf(i * (1 << 10)), type.getScale());
+      Assert.assertEquals(genValue, readValue);
+
+      // Verify decimal 3 vector
+      readValue = decimalVector3.getAccessor().getObject(i);
+      type = (ArrowType.Decimal) decimalVector3.getField().getType();
+      genValue = new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), type.getScale());
+      Assert.assertEquals(genValue, readValue);
+    }
   }
 
   protected void writeData(int count, MapVector parent) {

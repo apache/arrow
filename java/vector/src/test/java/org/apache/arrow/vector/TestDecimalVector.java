@@ -19,6 +19,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -27,6 +28,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.DecimalUtility;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class TestDecimalVector {
@@ -43,27 +46,69 @@ public class TestDecimalVector {
 
   private int scale = 3;
 
+  private BufferAllocator allocator;
+
+  @Before
+  public void init() {
+    allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
+  }
+
+  @After
+  public void terminate() throws Exception {
+    allocator.close();
+  }
+
   @Test
-  public void test() {
-    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);
-    try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, 10, scale);) {
-      assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
-    }
-    decimalVector.allocateNew();
-    BigDecimal[] values = new BigDecimal[intValues.length];
-    for (int i = 0; i < intValues.length; i++) {
-      BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
-      values[i] = decimal;
-      decimalVector.getMutator().setIndexDefined(i);
-      DecimalUtility.writeBigDecimalToArrowBuf(decimal, decimalVector.getBuffer(), i);
-    }
+  public void testValuesWriteRead() {
+    try (NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);) {
 
-    decimalVector.getMutator().setValueCount(intValues.length);
+      try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, 10, scale);) {
+        assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
+      }
 
-    for (int i = 0; i < intValues.length; i++) {
-      BigDecimal value = decimalVector.getAccessor().getObject(i);
-      assertEquals(values[i], value);
+      decimalVector.allocateNew();
+      BigDecimal[] values = new BigDecimal[intValues.length];
+      for (int i = 0; i < intValues.length; i++) {
+        BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
+        values[i] = decimal;
+        decimalVector.getMutator().setSafe(i, decimal);
+      }
+
+      decimalVector.getMutator().setValueCount(intValues.length);
+
+      for (int i = 0; i < intValues.length; i++) {
+        BigDecimal value = decimalVector.getAccessor().getObject(i);
+        assertEquals(values[i], value);
+      }
+    }
+  }
+
+  @Test
+  public void testBigDecimalDifferentScaleAndPrecision() {
+    try (NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(4, 2), allocator);) {
+      decimalVector.allocateNew();
+
+      // test BigDecimal with different scale
+      boolean hasError = false;
+      try {
+        BigDecimal decimal = new BigDecimal(BigInteger.valueOf(0), 3);
+        decimalVector.getMutator().setSafe(0, decimal);
+      } catch (UnsupportedOperationException ue) {
+        hasError = true;
+      } finally {
+        assertTrue(hasError);
+      }
+
+      // test BigDecimal with larger precision than initialized
+      hasError = false;
+      try {
+        BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
+        decimalVector.getMutator().setSafe(0, decimal);
+      } catch (UnsupportedOperationException ue) {
+        hasError = true;
+      } finally {
+        assertTrue(hasError);
+      }
     }
   }
 }

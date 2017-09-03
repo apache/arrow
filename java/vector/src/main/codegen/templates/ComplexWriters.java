@@ -24,6 +24,7 @@
 <#assign eName = name />
 <#assign javaType = (minor.javaType!type.javaType) />
 <#assign fields = minor.fields!type.fields />
+<#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${eName}WriterImpl.java" />
 <#include "/@includes/license.ftl" />
@@ -115,7 +116,13 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     mutator.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
     vector.getMutator().setValueCount(idx()+1);
   }
+  <#if minor.class == "Decimal">
 
+  public void write${minor.class}(${friendlyType} value) {
+    mutator.setSafe(idx(), value);
+    vector.getMutator().setValueCount(idx()+1);
+  }
+  </#if>
   <#if mode == "Nullable">
 
   public void writeNull() {
@@ -140,6 +147,10 @@ public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
+<#if minor.class == "Decimal">
+
+  public void write${minor.class}(${friendlyType} value);
+</#if>
 }
 
 </#list>
