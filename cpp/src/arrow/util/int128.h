@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <type_traits>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
