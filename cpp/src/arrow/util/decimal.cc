@@ -89,7 +89,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
 
   std::string::const_iterator whole_part_start = charp;
 
-  while (charp != end && std::isdigit(*charp) == 1) {
+  while (charp != end && static_cast<bool>(std::isdigit(*charp))) {
     ++charp;
   }
 
@@ -105,7 +105,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
           "end of the string.");
     }
 
-    if (std::isdigit(*charp) == 0) {
+    if (!static_cast<bool>(std::isdigit(*charp))) {
       std::stringstream ss;
       ss << "Decimal point must be followed by a base ten digit. Found '" << *charp
          << "'";
@@ -125,7 +125,7 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
   // The rest must be digits, because if we have a decimal point it must be followed by
   // digits
   if (charp != end) {
-    while (charp != end && isdigit(*charp)) {
+    while (charp != end && static_cast<bool>(std::isdigit(*charp))) {
       ++charp;
     }
 
