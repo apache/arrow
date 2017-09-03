@@ -22,9 +22,9 @@
 
 #include <cstdint>
 
-#include "arrow/util/compiler-util.h"
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/sse-util.h"
 
 namespace arrow {

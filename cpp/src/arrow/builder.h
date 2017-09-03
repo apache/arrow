@@ -156,7 +156,7 @@ class ARROW_EXPORT ArrayBuilder {
   void UnsafeSetNotNull(int64_t length);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
