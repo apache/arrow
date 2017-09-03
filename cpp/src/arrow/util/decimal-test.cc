@@ -252,7 +252,6 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   ASSERT_EQ(d, 0);
 }
 
-
 template <typename T>
 class Int128Test : public ::testing::Test {
  public:
@@ -260,13 +259,11 @@ class Int128Test : public ::testing::Test {
   const T value_;
 };
 
-using Int128Types = ::testing::Types<
-    char, unsigned char,
-    short, unsigned short,  // NOLINT
-    int, unsigned int,
-    long, unsigned long,  // NOLINT
-    long long, unsigned long long  // NOLINT
->;
+using Int128Types =
+    ::testing::Types<char, unsigned char, short, unsigned short,  // NOLINT
+                     int, unsigned int, long, unsigned long,      // NOLINT
+                     long long, unsigned long long                // NOLINT
+                     >;
 
 TYPED_TEST_CASE(Int128Test, Int128Types);
 

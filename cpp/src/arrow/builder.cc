@@ -33,8 +33,8 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int128.h"
 #include "arrow/util/hash-util.h"
+#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
