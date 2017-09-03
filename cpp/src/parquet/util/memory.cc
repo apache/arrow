@@ -128,7 +128,7 @@ uint8_t* ChunkedAllocator::Allocate(int size) {
       num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
           chunks_[current_chunk_idx_].size) {
     // If we couldn't allocate a new chunk, return NULL.
-    if (UNLIKELY(!FindChunk(num_bytes))) return NULL;
+    if (ARROW_PREDICT_FALSE(!FindChunk(num_bytes))) return NULL;
   }
   ChunkInfo& info = chunks_[current_chunk_idx_];
   uint8_t* result = info.data + info.allocated_bytes;
@@ -195,7 +195,7 @@ bool ChunkedAllocator::FindChunk(int64_t min_size) {
     // Allocate a new chunk. Return early if malloc fails.
     uint8_t* buf = nullptr;
     PARQUET_THROW_NOT_OK(pool_->Allocate(chunk_size, &buf));
-    if (UNLIKELY(buf == NULL)) {
+    if (ARROW_PREDICT_FALSE(buf == NULL)) {
       DCHECK_EQ(current_chunk_idx_, static_cast<int>(chunks_.size()));
       current_chunk_idx_ = static_cast<int>(chunks_.size()) - 1;
       return false;

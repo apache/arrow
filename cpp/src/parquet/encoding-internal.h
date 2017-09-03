@@ -28,6 +28,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/hash-util.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/rle-encoding.h"
 
 #include "parquet/encoding.h"
@@ -490,8 +491,8 @@ class DictEncoder : public Encoder<DType> {
 
   /// The minimum bit width required to encode the currently buffered indices.
   int bit_width() const {
-    if (UNLIKELY(num_entries() == 0)) return 0;
-    if (UNLIKELY(num_entries() == 1)) return 1;
+    if (ARROW_PREDICT_FALSE(num_entries() == 0)) return 0;
+    if (ARROW_PREDICT_FALSE(num_entries() == 1)) return 1;
     return BitUtil::Log2(num_entries());
   }
 
@@ -639,7 +640,8 @@ inline void DictEncoder<DType>::Put(const typename DType::c_type& v) {
     hash_slots_[j] = index;
     AddDictKey(v);
 
-    if (UNLIKELY(static_cast<int>(uniques_.size()) > hash_table_size_ * MAX_HASH_LOAD)) {
+    if (ARROW_PREDICT_FALSE(static_cast<int>(uniques_.size()) >
+                            hash_table_size_ * MAX_HASH_LOAD)) {
       DoubleTableSize();
     }
   }
@@ -693,7 +695,7 @@ inline void DictEncoder<DType>::AddDictKey(const typename DType::c_type& v) {
 template <>
 inline void DictEncoder<ByteArrayType>::AddDictKey(const ByteArray& v) {
   uint8_t* heap = pool_->Allocate(v.len);
-  if (UNLIKELY(v.len > 0 && heap == nullptr)) {
+  if (ARROW_PREDICT_FALSE(v.len > 0 && heap == nullptr)) {
     throw ParquetException("out of memory");
   }
   memcpy(heap, v.ptr, v.len);
@@ -704,7 +706,7 @@ inline void DictEncoder<ByteArrayType>::AddDictKey(const ByteArray& v) {
 template <>
 inline void DictEncoder<FLBAType>::AddDictKey(const FixedLenByteArray& v) {
   uint8_t* heap = pool_->Allocate(type_length_);
-  if (UNLIKELY(type_length_ > 0 && heap == nullptr)) {
+  if (ARROW_PREDICT_FALSE(type_length_ > 0 && heap == nullptr)) {
     throw ParquetException("out of memory");
   }
   memcpy(heap, v.ptr, type_length_);
@@ -830,7 +832,7 @@ class DeltaBitPackDecoder : public Decoder<DType> {
     max_values = std::min(max_values, num_values_);
     const uint8_t* bit_width_data = delta_bit_widths_->data();
     for (int i = 0; i < max_values; ++i) {
-      if (UNLIKELY(values_current_mini_block_ == 0)) {
+      if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         ++mini_block_idx_;
         if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_->size())) {
           delta_bit_width_ = bit_width_data[mini_block_idx_];

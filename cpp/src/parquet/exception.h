@@ -26,6 +26,11 @@
 
 #include "parquet/util/visibility.h"
 
+// PARQUET-1085
+#if !defined(ARROW_UNUSED)
+#define ARROW_UNUSED(x) UNUSED(x)
+#endif
+
 #define PARQUET_CATCH_NOT_OK(s)                    \
   try {                                            \
     (s);                                           \
@@ -36,7 +41,7 @@
 #define PARQUET_IGNORE_NOT_OK(s) \
   do {                           \
     ::arrow::Status _s = (s);    \
-    UNUSED(_s);                  \
+    ARROW_UNUSED(_s);            \
   } while (0)
 
 #define PARQUET_THROW_NOT_OK(s)                     \
