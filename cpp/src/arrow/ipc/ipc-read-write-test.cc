@@ -737,13 +737,9 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   test::randint<int64_t>(24, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
-  Tensor tensor(int64(), data, {4, 3}, {48, 16});
+  Tensor tensor(int64(), data, {4, 3}, {6, 2});
 
-  int32_t metadata_length;
-  int64_t body_length;
-  ASSERT_OK(mmap_->Seek(0));
-  ASSERT_RAISES(Invalid,
-                WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+  CheckTensorRoundTrip(tensor);
 }
 
 }  // namespace ipc

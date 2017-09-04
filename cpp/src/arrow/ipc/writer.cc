@@ -566,7 +566,7 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
 Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
                               const Tensor& tensor, io::OutputStream* dst) {
   // TODO(pcm): optimize recursion base case by doing bulk write if possible
-  if (dim_index == tensor.ndim()) {
+  if (dim_index == tensor.ndim() - 1) {
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
       RETURN_NOT_OK(dst->Write(
           tensor.raw_data() + offset + i * tensor.strides()[dim_index], elem_size));
