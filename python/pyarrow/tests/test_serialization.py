@@ -264,6 +264,7 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
+<<<<<<< HEAD
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:

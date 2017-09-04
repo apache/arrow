@@ -105,7 +105,7 @@ def test_tensor_ipc_strided(tmpdir):
     tensor1 = pa.Tensor.from_numpy(data1[::2])
 
     data2 = np.random.randn(10, 6, 4)
-    tensor2 = pa.Tensor.from_numpy(data2[::,::2,::])
+    tensor2 = pa.Tensor.from_numpy(data2[::, ::2, ::])
 
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-strided')
     mmap = pa.create_memory_map(path, 2048)
@@ -119,13 +119,14 @@ def test_tensor_ipc_strided(tmpdir):
 
         assert result.equals(tensor)
 
+
 def test_tensor_equals():
-    data = np.random.randn(10, 6, 4)[::,::2,::]
+    data = np.random.randn(10, 6, 4)[::, ::2, ::]
     tensor1 = pa.Tensor.from_numpy(data)
     tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
     assert tensor1.equals(tensor2)
     data = data.copy()
-    data[9,0,0] = 1.0
+    data[9, 0, 0] = 1.0
     tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
     assert not tensor1.equals(tensor2)
 
