@@ -818,18 +818,16 @@ def write_to_dataset(table, root_path, partition_cols=None,
     manner:
 
     root_dir/
-    ├── group1=value1
-    │   ├── group2=value1
-    │   │   └── <uuid>.parquet
-    │   └── group2=value2
-    │       └── <uuid>.parquet
-    ...
-    └── group1=valueN
-        ├── group2=value1
-        │   └── <uuid>.parquet
-        ...
-        └── group2=valueN
-            └──<uuid>.parquet
+      group1=value1
+        group2=value1
+          <uuid>.parquet
+        group2=value2
+          <uuid>.parquet
+      group1=valueN
+        group2=value1
+          <uuid>.parquet
+        group2=valueN
+          <uuid>.parquet
 
     Parameters
     ----------
@@ -856,10 +854,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
     else:
         fs = _ensure_filesystem(filesystem)
 
-    if not fs.isdir(root_path):
+    if not fs.exists(root_path):
         fs.mkdir(root_path)
 
-    if partition_cols is not None:
+    if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas()
         partition_keys = [df[col] for col in partition_cols]
         data_df = df.drop(partition_cols, axis='columns')
@@ -872,9 +870,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subdir = "/".join(
                 ["{colname}={value}".format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = Table.from_pandas(subgroup, preserve_index=preserve_index)
+            subtable = Table.from_pandas(subgroup,
+                                         preserve_index=preserve_index)
             prefix = "/".join([root_path, subdir])
-            fs.mkdir(prefix)
+            if not fs.exists(prefix):
+                fs.mkdir(prefix)
             outfile = compat.guid() + ".parquet"
             full_path = "/".join([prefix, outfile])
             with fs.open(full_path, 'wb') as f:

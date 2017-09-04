@@ -1149,8 +1149,7 @@ def test_read_non_existent_file(tmpdir):
         assert path in e.args[0]
 
 
-@parquet
-def test_write_partitions(tmpdir):
+def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
     # ARROW-1400
     import pyarrow.parquet as pq
 
@@ -1162,8 +1161,9 @@ def test_write_partitions(tmpdir):
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df)
-    pq.write_to_dataset(output_table, str(tmpdir), partition_by)
-    input_table = pq.ParquetDataset(str(tmpdir)).read()
+    pq.write_to_dataset(output_table, base_path, partition_by,
+                        filesystem=filesystem)
+    input_table = pq.ParquetDataset(base_path, filesystem=filesystem).read()
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame
@@ -1178,8 +1178,7 @@ def test_write_partitions(tmpdir):
     assert output_df.equals(input_df)
 
 
-@parquet
-def test_write_no_partitions(tmpdir):
+def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
     # ARROW-1400
     import pyarrow.parquet as pq
 
@@ -1191,18 +1190,33 @@ def test_write_no_partitions(tmpdir):
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
+    if filesystem is None:
+        filesystem = LocalFileSystem.get_instance()
+
     # Without partitions, append files to root_path
     n = 5
     for i in range(n):
-        pq.write_to_dataset(output_table, str(tmpdir))
-    output_files = [file for file in os.listdir(str(tmpdir))
+        pq.write_to_dataset(output_table, base_path,
+                            filesystem=filesystem)
+    output_files = [file for file in filesystem.ls(base_path)
                     if file.endswith(".parquet")]
     assert len(output_files) == n
 
     # Deduplicated incoming DataFrame should match
     # original outgoing Dataframe
-    input_table = pq.ParquetDataset(str(tmpdir)).read()
+    input_table = pq.ParquetDataset(base_path,
+                                    filesystem=filesystem).read()
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
     assert output_df.equals(input_df)
+
+
+@parquet
+def test_write_to_dataset_with_partitions(tmpdir):
+    _test_write_to_dataset_with_partitions(str(tmpdir))
+
+
+@parquet
+def test_write_to_dataset_no_partitions(tmpdir):
+    _test_write_to_dataset_no_partitions(str(tmpdir))
