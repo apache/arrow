@@ -608,7 +608,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
   int64_t K = 1000;
 
   for (int64_t i = 0; i < K; ++i) {
-    is_valid.push_back(this->valid_bytes_[i]);
+    is_valid.push_back(this->valid_bytes_[i] != 0);
   }
   ASSERT_OK(this->builder_->Append(draws.data(), K, is_valid));
 
@@ -618,7 +618,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
   // Append the next 9000
   is_valid.clear();
   for (int64_t i = K; i < size; ++i) {
-    is_valid.push_back(this->valid_bytes_[i]);
+    is_valid.push_back(this->valid_bytes_[i] != 0);
   }
 
   ASSERT_OK(this->builder_->Append(draws.data() + K, size - K, is_valid));
