@@ -16,13 +16,14 @@
 # under the License.
 
 import os
+import inspect
 import json
 
 import six
 
 import numpy as np
 
-from pyarrow.filesystem import FileSystem, LocalFileSystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
                               RowGroupMetaData, ParquetSchema,
                               ParquetWriter)
@@ -645,13 +646,18 @@ class ParquetDataset(object):
 
 
 def _ensure_filesystem(fs):
-    if not isinstance(fs, FileSystem):
-        if type(fs).__name__ == 'S3FileSystem':
-            from pyarrow.filesystem import S3FSWrapper
-            return S3FSWrapper(fs)
-        else:
-            raise IOError('Unrecognized filesystem: {0}'
-                          .format(type(fs)))
+    fs_type = type(fs)
+
+    # If the arrow filesystem was subclassed, assume it supports the full interface and return it
+    if not issubclass(fs_type, FileSystem):
+        for mro in inspect.getmro(fs_type):
+            if mro.__name__ is 'S3FileSystem':
+                return S3FSWrapper(fs)
+            # In case its a simple LocalFileSystem (e.g. dask) use native arrow FS
+            elif mro.__name__ is 'LocalFileSystem':
+                return LocalFileSystem.get_instance()
+
+        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
     else:
         return fs
 
