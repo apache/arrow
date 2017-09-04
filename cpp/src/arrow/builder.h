@@ -83,9 +83,11 @@ class ARROW_EXPORT ArrayBuilder {
 
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
+
   /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
   /// assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
@@ -151,6 +153,9 @@ class ARROW_EXPORT ArrayBuilder {
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
+  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
+
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
@@ -202,12 +207,23 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value)
+  /// \return Status
   Status Append(const value_type* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const value_type* values, int64_t length,
+                const std::vector<bool>& is_valid);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
@@ -395,17 +411,20 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
     return Status::OK();
   }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value)
+  /// \return Status
   Status Append(const uint64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
 
-  Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
+  Status ExpandIntSize(uint8_t new_int_size);
+
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
@@ -454,17 +473,20 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
     return Status::OK();
   }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value)
+  /// \return Status
   Status Append(const int64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
 
-  Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
+  Status ExpandIntSize(uint8_t new_int_size);
+
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
@@ -521,12 +543,29 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status Append(const uint8_t val) { return Append(val != 0); }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous array of bytes (non-zero is 1)
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value)
+  /// \return Status
   Status Append(const uint8_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const uint8_t* values, int64_t length, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values an std::vector<bool> indicating true (1) or false
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<bool>& values, const std::vector<bool>& is_valid);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;

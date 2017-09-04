@@ -593,6 +593,42 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVector) {
   this->Check(this->builder_nn_, false);
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
+  // ARROW-1383
+  DECL_T();
+
+  int64_t size = 10000;
+  this->RandomData(size);
+
+  vector<T>& draws = this->draws_;
+
+  std::vector<bool> is_valid;
+
+  // first slug
+  int64_t K = 1000;
+
+  for (int64_t i = 0; i < K; ++i) {
+    is_valid.push_back(this->valid_bytes_[i] != 0);
+  }
+  ASSERT_OK(this->builder_->Append(draws.data(), K, is_valid));
+
+  ASSERT_EQ(1000, this->builder_->length());
+  ASSERT_EQ(1024, this->builder_->capacity());
+
+  // Append the next 9000
+  is_valid.clear();
+  for (int64_t i = K; i < size; ++i) {
+    is_valid.push_back(this->valid_bytes_[i] != 0);
+  }
+
+  ASSERT_OK(this->builder_->Append(draws.data() + K, size - K, is_valid));
+
+  ASSERT_EQ(size, this->builder_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
+  this->Check(this->builder_, true);
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
   int64_t n = 1000;
   ASSERT_OK(this->builder_->Reserve(n));
@@ -628,6 +664,39 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(kMinBuilderCapacity));
 
   ASSERT_EQ(BitUtil::NextPower2(kMinBuilderCapacity + 100), this->builder_->capacity());
+}
+
+TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
+  BooleanBuilder builder;
+
+  std::vector<bool> values, is_valid;
+
+  const int length = 10000;
+  test::random_is_valid(length, 0.5, &values);
+  test::random_is_valid(length, 0.1, &is_valid);
+
+  const int chunksize = 1000;
+  for (int chunk = 0; chunk < length / chunksize; ++chunk) {
+    std::vector<bool> chunk_values, chunk_is_valid;
+    for (int i = chunk * chunksize; i < (chunk + 1) * chunksize; ++i) {
+      chunk_values.push_back(values[i]);
+      chunk_is_valid.push_back(is_valid[i]);
+    }
+    ASSERT_OK(builder.Append(chunk_values, chunk_is_valid));
+  }
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  const auto& arr = static_cast<const BooleanArray&>(*result);
+  for (int i = 0; i < length; ++i) {
+    if (is_valid[i]) {
+      ASSERT_FALSE(arr.IsNull(i));
+      ASSERT_EQ(values[i], arr.Value(i));
+    } else {
+      ASSERT_TRUE(arr.IsNull(i));
+    }
+  }
 }
 
 template <typename TYPE>

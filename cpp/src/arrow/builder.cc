@@ -154,6 +154,37 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
   length_ += length;
 }
 
+void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
+  int64_t byte_offset = length_ / 8;
+  int64_t bit_offset = length_ % 8;
+  uint8_t bitset = null_bitmap_data_[byte_offset];
+
+  const int64_t length = static_cast<int64_t>(is_valid.size());
+
+  for (int64_t i = 0; i < length; ++i) {
+    if (bit_offset == 8) {
+      bit_offset = 0;
+      null_bitmap_data_[byte_offset] = bitset;
+      byte_offset++;
+      // TODO: Except for the last byte, this shouldn't be needed
+      bitset = null_bitmap_data_[byte_offset];
+    }
+
+    if (is_valid[i]) {
+      bitset |= BitUtil::kBitmask[bit_offset];
+    } else {
+      bitset &= BitUtil::kFlippedBitmask[bit_offset];
+      ++null_count_;
+    }
+
+    bit_offset++;
+  }
+  if (bit_offset != 0) {
+    null_bitmap_data_[byte_offset] = bitset;
+  }
+  length_ += length;
+}
+
 void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   const int64_t new_length = length + length_;
 
@@ -239,6 +270,23 @@ Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
 
   // length_ is update by these
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+
+  return Status::OK();
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
+                                   const std::vector<bool>& is_valid) {
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+
+  if (length > 0) {
+    std::memcpy(raw_data_ + length_, values,
+                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
+  }
+
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
 
   return Status::OK();
 }
@@ -691,20 +739,38 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
-    // Skip reading from unitialised memory
-    // TODO: This actually is only to keep valgrind happy but may or may not
-    // have a performance impact.
-    if ((valid_bytes != nullptr) && !valid_bytes[i]) continue;
-
-    if (values[i] > 0) {
-      BitUtil::SetBit(raw_data_, length_ + i);
-    } else {
-      BitUtil::ClearBit(raw_data_, length_ + i);
-    }
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
   }
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
+                              const std::vector<bool>& is_valid) {
+  RETURN_NOT_OK(Reserve(length));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
+  }
+
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const std::vector<bool>& values,
+                              const std::vector<bool>& is_valid) {
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+  }
+
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
   return Status::OK();
 }
 
