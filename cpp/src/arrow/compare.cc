@@ -694,6 +694,29 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
   return Status::OK();
 }
 
+bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
+                                int elem_size, const Tensor& left, const Tensor& right) {
+  if (dim_index == left.ndim() - 1) {
+    for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
+      if (memcmp(left.raw_data() + left_offset + i * left.strides()[dim_index],
+                 right.raw_data() + right_offset + i * right.strides()[dim_index],
+                 elem_size) != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+  for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
+    if (!StridedTensorContentEquals(dim_index + 1, left_offset, right_offset, elem_size,
+                                    left, right)) {
+      return false;
+    }
+    left_offset += left.strides()[dim_index];
+    right_offset += right.strides()[dim_index];
+  }
+  return true;
+}
+
 Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
@@ -704,19 +727,25 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
     *are_equal = true;
   } else {
     if (!left.is_contiguous() || !right.is_contiguous()) {
-      return Status::NotImplemented(
-          "Comparison not implemented for non-contiguous tensors");
+      const auto& shape = left.shape();
+      if (shape != right.shape()) {
+        *are_equal = false;
+        return Status::OK();
+      }
+      const auto& type = static_cast<const FixedWidthType&>(*left.type());
+      *are_equal = StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
+      return Status::OK();
+    } else {
+      const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+      const int byte_width = size_meta.bit_width() / CHAR_BIT;
+      DCHECK_GT(byte_width, 0);
+
+      const uint8_t* left_data = left.data()->data();
+      const uint8_t* right_data = right.data()->data();
+
+      *are_equal = memcmp(left_data, right_data,
+                          static_cast<size_t>(byte_width * left.size())) == 0;
     }
-
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / CHAR_BIT;
-    DCHECK_GT(byte_width, 0);
-
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right.data()->data();
-
-    *are_equal =
-        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
   }
   return Status::OK();
 }

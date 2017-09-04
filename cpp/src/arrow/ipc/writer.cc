@@ -563,23 +563,62 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
                           pool, kMaxNestingDepth, true);
 }
 
-Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
-                   int64_t* body_length) {
-  if (!tensor.is_contiguous()) {
-    return Status::Invalid("No support yet for writing non-contiguous tensors");
+static Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
+                                     const Tensor& tensor, uint8_t* scratch_space,
+                                     io::OutputStream* dst) {
+  if (dim_index == tensor.ndim() - 1) {
+    const uint8_t* data_ptr = tensor.raw_data() + offset;
+    const int64_t stride = tensor.strides()[dim_index];
+    for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+      memcpy(scratch_space + i * elem_size, data_ptr, elem_size);
+      data_ptr += stride;
+    }
+    return dst->Write(scratch_space, elem_size * tensor.shape()[dim_index]);
   }
+  for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
+    RETURN_NOT_OK(WriteStridedTensorData(dim_index + 1, offset, elem_size, tensor,
+                                         scratch_space, dst));
+    offset += tensor.strides()[dim_index];
+  }
+  return Status::OK();
+}
 
+Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
+                         int32_t* metadata_length, int64_t* body_length) {
   RETURN_NOT_OK(AlignStreamPosition(dst));
   std::shared_ptr<Buffer> metadata;
   RETURN_NOT_OK(WriteTensorMessage(tensor, 0, &metadata));
-  RETURN_NOT_OK(WriteMessage(*metadata, dst, metadata_length));
-  auto data = tensor.data();
-  if (data) {
-    *body_length = data->size();
-    return dst->Write(data->data(), *body_length);
+  return WriteMessage(*metadata, dst, metadata_length);
+}
+
+Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
+                   int64_t* body_length) {
+  if (tensor.is_contiguous()) {
+    RETURN_NOT_OK(WriteTensorHeader(tensor, dst, metadata_length, body_length));
+    auto data = tensor.data();
+    if (data) {
+      *body_length = data->size();
+      return dst->Write(data->data(), *body_length);
+    } else {
+      *body_length = 0;
+      return Status::OK();
+    }
   } else {
-    *body_length = 0;
-    return Status::OK();
+    Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
+    const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
+    RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
+
+    const int elem_size = type.bit_width() / 8;
+
+    // TODO(wesm): Do we care enough about this temporary allocation to pass in
+    // a MemoryPool to this function?
+    std::shared_ptr<Buffer> scratch_space;
+    RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
+                                 tensor.shape()[tensor.ndim() - 1] * elem_size,
+                                 &scratch_space));
+
+    return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
+                                  dst);
   }
 }
 
