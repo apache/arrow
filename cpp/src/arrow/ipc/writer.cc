@@ -563,18 +563,22 @@ Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offs
                           pool, kMaxNestingDepth, true);
 }
 
-Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
-                              const Tensor& tensor, io::OutputStream* dst) {
+static Status WriteStridedTensorData(int dim_index, int64_t offset, int elem_size,
+                                     const Tensor& tensor, uint8_t* scratch_space,
+                                     io::OutputStream* dst) {
   // TODO(pcm): optimize recursion base case by doing bulk write if possible
   if (dim_index == tensor.ndim() - 1) {
+    const uint8_t* data_ptr = tensor.raw_data() + offset;
+    const int64_t stride = tensor.strides()[dim_index];
     for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
-      RETURN_NOT_OK(dst->Write(
-          tensor.raw_data() + offset + i * tensor.strides()[dim_index], elem_size));
+      memcpy(scratch_space + i * elem_size, data_ptr, elem_size);
+      data_ptr += stride;
     }
-    return Status::OK();
+    return dst->Write(scratch_space, elem_size * tensor.shape()[dim_index]);
   }
   for (int64_t i = 0; i < tensor.shape()[dim_index]; ++i) {
-    RETURN_NOT_OK(WriteStridedTensorData(dim_index + 1, offset, elem_size, tensor, dst));
+    RETURN_NOT_OK(WriteStridedTensorData(dim_index + 1, offset, elem_size, tensor,
+                                         scratch_space, dst));
     offset += tensor.strides()[dim_index];
   }
   return Status::OK();
@@ -604,7 +608,18 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     Tensor dummy(tensor.type(), tensor.data(), tensor.shape());
     const auto& type = static_cast<const FixedWidthType&>(*tensor.type());
     RETURN_NOT_OK(WriteTensorHeader(dummy, dst, metadata_length, body_length));
-    return WriteStridedTensorData(0, 0, type.bit_width() / 8, tensor, dst);
+
+    const int elem_size = type.bit_width() / 8;
+
+    // TODO(wesm): Do we care enough about this temporary allocation to pass in
+    // a MemoryPool to this function?
+    std::shared_ptr<Buffer> scratch_space;
+    RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
+                                 tensor.shape()[tensor.ndim()] * elem_size,
+                                 &scratch_space));
+
+    return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
+                                  dst);
   }
 }
 
