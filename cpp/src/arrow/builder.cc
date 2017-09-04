@@ -738,7 +738,7 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] > 0);
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
   }
 
   // this updates length_
@@ -751,7 +751,7 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] > 0);
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
   }
 
   // this updates length_
@@ -765,7 +765,7 @@ Status BooleanBuilder::Append(const std::vector<bool>& values,
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
-    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] > 0);
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
   }
 
   // this updates length_
