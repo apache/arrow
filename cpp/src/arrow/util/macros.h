@@ -20,8 +20,8 @@
 
 // From Google gutil
 #ifndef ARROW_DISALLOW_COPY_AND_ASSIGN
-#define ARROW_DISALLOW_COPY_AND_ASSIGN(TypeName)    \
-  TypeName(const TypeName&) = delete;               \
+#define ARROW_DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&) = delete;            \
   void operator=(const TypeName&) = delete
 #endif
 
