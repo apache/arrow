@@ -1147,3 +1147,76 @@ def test_read_non_existent_file(tmpdir):
         pq.read_table(path)
     except Exception as e:
         assert path in e.args[0]
+
+
+def _test_write_to_dataset_with_partitions(base_path, filesystem=None):
+    # ARROW-1400
+    import pyarrow.parquet as pq
+
+    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
+                              'group2': list('eefeffgeee'),
+                              'num': list(range(10)),
+                              'date': np.arange('2017-01-01', '2017-01-11',
+                                                dtype='datetime64[D]')})
+    cols = output_df.columns.tolist()
+    partition_by = ['group1', 'group2']
+    output_table = pa.Table.from_pandas(output_df)
+    pq.write_to_dataset(output_table, base_path, partition_by,
+                        filesystem=filesystem)
+    input_table = pq.ParquetDataset(base_path, filesystem=filesystem).read()
+    input_df = input_table.to_pandas()
+
+    # Read data back in and compare with original DataFrame
+    # Partitioned columns added to the end of the DataFrame when read
+    input_df_cols = input_df.columns.tolist()
+    assert partition_by == input_df_cols[-1 * len(partition_by):]
+
+    # Partitioned columns become 'categorical' dtypes
+    input_df = input_df[cols]
+    for col in partition_by:
+        output_df[col] = output_df[col].astype('category')
+    assert output_df.equals(input_df)
+
+
+def _test_write_to_dataset_no_partitions(base_path, filesystem=None):
+    # ARROW-1400
+    import pyarrow.parquet as pq
+
+    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
+                              'group2': list('eefeffgeee'),
+                              'num': list(range(10)),
+                              'date': np.arange('2017-01-01', '2017-01-11',
+                                                dtype='datetime64[D]')})
+    cols = output_df.columns.tolist()
+    output_table = pa.Table.from_pandas(output_df)
+
+    if filesystem is None:
+        filesystem = LocalFileSystem.get_instance()
+
+    # Without partitions, append files to root_path
+    n = 5
+    for i in range(n):
+        pq.write_to_dataset(output_table, base_path,
+                            filesystem=filesystem)
+    output_files = [file for file in filesystem.ls(base_path)
+                    if file.endswith(".parquet")]
+    assert len(output_files) == n
+
+    # Deduplicated incoming DataFrame should match
+    # original outgoing Dataframe
+    input_table = pq.ParquetDataset(base_path,
+                                    filesystem=filesystem).read()
+    input_df = input_table.to_pandas()
+    input_df = input_df.drop_duplicates()
+    input_df = input_df[cols]
+    assert output_df.equals(input_df)
+
+
+@parquet
+def test_write_to_dataset_with_partitions(tmpdir):
+    _test_write_to_dataset_with_partitions(str(tmpdir))
+
+
+@parquet
+def test_write_to_dataset_no_partitions(tmpdir):
+    _test_write_to_dataset_no_partitions(str(tmpdir))
