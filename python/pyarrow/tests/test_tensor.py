@@ -105,9 +105,14 @@ def test_tensor_ipc_strided(tmpdir):
     tensor = pa.Tensor.from_numpy(data[::2])
 
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-strided')
-    with pytest.raises(ValueError):
-        mmap = pa.create_memory_map(path, 1024)
-        pa.write_tensor(tensor, mmap)
+    mmap = pa.create_memory_map(path, 1024)
+
+    pa.write_tensor(tensor, mmap)
+
+    mmap.seek(0)
+    result = pa.read_tensor(mmap)
+
+    assert result.equals(tensor)
 
 
 def test_tensor_size():
