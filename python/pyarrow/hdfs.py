@@ -52,6 +52,10 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     def rename(self, path, new_path):
         return super(HadoopFileSystem, self).rename(path, new_path)
 
+    @implements(FileSystem.exists)
+    def exists(self, path):
+        return super(HadoopFileSystem, self).exists(path)
+
     def ls(self, path, detail=False):
         """
         Retrieve directory contents and metadata, if requested.
