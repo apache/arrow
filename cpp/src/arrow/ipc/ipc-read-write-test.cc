@@ -737,7 +737,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   test::randint<int64_t>(24, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
-  Tensor tensor(int64(), data, {4, 3}, {6, 2});
+  Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
   CheckTensorRoundTrip(tensor);
 }
