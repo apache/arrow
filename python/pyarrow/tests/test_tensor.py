@@ -101,13 +101,34 @@ def test_tensor_ipc_roundtrip(tmpdir):
 
 
 def test_tensor_ipc_strided(tmpdir):
-    data = np.random.randn(10, 4)
-    tensor = pa.Tensor.from_numpy(data[::2])
+    data1 = np.random.randn(10, 4)
+    tensor1 = pa.Tensor.from_numpy(data1[::2])
+
+    data2 = np.random.randn(10, 6, 4)
+    tensor2 = pa.Tensor.from_numpy(data2[::, ::2, ::])
 
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-strided')
-    with pytest.raises(ValueError):
-        mmap = pa.create_memory_map(path, 1024)
+    mmap = pa.create_memory_map(path, 2048)
+
+    for tensor in [tensor1, tensor2]:
+        mmap.seek(0)
         pa.write_tensor(tensor, mmap)
+
+        mmap.seek(0)
+        result = pa.read_tensor(mmap)
+
+        assert result.equals(tensor)
+
+
+def test_tensor_equals():
+    data = np.random.randn(10, 6, 4)[::, ::2, ::]
+    tensor1 = pa.Tensor.from_numpy(data)
+    tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
+    assert tensor1.equals(tensor2)
+    data = data.copy()
+    data[9, 0, 0] = 1.0
+    tensor2 = pa.Tensor.from_numpy(np.ascontiguousarray(data))
+    assert not tensor1.equals(tensor2)
 
 
 def test_tensor_size():
