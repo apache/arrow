@@ -171,20 +171,20 @@ Status GetValue(PyObject* context, std::shared_ptr<Array> arr, int64_t index,
     }                                                                             \
   }                                                                               \
   *out = result.release();                                                        \
-  return Status::OK();
+  return Status::OK()
 
 Status DeserializeList(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
-  DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM)
+  DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM);
 }
 
 Status DeserializeTuple(PyObject* context, std::shared_ptr<Array> array,
                         int64_t start_idx, int64_t stop_idx, PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
-  DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM)
+  DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM);
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
