@@ -22,7 +22,7 @@
 #ifndef ARROW_DISALLOW_COPY_AND_ASSIGN
 #define ARROW_DISALLOW_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&) = delete;            \
-  TypeName& operator=(const TypeName&) = delete
+  void operator=(const TypeName&) = delete
 #endif
 
 #define ARROW_UNUSED(x) (void)x
