@@ -646,11 +646,9 @@ class ParquetDataset(object):
 
 
 def _ensure_filesystem(fs):
-    if not isinstance(fs, type):
-        fs_type = type(fs)
-    else:
-        fs_type = fs
+    fs_type = type(fs)
 
+    # If the arrow filesystem was subclassed, assume it supports the full interface and return it
     if not issubclass(fs_type, FileSystem):
         for mro in inspect.getmro(fs_type):
             if mro.__name__ is 'S3FileSystem':
