@@ -614,7 +614,7 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
     // a MemoryPool to this function?
     std::shared_ptr<Buffer> scratch_space;
     RETURN_NOT_OK(AllocateBuffer(default_memory_pool(),
-                                 tensor.shape()[tensor.ndim()] * elem_size,
+                                 tensor.shape()[tensor.ndim() - 1] * elem_size,
                                  &scratch_space));
 
     return WriteStridedTensorData(0, 0, elem_size, tensor, scratch_space->mutable_data(),
