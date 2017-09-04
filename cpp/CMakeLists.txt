@@ -551,7 +551,7 @@ endif (UNIX)
 # "make format" and "make check-format" targets
 ############################################################
 
-set(CLANG_FORMAT_VERSION 3.9)
+set(CLANG_FORMAT_VERSION 4.0)
 
 # runs clang format and updates files in place.
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py

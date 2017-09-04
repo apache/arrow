@@ -522,7 +522,7 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
         "recursively.");
   }
   SequenceBuilder builder(nullptr);
-  std::vector<PyObject *> sublists, subtuples, subdicts;
+  std::vector<PyObject*> sublists, subtuples, subdicts;
   for (const auto& sequence : sequences) {
     ScopedRef iterator(PyObject_GetIter(sequence));
     RETURN_IF_PYERROR();
@@ -559,7 +559,7 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  std::vector<PyObject *> key_tuples, key_dicts, val_lists, val_tuples, val_dicts, dummy;
+  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts, dummy;
   for (const auto& dict : dicts) {
     PyObject *key, *value;
     Py_ssize_t pos = 0;

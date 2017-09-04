@@ -98,8 +98,7 @@ class NullLog {
 class CerrLog {
  public:
   CerrLog(int severity)  // NOLINT(runtime/explicit)
-      : severity_(severity),
-        has_logged_(false) {}
+      : severity_(severity), has_logged_(false) {}
 
   virtual ~CerrLog() {
     if (has_logged_) {
