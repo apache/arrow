@@ -104,11 +104,11 @@ def _maybe_set_hadoop_classpath():
     if 'hadoop' in os.environ.get('CLASSPATH', ''):
         return
 
-    if 'HADOOP_HOME' not in os.environ:
-        raise IOError('Must set HADOOP_HOME or CLASSPATH environment'
-                      ' variables to use JNI')
+    if 'HADOOP_HOME' in os.environ:
+        hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+    else:
+        hadoop_bin = 'hadoop'
 
-    hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
     classpath = subprocess.check_output([hadoop_bin, 'classpath', '--glob'])
     os.environ['CLASSPATH'] = classpath.decode('utf-8')
 
