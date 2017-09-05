@@ -61,6 +61,14 @@ cdef LoggingMemoryPool _logging_memory_pool = (
 
 
 def log_memory_allocations(enable=True):
+    """
+    Enable or disable memory allocator logging for debugging purposes
+
+    Parameters
+    ----------
+    enable : boolean, default True
+        Pass False to disable logging
+    """
     if enable:
         set_memory_pool(_logging_memory_pool)
     else:
