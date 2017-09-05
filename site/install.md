@@ -142,7 +142,7 @@ To assist with development and debugging, some nightly builds are
 available. These builds are not releases and are to be used strictly for
 development.
 
-* **conda packages** for C++ and Python
+* **conda packages** for C++ and Python (Linux only)
 
 ```
 conda install arrow-cpp -c twosigma
