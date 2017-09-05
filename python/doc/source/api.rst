@@ -222,6 +222,7 @@ Memory Pools
    default_memory_pool
    total_allocated_bytes
    set_memory_pool
+   log_memory_allocations
 
 .. _api.type_classes:
 

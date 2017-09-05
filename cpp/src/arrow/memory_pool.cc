@@ -17,13 +17,12 @@
 
 #include "arrow/memory_pool.h"
 
+#include <stdlib.h>
 #include <algorithm>
-#include <cerrno>
 #include <cstdlib>
-#include <cstring>
 #include <iostream>
 #include <mutex>
-#include <sstream>  // IWYU pragma: keep
+#include <sstream>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -162,20 +161,20 @@ LoggingMemoryPool::LoggingMemoryPool(MemoryPool* pool) : pool_(pool) {}
 
 Status LoggingMemoryPool::Allocate(int64_t size, uint8_t** out) {
   Status s = pool_->Allocate(size, out);
-  std::cout << "Allocate: size = " << size << " - out = " << *out << std::endl;
+  std::cout << "Allocate: size = " << size << std::endl;
   return s;
 }
 
 Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
   Status s = pool_->Reallocate(old_size, new_size, ptr);
-  std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
-            << " - ptr = " << *ptr << std::endl;
+  std::cout << "Reallocate: old_size = " << old_size
+            << " - new_size = " << new_size << std::endl;
   return s;
 }
 
 void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size) {
   pool_->Free(buffer, size);
-  std::cout << "Free: buffer = " << buffer << " - size = " << size << std::endl;
+  std::cout << "Free: size = " << size << std::endl;
 }
 
 int64_t LoggingMemoryPool::bytes_allocated() const {

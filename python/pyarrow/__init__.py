@@ -76,9 +76,12 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          have_libhdfs, have_libhdfs3, MockOutputStream)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
-                         set_memory_pool, default_memory_pool)
+                         set_memory_pool, default_memory_pool,
+                         log_memory_allocations)
+
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
                          concat_tables)
+
 from pyarrow.lib import (ArrowException,
                          ArrowKeyError,
                          ArrowInvalid,
