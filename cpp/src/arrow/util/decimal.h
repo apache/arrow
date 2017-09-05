@@ -23,9 +23,10 @@
 #include "arrow/status.h"
 
 namespace arrow {
-namespace decimal {
 
 class Int128;
+
+namespace DecimalUtil {
 
 ARROW_EXPORT void StringToInteger(const std::string& whole, const std::string& fractional,
                                   int8_t sign, Int128* out);
@@ -35,6 +36,7 @@ ARROW_EXPORT Status FromString(const std::string& string, Int128* out,
 
 ARROW_EXPORT std::string ToString(const Int128& decimal_value, int precision, int scale);
 
-}  // namespace decimal
+}  // namespace DecimalUtil
 }  // namespace arrow
+
 #endif  // ARROW_DECIMAL_H

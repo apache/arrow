@@ -189,8 +189,6 @@ class ArrayLoader {
 
   Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
 
-  Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
-
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
                               !std::is_base_of<FixedSizeBinaryType, T>::value &&

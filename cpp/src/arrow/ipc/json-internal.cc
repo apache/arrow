@@ -346,6 +346,7 @@ class SchemaWriter {
     return WritePrimitive("fixedsizebinary", type);
   }
 
+  Status Visit(const DecimalType& type) { return WritePrimitive("decimal", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
   Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
 
@@ -363,8 +364,6 @@ class SchemaWriter {
     WriteName("union", type);
     return Status::OK();
   }
-
-  Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
 
   Status Visit(const DictionaryType& type) {
     return VisitType(*type.dictionary()->type());
@@ -437,10 +436,11 @@ class ArrayWriter {
   WriteDataValues(const T& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       int32_t length;
-      const char* buf = reinterpret_cast<const char*>(arr.GetValue(i, &length));
+      const uint8_t* buf = arr.GetValue(i, &length);
 
       if (std::is_base_of<StringArray, T>::value) {
-        writer_->String(buf, length);
+        // Presumed UTF-8
+        writer_->String(reinterpret_cast<const char*>(buf), length);
       } else {
         writer_->String(HexEncode(buf, length));
       }
@@ -450,8 +450,9 @@ class ArrayWriter {
   void WriteDataValues(const FixedSizeBinaryArray& arr) {
     int32_t width = arr.byte_width();
     for (int64_t i = 0; i < arr.length(); ++i) {
-      const char* buf = reinterpret_cast<const char*>(arr.GetValue(i));
-      writer_->String(HexEncode(buf, width));
+      const uint8_t* buf = arr.GetValue(i);
+      std::string encoded = HexEncode(buf, width);
+      writer_->String(encoded);
     }
   }
 
@@ -534,8 +535,6 @@ class ArrayWriter {
     SetNoChildren();
     return Status::OK();
   }
-
-  Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
   Status Visit(const DictionaryArray& array) {
     return VisitArrayValues(*array.indices());
@@ -663,6 +662,17 @@ static Status GetFixedSizeBinary(const RjObject& json_type,
 
   int32_t byte_width = it_byte_width->value.GetInt();
   *type = fixed_size_binary(byte_width);
+  return Status::OK();
+}
+
+static Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& it_precision = json_type.FindMember("precision");
+  const auto& it_scale = json_type.FindMember("scale");
+
+  RETURN_NOT_INT("precision", it_precision, json_type);
+  RETURN_NOT_INT("scale", it_scale, json_type);
+
+  *type = decimal(it_precision->value.GetInt(), it_scale->value.GetInt());
   return Status::OK();
 }
 
@@ -802,6 +812,8 @@ static Status GetType(const RjObject& json_type,
     *type = binary();
   } else if (type_name == "fixedsizebinary") {
     return GetFixedSizeBinary(json_type, type);
+  } else if (type_name == "decimal") {
+    return GetDecimal(json_type, type);
   } else if (type_name == "null") {
     *type = null();
   } else if (type_name == "date") {
@@ -817,8 +829,12 @@ static Status GetType(const RjObject& json_type,
     *type = list(children[0]);
   } else if (type_name == "struct") {
     *type = struct_(children);
-  } else {
+  } else if (type_name == "union") {
     return GetUnion(json_type, children, type);
+  } else {
+    std::stringstream ss;
+    ss << "Unrecognized type name: " << type_name;
+    return Status::Invalid(ss.str());
   }
   return Status::OK();
 }
@@ -1039,7 +1055,7 @@ class ArrayReader {
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, Status>::type
   Visit(const T& type) {
-    FixedSizeBinaryBuilder builder(type_, pool_);
+    typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     const auto& json_data = obj_->FindMember("DATA");
     RETURN_NOT_ARRAY("DATA", json_data, *obj_);
@@ -1063,8 +1079,10 @@ class ArrayReader {
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
       std::string hex_string = val.GetString();
-      DCHECK_EQ(static_cast<int32_t>(hex_string.size()), byte_width * 2)
-          << "Expected size: " << byte_width * 2 << " got: " << hex_string.size();
+      if (static_cast<int32_t>(hex_string.size()) != byte_width * 2) {
+        DCHECK(false) << "Expected size: " << byte_width * 2
+                      << " got: " << hex_string.size();
+      }
       const char* hex_data = hex_string.c_str();
 
       for (int32_t j = 0; j < byte_width; ++j) {

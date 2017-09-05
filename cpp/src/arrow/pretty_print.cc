@@ -99,7 +99,7 @@ class ArrayPrinter {
       if (array.IsNull(i)) {
         Write("null");
       } else {
-        const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
+        const uint8_t* buf = array.GetValue(i, &length);
         (*sink_) << HexEncode(buf, length);
       }
     }
@@ -116,8 +116,7 @@ class ArrayPrinter {
       if (array.IsNull(i)) {
         Write("null");
       } else {
-        const char* buf = reinterpret_cast<const char*>(array.GetValue(i));
-        (*sink_) << HexEncode(buf, width);
+        (*sink_) << HexEncode(array.GetValue(i), width);
       }
     }
   }

@@ -33,6 +33,8 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/int128.h"
 
 namespace arrow {
 
@@ -69,7 +71,7 @@ Status MakeArrayFromValidBytes(const vector<uint8_t>& v, MemoryPool* pool,
   int64_t null_count = v.size() - std::accumulate(v.begin(), v.end(), 0);
 
   std::shared_ptr<Buffer> null_buf;
-  RETURN_NOT_OK(BitUtil::BytesToBits(v, &null_buf));
+  RETURN_NOT_OK(BitUtil::BytesToBits(v, default_memory_pool(), &null_buf));
 
   TypedBufferBuilder<int32_t> value_builder(pool);
   for (size_t i = 0; i < v.size(); ++i) {
@@ -157,7 +159,7 @@ TEST_F(TestArray, TestIsNull) {
   }
 
   std::shared_ptr<Buffer> null_buf;
-  ASSERT_OK(BitUtil::BytesToBits(null_bitmap, &null_buf));
+  ASSERT_OK(BitUtil::BytesToBits(null_bitmap, default_memory_pool(), &null_buf));
 
   std::unique_ptr<Array> arr;
   arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
@@ -236,7 +238,8 @@ class TestPrimitiveBuilder : public TestBuilder {
     int64_t ex_null_count = 0;
 
     if (nullable) {
-      ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, &ex_null_bitmap));
+      ASSERT_OK(
+          BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
       ex_null_count = test::null_count(valid_bytes_);
     } else {
       ex_null_bitmap = nullptr;
@@ -327,13 +330,13 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   int64_t size = builder->length();
 
   std::shared_ptr<Buffer> ex_data;
-  ASSERT_OK(BitUtil::BytesToBits(draws_, &ex_data));
+  ASSERT_OK(BitUtil::BytesToBits(draws_, default_memory_pool(), &ex_data));
 
   std::shared_ptr<Buffer> ex_null_bitmap;
   int64_t ex_null_count = 0;
 
   if (nullable) {
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, &ex_null_bitmap));
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &ex_null_bitmap));
     ex_null_count = test::null_count(valid_bytes_);
   } else {
     ex_null_bitmap = nullptr;
@@ -753,7 +756,7 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = test::GetBufferFromVector(chars_);
     offsets_buf_ = test::GetBufferFromVector(offsets_);
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, &null_bitmap_));
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<StringArray>(length_, offsets_buf_, value_buf_,
@@ -967,7 +970,7 @@ class TestBinaryArray : public ::testing::Test {
     value_buf_ = test::GetBufferFromVector(chars_);
     offsets_buf_ = test::GetBufferFromVector(offsets_);
 
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, &null_bitmap_));
+    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
     null_count_ = test::null_count(valid_bytes_);
 
     strings_ = std::make_shared<BinaryArray>(length_, offsets_buf_, value_buf_,
@@ -2463,5 +2466,98 @@ TEST(TestUnionArrayAdHoc, TestSliceEquals) {
   CheckUnion(batch->column(1));
   CheckUnion(batch->column(2));
 }
+
+using DecimalVector = std::vector<Int128>;
+
+class DecimalTest : public ::testing::TestWithParam<int> {
+ public:
+  DecimalTest() {}
+
+  template <size_t BYTE_WIDTH = 16>
+  void MakeData(const DecimalVector& input, std::vector<uint8_t>* out) const {
+    out->reserve(input.size() * BYTE_WIDTH);
+
+    std::array<uint8_t, BYTE_WIDTH> bytes{{0}};
+
+    for (const auto& value : input) {
+      ASSERT_OK(value.ToBytes(&bytes));
+      out->insert(out->end(), bytes.cbegin(), bytes.cend());
+    }
+  }
+
+  template <size_t BYTE_WIDTH = 16>
+  void TestCreate(int32_t precision, const DecimalVector& draw,
+                  const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
+    auto type = std::make_shared<DecimalType>(precision, 4);
+
+    auto builder = std::make_shared<DecimalBuilder>(type);
+
+    size_t null_count = 0;
+
+    const size_t size = draw.size();
+
+    ASSERT_OK(builder->Reserve(size));
+
+    for (size_t i = 0; i < size; ++i) {
+      if (valid_bytes[i]) {
+        ASSERT_OK(builder->Append(draw[i]));
+      } else {
+        ASSERT_OK(builder->AppendNull());
+        ++null_count;
+      }
+    }
+
+    std::shared_ptr<Array> out;
+    ASSERT_OK(builder->Finish(&out));
+
+    std::vector<uint8_t> raw_bytes;
+
+    raw_bytes.reserve(size * BYTE_WIDTH);
+    MakeData<BYTE_WIDTH>(draw, &raw_bytes);
+
+    auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
+    std::shared_ptr<Buffer> expected_null_bitmap;
+    ASSERT_OK(
+        BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &expected_null_bitmap));
+
+    int64_t expected_null_count = test::null_count(valid_bytes);
+    auto expected = std::make_shared<DecimalArray>(
+        type, size, expected_data, expected_null_bitmap, expected_null_count);
+
+    std::shared_ptr<Array> lhs = out->Slice(offset);
+    std::shared_ptr<Array> rhs = expected->Slice(offset);
+    bool result = lhs->Equals(rhs);
+    ASSERT_TRUE(result);
+  }
+};
+
+TEST_P(DecimalTest, NoNulls) {
+  int32_t precision = GetParam();
+  std::vector<Int128> draw = {Int128(1), Int128(-2), Int128(2389), Int128(4),
+                              Int128(-12348)};
+  std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+TEST_P(DecimalTest, WithNulls) {
+  int32_t precision = GetParam();
+  std::vector<Int128> draw = {Int128(1),  Int128(2), Int128(-1), Int128(4),
+                              Int128(-1), Int128(1), Int128(2)};
+  Int128 big;
+  ASSERT_OK(DecimalUtil::FromString("230342903942.234234", &big));
+  draw.push_back(big);
+
+  Int128 big_negative;
+  ASSERT_OK(DecimalUtil::FromString("-23049302932.235234", &big_negative));
+  draw.push_back(big_negative);
+
+  std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
+                                      true, true, true,  true};
+  this->TestCreate(precision, draw, valid_bytes, 0);
+  this->TestCreate(precision, draw, valid_bytes, 2);
+}
+
+INSTANTIATE_TEST_CASE_P(DecimalTest, DecimalTest, ::testing::Range(1, 38));
 
 }  // namespace arrow

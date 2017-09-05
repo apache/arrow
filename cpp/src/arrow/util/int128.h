@@ -27,7 +27,6 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace decimal {
 
 /// Represents a signed 128-bit integer in two's complement.
 /// Calculations wrap around and overflow is ignored.
@@ -125,7 +124,6 @@ ARROW_EXPORT Int128 operator*(const Int128& left, const Int128& right);
 ARROW_EXPORT Int128 operator/(const Int128& left, const Int128& right);
 ARROW_EXPORT Int128 operator%(const Int128& left, const Int128& right);
 
-}  // namespace decimal
 }  // namespace arrow
 
 #endif  //  ARROW_INT128_H

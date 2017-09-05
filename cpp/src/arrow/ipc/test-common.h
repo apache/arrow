@@ -161,12 +161,12 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
   std::vector<uint8_t> values(length);
   test::random_null_bytes(length, 0.5, values.data());
   std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(BitUtil::BytesToBits(values, &data));
+  RETURN_NOT_OK(BitUtil::BytesToBits(values, default_memory_pool(), &data));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
     std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, &null_bitmap));
+    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &null_bitmap));
     test::random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -371,7 +371,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
   std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
   std::shared_ptr<Array> with_nulls(
       new StructArray(type, list_batch->num_rows(), columns, null_bitmask, 1));
 
@@ -431,7 +431,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<uint8_t> null_bytes(length, 1);
   null_bytes[2] = 0;
   std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, &null_bitmask));
+  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
 
   // construct individual nullable/non-nullable struct arrays
   auto sparse_no_nulls =
@@ -664,6 +664,33 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 
   RETURN_NOT_OK(b1.Finish(&a1));
   RETURN_NOT_OK(b2.Finish(&a2));
+
+  ArrayVector arrays = {a1, a2};
+  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
+  return Status::OK();
+}
+
+Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
+  auto f0 = field("f0", decimal(19, 4));
+  auto schema = ::arrow::schema({f0, f0});
+
+  constexpr int kDecimalSize = 16;
+  constexpr int length = 10;
+
+  std::shared_ptr<Buffer> data, is_valid;
+  std::vector<uint8_t> is_valid_bytes(length);
+
+  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), kDecimalSize * length, &data));
+
+  test::random_bytes(kDecimalSize * length, 0, data->mutable_data());
+  test::random_null_bytes(length, 0.1, is_valid_bytes.data());
+
+  RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, default_memory_pool(), &is_valid));
+
+  auto a1 = std::make_shared<DecimalArray>(f0->type(), length, data, is_valid,
+                                           kUnknownNullCount);
+
+  auto a2 = std::make_shared<DecimalArray>(f0->type(), length, data);
 
   ArrayVector arrays = {a1, a2};
   *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);

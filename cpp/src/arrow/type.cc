@@ -455,7 +455,7 @@ std::shared_ptr<Field> field(const std::string& name,
   return std::make_shared<Field>(name, type, nullable, metadata);
 }
 
-std::shared_ptr<DataType> decimal(int precision, int scale) {
+std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
   return std::make_shared<DecimalType>(precision, scale);
 }
 

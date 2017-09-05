@@ -27,7 +27,7 @@
 #include "arrow/util/int128.h"
 
 namespace arrow {
-namespace decimal {
+namespace DecimalUtil {
 
 class DecimalTestFixture : public ::testing::Test {
  public:
@@ -163,35 +163,35 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
 TEST(DecimalTest, TestInvalidInputMinus) {
   std::string invalid_value("-");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputDot) {
   std::string invalid_value("0.0.0");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
   std::string invalid_value("0-13-32");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputSingleChar) {
   std::string invalid_value("a");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
   std::string invalid_value("-23092.235-");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   auto msg = status.message();
   ASSERT_RAISES(Invalid, status);
 }
@@ -199,21 +199,21 @@ TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
 TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
   std::string invalid_value("-+23092.235");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
   std::string invalid_value("+-23092.235");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
   std::string invalid_value("00a");
   Int128 out;
-  Status status = decimal::FromString(invalid_value, &out);
+  Status status = DecimalUtil::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
@@ -282,5 +282,5 @@ TEST(Int128TestFalse, ConstructibleFromBool) {
   ASSERT_EQ(0, value.low_bits());
 }
 
-}  // namespace decimal
+}  // namespace DecimalUtil
 }  // namespace arrow

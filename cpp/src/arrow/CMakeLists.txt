@@ -50,7 +50,6 @@ install(
 
 ADD_ARROW_TEST(allocator-test)
 ADD_ARROW_TEST(array-test)
-ADD_ARROW_TEST(array-decimal-test)
 ADD_ARROW_TEST(buffer-test)
 ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)

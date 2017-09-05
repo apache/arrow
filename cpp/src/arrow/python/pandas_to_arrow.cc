@@ -634,8 +634,8 @@ Status PandasConverter::ConvertDecimals() {
       std::string string;
       RETURN_NOT_OK(PythonDecimalToString(object, &string));
 
-      decimal::Int128 value;
-      RETURN_NOT_OK(decimal::FromString(string, &value));
+      Int128 value;
+      RETURN_NOT_OK(DecimalUtil::FromString(string, &value));
       RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
