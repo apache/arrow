@@ -828,9 +828,9 @@ std::shared_ptr<Field> ARROW_EXPORT field(
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
-std::shared_ptr<Schema>
-schema(const std::vector<std::shared_ptr<Field>>& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+std::shared_ptr<Schema> schema(
+    const std::vector<std::shared_ptr<Field>>& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 /// \brief Create a Schema instance
 ///
@@ -838,9 +838,9 @@ schema(const std::vector<std::shared_ptr<Field>>& fields,
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
-std::shared_ptr<Schema>
-schema(std::vector<std::shared_ptr<Field>>&& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>>&& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //
