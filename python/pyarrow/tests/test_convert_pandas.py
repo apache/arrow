@@ -69,10 +69,10 @@ class TestPandasConversion(unittest.TestCase):
         pass
 
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
-                                timestamps_to_ms=False, expected_schema=None,
+                                expected_schema=None,
                                 check_dtype=True, schema=None,
                                 check_index=False):
-        table = pa.Table.from_pandas(df, timestamps_to_ms=timestamps_to_ms,
+        table = pa.Table.from_pandas(df,
                                      schema=schema, preserve_index=check_index)
         result = table.to_pandas(nthreads=nthreads)
         if expected_schema:
@@ -92,9 +92,8 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_series_equal(s, result)
 
     def _check_array_roundtrip(self, values, expected=None, mask=None,
-                               timestamps_to_ms=False, type=None):
-        arr = pa.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
-                                   mask=mask, type=type)
+                               type=None):
+        arr = pa.Array.from_pandas(values, mask=mask, type=type)
         result = arr.to_pandas()
 
         values_nulls = pd.isnull(values)
@@ -334,21 +333,6 @@ class TestPandasConversion(unittest.TestCase):
     def test_timestamps_notimezone_no_nulls(self):
         df = pd.DataFrame({
             'datetime64': np.array([
-                '2007-07-13T01:23:34.123',
-                '2006-01-13T12:34:56.432',
-                '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
-        })
-        field = pa.field('datetime64', pa.timestamp('ms'))
-        schema = pa.schema([field])
-        self._check_pandas_roundtrip(
-            df,
-            timestamps_to_ms=True,
-            expected_schema=schema,
-        )
-
-        df = pd.DataFrame({
-            'datetime64': np.array([
                 '2007-07-13T01:23:34.123456789',
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
@@ -357,7 +341,8 @@ class TestPandasConversion(unittest.TestCase):
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
-            df, expected_schema=schema,
+            df,
+            expected_schema=schema,
         )
 
     def test_timestamps_to_ms_explicit_schema(self):
@@ -365,28 +350,15 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({'datetime': [datetime(2017, 1, 1)]})
         pa_type = pa.from_numpy_dtype(df['datetime'].dtype)
 
-        arr = pa.Array.from_pandas(df['datetime'], type=pa_type,
-                                   timestamps_to_ms=True)
+        with tm.assert_produces_warning(FutureWarning,
+                                        check_stacklevel=False):
+            arr = pa.Array.from_pandas(df['datetime'], type=pa_type,
+                                       timestamps_to_ms=True)
 
         tm.assert_almost_equal(df['datetime'].values.astype('M8[ms]'),
                                arr.to_pandas())
 
     def test_timestamps_notimezone_nulls(self):
-        df = pd.DataFrame({
-            'datetime64': np.array([
-                '2007-07-13T01:23:34.123',
-                None,
-                '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
-        })
-        field = pa.field('datetime64', pa.timestamp('ms'))
-        schema = pa.schema([field])
-        self._check_pandas_roundtrip(
-            df,
-            timestamps_to_ms=True,
-            expected_schema=schema,
-        )
-
         df = pd.DataFrame({
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123456789',
@@ -397,7 +369,8 @@ class TestPandasConversion(unittest.TestCase):
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
-            df, expected_schema=schema,
+            df,
+            expected_schema=schema,
         )
 
     def test_timestamps_with_timezone(self):
@@ -410,7 +383,7 @@ class TestPandasConversion(unittest.TestCase):
         })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
-        self._check_pandas_roundtrip(df, timestamps_to_ms=True)
+        self._check_pandas_roundtrip(df)
 
         self._check_series_roundtrip(df['datetime64'])
 
@@ -425,15 +398,8 @@ class TestPandasConversion(unittest.TestCase):
         })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
+
         self._check_pandas_roundtrip(df)
-
-    def test_timestamp_with_tz_to_pandas_type(self):
-        from pyarrow.compat import DatetimeTZDtype
-
-        tz = 'America/Los_Angeles'
-        t = pa.timestamp('ns', tz=tz)
-
-        assert t.to_pandas_dtype() == DatetimeTZDtype('ns', tz=tz)
 
     def test_date_infer(self):
         df = pd.DataFrame({
