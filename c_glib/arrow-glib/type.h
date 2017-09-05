@@ -85,4 +85,20 @@ typedef enum {
   GARROW_TYPE_DICTIONARY
 } GArrowType;
 
+/**
+ * GArrowTimeUnit:
+ * @GARROW_TIME_UNIT_SECOND: Second.
+ * @GARROW_TIME_UNIT_MILLISECOND: Millisecond.
+ * @GARROW_TIME_UNIT_MICRO: Microsecond.
+ * @GARROW_TIME_UNIT_NANO: Nanosecond.
+ *
+ * They are corresponding to `arrow::TimeUnit::type` values.
+ */
+typedef enum {
+  GARROW_TIME_UNIT_SECOND,
+  GARROW_TIME_UNIT_MILLI,
+  GARROW_TIME_UNIT_MICRO,
+  GARROW_TIME_UNIT_NANO
+} GArrowTimeUnit;
+
 G_END_DECLS
