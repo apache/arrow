@@ -19,6 +19,10 @@
 #include <iosfwd>
 #include <string>
 
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+#include <sstream>
+#endif
+
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -45,6 +49,22 @@
 
 namespace arrow {
 
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+
+#define RETURN_NOT_OK(s)                        \
+  do {                                          \
+    Status _s = (s);                            \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {        \
+      std::stringstream ss;                     \
+      ss << __FILE__ << ":" << __LINE__         \
+         << " code: " << #s                     \
+         << "\n" << _s.message();               \
+      return Status(_s.code(), ss.str());       \
+    }                                           \
+  } while (0)
+
+#else
+
 #define RETURN_NOT_OK(s)                 \
   do {                                   \
     Status _s = (s);                     \
@@ -52,6 +72,8 @@ namespace arrow {
       return _s;                         \
     }                                    \
   } while (0)
+
+#endif // ARROW_EXTRA_ERROR_CONTEXT
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
   do {                               \
