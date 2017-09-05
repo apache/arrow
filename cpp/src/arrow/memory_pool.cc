@@ -17,12 +17,13 @@
 
 #include "arrow/memory_pool.h"
 
-#include <stdlib.h>
 #include <algorithm>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <mutex>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
