@@ -95,9 +95,9 @@ matrix:
     env: ARROW_TEST_GROUP=integration
     jdk: openjdk7
     before_script:
-    # - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    # - export CC="clang-4.0"
-    # - export CXX="clang++-4.0"
+    - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    - export CC="clang-4.0"
+    - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
