@@ -843,7 +843,7 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
+cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
                                 bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
@@ -860,7 +860,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dictionary.sp_array,
+                                        dict_values.sp_array,
                                         ordered == 1))
     out.init(dict_type)
     return out

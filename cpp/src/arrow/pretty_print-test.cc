@@ -144,14 +144,14 @@ TEST_F(TestPrettyPrint, SchemaWithDictionary) {
 
   static const char* expected = R"expected(one: int32
 two: dictionary<values=string, indices=int16, ordered=0>
-  -- dictionary: ["foo", "bar", "baz"]
+  dictionary: ["foo", "bar", "baz"]
 three: list<two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, two: dictionary<values=string, indices=int16, ordered=0>
-  -- dictionary: ["foo", "bar", "baz"]
+      dictionary: ["foo", "bar", "baz"]
 four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, one: int32
   child 1, two: dictionary<values=string, indices=int16, ordered=0>
-  -- dictionary: ["foo", "bar", "baz"])expected";
+      dictionary: ["foo", "bar", "baz"])expected";
 
   PrettyPrintOptions options{0};
 

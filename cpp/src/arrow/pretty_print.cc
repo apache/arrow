@@ -352,19 +352,21 @@ Status SchemaPrinter::PrintType(const DataType& type) {
     Newline();
 
     indent_ += 2;
-    WriteIndented("-- dictionary: ");
-    indent_ -= 2;
-
+    WriteIndented("dictionary: ");
     const auto& dict_type = static_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + 2, sink_));
+    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_, sink_));
+    indent_ -= 2;
   } else {
     for (int i = 0; i < type.num_children(); ++i) {
       Newline();
 
       std::stringstream ss;
-      ss << "  child " << i << ", ";
+      ss << "child " << i << ", ";
+
+      indent_ += 2;
       WriteIndented(ss.str());
       RETURN_NOT_OK(PrintField(*type.child(i)));
+      indent_ -= 2;
     }
   }
   return Status::OK();
