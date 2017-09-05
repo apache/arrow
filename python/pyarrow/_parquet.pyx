@@ -467,6 +467,25 @@ cdef class ParquetReader:
                              .ReadTable(&ctable))
         return pyarrow_wrap_table(ctable)
 
+    def scan_contents(self, column_indices=None, batch_size=65536):
+        cdef:
+            vector[int] c_column_indices
+            int32_t c_batch_size
+            int64_t c_num_rows
+
+        if column_indices is not None:
+            for index in column_indices:
+                c_column_indices.push_back(index)
+
+        c_batch_size = batch_size
+
+        with nogil:
+            check_status(self.reader.get()
+                         .ScanContents(c_column_indices, c_batch_size,
+                                       &c_num_rows))
+
+        return c_num_rows
+
     def column_name_idx(self, column_name):
         """
         Find the matching index of a column in the schema.
