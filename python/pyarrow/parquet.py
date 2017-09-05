@@ -118,6 +118,27 @@ class ParquetFile(object):
         return self.reader.read_all(column_indices=column_indices,
                                     nthreads=nthreads)
 
+    def scan_contents(self, columns=None, batch_size=65536):
+        """
+        Read contents of file with a single thread for indicated columns and
+        batch size. Number of rows in file is returned. This function is used
+        for benchmarking
+
+        Parameters
+        ----------
+        columns : list of integers, default None
+            If None, scan all columns
+        batch_size : int, default 64K
+            Number of rows to read at a time internally
+
+        Returns
+        -------
+        num_rows : number of rows in file
+        """
+        column_indices = self._get_column_indices(columns)
+        return self.reader.scan_contents(column_indices,
+                                         batch_size=batch_size)
+
     def _get_column_indices(self, column_names, use_pandas_metadata=False):
         if column_names is None:
             return None
@@ -648,12 +669,14 @@ class ParquetDataset(object):
 def _ensure_filesystem(fs):
     fs_type = type(fs)
 
-    # If the arrow filesystem was subclassed, assume it supports the full interface and return it
+    # If the arrow filesystem was subclassed, assume it supports the full
+    # interface and return it
     if not issubclass(fs_type, FileSystem):
         for mro in inspect.getmro(fs_type):
             if mro.__name__ is 'S3FileSystem':
                 return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow FS
+            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
+            # FS
             elif mro.__name__ is 'LocalFileSystem':
                 return LocalFileSystem.get_instance()
 

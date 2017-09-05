@@ -676,6 +676,25 @@ def test_read_single_row_group_with_column_subset():
 
 
 @parquet
+def test_scan_contents():
+    import pyarrow.parquet as pq
+
+    N, K = 10000, 4
+    df = alltypes_sample(size=N)
+    a_table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    _write_table(a_table, buf, row_group_size=N / K,
+                 compression='snappy', version='2.0')
+
+    buf.seek(0)
+    pf = pq.ParquetFile(buf)
+
+    assert pf.scan_contents() == 10000
+    assert pf.scan_contents(df.columns[:4]) == 10000
+
+
+@parquet
 def test_parquet_piece_read(tmpdir):
     import pyarrow.parquet as pq
 

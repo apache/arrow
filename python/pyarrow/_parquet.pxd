@@ -231,6 +231,9 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus ReadTable(const vector[int]& column_indices,
                           shared_ptr[CTable]* out)
 
+        CStatus ScanContents(vector[int] columns, int32_t column_batch_size,
+                             int64_t* num_rows)
+
         const ParquetFileReader* parquet_reader()
 
         void set_num_threads(int num_threads)
