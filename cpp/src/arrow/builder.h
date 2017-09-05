@@ -742,6 +742,8 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 #endif
 
+  using FixedSizeBinaryBuilder::Append;
+
   Status Append(const Int128& val);
 
   Status Finish(std::shared_ptr<Array>* out) override;

@@ -185,7 +185,7 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
   // device_number -> CudaContext
   std::unordered_map<int, std::shared_ptr<CudaContext>> contexts_;
 
-  int host_bytes_allocated_;
+  int64_t host_bytes_allocated_;
 };
 
 CudaDeviceManager::CudaDeviceManager() { impl_.reset(new CudaDeviceManagerImpl()); }
