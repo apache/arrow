@@ -38,18 +38,13 @@
 namespace arrow {
 
 class Array;
+class Int128;
 
 namespace internal {
 
 struct ArrayData;
 
 }  // namespace internal
-
-namespace decimal {
-
-class Int128;
-
-}  // namespace decimal
 
 static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
@@ -747,7 +742,9 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 #endif
 
-  Status Append(const decimal::Int128& val);
+  using FixedSizeBinaryBuilder::Append;
+
+  Status Append(const Int128& val);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 };

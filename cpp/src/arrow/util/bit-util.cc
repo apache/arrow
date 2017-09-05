@@ -42,12 +42,12 @@ void BitUtil::FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits
   }
 }
 
-Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes,
+Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
                             std::shared_ptr<Buffer>* out) {
   int64_t bit_length = BitUtil::BytesForBits(bytes.size());
 
   std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), bit_length, &buffer));
+  RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
 
   memset(buffer->mutable_data(), 0, static_cast<size_t>(bit_length));
   FillBitsFromBytes(bytes, buffer->mutable_data());

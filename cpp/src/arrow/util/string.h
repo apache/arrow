@@ -27,7 +27,7 @@ namespace arrow {
 
 static const char* kAsciiTable = "0123456789ABCDEF";
 
-static inline std::string HexEncode(const char* data, int32_t length) {
+static inline std::string HexEncode(const uint8_t* data, int32_t length) {
   std::string hex_string;
   hex_string.reserve(length * 2);
   for (int32_t j = 0; j < length; ++j) {
