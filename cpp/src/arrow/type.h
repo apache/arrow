@@ -461,19 +461,19 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
-  explicit DecimalType(int precision, int scale)
+  explicit DecimalType(int32_t precision, int32_t scale)
       : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   static std::string name() { return "decimal"; }
 
-  int precision() const { return precision_; }
-  int scale() const { return scale_; }
+  int32_t precision() const { return precision_; }
+  int32_t scale() const { return scale_; }
 
  private:
-  int precision_;
-  int scale_;
+  int32_t precision_;
+  int32_t scale_;
 };
 
 enum class UnionMode : char { SPARSE, DENSE };
@@ -759,7 +759,7 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
 /// \brief Make an instance of DecimalType
 ARROW_EXPORT
-std::shared_ptr<DataType> decimal(int precision, int scale);
+std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
 /// \brief Make an instance of ListType
 ARROW_EXPORT

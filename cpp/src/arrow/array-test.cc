@@ -2486,7 +2486,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
   }
 
   template <size_t BYTE_WIDTH = 16>
-  void TestCreate(int precision, const DecimalVector& draw,
+  void TestCreate(int32_t precision, const DecimalVector& draw,
                   const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
     auto type = std::make_shared<DecimalType>(precision, 4);
 
@@ -2532,7 +2532,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 };
 
 TEST_P(DecimalTest, NoNulls) {
-  int precision = GetParam();
+  int32_t precision = GetParam();
   std::vector<Int128> draw = {Int128(1), Int128(-2), Int128(2389), Int128(4),
                               Int128(-12348)};
   std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
@@ -2541,7 +2541,7 @@ TEST_P(DecimalTest, NoNulls) {
 }
 
 TEST_P(DecimalTest, WithNulls) {
-  int precision = GetParam();
+  int32_t precision = GetParam();
   std::vector<Int128> draw = {Int128(1),  Int128(2), Int128(-1), Int128(4),
                               Int128(-1), Int128(1), Int128(2)};
   Int128 big;

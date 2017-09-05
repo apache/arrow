@@ -51,16 +51,14 @@ namespace arrow {
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
-#define RETURN_NOT_OK(s)                        \
-  do {                                          \
-    Status _s = (s);                            \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {        \
-      std::stringstream ss;                     \
-      ss << __FILE__ << ":" << __LINE__         \
-         << " code: " << #s                     \
-         << "\n" << _s.message();               \
-      return Status(_s.code(), ss.str());       \
-    }                                           \
+#define RETURN_NOT_OK(s)                                                            \
+  do {                                                                              \
+    Status _s = (s);                                                                \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
+      std::stringstream ss;                                                         \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
+      return Status(_s.code(), ss.str());                                           \
+    }                                                                               \
   } while (0)
 
 #else
@@ -73,7 +71,7 @@ namespace arrow {
     }                                    \
   } while (0)
 
-#endif // ARROW_EXTRA_ERROR_CONTEXT
+#endif  // ARROW_EXTRA_ERROR_CONTEXT
 
 #define RETURN_NOT_OK_ELSE(s, else_) \
   do {                               \
