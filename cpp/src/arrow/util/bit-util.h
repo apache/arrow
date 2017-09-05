@@ -380,7 +380,10 @@ static T ShiftRightLogical(T v, int shift) {
 }
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
-ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
+
+/// \brief Convert vector of bytes to bitmap buffer
+ARROW_EXPORT
+Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil
 

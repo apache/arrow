@@ -589,8 +589,8 @@ class DecimalConverter
       std::string string;
       RETURN_NOT_OK(PythonDecimalToString(item.obj(), &string));
 
-      decimal::Int128 value;
-      RETURN_NOT_OK(decimal::FromString(string, &value));
+      Int128 value;
+      RETURN_NOT_OK(DecimalUtil::FromString(string, &value));
       return typed_builder_->Append(value);
     }
 

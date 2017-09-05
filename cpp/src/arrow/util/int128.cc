@@ -29,7 +29,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-namespace decimal {
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
@@ -525,5 +524,4 @@ Int128 operator%(const Int128& left, const Int128& right) {
   return remainder;
 }
 
-}  // namespace decimal
 }  // namespace arrow

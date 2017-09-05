@@ -26,7 +26,7 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-namespace decimal {
+namespace DecimalUtil {
 
 void StringToInteger(const std::string& whole, const std::string& fractional, int8_t sign,
                      Int128* out) {
@@ -206,5 +206,5 @@ std::string ToString(const Int128& decimal_value, int precision, int scale) {
   return str;
 }
 
-}  // namespace decimal
+}  // namespace DecimalUtil
 }  // namespace arrow

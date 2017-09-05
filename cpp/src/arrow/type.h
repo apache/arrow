@@ -753,14 +753,29 @@ class ARROW_EXPORT Schema {
 // ----------------------------------------------------------------------
 // Factory functions
 
-std::shared_ptr<DataType> ARROW_EXPORT fixed_size_binary(int32_t byte_width);
+/// \brief Make an instance of FixedSizeBinaryType
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
-std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
+/// \brief Make an instance of DecimalType
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal(int precision, int scale);
 
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit,
-                                                 const std::string& timezone);
+/// \brief Make an instance of ListType
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Make an instance of ListType
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Make an instance of TimestampType
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
+
+/// \brief Make an instance of TimestampType
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
 
 /// \brief Create an instance of 32-bit time type
 /// Unit can be either SECOND or MILLI

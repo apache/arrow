@@ -606,8 +606,8 @@ static Status ConvertTimes(PandasOptions options, const ChunkedArray& data,
 static Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
                                  std::string* result) {
   DCHECK_NE(result, nullptr);
-  decimal::Int128 decimal(bytes);
-  *result = decimal::ToString(decimal, precision, scale);
+  Int128 decimal(bytes);
+  *result = DecimalUtil::ToString(decimal, precision, scale);
   return Status::OK();
 }
 
