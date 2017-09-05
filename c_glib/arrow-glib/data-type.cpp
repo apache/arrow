@@ -22,6 +22,8 @@
 #endif
 
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/enums.h>
+#include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/type.hpp>
 
@@ -67,11 +69,17 @@ G_BEGIN_DECLS
  * #GArrowStringDataType is a class for UTF-8 encoded string data
  * type.
  *
- * #GArrowData32DataType is a class for the number of days since UNIX
+ * #GArrowDate32DataType is a class for the number of days since UNIX
  * epoch in 32-bit signed integer data type.
  *
- * #GArrowData64DataType is a class for the number of milliseconds
+ * #GArrowDate64DataType is a class for the number of milliseconds
  * since UNIX epoch in 64-bit signed integer data type.
+ *
+ * #GArrowTime32DataType is a class for the number of seconds or
+ * milliseconds since midnight in 32-bit signed integer data type.
+ *
+ * #GArrowTime64DataType is a class for the number of microseconds or
+ * nanoseconds since midnight in 64-bit signed integer data type.
  *
  * #GArrowListDataType is a class for list data type.
  *
@@ -677,7 +685,8 @@ garrow_date32_data_type_class_init(GArrowDate32DataTypeClass *klass)
 /**
  * garrow_date32_data_type_new:
  *
- * Returns: The newly created 64-bit floating point data type.
+ * Returns: A newly created the number of milliseconds
+ *   since UNIX epoch in 32-bit signed integer data type.
  *
  * Since: 0.7.0
  */
@@ -711,7 +720,8 @@ garrow_date64_data_type_class_init(GArrowDate64DataTypeClass *klass)
 /**
  * garrow_date64_data_type_new:
  *
- * Returns: The newly created 64-bit floating point data type.
+ * Returns: A newly created the number of milliseconds
+ *   since UNIX epoch in 64-bit signed integer data type.
  *
  * Since: 0.7.0
  */
@@ -722,6 +732,175 @@ garrow_date64_data_type_new(void)
 
   GArrowDate64DataType *data_type =
     GARROW_DATE64_DATA_TYPE(g_object_new(GARROW_TYPE_DATE64_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowTimeDataType,               \
+              garrow_time_data_type,            \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_time_data_type_init(GArrowTimeDataType *object)
+{
+}
+
+static void
+garrow_time_data_type_class_init(GArrowTimeDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_time_data_type_get_unit:
+ * @time_data_type: The #GArrowTimeDataType.
+ *
+ * Returns: The unit of the time data type.
+ *
+ * Since: 0.7.0
+ */
+GArrowTimeUnit
+garrow_time_data_type_get_unit(GArrowTimeDataType *time_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(time_data_type));
+  const auto arrow_time_data_type =
+    std::static_pointer_cast<arrow::TimeType>(arrow_data_type);
+  return garrow_time_unit_from_raw(arrow_time_data_type->unit());
+}
+
+
+G_DEFINE_TYPE(GArrowTime32DataType,                \
+              garrow_time32_data_type,             \
+              GARROW_TYPE_TIME_DATA_TYPE)
+
+static void
+garrow_time32_data_type_init(GArrowTime32DataType *object)
+{
+}
+
+static void
+garrow_time32_data_type_class_init(GArrowTime32DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_time32_data_type_new:
+ * @unit: %GARROW_TIME_UNIT_SECOND or %GARROW_TIME_UNIT_MILLI.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   A newly created the number of seconds or milliseconds since
+ *   midnight in 32-bit signed integer data type.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime32DataType *
+garrow_time32_data_type_new(GArrowTimeUnit unit, GError **error)
+{
+  switch (unit) {
+  case GARROW_TIME_UNIT_SECOND:
+  case GARROW_TIME_UNIT_MILLI:
+    break;
+  default:
+    {
+      auto enum_class = G_ENUM_CLASS(g_type_class_ref(GARROW_TYPE_TIME_UNIT));
+      GEnumValue *value = g_enum_get_value(enum_class, unit);
+      if (value) {
+        g_set_error(error,
+                    GARROW_ERROR,
+                    GARROW_ERROR_INVALID,
+                    "[time32-data-type][new] time unit must be second or milli: "
+                    "<%s>",
+                    value->value_nick);
+      } else {
+        g_set_error(error,
+                    GARROW_ERROR,
+                    GARROW_ERROR_INVALID,
+                    "[time32-data-type][new] "
+                    "time unit must be second(%d) or milli(%d): <%d>",
+                    GARROW_TIME_UNIT_SECOND,
+                    GARROW_TIME_UNIT_MILLI,
+                    unit);
+      }
+      g_type_class_unref(enum_class);
+    }
+    return NULL;
+  }
+
+  auto arrow_unit = garrow_time_unit_to_raw(unit);
+  auto arrow_data_type = arrow::time32(arrow_unit);
+  auto data_type =
+    GARROW_TIME32_DATA_TYPE(g_object_new(GARROW_TYPE_TIME32_DATA_TYPE,
+                                         "data-type", &arrow_data_type,
+                                         NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowTime64DataType,                \
+              garrow_time64_data_type,             \
+              GARROW_TYPE_TIME_DATA_TYPE)
+
+static void
+garrow_time64_data_type_init(GArrowTime64DataType *object)
+{
+}
+
+static void
+garrow_time64_data_type_class_init(GArrowTime64DataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_time64_data_type_new:
+ * @unit: %GARROW_TIME_UNIT_SECOND or %GARROW_TIME_UNIT_MILLI.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   A newly created the number of seconds or milliseconds since
+ *   midnight in 64-bit signed integer data type.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime64DataType *
+garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
+{
+  switch (unit) {
+  case GARROW_TIME_UNIT_MICRO:
+  case GARROW_TIME_UNIT_NANO:
+    break;
+  default:
+    {
+      auto enum_class = G_ENUM_CLASS(g_type_class_ref(GARROW_TYPE_TIME_UNIT));
+      auto value = g_enum_get_value(enum_class, unit);
+      if (value) {
+        g_set_error(error,
+                    GARROW_ERROR,
+                    GARROW_ERROR_INVALID,
+                    "[time64-data-type][new] time unit must be micro or nano: "
+                    "<%s>",
+                    value->value_nick);
+      } else {
+        g_set_error(error,
+                    GARROW_ERROR,
+                    GARROW_ERROR_INVALID,
+                    "[time64-data-type][new] "
+                    "time unit must be micro(%d) or nano(%d): <%d>",
+                    GARROW_TIME_UNIT_MICRO,
+                    GARROW_TIME_UNIT_NANO,
+                    unit);
+      }
+      g_type_class_unref(enum_class);
+    }
+    return NULL;
+  }
+
+  auto arrow_unit = garrow_time_unit_to_raw(unit);
+  auto arrow_data_type = arrow::time64(arrow_unit);
+  auto data_type =
+    GARROW_TIME64_DATA_TYPE(g_object_new(GARROW_TYPE_TIME64_DATA_TYPE,
                                          "data-type", &arrow_data_type,
                                          NULL));
   return data_type;
@@ -877,6 +1056,12 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::DATE64:
     type = GARROW_TYPE_DATE64_DATA_TYPE;
+    break;
+  case arrow::Type::type::TIME32:
+    type = GARROW_TYPE_TIME32_DATA_TYPE;
+    break;
+  case arrow::Type::type::TIME64:
+    type = GARROW_TYPE_TIME64_DATA_TYPE;
     break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_DATA_TYPE;

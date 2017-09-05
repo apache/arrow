@@ -18,67 +18,77 @@
 module Helper
   module Buildable
     def build_boolean_array(values)
-      build_array(Arrow::BooleanArrayBuilder, values)
+      build_array(Arrow::BooleanArrayBuilder.new, values)
     end
 
     def build_int_array(values)
-      build_array(Arrow::IntArrayBuilder, values)
+      build_array(Arrow::IntArrayBuilder.new, values)
     end
 
     def build_int8_array(values)
-      build_array(Arrow::Int8ArrayBuilder, values)
+      build_array(Arrow::Int8ArrayBuilder.new, values)
     end
 
     def build_uint8_array(values)
-      build_array(Arrow::UInt8ArrayBuilder, values)
+      build_array(Arrow::UInt8ArrayBuilder.new, values)
     end
 
     def build_int16_array(values)
-      build_array(Arrow::Int16ArrayBuilder, values)
+      build_array(Arrow::Int16ArrayBuilder.new, values)
     end
 
     def build_uint16_array(values)
-      build_array(Arrow::UInt16ArrayBuilder, values)
+      build_array(Arrow::UInt16ArrayBuilder.new, values)
     end
 
     def build_int32_array(values)
-      build_array(Arrow::Int32ArrayBuilder, values)
+      build_array(Arrow::Int32ArrayBuilder.new, values)
     end
 
     def build_uint32_array(values)
-      build_array(Arrow::UInt32ArrayBuilder, values)
+      build_array(Arrow::UInt32ArrayBuilder.new, values)
     end
 
     def build_int64_array(values)
-      build_array(Arrow::Int64ArrayBuilder, values)
+      build_array(Arrow::Int64ArrayBuilder.new, values)
     end
 
     def build_uint64_array(values)
-      build_array(Arrow::UInt64ArrayBuilder, values)
+      build_array(Arrow::UInt64ArrayBuilder.new, values)
     end
 
     def build_float_array(values)
-      build_array(Arrow::FloatArrayBuilder, values)
+      build_array(Arrow::FloatArrayBuilder.new, values)
     end
 
     def build_double_array(values)
-      build_array(Arrow::DoubleArrayBuilder, values)
+      build_array(Arrow::DoubleArrayBuilder.new, values)
     end
 
     def build_date32_array(values)
-      build_array(Arrow::Date32ArrayBuilder, values)
+      build_array(Arrow::Date32ArrayBuilder.new, values)
     end
 
     def build_date64_array(values)
-      build_array(Arrow::Date64ArrayBuilder, values)
+      build_array(Arrow::Date64ArrayBuilder.new, values)
+    end
+
+    def build_time32_array(unit, values)
+      build_array(Arrow::Time32ArrayBuilder.new(Arrow::Time32DataType.new(unit)),
+                  values)
+    end
+
+    def build_time64_array(unit, values)
+      build_array(Arrow::Time64ArrayBuilder.new(Arrow::Time64DataType.new(unit)),
+                  values)
     end
 
     def build_binary_array(values)
-      build_array(Arrow::BinaryArrayBuilder, values)
+      build_array(Arrow::BinaryArrayBuilder.new, values)
     end
 
     def build_string_array(values)
-      build_array(Arrow::StringArrayBuilder, values)
+      build_array(Arrow::StringArrayBuilder.new, values)
     end
 
     def build_list_array(value_data_type, values_list)
@@ -126,8 +136,7 @@ module Helper
     end
 
     private
-    def build_array(builder_class, values)
-      builder = builder_class.new
+    def build_array(builder, values)
       values.each do |value|
         if value.nil?
           builder.append_null

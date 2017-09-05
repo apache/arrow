@@ -24,3 +24,5 @@
 #include <arrow-glib/type.h>
 
 GArrowType garrow_type_from_raw(arrow::Type::type type);
+GArrowTimeUnit garrow_time_unit_from_raw(arrow::TimeUnit::type unit);
+arrow::TimeUnit::type garrow_time_unit_to_raw(GArrowTimeUnit unit);

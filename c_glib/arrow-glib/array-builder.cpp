@@ -113,6 +113,12 @@ G_BEGIN_DECLS
  * #GArrowDate64ArrayBuilder is the class to create a new
  * #GArrowDate64Array.
  *
+ * #GArrowTime32ArrayBuilder is the class to create a new
+ * #GArrowTime32Array.
+ *
+ * #GArrowTime64ArrayBuilder is the class to create a new
+ * #GArrowTime64Array.
+ *
  * #GArrowListArrayBuilder is the class to create a new
  * #GArrowListArray.
  *
@@ -1308,6 +1314,180 @@ garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowTime32ArrayBuilder,
+              garrow_time32_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_time32_array_builder_init(GArrowTime32ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_time32_array_builder_class_init(GArrowTime32ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_time32_array_builder_new:
+ * @data_type: A #GArrowTime32DataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   A newly created #GArrowTime32ArrayBuilder on success, %NULL on error.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime32ArrayBuilder *
+garrow_time32_array_builder_new(GArrowDataType *data_type,
+                                GError **error)
+{
+  if (!GARROW_IS_TIME32_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[time32-array-builder][new] "
+                "data type must be time32 data type: <%s>",
+                G_OBJECT_TYPE_NAME(data_type));
+    return NULL;
+  }
+
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[time32-array-builder][new]");
+  return GARROW_TIME32_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_time32_array_builder_append:
+ * @builder: A #GArrowTime32ArrayBuilder.
+ * @value: The number of days since UNIX epoch in signed 32bit integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_time32_array_builder_append(GArrowTime32ArrayBuilder *builder,
+                                   gint32 value,
+                                   GError **error)
+{
+  return garrow_array_builder_append<arrow::Time32Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[time32-array-builder][append]");
+}
+
+/**
+ * garrow_time32_array_builder_append_null:
+ * @builder: A #GArrowTime32ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
+                                        GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Time32Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[time32-array-builder][append-null]");
+}
+
+
+G_DEFINE_TYPE(GArrowTime64ArrayBuilder,
+              garrow_time64_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_time64_array_builder_init(GArrowTime64ArrayBuilder *builder)
+{
+}
+
+static void
+garrow_time64_array_builder_class_init(GArrowTime64ArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_time64_array_builder_new:
+ * @data_type: A #GArrowTime64DataType.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable):
+ *   A newly created #GArrowTime64ArrayBuilder on success, %NULL on error.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime64ArrayBuilder *
+garrow_time64_array_builder_new(GArrowDataType *data_type,
+                                GError **error)
+{
+  if (!GARROW_IS_TIME64_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[time64-array-builder][new] "
+                "data type must be time64 data type: <%s>",
+                G_OBJECT_TYPE_NAME(data_type));
+    return NULL;
+  }
+
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[time64-array-builder][new]");
+  return GARROW_TIME64_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_time64_array_builder_append:
+ * @builder: A #GArrowTime64ArrayBuilder.
+ * @value: The number of milliseconds since UNIX epoch in signed 64bit integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_time64_array_builder_append(GArrowTime64ArrayBuilder *builder,
+                                   gint64 value,
+                                   GError **error)
+{
+  return garrow_array_builder_append<arrow::Time64Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[time64-array-builder][append]");
+}
+
+/**
+ * garrow_time64_array_builder_append_null:
+ * @builder: A #GArrowTime64ArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
+                                        GError **error)
+{
+  return garrow_array_builder_append_null<arrow::Time64Builder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[time64-array-builder][append-null]");
+}
+
+
 typedef struct GArrowListArrayBuilderPrivate_ {
   GArrowArrayBuilder *value_builder;
 } GArrowListArrayBuilderPrivate;
@@ -1702,6 +1882,12 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DATE64:
       type = GARROW_TYPE_DATE64_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::TIME32:
+      type = GARROW_TYPE_TIME32_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::TIME64:
+      type = GARROW_TYPE_TIME64_ARRAY_BUILDER;
       break;
     case arrow::Type::type::LIST:
       type = GARROW_TYPE_LIST_ARRAY_BUILDER;
