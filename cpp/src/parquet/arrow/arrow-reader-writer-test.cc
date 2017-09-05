@@ -1243,6 +1243,29 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
   ASSERT_TRUE(table->Equals(*concatenated));
 }
 
+TEST(TestArrowReadWrite, ScanContents) {
+  const int num_columns = 20;
+  const int num_rows = 1000;
+
+  std::shared_ptr<Table> table;
+  MakeDoubleTable(num_columns, num_rows, 1, &table);
+
+  std::shared_ptr<Buffer> buffer;
+  WriteTableToBuffer(table, 1, num_rows / 2, default_arrow_writer_properties(), &buffer);
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(),
+                              ::parquet::default_reader_properties(), nullptr, &reader));
+
+  int64_t num_rows_returned = 0;
+  ASSERT_OK_NO_THROW(reader->ScanContents({}, 256, &num_rows_returned));
+  ASSERT_EQ(num_rows, num_rows_returned);
+
+  ASSERT_OK_NO_THROW(reader->ScanContents({0, 1, 2}, 256, &num_rows_returned));
+  ASSERT_EQ(num_rows, num_rows_returned);
+}
+
 TEST(TestArrowReadWrite, ReadColumnSubset) {
   const int num_columns = 20;
   const int num_rows = 1000;

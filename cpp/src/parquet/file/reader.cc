@@ -153,13 +153,12 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
     }
   }
 
-  std::vector<int64_t> total_rows(num_columns);
+  std::vector<int64_t> total_rows(num_columns, 0);
 
   for (int r = 0; r < reader->metadata()->num_row_groups(); ++r) {
     auto group_reader = reader->RowGroup(r);
     int col = 0;
     for (auto i : columns) {
-      total_rows[col] = 0;
       std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
       size_t value_byte_size = GetTypeByteSize(col_reader->descr()->physical_type());
       std::vector<uint8_t> values(column_batch_size * value_byte_size);

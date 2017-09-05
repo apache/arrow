@@ -146,6 +146,10 @@ class PARQUET_EXPORT FileReader {
 
   ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
 
+  /// \brief Scan file contents with one thread, return number of rows
+  ::arrow::Status ScanContents(std::vector<int> columns, const int32_t column_batch_size,
+                               int64_t* num_rows);
+
   int num_row_groups() const;
 
   const ParquetFileReader* parquet_reader() const;

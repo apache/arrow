@@ -214,6 +214,8 @@ class FileReader::Impl {
 
   void set_num_threads(int num_threads) { num_threads_ = num_threads; }
 
+  ParquetFileReader* reader() { return reader_.get(); }
+
  private:
   MemoryPool* pool_;
   std::unique_ptr<ParquetFileReader> reader_;
@@ -625,6 +627,16 @@ Status FileReader::ReadRowGroup(int i, const std::vector<int>& indices,
 int FileReader::num_row_groups() const { return impl_->num_row_groups(); }
 
 void FileReader::set_num_threads(int num_threads) { impl_->set_num_threads(num_threads); }
+
+Status FileReader::ScanContents(std::vector<int> columns, const int32_t column_batch_size,
+                                int64_t* num_rows) {
+  try {
+    *num_rows = ScanFileContents(columns, column_batch_size, impl_->reader());
+    return Status::OK();
+  } catch (const ::parquet::ParquetException& e) {
+    return Status::IOError(e.what());
+  }
+}
 
 const ParquetFileReader* FileReader::parquet_reader() const {
   return impl_->parquet_reader();
