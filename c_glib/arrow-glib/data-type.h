@@ -780,6 +780,140 @@ GType                 garrow_date64_data_type_get_type (void) G_GNUC_CONST;
 GArrowDate64DataType *garrow_date64_data_type_new      (void);
 
 
+#define GARROW_TYPE_TIME_DATA_TYPE              \
+  (garrow_time_data_type_get_type())
+#define GARROW_TIME_DATA_TYPE(obj)                              \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME_DATA_TYPE,       \
+                              GArrowTimeDataType))
+#define GARROW_TIME_DATA_TYPE_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_TIME_DATA_TYPE,  \
+                           GArrowTimeDataTypeClass))
+#define GARROW_IS_TIME_DATA_TYPE(obj)                           \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIME_DATA_TYPE))
+#define GARROW_IS_TIME_DATA_TYPE_CLASS(klass)           \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_TIME_DATA_TYPE))
+#define GARROW_TIME_DATA_TYPE_GET_CLASS(obj)                    \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME_DATA_TYPE,        \
+                             GArrowTimeDataTypeClass))
+
+typedef struct _GArrowTimeDataType         GArrowTimeDataType;
+typedef struct _GArrowTimeDataTypeClass    GArrowTimeDataTypeClass;
+
+/**
+ * GArrowTimeDataType:
+ *
+ * It wraps `arrow::TimeType`.
+ */
+struct _GArrowTimeDataType
+{
+  /*< private >*/
+  GArrowDataType parent_instance;
+};
+
+struct _GArrowTimeDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GType          garrow_time_data_type_get_type (void) G_GNUC_CONST;
+GArrowTimeUnit garrow_time_data_type_get_unit (GArrowTimeDataType *time_data_type);
+
+
+#define GARROW_TYPE_TIME32_DATA_TYPE           \
+  (garrow_time32_data_type_get_type())
+#define GARROW_TIME32_DATA_TYPE(obj)                            \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME32_DATA_TYPE,     \
+                              GArrowTime32DataType))
+#define GARROW_TIME32_DATA_TYPE_CLASS(klass)                    \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME32_DATA_TYPE,        \
+                           GArrowTime32DataTypeClass))
+#define GARROW_IS_TIME32_DATA_TYPE(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIME32_DATA_TYPE))
+#define GARROW_IS_TIME32_DATA_TYPE_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME32_DATA_TYPE))
+#define GARROW_TIME32_DATA_TYPE_GET_CLASS(obj)                  \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME32_DATA_TYPE,      \
+                             GArrowTime32DataTypeClass))
+
+typedef struct _GArrowTime32DataType         GArrowTime32DataType;
+typedef struct _GArrowTime32DataTypeClass    GArrowTime32DataTypeClass;
+
+/**
+ * GArrowTime32DataType:
+ *
+ * It wraps `arrow::Time32Type`.
+ */
+struct _GArrowTime32DataType
+{
+  /*< private >*/
+  GArrowTimeDataType parent_instance;
+};
+
+struct _GArrowTime32DataTypeClass
+{
+  GArrowTimeDataTypeClass parent_class;
+};
+
+GType                 garrow_time32_data_type_get_type (void) G_GNUC_CONST;
+GArrowTime32DataType *garrow_time32_data_type_new      (GArrowTimeUnit unit,
+                                                        GError **error);
+
+
+#define GARROW_TYPE_TIME64_DATA_TYPE           \
+  (garrow_time64_data_type_get_type())
+#define GARROW_TIME64_DATA_TYPE(obj)                            \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME64_DATA_TYPE,     \
+                              GArrowTime64DataType))
+#define GARROW_TIME64_DATA_TYPE_CLASS(klass)                    \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME64_DATA_TYPE,        \
+                           GArrowTime64DataTypeClass))
+#define GARROW_IS_TIME64_DATA_TYPE(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIME64_DATA_TYPE))
+#define GARROW_IS_TIME64_DATA_TYPE_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME64_DATA_TYPE))
+#define GARROW_TIME64_DATA_TYPE_GET_CLASS(obj)                  \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME64_DATA_TYPE,      \
+                             GArrowTime64DataTypeClass))
+
+typedef struct _GArrowTime64DataType         GArrowTime64DataType;
+typedef struct _GArrowTime64DataTypeClass    GArrowTime64DataTypeClass;
+
+/**
+ * GArrowTime64DataType:
+ *
+ * It wraps `arrow::Time64Type`.
+ */
+struct _GArrowTime64DataType
+{
+  /*< private >*/
+  GArrowTimeDataType parent_instance;
+};
+
+struct _GArrowTime64DataTypeClass
+{
+  GArrowTimeDataTypeClass parent_class;
+};
+
+GType                 garrow_time64_data_type_get_type (void) G_GNUC_CONST;
+GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
+                                                        GError **error);
+
+
 #define GARROW_TYPE_LIST_DATA_TYPE              \
   (garrow_list_data_type_get_type())
 #define GARROW_LIST_DATA_TYPE(obj)                              \

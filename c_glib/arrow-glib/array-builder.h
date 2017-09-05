@@ -884,6 +884,110 @@ gboolean garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *build
                                                  GError **error);
 
 
+#define GARROW_TYPE_TIME32_ARRAY_BUILDER        \
+  (garrow_time32_array_builder_get_type())
+#define GARROW_TIME32_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME32_ARRAY_BUILDER, \
+                              GArrowTime32ArrayBuilder))
+#define GARROW_TIME32_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME32_ARRAY_BUILDER,    \
+                           GArrowTime32ArrayBuilderClass))
+#define GARROW_IS_TIME32_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIME32_ARRAY_BUILDER))
+#define GARROW_IS_TIME32_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME32_ARRAY_BUILDER))
+#define GARROW_TIME32_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME32_ARRAY_BUILDER,  \
+                             GArrowTime32ArrayBuilderClass))
+
+typedef struct _GArrowTime32ArrayBuilder         GArrowTime32ArrayBuilder;
+typedef struct _GArrowTime32ArrayBuilderClass    GArrowTime32ArrayBuilderClass;
+
+/**
+ * GArrowTime32ArrayBuilder:
+ *
+ * It wraps `arrow::Time32Builder`.
+ */
+struct _GArrowTime32ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTime32ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_time32_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTime32ArrayBuilder *garrow_time32_array_builder_new(GArrowDataType *data_type,
+                                                          GError **error);
+
+gboolean garrow_time32_array_builder_append(GArrowTime32ArrayBuilder *builder,
+                                            gint32 value,
+                                            GError **error);
+gboolean garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
+                                                 GError **error);
+
+
+#define GARROW_TYPE_TIME64_ARRAY_BUILDER        \
+  (garrow_time64_array_builder_get_type())
+#define GARROW_TIME64_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME64_ARRAY_BUILDER, \
+                              GArrowTime64ArrayBuilder))
+#define GARROW_TIME64_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME64_ARRAY_BUILDER,    \
+                           GArrowTime64ArrayBuilderClass))
+#define GARROW_IS_TIME64_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIME64_ARRAY_BUILDER))
+#define GARROW_IS_TIME64_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME64_ARRAY_BUILDER))
+#define GARROW_TIME64_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME64_ARRAY_BUILDER,  \
+                             GArrowTime64ArrayBuilderClass))
+
+typedef struct _GArrowTime64ArrayBuilder         GArrowTime64ArrayBuilder;
+typedef struct _GArrowTime64ArrayBuilderClass    GArrowTime64ArrayBuilderClass;
+
+/**
+ * GArrowTime64ArrayBuilder:
+ *
+ * It wraps `arrow::Time64Builder`.
+ */
+struct _GArrowTime64ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTime64ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_time64_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTime64ArrayBuilder *garrow_time64_array_builder_new(GArrowDataType *data_type,
+                                                          GError **error);
+
+gboolean garrow_time64_array_builder_append(GArrowTime64ArrayBuilder *builder,
+                                            gint64 value,
+                                            GError **error);
+gboolean garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
+                                                 GError **error);
+
+
 #define GARROW_TYPE_LIST_ARRAY_BUILDER          \
   (garrow_list_array_builder_get_type())
 #define GARROW_LIST_ARRAY_BUILDER(obj)                          \
