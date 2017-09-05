@@ -172,6 +172,28 @@ constructors, the circumstances where they would are somewhat esoteric, and it
 is likely that an application would have encountered other more serious
 problems prior to having `std::bad_alloc` thrown in a constructor.
 
+### Extra debugging help
+
+If you use the CMake option `-DARROW_EXTRA_ERROR_CONTEXT=ON` it will compile
+the libraries with extra debugging information on error checks inside the
+`RETURN_NOT_OK` macro. In unit tests with `ASSERT_OK`, this will yield error
+outputs like:
+
+
+```
+../src/arrow/ipc/ipc-read-write-test.cc:609: Failure
+Failed
+NotImplemented: ../src/arrow/ipc/ipc-read-write-test.cc:574 code: writer->WriteRecordBatch(batch)
+../src/arrow/ipc/writer.cc:778 code: CheckStarted()
+../src/arrow/ipc/writer.cc:755 code: schema_writer.Write(&dictionaries_)
+../src/arrow/ipc/writer.cc:730 code: WriteSchema()
+../src/arrow/ipc/writer.cc:697 code: WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb)
+../src/arrow/ipc/metadata-internal.cc:651 code: SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema)
+../src/arrow/ipc/metadata-internal.cc:598 code: FieldToFlatbuffer(fbb, *schema.field(i), dictionary_memo, &offset)
+../src/arrow/ipc/metadata-internal.cc:508 code: TypeToFlatbuffer(fbb, *field.type(), &children, &layout, &type_enum, dictionary_memo, &type_offset)
+Unable to convert type: decimal(19, 4)
+```
+
 ### Deprecations and API Changes
 
 We use the compiler definition `ARROW_NO_DEPRECATED_API` to disable APIs that
