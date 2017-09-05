@@ -44,8 +44,19 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     def delete(self, path, recursive=False):
         return super(HadoopFileSystem, self).delete(path, recursive)
 
-    @implements(FileSystem.mkdir)
-    def mkdir(self, path, create_parents=True):
+    def mkdir(self, path, **kwargs):
+        """
+        Create directory in HDFS
+
+        Parameters
+        ----------
+        path : string
+            Directory path to create, including any parent directories
+
+        Notes
+        -----
+        libhdfs does not support create_parents=False, so we ignore this here
+        """
         return super(HadoopFileSystem, self).mkdir(path)
 
     @implements(FileSystem.rename)
