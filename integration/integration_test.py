@@ -21,6 +21,7 @@ import glob
 import itertools
 import json
 import os
+import random
 import six
 import string
 import subprocess
@@ -165,16 +166,18 @@ class PrimitiveColumn(Column):
         self.is_valid = is_valid
         self.values = values
 
+    def _encode_value(self, x):
+        return x
+
     def _get_buffers(self):
         return [
             ('VALIDITY', [int(v) for v in self.is_valid]),
-            ('DATA', list(self.values))
+            ('DATA', list([self._encode_value(x) for x in self.values]))
         ]
 
 
 TEST_INT_MIN = - 2**31 + 1
 TEST_INT_MAX = 2**31 - 1
-
 
 class IntegerType(PrimitiveType):
 
@@ -313,8 +316,54 @@ class FloatingPointType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
-class BooleanType(PrimitiveType):
+class DecimalType(PrimitiveType):
+    def __init__(self, name, bit_width, precision, scale, nullable=True):
+        PrimitiveType.__init__(self, name, nullable=True)
 
+        self.bit_width = bit_width
+        self.precision = precision
+        self.scale = scale
+
+    @property
+    def numpy_type(self):
+        return object
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'decimal'),
+            ('precision', self.precision),
+            ('scale', self.scale),
+        ])
+
+    def _get_type_layout(self):
+        return OrderedDict([
+            ('vectors',
+             [OrderedDict([('type', 'VALIDITY'),
+                           ('typeBitWidth', 1)]),
+              OrderedDict([('type', 'DATA'),
+                           ('typeBitWidth', self.bit_width)])])])
+
+    def generate_column(self, size, name=None):
+        values = [random.randint(0, 2**self.bit_width - 1) for x in range(size)]
+
+        is_valid = self._make_is_valid(size)
+        if name is None:
+            name = self.name
+        return DecimalColumn(name, size, is_valid, values, self.bit_width)
+
+
+class DecimalColumn(PrimitiveColumn):
+    def __init__(self, name, count, is_valid, values, bit_width):
+        PrimitiveColumn.__init__(self, name, count, is_valid, values)
+        self.bit_width = bit_width
+        self.hex_width = bit_width / 4
+
+    def _encode_value(self, x):
+        hex_format_str = '%%0%dx' % self.hex_width
+        return (hex_format_str % x).upper()
+
+
+class BooleanType(PrimitiveType):
     bit_width = 1
 
     def _get_type(self):
@@ -440,7 +489,6 @@ class StringColumn(BinaryColumn):
 
     def _encode_value(self, x):
         return x
-
 
 class ListType(DataType):
 
@@ -691,6 +739,17 @@ def generate_primitive_case(batch_sizes):
     return _generate_file("primitive", fields, batch_sizes)
 
 
+def generate_decimal_case():
+    fields = [
+        DecimalType('f1', 128, 24, 10, True),
+        DecimalType('f2', 128, 32, -10, True)
+    ]
+
+    batch_sizes = [7, 10]
+
+    return _generate_file('decimal', fields, batch_sizes)
+
+
 def generate_datetime_case():
     fields = [
         DateType('f0', DateType.DAY),
@@ -756,6 +815,7 @@ def get_generated_json_files():
     file_objs = [
         generate_primitive_case([7, 10]),
         generate_primitive_case([0, 0, 0]),
+        generate_decimal_case(),
         generate_datetime_case(),
         generate_nested_case(),
         generate_dictionary_case()
