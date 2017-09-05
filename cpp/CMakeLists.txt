@@ -94,6 +94,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Exclude deprecated APIs from build"
     OFF)
 
+  option(ARROW_EXTRA_ERROR_CONTEXT
+    "Compile with extra error context (line numbers, code)"
+    OFF)
+
   option(ARROW_IPC
     "Build the Arrow IPC extensions"
     ON)
@@ -219,6 +223,10 @@ include(BuildUtils)
 
 if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
+endif()
+
+if (ARROW_EXTRA_ERROR_CONTEXT)
+  add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
 include(SetupCxxFlags)
