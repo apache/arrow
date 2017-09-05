@@ -139,8 +139,8 @@ send it to the project instead of Apache Arrow project.
 ### Nightly Development Builds
 
 To assist with development and debugging, some nightly builds are
-available. These builds are not releases and are to be used strictly for
-development.
+available. These builds are not releases and not necessarily produced on ASF
+infrastructure. They are to be used strictly for development.
 
 * **conda packages** for C++ and Python (Linux only)
 
