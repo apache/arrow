@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import posixpath
 
 from pyarrow.util import implements
@@ -30,6 +31,9 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
                  driver='libhdfs'):
+        if driver == 'libhdfs':
+            _maybe_set_hadoop_classpath()
+
         self._connect(host, port, user, kerb_ticket, driver)
 
     @implements(FileSystem.isdir)
@@ -103,6 +107,21 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         for dirname in directories:
             for tup in self.walk(self._path_join(top_path, dirname)):
                 yield tup
+
+
+def _maybe_set_hadoop_classpath():
+    import subprocess
+
+    if 'hadoop' in os.environ.get('CLASSPATH', ''):
+        return
+
+    if 'HADOOP_HOME' in os.environ:
+        hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+    else:
+        hadoop_bin = 'hadoop'
+
+    classpath = subprocess.check_output([hadoop_bin, 'classpath', '--glob'])
+    os.environ['CLASSPATH'] = classpath.decode('utf-8')
 
 
 def _libhdfs_walk_files_dirs(top_path, contents):
