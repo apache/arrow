@@ -45,6 +45,10 @@ Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink);
 
 ARROW_EXPORT
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::string* result);
+
+ARROW_EXPORT
 Status DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow

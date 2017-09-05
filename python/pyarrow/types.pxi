@@ -423,7 +423,15 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
-        return frombytes(self.schema.ToString())
+        cdef:
+            PrettyPrintOptions options
+            c_string result
+
+        options.indent = 0
+        with nogil:
+            check_status(PrettyPrint(deref(self.schema), options, &result))
+
+        return frombytes(result)
 
     def __repr__(self):
         return self.__str__()

@@ -152,6 +152,9 @@ class ARROW_EXPORT DataType {
   virtual std::string ToString() const = 0;
 
   /// \brief A string name of the type, omitting any child fields
+  ///
+  /// \note Experimental API
+  /// \since 0.7.0
   virtual std::string name() const = 0;
 
   virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
@@ -824,7 +827,8 @@ std::shared_ptr<Field> ARROW_EXPORT field(
 /// \param fields the schema's fields
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
+ARROW_EXPORT
+std::shared_ptr<Schema>
 schema(const std::vector<std::shared_ptr<Field>>& fields,
        const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
@@ -833,7 +837,8 @@ schema(const std::vector<std::shared_ptr<Field>>& fields,
 /// \param fields the schema's fields (rvalue reference)
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
+ARROW_EXPORT
+std::shared_ptr<Schema>
 schema(std::vector<std::shared_ptr<Field>>&& fields,
        const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 

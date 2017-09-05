@@ -38,6 +38,8 @@ class PrettyPrinter {
 
   void Write(const char* data);
   void Write(const std::string& data);
+  void WriteIndented(const char* data);
+  void WriteIndented(const std::string& data);
   void Newline();
   void Indent();
   void OpenArray();
@@ -53,8 +55,17 @@ void PrettyPrinter::OpenArray() { (*sink_) << "["; }
 void PrettyPrinter::CloseArray() { (*sink_) << "]"; }
 
 void PrettyPrinter::Write(const char* data) { (*sink_) << data; }
-
 void PrettyPrinter::Write(const std::string& data) { (*sink_) << data; }
+
+void PrettyPrinter::WriteIndented(const char* data) {
+  Indent();
+  Write(data);
+}
+
+void PrettyPrinter::WriteIndented(const std::string& data) {
+  Indent();
+  Write(data);
+}
 
 void PrettyPrinter::Newline() {
   (*sink_) << "\n";
@@ -338,23 +349,22 @@ class SchemaPrinter : public PrettyPrinter {
 Status SchemaPrinter::PrintType(const DataType& type) {
   Write(type.ToString());
   if (type.id() == Type::DICTIONARY) {
+    Newline();
+
     indent_ += 2;
-    std::stringstream ss;
-    Write("dictionary: \n");
+    WriteIndented("-- dictionary: ");
+    indent_ -= 2;
 
     const auto& dict_type = static_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_, sink_));
-    indent_ -= 2;
+    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + 2, sink_));
   } else {
     for (int i = 0; i < type.num_children(); ++i) {
-      indent_ += 2;
+      Newline();
 
       std::stringstream ss;
-      ss << "child " << i << ", ";
-      Write(ss.str());
+      ss << "  child " << i << ", ";
+      WriteIndented(ss.str());
       RETURN_NOT_OK(PrintField(*type.child(i)));
-      indent_ -= 2;
-      Newline();
     }
   }
   return Status::OK();
@@ -370,6 +380,14 @@ Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   SchemaPrinter printer(schema, options.indent, sink);
   return printer.Print();
+}
+
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::string* result) {
+  std::ostringstream sink;
+  RETURN_NOT_OK(PrettyPrint(schema, options, &sink));
+  *result = sink.str();
+  return Status::OK();
 }
 
 }  // namespace arrow
