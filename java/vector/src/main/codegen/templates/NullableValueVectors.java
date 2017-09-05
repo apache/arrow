@@ -267,6 +267,13 @@ protected final static byte[] emptyByteArray = new byte[]{};
     values.reAlloc();
   }
 
+  public void reset() {
+    bits.zeroVector();
+    values.reset();
+    mutator.reset();
+    accessor.reset();
+  }
+
   <#if type.major == "VarLen">
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
@@ -277,12 +284,6 @@ protected final static byte[] emptyByteArray = new byte[]{};
       clear();
       throw e;
     }
-    bits.zeroVector();
-    mutator.reset();
-    accessor.reset();
-  }
-
-  public void reset() {
     bits.zeroVector();
     mutator.reset();
     accessor.reset();
@@ -303,17 +304,11 @@ protected final static byte[] emptyByteArray = new byte[]{};
   public void allocateNew(int valueCount) {
     try {
       values.allocateNew(valueCount);
-      bits.allocateNew(valueCount+1);
+      bits.allocateNew(valueCount);
     } catch(OutOfMemoryException e) {
       clear();
       throw e;
     }
-    bits.zeroVector();
-    mutator.reset();
-    accessor.reset();
-  }
-
-  public void reset() {
     bits.zeroVector();
     mutator.reset();
     accessor.reset();
