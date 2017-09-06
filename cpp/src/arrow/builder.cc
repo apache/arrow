@@ -292,6 +292,17 @@ Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
 }
 
 template <typename T>
+Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values,
+                                   const std::vector<bool>& is_valid) {
+  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
+  return Append(values.data(), static_cast<int64_t>(values.size()));
+}
+
+template <typename T>
 Status PrimitiveBuilder<T>::Finish(std::shared_ptr<Array>* out) {
   const int64_t bytes_required = TypeTraits<T>::bytes_required(length_);
   if (bytes_required > 0 && bytes_required < data_->size()) {
@@ -750,6 +761,7 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
 Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
                               const std::vector<bool>& is_valid) {
   RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
   for (int64_t i = 0; i < length; ++i) {
     BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
@@ -760,10 +772,20 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   return Status::OK();
 }
 
+Status BooleanBuilder::Append(const std::vector<uint8_t>& values,
+                              const std::vector<bool>& is_valid) {
+  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
+Status BooleanBuilder::Append(const std::vector<uint8_t>& values) {
+  return Append(values.data(), static_cast<int64_t>(values.size()));
+}
+
 Status BooleanBuilder::Append(const std::vector<bool>& values,
                               const std::vector<bool>& is_valid) {
   const int64_t length = static_cast<int64_t>(values.size());
   RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
 
   for (int64_t i = 0; i < length; ++i) {
     BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
@@ -771,6 +793,18 @@ Status BooleanBuilder::Append(const std::vector<bool>& values,
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const std::vector<bool>& values) {
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+  }
+
+  ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }
 
