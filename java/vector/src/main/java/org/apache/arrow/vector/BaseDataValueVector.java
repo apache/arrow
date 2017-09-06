@@ -69,7 +69,9 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
 
   @Override
   public void clear() {
-    data.release();
+    if ( data != null) {
+      data.release();
+    }
     data = allocator.getEmpty();
     super.clear();
   }
