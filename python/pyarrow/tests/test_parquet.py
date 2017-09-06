@@ -124,7 +124,9 @@ def test_pandas_parquet_datetime_tz():
     s.index = s
 
     # Both a column and an index to hit both use cases
-    df = pd.DataFrame({'tz_aware': s}, index=s)
+    df = pd.DataFrame({'tz_aware': s,
+                       'tz_eastern': s.dt.tz_convert('US/Eastern')},
+                      index=s)
 
     f = BytesIO()
 
