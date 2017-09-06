@@ -431,7 +431,20 @@ cdef class Schema:
         with nogil:
             check_status(PrettyPrint(deref(self.schema), options, &result))
 
-        return frombytes(result)
+        printed = frombytes(result)
+        if self.metadata is not None:
+            import pprint
+
+            try:
+                import json
+                metadata = json.loads(self.metadata)
+            except:
+                metadata = self.metadata
+
+            metadata_formatted = pprint.pformat(metadata)
+            printed += '\nmetadata\n--------\n' + metadata_formatted
+
+        return printed
 
     def __repr__(self):
         return self.__str__()

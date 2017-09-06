@@ -286,6 +286,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     if metadata is not None and b'pandas' in metadata:
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
         index_columns = pandas_metadata['index_columns']
+        table = _add_any_metadata(table, pandas_metadata)
 
     for name in index_columns:
         i = schema.get_field_index(name)
@@ -340,3 +341,34 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     ]
 
     return _int.BlockManager(blocks, axes)
+
+
+def _add_any_metadata(table, pandas_metadata):
+    modified_columns = {}
+
+    schema = table.schema
+
+    # Add time zones
+    for i, col_meta in enumerate(pandas_metadata['columns']):
+        if col_meta['pandas_type'] == 'datetimetz':
+            col = table[i]
+            converted = col.to_pandas()
+            tz = col_meta['metadata']['timezone']
+            tz_aware_type = pa.timestamp(col.type.unit, tz=tz)
+
+            with_metadata = pa.Array.from_pandas(converted.values,
+                                                 type=tz_aware_type)
+
+            modified_columns[i] = pa.Column.from_array(schema[i],
+                                                       with_metadata)
+
+    if len(modified_columns) > 0:
+        columns = []
+        for i in range(len(table.schema)):
+            if i in modified_columns:
+                columns.append(modified_columns[i])
+            else:
+                columns.append(table[i])
+        return pa.Table.from_arrays(columns)
+    else:
+        return table
