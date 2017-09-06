@@ -111,7 +111,7 @@ class LevelBuilder {
                         std::shared_ptr<Array>* values_array) {
     // Work downwards to extract bitmaps and offsets
     min_offset_idx_ = 0;
-    max_offset_idx_ = static_cast<int32_t>(array.length());
+    max_offset_idx_ = array.length();
     RETURN_NOT_OK(VisitInline(array));
     *num_values = max_offset_idx_ - min_offset_idx_;
     *values_offset = min_offset_idx_;
@@ -244,8 +244,8 @@ class LevelBuilder {
   std::vector<int32_t> array_offsets_;
   std::vector<bool> nullable_;
 
-  int32_t min_offset_idx_;
-  int32_t max_offset_idx_;
+  int64_t min_offset_idx_;
+  int64_t max_offset_idx_;
   ::arrow::Type::type values_type_;
   std::shared_ptr<Array> values_array_;
 };
@@ -290,6 +290,8 @@ class FileWriter::Impl {
 
   Status WriteColumnChunk(const Array& data);
   Status Close();
+
+  const WriterProperties& properties() const { return *writer_->properties(); }
 
   virtual ~Impl() {}
 
@@ -941,11 +943,14 @@ Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
 
   if (chunk_size <= 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
+  } else if (chunk_size > impl_->properties().max_row_group_length()) {
+    chunk_size = impl_->properties().max_row_group_length();
   }
 
   for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
     int64_t offset = chunk * chunk_size;
     int64_t size = std::min(chunk_size, table.num_rows() - offset);
+
     RETURN_NOT_OK_ELSE(NewRowGroup(size), PARQUET_IGNORE_NOT_OK(Close()));
     for (int i = 0; i < table.num_columns(); i++) {
       std::shared_ptr<Array> array = table.column(i)->data()->chunk(0);
