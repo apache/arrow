@@ -20,10 +20,6 @@ set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-export PARQUET_HOME=$ARROW_PYTHON_PARQUET_HOME
-export LD_LIBRARY_PATH=$ARROW_HOME/lib:$PARQUET_HOME/lib:$LD_LIBRARY_PATH
-export PYARROW_CXXFLAGS="-Werror"
-
 export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
 
 # $CPP_TOOLCHAIN set up in before_script_cpp
@@ -41,7 +37,7 @@ cd build-dir
 cmake \
     -GNinja \
     -DCMAKE_BUILD_TYPE=debug \
-    -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+    -DCMAKE_INSTALL_PREFIX=$ARROW_PYTHON_PARQUET_HOME \
     -DPARQUET_BOOST_USE_SHARED=off \
     -DPARQUET_BUILD_BENCHMARKS=off \
     -DPARQUET_BUILD_EXECUTABLES=off \
