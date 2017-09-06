@@ -617,8 +617,8 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
                                 tensors_out));
   }
   std::shared_ptr<Array> val_set_arr;
-  if (val_dicts.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_dicts, recursion_depth + 1,
+  if (val_sets.size() > 0) {
+    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1,
                                      &val_set_arr, tensors_out));
   }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
