@@ -419,7 +419,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                               shared_ptr[CTable]* result)
 
 
-cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
+cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
         FileMode_READ" arrow::io::FileMode::READ"
         FileMode_WRITE" arrow::io::FileMode::WRITE"
@@ -473,9 +473,6 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass FileSystem:
         CStatus Stat(const c_string& path, FileStatistics* stat)
 
-
-cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
-
     cdef cppclass FileOutputStream(OutputStream):
         @staticmethod
         CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
@@ -505,8 +502,9 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
+    # ----------------------------------------------------------------------
+    # HDFS
 
-cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     CStatus HaveLibHdfs()
     CStatus HaveLibHdfs3()
 
@@ -574,8 +572,6 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
                               int64_t default_block_size,
                               shared_ptr[HdfsOutputStream]* handle)
 
-
-cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(RandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
