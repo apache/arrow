@@ -178,7 +178,15 @@ cdef class Column:
                                                         self.sp_column,
                                                         self, &out))
 
-        return pd.Series(wrap_array_output(out), name=self.name)
+        values = wrap_array_output(out)
+        result = pd.Series(values, name=self.name)
+
+        if isinstance(self.type, TimestampType):
+            if self.type.tz is not None:
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(self.type.tz))
+
+        return result
 
     def equals(self, Column other):
         """

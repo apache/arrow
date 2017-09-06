@@ -134,6 +134,16 @@ cdef class TimestampType(DataType):
             else:
                 return None
 
+    def to_pandas_dtype(self):
+        """
+        Return the NumPy dtype that would be used for storing this
+        """
+        if self.tz is None:
+            return _pandas_type_map[_Type_TIMESTAMP]
+        else:
+            # Return DatetimeTZ
+            return pdcompat.make_datetimetz(self.tz)
+
 
 cdef class Time32Type(DataType):
 
@@ -434,14 +444,7 @@ cdef class Schema:
         printed = frombytes(result)
         if self.metadata is not None:
             import pprint
-
-            try:
-                import json
-                metadata = json.loads(self.metadata)
-            except:
-                metadata = self.metadata
-
-            metadata_formatted = pprint.pformat(metadata)
+            metadata_formatted = pprint.pformat(self.metadata)
             printed += '\nmetadata\n--------\n' + metadata_formatted
 
         return printed

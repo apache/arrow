@@ -81,6 +81,16 @@ class TestPandasConversion(unittest.TestCase):
             expected = df
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
 
+    def _check_series_roundtrip(self, s, type_=None):
+        arr = pa.Array.from_pandas(s, type=type_)
+
+        result = pd.Series(arr.to_pandas(), name=s.name)
+        if isinstance(arr.type, pa.TimestampType) and arr.type.tz is not None:
+            result = (result.dt.tz_localize('utc')
+                      .dt.tz_convert(arr.type.tz))
+
+        tm.assert_series_equal(s, result)
+
     def _check_array_roundtrip(self, values, expected=None, mask=None,
                                timestamps_to_ms=False, type=None):
         arr = pa.Array.from_pandas(values, timestamps_to_ms=timestamps_to_ms,
@@ -402,6 +412,8 @@ class TestPandasConversion(unittest.TestCase):
                             .to_frame())
         self._check_pandas_roundtrip(df, timestamps_to_ms=True)
 
+        self._check_series_roundtrip(df['datetime64'])
+
         # drop-in a null and ns instead of ms
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -414,6 +426,14 @@ class TestPandasConversion(unittest.TestCase):
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
         self._check_pandas_roundtrip(df)
+
+    def test_timestamp_with_tz_to_pandas_type(self):
+        from pyarrow.compat import DatetimeTZDtype
+
+        tz = 'America/Los_Angeles'
+        t = pa.timestamp('ns', tz=tz)
+
+        assert t.to_pandas_dtype() == DatetimeTZDtype('ns', tz=tz)
 
     def test_date_infer(self):
         df = pd.DataFrame({

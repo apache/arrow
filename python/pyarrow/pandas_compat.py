@@ -172,8 +172,8 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     dict
     """
     ncolumns = len(column_names)
-    df_types = types[:ncolumns]
-    index_types = types[ncolumns:ncolumns + len(index_levels)]
+    df_types = types[:ncolumns - len(index_levels)]
+    index_types = types[ncolumns - len(index_levels):]
 
     column_metadata = [
         get_column_metadata(df[col_name], name=sanitized_name,
@@ -269,9 +269,13 @@ def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
     return values, type_
 
 
+def make_datetimetz(tz):
+    from pyarrow.compat import DatetimeTZDtype
+    return DatetimeTZDtype('ns', tz=tz)
+
+
 def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pandas.core.internals as _int
-    from pyarrow.compat import DatetimeTZDtype
     import pyarrow.lib as lib
 
     index_columns = []
@@ -294,13 +298,14 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             col = table.column(i)
             index_name = (None if is_unnamed_index_level(name)
                           else name)
-            values = col.to_pandas().values
+            col_pandas = col.to_pandas()
+            values = col_pandas.values
             if not values.flags.writeable:
                 # ARROW-1054: in pandas 0.19.2, factorize will reject
                 # non-writeable arrays when calling MultiIndex.from_arrays
                 values = values.copy()
 
-            index_arrays.append(values)
+            index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
             index_names.append(index_name)
             block_table = block_table.remove_column(
                 block_table.schema.get_field_index(name)
@@ -320,7 +325,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)
         elif 'timezone' in item:
-            dtype = DatetimeTZDtype('ns', tz=item['timezone'])
+            dtype = make_datetimetz(item['timezone'])
             block = _int.make_block(block_arr, placement=placement,
                                     klass=_int.DatetimeTZBlock,
                                     dtype=dtype, fastpath=True)
