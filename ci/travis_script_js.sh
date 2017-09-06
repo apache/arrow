@@ -24,5 +24,7 @@ JS_DIR=${TRAVIS_BUILD_DIR}/js
 pushd $JS_DIR
 
 npm test
+npm run test:coverage
+cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js;
 
 popd
