@@ -31,6 +31,8 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/int128.h"
 
 namespace arrow {
 
@@ -103,6 +105,30 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   ASSERT_OK(builder.Append(values[2]));
   ASSERT_OK(builder.Finish(&array));
 
+  CheckArray(*array, 0, ex);
+}
+
+TEST_F(TestPrettyPrint, DecimalType) {
+  int32_t p = 19;
+  int32_t s = 4;
+
+  auto type = decimal(p, s);
+
+  DecimalBuilder builder(type);
+
+  Int128 val;
+
+  ASSERT_OK(DecimalUtil::FromString("123.4567", &val));
+  ASSERT_OK(builder.Append(val));
+
+  ASSERT_OK(DecimalUtil::FromString("456.7891", &val));
+  ASSERT_OK(builder.Append(val));
+  ASSERT_OK(builder.AppendNull());
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  static const char* ex = R"expected([123.4567, 456.7891, null])expected";
   CheckArray(*array, 0, ex);
 }
 
