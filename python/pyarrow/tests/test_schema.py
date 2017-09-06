@@ -147,7 +147,8 @@ def test_schema():
     assert repr(sch) == """\
 foo: int32
 bar: string
-baz: list<item: int8>"""
+baz: list<item: int8>
+  child 0, item: int8"""
 
 
 def test_field_empty():
@@ -236,3 +237,20 @@ def test_schema_negative_indexing():
 
     with pytest.raises(IndexError):
         schema[3]
+
+
+def test_schema_repr_with_dictionaries():
+    dct = pa.array(['foo', 'bar', 'baz'], type=pa.string())
+    fields = [
+        pa.field('one', pa.dictionary(pa.int16(), dct)),
+        pa.field('two', pa.int32())
+    ]
+    sch = pa.schema(fields)
+
+    expected = (
+        """\
+one: dictionary<values=string, indices=int16, ordered=0>
+  dictionary: ["foo", "bar", "baz"]
+two: int32""")
+
+    assert repr(sch) == expected

@@ -55,6 +55,13 @@ void CheckArray(const Array& arr, int indent, const char* expected) {
   ASSERT_EQ(result, ss.str());
 }
 
+template <typename T>
+void Check(const T& obj, const PrettyPrintOptions& options, const char* expected) {
+  std::string result;
+  ASSERT_OK(PrettyPrint(obj, options, &result));
+  ASSERT_EQ(std::string(expected, strlen(expected)), result);
+}
+
 template <typename TYPE, typename C_TYPE>
 void CheckPrimitive(int indent, const std::vector<bool>& is_valid,
                     const std::vector<C_TYPE>& values, const char* expected) {
@@ -117,7 +124,38 @@ TEST_F(TestPrettyPrint, DictionaryType) {
 -- dictionary: ["foo", "bar", "baz"]
 -- indices: [1, 2, null, 0, 2, 0])expected";
 
-  CheckArray(*arr.get(), 0, expected);
+  CheckArray(*arr, 0, expected);
+}
+
+TEST_F(TestPrettyPrint, SchemaWithDictionary) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+
+  std::shared_ptr<Array> dict;
+  std::vector<std::string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, std::string>(dict_values, &dict);
+
+  auto simple = field("one", int32());
+  auto simple_dict = field("two", dictionary(int16(), dict));
+  auto list_of_dict = field("three", list(simple_dict));
+
+  auto struct_with_dict = field("four", struct_({simple, simple_dict}));
+
+  auto sch = schema({simple, simple_dict, list_of_dict, struct_with_dict});
+
+  static const char* expected = R"expected(one: int32
+two: dictionary<values=string, indices=int16, ordered=0>
+  dictionary: ["foo", "bar", "baz"]
+three: list<two: dictionary<values=string, indices=int16, ordered=0>>
+  child 0, two: dictionary<values=string, indices=int16, ordered=0>
+      dictionary: ["foo", "bar", "baz"]
+four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
+  child 0, one: int32
+  child 1, two: dictionary<values=string, indices=int16, ordered=0>
+      dictionary: ["foo", "bar", "baz"])expected";
+
+  PrettyPrintOptions options{0};
+
+  Check(*sch, options, expected);
 }
 
 }  // namespace arrow

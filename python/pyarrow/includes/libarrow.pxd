@@ -242,6 +242,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
+    cdef cppclass PrettyPrintOptions:
+        int indent;
+
+    CStatus PrettyPrint(const CSchema& schema,
+                        const PrettyPrintOptions& options,
+                        c_string* result)
+
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)
 

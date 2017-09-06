@@ -19,6 +19,7 @@
 #define ARROW_PRETTY_PRINT_H
 
 #include <ostream>
+#include <string>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -32,10 +33,24 @@ struct PrettyPrintOptions {
   int indent;
 };
 
-Status ARROW_EXPORT PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
-Status ARROW_EXPORT PrettyPrint(const Array& arr, int indent, std::ostream* sink);
+/// \brief Print human-readable representation of RecordBatch
+ARROW_EXPORT
+Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
 
-Status ARROW_EXPORT DebugPrint(const Array& arr, int indent);
+/// \brief Print human-readable representation of Array
+ARROW_EXPORT
+Status PrettyPrint(const Array& arr, int indent, std::ostream* sink);
+
+ARROW_EXPORT
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::ostream* sink);
+
+ARROW_EXPORT
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::string* result);
+
+ARROW_EXPORT
+Status DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow
 
