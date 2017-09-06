@@ -220,6 +220,18 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   Status Append(const value_type* values, int64_t length,
                 const std::vector<bool>& is_valid);
 
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of values
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<value_type>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of values
+  /// \return Status
+  Status Append(const std::vector<value_type>& values);
+
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
 
@@ -556,11 +568,28 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   Status Append(const uint8_t* values, int64_t length, const std::vector<bool>& is_valid);
 
   /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of bytes
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<uint8_t>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of bytes
+  /// \return Status
+  Status Append(const std::vector<uint8_t>& values);
+
+  /// \brief Append a sequence of elements in one shot
   /// \param[in] values an std::vector<bool> indicating true (1) or false
   /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
   /// (0). Equal in length to values
   /// \return Status
   Status Append(const std::vector<bool>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values an std::vector<bool> indicating true (1) or false
+  /// \return Status
+  Status Append(const std::vector<bool>& values);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;

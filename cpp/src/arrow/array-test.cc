@@ -614,22 +614,32 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendVectorStdBool) {
     is_valid.push_back(this->valid_bytes_[i] != 0);
   }
   ASSERT_OK(this->builder_->Append(draws.data(), K, is_valid));
+  ASSERT_OK(this->builder_nn_->Append(draws.data(), K));
 
   ASSERT_EQ(1000, this->builder_->length());
   ASSERT_EQ(1024, this->builder_->capacity());
+  ASSERT_EQ(1000, this->builder_nn_->length());
+  ASSERT_EQ(1024, this->builder_nn_->capacity());
 
   // Append the next 9000
   is_valid.clear();
+  std::vector<T> partial_draws;
   for (int64_t i = K; i < size; ++i) {
+    partial_draws.push_back(draws[i]);
     is_valid.push_back(this->valid_bytes_[i] != 0);
   }
 
-  ASSERT_OK(this->builder_->Append(draws.data() + K, size - K, is_valid));
+  ASSERT_OK(this->builder_->Append(partial_draws, is_valid));
+  ASSERT_OK(this->builder_nn_->Append(partial_draws));
 
   ASSERT_EQ(size, this->builder_->length());
   ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
 
+  ASSERT_EQ(size, this->builder_nn_->length());
+  ASSERT_EQ(BitUtil::NextPower2(size), this->builder_->capacity());
+
   this->Check(this->builder_, true);
+  this->Check(this->builder_nn_, false);
 }
 
 TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
@@ -671,6 +681,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
 
 TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
   BooleanBuilder builder;
+  BooleanBuilder builder_nn;
 
   std::vector<bool> values, is_valid;
 
@@ -686,12 +697,15 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
       chunk_is_valid.push_back(is_valid[i]);
     }
     ASSERT_OK(builder.Append(chunk_values, chunk_is_valid));
+    ASSERT_OK(builder_nn.Append(chunk_values));
   }
 
-  std::shared_ptr<Array> result;
+  std::shared_ptr<Array> result, result_nn;
   ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(builder_nn.Finish(&result_nn));
 
   const auto& arr = static_cast<const BooleanArray&>(*result);
+  const auto& arr_nn = static_cast<const BooleanArray&>(*result_nn);
   for (int i = 0; i < length; ++i) {
     if (is_valid[i]) {
       ASSERT_FALSE(arr.IsNull(i));
@@ -699,6 +713,7 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
     } else {
       ASSERT_TRUE(arr.IsNull(i));
     }
+    ASSERT_EQ(values[i], arr_nn.Value(i));
   }
 }
 
