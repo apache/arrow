@@ -313,7 +313,8 @@ class DictBuilder {
     // the keys we do not need to collect sublists
     std::shared_ptr<Array> keys, vals;
     RETURN_NOT_OK(keys_.Finish(nullptr, key_tuple_data, key_dict_data, nullptr, &keys));
-    RETURN_NOT_OK(vals_.Finish(val_list_data, val_tuple_data, val_dict_data, val_set_data, &vals));
+    RETURN_NOT_OK(
+        vals_.Finish(val_list_data, val_tuple_data, val_dict_data, val_set_data, &vals));
     auto keys_field = std::make_shared<Field>("keys", keys->type());
     auto vals_field = std::make_shared<Field>("vals", vals->type());
     auto type = std::make_shared<StructType>(
@@ -579,13 +580,14 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts, val_sets, dummy;
+  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts,
+      val_sets, dummy;
   for (const auto& dict : dicts) {
     PyObject *key, *value;
     Py_ssize_t pos = 0;
     while (PyDict_Next(dict, &pos, &key, &value)) {
-      RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts, &dummy,
-                           tensors_out));
+      RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts,
+                           &dummy, tensors_out));
       DCHECK_EQ(dummy.size(), 0);
       RETURN_NOT_OK(Append(context, value, &result.vals(), &val_lists, &val_tuples,
                            &val_dicts, &val_sets, tensors_out));
@@ -618,8 +620,8 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
   }
   std::shared_ptr<Array> val_set_arr;
   if (val_sets.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1,
-                                     &val_set_arr, tensors_out));
+    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, &val_set_arr,
+                                     tensors_out));
   }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
                               val_list_arr.get(), val_tuples_arr.get(),

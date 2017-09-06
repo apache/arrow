@@ -47,8 +47,8 @@ Status DeserializeList(PyObject* context, std::shared_ptr<Array> array, int64_t 
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
 
-Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array,
-                      int64_t start_idx, int64_t stop_idx, PyObject* base,
+Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
+                      int64_t stop_idx, PyObject* base,
                       const std::vector<std::shared_ptr<Tensor>>& tensors,
                       PyObject** out);
 
@@ -198,8 +198,8 @@ Status DeserializeTuple(PyObject* context, std::shared_ptr<Array> array,
 #define SET_CREATE_FN(SIZE) PySet_New(nullptr)
 #define SET_SET_ITEM_FN(SET, INDES, VALUE) PySet_Add(SET, VALUE)
 
-Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array,
-                      int64_t start_idx, int64_t stop_idx, PyObject* base,
+Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
+                      int64_t stop_idx, PyObject* base,
                       const std::vector<std::shared_ptr<Tensor>>& tensors,
                       PyObject** out) {
   DESERIALIZE_SEQUENCE(SET_CREATE_FN, SET_SET_ITEM_FN);
