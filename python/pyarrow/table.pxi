@@ -150,6 +150,8 @@ cdef class Column:
 
         if isinstance(field_or_name, Field):
             boxed_field = field_or_name
+            if arr.type != boxed_field.type:
+                raise ValueError('Passed field type does not match array')
         else:
             boxed_field = field(field_or_name, arr.type)
 

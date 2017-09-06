@@ -347,9 +347,7 @@ class TestPandasConversion(unittest.TestCase):
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
-            df,
-            timestamps_to_ms=False,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
     def test_timestamps_to_ms_explicit_schema(self):
@@ -389,9 +387,7 @@ class TestPandasConversion(unittest.TestCase):
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
         self._check_pandas_roundtrip(
-            df,
-            timestamps_to_ms=False,
-            expected_schema=schema,
+            df, expected_schema=schema,
         )
 
     def test_timestamps_with_timezone(self):
@@ -417,7 +413,7 @@ class TestPandasConversion(unittest.TestCase):
         })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
-        self._check_pandas_roundtrip(df, timestamps_to_ms=False)
+        self._check_pandas_roundtrip(df)
 
     def test_date_infer(self):
         df = pd.DataFrame({
@@ -586,8 +582,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
-        self._check_pandas_roundtrip(df, nthreads=2,
-                                     timestamps_to_ms=False)
+        self._check_pandas_roundtrip(df, nthreads=2)
 
     def test_category(self):
         repeats = 5

@@ -121,16 +121,16 @@ def test_pandas_parquet_datetime_tz():
     s = pd.Series([datetime.datetime(2017, 9, 6)])
     s = s.dt.tz_localize('utc')
 
-    s.index = s
+    # s.index = s
 
     # Both a column and an index to hit both use cases
-    df = pd.DataFrame({'tz_aware': s}, index=s)
+    df = pd.DataFrame({'tz_aware': s})  # , index=s)
 
     f = BytesIO()
 
     arrow_table = pa.Table.from_pandas(df)
 
-    _write_table(arrow_table, f)
+    _write_table(arrow_table, f, coerce_timestamps='ms')
     f.seek(0)
 
     table_read = pq.read_pandas(f)

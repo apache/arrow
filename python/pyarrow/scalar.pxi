@@ -212,11 +212,18 @@ else:
 
 cdef class TimestampValue(ArrayValue):
 
+    property value:
+
+        def __get__(self):
+            cdef CTimestampArray* ap = <CTimestampArray*> self.sp_array.get()
+            cdef CTimestampType* dtype = <CTimestampType*> ap.type().get()
+            return ap.Value(self.index)
+
     def as_py(self):
-        cdef:
-            CTimestampArray* ap = <CTimestampArray*> self.sp_array.get()
-            CTimestampType* dtype = <CTimestampType*> ap.type().get()
-            int64_t value = ap.Value(self.index)
+        cdef CTimestampArray* ap = <CTimestampArray*> self.sp_array.get()
+        cdef CTimestampType* dtype = <CTimestampType*> ap.type().get()
+
+        value = self.value
 
         if not dtype.timezone().empty():
             import pytz

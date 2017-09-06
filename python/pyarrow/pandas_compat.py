@@ -274,8 +274,6 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     from pyarrow.compat import DatetimeTZDtype
     import pyarrow.lib as lib
 
-    block_table = table
-
     index_columns = []
     index_arrays = []
     index_names = []
@@ -287,6 +285,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
         index_columns = pandas_metadata['index_columns']
         table = _add_any_metadata(table, pandas_metadata)
+
+    block_table = table
 
     for name in index_columns:
         i = schema.get_field_index(name)
@@ -354,12 +354,12 @@ def _add_any_metadata(table, pandas_metadata):
             col = table[i]
             converted = col.to_pandas()
             tz = col_meta['metadata']['timezone']
-            tz_aware_type = pa.timestamp(col.type.unit, tz=tz)
-
+            tz_aware_type = pa.timestamp('ns', tz=tz)
             with_metadata = pa.Array.from_pandas(converted.values,
                                                  type=tz_aware_type)
 
-            modified_columns[i] = pa.Column.from_array(schema[i],
+            field = pa.field(schema[i].name, tz_aware_type)
+            modified_columns[i] = pa.Column.from_array(field,
                                                        with_metadata)
 
     if len(modified_columns) > 0:
