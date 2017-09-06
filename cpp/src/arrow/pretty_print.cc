@@ -168,6 +168,21 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
+  inline typename std::enable_if<std::is_same<DecimalArray, T>::value, void>::type
+  WriteDataValues(const T& array) {
+    for (int i = 0; i < array.length(); ++i) {
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
+      if (array.IsNull(i)) {
+        Write("null");
+      } else {
+        (*sink_) << array.FormatValue(i);
+      }
+    }
+  }
+
+  template <typename T>
   inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
@@ -197,8 +212,6 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Visit(const IntervalArray& array) { return Status::NotImplemented("interval"); }
-
-  Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
 
   Status WriteValidityBitmap(const Array& array);
 
