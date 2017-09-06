@@ -47,6 +47,11 @@ Status DeserializeList(PyObject* context, std::shared_ptr<Array> array, int64_t 
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
 
+Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array,
+                      int64_t start_idx, int64_t stop_idx, PyObject* base,
+                      const std::vector<std::shared_ptr<Tensor>>& tensors,
+                      PyObject** out);
+
 Status DeserializeDict(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
@@ -136,6 +141,9 @@ Status GetValue(PyObject* context, std::shared_ptr<Array> arr, int64_t index,
       } else if (s->type()->child(0)->name() == "dict") {
         return DeserializeDict(context, l->values(), l->value_offset(index),
                                l->value_offset(index + 1), base, tensors, result);
+      } else if (s->type()->child(0)->name() == "set") {
+        return DeserializeSet(context, l->values(), l->value_offset(index),
+                              l->value_offset(index + 1), base, tensors, result);
       } else {
         DCHECK(false) << "unexpected StructArray type " << s->type()->child(0)->name();
       }
@@ -185,6 +193,16 @@ Status DeserializeTuple(PyObject* context, std::shared_ptr<Array> array,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
   DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM);
+}
+
+#define SET_CREATE_FN(SIZE) PySet_New(nullptr)
+#define SET_SET_ITEM_FN(SET, INDES, VALUE) PySet_Add(SET, VALUE)
+
+Status DeserializeSet(PyObject* context, std::shared_ptr<Array> array,
+                      int64_t start_idx, int64_t stop_idx, PyObject* base,
+                      const std::vector<std::shared_ptr<Tensor>>& tensors,
+                      PyObject** out) {
+  DESERIALIZE_SEQUENCE(SET_CREATE_FN, SET_SET_ITEM_FN);
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
