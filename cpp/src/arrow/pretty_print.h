@@ -19,6 +19,7 @@
 #define ARROW_PRETTY_PRINT_H
 
 #include <ostream>
+#include <string>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
