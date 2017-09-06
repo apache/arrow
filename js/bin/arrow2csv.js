@@ -17,37 +17,73 @@
 // specific language governing permissions and limitations
 // under the License.
 
-var fs = require('fs')
-var process = require('process');
-var arrow = require('../lib/arrow.js');
-var program = require('commander');
+var fs = require('fs');
+var Table = require('../dist/Arrow.js').Table;
+var optionList = [
+    {
+        type: String,
+        name: 'schema',
+        alias: 's', multiple: true,
+        typeLabel: '[underline]{columns}',
+        description: 'A space-delimited list of column names'
+    },
+    {
+        type: String,
+        name: 'file', alias: 'f',
+        description: 'The Arrow file to read'
+    }
+];
 
-function list (val) {
-    return val.split(',');
-}
+var argv = require(`command-line-args`)(optionList, { partial: true });
+var files = [argv.file, ...(argv._unknown || [])].filter(Boolean);
 
-program
-  .version('0.1.0')
-  .usage('[options] <file>')
-  .option('-s --schema <list>', 'A comma-separated list of column names', list)
-  .parse(process.argv);
+// console.log(JSON.stringify(argv));
 
-if (!program.schema) {
-    program.outputHelp();
+if (!argv.schema || !files.length) {
+    console.log(require('command-line-usage')([
+        {
+            header: 'arrow2csv',
+            content: 'Print a CSV from an Arrow file'
+        },
+        {
+            header: 'Synopsis',
+            content: [
+                '$ arrow2csv [underline]{file.arrow} [[bold]{--schema} column_name ...]',
+                '$ arrow2csv [[bold]{--schema} column_name ...] [[bold]{--file} [underline]{file.arrow}]',
+                '$ arrow2csv [bold]{-s} column_1 [bold]{-s} column_2 [[bold]{-f} [underline]{file.arrow}]',
+                '$ arrow2csv [[bold]{--help}]'
+            ]
+        },
+        {
+            header: 'Options',
+            optionList: [
+                ...optionList,
+                {
+                    name: 'help',
+                    description: 'Print this usage guide.'
+                }
+            ]
+        },
+        {
+            header: 'Example',
+            content: [
+                '$ arrow2csv --schema foo baz -f simple.arrow',
+                '>  foo,  baz',
+                '>    1,   aa',
+                '> null, null',
+                '>    3, null',
+                '>    4,  bbb',
+                '>    5, cccc',
+            ]
+        }
+    ]));
     process.exit(1);
 }
 
-var buf = fs.readFileSync(process.argv[process.argv.length - 1]);
-var reader = arrow.getReader(buf);
-var nrecords
-
-nrecords = reader.loadNextBatch();
-while (nrecords > 0) {
-  for (var i = 0; i < nrecords; i += 1|0) {
-    console.log(program.schema.map(function (field) {
-      return '' + reader.getVector(field).get(i);
-    }).join(','));
-  }
-  nrecords = reader.loadNextBatch();
-  if (nrecords > 0) console.log('---');
-}
+files.forEach((source) => {
+    var allColumns = Table.from(fs.readFileSync(source));
+    var selectedColumns = new Table(argv.schema.map((columnName) => {
+        return allColumns.getColumn(columnName);
+    }));
+    console.log(selectedColumns.toString());
+});

@@ -1,14 +1,11 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "target": "es5",
-    "lib": ["es2015", "dom"],
-    "outDir": "lib",
-    "moduleResolution": "node",
-    "sourceMap": true,
-    "declaration": true
+  "extends": "./tsconfig/tsconfig.base.json",
+  "formatCodeOptions": {
+    "tabSize": 4,
+    "indentSize": 4
   },
-  "include": [
-    "src/*.ts"
-  ]
+  "compilerOptions": {
+    "target": "ESNEXT",
+    "module": "es2015"
+  }
 }

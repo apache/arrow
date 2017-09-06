@@ -1,7 +1,0 @@
-.gitignore
-.npmignore
-src/
-spec/
-tsconfig.json
-webpack.config.js
-flatbuffers.sh
