@@ -148,7 +148,14 @@ class ARROW_EXPORT DataType {
 
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 
+  /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
+
+  /// \brief A string name of the type, omitting any child fields
+  ///
+  /// \note Experimental API
+  /// \since 0.7.0
+  virtual std::string name() const = 0;
 
   virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
 
@@ -195,7 +202,6 @@ class ARROW_EXPORT FloatingPoint : public PrimitiveCType {
 class ARROW_EXPORT NestedType : public DataType {
  public:
   using DataType::DataType;
-  static std::string name() { return "nested"; }
 };
 
 class NoExtraMeta {};
@@ -258,7 +264,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
   }
 
-  std::string ToString() const override { return std::string(DERIVED::name()); }
+  std::string ToString() const override { return this->name(); }
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
@@ -277,7 +283,7 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
-  static std::string name() { return "null"; }
+  std::string name() const override { return "null"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
@@ -292,76 +298,76 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   std::string ToString() const override;
 
   int bit_width() const override { return 1; }
-  static std::string name() { return "bool"; }
+  std::string name() const override { return "bool"; }
 };
 
 class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
-  static std::string name() { return "uint8"; }
+  std::string name() const override { return "uint8"; }
 };
 
 class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
-  static std::string name() { return "int8"; }
+  std::string name() const override { return "int8"; }
 };
 
 class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
-  static std::string name() { return "uint16"; }
+  std::string name() const override { return "uint16"; }
 };
 
 class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
-  static std::string name() { return "int16"; }
+  std::string name() const override { return "int16"; }
 };
 
 class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
-  static std::string name() { return "uint32"; }
+  std::string name() const override { return "uint32"; }
 };
 
 class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
-  static std::string name() { return "int32"; }
+  std::string name() const override { return "int32"; }
 };
 
 class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
-  static std::string name() { return "uint64"; }
+  std::string name() const override { return "uint64"; }
 };
 
 class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
-  static std::string name() { return "int64"; }
+  std::string name() const override { return "int64"; }
 };
 
 class ARROW_EXPORT HalfFloatType
     : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
   Precision precision() const override;
-  static std::string name() { return "halffloat"; }
+  std::string name() const override { return "halffloat"; }
 };
 
 class ARROW_EXPORT FloatType
     : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
   Precision precision() const override;
-  static std::string name() { return "float"; }
+  std::string name() const override { return "float"; }
 };
 
 class ARROW_EXPORT DoubleType
     : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
-  static std::string name() { return "double"; }
+  std::string name() const override { return "double"; }
 };
 
 class ARROW_EXPORT ListType : public NestedType {
@@ -383,7 +389,7 @@ class ARROW_EXPORT ListType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
-  static std::string name() { return "list"; }
+  std::string name() const override { return "list"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
@@ -397,7 +403,7 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "binary"; }
+  std::string name() const override { return "binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
@@ -418,7 +424,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "fixed_size_binary"; }
+  std::string name() const override { return "fixed_size_binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
@@ -438,7 +444,7 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "utf8"; }
+  std::string name() const override { return "utf8"; }
 };
 
 class ARROW_EXPORT StructType : public NestedType {
@@ -452,7 +458,7 @@ class ARROW_EXPORT StructType : public NestedType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "struct"; }
+  std::string name() const override { return "struct"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
@@ -466,7 +472,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "decimal"; }
+  std::string name() const override { return "decimal"; }
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
@@ -486,7 +492,7 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
-  static std::string name() { return "union"; }
+  std::string name() const override { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
   std::vector<BufferDescr> GetBufferLayout() const override;
@@ -531,6 +537,8 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "date32"; }
 };
 
 /// Date as int64_t milliseconds since UNIX epoch
@@ -546,7 +554,8 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "date"; }
+
+  std::string name() const override { return "date64"; }
 };
 
 struct TimeUnit {
@@ -591,6 +600,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "time32"; }
 };
 
 class ARROW_EXPORT Time64Type : public TimeType {
@@ -604,6 +615,8 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "time64"; }
 };
 
 class ARROW_EXPORT TimestampType : public FixedWidthType {
@@ -623,7 +636,7 @@ class ARROW_EXPORT TimestampType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "timestamp"; }
+  std::string name() const override { return "timestamp"; }
 
   TimeUnit::type unit() const { return unit_; }
   const std::string& timezone() const { return timezone_; }
@@ -647,7 +660,7 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
-  static std::string name() { return "date"; }
+  std::string name() const override { return "date"; }
 
   Unit unit() const { return unit_; }
 
@@ -673,7 +686,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "dictionary"; }
+  std::string name() const override { return "dictionary"; }
 
   bool ordered() const { return ordered_; }
 
@@ -814,18 +827,20 @@ std::shared_ptr<Field> ARROW_EXPORT field(
 /// \param fields the schema's fields
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
-schema(const std::vector<std::shared_ptr<Field>>& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    const std::vector<std::shared_ptr<Field>>& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 /// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields (rvalue reference)
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
-schema(std::vector<std::shared_ptr<Field>>&& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>>&& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 // ----------------------------------------------------------------------
 //

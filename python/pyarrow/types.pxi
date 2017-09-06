@@ -423,7 +423,15 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
-        return frombytes(self.schema.ToString())
+        cdef:
+            PrettyPrintOptions options
+            c_string result
+
+        options.indent = 0
+        with nogil:
+            check_status(PrettyPrint(deref(self.schema), options, &result))
+
+        return frombytes(result)
 
     def __repr__(self):
         return self.__str__()
@@ -835,7 +843,7 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
+cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
                                 bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
@@ -852,7 +860,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dictionary.sp_array,
+                                        dict_values.sp_array,
                                         ordered == 1))
     out.init(dict_type)
     return out
