@@ -30,11 +30,11 @@ install(FILES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 configure_file(parquet_version.h.in
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/parquet_version.h"
   @ONLY)
 
 install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/parquet_version.h"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
 # pkg-config support
