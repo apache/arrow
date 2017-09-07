@@ -269,7 +269,6 @@ protected final static byte[] emptyByteArray = new byte[]{};
 
   public void reset() {
     bits.zeroVector();
-    values.reset();
     mutator.reset();
     accessor.reset();
   }
