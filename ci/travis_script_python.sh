@@ -65,8 +65,11 @@ pushd $ARROW_PYTHON_DIR
 # Fail fast on style checks
 flake8 --count pyarrow
 
-# Check Cython files with some checks turned off
-flake8 --count --config=.flake8.cython pyarrow
+if [ "$PYTHON_VERSION" == "3.6" ]; then
+  # Check Cython files with some checks turned off
+  # NOTE(wesm): This doesn't want to work in Python 2.x
+  flake8 --count --config=.flake8.cython pyarrow
+fi
 
 pip install -r requirements.txt
 python setup.py build_ext --with-parquet --with-plasma \
