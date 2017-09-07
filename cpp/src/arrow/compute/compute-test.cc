@@ -72,6 +72,11 @@ class ComputeFixture {
 // ----------------------------------------------------------------------
 // Cast
 
+static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
+  ASSERT_EQ(left.data()->buffers[buffer_index].get(),
+            right.data()->buffers[buffer_index].get());
+}
+
 class TestCast : public ComputeFixture, public ::testing::Test {
  public:
   void CheckPass(const Array& input, const Array& expected,
@@ -93,6 +98,14 @@ class TestCast : public ComputeFixture, public ::testing::Test {
     }
     ASSERT_RAISES(Invalid, Cast(&ctx_, *input, out_type, options, &result));
   }
+
+  void CheckZeroCopy(const Array& input,
+                     const std::shared_ptr<DataType>& out_type) {
+    std::shared_ptr<Array> result;
+    ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
+    AssertBufferSame(input, *result, 0);
+    AssertBufferSame(input, *result, 1);
+  };
 
   template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
   void CheckCase(const std::shared_ptr<DataType>& in_type,
@@ -121,12 +134,8 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   std::shared_ptr<Array> result;
   ASSERT_OK(Cast(&this->ctx_, *arr, int32(), {}, &result));
 
-  const auto& lbuffers = arr->data()->buffers;
-  const auto& rbuffers = result->data()->buffers;
-
-  // Buffers are the same
-  ASSERT_EQ(lbuffers[0].get(), rbuffers[0].get());
-  ASSERT_EQ(lbuffers[1].get(), rbuffers[1].get());
+  AssertBufferSame(*arr, *result, 0);
+  AssertBufferSame(*arr, *result, 1);
 }
 
 TEST_F(TestCast, ToBoolean) {
@@ -309,6 +318,27 @@ TEST_F(TestCast, UnsupportedTarget) {
 
   std::shared_ptr<Array> result;
   ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, utf8(), {}, &result));
+}
+
+TEST_F(TestCast, DateTimeZeroCopy) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  std::shared_ptr<Array> arr;
+  vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
+
+  CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
+  CheckZeroCopy(*arr, date32());
+
+  vector<int64_t> v2 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, v2, &arr);
+
+  CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
+  CheckZeroCopy(*arr, date64());
+  CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
 }
 
 }  // namespace compute
