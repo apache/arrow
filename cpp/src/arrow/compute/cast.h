@@ -23,6 +23,8 @@
 #include "arrow/array.h"
 #include "arrow/util/visibility.h"
 
+#include "arrow/compute/kernel.h"
+
 namespace arrow {
 
 using internal::ArrayData;
@@ -30,42 +32,17 @@ using internal::ArrayData;
 namespace compute {
 
 class FunctionContext;
+class UnaryKernel;
 
 struct CastOptions {
   bool allow_int_overflow;
-};
-
-typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
-                           ArrayData*)>
-    CastFunction;
-
-class ARROW_EXPORT OpKernel {
- public:
-  virtual ~OpKernel() = default;
-};
-
-class ARROW_EXPORT UnaryKernel : public OpKernel {
- public:
-  virtual void operator()(FunctionContext* ctx, const ArrayData& input,
-                          ArrayData* out) = 0;
-};
-
-class ARROW_EXPORT CastKernel : public UnaryKernel {
- public:
-  CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy);
-  void operator()(FunctionContext* ctx, const ArrayData& input, ArrayData* out) override;
-
- private:
-  CastOptions options_;
-  CastFunction func_;
-  bool is_zero_copy_;
 };
 
 /// \since 0.7.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& to_type,
-                       const CastOptions& options, std::unique_ptr<CastKernel>* kernel);
+                       const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel);
 
 /// \brief Cast from one array type to another
 /// \param[in] context

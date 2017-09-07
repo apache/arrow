@@ -19,6 +19,7 @@
 install(FILES
   cast.h
   context.h
+  kernel.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
 
 #######################################

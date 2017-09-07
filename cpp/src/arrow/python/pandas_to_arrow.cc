@@ -906,7 +906,7 @@ Status PandasConverter::ConvertObjectsInfer() {
       return ConvertLists(inferred_type);
     } else {
       const std::string supported_types =
-        "string, bool, float, int, date, time, decimal, list, array";
+          "string, bool, float, int, date, time, decimal, list, array";
       std::stringstream ss;
       ss << "Error inferring Arrow type for Python object array. ";
       RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
