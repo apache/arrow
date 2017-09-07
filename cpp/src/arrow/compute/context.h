@@ -18,6 +18,7 @@
 #ifndef ARROW_COMPUTE_CONTEXT_H
 #define ARROW_COMPUTE_CONTEXT_H
 
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -35,7 +36,7 @@ namespace compute {
 /// \brief Container for variables and options used by function evaluation
 class ARROW_EXPORT FunctionContext {
  public:
-  explicit FunctionContext(MemoryPool* pool);
+  explicit FunctionContext(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
   MemoryPool* memory_pool() const;
 
   /// \brief Allocate buffer from the context's memory pool

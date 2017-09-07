@@ -39,6 +39,7 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
 
 using std::vector;
 
