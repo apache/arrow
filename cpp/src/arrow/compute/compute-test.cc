@@ -341,5 +341,21 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
 }
 
+TEST_F(TestCast, FromNull) {
+  // Null casts to everything
+  const int length = 10;
+
+  NullArray arr(length);
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(Cast(&ctx_, arr, int32(), {}, &result));
+
+  ASSERT_EQ(length, result->length());
+  ASSERT_EQ(length, result->null_count());
+
+  // OK to look at bitmaps
+  AssertArraysEqual(*result, *result);
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -422,9 +422,11 @@ class PandasConverter {
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
                       PyObject* list);
-  Status ConvertObjects();
   Status ConvertDecimals();
   Status ConvertTimes();
+  Status ConvertObjects();
+  Status ConvertObjectsInfer();
+  Status ConvertObjectsInferAndCast();
 
  protected:
   MemoryPool* pool_;
@@ -867,6 +869,74 @@ Status PandasConverter::ConvertBooleans() {
   return Status::OK();
 }
 
+Status PandasConverter::ConvertObjectsInfer() {
+  Ndarray1DIndexer<PyObject*> objects;
+
+  PyAcquireGIL lock;
+  objects.Init(arr_);
+  PyDateTime_IMPORT;
+
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+
+  for (int64_t i = 0; i < length_; ++i) {
+    PyObject* obj = objects[i];
+    if (PandasObjectIsNull(obj)) {
+      continue;
+    } else if (PyObject_is_string(obj)) {
+      return ConvertObjectStrings();
+    } else if (PyObject_is_float(obj)) {
+      return ConvertObjectFloats();
+    } else if (PyBool_Check(obj)) {
+      return ConvertBooleans();
+    } else if (PyObject_is_integer(obj)) {
+      return ConvertObjectIntegers();
+    } else if (PyDate_CheckExact(obj)) {
+      // We could choose Date32 or Date64
+      return ConvertDates<Date32Type>();
+    } else if (PyTime_Check(obj)) {
+      return ConvertTimes();
+    } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
+      return ConvertDecimals();
+    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+      std::shared_ptr<DataType> inferred_type;
+      RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      return ConvertLists(inferred_type);
+    } else {
+      const std::string supported_types =
+        "string, bool, float, int, date, time, decimal, list, array";
+      std::stringstream ss;
+      ss << "Error inferring Arrow type for Python object array. ";
+      RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
+      return Status::Invalid(ss.str());
+    }
+  }
+  out_arrays_.push_back(std::make_shared<NullArray>(length_));
+  return Status::OK();
+}
+
+Status PandasConverter::ConvertObjectsInferAndCast() {
+  size_t position = out_arrays_.size();
+  RETURN_NOT_OK(ConvertObjectsInfer());
+
+  std::shared_ptr<Array> arr = out_arrays_[position];
+
+  // Perform cast
+  compute::FunctionContext context(pool_);
+  compute::CastOptions options;
+  options.allow_int_overflow = false;
+
+  std::shared_ptr<Array> casted;
+  RETURN_NOT_OK(compute::Cast(&context, *arr, type_, options, &casted));
+
+  // Replace with casted values
+  out_arrays_[position] = casted;
+
+  return Status::OK();
+}
+
 Status PandasConverter::ConvertObjects() {
   // Python object arrays are annoying, since we could have one of:
   //
@@ -879,13 +949,6 @@ Status PandasConverter::ConvertObjects() {
   // do some type inference and conversion
 
   RETURN_NOT_OK(InitNullBitmap());
-
-  Ndarray1DIndexer<PyObject*> objects;
-
-  PyAcquireGIL lock;
-  objects.Init(arr_);
-  PyDateTime_IMPORT;
-  lock.release();
 
   // This means we received an explicit type from the user
   if (type_) {
@@ -907,53 +970,12 @@ Status PandasConverter::ConvertObjects() {
       case Type::DECIMAL:
         return ConvertDecimals();
       default:
-        return Status::TypeError("No known conversion to Arrow type");
+        return ConvertObjectsInferAndCast();
     }
   } else {
     // Re-acquire GIL
-    lock.acquire();
-
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
-
-    for (int64_t i = 0; i < length_; ++i) {
-      PyObject* obj = objects[i];
-      if (PandasObjectIsNull(obj)) {
-        continue;
-      } else if (PyObject_is_string(obj)) {
-        return ConvertObjectStrings();
-      } else if (PyObject_is_float(obj)) {
-        return ConvertObjectFloats();
-      } else if (PyBool_Check(obj)) {
-        return ConvertBooleans();
-      } else if (PyObject_is_integer(obj)) {
-        return ConvertObjectIntegers();
-      } else if (PyDate_CheckExact(obj)) {
-        // We could choose Date32 or Date64
-        return ConvertDates<Date32Type>();
-      } else if (PyTime_Check(obj)) {
-        return ConvertTimes();
-      } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
-        return ConvertDecimals();
-      } else if (PyList_Check(obj) || PyArray_Check(obj)) {
-        std::shared_ptr<DataType> inferred_type;
-        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
-        return ConvertLists(inferred_type);
-      } else {
-        const std::string supported_types =
-            "string, bool, float, int, date, time, decimal, list, array";
-        std::stringstream ss;
-        ss << "Error inferring Arrow type for Python object array. ";
-        RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
-        return Status::Invalid(ss.str());
-      }
-    }
+    return ConvertObjectsInfer();
   }
-
-  out_arrays_.push_back(std::make_shared<NullArray>(length_));
-  return Status::OK();
 }
 
 template <typename T>

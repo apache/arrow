@@ -80,10 +80,12 @@ struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>
 
 template <typename T>
 struct CastFunctor<T, NullType,
-                   typename std::enable_if<!std::is_same<T, NullType>::value>::type> {
+                   typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    ctx->SetStatus(Status::NotImplemented("NullType"));
+    // Simply initialize data to 0
+    auto buf = output->buffers[1];
+    memset(buf->mutable_data(), 0, buf->size());
   }
 };
 
@@ -234,7 +236,15 @@ static Status AllocateLike(FunctionContext* ctx, const ArrayData& in_data,
   // Propagate null bitmap
   // TODO(wesm): handling null bitmap when input type is NullType
   out->buffers.clear();
-  out->buffers.push_back(in_data.buffers[0]);
+
+  // Propagate bitmap unless we are null type
+  std::shared_ptr<Buffer> validity_bitmap = in_data.buffers[0];
+  if (in_data.type->id() == Type::NA) {
+    int64_t bitmap_size = BitUtil::BytesForBits(in_data.length);
+    RETURN_NOT_OK(ctx->Allocate(bitmap_size, &validity_bitmap));
+    memset(validity_bitmap->mutable_data(), 0, bitmap_size);
+  }
+  out->buffers.push_back(validity_bitmap);
 
   std::shared_ptr<Buffer> out_data;
 
@@ -292,6 +302,14 @@ void CastKernel::operator()(FunctionContext* ctx, const ArrayData& input,
   FN(IN_TYPE, FloatType);          \
   FN(IN_TYPE, DoubleType);
 
+#define NULL_CASES(FN, IN_TYPE)                 \
+  NUMERIC_CASES(FN, IN_TYPE)                    \
+  FN(NullType, Time32Type);                     \
+  FN(NullType, Date32Type);                     \
+  FN(NullType, TimestampType);                  \
+  FN(NullType, Time64Type);                     \
+  FN(NullType, Date64Type);
+
 #define INT32_CASES(FN, IN_TYPE) \
   NUMERIC_CASES(FN, IN_TYPE)     \
   FN(Int32Type, Time32Type);     \
@@ -329,6 +347,7 @@ void CastKernel::operator()(FunctionContext* ctx, const ArrayData& input,
     return nullptr;                                                                    \
   }
 
+GET_CAST_FUNCTION(NULL_CASES, NullType);
 GET_CAST_FUNCTION(NUMERIC_CASES, BooleanType);
 GET_CAST_FUNCTION(NUMERIC_CASES, UInt8Type);
 GET_CAST_FUNCTION(NUMERIC_CASES, Int8Type);
@@ -354,6 +373,7 @@ GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<CastKernel>* kernel) {
   switch (in_type.id()) {
+    CAST_FUNCTION_CASE(NullType);
     CAST_FUNCTION_CASE(BooleanType);
     CAST_FUNCTION_CASE(UInt8Type);
     CAST_FUNCTION_CASE(Int8Type);

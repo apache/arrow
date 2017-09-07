@@ -288,6 +288,17 @@ class TestPandasConversion(unittest.TestCase):
         schema = pa.schema([field])
         self._check_pandas_roundtrip(df, expected_schema=schema)
 
+    def test_all_nulls_to_numeric(self):
+        arr = np.array([None], dtype=object)
+
+        def _check_type(t):
+            a2 = pa.Array.from_pandas(arr, type=t)
+            assert a2.type == t
+            assert a2[0].as_py() is None
+
+        _check_type(pa.int32())
+        _check_type(pa.float64())
+
     def test_unicode(self):
         repeats = 1000
         values = [u'foo', None, u'bar', u'mañana', np.nan]
