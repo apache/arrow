@@ -135,9 +135,9 @@ def test_recordbatch_from_to_pandas():
     data = pd.DataFrame({
         'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
         'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
-        'c2': np.random.randn(5),
-        'c3': ['foo', 'bar', None, 'baz', 'qux'],
-        'c4': [False, True, False, True, False]
+        'c3': np.random.randn(5),
+        'c4': ['foo', 'bar', None, 'baz', 'qux'],
+        'c5': [False, True, False, True, False]
     })
 
     batch = pa.RecordBatch.from_pandas(data)

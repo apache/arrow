@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,6 +16,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[flake8]
-filename = *.pyx,*.pxd,*.pxi
-ignore = E211,E901,E999,E225,E226,E227
+set -e
+
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+
+export PARQUET_ARROW_VERSION=$(git rev-parse HEAD)
+
+# $CPP_TOOLCHAIN set up in before_script_cpp
+export PARQUET_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
+
+PARQUET_DIR=$TRAVIS_BUILD_DIR/parquet
+mkdir -p $PARQUET_DIR
+
+git clone https://github.com/apache/parquet-cpp.git $PARQUET_DIR
+
+pushd $PARQUET_DIR
+mkdir build-dir
+cd build-dir
+
+cmake \
+    -GNinja \
+    -DCMAKE_BUILD_TYPE=debug \
+    -DCMAKE_INSTALL_PREFIX=$ARROW_PYTHON_PARQUET_HOME \
+    -DPARQUET_BOOST_USE_SHARED=off \
+    -DPARQUET_BUILD_BENCHMARKS=off \
+    -DPARQUET_BUILD_EXECUTABLES=off \
+    -DPARQUET_BUILD_TESTS=off \
+    ..
+
+ninja
+ninja install
+
+popd

@@ -77,8 +77,9 @@ def assert_equal(obj1, obj2):
         for i in range(len(obj1)):
             assert_equal(obj1[i], obj2[i])
     else:
-        assert obj1 == obj2, "Objects {} and {} are different.".format(obj1,
-                                                                       obj2)
+        assert obj1 == obj2, ("Objects {} and {} are different."
+                              .format(obj1, obj2))
+
 
 PRIMITIVE_OBJECTS = [
     0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
