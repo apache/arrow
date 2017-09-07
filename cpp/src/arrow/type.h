@@ -186,15 +186,20 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
   using FixedWidthType::FixedWidthType;
 };
 
-class ARROW_EXPORT Integer : public PrimitiveCType {
+class ARROW_EXPORT Number : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
+};
+
+class ARROW_EXPORT Integer : public Number {
+ public:
+  using Number::Number;
   virtual bool is_signed() const = 0;
 };
 
-class ARROW_EXPORT FloatingPoint : public PrimitiveCType {
+class ARROW_EXPORT FloatingPoint : public Number {
  public:
-  using PrimitiveCType::PrimitiveCType;
+  using Number::Number;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -841,77 +846,6 @@ ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>>&& fields,
     const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
-
-// ----------------------------------------------------------------------
-//
-
-static inline bool is_integer(Type::type type_id) {
-  switch (type_id) {
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_floating(Type::type type_id) {
-  switch (type_id) {
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_primitive(Type::type type_id) {
-  switch (type_id) {
-    case Type::NA:
-    case Type::BOOL:
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-    case Type::INTERVAL:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_binary_like(Type::type type_id) {
-  switch (type_id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
 
 }  // namespace arrow
 

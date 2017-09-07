@@ -233,6 +233,16 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
 }
 
 template <typename TYPE, typename C_TYPE>
+void ArrayFromVector(const std::shared_ptr<DataType>& type,
+                     const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
+  typename TypeTraits<TYPE>::BuilderType builder(type, default_memory_pool());
+  for (size_t i = 0; i < values.size(); ++i) {
+    ASSERT_OK(builder.Append(values[i]));
+  }
+  ASSERT_OK(builder.Finish(out));
+}
+
+template <typename TYPE, typename C_TYPE>
 void ArrayFromVector(const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
   typename TypeTraits<TYPE>::BuilderType builder;

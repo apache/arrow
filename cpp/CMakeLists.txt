@@ -94,6 +94,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Exclude deprecated APIs from build"
     OFF)
 
+  option(ARROW_COMPUTE
+    "Build the Arrow Compute Modules"
+    ON)
+
   option(ARROW_EXTRA_ERROR_CONTEXT
     "Compile with extra error context (line numbers, code)"
     OFF)
@@ -727,17 +731,6 @@ endif()
 add_subdirectory(src/arrow)
 add_subdirectory(src/arrow/io)
 
-if (ARROW_GPU)
-  # IPC extensions required to build the GPU library
-  set(ARROW_IPC ON)
-  add_subdirectory(src/arrow/gpu)
-endif()
-
-if (ARROW_IPC)
-  add_subdirectory(src/arrow/ipc)
-  add_dependencies(arrow_dependencies metadata_fbs)
-endif()
-
 set(ARROW_SRCS
   src/arrow/array.cc
   src/arrow/buffer.cc
@@ -751,6 +744,9 @@ set(ARROW_SRCS
   src/arrow/type.cc
   src/arrow/visitor.cc
 
+  src/arrow/compute/cast.cc
+  src/arrow/compute/context.cc
+
   src/arrow/io/file.cc
   src/arrow/io/interfaces.cc
   src/arrow/io/memory.cc
@@ -762,6 +758,25 @@ set(ARROW_SRCS
   src/arrow/util/int128.cc
   src/arrow/util/key_value_metadata.cc
 )
+
+if (ARROW_COMPUTE)
+  add_subdirectory(src/arrow/compute)
+  set(ARROW_SRCS ${ARROW_SRCS}
+    src/arrow/compute/cast.cc
+    src/arrow/compute/context.cc
+  )
+endif()
+
+if (ARROW_GPU)
+  # IPC extensions required to build the GPU library
+  set(ARROW_IPC ON)
+  add_subdirectory(src/arrow/gpu)
+endif()
+
+if (ARROW_IPC)
+  add_subdirectory(src/arrow/ipc)
+  add_dependencies(arrow_dependencies metadata_fbs)
+endif()
 
 if (ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
