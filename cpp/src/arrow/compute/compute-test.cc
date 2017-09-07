@@ -178,6 +178,25 @@ TEST_F(TestCast, ToIntUpcast) {
                                                     options);
 }
 
+TEST_F(TestCast, OverflowInNullSlot) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  vector<int32_t> v11 = {0, 70000, 2000, 1000, 0};
+  vector<int16_t> e11 = {0, 0, 2000, 1000, 0};
+
+  std::shared_ptr<Array> expected;
+  ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, e11, &expected);
+
+  auto buf = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(v11.data()),
+                                      static_cast<int64_t>(v11.size()));
+  Int32Array tmp11(5, buf, expected->null_bitmap(), -1);
+
+  CheckPass(tmp11, *expected, int16(), options);
+}
+
 TEST_F(TestCast, ToIntDowncastSafe) {
   CastOptions options;
   options.allow_int_overflow = false;

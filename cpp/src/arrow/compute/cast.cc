@@ -137,17 +137,32 @@ struct CastFunctor<O, I,
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
 
-    auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data());
+    auto in_offset = input.offset;
+
+    auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data()) + in_offset;
     auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
 
     if (!ctx->options.allow_int_overflow) {
       constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
       constexpr in_type kMin = static_cast<in_type>(std::numeric_limits<out_type>::min());
-      for (int64_t i = 0; i < input.length; ++i) {
-        if (ARROW_PREDICT_FALSE(*in_data > kMax || *in_data < kMin)) {
-          ctx->func_ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+
+      if (input.null_count > 0) {
+        const uint8_t* is_valid = input.buffers[0]->data();
+        int64_t is_valid_offset = in_offset;
+        for (int64_t i = 0; i < input.length; ++i) {
+          if (ARROW_PREDICT_FALSE(BitUtil::GetBit(is_valid, is_valid_offset++) &&
+                                  (*in_data > kMax || *in_data < kMin))) {
+            ctx->func_ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+          }
+          *out_data++ = static_cast<out_type>(*in_data++);
         }
-        *out_data++ = static_cast<out_type>(*in_data++);
+      } else {
+        for (int64_t i = 0; i < input.length; ++i) {
+          if (ARROW_PREDICT_FALSE(*in_data > kMax || *in_data < kMin)) {
+            ctx->func_ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
+          }
+          *out_data++ = static_cast<out_type>(*in_data++);
+        }
       }
     } else {
       for (int64_t i = 0; i < input.length; ++i) {
