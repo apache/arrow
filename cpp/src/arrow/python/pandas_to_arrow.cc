@@ -347,8 +347,9 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    return PushArray(
-        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0));
+    auto arr_data = std::make_shared<ArrayData>(type_, length_, std::move(buffers),
+                                                null_count, 0);
+    return PushArray(arr_data);
   }
 
   template <typename T>
@@ -1158,6 +1159,7 @@ Status PandasToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
   PandasConverter converter(pool, ao, mo, type);
   RETURN_NOT_OK(converter.Convert());
   *out = converter.result()[0];
+  DCHECK(*out);
   return Status::OK();
 }
 

@@ -100,9 +100,9 @@ PRIMITIVE_OBJECTS = [
 if sys.version_info >= (3, 0):
     PRIMITIVE_OBJECTS += [0, np.array([["hi", u"hi"], [1.3, 1]])]
 else:
-    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0),
+    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0),  # noqa
                           np.array([["hi", u"hi"],
-                          [1.3, long(1)]])]  # noqa: E501,F821
+                          [1.3, long(1)]])]  # noqa
 
 
 COMPLEX_OBJECTS = [

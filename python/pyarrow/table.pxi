@@ -150,6 +150,8 @@ cdef class Column:
 
         if isinstance(field_or_name, Field):
             boxed_field = field_or_name
+            if arr.type != boxed_field.type:
+                raise ValueError('Passed field type does not match array')
         else:
             boxed_field = field(field_or_name, arr.type)
 
@@ -176,7 +178,15 @@ cdef class Column:
                                                         self.sp_column,
                                                         self, &out))
 
-        return pd.Series(wrap_array_output(out), name=self.name)
+        values = wrap_array_output(out)
+        result = pd.Series(values, name=self.name)
+
+        if isinstance(self.type, TimestampType):
+            if self.type.tz is not None:
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(self.type.tz))
+
+        return result
 
     def equals(self, Column other):
         """

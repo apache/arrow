@@ -22,7 +22,7 @@ import os
 import json
 import pytest
 
-from pyarrow.compat import guid, u
+from pyarrow.compat import guid, u, BytesIO
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -109,6 +109,33 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
     assert b'pandas' in table_read.schema.metadata
 
     assert arrow_table.schema.metadata == table_read.schema.metadata
+
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_pandas_parquet_datetime_tz():
+    import pyarrow.parquet as pq
+
+    s = pd.Series([datetime.datetime(2017, 9, 6)])
+    s = s.dt.tz_localize('utc')
+
+    s.index = s
+
+    # Both a column and an index to hit both use cases
+    df = pd.DataFrame({'tz_aware': s,
+                       'tz_eastern': s.dt.tz_convert('US/Eastern')},
+                      index=s)
+
+    f = BytesIO()
+
+    arrow_table = pa.Table.from_pandas(df)
+
+    _write_table(arrow_table, f, coerce_timestamps='ms')
+    f.seek(0)
+
+    table_read = pq.read_pandas(f)
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
