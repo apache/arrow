@@ -77,8 +77,10 @@ struct CastFunctor<T, BooleanType,
     using c_type = typename T::c_type;
     const uint8_t* data = input.buffers[1]->data();
     auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    constexpr auto kOne = static_cast<c_type>(1);
+    constexpr auto kZero = static_cast<c_type>(0);
     for (int64_t i = 0; i < input.length; ++i) {
-      *out++ = BitUtil::GetBit(data, i) ? 1 : 0;
+      *out++ = BitUtil::GetBit(data, i) ? kOne : kZero;
     }
   }
 };
