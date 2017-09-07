@@ -678,4 +678,4 @@ MakePrimitiveArray(const std::shared_ptr<DataType>& type,
 
 }  // namespace arrow
 
-#endif
+#endif  // ARROW_ARRAY_H
