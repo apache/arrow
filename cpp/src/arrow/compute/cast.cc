@@ -25,6 +25,7 @@
 #include <type_traits>
 
 #include "arrow/type_traits.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/compute/context.h"
 
@@ -268,7 +269,16 @@ static Status AllocateLike(FunctionContext* ctx, const Array& array,
   result->buffers.push_back(array.data()->buffers[0]);
 
   std::shared_ptr<Buffer> out_data;
-  RETURN_NOT_OK(ctx->Allocate(array.length() * fw_type.bit_width() / 8, &out_data));
+
+  int bit_width = fw_type.bit_width();
+
+  if (bit_width == 1) {
+    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(array.length()), &out_data));
+  } else if (bit_width % 8 == 0) {
+    RETURN_NOT_OK(ctx->Allocate(array.length() * fw_type.bit_width() / 8, &out_data));
+  } else {
+    DCHECK(false);
+  }
   result->buffers.push_back(out_data);
 
   *out = result;

@@ -41,6 +41,9 @@ struct CastOptions {
 /// \param[in] to_type
 /// \param[in] options
 /// \param[out] out
+///
+/// \since 0.7.0
+/// \note API not yet finalized
 ARROW_EXPORT
 Status Cast(FunctionContext* context, const Array& array,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,
