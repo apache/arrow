@@ -31,15 +31,20 @@ namespace compute {
 
 class FunctionContext;
 
-/// \brief Perform an safe type cast, returning error on overflows or other issues
-ARROW_EXPORT
-Status CastSafe(FunctionContext* context, const Array& array,
-                const std::shared_ptr<DataType>& to_type, std::shared_ptr<Array>* out);
+struct CastOptions {
+  bool allow_int_overflow;
+};
 
-/// \brief Perform an unsafe type cast, ignoring overflows or other issues
+/// \brief Cast from one array type to another
+/// \param[in] context
+/// \param[in] array
+/// \param[in] to_type
+/// \param[in] options
+/// \param[out] out
 ARROW_EXPORT
-Status CastUnsafe(FunctionContext* context, const Array& array,
-                  const std::shared_ptr<DataType>& to_type, std::shared_ptr<Array>* out);
+Status Cast(FunctionContext* context, const Array& array,
+            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
+            std::shared_ptr<Array>* out);
 
 }  // namespace compute
 }  // namespace arrow

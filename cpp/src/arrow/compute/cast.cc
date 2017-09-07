@@ -33,7 +33,7 @@ namespace compute {
 
 struct CastContext {
   FunctionContext* func_ctx;
-  bool safe;
+  CastOptions options;
 };
 
 typedef std::function<void(CastContext*, const ArrayData&, ArrayData*)> CastFunction;
@@ -92,18 +92,27 @@ struct is_numeric_cast {
       (!std::is_same<O, I>::value);
 };
 
-template <typename O, typename I>
+template <typename O, typename I, typename Enable = void>
 struct is_integer_downcast {
+  static constexpr bool value = false;
+};
+
+template <typename O, typename I>
+struct is_integer_downcast<
+    O, I, typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                                  std::is_base_of<Integer, I>::value>::type> {
+  using O_T = typename O::c_type;
+  using I_T = typename I::c_type;
+
   static constexpr bool value =
-      ((std::is_base_of<Integer, O>::value && std::is_base_of<Integer, I>::value) &&
-       (!std::is_same<O, I>::value) &&
+      ((!std::is_same<O, I>::value) &&
 
        // same size, but unsigned to signed
-       ((sizeof(O) == sizeof(I) && std::is_signed<O>::value &&
-         std::is_unsigned<I>::value) ||
+       ((sizeof(O_T) == sizeof(I_T) && std::is_signed<O_T>::value &&
+         std::is_unsigned<I_T>::value) ||
 
         // Smaller output size
-        (sizeof(O) < sizeof(I))));
+        (sizeof(O_T) < sizeof(I_T))));
 };
 
 template <typename O, typename I>
@@ -130,10 +139,11 @@ struct CastFunctor<O, I,
     auto in_data = reinterpret_cast<const in_type*>(input.buffers[1]->data());
     auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
 
-    if (ctx->safe) {
+    if (!ctx->options.allow_int_overflow) {
+      constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
+      constexpr in_type kMin = static_cast<in_type>(std::numeric_limits<out_type>::min());
       for (int64_t i = 0; i < input.length; ++i) {
-        if (ARROW_PREDICT_FALSE(*in_data > std::numeric_limits<O>::max ||
-                                *in_data < std::numeric_limits<O>::min)) {
+        if (ARROW_PREDICT_FALSE(*in_data > kMax || *in_data < kMin)) {
           ctx->func_ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
         }
         *out_data++ = static_cast<out_type>(*in_data++);
@@ -281,16 +291,10 @@ static Status Cast(CastContext* cast_ctx, const Array& array,
   return internal::MakeArray(out_data, out);
 }
 
-Status CastSafe(FunctionContext* ctx, const Array& array,
-                const std::shared_ptr<DataType>& out_type, std::shared_ptr<Array>* out) {
-  CastContext cast_ctx{ctx, true};
-  return Cast(&cast_ctx, array, out_type, out);
-}
-
-Status CastUnsafe(FunctionContext* ctx, const Array& array,
-                  const std::shared_ptr<DataType>& out_type,
-                  std::shared_ptr<Array>* out) {
-  CastContext cast_ctx{ctx, false};
+Status Cast(FunctionContext* ctx, const Array& array,
+            const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+            std::shared_ptr<Array>* out) {
+  CastContext cast_ctx{ctx, options};
   return Cast(&cast_ctx, array, out_type, out);
 }
 
