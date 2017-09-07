@@ -239,6 +239,15 @@ class TestPandasConversion(unittest.TestCase):
 
         tm.assert_frame_equal(result, ex_frame)
 
+    def test_array_from_pandas_type_cast(self):
+        arr = np.arange(10, dtype='int64')
+
+        target_type = pa.int8()
+
+        result = pa.Array.from_pandas(arr, type=target_type)
+        expected = pa.Array.from_pandas(arr.astype('int8'))
+        assert result.equals(expected)
+
     def test_boolean_no_nulls(self):
         num_values = 100
 

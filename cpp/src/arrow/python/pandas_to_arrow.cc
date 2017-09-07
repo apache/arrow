@@ -44,6 +44,9 @@
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
+#include "arrow/compute/cast.h"
+#include "arrow/compute/context.h"
+
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
@@ -347,8 +350,8 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    auto arr_data = std::make_shared<ArrayData>(type_, length_, std::move(buffers),
-                                                null_count, 0);
+    auto arr_data =
+        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0);
     return PushArray(arr_data);
   }
 
@@ -460,21 +463,31 @@ void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length,
   }
 }
 
+static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
+                         const std::shared_ptr<DataType>& in_type,
+                         const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
+                         std::shared_ptr<Buffer>* out) {
+  // Must cast
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
+  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
+
+  std::shared_ptr<Array> tmp_array, casted_array;
+  RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
+
+  compute::FunctionContext context(pool);
+  compute::CastOptions cast_options;
+  cast_options.allow_int_overflow = false;
+
+  RETURN_NOT_OK(
+      compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
+  *out = casted_array->data()->buffers[1];
+  return Status::OK();
+}
+
 template <typename ArrowType>
 inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
-
-  // Handle LONGLONG->INT64 and other fun things
-  int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
-
-  if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
-    std::stringstream ss;
-    ss << "NumPy type casts not yet implemented, type sizes differ: ";
-    ss << NumPyTypeSize(traits::npy_type) << " compared to "
-       << NumPyTypeSize(type_num_compat);
-    return Status::NotImplemented(ss.str());
-  }
 
   if (is_strided()) {
     // Strided, must copy into new contiguous memory
@@ -490,6 +503,15 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
+
+  std::shared_ptr<DataType> input_type;
+  RETURN_NOT_OK(
+      NumPyDtypeToArrow(reinterpret_cast<PyObject*>(PyArray_DESCR(arr_)), &input_type));
+
+  if (!input_type->Equals(*type_)) {
+    RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
+  }
+
   return Status::OK();
 }
 
