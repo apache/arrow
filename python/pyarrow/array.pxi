@@ -121,6 +121,8 @@ cdef class Array:
             compatibility with other functionality like Parquet I/O which
             only supports milliseconds.
 
+            .. deprecated:: 0.7.0
+
         memory_pool: MemoryPool, optional
             Specific memory pool to use to allocate the resulting Arrow array.
 
