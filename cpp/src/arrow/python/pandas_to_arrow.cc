@@ -347,8 +347,8 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    auto arr_data = std::make_shared<ArrayData>(type_, length_, std::move(buffers),
-                                                null_count, 0);
+    auto arr_data =
+        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0);
     return PushArray(arr_data);
   }
 
