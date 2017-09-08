@@ -33,6 +33,8 @@ class FunctionContext;
 class UnaryKernel;
 
 struct CastOptions {
+  CastOptions() : allow_int_overflow(false) {}
+
   bool allow_int_overflow;
 };
 

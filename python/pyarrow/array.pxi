@@ -131,8 +131,8 @@ cdef class Array:
             CCastOptions options
             shared_ptr[CArray] result
 
-        if safe:
-            options.allow_int_overflow = 0
+        if not safe:
+            options.allow_int_overflow = 1
 
         with nogil:
             check_status(Cast(_context(), self.ap[0], target_type.sp_type,
