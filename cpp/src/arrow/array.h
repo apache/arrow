@@ -555,6 +555,10 @@ class ARROW_EXPORT StructArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> field(int pos) const;
+
+ private:
+  // For caching boxed child data
+  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
 // ----------------------------------------------------------------------
@@ -592,6 +596,9 @@ class ARROW_EXPORT UnionArray : public Array {
 
   const type_id_t* raw_type_ids_;
   const int32_t* raw_value_offsets_;
+
+  // For caching boxed child data
+  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
 // ----------------------------------------------------------------------

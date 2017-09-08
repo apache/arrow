@@ -160,9 +160,15 @@ void AssertBatchValid(const RecordBatch& batch) {
   }
 }
 
+RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
+    : schema_(schema), num_rows_(num_rows) {
+  boxed_columns_.resize(schema->num_fields());
+}
+
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                          const std::vector<std::shared_ptr<Array>>& columns)
-    : schema_(schema), num_rows_(num_rows), columns_(columns.size()) {
+    : RecordBatch(schema, num_rows) {
+  columns_.resize(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
     columns_[i] = columns[i]->data();
   }
@@ -170,7 +176,8 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                          std::vector<std::shared_ptr<Array>>&& columns)
-    : schema_(schema), num_rows_(num_rows), columns_(columns.size()) {
+    : RecordBatch(schema, num_rows) {
+  columns_.resize(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
     columns_[i] = columns[i]->data();
   }
@@ -178,16 +185,21 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                          std::vector<std::shared_ptr<internal::ArrayData>>&& columns)
-    : schema_(schema), num_rows_(num_rows), columns_(std::move(columns)) {}
+    : RecordBatch(schema, num_rows) {
+  columns_ = std::move(columns);
+}
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                          const std::vector<std::shared_ptr<internal::ArrayData>>& columns)
-    : schema_(schema), num_rows_(num_rows), columns_(columns) {}
+    : RecordBatch(schema, num_rows) {
+  columns_ = columns;
+}
 
 std::shared_ptr<Array> RecordBatch::column(int i) const {
-  std::shared_ptr<Array> result;
-  DCHECK(MakeArray(columns_[i], &result).ok());
-  return result;
+  if (!boxed_columns_[i]) {
+    DCHECK(internal::MakeArray(columns_[i], &boxed_columns_[i]).ok());
+  }
+  return boxed_columns_[i];
 }
 
 const std::string& RecordBatch::column_name(int i) const {

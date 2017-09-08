@@ -197,9 +197,14 @@ class ARROW_EXPORT RecordBatch {
   Status Validate() const;
 
  private:
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
+
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
   std::vector<std::shared_ptr<internal::ArrayData>> columns_;
+
+  // Caching boxed array data
+  mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 };
 
 /// \class Table

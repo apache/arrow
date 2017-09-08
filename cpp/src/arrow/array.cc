@@ -329,6 +329,7 @@ std::string DecimalArray::FormatValue(int64_t i) const {
 StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK_EQ(data->type->id(), Type::STRUCT);
   SetData(data);
+  boxed_fields_.resize(data->child_data.size());
 }
 
 StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
@@ -341,12 +342,14 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
   }
+  boxed_fields_.resize(children.size());
 }
 
-std::shared_ptr<Array> StructArray::field(int pos) const {
-  std::shared_ptr<Array> result;
-  DCHECK(internal::MakeArray(data_->child_data[pos], &result).ok());
-  return result;
+std::shared_ptr<Array> StructArray::field(int i) const {
+  if (!boxed_fields_[i]) {
+    DCHECK(internal::MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+  }
+  return boxed_fields_[i];
 }
 
 // ----------------------------------------------------------------------
@@ -362,6 +365,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
+  boxed_fields_.resize(data->child_data.size());
 }
 
 UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) {
@@ -384,10 +388,11 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-std::shared_ptr<Array> UnionArray::child(int pos) const {
-  std::shared_ptr<Array> result;
-  DCHECK(internal::MakeArray(data_->child_data[pos], &result).ok());
-  return result;
+std::shared_ptr<Array> UnionArray::child(int i) const {
+  if (!boxed_fields_[i]) {
+    DCHECK(internal::MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+  }
+  return boxed_fields_[i];
 }
 
 // ----------------------------------------------------------------------
