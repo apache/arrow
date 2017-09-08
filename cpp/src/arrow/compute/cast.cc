@@ -18,15 +18,21 @@
 #include "arrow/compute/cast.h"
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <type_traits>
 
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -426,7 +432,7 @@ Status Cast(FunctionContext* ctx, const Array& array,
   std::unique_ptr<UnaryKernel> func;
   RETURN_NOT_OK(GetCastFunction(*array.type(), out_type, options, &func));
 
-  // Allocate memory for output
+  // Data structure for output
   auto out_data = std::make_shared<ArrayData>(out_type, array.length());
 
   RETURN_NOT_OK(func->Call(ctx, array, out_data.get()));

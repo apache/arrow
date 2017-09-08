@@ -126,6 +126,9 @@ interfaces in this library as needed.
 The CUDA toolchain used to build the library can be customized by using the
 `$CUDA_HOME` environment variable.
 
+This library is still in Alpha stages, and subject to API changes without
+deprecation warnings.
+
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc
