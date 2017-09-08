@@ -324,9 +324,6 @@ TEST_F(TestCast, UnsupportedTarget) {
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
   vector<bool> is_valid = {true, false, true, true, true};
 
   std::shared_ptr<Array> arr;

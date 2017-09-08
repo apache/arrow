@@ -288,7 +288,7 @@ class TestPandasConversion(unittest.TestCase):
         schema = pa.schema([field])
         self._check_pandas_roundtrip(df, expected_schema=schema)
 
-    def test_all_nulls_to_numeric(self):
+    def test_all_nulls_cast_numeric(self):
         arr = np.array([None], dtype=object)
 
         def _check_type(t):
