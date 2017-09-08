@@ -46,7 +46,7 @@ cache:
 matrix:
   fast_finish: true
   allow_failures:
-  - env: ARROW_TEST_GROUP=packaging
+  - jdk: oraclejdk9
   include:
   - compiler: gcc
     language: cpp
