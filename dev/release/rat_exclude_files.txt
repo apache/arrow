@@ -1,3 +1,4 @@
+*.npmrc
 *.gitignore
 *_generated.h
 *_generated.js
