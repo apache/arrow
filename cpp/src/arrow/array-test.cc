@@ -2460,6 +2460,8 @@ TEST(TestUnionArrayAdHoc, TestSliceEquals) {
   auto CheckUnion = [&size](std::shared_ptr<Array> array) {
     std::shared_ptr<Array> slice, slice2;
     slice = array->Slice(2);
+    ASSERT_EQ(size - 2, slice->length());
+
     slice2 = array->Slice(2);
     ASSERT_EQ(size - 2, slice->length());
 

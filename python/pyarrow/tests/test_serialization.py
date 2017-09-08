@@ -90,6 +90,7 @@ PRIMITIVE_OBJECTS = [
     [1, 2, 3, None], [(None,), 3, 1.0], ["h", "e", "l", "l", "o", None],
     (None, None), ("hello", None), (True, False),
     {True: "hello", False: "world"}, {"hello": "world", 1: 42, 2.5: 45},
+    {"hello": set([2, 3]), "world": set([42.0]), "this": None},
     np.int8(3), np.int32(4), np.int64(5),
     np.uint8(3), np.uint32(4), np.uint64(5), np.float32(1.9),
     np.float64(1.9), np.zeros([100, 100]),
