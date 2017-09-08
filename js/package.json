@@ -7,7 +7,7 @@
   "jsnext:main": "./targets/es2015/esm/Arrow.js",
   "esnext:main": "./targets/esnext/esm/Arrow.js",
   "typings": "./typings/Arrow.d.ts",
-  "description": "Apache's columnar in-memory data format for big data analytics",
+  "description": "Apache Arrow columnar in-memory format",
   "scripts": {
     "lerna": "lerna",
     "commit": "git-cz",
@@ -34,7 +34,7 @@
     "apache",
     "arrow"
   ],
-  "author": "Graphistry, Inc.",
+  "author": "Apache Software Foundation",
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://issues.apache.org/jira/projects/ARROW"
