@@ -15,51 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_CAST_H
-#define ARROW_COMPUTE_CAST_H
+#ifndef ARROW_COMPUTE_KERNEL_H
+#define ARROW_COMPUTE_KERNEL_H
 
-#include <memory>
-
-#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
-class DataType;
+using internal::ArrayData;
 
 namespace compute {
 
 class FunctionContext;
-class UnaryKernel;
 
-struct CastOptions {
-  CastOptions() : allow_int_overflow(false) {}
-
-  bool allow_int_overflow;
+/// \class OpKernel
+/// \brief Base class for operator kernels
+class ARROW_EXPORT OpKernel {
+ public:
+  virtual ~OpKernel() = default;
 };
 
-/// \since 0.7.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& to_type,
-                       const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel);
-
-/// \brief Cast from one array type to another
-/// \param[in] context
-/// \param[in] array
-/// \param[in] to_type
-/// \param[in] options
-/// \param[out] out
-///
-/// \since 0.7.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Status Cast(FunctionContext* context, const Array& array,
-            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
-            std::shared_ptr<Array>* out);
+/// \class UnaryKernel
+/// \brief An array-valued function of a single input argument
+class ARROW_EXPORT UnaryKernel : public OpKernel {
+ public:
+  virtual Status Call(FunctionContext* ctx, const Array& input, ArrayData* out) = 0;
+};
 
 }  // namespace compute
 }  // namespace arrow
 
-#endif  // ARROW_COMPUTE_CAST_H
+#endif  // ARROW_COMPUTE_KERNEL_H

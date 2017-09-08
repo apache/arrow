@@ -706,9 +706,6 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                             InputStream* stream,
                             shared_ptr[CRecordBatch]* out)
 
-
-cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
-
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
         @staticmethod
         CStatus Open(const shared_ptr[OutputStream]& stream,
@@ -735,6 +732,21 @@ cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
 
         CStatus GetColumn(int i, shared_ptr[CColumn]* out)
         c_string GetColumnName(int i)
+
+
+cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
+
+    cdef cppclass CFunctionContext" arrow::compute::FunctionContext":
+        CFunctionContext()
+        CFunctionContext(CMemoryPool* pool)
+
+    cdef cppclass CCastOptions" arrow::compute::CastOptions":
+        c_bool allow_int_overflow
+
+    CStatus Cast(CFunctionContext* context, const CArray& array,
+                 const shared_ptr[CDataType]& to_type,
+                 const CCastOptions& options,
+                 shared_ptr[CArray]* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

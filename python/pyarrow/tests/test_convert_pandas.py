@@ -239,6 +239,15 @@ class TestPandasConversion(unittest.TestCase):
 
         tm.assert_frame_equal(result, ex_frame)
 
+    def test_array_from_pandas_type_cast(self):
+        arr = np.arange(10, dtype='int64')
+
+        target_type = pa.int8()
+
+        result = pa.Array.from_pandas(arr, type=target_type)
+        expected = pa.Array.from_pandas(arr.astype('int8'))
+        assert result.equals(expected)
+
     def test_boolean_no_nulls(self):
         num_values = 100
 
@@ -278,6 +287,17 @@ class TestPandasConversion(unittest.TestCase):
         field = pa.field('bools', pa.bool_())
         schema = pa.schema([field])
         self._check_pandas_roundtrip(df, expected_schema=schema)
+
+    def test_all_nulls_cast_numeric(self):
+        arr = np.array([None], dtype=object)
+
+        def _check_type(t):
+            a2 = pa.Array.from_pandas(arr, type=t)
+            assert a2.type == t
+            assert a2[0].as_py() is None
+
+        _check_type(pa.int32())
+        _check_type(pa.float64())
 
     def test_unicode(self):
         repeats = 1000

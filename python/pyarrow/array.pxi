@@ -88,6 +88,19 @@ def _normalize_slice(object arrow_obj, slice key):
         return arrow_obj.slice(start, stop - start)
 
 
+cdef class _FunctionContext:
+    cdef:
+        unique_ptr[CFunctionContext] ctx
+
+    def __cinit__(self):
+        self.ctx.reset(new CFunctionContext(c_default_memory_pool()))
+
+cdef _FunctionContext _global_ctx = _FunctionContext()
+
+cdef CFunctionContext* _context() nogil:
+    return _global_ctx.ctx.get()
+
+
 cdef class Array:
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
@@ -98,6 +111,34 @@ cdef class Array:
     def _debug_print(self):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
+
+    def cast(self, DataType target_type, safe=True):
+        """
+        Cast array values to another data type
+
+        Parameters
+        ----------
+        target_type : DataType
+            Type to cast to
+        safe : boolean, default True
+            Check for overflows or other unsafe conversions
+
+        Returns
+        -------
+        casted : Array
+        """
+        cdef:
+            CCastOptions options
+            shared_ptr[CArray] result
+
+        if not safe:
+            options.allow_int_overflow = 1
+
+        with nogil:
+            check_status(Cast(_context(), self.ap[0], target_type.sp_type,
+                              options, &result))
+
+        return pyarrow_wrap_array(result)
 
     @staticmethod
     def from_pandas(obj, mask=None, DataType type=None,
