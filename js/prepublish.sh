@@ -17,13 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
-set -ex
-
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-pushd $ARROW_JS_DIR
-
-npm install
-
-popd
+npm run lint
+npm run build
+npm run test
+preset=`conventional-commits-detector` && echo $preset
+bump=`conventional-recommended-bump -p $preset` && echo $bump
+npm --no-git-tag-version version $bump &>/dev/null
+npm run lerna:publish

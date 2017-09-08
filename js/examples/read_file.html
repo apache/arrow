@@ -21,7 +21,7 @@ under the License.
 
 <html>
   <head>
-    <title>arrow.js browser test</title>
+    <title>Arrow.js browser test</title>
     <meta charset="utf-8">
     <style>
 table {
@@ -33,30 +33,41 @@ table, th, td {
     </style>
     <script type="text/javascript">
 var reader = new FileReader();
-function addCell (tr, type, name) {
+function addCell (tr, type, value) {
   var td = document.createElement(type)
-  td.textContent = name;
+  td.textContent = value;
   tr.appendChild(td);
 }
 reader.onload = function (evt) {
-  var reader = new arrow.getReader(new Uint8Array(evt.target.result));
-  var schema = reader.getSchema();
-  var length = reader.loadNextBatch();
-console.log(JSON.stringify(schema, null, '\t'));
 
+  var arrowTable = Arrow.Table.from(new Uint8Array(evt.target.result));
   var thead = document.getElementById("thead");
   var tbody = document.getElementById("tbody");
-  var header_row = document.createElement("tr");
 
-  schema.forEach(function (d) {
-    addCell(header_row, "th", d.name);
-  });
+  while (thead.hasChildNodes()) {
+      thead.removeChild(thead.lastChild);
+  }
+
+  while (tbody.hasChildNodes()) {
+      tbody.removeChild(tbody.lastChild);
+  }
+
+  var header_row = document.createElement("tr");
+  for (let column of arrowTable.cols()) {
+    addCell(header_row, "th", column.name);
+  }
 
   thead.appendChild(header_row);
 
-  for (var i = 0; i < length; i += 1|0) {
+  for (let row of arrowTable.rows(true)) {
     var tr = document.createElement("tr");
-    schema.forEach(function (d) { addCell(tr, "td", reader.getVector(d.name).get(i)); });
+    for (let cell of row) {
+      addCell(tr, "td",
+        cell == null ? 'null'
+        : !Array.isArray(cell) ? cell
+        : '[' + cell.map((value) => value == null ? 'null' : value).join(', ') + ']'
+      );
+    }
     tbody.appendChild(tr);
   }
 }
@@ -74,6 +85,6 @@ function handleFiles(files) {
       <tbody id="tbody">
       </tbody>
     </table>
-    <script type="text/javascript" src="../_bundles/arrow.js"></script>
+    <script type="text/javascript" src="../dist/Arrow.js"></script>
   </body>
 </html>

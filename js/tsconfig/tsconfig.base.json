@@ -1,0 +1,25 @@
+{
+  "exclude": ["../node_modules"],
+  "include": ["../src/**/*.ts"],
+  "compilerOptions": {
+    "lib": ["dom", "esnext", "esnext.asynciterable"],
+    "moduleResolution": "node",
+    "sourceMap": false,
+    "inlineSources": true,
+    "inlineSourceMap": true,
+    "declaration": true,
+    "skipLibCheck": true,
+    "importHelpers": true,
+    "noEmitHelpers": true,
+    "noImplicitAny": false,
+    "noEmitOnError": false,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "removeComments": false,
+    "downlevelIteration": true,
+    "noImplicitUseStrict": true,
+    "preserveConstEnums": false,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
