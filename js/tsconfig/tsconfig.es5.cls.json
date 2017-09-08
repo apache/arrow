@@ -1,0 +1,10 @@
+//Compiler configuaration to build the ES5 Closure Compiler target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "es2015",
+    "noEmitHelpers": true,
+    "importHelpers": false
+  }
+}

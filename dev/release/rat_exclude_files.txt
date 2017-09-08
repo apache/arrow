@@ -1,6 +1,10 @@
+*.npmrc
 *.gitignore
 *_generated.h
+*_generated.js
+*_generated.ts
 *.json
+*.snap
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
@@ -29,6 +33,7 @@ cpp/src/plasma/thirdparty/xxhash.cc
 cpp/src/plasma/thirdparty/xxhash.h
 dev/release/rat_exclude_files.txt
 js/.npmignore
+js/closure-compiler-scripts/*
 python/cmake_modules/BuildUtils.cmake
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/FindNumPy.cmake
