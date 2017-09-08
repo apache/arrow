@@ -15,6 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[flake8]
-filename = *.pyx,*.pxd,*.pxi
-ignore = E211,E901,E999,E225,E226,E227
+# Headers: top level
+install(FILES
+  cast.h
+  context.h
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
+
+#######################################
+# Unit tests
+#######################################
+
+ADD_ARROW_TEST(compute-test)

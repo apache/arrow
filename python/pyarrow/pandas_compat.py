@@ -172,8 +172,8 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     dict
     """
     ncolumns = len(column_names)
-    df_types = types[:ncolumns]
-    index_types = types[ncolumns:ncolumns + len(index_levels)]
+    df_types = types[:ncolumns - len(index_levels)]
+    index_types = types[ncolumns - len(index_levels):]
 
     column_metadata = [
         get_column_metadata(df[col_name], name=sanitized_name,
@@ -269,12 +269,14 @@ def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
     return values, type_
 
 
+def make_datetimetz(tz):
+    from pyarrow.compat import DatetimeTZDtype
+    return DatetimeTZDtype('ns', tz=tz)
+
+
 def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pandas.core.internals as _int
-    from pyarrow.compat import DatetimeTZDtype
     import pyarrow.lib as lib
-
-    block_table = table
 
     index_columns = []
     index_arrays = []
@@ -286,6 +288,9 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     if metadata is not None and b'pandas' in metadata:
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
         index_columns = pandas_metadata['index_columns']
+        table = _add_any_metadata(table, pandas_metadata)
+
+    block_table = table
 
     for name in index_columns:
         i = schema.get_field_index(name)
@@ -293,13 +298,14 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             col = table.column(i)
             index_name = (None if is_unnamed_index_level(name)
                           else name)
-            values = col.to_pandas().values
+            col_pandas = col.to_pandas()
+            values = col_pandas.values
             if not values.flags.writeable:
                 # ARROW-1054: in pandas 0.19.2, factorize will reject
                 # non-writeable arrays when calling MultiIndex.from_arrays
                 values = values.copy()
 
-            index_arrays.append(values)
+            index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
             index_names.append(index_name)
             block_table = block_table.remove_column(
                 block_table.schema.get_field_index(name)
@@ -319,7 +325,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
                                     klass=_int.CategoricalBlock,
                                     fastpath=True)
         elif 'timezone' in item:
-            dtype = DatetimeTZDtype('ns', tz=item['timezone'])
+            dtype = make_datetimetz(item['timezone'])
             block = _int.make_block(block_arr, placement=placement,
                                     klass=_int.DatetimeTZBlock,
                                     dtype=dtype, fastpath=True)
@@ -340,3 +346,34 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     ]
 
     return _int.BlockManager(blocks, axes)
+
+
+def _add_any_metadata(table, pandas_metadata):
+    modified_columns = {}
+
+    schema = table.schema
+
+    # Add time zones
+    for i, col_meta in enumerate(pandas_metadata['columns']):
+        if col_meta['pandas_type'] == 'datetimetz':
+            col = table[i]
+            converted = col.to_pandas()
+            tz = col_meta['metadata']['timezone']
+            tz_aware_type = pa.timestamp('ns', tz=tz)
+            with_metadata = pa.Array.from_pandas(converted.values,
+                                                 type=tz_aware_type)
+
+            field = pa.field(schema[i].name, tz_aware_type)
+            modified_columns[i] = pa.Column.from_array(field,
+                                                       with_metadata)
+
+    if len(modified_columns) > 0:
+        columns = []
+        for i in range(len(table.schema)):
+            if i in modified_columns:
+                columns.append(modified_columns[i])
+            else:
+                columns.append(table[i])
+        return pa.Table.from_arrays(columns)
+    else:
+        return table

@@ -150,6 +150,8 @@ cdef class Column:
 
         if isinstance(field_or_name, Field):
             boxed_field = field_or_name
+            if arr.type != boxed_field.type:
+                raise ValueError('Passed field type does not match array')
         else:
             boxed_field = field(field_or_name, arr.type)
 
@@ -176,7 +178,15 @@ cdef class Column:
                                                         self.sp_column,
                                                         self, &out))
 
-        return pd.Series(wrap_array_output(out), name=self.name)
+        values = wrap_array_output(out)
+        result = pd.Series(values, name=self.name)
+
+        if isinstance(self.type, TimestampType):
+            if self.type.tz is not None:
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(self.type.tz))
+
+        return result
 
     def equals(self, Column other):
         """
@@ -713,6 +723,9 @@ cdef class Table:
             Convert datetime columns to ms resolution. This is needed for
             compability with other functionality like Parquet I/O which
             only supports milliseconds.
+
+            .. deprecated:: 0.7.0
+
         schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.

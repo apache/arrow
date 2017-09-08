@@ -65,7 +65,8 @@ from pyarrow.lib import (null, bool_,
                          FloatValue, DoubleValue, ListValue,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
                          DecimalValue,
-                         Date32Value, Date64Value, TimestampValue)
+                         Date32Value, Date64Value, TimestampValue,
+                         TimestampType)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          FixedSizeBufferWriter,

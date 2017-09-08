@@ -30,6 +30,31 @@ Our strategy for integration testing between Arrow implementations is as follows
 * The test executable is also capable of validating the contents of a binary
   file against a corresponding JSON file
 
+## Environment setup
+
+The integration test data generator and runner is written in Python and
+currently requires Python 3.5 or higher. You can create a standalone Python
+distribution and environment for running the tests by using [miniconda][1]. On
+Linux this is:
+
+```shell
+MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+wget -O miniconda.sh $MINICONDA_URL
+bash miniconda.sh -b -p miniconda
+export PATH=`pwd`/miniconda/bin:$PATH
+
+conda create -n arrow-integration python=3.6 nomkl numpy six
+source activate arrow-integration
+```
+
+If you are on macOS, instead use the URL:
+
+```shell
+MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+```
+
+After this, you can follow the instructions in the next section.
+
 ## Running the existing integration tests
 
 First, build the Java and C++ projects. For Java, you must run
@@ -43,7 +68,7 @@ Java `arrow-tool` JAR and the build path for the C++ executables:
 
 ```bash
 JAVA_DIR=$ARROW_HOME/java
-CPP_BUILD_DIR=$ARROW_HOME/cpp/test-build
+CPP_BUILD_DIR=$ARROW_HOME/cpp/build
 
 VERSION=0.1.1-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
@@ -62,3 +87,5 @@ python integration_test.py
 
 python integration_test.py --debug  # additional output
 ```
+
+[1]: https://conda.io/miniconda.html

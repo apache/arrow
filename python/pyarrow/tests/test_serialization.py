@@ -77,8 +77,9 @@ def assert_equal(obj1, obj2):
         for i in range(len(obj1)):
             assert_equal(obj1[i], obj2[i])
     else:
-        assert obj1 == obj2, "Objects {} and {} are different.".format(obj1,
-                                                                       obj2)
+        assert obj1 == obj2, ("Objects {} and {} are different."
+                              .format(obj1, obj2))
+
 
 PRIMITIVE_OBJECTS = [
     0, 0.0, 0.9, 1 << 62, 1 << 100, 1 << 999,
@@ -100,9 +101,9 @@ PRIMITIVE_OBJECTS = [
 if sys.version_info >= (3, 0):
     PRIMITIVE_OBJECTS += [0, np.array([["hi", u"hi"], [1.3, 1]])]
 else:
-    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0),
+    PRIMITIVE_OBJECTS += [long(42), long(1 << 62), long(0),  # noqa
                           np.array([["hi", u"hi"],
-                          [1.3, long(1)]])]  # noqa: E501,F821
+                          [1.3, long(1)]])]  # noqa
 
 
 COMPLEX_OBJECTS = [

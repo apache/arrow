@@ -168,8 +168,8 @@ Status LoggingMemoryPool::Allocate(int64_t size, uint8_t** out) {
 
 Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
   Status s = pool_->Reallocate(old_size, new_size, ptr);
-  std::cout << "Reallocate: old_size = " << old_size
-            << " - new_size = " << new_size << std::endl;
+  std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
+            << std::endl;
   return s;
 }
 
