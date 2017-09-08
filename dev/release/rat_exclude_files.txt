@@ -1,6 +1,9 @@
 *.gitignore
 *_generated.h
+*_generated.js
+*_generated.ts
 *.json
+*.snap
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc

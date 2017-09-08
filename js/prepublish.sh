@@ -1,14 +1,26 @@
-cp package.json _package.json
+#!/usr/bin/env bash
+
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+npm run lint
+npm run build
+npm run test
 preset=`conventional-commits-detector` && echo $preset
 bump=`conventional-recommended-bump -p $preset` && echo $bump
 npm --no-git-tag-version version $bump &>/dev/null
-conventional-changelog -i CHANGELOG.md -s -p $preset
-npm run validate
-# npm run doc <-- todo: fix esdoc gen (markdown comment issues)
-git add CHANGELOG.md && version=$(json -f package.json version)
-git commit -m "docs(CHANGELOG): $version"
-mv -f _package.json package.json
-npm version $bump -m "chore(release): %s"
-git push --follow-tags
-conventional-github-releaser -p $preset
 npm run lerna:publish
