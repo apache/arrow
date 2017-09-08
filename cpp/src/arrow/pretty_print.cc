@@ -45,6 +45,10 @@ class PrettyPrinter {
   void OpenArray();
   void CloseArray();
 
+  void Flush() {
+    (*sink_) << std::flush;
+  }
+
  protected:
   int indent_;
   std::ostream* sink_;
@@ -298,7 +302,11 @@ class ArrayPrinter : public PrettyPrinter {
     return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
-  Status Print() { return VisitArrayInline(array_, this); }
+  Status Print() {
+    RETURN_NOT_OK(VisitArrayInline(array_, this));
+    Flush();
+    return Status::OK();
+  }
 
  private:
   const Array& array_;
@@ -330,6 +338,7 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
     RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
     (*sink) << "\n";
   }
+  (*sink) << std::flush;
   return Status::OK();
 }
 
@@ -352,6 +361,7 @@ class SchemaPrinter : public PrettyPrinter {
       }
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }
+    Flush();
     return Status::OK();
   }
 
