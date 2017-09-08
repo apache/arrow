@@ -153,13 +153,9 @@ class ARROW_EXPORT RecordBatch {
   /// \return true if batches are equal
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  /// \brief Retrieve an array from the record batch (new object)
+  /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
-  /// \return a new Array object
-  ///
-  /// \note This function returns a new object. If you intend to dereference
-  /// the pointer or access the internals, retain a reference to the
-  /// std::shared_ptr returned.
+  /// \return an Array object
   std::shared_ptr<Array> column(int i) const;
 
   std::shared_ptr<internal::ArrayData> column_data(int i) const { return columns_[i]; }
@@ -197,9 +193,14 @@ class ARROW_EXPORT RecordBatch {
   Status Validate() const;
 
  private:
+  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
+
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
   std::vector<std::shared_ptr<internal::ArrayData>> columns_;
+
+  // Caching boxed array data
+  mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 };
 
 /// \class Table

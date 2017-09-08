@@ -37,26 +37,31 @@ namespace py {
 Status CallDeserializeCallback(PyObject* context, PyObject* value,
                                PyObject** deserialized_object);
 
-Status DeserializeTuple(PyObject* context, std::shared_ptr<Array> array,
-                        int64_t start_idx, int64_t stop_idx, PyObject* base,
+Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
+                        int64_t stop_idx, PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out);
 
-Status DeserializeList(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
+Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out);
 
-Status DeserializeDict(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
+Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
+                      int64_t stop_idx, PyObject* base,
+                      const std::vector<std::shared_ptr<Tensor>>& tensors,
+                      PyObject** out);
+
+Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
-  auto data = std::dynamic_pointer_cast<StructArray>(array);
+  const auto& data = static_cast<const StructArray&>(array);
   ScopedRef keys, vals;
   ScopedRef result(PyDict_New());
-  RETURN_NOT_OK(DeserializeList(context, data->field(0), start_idx, stop_idx, base,
+  RETURN_NOT_OK(DeserializeList(context, *data.field(0), start_idx, stop_idx, base,
                                 tensors, keys.ref()));
-  RETURN_NOT_OK(DeserializeList(context, data->field(1), start_idx, stop_idx, base,
+  RETURN_NOT_OK(DeserializeList(context, *data.field(1), start_idx, stop_idx, base,
                                 tensors, vals.ref()));
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     // PyDict_SetItem behaves differently from PyList_SetItem and PyTuple_SetItem.
@@ -75,11 +80,10 @@ Status DeserializeDict(PyObject* context, std::shared_ptr<Array> array, int64_t 
   return Status::OK();
 }
 
-Status DeserializeArray(std::shared_ptr<Array> array, int64_t offset, PyObject* base,
+Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
                         const std::vector<std::shared_ptr<arrow::Tensor>>& tensors,
                         PyObject** out) {
-  DCHECK(array);
-  int32_t index = std::static_pointer_cast<Int32Array>(array)->Value(offset);
+  int32_t index = static_cast<const Int32Array&>(array).Value(offset);
   RETURN_NOT_OK(py::TensorToNdarray(*tensors[index], base, out));
   // Mark the array as immutable
   ScopedRef flags(PyObject_GetAttrString(*out, "flags"));
@@ -90,54 +94,51 @@ Status DeserializeArray(std::shared_ptr<Array> array, int64_t offset, PyObject* 
   return Status::OK();
 }
 
-Status GetValue(PyObject* context, std::shared_ptr<Array> arr, int64_t index,
-                int32_t type, PyObject* base,
-                const std::vector<std::shared_ptr<Tensor>>& tensors, PyObject** result) {
-  switch (arr->type()->id()) {
+Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type,
+                PyObject* base, const std::vector<std::shared_ptr<Tensor>>& tensors,
+                PyObject** result) {
+  switch (arr.type()->id()) {
     case Type::BOOL:
-      *result =
-          PyBool_FromLong(std::static_pointer_cast<BooleanArray>(arr)->Value(index));
+      *result = PyBool_FromLong(static_cast<const BooleanArray&>(arr).Value(index));
       return Status::OK();
     case Type::INT64:
-      *result =
-          PyLong_FromSsize_t(std::static_pointer_cast<Int64Array>(arr)->Value(index));
+      *result = PyLong_FromSsize_t(static_cast<const Int64Array&>(arr).Value(index));
       return Status::OK();
     case Type::BINARY: {
       int32_t nchars;
-      const uint8_t* str =
-          std::static_pointer_cast<BinaryArray>(arr)->GetValue(index, &nchars);
+      const uint8_t* str = static_cast<const BinaryArray&>(arr).GetValue(index, &nchars);
       *result = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
       return CheckPyError();
     }
     case Type::STRING: {
       int32_t nchars;
-      const uint8_t* str =
-          std::static_pointer_cast<StringArray>(arr)->GetValue(index, &nchars);
+      const uint8_t* str = static_cast<const StringArray&>(arr).GetValue(index, &nchars);
       *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
       return CheckPyError();
     }
     case Type::FLOAT:
-      *result =
-          PyFloat_FromDouble(std::static_pointer_cast<FloatArray>(arr)->Value(index));
+      *result = PyFloat_FromDouble(static_cast<const FloatArray&>(arr).Value(index));
       return Status::OK();
     case Type::DOUBLE:
-      *result =
-          PyFloat_FromDouble(std::static_pointer_cast<DoubleArray>(arr)->Value(index));
+      *result = PyFloat_FromDouble(static_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
     case Type::STRUCT: {
-      auto s = std::static_pointer_cast<StructArray>(arr);
-      auto l = std::static_pointer_cast<ListArray>(s->field(0));
-      if (s->type()->child(0)->name() == "list") {
-        return DeserializeList(context, l->values(), l->value_offset(index),
-                               l->value_offset(index + 1), base, tensors, result);
-      } else if (s->type()->child(0)->name() == "tuple") {
-        return DeserializeTuple(context, l->values(), l->value_offset(index),
-                                l->value_offset(index + 1), base, tensors, result);
-      } else if (s->type()->child(0)->name() == "dict") {
-        return DeserializeDict(context, l->values(), l->value_offset(index),
-                               l->value_offset(index + 1), base, tensors, result);
+      const auto& s = static_cast<const StructArray&>(arr);
+      const auto& l = static_cast<const ListArray&>(*s.field(0));
+      if (s.type()->child(0)->name() == "list") {
+        return DeserializeList(context, *l.values(), l.value_offset(index),
+                               l.value_offset(index + 1), base, tensors, result);
+      } else if (s.type()->child(0)->name() == "tuple") {
+        return DeserializeTuple(context, *l.values(), l.value_offset(index),
+                                l.value_offset(index + 1), base, tensors, result);
+      } else if (s.type()->child(0)->name() == "dict") {
+        return DeserializeDict(context, *l.values(), l.value_offset(index),
+                               l.value_offset(index + 1), base, tensors, result);
+      } else if (s.type()->child(0)->name() == "set") {
+        return DeserializeSet(context, *l.values(), l.value_offset(index),
+                              l.value_offset(index + 1), base, tensors, result);
       } else {
-        DCHECK(false) << "unexpected StructArray type " << s->type()->child(0)->name();
+        DCHECK(false) << "unexpected StructArray type " << s.type()->child(0)->name();
       }
     }
     // We use an Int32Builder here to distinguish the tensor indices from
@@ -151,40 +152,70 @@ Status GetValue(PyObject* context, std::shared_ptr<Array> arr, int64_t index,
   return Status::OK();
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                              \
-  auto data = std::dynamic_pointer_cast<UnionArray>(array);                       \
-  int64_t size = array->length();                                                 \
-  ScopedRef result(CREATE_FN(stop_idx - start_idx));                              \
-  auto types = std::make_shared<Int8Array>(size, data->type_ids());               \
-  auto offsets = std::make_shared<Int32Array>(size, data->value_offsets());       \
-  for (int64_t i = start_idx; i < stop_idx; ++i) {                                \
-    if (data->IsNull(i)) {                                                        \
-      Py_INCREF(Py_None);                                                         \
-      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                          \
-    } else {                                                                      \
-      int64_t offset = offsets->Value(i);                                         \
-      int8_t type = types->Value(i);                                              \
-      std::shared_ptr<Array> arr = data->child(type);                             \
-      PyObject* value;                                                            \
-      RETURN_NOT_OK(GetValue(context, arr, offset, type, base, tensors, &value)); \
-      SET_ITEM_FN(result.get(), i - start_idx, value);                            \
-    }                                                                             \
-  }                                                                               \
-  *out = result.release();                                                        \
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                                  \
+  const auto& data = static_cast<const UnionArray&>(array);                           \
+  int64_t size = array.length();                                                      \
+  ScopedRef result(CREATE_FN(stop_idx - start_idx));                                  \
+  auto types = std::make_shared<Int8Array>(size, data.type_ids());                    \
+  auto offsets = std::make_shared<Int32Array>(size, data.value_offsets());            \
+  for (int64_t i = start_idx; i < stop_idx; ++i) {                                    \
+    if (data.IsNull(i)) {                                                             \
+      Py_INCREF(Py_None);                                                             \
+      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                              \
+    } else {                                                                          \
+      int64_t offset = offsets->Value(i);                                             \
+      int8_t type = types->Value(i);                                                  \
+      PyObject* value;                                                                \
+      RETURN_NOT_OK(                                                                  \
+          GetValue(context, *data.child(type), offset, type, base, tensors, &value)); \
+      SET_ITEM_FN(result.get(), i - start_idx, value);                                \
+    }                                                                                 \
+  }                                                                                   \
+  *out = result.release();                                                            \
   return Status::OK()
 
-Status DeserializeList(PyObject* context, std::shared_ptr<Array> array, int64_t start_idx,
+Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
                        int64_t stop_idx, PyObject* base,
                        const std::vector<std::shared_ptr<Tensor>>& tensors,
                        PyObject** out) {
   DESERIALIZE_SEQUENCE(PyList_New, PyList_SET_ITEM);
 }
 
-Status DeserializeTuple(PyObject* context, std::shared_ptr<Array> array,
-                        int64_t start_idx, int64_t stop_idx, PyObject* base,
+Status DeserializeTuple(PyObject* context, const Array& array, int64_t start_idx,
+                        int64_t stop_idx, PyObject* base,
                         const std::vector<std::shared_ptr<Tensor>>& tensors,
                         PyObject** out) {
   DESERIALIZE_SEQUENCE(PyTuple_New, PyTuple_SET_ITEM);
+}
+
+Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
+                      int64_t stop_idx, PyObject* base,
+                      const std::vector<std::shared_ptr<Tensor>>& tensors,
+                      PyObject** out) {
+  const auto& data = static_cast<const UnionArray&>(array);
+  int64_t size = array.length();
+  ScopedRef result(PySet_New(nullptr));
+  auto types = std::make_shared<Int8Array>(size, data.type_ids());
+  auto offsets = std::make_shared<Int32Array>(size, data.value_offsets());
+  for (int64_t i = start_idx; i < stop_idx; ++i) {
+    if (data.IsNull(i)) {
+      Py_INCREF(Py_None);
+      if (PySet_Add(result.get(), Py_None) < 0) {
+        RETURN_IF_PYERROR();
+      }
+    } else {
+      int64_t offset = offsets->Value(i);
+      int8_t type = types->Value(i);
+      PyObject* value;
+      RETURN_NOT_OK(
+          GetValue(context, *data.child(type), offset, type, base, tensors, &value));
+      if (PySet_Add(result.get(), value) < 0) {
+        RETURN_IF_PYERROR();
+      }
+    }
+  }
+  *out = result.release();
+  return Status::OK();
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
@@ -213,7 +244,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
 Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObject* base,
                          PyObject** out) {
   PyAcquireGIL lock;
-  return DeserializeList(context, obj.batch->column(0), 0, obj.batch->num_rows(), base,
+  return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj.tensors, out);
 }
 

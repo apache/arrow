@@ -62,7 +62,8 @@ class SequenceBuilder {
         tensor_indices_(::arrow::int32(), pool),
         list_offsets_({0}),
         tuple_offsets_({0}),
-        dict_offsets_({0}) {}
+        dict_offsets_({0}),
+        set_offsets_({0}) {}
 
   /// Appending a none to the sequence
   Status AppendNone() {
@@ -163,6 +164,12 @@ class SequenceBuilder {
     return Status::OK();
   }
 
+  Status AppendSet(Py_ssize_t size) {
+    RETURN_NOT_OK(Update(set_offsets_.size() - 1, &set_tag_));
+    set_offsets_.push_back(set_offsets_.back() + static_cast<int32_t>(size));
+    return Status::OK();
+  }
+
   template <typename BuilderType>
   Status AddElement(const int8_t tag, BuilderType* out) {
     if (tag != -1) {
@@ -200,7 +207,7 @@ class SequenceBuilder {
   /// Finish building the sequence and return the result.
   /// Input arrays may be nullptr
   Status Finish(const Array* list_data, const Array* tuple_data, const Array* dict_data,
-                std::shared_ptr<Array>* out) {
+                const Array* set_data, std::shared_ptr<Array>* out) {
     fields_.resize(num_tags_);
     children_.resize(num_tags_);
 
@@ -215,6 +222,7 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
     RETURN_NOT_OK(AddSubsequence(tuple_tag_, tuple_data, tuple_offsets_, "tuple"));
     RETURN_NOT_OK(AddSubsequence(dict_tag_, dict_data, dict_offsets_, "dict"));
+    RETURN_NOT_OK(AddSubsequence(set_tag_, set_data, set_offsets_, "set"));
 
     auto type = ::arrow::union_(fields_, type_ids_, UnionMode::DENSE);
     out->reset(new UnionArray(type, types_.length(), children_, types_.data(),
@@ -246,6 +254,7 @@ class SequenceBuilder {
   std::vector<int32_t> list_offsets_;
   std::vector<int32_t> tuple_offsets_;
   std::vector<int32_t> dict_offsets_;
+  std::vector<int32_t> set_offsets_;
 
   // Tags for members of the sequence. If they are set to -1 it means
   // they are not used and will not part be of the metadata when we call
@@ -263,6 +272,7 @@ class SequenceBuilder {
   int8_t list_tag_ = -1;
   int8_t tuple_tag_ = -1;
   int8_t dict_tag_ = -1;
+  int8_t set_tag_ = -1;
 
   int8_t num_tags_ = 0;
 
@@ -297,12 +307,14 @@ class DictBuilder {
   ///   value list of the dictionary
   Status Finish(const Array* key_tuple_data, const Array* key_dict_data,
                 const Array* val_list_data, const Array* val_tuple_data,
-                const Array* val_dict_data, std::shared_ptr<Array>* out) {
-    // lists and dicts can't be keys of dicts in Python, that is why for
+                const Array* val_dict_data, const Array* val_set_data,
+                std::shared_ptr<Array>* out) {
+    // lists and sets can't be keys of dicts in Python, that is why for
     // the keys we do not need to collect sublists
     std::shared_ptr<Array> keys, vals;
-    RETURN_NOT_OK(keys_.Finish(nullptr, key_tuple_data, key_dict_data, &keys));
-    RETURN_NOT_OK(vals_.Finish(val_list_data, val_tuple_data, val_dict_data, &vals));
+    RETURN_NOT_OK(keys_.Finish(nullptr, key_tuple_data, key_dict_data, nullptr, &keys));
+    RETURN_NOT_OK(
+        vals_.Finish(val_list_data, val_tuple_data, val_dict_data, val_set_data, &vals));
     auto keys_field = std::make_shared<Field>("keys", keys->type());
     auto vals_field = std::make_shared<Field>("vals", vals->type());
     auto type = std::make_shared<StructType>(
@@ -411,7 +423,8 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
 
 Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
               std::vector<PyObject*>* sublists, std::vector<PyObject*>* subtuples,
-              std::vector<PyObject*>* subdicts, std::vector<PyObject*>* tensors_out) {
+              std::vector<PyObject*>* subdicts, std::vector<PyObject*>* subsets,
+              std::vector<PyObject*>* tensors_out) {
   // The bool case must precede the int case (PyInt_Check passes for bools)
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
@@ -463,6 +476,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   } else if (PyTuple_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendTuple(PyTuple_Size(elem)));
     subtuples->push_back(elem);
+  } else if (PySet_Check(elem)) {
+    RETURN_NOT_OK(builder->AppendSet(PySet_Size(elem)));
+    subsets->push_back(elem);
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
   } else if (PyArray_Check(elem)) {
@@ -522,14 +538,14 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
         "recursively.");
   }
   SequenceBuilder builder(nullptr);
-  std::vector<PyObject*> sublists, subtuples, subdicts;
+  std::vector<PyObject*> sublists, subtuples, subdicts, subsets;
   for (const auto& sequence : sequences) {
     ScopedRef iterator(PyObject_GetIter(sequence));
     RETURN_IF_PYERROR();
     ScopedRef item;
     while (item.reset(PyIter_Next(iterator.get())), item.get()) {
       RETURN_NOT_OK(Append(context, item.get(), &builder, &sublists, &subtuples,
-                           &subdicts, tensors_out));
+                           &subdicts, &subsets, tensors_out));
     }
   }
   std::shared_ptr<Array> list;
@@ -547,7 +563,12 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
     RETURN_NOT_OK(
         SerializeDict(context, subdicts, recursion_depth + 1, &dict, tensors_out));
   }
-  return builder.Finish(list.get(), tuple.get(), dict.get(), out);
+  std::shared_ptr<Array> set;
+  if (subsets.size() > 0) {
+    RETURN_NOT_OK(
+        SerializeSequences(context, subsets, recursion_depth + 1, &set, tensors_out));
+  }
+  return builder.Finish(list.get(), tuple.get(), dict.get(), set.get(), out);
 }
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
@@ -559,16 +580,17 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
         "This object exceeds the maximum recursion depth. It may contain itself "
         "recursively.");
   }
-  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts, dummy;
+  std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts,
+      val_sets, dummy;
   for (const auto& dict : dicts) {
     PyObject *key, *value;
     Py_ssize_t pos = 0;
     while (PyDict_Next(dict, &pos, &key, &value)) {
       RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts,
-                           tensors_out));
+                           &dummy, tensors_out));
       DCHECK_EQ(dummy.size(), 0);
       RETURN_NOT_OK(Append(context, value, &result.vals(), &val_lists, &val_tuples,
-                           &val_dicts, tensors_out));
+                           &val_dicts, &val_sets, tensors_out));
     }
   }
   std::shared_ptr<Array> key_tuples_arr;
@@ -596,9 +618,14 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
     RETURN_NOT_OK(SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr,
                                 tensors_out));
   }
+  std::shared_ptr<Array> val_set_arr;
+  if (val_sets.size() > 0) {
+    RETURN_NOT_OK(SerializeSequences(context, val_sets, recursion_depth + 1, &val_set_arr,
+                                     tensors_out));
+  }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
                               val_list_arr.get(), val_tuples_arr.get(),
-                              val_dict_arr.get(), out));
+                              val_dict_arr.get(), val_set_arr.get(), out));
 
   // This block is used to decrement the reference counts of the results
   // returned by the serialization callback, which is called in SerializeArray,
