@@ -88,47 +88,47 @@ struct ARROW_EXPORT ArrayData {
   ArrayData() {}
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : type(type), length(length), null_count(null_count), offset(offset) {}
+
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             const std::vector<std::shared_ptr<Buffer>>& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : type(type),
-        length(length),
-        buffers(buffers),
-        null_count(null_count),
-        offset(offset) {}
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = buffers;
+  }
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             std::vector<std::shared_ptr<Buffer>>&& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : type(type),
-        length(length),
-        buffers(std::move(buffers)),
-        null_count(null_count),
-        offset(offset) {}
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = std::move(buffers);
+  }
 
   // Move constructor
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
-        buffers(std::move(other.buffers)),
         null_count(other.null_count),
         offset(other.offset),
+        buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)) {}
 
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
-        buffers(other.buffers),
         null_count(other.null_count),
         offset(other.offset),
+        buffers(other.buffers),
         child_data(other.child_data) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) {
     type = std::move(other.type);
     length = other.length;
-    buffers = std::move(other.buffers);
     null_count = other.null_count;
     offset = other.offset;
+    buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     return *this;
   }
@@ -139,9 +139,9 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<DataType> type;
   int64_t length;
-  std::vector<std::shared_ptr<Buffer>> buffers;
   int64_t null_count;
   int64_t offset;
+  std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
 

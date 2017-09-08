@@ -39,10 +39,14 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
 
 using std::vector;
 
 namespace arrow {
+
+using internal::ArrayData;
+
 namespace compute {
 
 void AssertArraysEqual(const Array& left, const Array& right) {
@@ -72,6 +76,11 @@ class ComputeFixture {
 // ----------------------------------------------------------------------
 // Cast
 
+static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
+  ASSERT_EQ(left.data()->buffers[buffer_index].get(),
+            right.data()->buffers[buffer_index].get());
+}
+
 class TestCast : public ComputeFixture, public ::testing::Test {
  public:
   void CheckPass(const Array& input, const Array& expected,
@@ -92,6 +101,13 @@ class TestCast : public ComputeFixture, public ::testing::Test {
       ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
     }
     ASSERT_RAISES(Invalid, Cast(&ctx_, *input, out_type, options, &result));
+  }
+
+  void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
+    std::shared_ptr<Array> result;
+    ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
+    AssertBufferSame(input, *result, 0);
+    AssertBufferSame(input, *result, 1);
   }
 
   template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
@@ -121,12 +137,8 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   std::shared_ptr<Array> result;
   ASSERT_OK(Cast(&this->ctx_, *arr, int32(), {}, &result));
 
-  const auto& lbuffers = arr->data()->buffers;
-  const auto& rbuffers = result->data()->buffers;
-
-  // Buffers are the same
-  ASSERT_EQ(lbuffers[0].get(), rbuffers[0].get());
-  ASSERT_EQ(lbuffers[1].get(), rbuffers[1].get());
+  AssertBufferSame(*arr, *result, 0);
+  AssertBufferSame(*arr, *result, 1);
 }
 
 TEST_F(TestCast, ToBoolean) {
@@ -309,6 +321,78 @@ TEST_F(TestCast, UnsupportedTarget) {
 
   std::shared_ptr<Array> result;
   ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, utf8(), {}, &result));
+}
+
+TEST_F(TestCast, DateTimeZeroCopy) {
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  std::shared_ptr<Array> arr;
+  vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
+
+  CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
+  CheckZeroCopy(*arr, date32());
+
+  vector<int64_t> v2 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, v2, &arr);
+
+  CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
+  CheckZeroCopy(*arr, date64());
+  CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
+}
+
+TEST_F(TestCast, FromNull) {
+  // Null casts to everything
+  const int length = 10;
+
+  NullArray arr(length);
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(Cast(&ctx_, arr, int32(), {}, &result));
+
+  ASSERT_EQ(length, result->length());
+  ASSERT_EQ(length, result->null_count());
+
+  // OK to look at bitmaps
+  AssertArraysEqual(*result, *result);
+}
+
+TEST_F(TestCast, PreallocatedMemory) {
+  CastOptions options;
+  options.allow_int_overflow = false;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  const int64_t length = 5;
+
+  std::shared_ptr<Array> arr;
+  vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
+  vector<int64_t> e1 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
+
+  auto out_type = int64();
+
+  std::unique_ptr<UnaryKernel> kernel;
+  ASSERT_OK(GetCastFunction(*int32(), out_type, options, &kernel));
+
+  auto out_data = std::make_shared<ArrayData>(out_type, length);
+
+  std::shared_ptr<Buffer> out_values;
+  ASSERT_OK(this->ctx_.Allocate(length * sizeof(int64_t), &out_values));
+
+  out_data->buffers.push_back(nullptr);
+  out_data->buffers.push_back(out_values);
+
+  ASSERT_OK(kernel->Call(&this->ctx_, *arr, out_data.get()));
+
+  // Buffer address unchanged
+  ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
+
+  std::shared_ptr<Array> result, expected;
+  ASSERT_OK(MakeArray(out_data, &result));
+  ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
+
+  AssertArraysEqual(*expected, *result);
 }
 
 }  // namespace compute

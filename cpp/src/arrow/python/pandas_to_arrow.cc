@@ -44,6 +44,9 @@
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
+#include "arrow/compute/cast.h"
+#include "arrow/compute/context.h"
+
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
@@ -347,8 +350,8 @@ class PandasConverter {
     }
 
     BufferVector buffers = {null_bitmap_, data};
-    auto arr_data = std::make_shared<ArrayData>(type_, length_, std::move(buffers),
-                                                null_count, 0);
+    auto arr_data =
+        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0);
     return PushArray(arr_data);
   }
 
@@ -419,9 +422,11 @@ class PandasConverter {
   Status ConvertLists(const std::shared_ptr<DataType>& type);
   Status ConvertLists(const std::shared_ptr<DataType>& type, ListBuilder* builder,
                       PyObject* list);
-  Status ConvertObjects();
   Status ConvertDecimals();
   Status ConvertTimes();
+  Status ConvertObjects();
+  Status ConvertObjectsInfer();
+  Status ConvertObjectsInferAndCast();
 
  protected:
   MemoryPool* pool_;
@@ -460,21 +465,31 @@ void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length,
   }
 }
 
+static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
+                         const std::shared_ptr<DataType>& in_type,
+                         const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
+                         std::shared_ptr<Buffer>* out) {
+  // Must cast
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
+  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
+
+  std::shared_ptr<Array> tmp_array, casted_array;
+  RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
+
+  compute::FunctionContext context(pool);
+  compute::CastOptions cast_options;
+  cast_options.allow_int_overflow = false;
+
+  RETURN_NOT_OK(
+      compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
+  *out = casted_array->data()->buffers[1];
+  return Status::OK();
+}
+
 template <typename ArrowType>
 inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
-
-  // Handle LONGLONG->INT64 and other fun things
-  int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
-
-  if (NumPyTypeSize(traits::npy_type) != NumPyTypeSize(type_num_compat)) {
-    std::stringstream ss;
-    ss << "NumPy type casts not yet implemented, type sizes differ: ";
-    ss << NumPyTypeSize(traits::npy_type) << " compared to "
-       << NumPyTypeSize(type_num_compat);
-    return Status::NotImplemented(ss.str());
-  }
 
   if (is_strided()) {
     // Strided, must copy into new contiguous memory
@@ -490,6 +505,15 @@ inline Status PandasConverter::ConvertData(std::shared_ptr<Buffer>* data) {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
+
+  std::shared_ptr<DataType> input_type;
+  RETURN_NOT_OK(
+      NumPyDtypeToArrow(reinterpret_cast<PyObject*>(PyArray_DESCR(arr_)), &input_type));
+
+  if (!input_type->Equals(*type_)) {
+    RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
+  }
+
   return Status::OK();
 }
 
@@ -845,6 +869,74 @@ Status PandasConverter::ConvertBooleans() {
   return Status::OK();
 }
 
+Status PandasConverter::ConvertObjectsInfer() {
+  Ndarray1DIndexer<PyObject*> objects;
+
+  PyAcquireGIL lock;
+  objects.Init(arr_);
+  PyDateTime_IMPORT;
+
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  RETURN_NOT_OK(ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+
+  for (int64_t i = 0; i < length_; ++i) {
+    PyObject* obj = objects[i];
+    if (PandasObjectIsNull(obj)) {
+      continue;
+    } else if (PyObject_is_string(obj)) {
+      return ConvertObjectStrings();
+    } else if (PyObject_is_float(obj)) {
+      return ConvertObjectFloats();
+    } else if (PyBool_Check(obj)) {
+      return ConvertBooleans();
+    } else if (PyObject_is_integer(obj)) {
+      return ConvertObjectIntegers();
+    } else if (PyDate_CheckExact(obj)) {
+      // We could choose Date32 or Date64
+      return ConvertDates<Date32Type>();
+    } else if (PyTime_Check(obj)) {
+      return ConvertTimes();
+    } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
+      return ConvertDecimals();
+    } else if (PyList_Check(obj) || PyArray_Check(obj)) {
+      std::shared_ptr<DataType> inferred_type;
+      RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
+      return ConvertLists(inferred_type);
+    } else {
+      const std::string supported_types =
+          "string, bool, float, int, date, time, decimal, list, array";
+      std::stringstream ss;
+      ss << "Error inferring Arrow type for Python object array. ";
+      RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
+      return Status::Invalid(ss.str());
+    }
+  }
+  out_arrays_.push_back(std::make_shared<NullArray>(length_));
+  return Status::OK();
+}
+
+Status PandasConverter::ConvertObjectsInferAndCast() {
+  size_t position = out_arrays_.size();
+  RETURN_NOT_OK(ConvertObjectsInfer());
+
+  std::shared_ptr<Array> arr = out_arrays_[position];
+
+  // Perform cast
+  compute::FunctionContext context(pool_);
+  compute::CastOptions options;
+  options.allow_int_overflow = false;
+
+  std::shared_ptr<Array> casted;
+  RETURN_NOT_OK(compute::Cast(&context, *arr, type_, options, &casted));
+
+  // Replace with casted values
+  out_arrays_[position] = casted;
+
+  return Status::OK();
+}
+
 Status PandasConverter::ConvertObjects() {
   // Python object arrays are annoying, since we could have one of:
   //
@@ -857,13 +949,6 @@ Status PandasConverter::ConvertObjects() {
   // do some type inference and conversion
 
   RETURN_NOT_OK(InitNullBitmap());
-
-  Ndarray1DIndexer<PyObject*> objects;
-
-  PyAcquireGIL lock;
-  objects.Init(arr_);
-  PyDateTime_IMPORT;
-  lock.release();
 
   // This means we received an explicit type from the user
   if (type_) {
@@ -885,53 +970,12 @@ Status PandasConverter::ConvertObjects() {
       case Type::DECIMAL:
         return ConvertDecimals();
       default:
-        return Status::TypeError("No known conversion to Arrow type");
+        return ConvertObjectsInferAndCast();
     }
   } else {
     // Re-acquire GIL
-    lock.acquire();
-
-    OwnedRef decimal;
-    OwnedRef Decimal;
-    RETURN_NOT_OK(ImportModule("decimal", &decimal));
-    RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
-
-    for (int64_t i = 0; i < length_; ++i) {
-      PyObject* obj = objects[i];
-      if (PandasObjectIsNull(obj)) {
-        continue;
-      } else if (PyObject_is_string(obj)) {
-        return ConvertObjectStrings();
-      } else if (PyObject_is_float(obj)) {
-        return ConvertObjectFloats();
-      } else if (PyBool_Check(obj)) {
-        return ConvertBooleans();
-      } else if (PyObject_is_integer(obj)) {
-        return ConvertObjectIntegers();
-      } else if (PyDate_CheckExact(obj)) {
-        // We could choose Date32 or Date64
-        return ConvertDates<Date32Type>();
-      } else if (PyTime_Check(obj)) {
-        return ConvertTimes();
-      } else if (PyObject_IsInstance(const_cast<PyObject*>(obj), Decimal.obj())) {
-        return ConvertDecimals();
-      } else if (PyList_Check(obj) || PyArray_Check(obj)) {
-        std::shared_ptr<DataType> inferred_type;
-        RETURN_NOT_OK(InferArrowType(obj, &inferred_type));
-        return ConvertLists(inferred_type);
-      } else {
-        const std::string supported_types =
-            "string, bool, float, int, date, time, decimal, list, array";
-        std::stringstream ss;
-        ss << "Error inferring Arrow type for Python object array. ";
-        RETURN_NOT_OK(InvalidConversion(obj, supported_types, &ss));
-        return Status::Invalid(ss.str());
-      }
-    }
+    return ConvertObjectsInfer();
   }
-
-  out_arrays_.push_back(std::make_shared<NullArray>(length_));
-  return Status::OK();
 }
 
 template <typename T>
