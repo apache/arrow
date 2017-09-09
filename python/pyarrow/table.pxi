@@ -758,7 +758,7 @@ cdef class Table:
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None, dict metadata=None):
+    def from_arrays(arrays, names=None, schema=None, dict metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -777,11 +777,22 @@ cdef class Table:
         """
         cdef:
             vector[shared_ptr[CColumn]] columns
-            shared_ptr[CSchema] schema
+            Schema cy_schema
+            shared_ptr[CSchema] c_schema
             shared_ptr[CTable] table
             int i, K = <int> len(arrays)
 
-        _schema_from_arrays(arrays, names, metadata, &schema)
+        if schema is None:
+            _schema_from_arrays(arrays, names, metadata, &c_schema)
+        elif schema is not None:
+            if names is not None:
+                raise ValueError('Cannot pass schema and arrays')
+            cy_schema = schema
+
+            if len(schema) != len(arrays):
+                raise ValueError('Schema and number of arrays unequal')
+
+            c_schema = cy_schema.sp_schema
 
         columns.reserve(K)
 
@@ -789,23 +800,29 @@ cdef class Table:
             if isinstance(arrays[i], Array):
                 columns.push_back(
                     make_shared[CColumn](
-                        schema.get().field(i),
+                        c_schema.get().field(i),
                         (<Array> arrays[i]).sp_array
                     )
                 )
             elif isinstance(arrays[i], ChunkedArray):
                 columns.push_back(
                     make_shared[CColumn](
-                        schema.get().field(i),
+                        c_schema.get().field(i),
                         (<ChunkedArray> arrays[i]).sp_chunked_array
                     )
                 )
             elif isinstance(arrays[i], Column):
-                columns.push_back((<Column> arrays[i]).sp_column)
+                # Make sure schema field and column are consistent
+                columns.push_back(
+                    make_shared[CColumn](
+                        c_schema.get().field(i),
+                        (<Column> arrays[i]).sp_column.get().data()
+                    )
+                )
             else:
                 raise ValueError(type(arrays[i]))
 
-        table.reset(new CTable(schema, columns))
+        table.reset(new CTable(c_schema, columns))
         return pyarrow_wrap_table(table)
 
     @staticmethod

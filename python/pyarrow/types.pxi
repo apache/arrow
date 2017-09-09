@@ -299,7 +299,6 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, int i):
-
         cdef:
             Field result = Field()
             int num_fields = self.schema.num_fields()
@@ -317,6 +316,10 @@ cdef class Schema:
         result.type = pyarrow_wrap_data_type(result.field.type())
 
         return result
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
     def _check_null(self):
         if self.schema == NULL:

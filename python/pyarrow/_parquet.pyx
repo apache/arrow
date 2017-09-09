@@ -558,7 +558,7 @@ cdef ParquetCompression compression_from_name(str name):
         return ParquetCompression_UNCOMPRESSED
 
 
-cdef class ParquetWriter:
+cdef class _ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
         shared_ptr[OutputStream] sink
@@ -571,11 +571,14 @@ cdef class ParquetWriter:
         object version
         int row_group_size
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
-                  compression=None, version=None,
-                  MemoryPool memory_pool=None,
-                  use_deprecated_int96_timestamps=False,
-                  coerce_timestamps=None):
+    def __cinit__(self):
+        pass
+
+    def _open(self, where, Schema schema, use_dictionary=None,
+              compression=None, version=None,
+              MemoryPool memory_pool=None,
+              use_deprecated_int96_timestamps=False,
+              coerce_timestamps=None):
         cdef:
             shared_ptr[FileOutputStream] filestream
             shared_ptr[WriterProperties] properties
