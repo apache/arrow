@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "arrow/ipc/message.h"
+#include "arrow/table.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,21 +44,7 @@ class RandomAccessFile;
 
 namespace ipc {
 
-/// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader {
- public:
-  virtual ~RecordBatchReader();
-
-  /// \return the shared schema of the record batches in the stream
-  virtual std::shared_ptr<Schema> schema() const = 0;
-
-  /// Read the next record batch in the stream. Return nullptr for batch when
-  /// reaching end of stream
-  ///
-  /// \param(out) batch the next loaded batch, nullptr at end of stream
-  /// \return Status
-  virtual Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) = 0;
-};
+using RecordBatchReader = ::arrow::RecordBatchReader;
 
 /// \class RecordBatchStreamReader
 /// \brief Synchronous batch stream reader that reads from io::InputStream
@@ -96,7 +83,7 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
                      std::shared_ptr<RecordBatchReader>* out);
 
   std::shared_ptr<Schema> schema() const override;
-  Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) override;
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
 
  private:
   RecordBatchStreamReader();

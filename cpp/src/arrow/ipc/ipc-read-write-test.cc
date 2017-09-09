@@ -584,7 +584,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
     std::shared_ptr<RecordBatch> chunk;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNextRecordBatch(&chunk));
+      RETURN_NOT_OK(reader->ReadNext(&chunk));
       if (chunk == nullptr) {
         break;
       }

@@ -245,7 +245,7 @@ cdef class _RecordBatchReader:
         cdef shared_ptr[CRecordBatch] batch
 
         with nogil:
-            check_status(self.reader.get().ReadNextRecordBatch(&batch))
+            check_status(self.reader.get().ReadNext(&batch))
 
         if batch.get() == NULL:
             raise StopIteration
@@ -263,7 +263,7 @@ cdef class _RecordBatchReader:
 
         with nogil:
             while True:
-                check_status(self.reader.get().ReadNextRecordBatch(&batch))
+                check_status(self.reader.get().ReadNext(&batch))
                 if batch.get() == NULL:
                     break
                 batches.push_back(batch)
