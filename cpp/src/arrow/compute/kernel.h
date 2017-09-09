@@ -18,11 +18,10 @@
 #ifndef ARROW_COMPUTE_KERNEL_H
 #define ARROW_COMPUTE_KERNEL_H
 
-#include "arrow/util/visibility.h"
+#include "arrow/array.h"
 
 namespace arrow {
 
-class Array;
 using internal::ArrayData;
 
 namespace compute {
