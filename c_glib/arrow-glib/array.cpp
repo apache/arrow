@@ -1818,35 +1818,24 @@ garrow_time32_array_class_init(GArrowTime32ArrayClass *klass)
  *   @n_nulls is 0.
  * @n_nulls: The number of null elements. If -1 is specified, the
  *   number of nulls are computed from @null_bitmap.
- * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable):
- *   A newly created #GArrowTime32Array on success, %NULL on error.
+ * Returns: A newly created #GArrowTime32Array.
  *
  * Since: 0.7.0
  */
 GArrowTime32Array *
-garrow_time32_array_new(GArrowDataType *data_type,
+garrow_time32_array_new(GArrowTime32DataType *data_type,
                         gint64 length,
                         GArrowBuffer *data,
                         GArrowBuffer *null_bitmap,
-                        gint64 n_nulls,
-                        GError **error)
+                        gint64 n_nulls)
 {
-  if (!GARROW_IS_TIME32_DATA_TYPE(data_type)) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_INVALID,
-                "[time32-array][new] data type must be time32 data type: <%s>",
-                G_OBJECT_TYPE_NAME(data_type));
-    return NULL;
-  }
-
-  auto array = garrow_primitive_array_new<arrow::Time32Type>(data_type,
-                                                             length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Time32Type>(GARROW_DATA_TYPE(data_type),
+                                                  length,
+                                                  data,
+                                                  null_bitmap,
+                                                  n_nulls);
   return GARROW_TIME32_ARRAY(array);
 }
 
@@ -1910,35 +1899,24 @@ garrow_time64_array_class_init(GArrowTime64ArrayClass *klass)
  *   @n_nulls is 0.
  * @n_nulls: The number of null elements. If -1 is specified, the
  *   number of nulls are computed from @null_bitmap.
- * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable):
- *   A newly created #GArrowTime64Array on success, %NULL on error.
+ * Returns: A newly created #GArrowTime64Array.
  *
  * Since: 0.7.0
  */
 GArrowTime64Array *
-garrow_time64_array_new(GArrowDataType *data_type,
+garrow_time64_array_new(GArrowTime64DataType *data_type,
                         gint64 length,
                         GArrowBuffer *data,
                         GArrowBuffer *null_bitmap,
-                        gint64 n_nulls,
-                        GError **error)
+                        gint64 n_nulls)
 {
-  if (!GARROW_IS_TIME64_DATA_TYPE(data_type)) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_INVALID,
-                "[time64-array][new] data type must be time64 data type: <%s>",
-                G_OBJECT_TYPE_NAME(data_type));
-    return NULL;
-  }
-
-  auto array = garrow_primitive_array_new<arrow::Time64Type>(data_type,
-                                                             length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Time64Type>(GARROW_DATA_TYPE(data_type),
+                                                  length,
+                                                  data,
+                                                  null_bitmap,
+                                                  n_nulls);
   return GARROW_TIME64_ARRAY(array);
 }
 

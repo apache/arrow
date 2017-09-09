@@ -978,8 +978,7 @@ struct _GArrowTime32ArrayBuilderClass
 
 GType garrow_time32_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowTime32ArrayBuilder *garrow_time32_array_builder_new(GArrowDataType *data_type,
-                                                          GError **error);
+GArrowTime32ArrayBuilder *garrow_time32_array_builder_new(GArrowTime32DataType *data_type);
 
 gboolean garrow_time32_array_builder_append(GArrowTime32ArrayBuilder *builder,
                                             gint32 value,
@@ -1030,8 +1029,7 @@ struct _GArrowTime64ArrayBuilderClass
 
 GType garrow_time64_array_builder_get_type(void) G_GNUC_CONST;
 
-GArrowTime64ArrayBuilder *garrow_time64_array_builder_new(GArrowDataType *data_type,
-                                                          GError **error);
+GArrowTime64ArrayBuilder *garrow_time64_array_builder_new(GArrowTime64DataType *data_type);
 
 gboolean garrow_time64_array_builder_append(GArrowTime64ArrayBuilder *builder,
                                             gint64 value,

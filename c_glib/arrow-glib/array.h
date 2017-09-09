@@ -1062,12 +1062,11 @@ struct _GArrowTime32ArrayClass
 
 GType garrow_time32_array_get_type(void) G_GNUC_CONST;
 
-GArrowTime32Array *garrow_time32_array_new(GArrowDataType *data_type,
+GArrowTime32Array *garrow_time32_array_new(GArrowTime32DataType *data_type,
                                            gint64 length,
                                            GArrowBuffer *data,
                                            GArrowBuffer *null_bitmap,
-                                           gint64 n_nulls,
-                                           GError **error);
+                                           gint64 n_nulls);
 
 gint32 garrow_time32_array_get_value(GArrowTime32Array *array,
                                      gint64 i);
@@ -1117,12 +1116,11 @@ struct _GArrowTime64ArrayClass
 
 GType garrow_time64_array_get_type(void) G_GNUC_CONST;
 
-GArrowTime64Array *garrow_time64_array_new(GArrowDataType *data_type,
+GArrowTime64Array *garrow_time64_array_new(GArrowTime64DataType *data_type,
                                            gint64 length,
                                            GArrowBuffer *data,
                                            GArrowBuffer *null_bitmap,
-                                           gint64 n_nulls,
-                                           GError **error);
+                                           gint64 n_nulls);
 
 gint64 garrow_time64_array_get_value(GArrowTime64Array *array,
                                      gint64 i);
