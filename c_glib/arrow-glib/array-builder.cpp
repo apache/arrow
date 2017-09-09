@@ -1408,28 +1408,15 @@ garrow_time32_array_builder_class_init(GArrowTime32ArrayBuilderClass *klass)
 /**
  * garrow_time32_array_builder_new:
  * @data_type: A #GArrowTime32DataType.
- * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable):
- *   A newly created #GArrowTime32ArrayBuilder on success, %NULL on error.
+ * Returns: A newly created #GArrowTime32ArrayBuilder.
  *
  * Since: 0.7.0
  */
 GArrowTime32ArrayBuilder *
-garrow_time32_array_builder_new(GArrowDataType *data_type,
-                                GError **error)
+garrow_time32_array_builder_new(GArrowTime32DataType *data_type)
 {
-  if (!GARROW_IS_TIME32_DATA_TYPE(data_type)) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_INVALID,
-                "[time32-array-builder][new] "
-                "data type must be time32 data type: <%s>",
-                G_OBJECT_TYPE_NAME(data_type));
-    return NULL;
-  }
-
-  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto builder = garrow_array_builder_new(arrow_data_type,
                                           NULL,
                                           "[time32-array-builder][new]");
@@ -1495,28 +1482,15 @@ garrow_time64_array_builder_class_init(GArrowTime64ArrayBuilderClass *klass)
 /**
  * garrow_time64_array_builder_new:
  * @data_type: A #GArrowTime64DataType.
- * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable):
- *   A newly created #GArrowTime64ArrayBuilder on success, %NULL on error.
+ * Returns: A newly created #GArrowTime64ArrayBuilder.
  *
  * Since: 0.7.0
  */
 GArrowTime64ArrayBuilder *
-garrow_time64_array_builder_new(GArrowDataType *data_type,
-                                GError **error)
+garrow_time64_array_builder_new(GArrowTime64DataType *data_type)
 {
-  if (!GARROW_IS_TIME64_DATA_TYPE(data_type)) {
-    g_set_error(error,
-                GARROW_ERROR,
-                GARROW_ERROR_INVALID,
-                "[time64-array-builder][new] "
-                "data type must be time64 data type: <%s>",
-                G_OBJECT_TYPE_NAME(data_type));
-    return NULL;
-  }
-
-  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto builder = garrow_array_builder_new(arrow_data_type,
                                           NULL,
                                           "[time64-array-builder][new]");
