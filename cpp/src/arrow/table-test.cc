@@ -550,9 +550,9 @@ TEST_F(TestRecordBatch, Slice) {
   }
 }
 
-class TestTableBatchIterator : public TestBase {};
+class TestTableBatchReader : public TestBase {};
 
-TEST_F(TestTableBatchIterator, ReadNext) {
+TEST_F(TestTableBatchReader, ReadNext) {
   ArrayVector c1, c2;
 
   auto a1 = MakePrimitive<Int32Array>(10);
@@ -567,9 +567,9 @@ TEST_F(TestTableBatchIterator, ReadNext) {
   std::shared_ptr<RecordBatch> batch;
 
   columns = {column(sch1->field(0), {a1, a4, a2}), column(sch1->field(1), {a2, a2})};
-  auto t1 = std::make_shared<Table>(sch1, columns);
+  Table t1(sch1, columns);
 
-  TableBatchIterator i1(t1);
+  TableBatchReader i1(t1);
 
   ASSERT_OK(i1.ReadNext(&batch));
   ASSERT_EQ(10, batch->num_rows());
@@ -584,9 +584,9 @@ TEST_F(TestTableBatchIterator, ReadNext) {
   ASSERT_EQ(nullptr, batch);
 
   columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a4})};
-  auto t2 = std::make_shared<Table>(sch1, columns);
+  Table t2(sch1, columns);
 
-  TableBatchIterator i2(t2);
+  TableBatchReader i2(t2);
 
   ASSERT_OK(i2.ReadNext(&batch));
   ASSERT_EQ(10, batch->num_rows());

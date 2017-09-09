@@ -294,20 +294,20 @@ class ARROW_EXPORT RecordBatchReader {
 };
 
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
-class ARROW_EXPORT TableBatchIterator : public RecordBatchReader {
+class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
-  ~TableBatchIterator();
+  ~TableBatchReader();
 
   /// \brief Read batches with the maximum possible size
-  explicit TableBatchIterator(const std::shared_ptr<Table>& table);
+  explicit TableBatchReader(const Table& table);
 
   std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
  private:
-  class TableBatchIteratorImpl;
-  std::unique_ptr<TableBatchIteratorImpl> impl_;
+  class TableBatchReaderImpl;
+  std::unique_ptr<TableBatchReaderImpl> impl_;
 };
 
 /// \brief Construct table from multiple input tables.

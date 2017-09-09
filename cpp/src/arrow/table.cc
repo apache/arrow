@@ -518,29 +518,29 @@ Status RecordBatchReader::ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batc
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 
-class TableBatchIterator::TableBatchIteratorImpl {
+class TableBatchReader::TableBatchReaderImpl {
  public:
-  explicit TableBatchIteratorImpl(const std::shared_ptr<Table>& table)
+  explicit TableBatchReaderImpl(const Table& table)
       : table_(table),
-        column_data_(table->num_columns()),
-        chunk_numbers_(table->num_columns(), 0),
-        chunk_offsets_(table->num_columns(), 0),
+        column_data_(table.num_columns()),
+        chunk_numbers_(table.num_columns(), 0),
+        chunk_offsets_(table.num_columns(), 0),
         absolute_row_position_(0) {
-    for (int i = 0; i < table->num_columns(); ++i) {
-      column_data_[i] = table->column(i)->data().get();
+    for (int i = 0; i < table.num_columns(); ++i) {
+      column_data_[i] = table.column(i)->data().get();
     }
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) {
-    if (absolute_row_position_ == table_->num_rows()) {
+    if (absolute_row_position_ == table_.num_rows()) {
       *out = nullptr;
       return Status::OK();
     }
 
     // Determine the minimum contiguous slice across all columns
-    int64_t chunksize = table_->num_rows();
-    std::vector<const Array*> chunks(table_->num_columns());
-    for (int i = 0; i < table_->num_columns(); ++i) {
+    int64_t chunksize = table_.num_rows();
+    std::vector<const Array*> chunks(table_.num_columns());
+    for (int i = 0; i < table_.num_columns(); ++i) {
       auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();
       int64_t chunk_remaining = chunk->length() - chunk_offsets_[i];
 
@@ -553,9 +553,9 @@ class TableBatchIterator::TableBatchIteratorImpl {
 
     // Slice chunks and advance chunk index as appropriate
     std::vector<std::shared_ptr<ArrayData>> batch_data;
-    batch_data.reserve(table_->num_columns());
+    batch_data.reserve(table_.num_columns());
 
-    for (int i = 0; i < table_->num_columns(); ++i) {
+    for (int i = 0; i < table_.num_columns(); ++i) {
       // Exhausted chunk
       const Array* chunk = chunks[i];
       const int64_t offset = chunk_offsets_[i];
@@ -578,30 +578,30 @@ class TableBatchIterator::TableBatchIteratorImpl {
 
     absolute_row_position_ += chunksize;
     *out =
-        std::make_shared<RecordBatch>(table_->schema(), chunksize, std::move(batch_data));
+        std::make_shared<RecordBatch>(table_.schema(), chunksize, std::move(batch_data));
 
     return Status::OK();
   }
 
-  std::shared_ptr<Schema> schema() const { return table_->schema(); }
+  std::shared_ptr<Schema> schema() const { return table_.schema(); }
 
  private:
-  std::shared_ptr<Table> table_;
+  const Table& table_;
   std::vector<ChunkedArray*> column_data_;
   std::vector<int> chunk_numbers_;
   std::vector<int64_t> chunk_offsets_;
   int64_t absolute_row_position_;
 };
 
-TableBatchIterator::TableBatchIterator(const std::shared_ptr<Table>& table) {
-  impl_.reset(new TableBatchIteratorImpl(table));
+TableBatchReader::TableBatchReader(const Table& table) {
+  impl_.reset(new TableBatchReaderImpl(table));
 }
 
-TableBatchIterator::~TableBatchIterator() {}
+TableBatchReader::~TableBatchReader() {}
 
-std::shared_ptr<Schema> TableBatchIterator::schema() const { return impl_->schema(); }
+std::shared_ptr<Schema> TableBatchReader::schema() const { return impl_->schema(); }
 
-Status TableBatchIterator::ReadNext(std::shared_ptr<RecordBatch>* out) {
+Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   return impl_->ReadNext(out);
 }
 

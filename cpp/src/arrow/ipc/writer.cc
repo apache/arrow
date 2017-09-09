@@ -655,6 +655,21 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 
 RecordBatchWriter::~RecordBatchWriter() {}
 
+Status RecordBatchWriter::WriteTable(const Table& table) {
+  TableBatchReader reader(table);
+
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    RETURN_NOT_OK(reader.ReadNext(&batch));
+    if (batch == nullptr) {
+      break;
+    }
+    RETURN_NOT_OK(WriteRecordBatch(*batch, true));
+  }
+
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Stream writer implementation
 
