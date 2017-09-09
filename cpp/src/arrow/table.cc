@@ -511,7 +511,7 @@ Status RecordBatchReader::ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batc
 
 class TableBatchIterator::TableBatchIteratorImpl {
  public:
-  TableBatchIteratorImpl(const std::shared_ptr<Table>& table)
+  explicit TableBatchIteratorImpl(const std::shared_ptr<Table>& table)
       : table_(table),
         column_data_(table->num_columns()),
         chunk_numbers_(table->num_columns(), 0),
@@ -535,7 +535,7 @@ class TableBatchIterator::TableBatchIteratorImpl {
       auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();
       int64_t chunk_remaining = chunk->length() - chunk_offsets_[i];
 
-      if (chunksize < chunk_remaining) {
+      if (chunk_remaining < chunksize) {
         chunksize = chunk_remaining;
       }
 
@@ -574,6 +574,8 @@ class TableBatchIterator::TableBatchIteratorImpl {
     return Status::OK();
   }
 
+  std::shared_ptr<Schema> schema() const { return table_->schema(); }
+
  private:
   std::shared_ptr<Table> table_;
   std::vector<ChunkedArray*> column_data_;
@@ -585,6 +587,10 @@ class TableBatchIterator::TableBatchIteratorImpl {
 TableBatchIterator::TableBatchIterator(const std::shared_ptr<Table>& table) {
   impl_.reset(new TableBatchIteratorImpl(table));
 }
+
+TableBatchIterator::~TableBatchIterator() {}
+
+std::shared_ptr<Schema> TableBatchIterator::schema() const { return impl_->schema(); }
 
 Status TableBatchIterator::ReadNext(std::shared_ptr<RecordBatch>* out) {
   return impl_->ReadNext(out);

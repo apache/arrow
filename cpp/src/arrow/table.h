@@ -293,8 +293,12 @@ class ARROW_EXPORT RecordBatchReader {
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
 class ARROW_EXPORT TableBatchIterator : public RecordBatchReader {
  public:
+  ~TableBatchIterator();
+
   /// \brief Read batches with the maximum possible size
   explicit TableBatchIterator(const std::shared_ptr<Table>& table);
+
+  std::shared_ptr<Schema> schema() const override;
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
