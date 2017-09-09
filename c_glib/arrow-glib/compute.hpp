@@ -19,29 +19,9 @@
 
 #pragma once
 
-#include <arrow-glib/array.h>
-#include <arrow-glib/array-builder.h>
-#include <arrow-glib/chunked-array.h>
-#include <arrow-glib/column.h>
+#include <arrow/compute/api.h>
+
 #include <arrow-glib/compute.h>
-#include <arrow-glib/data-type.h>
-#include <arrow-glib/enums.h>
-#include <arrow-glib/error.h>
-#include <arrow-glib/field.h>
-#include <arrow-glib/record-batch.h>
-#include <arrow-glib/schema.h>
-#include <arrow-glib/table.h>
-#include <arrow-glib/tensor.h>
-#include <arrow-glib/type.h>
 
-#include <arrow-glib/file.h>
-#include <arrow-glib/file-mode.h>
-#include <arrow-glib/input-stream.h>
-#include <arrow-glib/output-stream.h>
-#include <arrow-glib/readable.h>
-#include <arrow-glib/writeable.h>
-#include <arrow-glib/writeable-file.h>
-
-#include <arrow-glib/metadata-version.h>
-#include <arrow-glib/reader.h>
-#include <arrow-glib/writer.h>
+GArrowCastOptions *garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options);
+arrow::compute::CastOptions *garrow_cast_options_get_raw(GArrowCastOptions *cast_options);

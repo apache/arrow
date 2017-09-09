@@ -23,6 +23,7 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/buffer.hpp>
+#include <arrow-glib/compute.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
@@ -498,6 +499,61 @@ garrow_array_to_string(GArrowArray *array, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * garrow_array_cast:
+ * @array: A #GArrowArray.
+ * @target_data_type: A #GArrowDataType of cast target data.
+ * @options: (nullable): A #GArrowCastOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   A newly created casted array on success, %NULL on error.
+ *
+ * Since: 0.7.0
+ */
+GArrowArray *
+garrow_array_cast(GArrowArray *array,
+                  GArrowDataType *target_data_type,
+                  GArrowCastOptions *options,
+                  GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  auto arrow_target_data_type = garrow_data_type_get_raw(target_data_type);
+  std::shared_ptr<arrow::Array> arrow_casted_array;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_cast_options_get_raw(options);
+    status = arrow::compute::Cast(&context,
+                                  *arrow_array_raw,
+                                  arrow_target_data_type,
+                                  *arrow_options,
+                                  &arrow_casted_array);
+  } else {
+    arrow::compute::CastOptions arrow_options;
+    status = arrow::compute::Cast(&context,
+                                  *arrow_array_raw,
+                                  arrow_target_data_type,
+                                  arrow_options,
+                                  &arrow_casted_array);
+  }
+
+  if (!status.ok()) {
+    std::stringstream message;
+    message << "[array][cast] <";
+    message << arrow_array->type()->ToString();
+    message << "> -> <";
+    message << arrow_target_data_type->ToString();
+    message << ">";
+    garrow_error_check(error, status, message.str().c_str());
+    return NULL;
+  }
+
+  return garrow_array_new_raw(&arrow_casted_array);
 }
 
 
