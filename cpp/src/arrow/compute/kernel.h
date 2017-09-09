@@ -23,6 +23,9 @@
 namespace arrow {
 
 class Array;
+namespace internal {
+class ArrayData;
+}
 using internal::ArrayData;
 
 namespace compute {
