@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -918,6 +919,26 @@ Status DictionaryBuilder<T>::AppendArray(const Array& array) {
   return Status::OK();
 }
 
+template <>
+Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
+  bool types_equal;
+  RETURN_NOT_OK(TypeEquals(*type_, *array.type(), &types_equal));
+  if (!types_equal) {
+    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
+  }
+
+  const FixedSizeBinaryArray& numeric_array =
+      static_cast<const FixedSizeBinaryArray&>(array);
+  for (int64_t i = 0; i < array.length(); i++) {
+    if (array.IsNull(i)) {
+      RETURN_NOT_OK(AppendNull());
+    } else {
+      RETURN_NOT_OK(Append(numeric_array.Value(i)));
+    }
+  }
+  return Status::OK();
+}
+
 template <typename T>
 Status DictionaryBuilder<T>::AppendNull() {
   return values_builder_.AppendNull();
@@ -975,15 +996,34 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
   return data[index];
 }
 
+template <>
+const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(int64_t index) {
+  return dict_builder_.GetValue(index);
+}
+
 template <typename T>
 int DictionaryBuilder<T>::HashValue(const Scalar& value) {
   return HashUtil::Hash(&value, sizeof(Scalar), 0);
+}
+
+template <>
+int DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
+  int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
+  return HashUtil::Hash(value, width, 0);
 }
 
 template <typename T>
 bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
   const Scalar other = GetDictionaryValue(static_cast<int64_t>(index));
   return other != value;
+}
+
+template <>
+bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
+                                                           const Scalar& value) {
+  int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
+  const Scalar other = GetDictionaryValue(static_cast<int64_t>(index));
+  return memcmp(other, value, width) != 0;
 }
 
 template <typename T>
@@ -1052,6 +1092,7 @@ template class DictionaryBuilder<Time64Type>;
 template class DictionaryBuilder<TimestampType>;
 template class DictionaryBuilder<FloatType>;
 template class DictionaryBuilder<DoubleType>;
+template class DictionaryBuilder<FixedSizeBinaryType>;
 template class DictionaryBuilder<BinaryType>;
 template class DictionaryBuilder<StringType>;
 
@@ -1315,6 +1356,11 @@ Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
+const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
+  const uint8_t* data_ptr = byte_builder_.data();
+  return data_ptr + i * byte_width_;
+}
+
 // ----------------------------------------------------------------------
 // Struct
 
@@ -1438,6 +1484,7 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     DICTIONARY_BUILDER_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_BUILDER_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_BUILDER_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
     default:
       return Status::NotImplemented(type->ToString());
   }
@@ -1472,8 +1519,12 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     DICTIONARY_ARRAY_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_ARRAY_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
     default:
-      return Status::NotImplemented(type->ToString());
+      std::stringstream ss;
+      ss << "Cannot encode array of type " << type->ToString();
+      ss << " to dictionary";
+      return Status::NotImplemented(ss.str());
   }
 }
 #define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                             \
@@ -1516,8 +1567,12 @@ Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
     DICTIONARY_COLUMN_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_COLUMN_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_COLUMN_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_COLUMN_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
     default:
-      return Status::NotImplemented(type->ToString());
+      std::stringstream ss;
+      ss << "Cannot encode column of type " << type->ToString();
+      ss << " to dictionary";
+      return Status::NotImplemented(ss.str());
   }
 }
 

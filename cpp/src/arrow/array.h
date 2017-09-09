@@ -512,6 +512,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
                        int64_t null_count = 0, int64_t offset = 0);
 
   const uint8_t* GetValue(int64_t i) const;
+  const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return byte_width_; }
 

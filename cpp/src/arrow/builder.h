@@ -756,6 +756,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
 
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  const uint8_t* GetValue(int64_t i) const;
+
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
@@ -864,6 +869,11 @@ struct DictionaryScalar<BinaryType> {
 template <>
 struct DictionaryScalar<StringType> {
   using type = WrappedBinary;
+};
+
+template <>
+struct DictionaryScalar<FixedSizeBinaryType> {
+  using type = uint8_t const*;
 };
 
 }  // namespace internal
