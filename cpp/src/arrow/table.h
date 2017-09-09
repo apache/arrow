@@ -262,6 +262,9 @@ class ARROW_EXPORT Table {
   /// \brief Perform any checks to validate the input arguments
   Status ValidateColumns() const;
 
+  /// \brief Return true if any column has multiple chunks
+  bool IsChunked() const;
+
  private:
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<Column>> columns_;

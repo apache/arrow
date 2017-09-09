@@ -473,9 +473,18 @@ Status Table::ValidateColumns() const {
   return Status::OK();
 }
 
-Status ARROW_EXPORT MakeTable(const std::shared_ptr<Schema>& schema,
-                              const std::vector<std::shared_ptr<Array>>& arrays,
-                              std::shared_ptr<Table>* table) {
+bool Table::IsChunked() const {
+  for (size_t i = 0; i < columns_.size(); ++i) {
+    if (columns_[i]->data()->num_chunks() > 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Status MakeTable(const std::shared_ptr<Schema>& schema,
+                 const std::vector<std::shared_ptr<Array>>& arrays,
+                 std::shared_ptr<Table>* table) {
   // Make sure the length of the schema corresponds to the length of the vector
   if (schema->num_fields() != static_cast<int>(arrays.size())) {
     std::stringstream ss;
