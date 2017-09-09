@@ -780,6 +780,50 @@ GType                 garrow_date64_data_type_get_type (void) G_GNUC_CONST;
 GArrowDate64DataType *garrow_date64_data_type_new      (void);
 
 
+#define GARROW_TYPE_TIMESTAMP_DATA_TYPE         \
+  (garrow_timestamp_data_type_get_type())
+#define GARROW_TIMESTAMP_DATA_TYPE(obj)                         \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIMESTAMP_DATA_TYPE,  \
+                              GArrowTimestampDataType))
+#define GARROW_TIMESTAMP_DATA_TYPE_CLASS(klass)                 \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIMESTAMP_DATA_TYPE,     \
+                           GArrowTimestampDataTypeClass))
+#define GARROW_IS_TIMESTAMP_DATA_TYPE(obj)                      \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIMESTAMP_DATA_TYPE))
+#define GARROW_IS_TIMESTAMP_DATA_TYPE_CLASS(klass)              \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIMESTAMP_DATA_TYPE))
+#define GARROW_TIMESTAMP_DATA_TYPE_GET_CLASS(obj)               \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIMESTAMP_DATA_TYPE,   \
+                             GArrowTimestampDataTypeClass))
+
+typedef struct _GArrowTimestampDataType         GArrowTimestampDataType;
+typedef struct _GArrowTimestampDataTypeClass    GArrowTimestampDataTypeClass;
+
+/**
+ * GArrowTimestampDataType:
+ *
+ * It wraps `arrow::TimestampType`.
+ */
+struct _GArrowTimestampDataType
+{
+  /*< private >*/
+  GArrowDataType parent_instance;
+};
+
+struct _GArrowTimestampDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GType                 garrow_timestamp_data_type_get_type (void) G_GNUC_CONST;
+GArrowTimestampDataType *garrow_timestamp_data_type_new   (GArrowTimeUnit unit);
+
+
 #define GARROW_TYPE_TIME_DATA_TYPE              \
   (garrow_time_data_type_get_type())
 #define GARROW_TIME_DATA_TYPE(obj)                              \

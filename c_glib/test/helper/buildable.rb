@@ -73,6 +73,12 @@ module Helper
       build_array(Arrow::Date64ArrayBuilder.new, values)
     end
 
+    def build_timestamp_array(unit, values)
+      data_type = Arrow::TimestampDataType.new(unit)
+      build_array(Arrow::TimestampArrayBuilder.new(data_type),
+                  values)
+    end
+
     def build_time32_array(unit, values)
       build_array(Arrow::Time32ArrayBuilder.new(Arrow::Time32DataType.new(unit)),
                   values)

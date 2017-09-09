@@ -75,6 +75,10 @@ G_BEGIN_DECLS
  * #GArrowDate64DataType is a class for the number of milliseconds
  * since UNIX epoch in 64-bit signed integer data type.
  *
+ * #GArrowTimestampDataType is a class for the number of
+ * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
+ * 64-bit signed integer data type.
+ *
  * #GArrowTime32DataType is a class for the number of seconds or
  * milliseconds since midnight in 32-bit signed integer data type.
  *
@@ -738,6 +742,43 @@ garrow_date64_data_type_new(void)
 }
 
 
+G_DEFINE_TYPE(GArrowTimestampDataType,                \
+              garrow_timestamp_data_type,             \
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
+{
+}
+
+static void
+garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_timestamp_data_type_new:
+ * @unit: The unit of the timestamp data.
+ *
+ * Returns: A newly created the number of
+ *   seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
+ *   64-bit signed integer data type.
+ *
+ * Since: 0.7.0
+ */
+GArrowTimestampDataType *
+garrow_timestamp_data_type_new(GArrowTimeUnit unit)
+{
+  auto arrow_unit = garrow_time_unit_to_raw(unit);
+  auto arrow_data_type = arrow::timestamp(arrow_unit);
+  auto data_type =
+    GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
+                                            "data-type", &arrow_data_type,
+                                            NULL));
+  return data_type;
+}
+
+
 G_DEFINE_TYPE(GArrowTimeDataType,               \
               garrow_time_data_type,            \
               GARROW_TYPE_DATA_TYPE)
@@ -1056,6 +1097,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::DATE64:
     type = GARROW_TYPE_DATE64_DATA_TYPE;
+    break;
+  case arrow::Type::type::TIMESTAMP:
+    type = GARROW_TYPE_TIMESTAMP_DATA_TYPE;
     break;
   case arrow::Type::type::TIME32:
     type = GARROW_TYPE_TIME32_DATA_TYPE;
