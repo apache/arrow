@@ -113,6 +113,9 @@ G_BEGIN_DECLS
  * #GArrowDate64ArrayBuilder is the class to create a new
  * #GArrowDate64Array.
  *
+ * #GArrowTimestampArrayBuilder is the class to create a new
+ * #GArrowTimestampArray.
+ *
  * #GArrowTime32ArrayBuilder is the class to create a new
  * #GArrowTime32Array.
  *
@@ -1314,6 +1317,80 @@ garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowTimestampArrayBuilder,
+              garrow_timestamp_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_timestamp_array_builder_init(GArrowTimestampArrayBuilder *builder)
+{
+}
+
+static void
+garrow_timestamp_array_builder_class_init(GArrowTimestampArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_timestamp_array_builder_new:
+ * @data_type: A #GArrowTimestampDataType.
+ *
+ * Returns: A newly created #GArrowTimestampArrayBuilder.
+ *
+ * Since: 0.7.0
+ */
+GArrowTimestampArrayBuilder *
+garrow_timestamp_array_builder_new(GArrowTimestampDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[timestamp-array-builder][new]");
+  return GARROW_TIMESTAMP_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_timestamp_array_builder_append:
+ * @builder: A #GArrowTimestampArrayBuilder.
+ * @value: The number of milliseconds since UNIX epoch in signed 64bit integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_timestamp_array_builder_append(GArrowTimestampArrayBuilder *builder,
+                                      gint64 value,
+                                      GError **error)
+{
+  return garrow_array_builder_append<arrow::TimestampBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[timestamp-array-builder][append]");
+}
+
+/**
+ * garrow_timestamp_array_builder_append_null:
+ * @builder: A #GArrowTimestampArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.7.0
+ */
+gboolean
+garrow_timestamp_array_builder_append_null(GArrowTimestampArrayBuilder *builder,
+                                           GError **error)
+{
+  return garrow_array_builder_append_null<arrow::TimestampBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[timestamp-array-builder][append-null]");
+}
+
+
 G_DEFINE_TYPE(GArrowTime32ArrayBuilder,
               garrow_time32_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -1882,6 +1959,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DATE64:
       type = GARROW_TYPE_DATE64_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::TIMESTAMP:
+      type = GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER;
       break;
     case arrow::Type::type::TIME32:
       type = GARROW_TYPE_TIME32_ARRAY_BUILDER;

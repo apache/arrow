@@ -884,6 +884,58 @@ gboolean garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *build
                                                  GError **error);
 
 
+#define GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER     \
+  (garrow_timestamp_array_builder_get_type())
+#define GARROW_TIMESTAMP_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
+                              GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER,      \
+                              GArrowTimestampArrayBuilder))
+#define GARROW_TIMESTAMP_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER, \
+                           GArrowTimestampArrayBuilderClass))
+#define GARROW_IS_TIMESTAMP_ARRAY_BUILDER(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER))
+#define GARROW_IS_TIMESTAMP_ARRAY_BUILDER_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
+                           GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER))
+#define GARROW_TIMESTAMP_ARRAY_BUILDER_GET_CLASS(obj)                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
+                             GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER,       \
+                             GArrowTimestampArrayBuilderClass))
+
+typedef struct _GArrowTimestampArrayBuilder      GArrowTimestampArrayBuilder;
+typedef struct _GArrowTimestampArrayBuilderClass GArrowTimestampArrayBuilderClass;
+
+/**
+ * GArrowTimestampArrayBuilder:
+ *
+ * It wraps `arrow::TimestampBuilder`.
+ */
+struct _GArrowTimestampArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTimestampArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_timestamp_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTimestampArrayBuilder *
+garrow_timestamp_array_builder_new(GArrowTimestampDataType *data_type);
+
+gboolean garrow_timestamp_array_builder_append(GArrowTimestampArrayBuilder *builder,
+                                               gint64 value,
+                                               GError **error);
+gboolean garrow_timestamp_array_builder_append_null(GArrowTimestampArrayBuilder *builder,
+                                                    GError **error);
+
+
 #define GARROW_TYPE_TIME32_ARRAY_BUILDER        \
   (garrow_time32_array_builder_get_type())
 #define GARROW_TIME32_ARRAY_BUILDER(obj)                        \
