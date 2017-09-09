@@ -15,24 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
-install(FILES
-  api.h
-  cast.h
-  context.h
-  kernel.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
-
-# pkg-config support
-configure_file(arrow-compute.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-
-#######################################
-# Unit tests
-#######################################
-
-ADD_ARROW_TEST(compute-test)
+Name: Apache Arrow Compute
+Description: Compute modules for Apache Arrow
+Version: @ARROW_VERSION@
+Requires: arrow
