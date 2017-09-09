@@ -1192,7 +1192,7 @@ class DataFrameBlockCreator {
   Status CreateBlocks() {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<Column> col = table_->column(i);
-      PandasBlock::type output_type;
+      PandasBlock::type output_type = PandasBlock::OBJECT;
       RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
 
       int block_placement = 0;
