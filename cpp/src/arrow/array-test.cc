@@ -1766,8 +1766,8 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(default_memory_pool(),
-                                                 arrow::fixed_size_binary(4));
+  DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
+                                                 default_memory_pool());
   std::vector<uint8_t> test{12, 12, 11, 12};
   std::vector<uint8_t> test2{12, 12, 11, 11};
   ASSERT_OK(builder.Append(test.data()));
@@ -1798,8 +1798,8 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(default_memory_pool(),
-                                                 arrow::fixed_size_binary(4));
+  DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
+                                                 default_memory_pool());
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(4));
   Int16Builder int_builder;
@@ -1836,8 +1836,8 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(default_memory_pool(),
-                                                 arrow::fixed_size_binary(4));
+  DictionaryBuilder<FixedSizeBinaryType> builder(arrow::fixed_size_binary(4),
+                                                 default_memory_pool());
   // Build an array with different byte width
   FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(5));
   std::vector<uint8_t> value{100, 1, 1, 1, 1};
