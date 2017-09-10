@@ -109,6 +109,8 @@ class ARROW_EXPORT Int128 {
   /// and scale.
   std::string ToString(int precision, int scale) const;
 
+  /// \brief Convert a decimal string to an Int128 value, optionally including precision
+  /// and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Int128* out, int* precision = nullptr,
                            int* scale = nullptr);
 
