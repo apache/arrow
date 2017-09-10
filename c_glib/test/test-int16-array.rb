@@ -44,7 +44,7 @@ class TestInt16Array < Test::Unit::TestCase
   end
 
   def test_values
-    require_gi(3, 1, 7)
+    require_gi_bindings(3, 1, 7)
     builder = Arrow::Int16ArrayBuilder.new
     builder.append(-1)
     builder.append(2)

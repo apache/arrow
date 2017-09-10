@@ -15,22 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Helper
-  module Omittable
-    def require_gi_bindings(major, minor, micro)
-      return if GLib.check_binding_version?(major, minor, micro)
-      message =
-        "Require gobject-introspection #{major}.#{minor}.#{micro} or later: " +
-        GLib::BINDING_VERSION.join(".")
-      omit(message)
+class TestCast < Test::Unit::TestCase
+  include Helper::Buildable
+  include Helper::Omittable
+
+  def test_safe
+    require_gi(1, 42, 0)
+    data = [-1, 2, nil]
+    assert_equal(build_int32_array(data),
+                 build_int8_array(data).cast(Arrow::Int32DataType.new))
+  end
+
+  sub_test_case("allow-int-overflow") do
+    def test_default
+      require_gi(1, 42, 0)
+      assert_raise(Arrow::Error::Invalid) do
+        build_int32_array([128]).cast(Arrow::Int8DataType.new)
+      end
     end
 
-    def require_gi(major, minor, micro)
-      return if GObjectIntrospection::Version.or_later?(major, minor, micro)
-      message =
-        "Require GObject Introspection #{major}.#{minor}.#{micro} or later: " +
-        GObjectIntrospection::Version::STRING
-      omit(message)
+    def test_true
+      options = Arrow::CastOptions.new
+      options.allow_int_overflow = true
+      assert_equal(build_int8_array([-128]),
+                   build_int32_array([128]).cast(Arrow::Int8DataType.new,
+                                                 options))
     end
   end
 end

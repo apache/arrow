@@ -73,7 +73,7 @@ AC_ARG_WITH(arrow-cpp-build-dir,
   [GARROW_ARROW_CPP_BUILD_DIR="$withval"],
   [GARROW_ARROW_CPP_BUILD_DIR=""])
 if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
-  PKG_CHECK_MODULES([ARROW], [arrow])
+  PKG_CHECK_MODULES([ARROW], [arrow arrow-compute])
 else
   ARROW_INCLUDE_DIR="\$(abs_top_srcdir)/../cpp/src"
   ARROW_LIB_DIR="${GARROW_ARROW_CPP_BUILD_DIR}/${GARROW_ARROW_CPP_BUILD_TYPE}"

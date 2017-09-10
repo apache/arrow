@@ -66,12 +66,12 @@ class TestTensor < Test::Unit::TestCase
   end
 
   def test_shape
-    require_gi(3, 1, 2)
+    require_gi_bindings(3, 1, 2)
     assert_equal(@shape, @tensor.shape)
   end
 
   def test_strides
-    require_gi(3, 1, 2)
+    require_gi_bindings(3, 1, 2)
     assert_equal([4, 2, 1], @tensor.strides)
   end
 
