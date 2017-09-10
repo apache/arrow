@@ -153,25 +153,24 @@ Status FromString(const std::string& s, Int128* out, int* precision, int* scale)
 }
 
 std::string ToString(const Int128& decimal_value, int precision, int scale) {
-  Int128 value(decimal_value);
+  const bool is_negative = decimal_value < 0;
 
   // Decimal values are sent to clients as strings so in the interest of
   // speed the string will be created without the using stringstream with the
   // whole/fractional_part().
   size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
                          + (scale == precision)   // Add a space for leading 0
-                         + (value < 0);           // Add a space for negative sign
+                         + is_negative;           // Add a space for negative sign
   std::string str(last_char_idx, '0');
 
   // Start filling in the values in reverse order by taking the last digit
   // of the value. Use a positive value and worry about the sign later. At this
   // point the last_char_idx points to the string terminator.
-  Int128 remaining_value(value);
+  Int128 remaining_value(decimal_value);
 
-  size_t first_digit_idx = 0;
-  if (value < 0) {
-    remaining_value = -value;
-    first_digit_idx = 1;
+  const auto first_digit_idx = static_cast<size_t>(is_negative);
+  if (is_negative) {
+    remaining_value.Negate();
   }
 
   if (scale > 0) {
@@ -199,7 +198,7 @@ std::string ToString(const Int128& decimal_value, int precision, int scale) {
     // For safety, enforce string length independent of remaining_value.
   } while (last_char_idx > first_digit_idx);
 
-  if (value < 0) {
+  if (is_negative) {
     str[0] = '-';
   }
 
