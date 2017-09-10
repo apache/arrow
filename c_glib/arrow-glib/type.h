@@ -88,7 +88,7 @@ typedef enum {
 /**
  * GArrowTimeUnit:
  * @GARROW_TIME_UNIT_SECOND: Second.
- * @GARROW_TIME_UNIT_MILLISECOND: Millisecond.
+ * @GARROW_TIME_UNIT_MILLI: Millisecond.
  * @GARROW_TIME_UNIT_MICRO: Microsecond.
  * @GARROW_TIME_UNIT_NANO: Nanosecond.
  *
