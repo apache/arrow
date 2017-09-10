@@ -17,6 +17,7 @@
 
 from os.path import join as pjoin
 import datetime
+import gc
 import io
 import os
 import json
@@ -1201,6 +1202,9 @@ def test_write_error_deletes_incomplete_file(tmpdir):
     except pa.ArrowException:
         pass
 
+    # Ensure that object has been destructed; this causes test failures on
+    # Windows
+    gc.collect()
     assert not os.path.exists(filename)
 
 

@@ -202,7 +202,7 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-class ParquetWriter(_parquet._ParquetWriter):
+class ParquetWriter(object):
     """
 
     Parameters
@@ -220,13 +220,15 @@ class ParquetWriter(_parquet._ParquetWriter):
             self.schema_changed = False
 
         self.schema = schema
-        self._open(where, schema, **options)
+        self.writer = _parquet.ParquetWriter(where, schema, **options)
 
     def write_table(self, table, row_group_size=None):
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
-        (super(ParquetWriter, self)
-         .write_table(table, row_group_size=row_group_size))
+        self.writer.write_table(table, row_group_size=row_group_size)
+
+    def close(self):
+        self.writer.close()
 
 
 def _get_pandas_index_columns(keyvalues):
