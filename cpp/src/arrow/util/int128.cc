@@ -141,15 +141,13 @@ Status Int128::FromString(const std::string& s, Int128* out, int* precision, int
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
 
-  int8_t sign = 1;
   std::string::const_iterator charp = s.cbegin();
   std::string::const_iterator end = s.cend();
 
   char first_char = *charp;
+  bool is_negative = false;
   if (first_char == '+' || first_char == '-') {
-    if (first_char == '-') {
-      sign = -1;
-    }
+    is_negative = first_char == '-';
     ++charp;
   }
 
@@ -248,7 +246,7 @@ Status Int128::FromString(const std::string& s, Int128* out, int* precision, int
     // zero out in case we've passed in a previously used value
     *out = 0;
     StringToInteger(whole_part + fractional_part, out);
-    if (sign == -1) {
+    if (is_negative) {
       out->Negate();
     }
   }
