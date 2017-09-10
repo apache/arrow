@@ -201,7 +201,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 /// \param[in] scheam the schema to write
 /// \param[in] pool a MemoryPool to allocate memory from
 /// \param[out] out the serialized schema
-/// \returnn Status
+/// \return Status
 ARROW_EXPORT
 Status SerializeSchema(const Schema& schema, MemoryPool* pool,
                        std::shared_ptr<Buffer>* out);
