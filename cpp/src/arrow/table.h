@@ -262,11 +262,52 @@ class ARROW_EXPORT Table {
   /// \brief Perform any checks to validate the input arguments
   Status ValidateColumns() const;
 
+  /// \brief Return true if any column has multiple chunks
+  bool IsChunked() const;
+
  private:
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<Column>> columns_;
 
   int64_t num_rows_;
+};
+
+/// \brief Abstract interface for reading stream of record batches
+class ARROW_EXPORT RecordBatchReader {
+ public:
+  virtual ~RecordBatchReader();
+
+  /// \return the shared schema of the record batches in the stream
+  virtual std::shared_ptr<Schema> schema() const = 0;
+
+  /// Read the next record batch in the stream. Return nullptr for batch when
+  /// reaching end of stream
+  ///
+  /// \param(out) batch the next loaded batch, nullptr at end of stream
+  /// \return Status
+  virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
+
+#ifndef ARROW_NO_DEPRECATED_API
+  /// \deprecated Since 0.7.0
+  Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
+#endif
+};
+
+/// \brief Compute a sequence of record batches from a (possibly chunked) Table
+class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
+ public:
+  ~TableBatchReader();
+
+  /// \brief Read batches with the maximum possible size
+  explicit TableBatchReader(const Table& table);
+
+  std::shared_ptr<Schema> schema() const override;
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
+
+ private:
+  class TableBatchReaderImpl;
+  std::unique_ptr<TableBatchReaderImpl> impl_;
 };
 
 /// \brief Construct table from multiple input tables.

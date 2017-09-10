@@ -389,8 +389,6 @@ static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock{block->offset(), block->metaDataLength(), block->bodyLength()};
 }
 
-RecordBatchReader::~RecordBatchReader() {}
-
 class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
  public:
   RecordBatchStreamReaderImpl() {}
@@ -432,7 +430,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     return GetSchema(message->header(), dictionary_memo_, &schema_);
   }
 
-  Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::RECORD_BATCH,
                                          true, &message));
@@ -504,8 +502,8 @@ std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
   return impl_->schema();
 }
 
-Status RecordBatchStreamReader::ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
-  return impl_->ReadNextRecordBatch(batch);
+Status RecordBatchStreamReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
+  return impl_->ReadNext(batch);
 }
 
 // ----------------------------------------------------------------------

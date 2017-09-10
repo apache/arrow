@@ -226,9 +226,9 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
 
-  std::shared_ptr<ipc::RecordBatchReader> reader;
+  std::shared_ptr<RecordBatchReader> reader;
   RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(src, &reader));
-  RETURN_NOT_OK(reader->ReadNextRecordBatch(&out->batch));
+  RETURN_NOT_OK(reader->ReadNext(&out->batch));
 
   RETURN_NOT_OK(src->Tell(&offset));
   offset += 4;  // Skip the end-of-stream message

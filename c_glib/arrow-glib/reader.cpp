@@ -193,7 +193,7 @@ garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reade
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow_reader->ReadNextRecordBatch(&arrow_record_batch);
+  auto status = arrow_reader->ReadNext(&arrow_record_batch);
 
   if (garrow_error_check(error,
                          status,

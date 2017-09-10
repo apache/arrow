@@ -33,6 +33,11 @@ using std::vector;
 
 namespace arrow {
 
+std::shared_ptr<Column> column(const std::shared_ptr<Field>& field,
+                               const std::vector<std::shared_ptr<Array>>& arrays) {
+  return std::make_shared<Column>(field, arrays);
+}
+
 class TestChunkedArray : public TestBase {
  protected:
   virtual void Construct() {
@@ -437,6 +442,29 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 }
 
+TEST_F(TestTable, IsChunked) {
+  ArrayVector c1, c2;
+
+  auto a1 = MakePrimitive<Int32Array>(10);
+  auto a2 = MakePrimitive<Int32Array>(20);
+
+  auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
+
+  std::vector<std::shared_ptr<Column>> columns;
+
+  std::shared_ptr<RecordBatch> batch;
+
+  columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a1})};
+  auto t1 = std::make_shared<Table>(sch1, columns);
+
+  ASSERT_FALSE(t1->IsChunked());
+
+  columns = {column(sch1->field(0), {a2}), column(sch1->field(1), {a1, a1})};
+  auto t2 = std::make_shared<Table>(sch1, columns);
+
+  ASSERT_TRUE(t2->IsChunked());
+}
+
 class TestRecordBatch : public TestBase {};
 
 TEST_F(TestRecordBatch, Equals) {
@@ -520,6 +548,55 @@ TEST_F(TestRecordBatch, Slice) {
     ASSERT_EQ(1, batch_slice2->column(i)->offset());
     ASSERT_EQ(5, batch_slice2->column(i)->length());
   }
+}
+
+class TestTableBatchReader : public TestBase {};
+
+TEST_F(TestTableBatchReader, ReadNext) {
+  ArrayVector c1, c2;
+
+  auto a1 = MakePrimitive<Int32Array>(10);
+  auto a2 = MakePrimitive<Int32Array>(20);
+  auto a3 = MakePrimitive<Int32Array>(30);
+  auto a4 = MakePrimitive<Int32Array>(10);
+
+  auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
+
+  std::vector<std::shared_ptr<Column>> columns;
+
+  std::shared_ptr<RecordBatch> batch;
+
+  columns = {column(sch1->field(0), {a1, a4, a2}), column(sch1->field(1), {a2, a2})};
+  Table t1(sch1, columns);
+
+  TableBatchReader i1(t1);
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(20, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+
+  columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a4})};
+  Table t2(sch1, columns);
+
+  TableBatchReader i2(t2);
+
+  ASSERT_OK(i2.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  // Ensure non-sliced
+  ASSERT_EQ(a1->data().get(), batch->column_data(0).get());
+  ASSERT_EQ(a4->data().get(), batch->column_data(1).get());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
 }
 
 }  // namespace arrow
