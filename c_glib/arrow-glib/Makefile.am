@@ -70,6 +70,9 @@ libarrow_glib_la_headers +=			\
 	reader.h				\
 	writer.h
 
+libarrow_glib_la_headers +=			\
+	compute.h
+
 libarrow_glib_la_generated_headers =		\
 	enums.h
 
@@ -108,6 +111,9 @@ libarrow_glib_la_sources +=			\
 	reader.cpp				\
 	writer.cpp
 
+libarrow_glib_la_sources +=			\
+	compute.cpp
+
 libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
@@ -137,6 +143,9 @@ libarrow_glib_la_cpp_headers +=			\
 	metadata-version.hpp			\
 	reader.hpp				\
 	writer.hpp
+
+libarrow_glib_la_cpp_headers +=			\
+	compute.hpp
 
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\

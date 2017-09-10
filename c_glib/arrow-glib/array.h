@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.h>
 
 G_BEGIN_DECLS
@@ -80,6 +81,11 @@ GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 offset,
                                          gint64 length);
 gchar         *garrow_array_to_string   (GArrowArray *array,
+                                         GError **error);
+
+GArrowArray   *garrow_array_cast        (GArrowArray *array,
+                                         GArrowDataType *target_data_type,
+                                         GArrowCastOptions *options,
                                          GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \

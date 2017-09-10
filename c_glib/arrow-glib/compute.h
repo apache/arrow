@@ -19,29 +19,21 @@
 
 #pragma once
 
-#include <arrow-glib/array.h>
-#include <arrow-glib/array-builder.h>
-#include <arrow-glib/chunked-array.h>
-#include <arrow-glib/column.h>
-#include <arrow-glib/compute.h>
-#include <arrow-glib/data-type.h>
-#include <arrow-glib/enums.h>
-#include <arrow-glib/error.h>
-#include <arrow-glib/field.h>
-#include <arrow-glib/record-batch.h>
-#include <arrow-glib/schema.h>
-#include <arrow-glib/table.h>
-#include <arrow-glib/tensor.h>
-#include <arrow-glib/type.h>
+#include <glib-object.h>
 
-#include <arrow-glib/file.h>
-#include <arrow-glib/file-mode.h>
-#include <arrow-glib/input-stream.h>
-#include <arrow-glib/output-stream.h>
-#include <arrow-glib/readable.h>
-#include <arrow-glib/writeable.h>
-#include <arrow-glib/writeable-file.h>
+G_BEGIN_DECLS
 
-#include <arrow-glib/metadata-version.h>
-#include <arrow-glib/reader.h>
-#include <arrow-glib/writer.h>
+#define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
+                         garrow_cast_options,
+                         GARROW,
+                         CAST_OPTIONS,
+                         GObject)
+struct _GArrowCastOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GArrowCastOptions *garrow_cast_options_new(void);
+
+G_END_DECLS
