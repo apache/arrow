@@ -104,7 +104,10 @@ class ARROW_EXPORT Int128 {
 
   /// \brief Put the raw bytes of the value into a pointer to uint8_t.
   Status ToBytes(std::array<uint8_t, 16>* out) const;
-  std::string ToString(int precision, int scale);
+
+  /// \brief Convert the Int128 value to a base 10 decimal string with the given precision
+  /// and scale.
+  std::string ToString(int precision, int scale) const;
 
   static Status FromString(const std::string& s, Int128* out, int* precision = nullptr,
                            int* scale = nullptr);

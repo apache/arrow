@@ -54,7 +54,7 @@ Status Int128::ToBytes(std::array<uint8_t, 16>* out) const {
   return Status::OK();
 }
 
-std::string Int128::ToString(int precision, int scale) {
+std::string Int128::ToString(int precision, int scale) const {
   using std::size_t;
 
   const bool is_negative = *this < 0;
