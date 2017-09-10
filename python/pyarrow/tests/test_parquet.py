@@ -17,6 +17,7 @@
 
 from os.path import join as pjoin
 import datetime
+import gc
 import io
 import os
 import json
@@ -562,6 +563,10 @@ def test_date_time_types():
     _check_roundtrip(table, expected=expected, version='2.0',
                      use_deprecated_int96_timestamps=True)
 
+    # Check that setting flavor to 'spark' uses int96 timestamps
+    _check_roundtrip(table, expected=expected, version='2.0',
+                     flavor='spark')
+
     # Unsupported stuff
     def _assert_unsupported(array):
         table = pa.Table.from_arrays([array], ['unsupported'])
@@ -577,6 +582,18 @@ def test_date_time_types():
 
 
 @parquet
+def test_sanitized_spark_field_names():
+    a0 = pa.array([0, 1, 2, 3, 4])
+    name = 'prohib; ,\t{}'
+    table = pa.Table.from_arrays([a0], [name])
+
+    result = _roundtrip_table(table, flavor='spark')
+
+    expected_name = 'prohib______'
+    assert result.schema[0].name == expected_name
+
+
+@parquet
 def test_fixed_size_binary():
     t0 = pa.binary(10)
     data = [b'fooooooooo', None, b'barooooooo', b'quxooooooo']
@@ -587,15 +604,19 @@ def test_fixed_size_binary():
     _check_roundtrip(table)
 
 
-def _check_roundtrip(table, expected=None, **params):
+def _roundtrip_table(table, **params):
     buf = io.BytesIO()
     _write_table(table, buf, **params)
     buf.seek(0)
 
+    return _read_table(buf)
+
+
+def _check_roundtrip(table, expected=None, **params):
     if expected is None:
         expected = table
 
-    result = _read_table(buf)
+    result = _roundtrip_table(table, **params)
     assert result.equals(expected)
 
 
@@ -1181,6 +1202,9 @@ def test_write_error_deletes_incomplete_file(tmpdir):
     except pa.ArrowException:
         pass
 
+    # Ensure that object has been destructed; this causes test failures on
+    # Windows
+    gc.collect()
     assert not os.path.exists(filename)
 
 

@@ -217,6 +217,13 @@ such as those produced by Hive:
    dataset = pq.ParquetDataset('dataset_name/')
    table = dataset.read()
 
+Using with Spark
+----------------
+
+Spark places some constraints on the types of Parquet files it will read. The
+option ``flavor='spark'`` will set these options automatically and also
+sanitize field characters unsupported by Spark SQL.
+
 Multithreaded Reads
 -------------------
 
