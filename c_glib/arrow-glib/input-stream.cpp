@@ -47,8 +47,8 @@ G_BEGIN_DECLS
  *
  * #GArrowBufferInputStream is a class to read data on buffer.
  *
- * #GArrowMemoryMappedFile is a class to read data in file by mapping
- * the file on memory. It supports zero copy.
+ * #GArrowMemoryMappedInputStream is a class to read data in file by
+ * mapping the file on memory. It supports zero copy.
  *
  * #GArrowGIOInputStream is a class for `GInputStream` based input
  * stream.
