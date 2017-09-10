@@ -17,7 +17,10 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], m4_include(version))
+m4_define([arrow_glib_version],
+           m4_esyscmd(grep "^  <version>" "$(dirname $0)/../java/pom.xml" | \
+                        sed -e 's/\(^  <version>\|<\/version>$\)//g' | \
+                        tr -d '\n'))
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
