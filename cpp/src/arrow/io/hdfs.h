@@ -56,6 +56,14 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
+struct HdfsBlockInfo {
+  std::string host;
+  int64_t start_pos;
+  int64_t size;
+  HdfsBlockInfo(std::string host, int64_t start_pos, int64_t size)
+      : host(host), start_pos(start_pos), size(size) {}
+};
+
 enum class HdfsDriver : char { LIBHDFS, LIBHDFS3 };
 
 struct HdfsConnectionConfig {
@@ -161,8 +169,9 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenWriteable(const std::string& path, bool append,
                        std::shared_ptr<HdfsOutputStream>* file);
 
-  Status GetFileBlockLocations(const std::string& path, int64_t offset, int64_t size,
-                               std::vector<std::vector<std::string>>* block_locations);
+  Status GetFileBlockLocations(
+      const std::string& path, int64_t offset, int64_t size,
+      std::vector<std::vector<struct HdfsBlockInfo>>* block_locations);
 
  private:
   friend class HdfsReadableFile;
