@@ -44,7 +44,7 @@ class TestDoubleArray < Test::Unit::TestCase
   end
 
   def test_values
-    require_gi(3, 1, 7)
+    require_gi_bindings(3, 1, 7)
     builder = Arrow::DoubleArrayBuilder.new
     builder.append(1.5)
     builder.append(3)

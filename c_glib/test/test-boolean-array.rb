@@ -44,7 +44,7 @@ class TestBooleanArray < Test::Unit::TestCase
   end
 
   def test_values
-    require_gi(3, 1, 9)
+    require_gi_bindings(3, 1, 9)
     builder = Arrow::BooleanArrayBuilder.new
     builder.append(true)
     builder.append(false)

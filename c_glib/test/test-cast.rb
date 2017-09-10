@@ -17,8 +17,10 @@
 
 class TestCast < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def test_safe
+    require_gi(1, 42, 0)
     data = [-1, 2, nil]
     assert_equal(build_int32_array(data),
                  build_int8_array(data).cast(Arrow::Int32DataType.new))
@@ -26,6 +28,7 @@ class TestCast < Test::Unit::TestCase
 
   sub_test_case("allow-int-overflow") do
     def test_default
+      require_gi(1, 42, 0)
       assert_raise(Arrow::Error::Invalid) do
         build_int32_array([128]).cast(Arrow::Int8DataType.new)
       end
