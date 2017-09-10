@@ -18,17 +18,17 @@
 import os
 import inspect
 import json
-
+import re
 import six
 
 import numpy as np
 
 from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
-                              RowGroupMetaData, ParquetSchema,
-                              ParquetWriter)
+                              RowGroupMetaData, ParquetSchema)
 import pyarrow._parquet as _parquet  # noqa
 import pyarrow.lib as lib
+import pyarrow as pa
 
 
 # ----------------------------------------------------------------------
@@ -162,6 +162,73 @@ class ParquetFile(object):
                 indices += map(self.reader.column_name_idx, index_columns)
 
         return indices
+
+
+_SPARK_DISALLOWED_CHARS = re.compile('[ ,;{}()\n\t=]')
+
+
+def _sanitized_spark_field_name(name):
+    return _SPARK_DISALLOWED_CHARS.sub('_', name)
+
+
+def _sanitize_schema(schema, flavor):
+    if 'spark' in flavor:
+        sanitized_fields = []
+
+        schema_changed = False
+
+        for field in schema:
+            name = field.name
+            sanitized_name = _sanitized_spark_field_name(name)
+
+            if sanitized_name != name:
+                schema_changed = True
+                sanitized_field = pa.field(sanitized_name, field.type,
+                                           field.nullable, field.metadata)
+                sanitized_fields.append(sanitized_field)
+            else:
+                sanitized_fields.append(field)
+        return pa.schema(sanitized_fields), schema_changed
+    else:
+        return schema, False
+
+
+def _sanitize_table(table, new_schema, flavor):
+    # TODO: This will not handle prohibited characters in nested field names
+    if 'spark' in flavor:
+        column_data = [table[i].data for i in range(table.num_columns)]
+        return pa.Table.from_arrays(column_data, schema=new_schema)
+    else:
+        return table
+
+
+class ParquetWriter(object):
+    """
+
+    Parameters
+    ----------
+    where
+    schema
+    flavor : {'spark', ...}
+        Set options for compatibility with a particular reader
+    """
+    def __init__(self, where, schema, flavor=None, **options):
+        self.flavor = flavor
+        if flavor is not None:
+            schema, self.schema_changed = _sanitize_schema(schema, flavor)
+        else:
+            self.schema_changed = False
+
+        self.schema = schema
+        self.writer = _parquet.ParquetWriter(where, schema, **options)
+
+    def write_table(self, table, row_group_size=None):
+        if self.schema_changed:
+            table = _sanitize_table(table, self.schema, self.flavor)
+        self.writer.write_table(table, row_group_size=row_group_size)
+
+    def close(self):
+        self.writer.close()
 
 
 def _get_pandas_index_columns(keyvalues):
@@ -787,8 +854,9 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
 
 def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
-                use_deprecated_int96_timestamps=False,
-                coerce_timestamps=None, **kwargs):
+                use_deprecated_int96_timestamps=None,
+                coerce_timestamps=None,
+                flavor=None, **kwargs):
     """
     Write a Table to Parquet format
 
@@ -804,15 +872,26 @@ def write_table(table, where, row_group_size=None, version='1.0',
     use_dictionary : bool or list
         Specify if we should use dictionary encoding in general or only for
         some columns.
-    use_deprecated_int96_timestamps : boolean, default False
-        Write nanosecond resolution timestamps to INT96 Parquet format
+    use_deprecated_int96_timestamps : boolean, default None
+        Write nanosecond resolution timestamps to INT96 Parquet
+        format. Defaults to False unless enabled by flavor argument
     coerce_timestamps : string, default None
         Cast timestamps a particular resolution.
         Valid values: {None, 'ms', 'us'}
     compression : str or dict
         Specify the compression codec, either on a general basis or per-column.
+    flavor : {'spark'}, default None
+        Sanitize schema or set other compatibility options for compatibility
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
+
+    if use_deprecated_int96_timestamps is None:
+        # Use int96 timestamps for Spark
+        if flavor is not None and 'spark' in flavor:
+            use_deprecated_int96_timestamps = True
+        else:
+            use_deprecated_int96_timestamps = False
+
     options = dict(
         use_dictionary=use_dictionary,
         compression=compression,
@@ -822,7 +901,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
 
     writer = None
     try:
-        writer = ParquetWriter(where, table.schema, **options)
+        writer = ParquetWriter(where, table.schema, flavor=flavor,
+                               **options)
         writer.write_table(table, row_group_size=row_group_size)
     except:
         if writer is not None:
