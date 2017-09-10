@@ -113,6 +113,7 @@ std::string Int128::ToString(int precision, int scale) {
 static void StringToInteger(const std::string& str, Int128* out) {
   using std::size_t;
 
+  DCHECK_NE(out, nullptr) << "Int128 output variable cannot be nullptr";
   DCHECK_EQ(*out, 0) << "When converting a string to Int128 the initial output must be 0";
 
   const size_t length = str.length();
