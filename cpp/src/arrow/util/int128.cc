@@ -18,9 +18,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
-#include <limits>
 #include <sstream>
 
 #ifdef _MSC_VER
@@ -37,28 +35,8 @@ static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
 Int128::Int128(const std::string& str) : Int128() {
-  const size_t length = str.length();
-
-  if (length > 0) {
-    bool is_negative = str[0] == '-';
-    auto posn = static_cast<size_t>(is_negative);
-
-    while (posn < length) {
-      const size_t group = std::min(static_cast<size_t>(18), length - posn);
-      const auto chunk = static_cast<int64_t>(std::stoll(str.substr(posn, group)));
-      const auto multiple =
-          static_cast<int64_t>(std::pow(10.0, static_cast<double>(group)));
-
-      *this *= multiple;
-      *this += chunk;
-
-      posn += group;
-    }
-
-    if (is_negative) {
-      Negate();
-    }
-  }
+  Status status(Int128::FromString(str, this));
+  DCHECK(status.ok()) << status.message();
 }
 
 Int128::Int128(const uint8_t* bytes)
@@ -77,6 +55,8 @@ Status Int128::ToBytes(std::array<uint8_t, 16>* out) const {
 }
 
 std::string Int128::ToString(int precision, int scale) {
+  using std::size_t;
+
   const bool is_negative = *this < 0;
 
   // Decimal values are sent to clients as strings so in the interest of
@@ -130,14 +110,25 @@ std::string Int128::ToString(int precision, int scale) {
   return str;
 }
 
-static void StringToInteger(const std::string& whole, const std::string& fractional,
-                            int8_t sign, Int128* out) {
-  DCHECK(sign == -1 || sign == 1);
-  DCHECK_NE(out, nullptr);
-  DCHECK(!whole.empty() || !fractional.empty());
-  *out = Int128(whole + fractional);
-  if (sign == -1) {
-    out->Negate();
+static void StringToInteger(const std::string& str, Int128* out) {
+  using std::size_t;
+
+  const size_t length = str.length();
+
+  DCHECK_GT(length, 0) << "length of parsed decimal string should be greater than 0";
+
+  size_t posn = 0;
+
+  while (posn < length) {
+    const size_t group = std::min(static_cast<size_t>(18), length - posn);
+    const auto chunk = static_cast<int64_t>(std::stoll(str.substr(posn, group)));
+    const auto multiple =
+        static_cast<int64_t>(std::pow(10.0, static_cast<double>(group)));
+
+    *out *= multiple;
+    *out += chunk;
+
+    posn += group;
   }
 }
 
@@ -175,7 +166,7 @@ Status Int128::FromString(const std::string& s, Int128* out, int* precision, int
   // all zeros and no decimal point
   if (charp == end) {
     if (out != nullptr) {
-      *out = Int128(0);
+      *out = 0;
     }
 
     // Not sure what other libraries assign precision to for this case (this case of
@@ -251,7 +242,12 @@ Status Int128::FromString(const std::string& s, Int128* out, int* precision, int
   }
 
   if (out != nullptr) {
-    StringToInteger(whole_part, fractional_part, sign, out);
+    // zero out in case we've passed in a previously used value
+    *out = 0;
+    StringToInteger(whole_part + fractional_part, out);
+    if (sign == -1) {
+      out->Negate();
+    }
   }
 
   return Status::OK();

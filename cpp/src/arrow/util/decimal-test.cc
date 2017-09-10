@@ -76,7 +76,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
 }
 
 TEST(DecimalTest, TestFromStringInt128) {
-  static const std::string string_value("-23049223942343532412");
+  std::string string_value("-23049223942343532412");
   Int128 result(string_value);
   Int128 expected(static_cast<int64_t>(-230492239423435324));
   ASSERT_EQ(result, expected * 100 - 12);
