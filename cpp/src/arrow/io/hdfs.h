@@ -169,6 +169,11 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenWriteable(const std::string& path, bool append,
                        std::shared_ptr<HdfsOutputStream>* file);
 
+  // Gets the file block locations of given path and size
+  // @param path complete file path
+  // @param offset in the file
+  // @size total size which blocks needed to located
+  // @block_locations vector which will contains the blocks locations as struct
   Status GetFileBlockLocations(
       const std::string& path, int64_t offset, int64_t size,
       std::vector<std::vector<struct HdfsBlockInfo>>* block_locations);
