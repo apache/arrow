@@ -45,9 +45,7 @@ class PrettyPrinter {
   void OpenArray();
   void CloseArray();
 
-  void Flush() {
-    (*sink_) << std::flush;
-  }
+  void Flush() { (*sink_) << std::flush; }
 
  protected:
   int indent_;
