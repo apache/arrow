@@ -518,12 +518,13 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     if (file_info == nullptr) {
       return Status::IOError("HDFS: GetPathInfo failed");
     }
+    int64_t temp_size = total_size;
     int64_t block_size = file_info->mBlockSize;
     int64_t start_pos = offset;
     int64_t end_of_block_length =
         std::min(total_size, block_size * ((start_pos % block_size) + 1) - start_pos);
     char*** block = nullptr;
-    while (start_pos <= offset + total_size) {
+    while (start_pos < offset + total_size) {
       block = driver_->GetHosts(fs_, path.c_str(), start_pos, end_of_block_length);
       if (block == nullptr) {
         return Status::IOError("HDFS:GetFileBlockLocations failed");
@@ -534,8 +535,8 @@ class HadoopFileSystem::HadoopFileSystemImpl {
       }
       block_location->push_back(block_info);
       start_pos += end_of_block_length;
-      total_size -= end_of_block_length;
-      end_of_block_length += std::min(total_size, block_size);
+      temp_size -= end_of_block_length;
+      end_of_block_length += std::min(temp_size, block_size);
     }
     driver_->FreeHosts(block);
     driver_->FreeFileInfo(file_info, 1);
