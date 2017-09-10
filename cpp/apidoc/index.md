@@ -84,7 +84,7 @@ undefined.
     const uint8_t* null_bitmap = int64_array->null_bitmap_data();
 
     // Get the pointer to the actual data
-    const int64_t* data = int64_array->raw_data();
+    const int64_t* data = int64_array->raw_values();
 
 In the above example, we have yet skipped explaining two things in the code.
 On constructing the builder, we have passed `arrow::int64()` to it. This is
