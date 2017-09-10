@@ -23,11 +23,9 @@
 
 #include "arrow/status.h"
 #include "arrow/test-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/int128.h"
 
 namespace arrow {
-namespace DecimalUtil {
 
 class DecimalTestFixture : public ::testing::Test {
  public:
@@ -40,7 +38,7 @@ TEST_F(DecimalTestFixture, TestToString) {
   Int128 decimal(this->integer_value_);
   int precision = 8;
   int scale = 5;
-  std::string result = ToString(decimal, precision, scale);
+  std::string result = decimal.ToString(precision, scale);
   ASSERT_EQ(result, this->string_value_);
 }
 
@@ -48,7 +46,7 @@ TEST_F(DecimalTestFixture, TestFromString) {
   Int128 expected(this->integer_value_);
   Int128 result;
   int precision, scale;
-  ASSERT_OK(FromString(this->string_value_, &result, &precision, &scale));
+  ASSERT_OK(Int128::FromString(this->string_value_, &result, &precision, &scale));
   ASSERT_EQ(result, expected);
   ASSERT_EQ(precision, 8);
   ASSERT_EQ(scale, 5);
@@ -59,7 +57,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
   Int128 out;
   int scale;
   int precision;
-  ASSERT_OK(FromString(plus_value, &out, &precision, &scale));
+  ASSERT_OK(Int128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(234234, out);
   ASSERT_EQ(6, precision);
   ASSERT_EQ(3, scale);
@@ -71,32 +69,13 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
   Int128 out;
   int scale;
   int precision;
-  ASSERT_OK(FromString(plus_value, &out, &precision, &scale));
+  ASSERT_OK(Int128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(expected_value, out);
   ASSERT_EQ(25, precision);
   ASSERT_EQ(12, scale);
 }
 
-TEST(DecimalTest, TestStringToInt32) {
-  Int128 value;
-  StringToInteger("123", "456", 1, &value);
-  ASSERT_EQ(value, 123456);
-}
-
-TEST(DecimalTest, TestStringToInt64) {
-  Int128 value;
-  StringToInteger("123456789", "456", -1, &value);
-  ASSERT_EQ(value, -123456789456);
-}
-
-TEST(DecimalTest, TestStringToInt128) {
-  Int128 value;
-  StringToInteger("123456789", "456789123", 1, &value);
-  ASSERT_EQ(value.high_bits(), 0);
-  ASSERT_EQ(value.low_bits(), 123456789456789123);
-}
-
-TEST(DecimalTest, TestFromString128) {
+TEST(DecimalTest, TestFromStringInt128) {
   static const std::string string_value("-23049223942343532412");
   Int128 result(string_value);
   Int128 expected(static_cast<int64_t>(-230492239423435324));
@@ -109,7 +88,7 @@ TEST(DecimalTest, TestFromString128) {
 TEST(DecimalTest, TestFromDecimalString128) {
   std::string string_value("-23049223942343.532412");
   Int128 result;
-  ASSERT_OK(FromString(string_value, &result));
+  ASSERT_OK(Int128::FromString(string_value, &result));
   Int128 expected(static_cast<int64_t>(-230492239423435324));
   expected *= 100;
   expected -= 12;
@@ -132,7 +111,7 @@ TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
 TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
   Int128 expected;
   std::string string_value("-34034293045.921");
-  ASSERT_OK(FromString(string_value, &expected));
+  ASSERT_OK(Int128::FromString(string_value, &expected));
 
   std::array<uint8_t, 16> bytes;
   ASSERT_OK(expected.ToBytes(&bytes));
@@ -145,7 +124,7 @@ TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
 TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   Int128 expected;
   std::string string_value("-340282366920938463463374607431.711455");
-  ASSERT_OK(FromString(string_value, &expected));
+  ASSERT_OK(Int128::FromString(string_value, &expected));
 
   std::string expected_string_value("-340282366920938463463374607431711455");
   Int128 expected_underlying_value(expected_string_value);
@@ -163,35 +142,35 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
 TEST(DecimalTest, TestInvalidInputMinus) {
   std::string invalid_value("-");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputDot) {
   std::string invalid_value("0.0.0");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
   std::string invalid_value("0-13-32");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputSingleChar) {
   std::string invalid_value("a");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
   std::string invalid_value("-23092.235-");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   auto msg = status.message();
   ASSERT_RAISES(Invalid, status);
 }
@@ -199,21 +178,21 @@ TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
 TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
   std::string invalid_value("-+23092.235");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
   std::string invalid_value("+-23092.235");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
 TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
   std::string invalid_value("00a");
   Int128 out;
-  Status status = DecimalUtil::FromString(invalid_value, &out);
+  Status status = Int128::FromString(invalid_value, &out);
   ASSERT_RAISES(Invalid, status);
 }
 
@@ -222,7 +201,7 @@ TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
   Int128 d;
   int precision;
   int scale;
-  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
+  ASSERT_OK(Int128::FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(precision, 7);
   ASSERT_EQ(scale, 0);
   ASSERT_EQ(d, 0);
@@ -233,7 +212,7 @@ TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   Int128 d;
   int precision;
   int scale;
-  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
+  ASSERT_OK(Int128::FromString(string_value, &d, &precision, &scale));
   // We explicitly do not support this for now, otherwise this would be ASSERT_EQ
   ASSERT_NE(precision, 7);
 
@@ -246,7 +225,7 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   Int128 d;
   int precision;
   int scale;
-  ASSERT_OK(FromString(string_value, &d, &precision, &scale));
+  ASSERT_OK(Int128::FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(precision, 5);
   ASSERT_EQ(scale, 5);
   ASSERT_EQ(d, 0);
@@ -282,5 +261,4 @@ TEST(Int128TestFalse, ConstructibleFromBool) {
   ASSERT_EQ(0, value.low_bits());
 }
 
-}  // namespace DecimalUtil
 }  // namespace arrow

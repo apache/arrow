@@ -29,8 +29,6 @@
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/helpers.h"
 
-#include "arrow/util/decimal.h"
-
 namespace arrow {
 namespace py {
 

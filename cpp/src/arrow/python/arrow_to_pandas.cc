@@ -36,7 +36,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -607,7 +606,7 @@ static Status RawDecimalToString(const uint8_t* bytes, int precision, int scale,
                                  std::string* result) {
   DCHECK_NE(result, nullptr);
   Int128 decimal(bytes);
-  *result = DecimalUtil::ToString(decimal, precision, scale);
+  *result = decimal.ToString(precision, scale);
   return Status::OK();
 }
 

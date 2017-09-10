@@ -27,7 +27,6 @@
 
 #include "arrow/api.h"
 #include "arrow/status.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
@@ -590,7 +589,7 @@ class DecimalConverter
       RETURN_NOT_OK(PythonDecimalToString(item.obj(), &string));
 
       Int128 value;
-      RETURN_NOT_OK(DecimalUtil::FromString(string, &value));
+      RETURN_NOT_OK(Int128::FromString(string, &value));
       return typed_builder_->Append(value);
     }
 

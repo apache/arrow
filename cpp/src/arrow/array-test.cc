@@ -33,7 +33,6 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/int128.h"
 
 namespace arrow {
@@ -2646,11 +2645,11 @@ TEST_P(DecimalTest, WithNulls) {
   std::vector<Int128> draw = {Int128(1),  Int128(2), Int128(-1), Int128(4),
                               Int128(-1), Int128(1), Int128(2)};
   Int128 big;
-  ASSERT_OK(DecimalUtil::FromString("230342903942.234234", &big));
+  ASSERT_OK(Int128::FromString("230342903942.234234", &big));
   draw.push_back(big);
 
   Int128 big_negative;
-  ASSERT_OK(DecimalUtil::FromString("-23049302932.235234", &big_negative));
+  ASSERT_OK(Int128::FromString("-23049302932.235234", &big_negative));
   draw.push_back(big_negative);
 
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
