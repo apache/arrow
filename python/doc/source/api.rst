@@ -167,6 +167,7 @@ Input / Output and Shared Memory
    memory_map
    create_memory_map
    PythonFile
+   feather
 
 File Systems
 ------------
