@@ -292,15 +292,9 @@ struct CastFunctor<
         static_cast<const FixedSizeBinaryArray&>(*type.dictionary());
 
     // Check if values and output type match
-    bool types_equal;
-    FUNC_RETURN_NOT_OK(TypeEquals(values_type, *output->type, &types_equal));
-    if (!types_equal) {
-      std::stringstream ss;
-      ss << "Dictionay and target type do not match: ";
-      ss << values_type.ToString() << ", " << output->type->ToString();
-      ctx->SetStatus(Status::Invalid(ss.str()));
-      return;
-    }
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -331,7 +325,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   using index_c_type = typename IndexType::c_type;
   std::unique_ptr<ArrayBuilder> builder;
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
-  BinaryBuilder& binary_builder = static_cast<BinaryBuilder&>(*builder);
+  BinaryBuilder* binary_builder = static_cast<BinaryBuilder*>(builder.get());
 
   const uint8_t* valid_bits = indices.null_bitmap_data();
   INIT_BITSET(valid_bits, indices.offset());
@@ -343,15 +337,15 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
     if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
       int32_t length;
       const uint8_t* value = dictionary.GetValue(in[i], &length);
-      RETURN_NOT_OK(binary_builder.Append(value, length));
+      RETURN_NOT_OK(binary_builder->Append(value, length));
     } else {
-      RETURN_NOT_OK(binary_builder.AppendNull());
+      RETURN_NOT_OK(binary_builder->AppendNull());
     }
     READ_NEXT_BITSET(valid_bits);
   }
 
   std::shared_ptr<Array> plain_array;
-  RETURN_NOT_OK(binary_builder.Finish(&plain_array));
+  RETURN_NOT_OK(binary_builder->Finish(&plain_array));
   // Copy all buffer except the valid bitmap
   for (size_t i = 1; i < plain_array->data()->buffers.size(); i++) {
     output->buffers.push_back(plain_array->data()->buffers[i]);
@@ -371,15 +365,9 @@ struct CastFunctor<T, DictionaryType,
     const BinaryArray& dictionary = static_cast<const BinaryArray&>(*type.dictionary());
 
     // Check if values and output type match
-    bool types_equal;
-    FUNC_RETURN_NOT_OK(TypeEquals(values_type, *output->type, &types_equal));
-    if (!types_equal) {
-      std::stringstream ss;
-      ss << "Dictionay and target type do not match: ";
-      ss << values_type.ToString() << ", " << output->type->ToString();
-      ctx->SetStatus(Status::Invalid(ss.str()));
-      return;
-    }
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -440,15 +428,9 @@ struct CastFunctor<T, DictionaryType,
     const DataType& values_type = *type.dictionary()->type();
 
     // Check if values and output type match
-    bool types_equal;
-    FUNC_RETURN_NOT_OK(TypeEquals(values_type, *output->type, &types_equal));
-    if (!types_equal) {
-      std::stringstream ss;
-      ss << "Dictionay and target type do not match: ";
-      ss << values_type.ToString() << ", " << output->type->ToString();
-      ctx->SetStatus(Status::Invalid(ss.str()));
-      return;
-    }
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
 
     auto dictionary =
         reinterpret_cast<const c_type*>(type.dictionary()->data()->buffers[1]->data()) +

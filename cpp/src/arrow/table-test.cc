@@ -449,8 +449,8 @@ TEST_F(TestTable, AddColumn) {
 TEST_F(TestTable, IsChunked) {
   ArrayVector c1, c2;
 
-  auto a1 = MakePrimitive<Int32Array>(10);
-  auto a2 = MakePrimitive<Int32Array>(20);
+  auto a1 = MakeRandomArray<Int32Array>(10);
+  auto a2 = MakeRandomArray<Int32Array>(20);
 
   auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
 
@@ -559,10 +559,10 @@ class TestTableBatchReader : public TestBase {};
 TEST_F(TestTableBatchReader, ReadNext) {
   ArrayVector c1, c2;
 
-  auto a1 = MakePrimitive<Int32Array>(10);
-  auto a2 = MakePrimitive<Int32Array>(20);
-  auto a3 = MakePrimitive<Int32Array>(30);
-  auto a4 = MakePrimitive<Int32Array>(10);
+  auto a1 = MakeRandomArray<Int32Array>(10);
+  auto a2 = MakeRandomArray<Int32Array>(20);
+  auto a3 = MakeRandomArray<Int32Array>(30);
+  auto a4 = MakeRandomArray<Int32Array>(10);
 
   auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
 
