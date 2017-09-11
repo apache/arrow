@@ -28,6 +28,8 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/compare.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -36,6 +38,32 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+
+#define FUNC_RETURN_NOT_OK(s)                                                       \
+  do {                                                                              \
+    Status _s = (s);                                                                \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
+      std::stringstream ss;                                                         \
+      ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
+      ctx->SetStatus(Status(_s.code(), ss.str()));                                  \
+      return;                                                                       \
+    }                                                                               \
+  } while (0)
+
+#else
+
+#define FUNC_RETURN_NOT_OK(s)            \
+  do {                                   \
+    Status _s = (s);                     \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      ctx->SetStatus(_s);                \
+      return;                            \
+    }                                    \
+  } while (0)
+
+#endif  // ARROW_EXTRA_ERROR_CONTEXT
 
 namespace arrow {
 namespace compute {
@@ -226,19 +254,219 @@ struct CastFunctor<O, I,
 };
 
 // ----------------------------------------------------------------------
+// Dictionary to other things
+
+template <typename IndexType>
+void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
+                                     const FixedSizeBinaryArray& dictionary,
+                                     ArrayData* output) {
+  using index_c_type = typename IndexType::c_type;
+  const uint8_t* valid_bits = indices.null_bitmap_data();
+  INIT_BITSET(valid_bits, indices.offset());
+
+  const index_c_type* in =
+      reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
+      indices.offset();
+  uint8_t* out = output->buffers[1]->mutable_data();
+  int32_t byte_width =
+      static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
+  for (int64_t i = 0; i < indices.length(); ++i) {
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      const uint8_t* value = dictionary.Value(in[i]);
+      memcpy(out + i * byte_width, value, byte_width);
+    }
+    READ_NEXT_BITSET(valid_bits);
+  }
+}
+
+template <typename T>
+struct CastFunctor<
+    T, DictionaryType,
+    typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+    const DataType& values_type = *type.dictionary()->type();
+    const FixedSizeBinaryArray& dictionary =
+        static_cast<const FixedSizeBinaryArray&>(*type.dictionary());
+
+    // Check if values and output type match
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
+
+    const Array& indices = *dict_array.indices();
+    switch (indices.type()->id()) {
+      case Type::INT8:
+        UnpackFixedSizeBinaryDictionary<Int8Type>(ctx, indices, dictionary, output);
+        break;
+      case Type::INT16:
+        UnpackFixedSizeBinaryDictionary<Int16Type>(ctx, indices, dictionary, output);
+        break;
+      case Type::INT32:
+        UnpackFixedSizeBinaryDictionary<Int32Type>(ctx, indices, dictionary, output);
+        break;
+      case Type::INT64:
+        UnpackFixedSizeBinaryDictionary<Int64Type>(ctx, indices, dictionary, output);
+        break;
+      default:
+        std::stringstream ss;
+        ss << "Invalid index type: " << indices.type()->ToString();
+        ctx->SetStatus(Status::Invalid(ss.str()));
+        return;
+    }
+  }
+};
+
+template <typename IndexType>
+Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
+                              const BinaryArray& dictionary, ArrayData* output) {
+  using index_c_type = typename IndexType::c_type;
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
+  BinaryBuilder* binary_builder = static_cast<BinaryBuilder*>(builder.get());
+
+  const uint8_t* valid_bits = indices.null_bitmap_data();
+  INIT_BITSET(valid_bits, indices.offset());
+
+  const index_c_type* in =
+      reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
+      indices.offset();
+  for (int64_t i = 0; i < indices.length(); ++i) {
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      int32_t length;
+      const uint8_t* value = dictionary.GetValue(in[i], &length);
+      RETURN_NOT_OK(binary_builder->Append(value, length));
+    } else {
+      RETURN_NOT_OK(binary_builder->AppendNull());
+    }
+    READ_NEXT_BITSET(valid_bits);
+  }
+
+  std::shared_ptr<Array> plain_array;
+  RETURN_NOT_OK(binary_builder->Finish(&plain_array));
+  // Copy all buffer except the valid bitmap
+  for (size_t i = 1; i < plain_array->data()->buffers.size(); i++) {
+    output->buffers.push_back(plain_array->data()->buffers[i]);
+  }
+
+  return Status::OK();
+}
+
+template <typename T>
+struct CastFunctor<T, DictionaryType,
+                   typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+    const DataType& values_type = *type.dictionary()->type();
+    const BinaryArray& dictionary = static_cast<const BinaryArray&>(*type.dictionary());
+
+    // Check if values and output type match
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
+
+    const Array& indices = *dict_array.indices();
+    switch (indices.type()->id()) {
+      case Type::INT8:
+        FUNC_RETURN_NOT_OK(
+            (UnpackBinaryDictionary<Int8Type>(ctx, indices, dictionary, output)));
+        break;
+      case Type::INT16:
+        FUNC_RETURN_NOT_OK(
+            (UnpackBinaryDictionary<Int16Type>(ctx, indices, dictionary, output)));
+        break;
+      case Type::INT32:
+        FUNC_RETURN_NOT_OK(
+            (UnpackBinaryDictionary<Int32Type>(ctx, indices, dictionary, output)));
+        break;
+      case Type::INT64:
+        FUNC_RETURN_NOT_OK(
+            (UnpackBinaryDictionary<Int64Type>(ctx, indices, dictionary, output)));
+        break;
+      default:
+        std::stringstream ss;
+        ss << "Invalid index type: " << indices.type()->ToString();
+        ctx->SetStatus(Status::Invalid(ss.str()));
+        return;
+    }
+  }
+};
+
+template <typename IndexType, typename c_type>
+void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
+                               c_type* out) {
+  using index_c_type = typename IndexType::c_type;
+
+  const uint8_t* valid_bits = indices.null_bitmap_data();
+  INIT_BITSET(valid_bits, indices.offset());
+
+  const index_c_type* in =
+      reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
+      indices.offset();
+  for (int64_t i = 0; i < indices.length(); ++i) {
+    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      out[i] = dictionary[in[i]];
+    }
+    READ_NEXT_BITSET(valid_bits);
+  }
+}
+
+// Cast from dictionary to plain representation
+template <typename T>
+struct CastFunctor<T, DictionaryType,
+                   typename std::enable_if<IsNumeric<T>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    using c_type = typename T::c_type;
+
+    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+    const DataType& values_type = *type.dictionary()->type();
+
+    // Check if values and output type match
+    DCHECK(values_type.Equals(*output->type))
+      << "Dictionary type: " << values_type
+      << " target type: " << (*output->type);
+
+    auto dictionary =
+        reinterpret_cast<const c_type*>(type.dictionary()->data()->buffers[1]->data()) +
+        type.dictionary()->offset();
+    auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    const Array& indices = *dict_array.indices();
+    switch (indices.type()->id()) {
+      case Type::INT8:
+        UnpackPrimitiveDictionary<Int8Type, c_type>(indices, dictionary, out);
+        break;
+      case Type::INT16:
+        UnpackPrimitiveDictionary<Int16Type, c_type>(indices, dictionary, out);
+        break;
+      case Type::INT32:
+        UnpackPrimitiveDictionary<Int32Type, c_type>(indices, dictionary, out);
+        break;
+      case Type::INT64:
+        UnpackPrimitiveDictionary<Int64Type, c_type>(indices, dictionary, out);
+        break;
+      default:
+        std::stringstream ss;
+        ss << "Invalid index type: " << indices.type()->ToString();
+        ctx->SetStatus(Status::Invalid(ss.str()));
+        return;
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 
 typedef std::function<void(FunctionContext*, const CastOptions& options, const Array&,
                            ArrayData*)>
     CastFunction;
 
 static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input,
-                                        ArrayData* out) {
-  if (!is_primitive(out->type->id())) {
-    return Status::NotImplemented(out->type->ToString());
-  }
-
-  const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
-
+                                        bool can_pre_allocate_values, ArrayData* out) {
   const int64_t length = input.length();
 
   out->null_count = input.null_count();
@@ -261,35 +489,49 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input
 
   out->buffers.push_back(validity_bitmap);
 
-  std::shared_ptr<Buffer> out_data;
+  if (can_pre_allocate_values) {
+    std::shared_ptr<Buffer> out_data;
 
-  int bit_width = fw_type.bit_width();
-  int64_t buffer_size = 0;
+    if (!(is_primitive(out->type->id()) || out->type->id() == Type::FIXED_SIZE_BINARY)) {
+      std::stringstream ss;
+      ss << "Cannot pre-allocate memory for type: " << out->type->ToString();
+      return Status::NotImplemented(ss.str());
+    }
 
-  if (bit_width == 1) {
-    buffer_size = BitUtil::BytesForBits(length);
-  } else if (bit_width % 8 == 0) {
-    buffer_size = length * fw_type.bit_width() / 8;
-  } else {
-    DCHECK(false);
+    const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
+
+    int bit_width = fw_type.bit_width();
+    int64_t buffer_size = 0;
+
+    if (bit_width == 1) {
+      buffer_size = BitUtil::BytesForBits(length);
+    } else if (bit_width % 8 == 0) {
+      buffer_size = length * fw_type.bit_width() / 8;
+    } else {
+      DCHECK(false);
+    }
+
+    RETURN_NOT_OK(ctx->Allocate(buffer_size, &out_data));
+    memset(out_data->mutable_data(), 0, buffer_size);
+
+    out->buffers.push_back(out_data);
   }
-
-  RETURN_NOT_OK(ctx->Allocate(buffer_size, &out_data));
-  memset(out_data->mutable_data(), 0, buffer_size);
-
-  out->buffers.push_back(out_data);
 
   return Status::OK();
 }
 
 class CastKernel : public UnaryKernel {
  public:
-  CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy)
-      : options_(options), func_(func), is_zero_copy_(is_zero_copy) {}
+  CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy,
+             bool can_pre_allocate_values)
+      : options_(options),
+        func_(func),
+        is_zero_copy_(is_zero_copy),
+        can_pre_allocate_values_(can_pre_allocate_values) {}
 
   Status Call(FunctionContext* ctx, const Array& input, ArrayData* out) override {
     if (!is_zero_copy_) {
-      RETURN_NOT_OK(AllocateIfNotPreallocated(ctx, input, out));
+      RETURN_NOT_OK(AllocateIfNotPreallocated(ctx, input, can_pre_allocate_values_, out));
     }
     func_(ctx, options_, input, out);
     RETURN_IF_ERROR(ctx);
@@ -300,11 +542,14 @@ class CastKernel : public UnaryKernel {
   CastOptions options_;
   CastFunction func_;
   bool is_zero_copy_;
+  bool can_pre_allocate_values_;
 };
 
 #define CAST_CASE(InType, OutType)                                                  \
   case OutType::type_id:                                                            \
     is_zero_copy = is_zero_copy_cast<OutType, InType>::value;                       \
+    can_pre_allocate_values =                                                       \
+        !(!is_binary_like(InType::type_id) && is_binary_like(OutType::type_id));    \
     func = [](FunctionContext* ctx, const CastOptions& options, const Array& input, \
               ArrayData* out) {                                                     \
       CastFunctor<OutType, InType> func;                                            \
@@ -354,20 +599,42 @@ class CastKernel : public UnaryKernel {
 
 #define TIMESTAMP_CASES(FN, IN_TYPE) FN(TimestampType, TimestampType);
 
-#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                                       \
-  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                            \
-      const std::shared_ptr<DataType>& out_type, const CastOptions& options) {          \
-    CastFunction func;                                                                  \
-    bool is_zero_copy = false;                                                          \
-    switch (out_type->id()) {                                                           \
-      CASE_GENERATOR(CAST_CASE, InType);                                                \
-      default:                                                                          \
-        break;                                                                          \
-    }                                                                                   \
-    if (func != nullptr) {                                                              \
-      return std::unique_ptr<UnaryKernel>(new CastKernel(options, func, is_zero_copy)); \
-    }                                                                                   \
-    return nullptr;                                                                     \
+#define DICTIONARY_CASES(FN, IN_TYPE) \
+  FN(IN_TYPE, Time32Type);            \
+  FN(IN_TYPE, Date32Type);            \
+  FN(IN_TYPE, TimestampType);         \
+  FN(IN_TYPE, Time64Type);            \
+  FN(IN_TYPE, Date64Type);            \
+  FN(IN_TYPE, UInt8Type);             \
+  FN(IN_TYPE, Int8Type);              \
+  FN(IN_TYPE, UInt16Type);            \
+  FN(IN_TYPE, Int16Type);             \
+  FN(IN_TYPE, UInt32Type);            \
+  FN(IN_TYPE, Int32Type);             \
+  FN(IN_TYPE, UInt64Type);            \
+  FN(IN_TYPE, Int64Type);             \
+  FN(IN_TYPE, FloatType);             \
+  FN(IN_TYPE, DoubleType);            \
+  FN(IN_TYPE, FixedSizeBinaryType);   \
+  FN(IN_TYPE, BinaryType);            \
+  FN(IN_TYPE, StringType);
+
+#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                                \
+  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                     \
+      const std::shared_ptr<DataType>& out_type, const CastOptions& options) {   \
+    CastFunction func;                                                           \
+    bool is_zero_copy = false;                                                   \
+    bool can_pre_allocate_values = true;                                         \
+    switch (out_type->id()) {                                                    \
+      CASE_GENERATOR(CAST_CASE, InType);                                         \
+      default:                                                                   \
+        break;                                                                   \
+    }                                                                            \
+    if (func != nullptr) {                                                       \
+      return std::unique_ptr<UnaryKernel>(                                       \
+          new CastKernel(options, func, is_zero_copy, can_pre_allocate_values)); \
+    }                                                                            \
+    return nullptr;                                                              \
   }
 
 GET_CAST_FUNCTION(NULL_CASES, NullType);
@@ -387,6 +654,8 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
+
+GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
@@ -413,6 +682,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(DictionaryType);
     default:
       break;
   }

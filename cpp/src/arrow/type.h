@@ -169,6 +169,11 @@ class ARROW_EXPORT DataType {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
+inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
+  os << type.ToString();
+  return os;
+}
+
 // TODO(wesm): Remove this from parquet-cpp
 using TypePtr = std::shared_ptr<DataType>;
 
