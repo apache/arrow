@@ -151,14 +151,16 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void ReadAndCompare(Compression::type compression, int64_t num_rows) {
     this->SetupValuesOut(num_rows);
     this->ReadColumnFully(compression);
-    Compare<T> compare(this->descr_);
+    std::shared_ptr<CompareDefault<TestType>> compare;
+    compare = std::static_pointer_cast<CompareDefault<TestType>>(
+        Comparator::Make(this->descr_));
     for (size_t i = 0; i < this->values_.size(); i++) {
-      if (compare(this->values_[i], this->values_out_[i]) ||
-          compare(this->values_out_[i], this->values_[i])) {
+      if ((*compare)(this->values_[i], this->values_out_[i]) ||
+          (*compare)(this->values_out_[i], this->values_[i])) {
         std::cout << "Failed at " << i << std::endl;
       }
-      ASSERT_FALSE(compare(this->values_[i], this->values_out_[i]));
-      ASSERT_FALSE(compare(this->values_out_[i], this->values_[i]));
+      ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
+      ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
     }
     ASSERT_EQ(this->values_, this->values_out_);
   }

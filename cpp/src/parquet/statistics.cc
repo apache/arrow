@@ -21,7 +21,6 @@
 #include "parquet/encoding-internal.h"
 #include "parquet/exception.h"
 #include "parquet/statistics.h"
-#include "parquet/util/comparison.h"
 #include "parquet/util/memory.h"
 
 using arrow::default_memory_pool;
@@ -86,6 +85,12 @@ bool TypedRowGroupStatistics<DType>::HasMinMax() const {
 }
 
 template <typename DType>
+void TypedRowGroupStatistics<DType>::SetComparator() {
+  comparator_ =
+      std::static_pointer_cast<CompareDefault<DType> >(Comparator::Make(descr_));
+}
+
+template <typename DType>
 void TypedRowGroupStatistics<DType>::Reset() {
   ResetCounts();
   has_min_max_ = false;
@@ -102,15 +107,17 @@ void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_nul
   // TODO: support distinct count?
   if (num_not_null == 0) return;
 
-  Compare<T> compare(descr_);
-  auto batch_minmax = std::minmax_element(values, values + num_not_null, compare);
+  auto batch_minmax =
+      std::minmax_element(values, values + num_not_null, std::ref(*(this->comparator_)));
   if (!has_min_max_) {
     has_min_max_ = true;
     Copy(*batch_minmax.first, &min_, min_buffer_.get());
     Copy(*batch_minmax.second, &max_, max_buffer_.get());
   } else {
-    Copy(std::min(min_, *batch_minmax.first, compare), &min_, min_buffer_.get());
-    Copy(std::max(max_, *batch_minmax.second, compare), &max_, max_buffer_.get());
+    Copy(std::min(min_, *batch_minmax.first, std::ref(*(this->comparator_))), &min_,
+         min_buffer_.get());
+    Copy(std::max(max_, *batch_minmax.second, std::ref(*(this->comparator_))), &max_,
+         max_buffer_.get());
   }
 }
 
@@ -128,7 +135,6 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   // TODO: support distinct count?
   if (num_not_null == 0) return;
 
-  Compare<T> compare(descr_);
   INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
   // Find first valid entry and use that for min/max
   // As (num_not_null != 0) there must be one
@@ -144,9 +150,9 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   T max = values[i];
   for (; i < length; i++) {
     if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
-      if (compare(values[i], min)) {
+      if ((std::ref(*(this->comparator_)))(values[i], min)) {
         min = values[i];
-      } else if (compare(max, values[i])) {
+      } else if ((std::ref(*(this->comparator_)))(max, values[i])) {
         max = values[i];
       }
     }
@@ -157,8 +163,8 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
   } else {
-    Copy(std::min(min_, min, compare), &min_, min_buffer_.get());
-    Copy(std::max(max_, max, compare), &max_, max_buffer_.get());
+    Copy(std::min(min_, min, std::ref(*(this->comparator_))), &min_, min_buffer_.get());
+    Copy(std::max(max_, max, std::ref(*(this->comparator_))), &max_, max_buffer_.get());
   }
 }
 
@@ -185,9 +191,10 @@ void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>&
     return;
   }
 
-  Compare<T> compare(descr_);
-  Copy(std::min(this->min_, other.min_, compare), &this->min_, min_buffer_.get());
-  Copy(std::max(this->max_, other.max_, compare), &this->max_, max_buffer_.get());
+  Copy(std::min(this->min_, other.min_, std::ref(*(this->comparator_))), &this->min_,
+       min_buffer_.get());
+  Copy(std::max(this->max_, other.max_, std::ref(*(this->comparator_))), &this->max_,
+       max_buffer_.get());
 }
 
 template <typename DType>

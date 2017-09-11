@@ -35,22 +35,12 @@ namespace parquet {
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
-// Reference:
-// parquet-mr/parquet-hadoop/src/main/java/org/apache/parquet/
-//                            format/converter/ParquetMetadataConverter.java
-// Sort order for page and column statistics. Types are associated with sort
-// orders (e.g., UTF8 columns should use UNSIGNED) and column stats are
-// aggregated using a sort order. As of parquet-format version 2.3.1, the
-// order used to aggregate stats is always SIGNED and is not stored in the
-// Parquet file. These stats are discarded for types that need unsigned.
-// See PARQUET-686.
-enum SortOrder { SIGNED, UNSIGNED, UNKNOWN };
-
 class ApplicationVersion {
  public:
   // Known Versions with Issues
   static const ApplicationVersion PARQUET_251_FIXED_VERSION;
   static const ApplicationVersion PARQUET_816_FIXED_VERSION;
+  static const ApplicationVersion PARQUET_CPP_FIXED_STATS_VERSION;
   // Regular expression for the version format
   // major . minor . patch unknown - prerelease.x + build info
   // Eg: 1.5.0ab-cdh5.5.0+cd
@@ -92,7 +82,8 @@ class ApplicationVersion {
   bool VersionEq(const ApplicationVersion& other_version) const;
 
   // Checks if the Version has the correct statistics for a given column
-  bool HasCorrectStatistics(Type::type primitive) const;
+  bool HasCorrectStatistics(Type::type primitive,
+                            SortOrder::type sort_order = SortOrder::SIGNED) const;
 };
 
 class PARQUET_EXPORT ColumnChunkMetaData {
@@ -209,7 +200,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
   // column metadata
-  void SetStatistics(const EncodedStatistics& stats);
+  void SetStatistics(bool is_signed, const EncodedStatistics& stats);
   // get the column descriptor
   const ColumnDescriptor* descr() const;
   // commit the metadata

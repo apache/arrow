@@ -221,4 +221,56 @@ int GetTypeByteSize(Type::type parquet_type) {
   return 0;
 }
 
+// Return the Sort Order of the Parquet Physical Types
+SortOrder::type DefaultSortOrder(Type::type primitive) {
+  switch (primitive) {
+    case Type::BOOLEAN:
+    case Type::INT32:
+    case Type::INT64:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return SortOrder::SIGNED;
+    case Type::BYTE_ARRAY:
+    case Type::FIXED_LEN_BYTE_ARRAY:
+    case Type::INT96:  // only used for timestamp, which uses unsigned values
+      return SortOrder::UNSIGNED;
+  }
+  return SortOrder::UNKNOWN;
+}
+
+// Return the SortOrder of the Parquet Types using Logical or Physical Types
+SortOrder::type GetSortOrder(LogicalType::type converted, Type::type primitive) {
+  if (converted == LogicalType::NONE) return DefaultSortOrder(primitive);
+  switch (converted) {
+    case LogicalType::INT_8:
+    case LogicalType::INT_16:
+    case LogicalType::INT_32:
+    case LogicalType::INT_64:
+    case LogicalType::DATE:
+    case LogicalType::TIME_MICROS:
+    case LogicalType::TIME_MILLIS:
+    case LogicalType::TIMESTAMP_MICROS:
+    case LogicalType::TIMESTAMP_MILLIS:
+      return SortOrder::SIGNED;
+    case LogicalType::UINT_8:
+    case LogicalType::UINT_16:
+    case LogicalType::UINT_32:
+    case LogicalType::UINT_64:
+    case LogicalType::ENUM:
+    case LogicalType::UTF8:
+    case LogicalType::BSON:
+    case LogicalType::JSON:
+      return SortOrder::UNSIGNED;
+    case LogicalType::DECIMAL:
+    case LogicalType::LIST:
+    case LogicalType::MAP:
+    case LogicalType::MAP_KEY_VALUE:
+    case LogicalType::INTERVAL:
+    case LogicalType::NONE:  // required instead of default
+    case LogicalType::NA:    // required instead of default
+      return SortOrder::UNKNOWN;
+  }
+  return SortOrder::UNKNOWN;
+}
+
 }  // namespace parquet

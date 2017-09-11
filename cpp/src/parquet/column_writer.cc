@@ -267,7 +267,10 @@ int64_t ColumnWriter::Close() {
     FlushBufferedDataPages();
 
     EncodedStatistics chunk_statistics = GetChunkStatistics();
-    if (chunk_statistics.is_set()) metadata_->SetStatistics(chunk_statistics);
+    if (chunk_statistics.is_set()) {
+      metadata_->SetStatistics(SortOrder::SIGNED == descr_->sort_order(),
+                               chunk_statistics);
+    }
     pager_->Close(has_dictionary_, fallback_);
   }
 
@@ -317,7 +320,8 @@ TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       ParquetException::NYI("Selected encoding is not supported");
   }
 
-  if (properties->statistics_enabled(descr_->path())) {
+  if (properties->statistics_enabled(descr_->path()) &&
+      (SortOrder::UNKNOWN != descr_->sort_order())) {
     page_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
     chunk_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
   }

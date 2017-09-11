@@ -332,6 +332,10 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   LogicalType::type logical_type() const { return primitive_node_->logical_type(); }
 
+  SortOrder::type sort_order() const {
+    return GetSortOrder(logical_type(), physical_type());
+  }
+
   const std::string& name() const { return primitive_node_->name(); }
 
   const std::shared_ptr<schema::ColumnPath> path() const;

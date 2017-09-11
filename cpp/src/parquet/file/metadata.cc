@@ -35,62 +35,20 @@ const ApplicationVersion ApplicationVersion::PARQUET_251_FIXED_VERSION =
     ApplicationVersion("parquet-mr version 1.8.0");
 const ApplicationVersion ApplicationVersion::PARQUET_816_FIXED_VERSION =
     ApplicationVersion("parquet-mr version 1.2.9");
-
-// Return the Sort Order of the Parquet Physical Types
-SortOrder default_sort_order(Type::type primitive) {
-  switch (primitive) {
-    case Type::BOOLEAN:
-    case Type::INT32:
-    case Type::INT64:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return SortOrder::SIGNED;
-    case Type::BYTE_ARRAY:
-    case Type::FIXED_LEN_BYTE_ARRAY:
-    case Type::INT96:  // only used for timestamp, which uses unsigned values
-      return SortOrder::UNSIGNED;
-  }
-  return SortOrder::UNKNOWN;
-}
-
-// Return the SortOrder of the Parquet Types using Logical or Physical Types
-SortOrder get_sort_order(LogicalType::type converted, Type::type primitive) {
-  if (converted == LogicalType::NONE) return default_sort_order(primitive);
-  switch (converted) {
-    case LogicalType::INT_8:
-    case LogicalType::INT_16:
-    case LogicalType::INT_32:
-    case LogicalType::INT_64:
-    case LogicalType::DATE:
-    case LogicalType::TIME_MICROS:
-    case LogicalType::TIME_MILLIS:
-    case LogicalType::TIMESTAMP_MICROS:
-    case LogicalType::TIMESTAMP_MILLIS:
-      return SortOrder::SIGNED;
-    case LogicalType::UINT_8:
-    case LogicalType::UINT_16:
-    case LogicalType::UINT_32:
-    case LogicalType::UINT_64:
-    case LogicalType::ENUM:
-    case LogicalType::UTF8:
-    case LogicalType::BSON:
-    case LogicalType::JSON:
-      return SortOrder::UNSIGNED;
-    case LogicalType::NA:
-    case LogicalType::DECIMAL:
-    case LogicalType::LIST:
-    case LogicalType::MAP:
-    case LogicalType::MAP_KEY_VALUE:
-    case LogicalType::INTERVAL:
-    case LogicalType::NONE:  // required instead of default
-      return SortOrder::UNKNOWN;
-  }
-  return SortOrder::UNKNOWN;
-}
+const ApplicationVersion ApplicationVersion::PARQUET_CPP_FIXED_STATS_VERSION =
+    ApplicationVersion("parquet-cpp version 1.3.0");
 
 template <typename DType>
 static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  // If new fields max_value/min_value are set, then return them.
+  if (metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value) {
+    return std::make_shared<TypedRowGroupStatistics<DType>>(
+        descr, metadata.statistics.min_value, metadata.statistics.max_value,
+        metadata.num_values - metadata.statistics.null_count,
+        metadata.statistics.null_count, metadata.statistics.distinct_count, true);
+  }
+  // Default behavior
   return std::make_shared<TypedRowGroupStatistics<DType>>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
@@ -159,9 +117,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
     return column_->meta_data.__isset.statistics &&
-           writer_version_->HasCorrectStatistics(type()) &&
-           SortOrder::SIGNED ==
-               get_sort_order(descr_->logical_type(), descr_->physical_type());
+           writer_version_->HasCorrectStatistics(type(), descr_->sort_order());
   }
 
   inline std::shared_ptr<RowGroupStatistics> statistics() const {
@@ -534,15 +490,21 @@ bool ApplicationVersion::VersionEq(const ApplicationVersion& other_version) cons
 // Reference:
 // parquet-mr/parquet-column/src/main/java/org/apache/parquet/CorruptStatistics.java
 // PARQUET-686 has more disussion on statistics
-bool ApplicationVersion::HasCorrectStatistics(Type::type col_type) const {
-  // None of the current tools write INT96 Statistics correctly
-  if (col_type == Type::INT96) return false;
+bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
+                                              SortOrder::type sort_order) const {
+  // Parquet cpp version 1.3.0 onwards stats are computed correctly for all types
+  if ((application_ != "parquet-cpp") || (VersionLt(PARQUET_CPP_FIXED_STATS_VERSION))) {
+    // Only SIGNED are valid
+    if (SortOrder::SIGNED != sort_order) return false;
 
-  // Statistics of other types are OK
-  if (col_type != Type::FIXED_LEN_BYTE_ARRAY && col_type != Type::BYTE_ARRAY) {
-    return true;
+    // None of the current tools write INT96 Statistics correctly
+    if (col_type == Type::INT96) return false;
+
+    // Statistics of other types are OK
+    if (col_type != Type::FIXED_LEN_BYTE_ARRAY && col_type != Type::BYTE_ARRAY) {
+      return true;
+    }
   }
-
   // created_by is not populated, which could have been caused by
   // parquet-mr during the same time as PARQUET-251, see PARQUET-297
   if (application_ == "unknown") {
@@ -577,16 +539,24 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
 
   // column metadata
-  void SetStatistics(const EncodedStatistics& val) {
+  void SetStatistics(bool is_signed, const EncodedStatistics& val) {
     format::Statistics stats;
     stats.null_count = val.null_count;
     stats.distinct_count = val.distinct_count;
-    stats.max = val.max();
-    stats.min = val.min();
-    stats.__isset.min = val.has_min;
-    stats.__isset.max = val.has_max;
+    stats.max_value = val.max();
+    stats.min_value = val.min();
+    stats.__isset.min_value = val.has_min;
+    stats.__isset.max_value = val.has_max;
     stats.__isset.null_count = val.has_null_count;
     stats.__isset.distinct_count = val.has_distinct_count;
+    // If the order is SIGNED, then the old min/max values must be set too.
+    // This for backward compatibility
+    if (is_signed) {
+      stats.max = val.max();
+      stats.min = val.min();
+      stats.__isset.min = val.has_min;
+      stats.__isset.max = val.has_max;
+    }
 
     column_chunk_->meta_data.__set_statistics(stats);
   }
@@ -674,8 +644,9 @@ const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
 }
 
-void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {
-  impl_->SetStatistics(result);
+void ColumnChunkMetaDataBuilder::SetStatistics(bool is_signed,
+                                               const EncodedStatistics& result) {
+  impl_->SetStatistics(is_signed, result);
 }
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {

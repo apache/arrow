@@ -42,48 +42,178 @@ static FLBA FLBAFromString(const std::string& s) {
   return FLBA(ptr);
 }
 
-TEST(Comparison, ByteArray) {
-  NodePtr node = PrimitiveNode::Make("bytearray", Repetition::REQUIRED, Type::BYTE_ARRAY);
-  ColumnDescriptor descr(node, 0, 0);
-  Compare<parquet::ByteArray> less(&descr);
-
-  std::string a = "arrange";
-  std::string b = "arrangement";
-  auto arr1 = ByteArrayFromString(a);
-  auto arr2 = ByteArrayFromString(b);
-  ASSERT_TRUE(less(arr1, arr2));
-
-  a = u8"braten";
-  b = u8"bügeln";
-  auto arr3 = ByteArrayFromString(a);
-  auto arr4 = ByteArrayFromString(b);
-  // see PARQUET-686 discussion about binary comparison
-  ASSERT_TRUE(!less(arr3, arr4));
-}
-
-TEST(Comparison, FLBA) {
-  std::string a = "Antidisestablishmentarianism";
-  std::string b = "Bundesgesundheitsministerium";
-  auto arr1 = FLBAFromString(a);
-  auto arr2 = FLBAFromString(b);
-
+TEST(Comparison, signedByteArray) {
   NodePtr node =
-      PrimitiveNode::Make("FLBA", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::NONE, static_cast<int>(a.size()));
+      PrimitiveNode::Make("SignedByteArray", Repetition::REQUIRED, Type::BYTE_ARRAY);
   ColumnDescriptor descr(node, 0, 0);
-  Compare<parquet::FixedLenByteArray> less(&descr);
-  ASSERT_TRUE(less(arr1, arr2));
+
+  CompareDefaultByteArray less;
+
+  std::string s1 = "12345";
+  std::string s2 = "12345678";
+  ByteArray s1ba = ByteArrayFromString(s1);
+  ByteArray s2ba = ByteArrayFromString(s2);
+  ASSERT_TRUE(less(s1ba, s2ba));
+
+  // This is case where signed comparision UTF-8 (PARQUET-686) is incorrect
+  // This example is to only check signed comparison and not UTF-8.
+  s1 = u8"bügeln";
+  s2 = u8"braten";
+  s1ba = ByteArrayFromString(s1);
+  s2ba = ByteArrayFromString(s2);
+  ASSERT_TRUE(less(s1ba, s2ba));
 }
 
-TEST(Comparison, Int96) {
-  parquet::Int96 a{{1, 41, 14}}, b{{1, 41, 42}};
-
-  NodePtr node = PrimitiveNode::Make("int96", Repetition::REQUIRED, Type::INT96);
+TEST(Comparison, UnsignedByteArray) {
+  NodePtr node = PrimitiveNode::Make("UnsignedByteArray", Repetition::REQUIRED,
+                                     Type::BYTE_ARRAY, LogicalType::UTF8);
   ColumnDescriptor descr(node, 0, 0);
-  Compare<parquet::Int96> less(&descr);
+
+  // Check if UTF-8 is compared using unsigned correctly
+  CompareUnsignedByteArray uless;
+
+  std::string s1 = "arrange";
+  std::string s2 = "arrangement";
+  ByteArray s1ba = ByteArrayFromString(s1);
+  ByteArray s2ba = ByteArrayFromString(s2);
+  ASSERT_TRUE(uless(s1ba, s2ba));
+
+  // Multi-byte UTF-8 characters
+  s1 = u8"braten";
+  s2 = u8"bügeln";
+  s1ba = ByteArrayFromString(s1);
+  s2ba = ByteArrayFromString(s2);
+  ASSERT_TRUE(uless(s1ba, s2ba));
+
+  s1 = u8"ünk123456";  // ü = 252
+  s2 = u8"ănk123456";  // ă = 259
+  s1ba = ByteArrayFromString(s1);
+  s2ba = ByteArrayFromString(s2);
+  ASSERT_TRUE(uless(s1ba, s2ba));
+}
+
+TEST(Comparison, SignedFLBA) {
+  int size = 10;
+  NodePtr node = PrimitiveNode::Make("SignedFLBA", Repetition::REQUIRED,
+                                     Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, size);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareDefaultFLBA less(descr.type_length());
+
+  std::string s1 = "Anti123456";
+  std::string s2 = "Bunkd123456";
+  FLBA s1flba = FLBAFromString(s1);
+  FLBA s2flba = FLBAFromString(s2);
+  ASSERT_TRUE(less(s1flba, s2flba));
+
+  s1 = "Bünk123456";
+  s2 = "Bunk123456";
+  s1flba = FLBAFromString(s1);
+  s2flba = FLBAFromString(s2);
+  ASSERT_TRUE(less(s1flba, s2flba));
+}
+
+TEST(Comparison, UnsignedFLBA) {
+  int size = 10;
+  NodePtr node = PrimitiveNode::Make("UnsignedFLBA", Repetition::REQUIRED,
+                                     Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, size);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareUnsignedFLBA uless(descr.type_length());
+
+  std::string s1 = "Anti123456";
+  std::string s2 = "Bunkd123456";
+  FLBA s1flba = FLBAFromString(s1);
+  FLBA s2flba = FLBAFromString(s2);
+  ASSERT_TRUE(uless(s1flba, s2flba));
+
+  s1 = "Bunk123456";
+  s2 = "Bünk123456";
+  s1flba = FLBAFromString(s1);
+  s2flba = FLBAFromString(s2);
+  ASSERT_TRUE(uless(s1flba, s2flba));
+}
+
+TEST(Comparison, SignedInt96) {
+  parquet::Int96 a{{1, 41, 14}}, b{{1, 41, 42}};
+  parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, 14}};
+  parquet::Int96 aaa{{static_cast<uint32_t>(-1), 41, 14}}, bbb{{1, 41, 42}};
+
+  NodePtr node = PrimitiveNode::Make("SignedInt96", Repetition::REQUIRED, Type::INT96);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareDefaultInt96 less;
+
   ASSERT_TRUE(less(a, b));
-  b.value[2] = 14;
-  ASSERT_TRUE(!less(a, b) && !less(b, a));
+  ASSERT_TRUE(!less(aa, bb) && !less(bb, aa));
+  ASSERT_TRUE(less(aaa, bbb));
+}
+
+TEST(Comparison, UnsignedInt96) {
+  parquet::Int96 a{{1, 41, 14}}, b{{1, static_cast<uint32_t>(-41), 42}};
+  parquet::Int96 aa{{1, 41, 14}}, bb{{static_cast<uint32_t>(-1), 41, 14}};
+
+  NodePtr node = PrimitiveNode::Make("UnsignedInt96", Repetition::REQUIRED, Type::INT96);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareUnsignedInt96 uless;
+
+  ASSERT_TRUE(uless(a, b));
+  ASSERT_TRUE(uless(aa, bb));
+}
+
+TEST(Comparison, SignedInt64) {
+  int64_t a = 1, b = 4;
+  int64_t aa = 1, bb = 1;
+  int64_t aaa = -1, bbb = 1;
+
+  NodePtr node = PrimitiveNode::Make("SignedInt64", Repetition::REQUIRED, Type::INT64);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareDefaultInt64 less;
+
+  ASSERT_TRUE(less(a, b));
+  ASSERT_TRUE(!less(aa, bb) && !less(bb, aa));
+  ASSERT_TRUE(less(aaa, bbb));
+}
+
+TEST(Comparison, UnsignedInt64) {
+  uint64_t a = 1, b = 4;
+  uint64_t aa = 1, bb = 1;
+  uint64_t aaa = 1, bbb = -1;
+
+  NodePtr node = PrimitiveNode::Make("UnsignedInt64", Repetition::REQUIRED, Type::INT64);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareUnsignedInt64 less;
+
+  ASSERT_TRUE(less(a, b));
+  ASSERT_TRUE(!less(aa, bb) && !less(bb, aa));
+  ASSERT_TRUE(less(aaa, bbb));
+}
+
+TEST(Comparison, UnsignedInt32) {
+  uint32_t a = 1, b = 4;
+  uint32_t aa = 1, bb = 1;
+  uint32_t aaa = 1, bbb = -1;
+
+  NodePtr node = PrimitiveNode::Make("UnsignedInt32", Repetition::REQUIRED, Type::INT32);
+  ColumnDescriptor descr(node, 0, 0);
+
+  CompareUnsignedInt32 less;
+
+  ASSERT_TRUE(less(a, b));
+  ASSERT_TRUE(!less(aa, bb) && !less(bb, aa));
+  ASSERT_TRUE(less(aaa, bbb));
+}
+
+TEST(Comparison, UnknownSortOrder) {
+  NodePtr node =
+      PrimitiveNode::Make("Unknown", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          LogicalType::INTERVAL, 12);
+  ColumnDescriptor descr(node, 0, 0);
+
+  ASSERT_THROW(Comparator::Make(&descr), ParquetException);
 }
 
 }  // namespace test
