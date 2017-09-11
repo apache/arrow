@@ -144,6 +144,10 @@ struct ARROW_EXPORT ArrayData {
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
 
+/// \brief Create a strongly-typed Array instance from generic ArrayData
+/// \param[in] data the array contents
+/// \param[out] out the resulting Array instance
+/// \return Status
 ARROW_EXPORT
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
 
