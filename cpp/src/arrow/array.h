@@ -151,16 +151,6 @@ struct ARROW_EXPORT ArrayData {
 ARROW_EXPORT
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
 
-namespace internal {
-
-#ifndef ARROW_NO_DEPRECATED_API
-// \deprecated since 0.7.0
-using ArrayData = ::arrow::ArrayData;
-using MakeArray = ::arrow::MakeArray;
-#endif
-
-}  // namespace internal
-
 // ----------------------------------------------------------------------
 // User array accessor types
 

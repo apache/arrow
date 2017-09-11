@@ -598,6 +598,7 @@ class ArrayDataWrapper {
 
 }  // namespace internal
 
+// Remove enclosing namespace after 0.7.0
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
   internal::ArrayDataWrapper wrapper_visitor(data, out);
   return VisitTypeInline(*data->type, &wrapper_visitor);
