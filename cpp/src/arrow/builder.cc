@@ -827,8 +827,8 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
 }
 
 template <>
-DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                                        MemoryPool* pool)
+DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : ArrayBuilder(type, pool),
       hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
@@ -936,7 +936,6 @@ Status DictionaryBuilder<T>::AppendArray(const Array& array) {
 
 template <>
 Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
-  bool types_equal;
   if (!type_->Equals(*array.type())) {
     return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
   }
