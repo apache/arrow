@@ -931,6 +931,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
   typename TypeTraits<T>::BuilderType dict_builder_;
   AdaptiveIntBuilder values_builder_;
+  int32_t byte_width_;
 };
 
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {

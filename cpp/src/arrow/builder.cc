@@ -819,10 +819,25 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
       hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(type, pool),
+      values_builder_(pool),
+      byte_width_(-1) {
+  if (!::arrow::CpuInfo::initialized()) {
+    ::arrow::CpuInfo::Init();
+  }
+}
+
+template <>
+DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
+                                        MemoryPool* pool)
+    : ArrayBuilder(type, pool),
+      hash_table_(new PoolBuffer(pool)),
+      hash_slots_(nullptr),
+      dict_builder_(type, pool),
       values_builder_(pool) {
   if (!::arrow::CpuInfo::initialized()) {
     ::arrow::CpuInfo::Init();
   }
+  byte_width_ = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 }
 
 #ifndef ARROW_NO_DEPRECATED_API
@@ -922,8 +937,7 @@ Status DictionaryBuilder<T>::AppendArray(const Array& array) {
 template <>
 Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
   bool types_equal;
-  RETURN_NOT_OK(TypeEquals(*type_, *array.type(), &types_equal));
-  if (!types_equal) {
+  if (!type_->Equals(*array.type())) {
     return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
   }
 
@@ -1008,8 +1022,7 @@ int DictionaryBuilder<T>::HashValue(const Scalar& value) {
 
 template <>
 int DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
-  int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
-  return HashUtil::Hash(value, width, 0);
+  return HashUtil::Hash(value, byte_width_, 0);
 }
 
 template <typename T>
