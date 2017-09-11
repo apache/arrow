@@ -368,7 +368,10 @@ class TableReader::TableReaderImpl {
     }
 
     buffers.push_back(SliceBuffer(buffer, offset, buffer->size() - offset));
-    return MakePrimitiveArray(type, buffers, meta->length(), meta->null_count(), 0, out);
+
+    auto arr_data =
+        std::make_shared<ArrayData>(type, meta->length(), buffers, meta->null_count());
+    return MakeArray(arr_data, out);
   }
 
   bool HasDescription() const { return metadata_->HasDescription(); }
