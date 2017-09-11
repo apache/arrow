@@ -66,10 +66,9 @@ void AssertArraysEqual(const Array& left, const Array& right) {
 
 class ComputeFixture {
  public:
-  ComputeFixture() : pool_(default_memory_pool()), ctx_(pool_) {}
+  ComputeFixture() : ctx_(default_memory_pool()) {}
 
  protected:
-  MemoryPool* pool_;
   FunctionContext ctx_;
 };
 
@@ -81,7 +80,7 @@ static void AssertBufferSame(const Array& left, const Array& right, int buffer_i
             right.data()->buffers[buffer_index].get());
 }
 
-class TestCast : public ComputeFixture, public ::testing::Test {
+class TestCast : public ComputeFixture, public TestBase {
  public:
   void CheckPass(const Array& input, const Array& expected,
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
@@ -393,6 +392,27 @@ TEST_F(TestCast, PreallocatedMemory) {
   ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
 
   AssertArraysEqual(*expected, *result);
+}
+
+template <typename TestType>
+class TestDictionaryCast : public TestCast {};
+
+typedef ::testing::Types<UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
+                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
+    TestTypes;
+
+TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
+
+TYPED_TEST(TestDictionaryCast, Basic) {
+  CastOptions options;
+  std::shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+
+  std::shared_ptr<Array> dict_array;
+  ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));
+
+  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
 }
 
 }  // namespace compute

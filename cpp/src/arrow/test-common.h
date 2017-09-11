@@ -42,15 +42,7 @@ class TestBase : public ::testing::Test {
     random_seed_ = 0;
   }
 
-  template <typename ArrayType>
-  std::shared_ptr<Array> MakePrimitive(int64_t length, int64_t null_count = 0) {
-    auto data = std::make_shared<PoolBuffer>(pool_);
-    const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
-    EXPECT_OK(data->Resize(data_nbytes));
-
-    // Fill with random data
-    test::random_bytes(data_nbytes, random_seed_++, data->mutable_data());
-
+  std::shared_ptr<Buffer> MakeRandomNullBitmap(int64_t length, int64_t null_count) {
     auto null_bitmap = std::make_shared<PoolBuffer>(pool_);
     const int64_t null_nbytes = BitUtil::BytesForBits(length);
     EXPECT_OK(null_bitmap->Resize(null_nbytes));
@@ -58,13 +50,67 @@ class TestBase : public ::testing::Test {
     for (int64_t i = 0; i < null_count; i++) {
       BitUtil::ClearBit(null_bitmap->mutable_data(), i * (length / null_count));
     }
-    return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
+    return null_bitmap;
   }
+
+  template <typename ArrayType>
+  std::shared_ptr<Array> MakeRandomArray(int64_t length, int64_t null_count = 0);
 
  protected:
   uint32_t random_seed_;
   MemoryPool* pool_;
 };
+
+template <typename ArrayType>
+std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_count) {
+  auto data = std::make_shared<PoolBuffer>(pool_);
+  const int64_t data_nbytes = length * sizeof(typename ArrayType::value_type);
+  EXPECT_OK(data->Resize(data_nbytes));
+
+  // Fill with random data
+  test::random_bytes(data_nbytes, random_seed_++, data->mutable_data());
+  std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
+
+  return std::make_shared<ArrayType>(length, data, null_bitmap, null_count);
+}
+
+template <>
+std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
+    int64_t length, int64_t null_count) {
+  const int byte_width = 10;
+  std::shared_ptr<Buffer> null_bitmap = MakeRandomNullBitmap(length, null_count);
+  std::shared_ptr<PoolBuffer> data = std::make_shared<PoolBuffer>(pool_);
+
+  EXPECT_OK(data->Resize(byte_width * length));
+  ::arrow::test::random_bytes(data->size(), 0, data->mutable_data());
+  return std::make_shared<FixedSizeBinaryArray>(fixed_size_binary(byte_width), length,
+                                                data, null_bitmap, null_count);
+}
+
+template <>
+std::shared_ptr<Array> TestBase::MakeRandomArray<BinaryArray>(int64_t length,
+                                                              int64_t null_count) {
+  std::vector<uint8_t> valid_bytes(length, 1);
+  for (int64_t i = 0; i < null_count; i++) {
+    valid_bytes[i * 2] = 0;
+  }
+  BinaryBuilder builder(pool_);
+
+  const int kBufferSize = 10;
+  uint8_t buffer[kBufferSize];
+  for (int64_t i = 0; i < length; i++) {
+    if (!valid_bytes[i]) {
+      EXPECT_OK(builder.AppendNull());
+    } else {
+      ::arrow::test::random_bytes(kBufferSize, static_cast<uint32_t>(i), buffer);
+      EXPECT_OK(builder.Append(buffer, kBufferSize));
+    }
+  }
+
+  std::shared_ptr<Array> out;
+  EXPECT_OK(builder.Finish(&out));
+  return out;
+}
 
 class TestBuilder : public ::testing::Test {
  public:
