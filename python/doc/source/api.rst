@@ -167,7 +167,6 @@ Input / Output and Shared Memory
    memory_map
    create_memory_map
    PythonFile
-   feather
 
 File Systems
 ------------
@@ -271,3 +270,18 @@ Apache Parquet
    read_schema
    write_metadata
    write_table
+
+.. currentmodule:: pyarrow.feather
+
+.. _api.feather:
+
+Apache Feather
+--------------
+
+.. autosummary::
+   :toctree: generated/
+
+   FeatherReader
+   FeatherWriter
+   read_feather
+   write_feather
