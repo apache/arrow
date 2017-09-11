@@ -18,6 +18,7 @@
 # Headers: util
 install(FILES
   buffer-builder.h
+  comparison.h
   logging.h
   macros.h
   memory.h
