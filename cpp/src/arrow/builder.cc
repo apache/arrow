@@ -33,8 +33,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/cpu-info.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/hash-util.h"
-#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -1118,7 +1118,7 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
     : DecimalBuilder(type, pool) {}
 #endif
 
-Status DecimalBuilder::Append(const Int128& value) {
+Status DecimalBuilder::Append(const Decimal128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   std::array<uint8_t, 16> bytes;
   RETURN_NOT_OK(value.ToBytes(&bytes));

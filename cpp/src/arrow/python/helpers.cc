@@ -17,7 +17,7 @@
 
 #include "arrow/python/helpers.h"
 #include "arrow/python/common.h"
-#include "arrow/util/int128.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 #include <arrow/api.h>
@@ -103,7 +103,7 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision,
   auto size = str.size;
 
   std::string c_string(bytes, size);
-  return Int128::FromString(c_string, nullptr, precision, scale);
+  return Decimal128::FromString(c_string, nullptr, precision, scale);
 }
 
 Status DecimalFromString(PyObject* decimal_constructor, const std::string& decimal_string,

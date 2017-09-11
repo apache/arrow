@@ -27,7 +27,7 @@
 #pragma intrinsic(_BitScanReverse)
 #endif
 
-#include "arrow/util/int128.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -35,18 +35,18 @@ namespace arrow {
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
-Int128::Int128(const std::string& str) : Int128() {
-  Status status(Int128::FromString(str, this));
+Decimal128::Decimal128(const std::string& str) : Decimal128() {
+  Status status(Decimal128::FromString(str, this));
   DCHECK(status.ok()) << status.message();
 }
 
-Int128::Int128(const uint8_t* bytes)
-    : Int128(reinterpret_cast<const int64_t*>(bytes)[0],
-             reinterpret_cast<const uint64_t*>(bytes)[1]) {}
+Decimal128::Decimal128(const uint8_t* bytes)
+    : Decimal128(reinterpret_cast<const int64_t*>(bytes)[0],
+                 reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 
-Status Int128::ToBytes(std::array<uint8_t, 16>* out) const {
+Status Decimal128::ToBytes(std::array<uint8_t, 16>* out) const {
   if (out == nullptr) {
-    return Status::Invalid("Cannot fill nullptr of bytes from Int128");
+    return Status::Invalid("Cannot fill nullptr of bytes from Decimal128");
   }
 
   const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
@@ -55,7 +55,7 @@ Status Int128::ToBytes(std::array<uint8_t, 16>* out) const {
   return Status::OK();
 }
 
-std::string Int128::ToString(int precision, int scale) const {
+std::string Decimal128::ToString(int precision, int scale) const {
   using std::size_t;
 
   const bool is_negative = *this < 0;
@@ -72,7 +72,7 @@ std::string Int128::ToString(int precision, int scale) const {
   // Start filling in the values in reverse order by taking the last digit
   // of the value. Use a positive value and worry about the sign later. At this
   // point the last_char_idx points to the string terminator.
-  Int128 remaining_value(*this);
+  Decimal128 remaining_value(*this);
 
   const auto first_digit_idx = static_cast<size_t>(is_negative);
   if (is_negative) {
@@ -111,11 +111,12 @@ std::string Int128::ToString(int precision, int scale) const {
   return str;
 }
 
-static void StringToInteger(const std::string& str, Int128* out) {
+static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
 
-  DCHECK_NE(out, nullptr) << "Int128 output variable cannot be nullptr";
-  DCHECK_EQ(*out, 0) << "When converting a string to Int128 the initial output must be 0";
+  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
+  DCHECK_EQ(*out, 0)
+      << "When converting a string to Decimal128 the initial output must be 0";
 
   const size_t length = str.length();
 
@@ -136,7 +137,8 @@ static void StringToInteger(const std::string& str, Int128* out) {
   }
 }
 
-Status Int128::FromString(const std::string& s, Int128* out, int* precision, int* scale) {
+Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precision,
+                              int* scale) {
   // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?";
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
@@ -255,7 +257,7 @@ Status Int128::FromString(const std::string& s, Int128* out, int* precision, int
   return Status::OK();
 }
 
-Int128& Int128::Negate() {
+Decimal128& Decimal128::Negate() {
   low_bits_ = ~low_bits_ + 1;
   high_bits_ = ~high_bits_;
   if (low_bits_ == 0) {
@@ -264,7 +266,7 @@ Int128& Int128::Negate() {
   return *this;
 }
 
-Int128& Int128::operator+=(const Int128& right) {
+Decimal128& Decimal128::operator+=(const Decimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
   high_bits_ += right.high_bits_;
   if (sum < low_bits_) {
@@ -274,7 +276,7 @@ Int128& Int128::operator+=(const Int128& right) {
   return *this;
 }
 
-Int128& Int128::operator-=(const Int128& right) {
+Decimal128& Decimal128::operator-=(const Decimal128& right) {
   const uint64_t diff = low_bits_ - right.low_bits_;
   high_bits_ -= right.high_bits_;
   if (diff > low_bits_) {
@@ -284,15 +286,15 @@ Int128& Int128::operator-=(const Int128& right) {
   return *this;
 }
 
-Int128& Int128::operator/=(const Int128& right) {
-  Int128 remainder;
+Decimal128& Decimal128::operator/=(const Decimal128& right) {
+  Decimal128 remainder;
   DCHECK(Divide(right, this, &remainder).ok());
   return *this;
 }
 
-Int128::operator char() const {
+Decimal128::operator char() const {
   DCHECK(high_bits_ == 0 || high_bits_ == -1)
-      << "Trying to cast an Int128 greater than the value range of a "
+      << "Trying to cast an Decimal128 greater than the value range of a "
          "char. high_bits_ must be equal to 0 or -1, got: "
       << high_bits_;
   DCHECK_LE(low_bits_, std::numeric_limits<char>::max())
@@ -300,19 +302,19 @@ Int128::operator char() const {
   return static_cast<char>(low_bits_);
 }
 
-Int128& Int128::operator|=(const Int128& right) {
+Decimal128& Decimal128::operator|=(const Decimal128& right) {
   low_bits_ |= right.low_bits_;
   high_bits_ |= right.high_bits_;
   return *this;
 }
 
-Int128& Int128::operator&=(const Int128& right) {
+Decimal128& Decimal128::operator&=(const Decimal128& right) {
   low_bits_ &= right.low_bits_;
   high_bits_ &= right.high_bits_;
   return *this;
 }
 
-Int128& Int128::operator<<=(uint32_t bits) {
+Decimal128& Decimal128::operator<<=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
       high_bits_ <<= bits;
@@ -329,7 +331,7 @@ Int128& Int128::operator<<=(uint32_t bits) {
   return *this;
 }
 
-Int128& Int128::operator>>=(uint32_t bits) {
+Decimal128& Decimal128::operator>>=(uint32_t bits) {
   if (bits != 0) {
     if (bits < 64) {
       low_bits_ >>= bits;
@@ -346,7 +348,7 @@ Int128& Int128::operator>>=(uint32_t bits) {
   return *this;
 }
 
-Int128& Int128::operator*=(const Int128& right) {
+Decimal128& Decimal128::operator*=(const Decimal128& right) {
   // Break the left and right numbers into 32 bit chunks
   // so that we can multiply them without overflow.
   const uint64_t L0 = static_cast<uint64_t>(high_bits_) >> 32;
@@ -390,7 +392,7 @@ Int128& Int128::operator*=(const Int128& right) {
 /// \param array an array of length 4 to set with the value
 /// \param was_negative a flag for whether the value was original negative
 /// \result the output length of the array
-static int64_t FillInArray(const Int128& value, uint32_t* array, bool& was_negative) {
+static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool& was_negative) {
   uint64_t high;
   uint64_t low;
   const int64_t highbits = value.high_bits();
@@ -478,7 +480,7 @@ static void ShiftArrayRight(uint32_t* array, int64_t length, int64_t bits) {
 
 /// \brief Fix the signs of the result and remainder at the end of the division based on
 /// the signs of the dividend and divisor.
-static void FixDivisionSigns(Int128* result, Int128* remainder,
+static void FixDivisionSigns(Decimal128* result, Decimal128* remainder,
                              bool dividend_was_negative, bool divisor_was_negative) {
   if (dividend_was_negative != divisor_was_negative) {
     result->Negate();
@@ -489,8 +491,8 @@ static void FixDivisionSigns(Int128* result, Int128* remainder,
   }
 }
 
-/// \brief Build a Int128 from a list of ints.
-static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
+/// \brief Build a Decimal128 from a list of ints.
+static Status BuildFromArray(Decimal128* value, uint32_t* array, int64_t length) {
   switch (length) {
     case 0:
       *value = {static_cast<int64_t>(0)};
@@ -512,13 +514,13 @@ static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
       break;
     case 5:
       if (array[0] != 0) {
-        return Status::Invalid("Can't build Int128 with 5 ints.");
+        return Status::Invalid("Can't build Decimal128 with 5 ints.");
       }
       *value = {(static_cast<int64_t>(array[1]) << 32) + array[2],
                 (static_cast<uint64_t>(array[3]) << 32) + array[4]};
       break;
     default:
-      return Status::Invalid("Unsupported length for building Int128");
+      return Status::Invalid("Unsupported length for building Decimal128");
   }
 
   return Status::OK();
@@ -526,9 +528,9 @@ static Status BuildFromArray(Int128* value, uint32_t* array, int64_t length) {
 
 /// \brief Do a division where the divisor fits into a single 32 bit value.
 static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
-                           uint32_t divisor, Int128* remainder,
+                           uint32_t divisor, Decimal128* remainder,
                            bool dividend_was_negative, bool divisor_was_negative,
-                           Int128* result) {
+                           Decimal128* result) {
   uint64_t r = 0;
   uint32_t result_array[5];
   for (int64_t j = 0; j < dividend_length; j++) {
@@ -543,7 +545,8 @@ static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
   return Status::OK();
 }
 
-Status Int128::Divide(const Int128& divisor, Int128* result, Int128* remainder) const {
+Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
+                          Decimal128* remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
   // work on them.
   uint32_t dividend_array[5];
@@ -564,7 +567,7 @@ Status Int128::Divide(const Int128& divisor, Int128* result, Int128* remainder) 
   }
 
   if (divisor_length == 0) {
-    return Status::Invalid("Division by 0 in Int128");
+    return Status::Invalid("Division by 0 in Decimal128");
   }
 
   if (divisor_length == 1) {
@@ -646,62 +649,64 @@ Status Int128::Divide(const Int128& divisor, Int128* result, Int128* remainder) 
   return Status::OK();
 }
 
-bool operator==(const Int128& left, const Int128& right) {
+bool operator==(const Decimal128& left, const Decimal128& right) {
   return left.high_bits() == right.high_bits() && left.low_bits() == right.low_bits();
 }
 
-bool operator!=(const Int128& left, const Int128& right) {
+bool operator!=(const Decimal128& left, const Decimal128& right) {
   return !operator==(left, right);
 }
 
-bool operator<(const Int128& left, const Int128& right) {
+bool operator<(const Decimal128& left, const Decimal128& right) {
   return left.high_bits() < right.high_bits() ||
          (left.high_bits() == right.high_bits() && left.low_bits() < right.low_bits());
 }
 
-bool operator<=(const Int128& left, const Int128& right) {
+bool operator<=(const Decimal128& left, const Decimal128& right) {
   return !operator>(left, right);
 }
 
-bool operator>(const Int128& left, const Int128& right) { return operator<(right, left); }
+bool operator>(const Decimal128& left, const Decimal128& right) {
+  return operator<(right, left);
+}
 
-bool operator>=(const Int128& left, const Int128& right) {
+bool operator>=(const Decimal128& left, const Decimal128& right) {
   return !operator<(left, right);
 }
 
-Int128 operator-(const Int128& operand) {
-  Int128 result(operand.high_bits(), operand.low_bits());
+Decimal128 operator-(const Decimal128& operand) {
+  Decimal128 result(operand.high_bits(), operand.low_bits());
   return result.Negate();
 }
 
-Int128 operator+(const Int128& left, const Int128& right) {
-  Int128 result(left.high_bits(), left.low_bits());
+Decimal128 operator+(const Decimal128& left, const Decimal128& right) {
+  Decimal128 result(left.high_bits(), left.low_bits());
   result += right;
   return result;
 }
 
-Int128 operator-(const Int128& left, const Int128& right) {
-  Int128 result(left.high_bits(), left.low_bits());
+Decimal128 operator-(const Decimal128& left, const Decimal128& right) {
+  Decimal128 result(left.high_bits(), left.low_bits());
   result -= right;
   return result;
 }
 
-Int128 operator*(const Int128& left, const Int128& right) {
-  Int128 result(left.high_bits(), left.low_bits());
+Decimal128 operator*(const Decimal128& left, const Decimal128& right) {
+  Decimal128 result(left.high_bits(), left.low_bits());
   result *= right;
   return result;
 }
 
-Int128 operator/(const Int128& left, const Int128& right) {
-  Int128 remainder;
-  Int128 result;
+Decimal128 operator/(const Decimal128& left, const Decimal128& right) {
+  Decimal128 remainder;
+  Decimal128 result;
   DCHECK(left.Divide(right, &result, &remainder).ok());
   return result;
 }
 
-Int128 operator%(const Int128& left, const Int128& right) {
-  Int128 remainder;
-  Int128 result;
+Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
+  Decimal128 remainder;
+  Decimal128 result;
   DCHECK(left.Divide(right, &result, &remainder).ok());
   return remainder;
 }

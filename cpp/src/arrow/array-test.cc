@@ -33,7 +33,7 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/int128.h"
+#include "arrow/util/decimal.h"
 
 namespace arrow {
 
@@ -2567,7 +2567,7 @@ TEST(TestUnionArrayAdHoc, TestSliceEquals) {
   CheckUnion(batch->column(2));
 }
 
-using DecimalVector = std::vector<Int128>;
+using DecimalVector = std::vector<Decimal128>;
 
 class DecimalTest : public ::testing::TestWithParam<int> {
  public:
@@ -2633,8 +2633,8 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
 TEST_P(DecimalTest, NoNulls) {
   int32_t precision = GetParam();
-  std::vector<Int128> draw = {Int128(1), Int128(-2), Int128(2389), Int128(4),
-                              Int128(-12348)};
+  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(-2), Decimal128(2389),
+                                  Decimal128(4), Decimal128(-12348)};
   std::vector<uint8_t> valid_bytes = {true, true, true, true, true};
   this->TestCreate(precision, draw, valid_bytes, 0);
   this->TestCreate(precision, draw, valid_bytes, 2);
@@ -2642,14 +2642,15 @@ TEST_P(DecimalTest, NoNulls) {
 
 TEST_P(DecimalTest, WithNulls) {
   int32_t precision = GetParam();
-  std::vector<Int128> draw = {Int128(1),  Int128(2), Int128(-1), Int128(4),
-                              Int128(-1), Int128(1), Int128(2)};
-  Int128 big;
-  ASSERT_OK(Int128::FromString("230342903942.234234", &big));
+  std::vector<Decimal128> draw = {Decimal128(1), Decimal128(2),  Decimal128(-1),
+                                  Decimal128(4), Decimal128(-1), Decimal128(1),
+                                  Decimal128(2)};
+  Decimal128 big;
+  ASSERT_OK(Decimal128::FromString("230342903942.234234", &big));
   draw.push_back(big);
 
-  Int128 big_negative;
-  ASSERT_OK(Int128::FromString("-23049302932.235234", &big_negative));
+  Decimal128 big_negative;
+  ASSERT_OK(Decimal128::FromString("-23049302932.235234", &big_negative));
   draw.push_back(big_negative);
 
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
