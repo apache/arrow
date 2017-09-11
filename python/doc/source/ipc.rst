@@ -210,7 +210,7 @@ And for pickle:
    pickled = pickle.dumps(data)
    %timeit unpickled_data = pickle.loads(pickled)
 
-We aspire to make these functions high-speed alternative to pickle for
+We aspire to make these functions a high-speed alternative to pickle for
 transient serialization in Python big data applications.
 
 Serializing Custom Data Types
