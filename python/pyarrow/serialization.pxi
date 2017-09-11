@@ -137,6 +137,10 @@ cdef class SerializationContext:
                     obj.__dict__.update(serialized_obj)
         return obj
 
+
+_default_serialization_context = SerializationContext()
+
+
 cdef class SerializedPyObject:
     """
     Arrow-serialized representation of Python object
@@ -174,6 +178,9 @@ cdef class SerializedPyObject:
         """
         cdef PyObject* result
 
+        if context is None:
+            context = _default_serialization_context
+
         with nogil:
             check_status(DeserializeObject(context, self.data,
                                            <PyObject*> self.base, &result))
@@ -210,6 +217,10 @@ def serialize(object value, SerializationContext context=None):
     """
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
+
+    if context is None:
+        context = _default_serialization_context
+
     with nogil:
         check_status(SerializeObject(context, wrapped_value, &serialized.data))
     return serialized

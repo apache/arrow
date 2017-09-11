@@ -526,3 +526,15 @@ def _add_any_metadata(table, pandas_metadata):
         return pa.Table.from_arrays(columns)
     else:
         return table
+
+
+_default_serialization_context.register_type(
+    pd.Series, 'pandas.Series',
+    custom_serializer=_serialize_series,
+    custom_deserializer=_deserialize_series)
+
+
+_default_serialization_context.register_type(
+    pd.DataFrame, 'pandas.DataFrame',
+    custom_serializer=_serialize_dataframe,
+    custom_deserializer=_deserialize_dataframe)
