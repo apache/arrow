@@ -370,13 +370,20 @@ public final class ${className} extends BaseDataValueVector implements VariableW
   }
 
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes*2L;
+    long baseSize = allocationSizeInBytes;
+    final int currentBufferCapacity = data.capacity();
+    if (baseSize < (long)currentBufferCapacity) {
+      baseSize = (long)currentBufferCapacity;
+    }
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+
     if (newAllocationSize > MAX_ALLOCATION_SIZE)  {
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
 
     final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
-    newBuf.setBytes(0, data, 0, data.capacity());
+    newBuf.setBytes(0, data, 0, currentBufferCapacity);
     data.release();
     data = newBuf;
     allocationSizeInBytes = (int)newAllocationSize;
