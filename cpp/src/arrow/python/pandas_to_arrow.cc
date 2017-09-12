@@ -56,10 +56,6 @@
 #include "arrow/python/util/datetime.h"
 
 namespace arrow {
-
-using internal::ArrayData;
-using internal::MakeArray;
-
 namespace py {
 
 using internal::NumPyTypeSize;

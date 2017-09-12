@@ -44,9 +44,6 @@
 using std::vector;
 
 namespace arrow {
-
-using internal::ArrayData;
-
 namespace compute {
 
 void AssertArraysEqual(const Array& left, const Array& right) {

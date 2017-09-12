@@ -40,7 +40,6 @@
 namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
-using internal::ArrayData;
 using internal::WrappedBinary;
 
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {

@@ -74,7 +74,7 @@ class IpcComponentSource {
     }
   }
 
-  Status GetFieldMetadata(int field_index, internal::ArrayData* out) {
+  Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
@@ -106,11 +106,11 @@ struct ArrayLoaderContext {
 };
 
 static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, internal::ArrayData* out);
+                        ArrayLoaderContext* context, ArrayData* out);
 
 class ArrayLoader {
  public:
-  ArrayLoader(const std::shared_ptr<DataType>& type, internal::ArrayData* out,
+  ArrayLoader(const std::shared_ptr<DataType>& type, ArrayData* out,
               ArrayLoaderContext* context)
       : type_(type), context_(context), out_(out) {}
 
@@ -168,7 +168,7 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
-  Status LoadChild(const Field& field, internal::ArrayData* out) {
+  Status LoadChild(const Field& field, ArrayData* out) {
     ArrayLoader loader(field.type(), out, context_);
     --context_->max_recursion_depth;
     RETURN_NOT_OK(loader.Load());
@@ -180,7 +180,7 @@ class ArrayLoader {
     out_->child_data.reserve(static_cast<int>(child_fields.size()));
 
     for (const auto& child_field : child_fields) {
-      auto field_array = std::make_shared<internal::ArrayData>();
+      auto field_array = std::make_shared<ArrayData>();
       RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
       out_->child_data.emplace_back(field_array);
     }
@@ -257,11 +257,11 @@ class ArrayLoader {
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
-  internal::ArrayData* out_;
+  ArrayData* out_;
 };
 
 static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, internal::ArrayData* out) {
+                        ArrayLoaderContext* context, ArrayData* out) {
   ArrayLoader loader(type, out, context);
   return loader.Load();
 }
@@ -291,9 +291,9 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
   context.buffer_index = 0;
   context.max_recursion_depth = max_recursion_depth;
 
-  std::vector<std::shared_ptr<internal::ArrayData>> arrays(schema->num_fields());
+  std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
-    auto arr = std::make_shared<internal::ArrayData>();
+    auto arr = std::make_shared<ArrayData>();
     RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, arr.get()));
     DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
     arrays[i] = std::move(arr);

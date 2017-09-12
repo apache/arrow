@@ -368,11 +368,11 @@ TEST_F(TestTableWriter, TimeTypes) {
   std::vector<std::shared_ptr<Buffer>> buffers = {prim_values.null_bitmap(),
                                                   prim_values.values()};
 
-  std::vector<std::shared_ptr<internal::ArrayData>> arrays;
+  std::vector<std::shared_ptr<ArrayData>> arrays;
   arrays.push_back(date_array->data());
 
   for (int i = 1; i < schema->num_fields(); ++i) {
-    arrays.emplace_back(std::make_shared<internal::ArrayData>(
+    arrays.emplace_back(std::make_shared<ArrayData>(
         schema->field(i)->type(), values->length(), buffers, values->null_count(), 0));
   }
 
