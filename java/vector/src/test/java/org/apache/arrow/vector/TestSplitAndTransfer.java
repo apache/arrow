@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+package org.apache.arrow.vector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
