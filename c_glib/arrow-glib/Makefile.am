@@ -44,9 +44,11 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
+	basic-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
+	composite-data-type.h			\
 	data-type.h				\
 	error.h					\
 	field.h					\

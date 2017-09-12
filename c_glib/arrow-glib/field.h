@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/data-type.h>
+#include <arrow-glib/basic-data-type.h>
 
 G_BEGIN_DECLS
 
