@@ -29,7 +29,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor.h"
@@ -319,8 +318,8 @@ DecimalArray::DecimalArray(const std::shared_ptr<internal::ArrayData>& data)
 
 std::string DecimalArray::FormatValue(int64_t i) const {
   const auto& type_ = static_cast<const DecimalType&>(*type());
-  Int128 value(GetValue(i));
-  return DecimalUtil::ToString(value, type_.precision(), type_.scale());
+  Decimal128 value(GetValue(i));
+  return value.ToString(type_.precision(), type_.scale());
 }
 
 // ----------------------------------------------------------------------

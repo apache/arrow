@@ -32,7 +32,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int128.h"
 
 namespace arrow {
 
@@ -116,12 +115,12 @@ TEST_F(TestPrettyPrint, DecimalType) {
 
   DecimalBuilder builder(type);
 
-  Int128 val;
+  Decimal128 val;
 
-  ASSERT_OK(DecimalUtil::FromString("123.4567", &val));
+  ASSERT_OK(Decimal128::FromString("123.4567", &val));
   ASSERT_OK(builder.Append(val));
 
-  ASSERT_OK(DecimalUtil::FromString("456.7891", &val));
+  ASSERT_OK(Decimal128::FromString("456.7891", &val));
   ASSERT_OK(builder.Append(val));
   ASSERT_OK(builder.AppendNull());
 

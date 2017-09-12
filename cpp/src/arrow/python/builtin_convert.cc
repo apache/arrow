@@ -28,7 +28,6 @@
 #include "arrow/api.h"
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/helpers.h"
@@ -589,8 +588,8 @@ class DecimalConverter
       std::string string;
       RETURN_NOT_OK(PythonDecimalToString(item.obj(), &string));
 
-      Int128 value;
-      RETURN_NOT_OK(DecimalUtil::FromString(string, &value));
+      Decimal128 value;
+      RETURN_NOT_OK(Decimal128::FromString(string, &value));
       return typed_builder_->Append(value);
     }
 

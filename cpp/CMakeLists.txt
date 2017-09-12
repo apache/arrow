@@ -755,7 +755,6 @@ set(ARROW_SRCS
   src/arrow/util/compression.cc
   src/arrow/util/cpu-info.cc
   src/arrow/util/decimal.cc
-  src/arrow/util/int128.cc
   src/arrow/util/key_value_metadata.cc
 )
 

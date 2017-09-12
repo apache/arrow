@@ -38,7 +38,7 @@
 namespace arrow {
 
 class Array;
-class Int128;
+class Decimal128;
 
 namespace internal {
 
@@ -778,7 +778,7 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 
   using FixedSizeBinaryBuilder::Append;
 
-  Status Append(const Int128& val);
+  Status Append(const Decimal128& val);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 };
