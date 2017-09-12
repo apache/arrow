@@ -39,7 +39,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int128.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
@@ -659,8 +658,8 @@ Status PandasConverter::ConvertDecimals() {
       std::string string;
       RETURN_NOT_OK(PythonDecimalToString(object, &string));
 
-      Int128 value;
-      RETURN_NOT_OK(DecimalUtil::FromString(string, &value));
+      Decimal128 value;
+      RETURN_NOT_OK(Decimal128::FromString(string, &value));
       RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());

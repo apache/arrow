@@ -32,8 +32,8 @@ install(FILES
   compression_zlib.h
   compression_zstd.h
   cpu-info.h
+  decimal.h
   hash-util.h
-  int128.h
   key_value_metadata.h
   logging.h
   macros.h

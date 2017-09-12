@@ -29,7 +29,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
