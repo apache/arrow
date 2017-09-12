@@ -18,6 +18,7 @@
 #ifndef ARROW_BUILDER_H
 #define ARROW_BUILDER_H
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <limits>

@@ -104,17 +104,15 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Get the low bits of the two's complement representation of the number.
   uint64_t low_bits() const { return low_bits_; }
 
-  /// \brief Put the raw bytes of the value into a pointer to uint8_t.
-  Status ToBytes(std::array<uint8_t, 16>* out) const;
+  /// \brief Return the raw bytes of the value.
+  std::array<uint8_t, 16> ToBytes() const;
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
-  /// precision
-  /// and scale.
+  /// precision and scale.
   std::string ToString(int precision, int scale) const;
 
   /// \brief Convert a decimal string to an Decimal128 value, optionally including
-  /// precision
-  /// and scale if they're passed in and not null.
+  /// precision and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Decimal128* out,
                            int* precision = nullptr, int* scale = nullptr);
 

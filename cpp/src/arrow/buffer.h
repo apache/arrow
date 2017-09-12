@@ -219,7 +219,7 @@ class ARROW_EXPORT BufferBuilder {
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& data) {
     constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    if (capacity_ < static_cast<int64_t>(nbytes) + size_) {
+    if (capacity_ < nbytes + size_) {
       int64_t new_capacity = BitUtil::NextPower2(nbytes + size_);
       RETURN_NOT_OK(Resize(new_capacity));
     }
