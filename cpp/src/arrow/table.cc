@@ -30,8 +30,6 @@
 
 namespace arrow {
 
-using internal::ArrayData;
-
 // ----------------------------------------------------------------------
 // ChunkedArray and Column methods
 
@@ -199,7 +197,7 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 std::shared_ptr<Array> RecordBatch::column(int i) const {
   if (!boxed_columns_[i]) {
-    DCHECK(internal::MakeArray(columns_[i], &boxed_columns_[i]).ok());
+    DCHECK(MakeArray(columns_[i], &boxed_columns_[i]).ok());
   }
   return boxed_columns_[i];
 }

@@ -21,9 +21,6 @@
 #include "arrow/array.h"
 
 namespace arrow {
-
-using internal::ArrayData;
-
 namespace compute {
 
 class FunctionContext;

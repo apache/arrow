@@ -135,12 +135,12 @@ class ARROW_EXPORT RecordBatch {
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              std::vector<std::shared_ptr<internal::ArrayData>>&& columns);
+              std::vector<std::shared_ptr<ArrayData>>&& columns);
 
   /// \brief Construct record batch by copying vector of array data
   /// \since 0.5.0
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              const std::vector<std::shared_ptr<internal::ArrayData>>& columns);
+              const std::vector<std::shared_ptr<ArrayData>>& columns);
 
   /// \brief Determine if two record batches are exactly equal
   /// \return true if batches are equal
@@ -158,7 +158,7 @@ class ARROW_EXPORT RecordBatch {
   /// \return an Array object
   std::shared_ptr<Array> column(int i) const;
 
-  std::shared_ptr<internal::ArrayData> column_data(int i) const { return columns_[i]; }
+  std::shared_ptr<ArrayData> column_data(int i) const { return columns_[i]; }
 
   /// \brief Name in i-th column
   const std::string& column_name(int i) const;
@@ -197,7 +197,7 @@ class ARROW_EXPORT RecordBatch {
 
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
-  std::vector<std::shared_ptr<internal::ArrayData>> columns_;
+  std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
