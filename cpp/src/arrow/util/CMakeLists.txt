@@ -37,6 +37,7 @@ install(FILES
   key_value_metadata.h
   logging.h
   macros.h
+  parallel.h
   random.h
   rle-encoding.h
   sse-util.h
