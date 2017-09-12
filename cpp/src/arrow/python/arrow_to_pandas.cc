@@ -519,7 +519,7 @@ inline Status ConvertListsLike(PandasOptions options, const std::shared_ptr<Colu
       ++out_values;
     }
 
-    chunk_offset += arr->length();
+    chunk_offset += arr->values()->length();
   }
 
   Py_XDECREF(numpy_array);
