@@ -53,7 +53,9 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
-  /// \brief Create an Decimal128 from an array of bytes
+  /// \brief Create a Decimal128 from an array of bytes
+  /// This constructor assumes that bytes are in big-endian byte order. Its behavior
+  /// is undefined if bytes are not.
   explicit Decimal128(const uint8_t* bytes);
 
   /// \brief Negate the current value
@@ -105,14 +107,13 @@ class ARROW_EXPORT Decimal128 {
   uint64_t low_bits() const { return low_bits_; }
 
   /// \brief Return the raw bytes of the value.
+  /// The return value's bytes are in big-endian order.
   std::array<uint8_t, 16> ToBytes() const;
 
-  /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
-  /// precision and scale.
+  /// \brief Convert the Decimal128 value to a base 10 decimal string.
   std::string ToString(int precision, int scale) const;
 
-  /// \brief Convert a decimal string to an Decimal128 value, optionally including
-  /// precision and scale if they're passed in and not null.
+  /// \brief Convert a decimal string to an Decimal128 value.
   static Status FromString(const std::string& s, Decimal128* out,
                            int* precision = nullptr, int* scale = nullptr);
 
