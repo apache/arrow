@@ -436,6 +436,8 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
+        self._check_null()
+
         cdef:
             PrettyPrintOptions options
             c_string result
