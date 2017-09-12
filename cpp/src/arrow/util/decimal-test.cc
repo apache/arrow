@@ -101,9 +101,7 @@ TEST(DecimalTest, TestFromDecimalString128) {
 TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
   Decimal128 expected("-3402692");
 
-  std::array<uint8_t, 16> bytes;
-  ASSERT_OK(expected.ToBytes(&bytes));
-
+  auto bytes = expected.ToBytes();
   Decimal128 result(bytes.data());
   ASSERT_EQ(expected, result);
 }
@@ -113,9 +111,7 @@ TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
   std::string string_value("-34034293045.921");
   ASSERT_OK(Decimal128::FromString(string_value, &expected));
 
-  std::array<uint8_t, 16> bytes;
-  ASSERT_OK(expected.ToBytes(&bytes));
-
+  auto bytes = expected.ToBytes();
   Decimal128 result(bytes.data());
 
   ASSERT_EQ(expected, result);
@@ -131,8 +127,7 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
 
   ASSERT_EQ(expected, expected_underlying_value);
 
-  std::array<uint8_t, 16> bytes;
-  ASSERT_OK(expected.ToBytes(&bytes));
+  auto bytes = expected.ToBytes();
 
   Decimal128 result(bytes.data());
 

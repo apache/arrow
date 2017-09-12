@@ -1119,9 +1119,7 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
 
 Status DecimalBuilder::Append(const Decimal128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  std::array<uint8_t, 16> bytes;
-  RETURN_NOT_OK(value.ToBytes(&bytes));
-  return FixedSizeBinaryBuilder::Append(bytes);
+  return FixedSizeBinaryBuilder::Append(value.ToBytes());
 }
 
 Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {

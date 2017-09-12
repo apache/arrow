@@ -44,15 +44,12 @@ Decimal128::Decimal128(const uint8_t* bytes)
     : Decimal128(reinterpret_cast<const int64_t*>(bytes)[0],
                  reinterpret_cast<const uint64_t*>(bytes)[1]) {}
 
-Status Decimal128::ToBytes(std::array<uint8_t, 16>* out) const {
-  if (out == nullptr) {
-    return Status::Invalid("Cannot fill nullptr of bytes from Decimal128");
-  }
-
+std::array<uint8_t, 16> Decimal128::ToBytes() const {
   const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
-  std::copy(raw_data, raw_data + out->size(), out->begin());
-  return Status::OK();
+  std::array<uint8_t, 16> out{{0}};
+  std::copy(raw_data, raw_data + out.size(), out.begin());
+  return out;
 }
 
 std::string Decimal128::ToString(int precision, int scale) const {
