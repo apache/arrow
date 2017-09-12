@@ -94,6 +94,10 @@ matrix:
     jdk: oraclejdk9
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+    addons:
+      apt:
+        packages:
+          - oracle-java9-installer
   - language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
