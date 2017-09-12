@@ -562,6 +562,24 @@ class TestPandasConversion(unittest.TestCase):
 
         tm.assert_frame_equal(result, df)
 
+    def test_column_of_lists_chunked2(self):
+        data1 = [[0, 1], [2, 3], [4, 5], [6, 7], [10, 11],
+                 [12, 13], [14, 15], [16, 17]]
+        data2 = [[8, 9], [18, 19]]
+
+        a1 = pa.array(data1)
+        a2 = pa.array(data2)
+
+        t1 = pa.Table.from_arrays([a1], names=['a'])
+        t2 = pa.Table.from_arrays([a2], names=['a'])
+
+        concatenated = pa.concat_tables([t1, t2])
+
+        result = concatenated.to_pandas()
+        expected = pd.DataFrame({'a': data1 + data2})
+
+        tm.assert_frame_equal(result, expected)
+
     def test_column_of_lists_strided(self):
         df, schema = dataframe_with_lists()
         df = pd.concat([df] * 6, ignore_index=True)
