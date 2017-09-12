@@ -44,6 +44,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -889,8 +890,92 @@ public class TestValueVector {
    *  TODO:
    *
    *  The realloc() related tests below should be moved up and we need to
-   *  realloc related tests (edge cases) for more vector types.
+   *  add realloc related tests (edge cases) for more vector types.
    */
+
+  @Test
+  public void testReallocAfterVectorTransfer() {
+    try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      final Float8Vector.Mutator mutator = vector.getMutator();
+      final Float8Vector.Accessor accessor = vector.getAccessor();
+      final int initialDefaultCapacity = 4096;
+      boolean error = false;
+
+      /* use the default capacity; 4096*8 => 32KB */
+      vector.allocateNew();
+
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      double baseValue = 100.375;
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      /* the above setSafe calls should not have triggered a realloc as
+       * we are within the capacity. check the vector contents
+       */
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity, baseValue + (double)initialDefaultCapacity);
+      assertEquals(initialDefaultCapacity * 2, vector.getValueCapacity());
+
+      for (int i = initialDefaultCapacity + 1; i < (initialDefaultCapacity * 2); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 2); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity * 2, baseValue + (double)(initialDefaultCapacity * 2));
+      assertEquals(initialDefaultCapacity * 4, vector.getValueCapacity());
+
+      for (int i = (initialDefaultCapacity * 2) + 1; i < (initialDefaultCapacity * 4); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* at this point we are working with a 128KB buffer data for this
+       * vector. now let's transfer this vector
+       */
+
+      TransferPair transferPair = vector.getTransferPair(allocator);
+      transferPair.transfer();
+
+      Float8Vector toVector = (Float8Vector)transferPair.getTo();
+
+      /* now let's realloc the toVector */
+      toVector.reAlloc();
+      assertEquals(initialDefaultCapacity * 8, toVector.getValueCapacity());
+
+      final Float8Vector.Accessor toAccessor = toVector.getAccessor();
+
+      for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
+        double value = toAccessor.get(i);
+        if (i < (initialDefaultCapacity * 4)) {
+          assertEquals(baseValue + (double)i, value, 0);
+        }
+        else {
+          assertEquals(0, value, 0);
+        }
+      }
+
+      toVector.close();
+    }
+  }
 
   @Test
   public void testReAllocNullableFixedWidthVector() {

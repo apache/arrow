@@ -208,7 +208,14 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    * Allocate new buffer with double capacity, and copy data into the new buffer. Replace vector's buffer with new buffer, and release old one
    */
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes * 2L;
+    long baseSize  = allocationSizeInBytes;
+    final int currentBufferCapacity = data.capacity();
+    if (baseSize < (long)currentBufferCapacity) {
+      baseSize = (long)currentBufferCapacity;
+    }
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = Long.highestOneBit(newAllocationSize - 1) << 1;
+
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
@@ -216,7 +223,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     final int curSize = (int) newAllocationSize;
     final ArrowBuf newBuf = allocator.buffer(curSize);
     newBuf.setZero(0, newBuf.capacity());
-    newBuf.setBytes(0, data, 0, data.capacity());
+    newBuf.setBytes(0, data, 0, currentBufferCapacity);
     data.release();
     data = newBuf;
     allocationSizeInBytes = curSize;
