@@ -85,10 +85,11 @@ libarrow_glib_la_generated_sources =		\
 libarrow_glib_la_sources =			\
 	array.cpp				\
 	array-builder.cpp			\
+	basic-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
-	data-type.cpp				\
+	composite-data-type.cpp			\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
@@ -120,6 +121,7 @@ libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
 	arrow-glib.hpp				\
+	basic-data-type.hpp			\
 	buffer.hpp				\
 	chunked-array.hpp			\
 	column.hpp				\
