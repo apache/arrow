@@ -28,7 +28,7 @@ G_BEGIN_DECLS
 /**
  * SECTION: compute
  * @section_id: compute-classes
- * @title: Compute classes
+ * @title: Classes for computation
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowCastOptions is a class to custom garrow_array_cast().
