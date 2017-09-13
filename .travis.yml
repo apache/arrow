@@ -128,7 +128,7 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
   - compiler: clang
-    osx_image: xcode6.4
+    osx_image: xcode8.3
     os: osx
     cache:
     addons:
