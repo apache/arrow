@@ -194,8 +194,9 @@ bool* TestRowGroupStatistics<BooleanType>::GetValuesPointer(std::vector<bool>& v
 }
 
 template <typename TestType>
-typename std::vector<typename TestType::c_type> TestRowGroupStatistics<
-    TestType>::GetDeepCopy(const std::vector<typename TestType::c_type>& values) {
+typename std::vector<typename TestType::c_type>
+TestRowGroupStatistics<TestType>::GetDeepCopy(
+    const std::vector<typename TestType::c_type>& values) {
   return values;
 }
 
@@ -478,7 +479,7 @@ class TestStatistics : public ::testing::Test {
 };
 
 using CompareTestTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType,
-                                   DoubleType, ByteArrayType, FLBAType>;
+                                          DoubleType, ByteArrayType, FLBAType>;
 
 // TYPE::INT32
 template <>
@@ -679,9 +680,6 @@ TEST_F(TestStatisticsFLBA, UnknownSortOrder) {
   // stats should not be set for UNKNOWN sort order
   ASSERT_FALSE(cc_metadata->is_stats_set());
 }
-
-
-
 
 }  // namespace test
 }  // namespace parquet

@@ -334,7 +334,7 @@ class PARQUET_NO_EXPORT StructImpl : public ColumnReader::Impl {
   std::shared_ptr<Field> field_;
   PoolBuffer def_levels_buffer_;
 
-  Status DefLevelsToNullArray(std::shared_ptr<MutableBuffer>* null_bitmap,
+  Status DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap,
                               int64_t* null_count);
   void InitField(const NodePtr& node, const std::vector<std::shared_ptr<Impl>>& children);
 };
@@ -1376,9 +1376,9 @@ Status ColumnReader::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
 
 // StructImpl methods
 
-Status StructImpl::DefLevelsToNullArray(std::shared_ptr<MutableBuffer>* null_bitmap_out,
+Status StructImpl::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_out,
                                         int64_t* null_count_out) {
-  std::shared_ptr<MutableBuffer> null_bitmap;
+  std::shared_ptr<Buffer> null_bitmap;
   auto null_count = 0;
   ValueLevelsPtr def_levels_data;
   size_t def_levels_length;
@@ -1460,7 +1460,7 @@ Status StructImpl::GetRepLevels(ValueLevelsPtr* data, size_t* length) {
 
 Status StructImpl::NextBatch(int batch_size, std::shared_ptr<Array>* out) {
   std::vector<std::shared_ptr<Array>> children_arrays;
-  std::shared_ptr<MutableBuffer> null_bitmap;
+  std::shared_ptr<Buffer> null_bitmap;
   int64_t null_count;
 
   // Gather children arrays and def levels

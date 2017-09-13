@@ -779,10 +779,10 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
     }
   }
 
-  const int32_t kOffset = 0;
-  ASSERT_OK(MakePrimitiveArray(std::make_shared<::arrow::Int64Type>(), values->length(),
-                               int64_data, values->null_bitmap(), values->null_count(),
-                               kOffset, &expected_values));
+  std::vector<std::shared_ptr<Buffer>> buffers{values->null_bitmap(), int64_data};
+  auto arr_data = std::make_shared<::arrow::ArrayData>(::arrow::int64(), values->length(),
+                                                       buffers, values->null_count());
+  ASSERT_OK(MakeArray(arr_data, &expected_values));
   this->ReadAndCheckSingleColumnTable(expected_values);
 }
 
