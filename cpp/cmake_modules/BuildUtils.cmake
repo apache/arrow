@@ -176,10 +176,15 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   if (APPLE)
-      set_target_properties(${LIB_NAME}_shared
+    if (ARROW_INSTALL_NAME_RPATH)
+      set(_lib_install_name "@rpath")
+    else()
+      set(_lib_install_name "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+    endif()
+    set_target_properties(${LIB_NAME}_shared
       PROPERTIES
       BUILD_WITH_INSTALL_RPATH ON
-      INSTALL_NAME_DIR "@rpath")
+      INSTALL_NAME_DIR "${_lib_install_name}")
   endif()
 
 endfunction()
