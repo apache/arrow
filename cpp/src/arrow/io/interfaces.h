@@ -20,7 +20,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -133,16 +132,13 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   ///
   /// Default implementation is thread-safe
   virtual Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                        uint8_t* out);
+                        uint8_t* out) = 0;
 
   /// Default implementation is thread-safe
-  virtual Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
-
-  std::mutex& lock() { return lock_; }
+  virtual Status ReadAt(int64_t position, int64_t nbytes,
+                        std::shared_ptr<Buffer>* out) = 0;
 
  protected:
-  std::mutex lock_;
-
   RandomAccessFile();
 };
 
