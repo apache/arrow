@@ -150,6 +150,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build Arrow libraries with RATH set to \$ORIGIN"
     OFF)
 
+  option(ARROW_INSTALL_NAME_RPATH
+    "Build Arrow libraries with install_name set to @rpath"
+    ON)
+
   option(ARROW_PLASMA
     "Build the plasma object store along with Arrow"
     OFF)

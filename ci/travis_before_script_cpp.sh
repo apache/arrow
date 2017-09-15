@@ -70,7 +70,8 @@ if [ $only_library_mode == "yes" ]; then
   CMAKE_COMMON_FLAGS="\
 $CMAKE_COMMON_FLAGS \
 -DARROW_BUILD_TESTS=OFF \
--DARROW_BUILD_UTILITIES=OFF"
+-DARROW_BUILD_UTILITIES=OFF \
+-DARROW_INSTALL_NAME_RPATH=OFF"
 fi
 
 # Use Ninja for faster builds when using toolchain
