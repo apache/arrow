@@ -195,13 +195,13 @@ test_package_java() {
 
 # Run integration tests
 test_integration() {
-  pushd integration
-
-  JAVA_DIR=$SOURCE_DIR/java
-  CPP_BUILD_DIR=$SOURCE_DIR/cpp/build
+  JAVA_DIR=`pwd`/java
+  CPP_BUILD_DIR=`pwd`/cpp/build
 
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
+
+  pushd integration
 
   python integration_test.py
 
@@ -212,7 +212,6 @@ setup_tempdir "arrow-$VERSION"
 echo "Working in sandbox $TMPDIR"
 cd $TMPDIR
 
-export SOURCE_DIR=`pwd`
 export ARROW_HOME=$TMPDIR/install
 export PARQUET_HOME=$TMPDIR/install
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
