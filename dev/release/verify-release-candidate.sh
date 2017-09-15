@@ -123,7 +123,7 @@ install_parquet_cpp() {
   mkdir parquet-cpp/build
   pushd parquet-cpp/build
 
-  cmake .. -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
+  cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
         -DCMAKE_BUILD_TYPE=release \
         -DPARQUET_BOOST_USE_SHARED=off \
         -DPARQUET_BUILD_TESTS=off \
@@ -150,7 +150,7 @@ test_python() {
 
 
 test_glib() {
-  # Build and test GLib, requires newer GLib (I used 2.52.3), so install that
+  # Build and test GLib, requires GLib >= 2.44 , so install that
   # here
   GLIB_VERSION=glib-2.53.7
   GLIB_URL=https://gensho.ftp.acc.umu.se/pub/gnome/sources/glib/2.53/$GLIB_VERSION.tar.xz
