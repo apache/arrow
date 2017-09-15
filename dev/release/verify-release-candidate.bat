@@ -45,15 +45,18 @@ tar xvf %1.tar.gz -C "C:/tmp/"
 set GENERATOR=Visual Studio 14 2015 Win64
 set CONFIGURATION=release
 set ARROW_SOURCE=C:\tmp\%1
+set INSTALL_DIR=C:\tmp\%1\install
 
 pushd %ARROW_SOURCE%
 
 call activate arrow-verify-release
 
 set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
-set PARQUET_HOME=%CONDA_PREFIX%\Library
+
+set ARROW_HOME=%INSTALL_DIR%
+set PARQUET_HOME=%INSTALL_DIR%
+set PATH=%INSTALL_DIR%\bin;%PATH%
 
 @rem Build and test Arrow C++ libraries
 mkdir cpp\build
