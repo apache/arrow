@@ -26,7 +26,8 @@
 # - gcc >= 4.8
 # - nodejs >= 6.0.0 (best way is to use nvm)
 #
-# BOOST_ROOT set to a Boost install that permits static linking
+# If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
+# LD_LIBRARY_PATH
 
 case $# in
   2) VERSION="$1"
@@ -103,7 +104,7 @@ test_and_install_cpp() {
   cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
-        -DARROW_BOOST_USE_SHARED=off \
+        -DARROW_BOOST_USE_SHARED=on \
         -DCMAKE_BUILD_TYPE=release \
         -DARROW_BUILD_BENCHMARKS=on \
         ..
@@ -125,7 +126,7 @@ install_parquet_cpp() {
 
   cmake -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
         -DCMAKE_BUILD_TYPE=release \
-        -DPARQUET_BOOST_USE_SHARED=off \
+        -DPARQUET_BOOST_USE_SHARED=on \
         -DPARQUET_BUILD_TESTS=off \
         ..
 
