@@ -77,12 +77,6 @@ pushd $ARROW_C_GLIB_DIR
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
-  install_name_tool \
-    -id $ARROW_CPP_INSTALL/lib/libarrow.dylib \
-    $ARROW_CPP_INSTALL/lib/libarrow.dylib
-fi
-
 CONFIGURE_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
 if [ $TRAVIS_OS_NAME != "osx" ]; then
   CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
