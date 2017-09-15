@@ -21,6 +21,8 @@ enum MessageType:int {
   // Create a new object.
   PlasmaCreateRequest = 1,
   PlasmaCreateReply,
+  PlasmaAbortRequest,
+  PlasmaAbortReply,
   // Seal an object.
   PlasmaSealRequest,
   PlasmaSealReply,
@@ -111,6 +113,16 @@ table PlasmaCreateReply {
   plasma_object: PlasmaObjectSpec;
   // Error that occurred for this call.
   error: PlasmaError;
+}
+
+table PlasmaAbortRequest {
+  // ID of the object to be aborted.
+  object_id: string;
+}
+
+table PlasmaAbortReply {
+  // ID of the object that was aborted.
+  object_id: string;
 }
 
 table PlasmaSealRequest {

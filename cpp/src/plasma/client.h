@@ -152,6 +152,15 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Contains(const ObjectID& object_id, bool* has_object);
 
+  /// Abort an unsealed object in the object store. If the abort succeeds, then
+  /// it will be as if the object was never created at all. The unsealed object
+  /// must have only a single reference (the one that would have been removed by
+  /// calling Seal).
+  ///
+  /// \param object_id The ID of the object to abort.
+  /// \return The return status.
+  Status Abort(const ObjectID& object_id);
+
   /// Seal an object in the object store. The object will be immutable after
   /// this
   /// call.
@@ -307,6 +316,10 @@ class ARROW_EXPORT PlasmaClient {
   int get_manager_fd();
 
  private:
+  void UnmapObject(const ObjectID& object_id);
+
+  Status FlushReleaseHistory();
+
   Status PerformRelease(const ObjectID& object_id);
 
   uint8_t* lookup_or_mmap(int fd, int store_fd_val, int64_t map_size);

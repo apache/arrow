@@ -393,6 +393,18 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   update_object_get_requests(object_id);
 }
 
+void PlasmaStore::abort_object(const ObjectID& object_id) {
+  auto entry = get_object_table_entry(&store_info_, object_id);
+  ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
+  ARROW_CHECK(entry->state != PLASMA_SEALED)
+      << "To abort an object it must not have been sealed.";
+  ARROW_CHECK(entry->clients.size() == 1)
+      << "To abort an object, the only client currently using it is the creator.";
+
+  dlfree(entry->pointer);
+  store_info_.objects.erase(object_id);
+}
+
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
     ARROW_LOG(DEBUG) << "deleting object " << object_id.hex();
@@ -581,6 +593,12 @@ Status PlasmaStore::process_message(Client* client) {
       if (error_code == PlasmaError_OK) {
         warn_if_sigpipe(send_fd(client->fd, object.handle.store_fd), client->fd);
       }
+    } break;
+    case MessageType_PlasmaAbortRequest: {
+      RETURN_NOT_OK(
+          ReadAbortRequest(input, input_size, &object_id));
+      abort_object(object_id);
+      HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
     } break;
     case MessageType_PlasmaGetRequest: {
       std::vector<ObjectID> object_ids_to_get;
