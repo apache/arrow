@@ -20,9 +20,13 @@
 
 # Requirements
 # - Ruby 2.x
+#   - Plus gem dependencies, see c_glib/README
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
+# - nodejs >= 6.0.0 (best way is to use nvm)
+#
+# BOOST_ROOT set to a Boost install that permits static linking
 
 case $# in
   2) VERSION="$1"
@@ -96,9 +100,10 @@ test_and_install_cpp() {
   mkdir cpp/build
   pushd cpp/build
 
-  cmake .. -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
         -DARROW_PLASMA=on \
         -DARROW_PYTHON=on \
+        -DARROW_BOOST_USE_SHARED=off \
         -DCMAKE_BUILD_TYPE=release \
         -DARROW_BUILD_BENCHMARKS=on \
         ..
@@ -120,6 +125,7 @@ install_parquet_cpp() {
 
   cmake .. -DCMAKE_INSTALL_PREFIX=$PARQUET_HOME \
         -DCMAKE_BUILD_TYPE=release \
+        -DPARQUET_BOOST_USE_SHARED=off \
         -DPARQUET_BUILD_TESTS=off \
         ..
 
@@ -152,7 +158,7 @@ test_glib() {
   tar xf $GLIB_VERSION.tar.xz
   pushd $GLIB_VERSION
 
-  ./configure --prefix=$ARROW_HOME
+  ./configure --disable-libelf --enable-libmount=no --prefix=$ARROW_HOME
   make -j$NPROC
   make install
 
@@ -166,6 +172,13 @@ test_glib() {
 
   NO_MAKE=yes test/run-test.sh
 
+  popd
+}
+
+test_js() {
+  pushd js
+  npm install
+  npm run validate
   popd
 }
 
@@ -219,17 +232,13 @@ tar xvzf ${DIST_NAME}.tar.gz
 cd ${DIST_NAME}
 
 setup_miniconda
-
 test_and_install_cpp
-
-# install_parquet_cpp
-# test_python
-
+install_parquet_cpp
+test_python
 test_glib
-
 test_package_java
-
 test_integration
+test_js
 
 echo 'Release candidate looks good!'
 exit 0
