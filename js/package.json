@@ -129,7 +129,8 @@
     ],
     "coveragePathIgnorePatterns": [
       "format\\/(File|Message|Schema|Tensor)_generated\\.(js|ts)$",
-      "test\\/.*\\.(ts|tsx|js)$"
+      "test\\/.*\\.(ts|tsx|js)$",
+      "\/node_modules\/"
     ],
     "transform": {
       ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js",
