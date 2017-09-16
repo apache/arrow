@@ -1,6 +1,7 @@
 {
   "exclude": ["../node_modules"],
   "include": ["../src/**/*.ts"],
+  "compileOnSave": false,
   "compilerOptions": {
     "lib": ["dom", "esnext", "esnext.asynciterable"],
     "moduleResolution": "node",
