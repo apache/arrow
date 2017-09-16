@@ -74,7 +74,7 @@
     "esdoc": "~1.0.1",
     "esdoc-standard-plugin": "~1.0.0",
     "google-closure-compiler": "~20170910.0.0",
-    "gulp": "4.0.0-alpha.2",
+    "gulp": "github:gulpjs/gulp#4.0",
     "gulp-json-transform": "~0.4.2",
     "gulp-sourcemaps": "~2.6.1",
     "gulp-typescript": "~3.2.2",
@@ -130,7 +130,7 @@
     "coveragePathIgnorePatterns": [
       "format\\/(File|Message|Schema|Tensor)_generated\\.(js|ts)$",
       "test\\/.*\\.(ts|tsx|js)$",
-      "\/node_modules\/"
+      "/node_modules/"
     ],
     "transform": {
       ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js",
