@@ -292,6 +292,8 @@ static inline int Log2(uint64_t x) {
   return result;
 }
 
+static constexpr uint64_t kSignBitOfByte = 128ULL;
+
 /// Swaps the byte order (i.e. endianess)
 static inline int64_t ByteSwap(int64_t value) { return ARROW_BYTE_SWAP64(value); }
 static inline uint64_t ByteSwap(uint64_t value) {
