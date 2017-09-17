@@ -52,6 +52,7 @@ libarrow_glib_la_headers =			\
 	data-type.h				\
 	error.h					\
 	field.h					\
+	gobject-type.h				\
 	record-batch.h				\
 	schema.h				\
 	table.h					\
