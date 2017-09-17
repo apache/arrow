@@ -477,8 +477,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
-  explicit DecimalType(int32_t precision, int32_t scale)
-      : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
+  explicit DecimalType(int32_t precision, int32_t scale);
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
