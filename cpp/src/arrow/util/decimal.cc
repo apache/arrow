@@ -39,11 +39,6 @@ static constexpr uint64_t kMinDecimalDigits = 1ULL;
 static constexpr uint64_t kMaxDecimalDigits = 16ULL;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
-Decimal128::Decimal128(const std::string& str) : Decimal128() {
-  Status status(Decimal128::FromString(str, this));
-  DCHECK(status.ok()) << status.message();
-}
-
 template <typename T>
 T BytesToInteger(const uint8_t* bytes, int32_t start, int32_t stop) {
   T value = 0;
@@ -91,6 +86,11 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
     // low bytes
     *low = BytesToInteger<uint64_t>(bytes, length - 8, length);
   }
+}
+
+Decimal128::Decimal128(const std::string& str) : Decimal128() {
+  Status status(Decimal128::FromString(str, this));
+  DCHECK(status.ok()) << status.message();
 }
 
 Decimal128::Decimal128(const uint8_t* bytes, int32_t length) {
