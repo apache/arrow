@@ -43,7 +43,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   private final Mutator mutator = new Mutator();
 
   int valueCount;
-  private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+  private int allocationSizeInBytes = getSizeFromCount(INITIAL_VALUE_ALLOCATION);
   private int allocationMonitor = 0;
 
   public BitVector(String name, BufferAllocator allocator) {
