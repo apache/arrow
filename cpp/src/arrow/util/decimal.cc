@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -27,13 +28,15 @@
 #pragma intrinsic(_BitScanReverse)
 #endif
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/bit-util.h"
 
 namespace arrow {
 
-static constexpr uint64_t kIntMask = 0xFFFFFFFF;
+static constexpr uint64_t kIntMask = 0xFFFFFFFF00000000;
+static constexpr uint64_t kMinDecimalDigits = 1ULL;
+static constexpr uint64_t kMaxDecimalDigits = 16ULL;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
@@ -46,9 +49,9 @@ Decimal128::Decimal128(const uint8_t* bytes)
                  BitUtil::FromBigEndian(reinterpret_cast<const uint64_t*>(bytes)[1])) {}
 
 std::array<uint8_t, 16> Decimal128::ToBytes() const {
-const uint64_t raw[] = {
-    static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
-    BitUtil::ToBigEndian(low_bits_)};
+  const uint64_t raw[] = {
+      static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
+      BitUtil::ToBigEndian(low_bits_)};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
   std::array<uint8_t, 16> out{{0}};
   std::copy(raw_data, raw_data + out.size(), out.begin());
@@ -56,8 +59,6 @@ const uint64_t raw[] = {
 }
 
 std::string Decimal128::ToString(int precision, int scale) const {
-  using std::size_t;
-
   const bool is_negative = *this < 0;
 
   // Decimal values are sent to clients as strings so in the interest of
@@ -392,23 +393,24 @@ Decimal128& Decimal128::operator*=(const Decimal128& right) {
 /// \param array an array of length 4 to set with the value
 /// \param was_negative a flag for whether the value was original negative
 /// \result the output length of the array
-static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool& was_negative) {
+static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool* was_negative) {
+  DCHECK_NE(was_negative, nullptr) << "was_negative parameter cannot be nullptr";
   uint64_t high;
   uint64_t low;
   const int64_t highbits = value.high_bits();
   const uint64_t lowbits = value.low_bits();
 
-  if (highbits < 0) {
+  *was_negative = highbits < 0;
+
+  if (*was_negative) {
     low = ~lowbits + 1;
     high = static_cast<uint64_t>(~highbits);
     if (low == 0) {
       ++high;
     }
-    was_negative = true;
   } else {
     low = lowbits;
     high = static_cast<uint64_t>(highbits);
-    was_negative = false;
   }
 
   if (high != 0) {
@@ -654,7 +656,7 @@ bool operator==(const Decimal128& left, const Decimal128& right) {
 }
 
 bool operator!=(const Decimal128& left, const Decimal128& right) {
-  return !operator==(left, right);
+  return !(left == right);
 }
 
 bool operator<(const Decimal128& left, const Decimal128& right) {
@@ -663,15 +665,13 @@ bool operator<(const Decimal128& left, const Decimal128& right) {
 }
 
 bool operator<=(const Decimal128& left, const Decimal128& right) {
-  return !operator>(left, right);
+  return !(left > right);
 }
 
-bool operator>(const Decimal128& left, const Decimal128& right) {
-  return operator<(right, left);
-}
+bool operator>(const Decimal128& left, const Decimal128& right) { return right < left; }
 
 bool operator>=(const Decimal128& left, const Decimal128& right) {
-  return !operator<(left, right);
+  return !(left < right);
 }
 
 Decimal128 operator-(const Decimal128& operand) {
