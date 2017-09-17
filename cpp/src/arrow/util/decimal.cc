@@ -35,7 +35,7 @@
 
 namespace arrow {
 
-static constexpr uint64_t kIntMask = 0xFFFFFFFF00000000;
+static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr uint64_t kMinDecimalDigits = 1ULL;
 static constexpr uint64_t kMaxDecimalDigits = 16ULL;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
