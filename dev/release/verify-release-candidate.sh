@@ -151,20 +151,6 @@ test_python() {
 
 
 test_glib() {
-  # Build and test GLib, requires GLib >= 2.44 , so install that
-  # here
-  GLIB_VERSION=glib-2.53.7
-  GLIB_URL=https://gensho.ftp.acc.umu.se/pub/gnome/sources/glib/2.53/$GLIB_VERSION.tar.xz
-  curl -f -O $GLIB_URL
-  tar xf $GLIB_VERSION.tar.xz
-  pushd $GLIB_VERSION
-
-  ./configure --disable-libelf --enable-libmount=no --prefix=$ARROW_HOME
-  make -j$NPROC
-  make install
-
-  popd
-
   pushd c_glib
 
   ./configure --prefix=$ARROW_HOME
