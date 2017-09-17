@@ -769,4 +769,10 @@ Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   return remainder;
 }
 
+std::ostream& operator<<(std::ostream& os, const Decimal128& value) {
+  std::string string_value = value.ToString(38, 0);
+  return os << "Decimal128(\""
+            << string_value.erase(0, string_value.find_first_not_of('0')) << "\")";
+}
+
 }  // namespace arrow
