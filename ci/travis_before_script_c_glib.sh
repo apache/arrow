@@ -28,10 +28,6 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew outdated || brew upgrade libtool
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
-else
-  sudo apt-add-repository -y ppa:jonathonf/gtk3.18
-  sudo apt-get update
-  sudo apt-get install -V -y libglib2.0-dev
 fi
 
 gem install test-unit gobject-introspection
