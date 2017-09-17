@@ -27,6 +27,7 @@
 
 #include "arrow/api.h"
 
+using arrow::BooleanBuilder;
 using arrow::NumericBuilder;
 
 #define ABORT_NOT_OK(s)                  \
@@ -66,6 +67,11 @@ struct benchmark_traits<DoubleType> {
   using arrow_type = ::arrow::DoubleType;
 };
 
+template <>
+struct benchmark_traits<BooleanType> {
+  using arrow_type = ::arrow::BooleanType;
+};
+
 template <typename ParquetType>
 using ArrowType = typename benchmark_traits<ParquetType>::arrow_type;
 
@@ -86,11 +92,11 @@ void SetBytesProcessed(::benchmark::State& state) {
   state.SetBytesProcessed(bytes_processed);
 }
 
-template <bool nullable, typename ParquetType>
+template <typename ParquetType>
 std::shared_ptr<::arrow::Table> TableFromVector(
-    const std::vector<typename ParquetType::c_type>& vec) {
+    const std::vector<typename ParquetType::c_type>& vec, bool nullable) {
   ::arrow::TypePtr type = std::make_shared<ArrowType<ParquetType>>();
-  NumericBuilder<ArrowType<ParquetType>> builder(type, ::arrow::default_memory_pool());
+  NumericBuilder<ArrowType<ParquetType>> builder;
   if (nullable) {
     std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);
     int n = {0};
@@ -101,7 +107,32 @@ std::shared_ptr<::arrow::Table> TableFromVector(
   }
   std::shared_ptr<::arrow::Array> array;
   ABORT_NOT_OK(builder.Finish(&array));
-  auto field = std::make_shared<::arrow::Field>("column", type, nullable);
+
+  auto field = ::arrow::field("column", type, nullable);
+  auto schema = std::make_shared<::arrow::Schema>(
+      std::vector<std::shared_ptr<::arrow::Field>>({field}));
+  auto column = std::make_shared<::arrow::Column>(field, array);
+  return std::make_shared<::arrow::Table>(
+      schema, std::vector<std::shared_ptr<::arrow::Column>>({column}));
+}
+
+template <>
+std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<bool>& vec,
+                                                             bool nullable) {
+  BooleanBuilder builder;
+  if (nullable) {
+    std::vector<bool> valid_bytes(BENCHMARK_SIZE, 0);
+    int n = {0};
+    std::generate(valid_bytes.begin(), valid_bytes.end(),
+                  [&n] { return (n++ % 2) != 0; });
+    ABORT_NOT_OK(builder.Append(vec, valid_bytes));
+  } else {
+    ABORT_NOT_OK(builder.Append(vec));
+  }
+  std::shared_ptr<::arrow::Array> array;
+  ABORT_NOT_OK(builder.Finish(&array));
+
+  auto field = ::arrow::field("column", ::arrow::boolean(), nullable);
   auto schema = std::make_shared<::arrow::Schema>(
       std::vector<std::shared_ptr<::arrow::Field>>({field}));
   auto column = std::make_shared<::arrow::Column>(field, array);
@@ -113,7 +144,7 @@ template <bool nullable, typename ParquetType>
 static void BM_WriteColumn(::benchmark::State& state) {
   format::ColumnChunk thrift_metadata;
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
-  std::shared_ptr<::arrow::Table> table = TableFromVector<nullable, ParquetType>(values);
+  std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 
   while (state.KeepRunning()) {
     auto output = std::make_shared<InMemoryOutputStream>();
@@ -132,10 +163,13 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, Int64Type);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 
+BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
+BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
+
 template <bool nullable, typename ParquetType>
 static void BM_ReadColumn(::benchmark::State& state) {
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
-  std::shared_ptr<::arrow::Table> table = TableFromVector<nullable, ParquetType>(values);
+  std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
   auto output = std::make_shared<InMemoryOutputStream>();
   ABORT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
@@ -159,6 +193,9 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int64Type);
 
 BENCHMARK_TEMPLATE2(BM_ReadColumn, false, DoubleType);
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, DoubleType);
+
+BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType);
+BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType);
 
 }  // namespace benchmark
 
