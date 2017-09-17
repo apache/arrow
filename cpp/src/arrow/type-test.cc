@@ -411,8 +411,8 @@ TEST(TypesTest, TestDecimal128Small) {
   ASSERT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  ASSERT_EQ(t1.byte_width(), 4);
+  ASSERT_EQ(t1.bit_width(), 32);
 }
 
 TEST(TypesTest, TestDecimal128Medium) {
@@ -425,8 +425,8 @@ TEST(TypesTest, TestDecimal128Medium) {
   ASSERT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  ASSERT_EQ(t1.byte_width(), 6);
+  ASSERT_EQ(t1.bit_width(), 48);
 }
 
 TEST(TypesTest, TestDecimal128Large) {
@@ -439,8 +439,8 @@ TEST(TypesTest, TestDecimal128Large) {
   ASSERT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
 
   // Test properties
-  ASSERT_EQ(t1.byte_width(), 16);
-  ASSERT_EQ(t1.bit_width(), 128);
+  ASSERT_EQ(t1.byte_width(), 12);
+  ASSERT_EQ(t1.bit_width(), 96);
 }
 
 }  // namespace arrow
