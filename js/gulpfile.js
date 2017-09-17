@@ -84,7 +84,7 @@ function runTaskCombos(name) {
 }
 
 function cleanTask(target, format, taskName, outDir) {
-    return () => {
+    return function cleanTask() {
         const globs = [`${outDir}/**`];
         if (target === `es5` && format === `cjs`) {
             globs.push(`typings`);
@@ -102,25 +102,27 @@ function buildTask(target, format, taskName, outDir) {
 function bundleTask(target, format, taskName, outDir) {
     return [
         [`build:${taskName}`],
-        (cb) => streamMerge([
-            pump(gulp.src([`LICENSE`, `README.md`, `CHANGELOG.md`]), gulp.dest(outDir)),
-            pump(
-                gulp.src(`package.json`),
-                gulpJsonTransform((orig) => [
-                    `version`, `description`,
-                    `author`, `homepage`, `bugs`, `license`,
-                    `keywords`, `repository`, `peerDependencies`
-                ].reduce((copy, key) => (
-                    (copy[key] = orig[key]) && copy || copy
-                ), {
-                    main: `Arrow.js`,
-                    typings: `Arrow.d.ts`,
-                    name: `@apache-arrow/${target}-${format}`
-                }), 2),
-                gulp.dest(outDir),
-                onError
-            )
-        ])
+        function bundleTask() {
+            return streamMerge([
+                pump(gulp.src([`LICENSE`, `README.md`]), gulp.dest(outDir), onError),
+                pump(
+                    gulp.src(`package.json`),
+                    gulpJsonTransform((orig) => [
+                        `version`, `description`,
+                        `author`, `homepage`, `bugs`, `license`,
+                        `keywords`, `repository`, `peerDependencies`
+                    ].reduce((copy, key) => (
+                        (copy[key] = orig[key]) && copy || copy
+                    ), {
+                        main: `Arrow.js`,
+                        typings: `Arrow.d.ts`,
+                        name: `@apache-arrow/${target}-${format}`
+                    }), 2),
+                    gulp.dest(outDir),
+                    onError
+                )
+            ])
+        }
     ];
 }
 
@@ -138,9 +140,11 @@ function testTask(target, format, taskName, outDir, debug) {
             TEST_TARGET: target, TEST_MODULE: format
         })
     };
-    return () => !debug ?
-        child_process.spawn(jestPath, jestOptions, spawnOptions) :
-        child_process.exec(`node --inspect-brk ${jestPath} ${debugOpts}`, spawnOptions);
+    return function testTask() {
+        return !debug ?
+            child_process.spawn(jestPath, jestOptions, spawnOptions) :
+            child_process.exec(`node --inspect-brk ${jestPath} ${debugOpts}`, spawnOptions);
+    }
 }
 
 function closureTask(target, format, taskName, outDir) {
@@ -149,38 +153,36 @@ function closureTask(target, format, taskName, outDir) {
     const languageIn = clsTarget === `es5` ? `es2015` : clsTarget;
     return [
         [`clean:${taskName}`, `build:${clsTarget}:cls`],
-        () => {
-            return streamMerge([
-                closureStream(closureSrcs(false), `Arrow`, onError, true),
-                closureStream(closureSrcs(true), `Arrow.internal`, onError)
-            ])
-            .on('end', () => del([`targets/${target}/cls/**`]));
+        function closureTask() {
+            return closureStream(
+                closureSrcs(),
+                closureCompiler(closureArgs())
+            ).on('end', () => del([`targets/${target}/cls/**`]));
         }
     ];
-    function closureSrcs(isInternal) {
+    function closureSrcs() {
         return gulp.src([
             `closure-compiler-scripts/*.js`,
             `${googleRoot}/**/*.js`,
             `!${googleRoot}/format/*.js`,
             `!${googleRoot}/Arrow.externs.js`,
-            `!${googleRoot}/Arrow${isInternal ? `` : `.internal`}.js`
         ], { base: `./` });
     }
-    function closureStream(sources, entry, onError, copyToDist) {
+    function closureStream(sources, compiler) {
         const streams = [
             sources,
             sourcemaps.init(),
-            closureCompiler(closureArgs(entry)),
+            compiler,
             sourcemaps.write('.'),
             gulp.dest(outDir)
         ];
-        // copy the UMD bundle to dist
-        if (target === `es5` && copyToDist) {
+        // copy the ES5 UMD bundle to dist
+        if (target === `es5`) {
             streams.push(gulp.dest(`dist`));
         }
         return pump(...streams, onError);
     }
-    function closureArgs(entry) {
+    function closureArgs() {
         return {
             third_party: true,
             externs: `${googleRoot}/Arrow.externs.js`,
@@ -190,10 +192,10 @@ function closureTask(target, format, taskName, outDir) {
             // formatting: `PRETTY_PRINT`,
             compilation_level: `ADVANCED`,
             assume_function_wrapper: true,
-            js_output_file: `${entry}.js`,
+            js_output_file: `Arrow.js`,
             language_in: gCCTargets[languageIn],
             language_out: gCCTargets[clsTarget],
-            entry_point: `${googleRoot}/${entry}.js`,
+            entry_point: `${googleRoot}/Arrow.js`,
             output_wrapper:
 `// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -223,7 +225,7 @@ function closureTask(target, format, taskName, outDir) {
 function typescriptTask(target, format, taskName, outDir) {
     return [
         [`clean:${taskName}`],
-        () => {
+        function typescriptTask() {
             const tsconfigPath = `tsconfig/tsconfig.${target}.${format}.json`;
             let { js, dts } = tsProjects.find((p) => p.target === target && p.format === format) || {};
             if (!js || !dts) {
