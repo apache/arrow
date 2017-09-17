@@ -78,8 +78,6 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
     *high = 0LL;
   }
 
-  //  const auto unsigned_length = static_cast<uint64_t>(length);
-
   if (length >= 1 && length <= 8) {
     const auto used_low_bits_value = BytesToInteger<uint64_t>(bytes, 0, length);
     *low <<= length * CHAR_BIT;
