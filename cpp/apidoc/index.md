@@ -55,7 +55,7 @@ build these objects. To build an array of `int64_t` elements, we can use the
 `arrow::Int64Builder`. In the following example, we build an array of the range
 1 to 8 where the element that should hold the number 4 is nulled.
 
-    Int64Builder builder(arrow::default_memory_pool(), arrow::int64());
+    Int64Builder builder;
     builder.Append(1);
     builder.Append(2);
     builder.Append(3);
