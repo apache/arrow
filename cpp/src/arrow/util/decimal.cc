@@ -68,6 +68,9 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
   const bool is_negative = (bytes[0] & BitUtil::kSignBitOfByte) != 0;
 
   if (is_negative) {
+    // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
+    // the rest by computing the integer value and shifting + ORing the integer value with
+    // the sign extended upper bits of the lower 64 bits
     *low = std::numeric_limits<uint64_t>::max();
     *high = static_cast<int64_t>(*low);
   } else {
@@ -78,20 +81,16 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
   //  const auto unsigned_length = static_cast<uint64_t>(length);
 
   if (length >= 1 && length <= 8) {
-    // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
-    // the rest by computing the integer value and shifting + ORing the integer value with
-    // the sign extended upper bits of the lower 64 bits
     const auto used_low_bits_value = BytesToInteger<uint64_t>(bytes, 0, length);
     *low <<= length * CHAR_BIT;
     *low |= used_low_bits_value;
-
   } else {  // we have a number that needs more than 64 bits
-
     // high bytes
     const auto used_high_bits_value = BytesToInteger<int64_t>(bytes, 0, length - 8);
     *high <<= (length - 8) * CHAR_BIT;
     *high |= used_high_bits_value;
 
+    // low bytes
     *low = BytesToInteger<uint64_t>(bytes, length - 8, length);
   }
 }
