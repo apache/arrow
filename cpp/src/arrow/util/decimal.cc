@@ -44,9 +44,67 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
   DCHECK(status.ok()) << status.message();
 }
 
-Decimal128::Decimal128(const uint8_t* bytes)
-    : Decimal128(BitUtil::FromBigEndian(reinterpret_cast<const int64_t*>(bytes)[0]),
-                 BitUtil::FromBigEndian(reinterpret_cast<const uint64_t*>(bytes)[1])) {}
+static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* high,
+                               uint64_t* low) {
+  DCHECK_GE(length, kMinDecimalDigits);
+  DCHECK_LE(length, kMaxDecimalDigits);
+
+  const bool is_negative = (bytes[0] & BitUtil::kSignBitOfByte) != 0;
+
+  if (is_negative) {
+    *low = std::numeric_limits<uint64_t>::max();
+    *high = static_cast<int64_t>(*low);
+  } else {
+    *low = 0ULL;
+    *high = 0LL;
+  }
+
+  if (length >= 1 && length <= 8) {
+
+    // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
+    // the rest by computing the integer value and shifting + ORing the integer value with
+    // the sign extended upper bits of the lower 64 bits
+
+    uint64_t min_low = 0;
+
+    for (size_t i = 0; i < length; ++i) {
+      const uint64_t bits_to_shift = (length - i - 1) * CHAR_BIT;
+      const uint64_t byte_value = bytes[i];
+      const uint64_t shifted_value = byte_value << bits_to_shift;
+      min_low |= shifted_value;
+    }
+
+    *low <<= length * CHAR_BIT;
+    *low |= min_low;
+  } else {  // we have a number that needs more than 64 bits
+    // high bytes
+    int64_t min_high = 0;
+
+    for (size_t i = 0; i < length - 8; ++i) {
+      const uint64_t bits_to_shift = (length - 8 - i - 1) * CHAR_BIT;
+      const uint64_t byte_value = bytes[i];
+      const uint64_t shifted_value = byte_value << bits_to_shift;
+      min_high |= shifted_value;
+    }
+
+    *high <<= (length - 8) * CHAR_BIT;
+    *high |= min_high;
+
+    *low = 0ULL;
+
+    // low bytes
+    for (int32_t i = length - 8; i < length; ++i) {
+      const uint64_t bits_to_shift = (static_cast<uint64_t>(length) - i - 1) * CHAR_BIT;
+      const uint64_t byte_value = bytes[i];
+      const uint64_t shifted_value = byte_value << bits_to_shift;
+      *low |= shifted_value;
+    }
+  }
+}
+
+Decimal128::Decimal128(const uint8_t* bytes, int32_t length) {
+  BytesToIntegerPair(bytes, length, &high_bits_, &low_bits_);
+}
 
 std::array<uint8_t, 16> Decimal128::ToBytes() const {
   const uint64_t raw[] = {
