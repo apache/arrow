@@ -19,6 +19,7 @@
 #include <cctype>
 #include <climits>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <sstream>
@@ -35,7 +36,6 @@
 namespace arrow {
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF00000000;
-static constexpr auto kUInt64Max = std::numeric_limits<uint64_t>::max();
 static constexpr uint64_t kMinDecimalDigits = 1ULL;
 static constexpr uint64_t kMaxDecimalDigits = 16ULL;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
@@ -67,8 +67,8 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
     // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
     // the rest by computing the integer value and shifting + ORing the integer value with
     // the sign extended upper bits of the lower 64 bits
-    *low = kUInt64Max;
-    *high = static_cast<int64_t>(kUInt64Max);
+    *low = UINT64_MAX;
+    *high = static_cast<int64_t>(UINT64_MAX);
   } else {
     *low = 0ULL;
     *high = 0LL;
