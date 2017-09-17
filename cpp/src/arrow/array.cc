@@ -315,8 +315,11 @@ DecimalArray::DecimalArray(const std::shared_ptr<ArrayData>& data)
 
 std::string DecimalArray::FormatValue(int64_t i) const {
   const auto& type_ = static_cast<const DecimalType&>(*type());
-  Decimal128 value(GetValue(i), type_.byte_width());
-  return value.ToString(type_.precision(), type_.scale());
+  const int32_t byte_width = type_.byte_width();
+  const int32_t precision = type_.precision();
+  const int32_t scale = type_.scale();
+  Decimal128 value(GetValue(i), byte_width);
+  return value.ToString(precision, scale);
 }
 
 // ----------------------------------------------------------------------
