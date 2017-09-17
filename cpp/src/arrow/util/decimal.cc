@@ -59,41 +59,43 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
     *high = 0LL;
   }
 
+  const auto unsigned_length = static_cast<uint64_t>(length);
+
   if (length >= 1 && length <= 8) {
     // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
     // the rest by computing the integer value and shifting + ORing the integer value with
     // the sign extended upper bits of the lower 64 bits
 
-    uint64_t min_low = 0;
+    uint64_t used_low_bits_value = 0;
 
-    for (size_t i = 0; i < length; ++i) {
-      const uint64_t bits_to_shift = (length - i - 1) * CHAR_BIT;
+    for (int32_t i = 0; i < length; ++i) {
+      const uint64_t bits_to_shift = (unsigned_length - i - 1) * CHAR_BIT;
       const uint64_t byte_value = bytes[i];
       const uint64_t shifted_value = byte_value << bits_to_shift;
-      min_low |= shifted_value;
+      used_low_bits_value |= shifted_value;
     }
 
     *low <<= length * CHAR_BIT;
-    *low |= min_low;
+    *low |= used_low_bits_value;
   } else {  // we have a number that needs more than 64 bits
     // high bytes
-    int64_t min_high = 0;
+    int64_t used_high_bits_value = 0;
 
-    for (size_t i = 0; i < length - 8; ++i) {
-      const uint64_t bits_to_shift = (length - 8 - i - 1) * CHAR_BIT;
+    for (int32_t i = 0; i < length - 8; ++i) {
+      const uint64_t bits_to_shift = (unsigned_length - 8 - i - 1) * CHAR_BIT;
       const uint64_t byte_value = bytes[i];
       const uint64_t shifted_value = byte_value << bits_to_shift;
-      min_high |= shifted_value;
+      used_high_bits_value |= shifted_value;
     }
 
     *high <<= (length - 8) * CHAR_BIT;
-    *high |= min_high;
+    *high |= used_high_bits_value;
 
     *low = 0ULL;
 
     // low bytes
     for (int32_t i = length - 8; i < length; ++i) {
-      const uint64_t bits_to_shift = (static_cast<uint64_t>(length) - i - 1) * CHAR_BIT;
+      const uint64_t bits_to_shift = (unsigned_length - i - 1) * CHAR_BIT;
       const uint64_t byte_value = bytes[i];
       const uint64_t shifted_value = byte_value << bits_to_shift;
       *low |= shifted_value;
