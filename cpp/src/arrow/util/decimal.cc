@@ -68,7 +68,7 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
     // the rest by computing the integer value and shifting + ORing the integer value with
     // the sign extended upper bits of the lower 64 bits
     *low = UINT64_MAX;
-    *high = static_cast<int64_t>(UINT64_MAX);
+    *high = static_cast<int64_t>(UINT64_MAX);  // -1, but easier to grok with UINT64_MAX
   } else {
     *low = 0ULL;
     *high = 0LL;
