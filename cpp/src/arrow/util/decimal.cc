@@ -616,8 +616,8 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   // leave an extra zero before the dividend
   dividend_array[0] = 0;
   int64_t dividend_length =
-      FillInArray(*this, dividend_array + 1, dividend_was_negative) + 1;
-  int64_t divisor_length = FillInArray(divisor, divisor_array, divisor_was_negative);
+      FillInArray(*this, dividend_array + 1, &dividend_was_negative) + 1;
+  int64_t divisor_length = FillInArray(divisor, divisor_array, &divisor_was_negative);
 
   // Handle some of the easy cases.
   if (dividend_length <= divisor_length) {
