@@ -19,6 +19,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
@@ -214,7 +215,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       baseSize = (long)currentBufferCapacity;
     }
     long newAllocationSize = baseSize * 2L;
-    newAllocationSize = Long.highestOneBit(newAllocationSize - 1) << 1;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");

@@ -214,7 +214,7 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
         baseSize = (long)currentBufferCapacity;
     }
     long newAllocationSize = baseSize * 2L;
-    newAllocationSize = Long.highestOneBit(newAllocationSize - 1) << 1;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
