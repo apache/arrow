@@ -573,9 +573,23 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       return ListToNode(list_type, field->name(), field->nullable(), properties,
                         arrow_properties, out);
     } break;
-    default:
-      // TODO: LIST, DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
-      return Status::NotImplemented("unhandled type");
+    case ArrowType::DICTIONARY: {
+      // Parquet has no Dictionary type, dictionary-encoded is handled on
+      // the encoding, not the schema level.
+      const ::arrow::DictionaryType& dict_type =
+          static_cast<const ::arrow::DictionaryType&>(*field->type());
+      std::shared_ptr<::arrow::Field> unpacked_field =
+          ::arrow::field(field->name(), dict_type.dictionary()->type(), field->nullable(),
+                         field->metadata());
+      return FieldToNode(unpacked_field, properties, arrow_properties, out);
+    }
+    default: {
+      // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL, DECIMAL_TEXT, VARCHAR
+      std::stringstream ss;
+      ss << "Unhandled type for Arrow to Parquet schema conversion: ";
+      ss << field->type()->ToString();
+      return Status::NotImplemented(ss.str());
+    }
   }
   *out = PrimitiveNode::Make(field->name(), repetition, type, logical_type, length);
   return Status::OK();

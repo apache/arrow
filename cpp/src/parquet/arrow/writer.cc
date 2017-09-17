@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/compute/api.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/visitor_inline.h"
 
@@ -43,6 +44,10 @@ using arrow::ListArray;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
+
+using arrow::compute::Cast;
+using arrow::compute::CastOptions;
+using arrow::compute::FunctionContext;
 
 using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
@@ -798,6 +803,20 @@ Status FileWriter::NewRowGroup(int64_t chunk_size) {
 }
 
 Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
+  // DictionaryArrays are not yet handled with a fast path. To still support
+  // writing them as a workaround, we convert them back to their non-dictionary
+  // representation.
+  if (data.type()->id() == ::arrow::Type::DICTIONARY) {
+    const ::arrow::DictionaryType& dict_type =
+        static_cast<const ::arrow::DictionaryType&>(*data.type());
+
+    FunctionContext ctx(pool_);
+    std::shared_ptr<Array> plain_array;
+    RETURN_NOT_OK(
+        Cast(&ctx, data, dict_type.dictionary()->type(), CastOptions(), &plain_array));
+    return WriteColumnChunk(*plain_array);
+  }
+
   ColumnWriter* column_writer;
   PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
 

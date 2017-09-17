@@ -39,18 +39,19 @@
 #include "arrow/test-util.h"
 
 using arrow::Array;
+using arrow::ArrayVisitor;
 using arrow::Buffer;
-using arrow::Column;
 using arrow::ChunkedArray;
-using arrow::default_memory_pool;
-using arrow::io::BufferReader;
+using arrow::Column;
+using arrow::EncodeArrayToDictionary;
 using arrow::ListArray;
 using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
-using arrow::ArrayVisitor;
+using arrow::default_memory_pool;
+using arrow::io::BufferReader;
 
 using ArrowId = ::arrow::Type;
 using ParquetType = parquet::Type;
@@ -109,6 +110,11 @@ LogicalType::type get_logical_type(const ::arrow::DataType& type) {
       return LogicalType::TIME_MILLIS;
     case ArrowId::TIME64:
       return LogicalType::TIME_MICROS;
+    case ArrowId::DICTIONARY: {
+      const ::arrow::DictionaryType& dict_type =
+          static_cast<const ::arrow::DictionaryType&>(type);
+      return get_logical_type(*dict_type.dictionary()->type());
+    }
     default:
       break;
   }
@@ -150,6 +156,11 @@ ParquetType::type get_physical_type(const ::arrow::DataType& type) {
       return ParquetType::INT64;
     case ArrowId::TIMESTAMP:
       return ParquetType::INT64;
+    case ArrowId::DICTIONARY: {
+      const ::arrow::DictionaryType& dict_type =
+          static_cast<const ::arrow::DictionaryType&>(type);
+      return get_physical_type(*dict_type.dictionary()->type());
+    }
     default:
       break;
   }
@@ -331,6 +342,17 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::arrow::DataType& type
   int byte_width;
   // Decimal is not implemented yet.
   switch (type.id()) {
+    case ::arrow::Type::DICTIONARY: {
+      const ::arrow::DictionaryType& dict_type =
+          static_cast<const ::arrow::DictionaryType&>(type);
+      const ::arrow::DataType& values_type = *dict_type.dictionary()->type();
+      if (values_type.id() == ::arrow::Type::FIXED_SIZE_BINARY) {
+        byte_width =
+            static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
+      } else {
+        byte_width = -1;
+      }
+    } break;
     case ::arrow::Type::FIXED_SIZE_BINARY:
       byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
       break;
@@ -505,6 +527,25 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
   this->WriteColumn(schema, values);
+
+  this->ReadAndCheckSingleColumnFile(values.get());
+}
+
+TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
+  // Skip tests for BOOL as we don't create dictionaries for it.
+  if (TypeParam::type_id == ::arrow::Type::BOOL) {
+    return;
+  }
+
+  std::shared_ptr<Array> values;
+
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
+
+  std::shared_ptr<Array> dict_values;
+  ASSERT_OK(EncodeArrayToDictionary(*values, default_memory_pool(), &dict_values));
+  std::shared_ptr<GroupNode> schema =
+      MakeSimpleSchema(*dict_values->type(), Repetition::OPTIONAL);
+  this->WriteColumn(schema, dict_values);
 
   this->ReadAndCheckSingleColumnFile(values.get());
 }
