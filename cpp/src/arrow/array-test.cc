@@ -2573,7 +2573,8 @@ class DecimalTest : public ::testing::TestWithParam<int> {
  public:
   DecimalTest() {}
 
-  void MakeData(const DecimalVector& input, int32_t byte_width, std::vector<uint8_t>* out) const {
+  void MakeData(const DecimalVector& input, int32_t byte_width,
+                std::vector<uint8_t>* out) const {
     out->reserve(input.size() * byte_width);
 
     for (const auto& value : input) {

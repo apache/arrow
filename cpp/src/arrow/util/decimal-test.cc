@@ -17,8 +17,8 @@
 //
 
 #include <cstdint>
-#include <string>
 #include <iostream>
+#include <string>
 
 #include <gtest/gtest.h>
 

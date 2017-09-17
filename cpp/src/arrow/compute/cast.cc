@@ -293,8 +293,7 @@ struct CastFunctor<
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -366,8 +365,7 @@ struct CastFunctor<T, DictionaryType,
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -429,8 +427,7 @@ struct CastFunctor<T, DictionaryType,
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     auto dictionary =
         reinterpret_cast<const c_type*>(type.dictionary()->data()->buffers[1]->data()) +

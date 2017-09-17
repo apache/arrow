@@ -60,7 +60,6 @@ static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* hi
   }
 
   if (length >= 1 && length <= 8) {
-
     // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
     // the rest by computing the integer value and shifting + ORing the integer value with
     // the sign extended upper bits of the lower 64 bits
@@ -107,9 +106,8 @@ Decimal128::Decimal128(const uint8_t* bytes, int32_t length) {
 }
 
 std::array<uint8_t, 16> Decimal128::ToBytes() const {
-  const uint64_t raw[] = {
-      static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
-      BitUtil::ToBigEndian(low_bits_)};
+  const uint64_t raw[] = {static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
+                          BitUtil::ToBigEndian(low_bits_)};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
   std::array<uint8_t, 16> out{{0}};
   std::copy(raw_data, raw_data + out.size(), out.begin());
