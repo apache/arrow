@@ -207,7 +207,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
   /// \param[in] valid_bytes an optional sequence of bytes where non-zero
-  /// indicates a valid (non-null) value)
+  /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const value_type* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
@@ -423,7 +423,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
   /// \param[in] valid_bytes an optional sequence of bytes where non-zero
-  /// indicates a valid (non-null) value)
+  /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const uint64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
@@ -485,7 +485,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
   /// \param[in] valid_bytes an optional sequence of bytes where non-zero
-  /// indicates a valid (non-null) value)
+  /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const int64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
@@ -555,7 +555,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// \param[in] values a contiguous array of bytes (non-zero is 1)
   /// \param[in] length the number of values to append
   /// \param[in] valid_bytes an optional sequence of bytes where non-zero
-  /// indicates a valid (non-null) value)
+  /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const uint8_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
