@@ -149,6 +149,15 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   ASSERT_EQ(expected, result);
 }
 
+TEST(DecimalTest, TestSimpleConstruction) {
+  Decimal128 value("-394029506937548693.42983");
+  std::stringstream ss;
+  ss << value;
+  std::string result = ss.str();
+  std::string expected("Decimal128(\"-39402950693754869342983\")");
+  ASSERT_EQ(expected, result);
+}
+
 TEST(DecimalTest, TestInvalidInputMinus) {
   std::string invalid_value("-");
   Decimal128 out;
