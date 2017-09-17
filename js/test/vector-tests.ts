@@ -15,30 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { vectors } from './Arrow';
 import { flatbuffers } from 'flatbuffers';
 import Long = flatbuffers.Long;
-const BitVector = vectors.BitVector;
-const TypedVector = vectors.TypedVector;
+import {
+    BitVector,
+    TypedVector,
+    Int64Vector,
+    Uint64Vector,
+    Int8Vector,
+    Int16Vector,
+    Int32Vector,
+    Uint8Vector,
+    Uint16Vector,
+    Uint32Vector,
+    Float32Vector,
+    Float64Vector,
+} from './Arrow';
 
-const LongVectors = {
-    Int64Vector: vectors.Int64Vector,
-    Uint64Vector: vectors.Uint64Vector,
-};
+const LongVectors = { Int64Vector, Uint64Vector };
+const ByteVectors = { Int8Vector, Int16Vector, Int32Vector, Uint8Vector, Uint16Vector, Uint32Vector, Float32Vector, Float64Vector };
 
-const ByteVectors = {
-    Int8Vector: vectors.Int8Vector,
-    Int16Vector: vectors.Int16Vector,
-    Int32Vector: vectors.Int32Vector,
-    Uint8Vector: vectors.Uint8Vector,
-    Uint16Vector: vectors.Uint16Vector,
-    Uint32Vector: vectors.Uint32Vector,
-    Float32Vector: vectors.Float32Vector,
-    Float64Vector: vectors.Float64Vector,
-};
-
-const longVectors = toMap<typeof TypedVector>(vectors, Object.keys(LongVectors));
-const byteVectors = toMap<typeof TypedVector>(vectors, Object.keys(ByteVectors));
+const longVectors = toMap<typeof TypedVector>(LongVectors, Object.keys(LongVectors));
+const byteVectors = toMap<typeof TypedVector>(ByteVectors, Object.keys(ByteVectors));
 const bytes = Array.from(
     { length: 5 },
     () => Uint8Array.from(

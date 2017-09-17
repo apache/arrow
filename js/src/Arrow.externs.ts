@@ -26,6 +26,8 @@ Symbol.iterator;
 Symbol.asyncIterator;
 let Table = function() {};
 /** @type {?} */
+Table.prototype.length;
+/** @type {?} */
 Table.prototype.rows;
 /** @type {?} */
 Table.prototype.cols;
@@ -65,3 +67,9 @@ TypedVector.prototype.arrayType;
 let ValidityVector = function() {};
 /** @type {?} */
 (<any> ValidityVector).pack;
+
+let DictionaryVector = function() {};
+/** @type {?} */
+DictionaryVector.prototype.index;
+/** @type {?} */
+DictionaryVector.prototype.value;
