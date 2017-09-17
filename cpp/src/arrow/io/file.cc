@@ -107,15 +107,19 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+#if defined(_MSC_VER)
+#include <boost/filesystem.hpp>           // NOLINT
+#include <boost/system/system_error.hpp>  // NOLINT
+namespace fs = boost::filesystem;
+#define PlatformFilename fs::path
+
 namespace arrow {
 namespace io {
 
-#if defined(__MSC_VER__)
-#include <boost/filesystem.hpp>           // NOLINT
-#include <boost/system/system_error.hpp>  // NOLINT
-#define PlatformFilename fs::path
-namespace fs = boost::filesystem;
 #else
+namespace arrow {
+namespace io {
+
 struct PlatformFilename {
   static Status Init(const std::string& utf8_path, PlatformFilename* out) {
     out->utf8_path = utf8_path;
@@ -391,7 +395,7 @@ class OSFile {
       return Status::Invalid(e.what());
     }
 #else
-      PlatformFilename::Init(file_name, &file_name_);
+    RETURN_NOT_OK(PlatformFilename::Init(file_name, &file_name_));
 #endif
     return Status::OK();
   }
