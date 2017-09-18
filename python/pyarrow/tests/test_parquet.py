@@ -1202,9 +1202,6 @@ def test_write_error_deletes_incomplete_file(tmpdir):
     except pa.ArrowException:
         pass
 
-    # Ensure that object has been destructed; this causes test failures on
-    # Windows
-    gc.collect()
     assert not os.path.exists(filename)
 
 
