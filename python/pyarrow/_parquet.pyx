@@ -562,6 +562,7 @@ cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
         shared_ptr[OutputStream] sink
+        bint own_sink
 
     cdef readonly:
         object use_dictionary
@@ -588,8 +589,10 @@ cdef class ParquetWriter:
                 check_status(FileOutputStream.Open(c_where,
                                                    &filestream))
             self.sink = <shared_ptr[OutputStream]> filestream
+            self.own_sink = True
         else:
             get_writer(where, &self.sink)
+            self.own_sink = False
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -664,6 +667,8 @@ cdef class ParquetWriter:
     def close(self):
         with nogil:
             check_status(self.writer.get().Close())
+            if self.own_sink:
+                check_status(self.sink.get().Close())
 
     def write_table(self, Table table, row_group_size=None):
         cdef CTable* ctable = table.table
