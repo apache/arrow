@@ -199,35 +199,41 @@ Now, you can run unit tests by the followings:
 ```
 
 ## Common build problems
+
 ### configure failed - `AX_CXX_COMPILE_STDCXX_11(ext, mandatory)'
 
 * Check whether `autoconf-archive` is installed.
-* [macOS] Run `brew install autoconf-archive` again. If it shows like the following message, run `brew link autoconf-archive`.
+* [macOS] `autoconf-archive` must be linked, but may not be linked. You can check it by running `brew install autoconf-archive` again. If it's not linked, it will show a warning message like:
 
-```text
-$ brew install autoconf-archive
+```console
+% brew install autoconf-archive
 Warning: autoconf-archive 2017.03.21 is already installed, it's just not linked.
 You can use `brew link autoconf-archive` to link this version.
 ```
 
-Some packages (e.g. `gnome-common`) conflict with `autoconf-archive`. If you see like the following message, run `brew unlink <pkgname>`, then run `brew link autoconf-archive` again.
+In this case, you need to run `brew link autoconf-archive`. It may fail with the following message if you have install conflicted packages (e.g. `gnome-common`).
 
-```text
-$ brew link autoconf-archive
+```console
+% brew link autoconf-archive
 Linking /usr/local/Cellar/autoconf-archive/2017.03.21... 
 Error: Could not symlink share/aclocal/ax_check_enable_debug.m4
 Target /usr/local/share/aclocal/ax_check_enable_debug.m4
 is a symlink belonging to gnome-common. You can unlink it:
   brew unlink gnome-common
 ```
-After installing/linking `autoconf-archive`, you need to run `./autogen.sh` again.
+
+You need to run `brew unlink <pkgname>`, then run `brew link autoconf-archive` again.
+
+After installing/linking `autoconf-archive`, run `./autogen.sh` again.
 
 ### [macOS] configure failed - gobject-introspection-1.0 is not installed
+
 gobject-introspection requires libffi, and it's automatically installed with gobject-introspection. However it can't be found because it's [keg-only](https://docs.brew.sh/FAQ.html#what-does-keg-only-mean). You need to set `PKG_CONFIG_PATH` when executing configure.
 
-```text
-% PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig ./configure
+```console
+% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig
 ```
 
 ### build failed - /usr/bin/ld: cannot find -larrow
+
 Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++ build directory. In addtion, on linux, you may need to run `sudo ldconfig`.
