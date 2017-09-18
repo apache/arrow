@@ -668,7 +668,7 @@ cdef class ParquetWriter:
         with nogil:
             check_status(self.writer.get().Close())
             if self.own_sink:
-                self.sink.get().Close()
+                check_status(self.sink.get().Close())
 
     def write_table(self, Table table, row_group_size=None):
         cdef CTable* ctable = table.table
