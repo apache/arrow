@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <type_traits>
 
@@ -159,7 +160,17 @@ ARROW_EXPORT Decimal128 operator*(const Decimal128& left, const Decimal128& righ
 ARROW_EXPORT Decimal128 operator/(const Decimal128& left, const Decimal128& right);
 ARROW_EXPORT Decimal128 operator%(const Decimal128& left, const Decimal128& right);
 
-ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const Decimal128& value);
+static inline std::ostream& operator<<(std::ostream& os, const Decimal128& value) {
+  std::string string_value = value.ToString(38, 0);
+  return os << "Decimal128(\""
+            << string_value.erase(0, string_value.find_first_not_of('0')) << "\")";
+}
+
+namespace DecimalUtil {
+
+ARROW_EXPORT int32_t DecimalSize(int32_t precision);
+
+}  // namespace DecimalUtil
 
 }  // namespace arrow
 

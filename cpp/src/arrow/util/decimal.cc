@@ -36,8 +36,8 @@
 namespace arrow {
 
 static constexpr uint64_t kIntMask = 0x00000000FFFFFFFF;
-static constexpr uint64_t kMinDecimalDigits = 1ULL;
-static constexpr uint64_t kMaxDecimalDigits = 16ULL;
+static constexpr int32_t kMinDecimalDigits = 1;
+static constexpr int32_t kMaxDecimalDigits = 16;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
 template <typename T>
@@ -98,11 +98,11 @@ Decimal128::Decimal128(const uint8_t* bytes, int32_t length) {
   BytesToIntegerPair(bytes, length, &high_bits_, &low_bits_);
 }
 
-std::array<uint8_t, 16> Decimal128::ToBytes() const {
+std::array<uint8_t, kMaxDecimalDigits> Decimal128::ToBytes() const {
   const uint64_t raw[] = {static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
                           BitUtil::ToBigEndian(low_bits_)};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
-  std::array<uint8_t, 16> out{{0}};
+  std::array<uint8_t, kMaxDecimalDigits> out{{0}};
   std::copy(raw_data, raw_data + out.size(), out.begin());
   return out;
 }
@@ -760,10 +760,77 @@ Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   return remainder;
 }
 
-std::ostream& operator<<(std::ostream& os, const Decimal128& value) {
-  std::string string_value = value.ToString(38, 0);
-  return os << "Decimal128(\""
-            << string_value.erase(0, string_value.find_first_not_of('0')) << "\")";
+namespace DecimalUtil {
+
+int32_t DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1);
+  DCHECK_LE(precision, 38);
+
+  // Numbers in the comment is the max positive value that can be represented
+  // with those number of bits (max negative is -(X + 1)).
+  // TODO: use closed form for this?
+  switch (precision) {
+    case 1:
+    case 2:
+      return 1;  // 127
+    case 3:
+    case 4:
+      return 2;  // 32,767
+    case 5:
+    case 6:
+      return 3;  // 8,388,607
+    case 7:
+    case 8:
+    case 9:
+      return 4;  // 2,147,483,427
+    case 10:
+    case 11:
+      return 5;  // 549,755,813,887
+    case 12:
+    case 13:
+    case 14:
+      return 6;  // 140,737,488,355,327
+    case 15:
+    case 16:
+      return 7;  // 36,028,797,018,963,967
+    case 17:
+    case 18:
+      return 8;  // 9,223,372,036,854,775,807
+    case 19:
+    case 20:
+    case 21:
+      return 9;  // 2,361,183,241,434,822,606,847
+    case 22:
+    case 23:
+      return 10;  // 604,462,909,807,314,587,353,087
+    case 24:
+    case 25:
+    case 26:
+      return 11;  // 154,742,504,910,672,534,362,390,527
+    case 27:
+    case 28:
+      return 12;  // 39,614,081,257,132,168,796,771,975,167
+    case 29:
+    case 30:
+    case 31:
+      return 13;  // 10,141,204,801,825,835,211,973,625,643,007
+    case 32:
+    case 33:
+      return 14;  // 2,596,148,429,267,413,814,265,248,164,610,047
+    case 34:
+    case 35:
+      return 15;  // 664,613,997,892,457,936,451,903,530,140,172,287
+    case 36:
+    case 37:
+    case 38:
+      return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
+    default:
+      DCHECK(false);
+      break;
+  }
+  return -1;
 }
+
+}  // namespace DecimalUtil
 
 }  // namespace arrow
