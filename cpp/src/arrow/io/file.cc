@@ -121,14 +121,12 @@ namespace arrow {
 namespace io {
 
 struct PlatformFilename {
-  static Status Init(const std::string& utf8_path, PlatformFilename* out) {
-    out->utf8_path = utf8_path;
-    return Status::OK();
-  }
+  PlatformFilename() {}
+  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
 
   const char* c_str() const { return utf8_path.c_str(); }
 
-  const std::string string() const { return utf8_path; }
+  const std::string& string() const { return utf8_path; }
 
   size_t length() const { return utf8_path.size(); }
 
@@ -395,7 +393,7 @@ class OSFile {
       return Status::Invalid(e.what());
     }
 #else
-    RETURN_NOT_OK(PlatformFilename::Init(file_name, &file_name_));
+    file_name_ = PlatformFilename(file_name);
 #endif
     return Status::OK();
   }
