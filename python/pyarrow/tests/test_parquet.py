@@ -17,7 +17,6 @@
 
 from os.path import join as pjoin
 import datetime
-import gc
 import io
 import os
 import json
