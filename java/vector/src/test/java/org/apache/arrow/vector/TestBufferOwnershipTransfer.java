@@ -47,7 +47,9 @@ public class TestBufferOwnershipTransfer {
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    assertEquals(5 * 4096, childAllocator2.getAllocatedMemory());
+    int expectedBitVector = 512;
+    int expectedValueVector = 4096*4;
+    assertEquals(expectedBitVector + expectedValueVector, childAllocator2.getAllocatedMemory());
   }
 
   @Test
@@ -66,7 +68,10 @@ public class TestBufferOwnershipTransfer {
     v1.makeTransferPair(v2).transfer();
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
-    int expected = 8 * 4096 + 4 * 4096 + 4096;
+    int expectedValueVector = 4096*8;
+    int expectedOffsetVector = 4096*4;
+    int expectedBitVector = 512;
+    int expected = expectedBitVector + expectedOffsetVector + expectedValueVector;
     assertEquals(expected, childAllocator2.getAllocatedMemory());
   }
 
