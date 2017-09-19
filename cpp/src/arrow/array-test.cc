@@ -2573,17 +2573,16 @@ class DecimalTest : public ::testing::TestWithParam<int> {
  public:
   DecimalTest() {}
 
-  template <size_t BYTE_WIDTH = 16>
-  void MakeData(const DecimalVector& input, std::vector<uint8_t>* out) const {
-    out->reserve(input.size() * BYTE_WIDTH);
+  void MakeData(const DecimalVector& input, int32_t byte_width,
+                std::vector<uint8_t>* out) const {
+    out->reserve(input.size() * byte_width);
 
     for (const auto& value : input) {
       auto bytes = value.ToBytes();
-      out->insert(out->end(), bytes.cbegin(), bytes.cend());
+      out->insert(out->end(), bytes.cbegin() + 16 - byte_width, bytes.cend());
     }
   }
 
-  template <size_t BYTE_WIDTH = 16>
   void TestCreate(int32_t precision, const DecimalVector& draw,
                   const std::vector<uint8_t>& valid_bytes, int64_t offset) const {
     auto type = std::make_shared<DecimalType>(precision, 4);
@@ -2608,12 +2607,12 @@ class DecimalTest : public ::testing::TestWithParam<int> {
     std::shared_ptr<Array> out;
     ASSERT_OK(builder->Finish(&out));
 
+    const int32_t byte_width = type->byte_width();
+
     std::vector<uint8_t> raw_bytes;
+    MakeData(draw, byte_width, &raw_bytes);
 
-    raw_bytes.reserve(size * BYTE_WIDTH);
-    MakeData<BYTE_WIDTH>(draw, &raw_bytes);
-
-    auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), BYTE_WIDTH);
+    auto expected_data = std::make_shared<Buffer>(raw_bytes.data(), byte_width);
     std::shared_ptr<Buffer> expected_null_bitmap;
     ASSERT_OK(
         BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &expected_null_bitmap));

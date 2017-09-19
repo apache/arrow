@@ -24,6 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/compare.h"
 #include "arrow/status.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
@@ -495,6 +496,11 @@ std::vector<BufferDescr> UnionType::GetBufferLayout() const {
     return {kValidityBuffer, kTypeBuffer, kOffsetBuffer};
   }
 }
+
+DecimalType::DecimalType(int32_t precision, int32_t scale)
+    : FixedSizeBinaryType(DecimalUtil::DecimalSize(precision), Type::DECIMAL),
+      precision_(precision),
+      scale_(scale) {}
 
 std::string DecimalType::ToString() const {
   std::stringstream s;

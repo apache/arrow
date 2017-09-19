@@ -17,6 +17,7 @@
 //
 
 #include <cstdint>
+#include <iostream>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -39,7 +40,15 @@ TEST_F(DecimalTestFixture, TestToString) {
   int precision = 8;
   int scale = 5;
   std::string result = decimal.ToString(precision, scale);
-  ASSERT_EQ(result, this->string_value_);
+  ASSERT_EQ(this->string_value_, result);
+}
+
+TEST_F(DecimalTestFixture, TestStringStream) {
+  Decimal128 decimal(this->integer_value_);
+  std::stringstream ss;
+  ss << decimal;
+  std::string expected("Decimal128(\"23423445\")");
+  ASSERT_EQ(expected, ss.str());
 }
 
 TEST_F(DecimalTestFixture, TestFromString) {
@@ -47,9 +56,9 @@ TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 result;
   int precision, scale;
   ASSERT_OK(Decimal128::FromString(this->string_value_, &result, &precision, &scale));
-  ASSERT_EQ(result, expected);
-  ASSERT_EQ(precision, 8);
-  ASSERT_EQ(scale, 5);
+  ASSERT_EQ(expected, result);
+  ASSERT_EQ(8, precision);
+  ASSERT_EQ(5, scale);
 }
 
 TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
@@ -101,36 +110,51 @@ TEST(DecimalTest, TestFromDecimalString128) {
 TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
   Decimal128 expected("-3402692");
 
-  auto bytes = expected.ToBytes();
-  Decimal128 result(bytes.data());
+  std::array<uint8_t, 16> bytes = expected.ToBytes();
+
+  Decimal128 result(bytes.data() + 13, 3);
+  std::array<uint8_t, 16> other_bytes = result.ToBytes();
+
+  ASSERT_EQ(bytes, other_bytes);
   ASSERT_EQ(expected, result);
 }
 
 TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
-  Decimal128 expected;
-  std::string string_value("-34034293045.921");
-  ASSERT_OK(Decimal128::FromString(string_value, &expected));
+  Decimal128 expected("-34034293045.921");
 
-  auto bytes = expected.ToBytes();
-  Decimal128 result(bytes.data());
+  std::array<uint8_t, 16> bytes = expected.ToBytes();
 
+  Decimal128 result(bytes.data() + 10, 6);
+  auto other_bytes = result.ToBytes();
+
+  ASSERT_EQ(bytes, other_bytes);
   ASSERT_EQ(expected, result);
 }
 
 TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
-  Decimal128 expected;
-  std::string string_value("-340282366920938463463374607431.711455");
-  ASSERT_OK(Decimal128::FromString(string_value, &expected));
+  Decimal128 expected("-340282366920938463463374607431.711455");
+  Decimal128 expected_underlying_value("-340282366920938463463374607431711455");
 
-  std::string expected_string_value("-340282366920938463463374607431711455");
-  Decimal128 expected_underlying_value(expected_string_value);
-
+  // TODO(phillipc): Equality here means "same underlying bytes", which is different than
+  // what's obvious, i.e., comparing the numbers inside the strings above. An EqualBytes
+  // method might make this more obvious
   ASSERT_EQ(expected, expected_underlying_value);
 
-  auto bytes = expected.ToBytes();
+  std::array<uint8_t, 16> bytes = expected.ToBytes();
 
-  Decimal128 result(bytes.data());
+  Decimal128 result(bytes.data() + 1, 15);
+  std::array<uint8_t, 16> other_bytes = result.ToBytes();
 
+  ASSERT_EQ(bytes, other_bytes);
+  ASSERT_EQ(expected, result);
+}
+
+TEST(DecimalTest, TestSimpleConstruction) {
+  Decimal128 value("-394029506937548693.42983");
+  std::stringstream ss;
+  ss << value;
+  std::string result = ss.str();
+  std::string expected("Decimal128(\"-39402950693754869342983\")");
   ASSERT_EQ(expected, result);
 }
 

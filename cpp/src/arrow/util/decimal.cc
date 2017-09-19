@@ -17,7 +17,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <sstream>
@@ -27,34 +29,85 @@
 #pragma intrinsic(_BitScanReverse)
 #endif
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
-static constexpr uint64_t kIntMask = 0xFFFFFFFF;
+static constexpr uint64_t kIntMask = 0x00000000FFFFFFFF;
+static constexpr int32_t kMinDecimalDigits = 1;
+static constexpr int32_t kMaxDecimalDigits = 16;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
+
+template <typename T>
+T BytesToInteger(const uint8_t* bytes, int32_t start, int32_t stop) {
+  T value = 0;
+
+  const auto unsigned_stop = static_cast<uint64_t>(stop);
+
+  for (int32_t i = start; i < stop; ++i) {
+    const uint64_t bits_to_shift = (unsigned_stop - i - 1) * CHAR_BIT;
+    const uint64_t byte_value = bytes[i];
+    const uint64_t shifted_value = byte_value << bits_to_shift;
+    value |= shifted_value;
+  }
+
+  return value;
+}
+
+static void BytesToIntegerPair(const uint8_t* bytes, int32_t length, int64_t* high,
+                               uint64_t* low) {
+  DCHECK_GE(length, kMinDecimalDigits);
+  DCHECK_LE(length, kMaxDecimalDigits);
+
+  const bool is_negative = (bytes[0] & BitUtil::kSignBitOfByte) != 0;
+
+  if (is_negative) {
+    // sign extend if necessary - upper 64 bits get all ones, so do lower. we handle the
+    // the rest by computing the integer value and shifting + ORing the integer value with
+    // the sign extended upper bits of the lower 64 bits
+    *low = UINT64_MAX;
+    *high = static_cast<int64_t>(UINT64_MAX);  // -1, but easier to grok with UINT64_MAX
+  } else {
+    *low = 0ULL;
+    *high = 0LL;
+  }
+
+  if (length >= 1 && length <= 8) {
+    const auto used_low_bits_value = BytesToInteger<uint64_t>(bytes, 0, length);
+    *low <<= length * CHAR_BIT;
+    *low |= used_low_bits_value;
+  } else {  // we have a number that needs more than 64 bits
+    // high bytes
+    const auto used_high_bits_value = BytesToInteger<int64_t>(bytes, 0, length - 8);
+    *high <<= (length - 8) * CHAR_BIT;
+    *high |= used_high_bits_value;
+
+    // low bytes
+    *low = BytesToInteger<uint64_t>(bytes, length - 8, length);
+  }
+}
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
   Status status(Decimal128::FromString(str, this));
   DCHECK(status.ok()) << status.message();
 }
 
-Decimal128::Decimal128(const uint8_t* bytes)
-    : Decimal128(reinterpret_cast<const int64_t*>(bytes)[0],
-                 reinterpret_cast<const uint64_t*>(bytes)[1]) {}
+Decimal128::Decimal128(const uint8_t* bytes, int32_t length) {
+  BytesToIntegerPair(bytes, length, &high_bits_, &low_bits_);
+}
 
-std::array<uint8_t, 16> Decimal128::ToBytes() const {
-  const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
+std::array<uint8_t, kMaxDecimalDigits> Decimal128::ToBytes() const {
+  const uint64_t raw[] = {static_cast<uint64_t>(BitUtil::ToBigEndian(high_bits_)),
+                          BitUtil::ToBigEndian(low_bits_)};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
-  std::array<uint8_t, 16> out{{0}};
+  std::array<uint8_t, kMaxDecimalDigits> out{{0}};
   std::copy(raw_data, raw_data + out.size(), out.begin());
   return out;
 }
 
 std::string Decimal128::ToString(int precision, int scale) const {
-  using std::size_t;
-
   const bool is_negative = *this < 0;
 
   // Decimal values are sent to clients as strings so in the interest of
@@ -389,23 +442,24 @@ Decimal128& Decimal128::operator*=(const Decimal128& right) {
 /// \param array an array of length 4 to set with the value
 /// \param was_negative a flag for whether the value was original negative
 /// \result the output length of the array
-static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool& was_negative) {
+static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool* was_negative) {
+  DCHECK_NE(was_negative, nullptr) << "was_negative parameter cannot be nullptr";
   uint64_t high;
   uint64_t low;
   const int64_t highbits = value.high_bits();
   const uint64_t lowbits = value.low_bits();
 
-  if (highbits < 0) {
+  *was_negative = highbits < 0;
+
+  if (*was_negative) {
     low = ~lowbits + 1;
     high = static_cast<uint64_t>(~highbits);
     if (low == 0) {
       ++high;
     }
-    was_negative = true;
   } else {
     low = lowbits;
     high = static_cast<uint64_t>(highbits);
-    was_negative = false;
   }
 
   if (high != 0) {
@@ -553,8 +607,8 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   // leave an extra zero before the dividend
   dividend_array[0] = 0;
   int64_t dividend_length =
-      FillInArray(*this, dividend_array + 1, dividend_was_negative) + 1;
-  int64_t divisor_length = FillInArray(divisor, divisor_array, divisor_was_negative);
+      FillInArray(*this, dividend_array + 1, &dividend_was_negative) + 1;
+  int64_t divisor_length = FillInArray(divisor, divisor_array, &divisor_was_negative);
 
   // Handle some of the easy cases.
   if (dividend_length <= divisor_length) {
@@ -651,7 +705,7 @@ bool operator==(const Decimal128& left, const Decimal128& right) {
 }
 
 bool operator!=(const Decimal128& left, const Decimal128& right) {
-  return !operator==(left, right);
+  return !(left == right);
 }
 
 bool operator<(const Decimal128& left, const Decimal128& right) {
@@ -660,15 +714,13 @@ bool operator<(const Decimal128& left, const Decimal128& right) {
 }
 
 bool operator<=(const Decimal128& left, const Decimal128& right) {
-  return !operator>(left, right);
+  return !(left > right);
 }
 
-bool operator>(const Decimal128& left, const Decimal128& right) {
-  return operator<(right, left);
-}
+bool operator>(const Decimal128& left, const Decimal128& right) { return right < left; }
 
 bool operator>=(const Decimal128& left, const Decimal128& right) {
-  return !operator<(left, right);
+  return !(left < right);
 }
 
 Decimal128 operator-(const Decimal128& operand) {
@@ -707,5 +759,78 @@ Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   DCHECK(left.Divide(right, &result, &remainder).ok());
   return remainder;
 }
+
+namespace DecimalUtil {
+
+int32_t DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1);
+  DCHECK_LE(precision, 38);
+
+  // Numbers in the comment is the max positive value that can be represented
+  // with those number of bits (max negative is -(X + 1)).
+  // TODO: use closed form for this?
+  switch (precision) {
+    case 1:
+    case 2:
+      return 1;  // 127
+    case 3:
+    case 4:
+      return 2;  // 32,767
+    case 5:
+    case 6:
+      return 3;  // 8,388,607
+    case 7:
+    case 8:
+    case 9:
+      return 4;  // 2,147,483,427
+    case 10:
+    case 11:
+      return 5;  // 549,755,813,887
+    case 12:
+    case 13:
+    case 14:
+      return 6;  // 140,737,488,355,327
+    case 15:
+    case 16:
+      return 7;  // 36,028,797,018,963,967
+    case 17:
+    case 18:
+      return 8;  // 9,223,372,036,854,775,807
+    case 19:
+    case 20:
+    case 21:
+      return 9;  // 2,361,183,241,434,822,606,847
+    case 22:
+    case 23:
+      return 10;  // 604,462,909,807,314,587,353,087
+    case 24:
+    case 25:
+    case 26:
+      return 11;  // 154,742,504,910,672,534,362,390,527
+    case 27:
+    case 28:
+      return 12;  // 39,614,081,257,132,168,796,771,975,167
+    case 29:
+    case 30:
+    case 31:
+      return 13;  // 10,141,204,801,825,835,211,973,625,643,007
+    case 32:
+    case 33:
+      return 14;  // 2,596,148,429,267,413,814,265,248,164,610,047
+    case 34:
+    case 35:
+      return 15;  // 664,613,997,892,457,936,451,903,530,140,172,287
+    case 36:
+    case 37:
+    case 38:
+      return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
+    default:
+      DCHECK(false);
+      break;
+  }
+  return -1;
+}
+
+}  // namespace DecimalUtil
 
 }  // namespace arrow

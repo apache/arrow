@@ -115,13 +115,12 @@ TEST_F(TestPrettyPrint, DecimalType) {
 
   DecimalBuilder builder(type);
 
-  Decimal128 val;
+  Decimal128 val("123.4567");
+  Decimal128 val2("456.7891");
 
-  ASSERT_OK(Decimal128::FromString("123.4567", &val));
   ASSERT_OK(builder.Append(val));
+  ASSERT_OK(builder.Append(val2));
 
-  ASSERT_OK(Decimal128::FromString("456.7891", &val));
-  ASSERT_OK(builder.Append(val));
   ASSERT_OK(builder.AppendNull());
 
   std::shared_ptr<Array> array;
