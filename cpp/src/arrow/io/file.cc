@@ -107,16 +107,35 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+#if defined(_MSC_VER)
 #include <boost/filesystem.hpp>           // NOLINT
 #include <boost/system/system_error.hpp>  // NOLINT
-
 namespace fs = boost::filesystem;
+#define PlatformFilename fs::path
 
 namespace arrow {
 namespace io {
 
+#else
+namespace arrow {
+namespace io {
+
+struct PlatformFilename {
+  PlatformFilename() {}
+  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
+
+  const char* c_str() const { return utf8_path.c_str(); }
+
+  const std::string& string() const { return utf8_path; }
+
+  size_t length() const { return utf8_path.size(); }
+
+  std::string utf8_path;
+};
+#endif
+
 static inline Status CheckOpenResult(int ret, int errno_actual,
-                                     const fs::path& file_name) {
+                                     const PlatformFilename& file_name) {
   if (ret == -1) {
     // TODO: errno codes to strings
     std::stringstream ss;
@@ -137,7 +156,7 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 #endif
 }
 
-static inline Status FileOpenReadable(const fs::path& file_name, int* fd) {
+static inline Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
@@ -152,7 +171,7 @@ static inline Status FileOpenReadable(const fs::path& file_name, int* fd) {
   return CheckOpenResult(ret, errno_actual, file_name);
 }
 
-static inline Status FileOpenWriteable(const fs::path& file_name, bool write_only,
+static inline Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
                                        bool truncate, int* fd) {
   int ret;
   errno_t errno_actual = 0;
@@ -366,20 +385,20 @@ class OSFile {
 
  protected:
   Status SetFileName(const std::string& file_name) {
-    try {
 #if defined(_MSC_VER)
+    try {
       std::codecvt_utf8_utf16<wchar_t> utf16_converter;
       file_name_.assign(file_name, utf16_converter);
-#else
-      file_name_ = file_name;
-#endif
     } catch (boost::system::system_error& e) {
       return Status::Invalid(e.what());
     }
+#else
+    file_name_ = PlatformFilename(file_name);
+#endif
     return Status::OK();
   }
 
-  fs::path file_name_;
+  PlatformFilename file_name_;
 
   std::mutex lock_;
 
