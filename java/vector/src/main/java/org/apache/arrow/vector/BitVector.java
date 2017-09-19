@@ -175,7 +175,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   @Override
   public void reset() {
     valueCount = 0;
-    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+    allocationSizeInBytes = getSizeFromCount(INITIAL_VALUE_ALLOCATION);
     allocationMonitor = 0;
     zeroVector();
     super.reset();
