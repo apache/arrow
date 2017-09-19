@@ -208,14 +208,21 @@ public final class ${className} extends BaseDataValueVector implements FixedWidt
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the new buffer
    */
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes * 2L;
-    if (newAllocationSize > MAX_ALLOCATION_SIZE)  {
+    long baseSize  = allocationSizeInBytes;
+    final int currentBufferCapacity = data.capacity();
+    if (baseSize < (long)currentBufferCapacity) {
+        baseSize = (long)currentBufferCapacity;
+    }
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+
+    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
 
     logger.debug("Reallocating vector [{}]. # of bytes: [{}] -> [{}]", name, allocationSizeInBytes, newAllocationSize);
     final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
-    newBuf.setBytes(0, data, 0, data.capacity());
+    newBuf.setBytes(0, data, 0, currentBufferCapacity);
     final int halfNewCapacity = newBuf.capacity() / 2;
     newBuf.setZero(halfNewCapacity, halfNewCapacity);
     newBuf.writerIndex(data.writerIndex());
