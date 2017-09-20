@@ -315,7 +315,7 @@ cdef int _schema_from_arrays(
 
     fields.resize(K)
 
-    if len(arrays) == 0:
+    if not K:
         raise ValueError('Must pass at least one array')
 
     if isinstance(arrays[0], Column):
@@ -328,6 +328,9 @@ cdef int _schema_from_arrays(
         if names is None:
             raise ValueError('Must pass names when constructing '
                              'from Array objects')
+        if len(names) != K:
+            raise ValueError("Length of names ({}) does not match "
+                             "length of arrays ({})".format(len(names), K))
         for i in range(K):
             val = arrays[i]
             if isinstance(val, (Array, ChunkedArray)):
