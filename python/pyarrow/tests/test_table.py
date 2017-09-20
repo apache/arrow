@@ -82,6 +82,18 @@ def test_recordbatch_basics():
         batch[2]
 
 
+def test_recordbatch_from_arrays_invalid_names():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, names=['a', 'b', 'c'])
+
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, names=['a'])
+
+
 def test_recordbatch_empty_metadata():
     data = [
         pa.array(range(5)),
@@ -198,6 +210,18 @@ def test_table_basics():
     for col in table.itercolumns():
         for chunk in col.data.iterchunks():
             assert chunk is not None
+
+
+def test_table_from_arrays_invalid_names():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, names=['a'])
 
 
 def test_table_add_column():
