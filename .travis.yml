@@ -58,6 +58,7 @@ matrix:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
@@ -72,6 +73,7 @@ matrix:
     before_script:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_PLASMA=1
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
@@ -106,6 +108,7 @@ matrix:
     - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
@@ -123,6 +126,7 @@ matrix:
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
@@ -134,6 +138,7 @@ matrix:
     addons:
     rvm: 2.2
     before_script:
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
