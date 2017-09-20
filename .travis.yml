@@ -64,6 +64,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - compiler: clang
+    language: python
     osx_image: xcode6.4
     os: osx
     cache:
@@ -136,7 +137,6 @@ matrix:
     addons:
     rvm: 2.2
     before_script:
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
