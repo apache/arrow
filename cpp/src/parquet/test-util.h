@@ -377,7 +377,7 @@ static void PaginatePlain(const ColumnDescriptor* d,
     }
     shared_ptr<DataPage> page = MakeDataPage<Type>(
         d, slice(values, value_start, value_start + values_per_page[i]),
-        values_per_page[i], encoding, NULL, 0,
+        values_per_page[i], encoding, nullptr, 0,
         slice(def_levels, def_level_start, def_level_end), max_def_level,
         slice(rep_levels, rep_level_start, rep_level_end), max_rep_level);
     pages.push_back(page);

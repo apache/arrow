@@ -21,7 +21,10 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/util/rle-encoding.h"
+#include <arrow/buffer.h>
+#include <arrow/memory_pool.h>
+#include <arrow/util/bit-util.h>
+#include <arrow/util/rle-encoding.h>
 
 #include "parquet/column_page.h"
 #include "parquet/encoding-internal.h"

@@ -37,8 +37,9 @@ namespace parquet {
 
 namespace arrow {
 
-::arrow::Status PARQUET_EXPORT NodeToField(const schema::NodePtr& node,
-                                           std::shared_ptr<::arrow::Field>* out);
+PARQUET_EXPORT
+::arrow::Status NodeToField(const schema::Node& node,
+                            std::shared_ptr<::arrow::Field>* out);
 
 /// Convert parquet schema to arrow schema with selected indices
 /// \param parquet_schema to be converted
@@ -48,16 +49,18 @@ namespace arrow {
 /// \param key_value_metadata optional metadata, can be nullptr
 /// \param out the corresponding arrow schema
 /// \return Status::OK() on a successful conversion.
-::arrow::Status PARQUET_EXPORT FromParquetSchema(
+PARQUET_EXPORT
+::arrow::Status FromParquetSchema(
     const SchemaDescriptor* parquet_schema, const std::vector<int>& column_indices,
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
     std::shared_ptr<::arrow::Schema>* out);
 
 // Without indices
-::arrow::Status PARQUET_EXPORT
-FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-                  std::shared_ptr<::arrow::Schema>* out);
+PARQUET_EXPORT
+::arrow::Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out);
 
 // Without metadata
 ::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,

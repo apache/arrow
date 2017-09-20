@@ -214,7 +214,7 @@ TEST(ChunkedAllocatorTest, MemoryOverhead) {
 
   for (int i = 0; i < num_allocs; ++i) {
     uint8_t* mem = p.Allocate(alloc_size);
-    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(mem != nullptr);
     total_allocated += alloc_size;
 
     int64_t wasted_memory = p.GetTotalChunkSizes() - total_allocated;
@@ -239,7 +239,7 @@ TEST(ChunkedAllocatorTest, FragmentationOverhead) {
   for (int i = 0; i < num_allocs; ++i) {
     int alloc_size = i % 2 == 0 ? 1 : ChunkedAllocatorTest::MAX_CHUNK_SIZE;
     uint8_t* mem = p.Allocate(alloc_size);
-    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(mem != nullptr);
     total_allocated += alloc_size;
 
     int64_t wasted_memory = p.GetTotalChunkSizes() - total_allocated;

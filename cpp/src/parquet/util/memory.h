@@ -188,7 +188,7 @@ class PARQUET_EXPORT ChunkedAllocator {
 
     explicit ChunkInfo(int64_t size, uint8_t* buf);
 
-    ChunkInfo() : data(NULL), size(0), allocated_bytes(0) {}
+    ChunkInfo() : data(nullptr), size(0), allocated_bytes(0) {}
   };
 
   /// chunk from which we served the last Allocate() call;

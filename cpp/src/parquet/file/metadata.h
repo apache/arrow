@@ -91,7 +91,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   // API convenience to get a MetaData accessor
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const uint8_t* metadata, const ColumnDescriptor* descr,
-      const ApplicationVersion* writer_version = NULL);
+      const ApplicationVersion* writer_version = nullptr);
 
   ~ColumnChunkMetaData();
 
@@ -116,7 +116,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
  private:
   explicit ColumnChunkMetaData(const uint8_t* metadata, const ColumnDescriptor* descr,
-                               const ApplicationVersion* writer_version = NULL);
+                               const ApplicationVersion* writer_version = nullptr);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -127,7 +127,7 @@ class PARQUET_EXPORT RowGroupMetaData {
   // API convenience to get a MetaData accessor
   static std::unique_ptr<RowGroupMetaData> Make(
       const uint8_t* metadata, const SchemaDescriptor* schema,
-      const ApplicationVersion* writer_version = NULL);
+      const ApplicationVersion* writer_version = nullptr);
 
   ~RowGroupMetaData();
 
@@ -141,7 +141,7 @@ class PARQUET_EXPORT RowGroupMetaData {
 
  private:
   explicit RowGroupMetaData(const uint8_t* metadata, const SchemaDescriptor* schema,
-                            const ApplicationVersion* writer_version = NULL);
+                            const ApplicationVersion* writer_version = nullptr);
   // PIMPL Idiom
   class RowGroupMetaDataImpl;
   std::unique_ptr<RowGroupMetaDataImpl> impl_;

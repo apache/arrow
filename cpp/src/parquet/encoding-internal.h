@@ -54,7 +54,7 @@ class PlainDecoder : public Decoder<DType> {
   using Decoder<DType>::num_values_;
 
   explicit PlainDecoder(const ColumnDescriptor* descr)
-      : Decoder<DType>(descr, Encoding::PLAIN), data_(NULL), len_(0) {
+      : Decoder<DType>(descr, Encoding::PLAIN), data_(nullptr), len_(0) {
     if (descr_ && descr_->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
       type_length_ = descr_->type_length();
     } else {
@@ -943,7 +943,7 @@ class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
     for (int i = 0; i < max_values; ++i) {
       int prefix_len = 0;
       prefix_len_decoder_.Decode(&prefix_len, 1);
-      ByteArray suffix = {0, NULL};
+      ByteArray suffix = {0, nullptr};
       suffix_decoder_.Decode(&suffix, 1);
       buffer[i].len = prefix_len + suffix.len;
 

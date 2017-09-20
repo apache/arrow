@@ -113,6 +113,10 @@ class Decoder {
       throw ParquetException("Number of values / definition_levels read did not match");
     }
 
+    // Depending on the number of nulls, some of the value slots in buffer may
+    // be uninitialized, and this will cause valgrind warnings / potentially UB
+    memset(buffer + values_read, 0, (num_values - values_read) * sizeof(T));
+
     // Add spacing for null entries. As we have filled the buffer from the front,
     // we need to add the spacing from the back.
     int values_to_move = values_read;

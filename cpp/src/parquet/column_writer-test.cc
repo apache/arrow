@@ -491,7 +491,7 @@ TEST_F(TestNullValuesWriter, OptionalNullValueChunk) {
   auto writer = this->BuildWriter(LARGE_SIZE);
   // All values being written are NULL
   writer->WriteBatch(this->values_.size(), definition_levels.data(),
-                     repetition_levels.data(), NULL);
+                     repetition_levels.data(), nullptr);
   writer->Close();
 
   // Just read the first SMALL_SIZE rows to ensure we could read it back in

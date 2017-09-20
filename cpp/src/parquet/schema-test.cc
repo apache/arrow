@@ -125,17 +125,17 @@ TEST_F(TestPrimitiveNode, Attrs) {
   ASSERT_EQ(LogicalType::UTF8, node2.logical_type());
 
   // repetition
-  node1 = PrimitiveNode("foo", Repetition::REQUIRED, Type::INT32);
-  node2 = PrimitiveNode("foo", Repetition::OPTIONAL, Type::INT32);
   PrimitiveNode node3("foo", Repetition::REPEATED, Type::INT32);
-
-  ASSERT_TRUE(node1.is_required());
-
-  ASSERT_TRUE(node2.is_optional());
-  ASSERT_FALSE(node2.is_required());
+  PrimitiveNode node4("foo", Repetition::REQUIRED, Type::INT32);
+  PrimitiveNode node5("foo", Repetition::OPTIONAL, Type::INT32);
 
   ASSERT_TRUE(node3.is_repeated());
   ASSERT_FALSE(node3.is_optional());
+
+  ASSERT_TRUE(node4.is_required());
+
+  ASSERT_TRUE(node5.is_optional());
+  ASSERT_FALSE(node5.is_required());
 }
 
 TEST_F(TestPrimitiveNode, FromParquet) {
@@ -687,10 +687,10 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   ASSERT_TRUE(descr_.ColumnIndex(*non_column_alien.get()) < 0);
   ASSERT_TRUE(descr_.ColumnIndex(*non_column_familiar.get()) < 0);
 
-  ASSERT_EQ(inta.get(), descr_.GetColumnRoot(0).get());
-  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(3).get());
-  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(4).get());
-  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(5).get());
+  ASSERT_EQ(inta.get(), descr_.GetColumnRoot(0));
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(3));
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(4));
+  ASSERT_EQ(bag.get(), descr_.GetColumnRoot(5));
 
   ASSERT_EQ(schema.get(), descr_.group_node());
 

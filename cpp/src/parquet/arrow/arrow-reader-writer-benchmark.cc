@@ -17,6 +17,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include <iostream>
+
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/column_reader.h"
@@ -30,13 +32,14 @@
 using arrow::BooleanBuilder;
 using arrow::NumericBuilder;
 
-#define ABORT_NOT_OK(s)                  \
-  do {                                   \
-    ::arrow::Status _s = (s);            \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
-      exit(-1);                          \
-    }                                    \
-  } while (0);
+#define EXIT_NOT_OK(s)                                        \
+  do {                                                        \
+    ::arrow::Status _s = (s);                                 \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {                      \
+      std::cout << "Exiting: " << _s.ToString() << std::endl; \
+      exit(EXIT_FAILURE);                                     \
+    }                                                         \
+  } while (0)
 
 namespace parquet {
 
@@ -101,12 +104,12 @@ std::shared_ptr<::arrow::Table> TableFromVector(
     std::vector<uint8_t> valid_bytes(BENCHMARK_SIZE, 0);
     int n = {0};
     std::generate(valid_bytes.begin(), valid_bytes.end(), [&n] { return n++ % 2; });
-    ABORT_NOT_OK(builder.Append(vec.data(), vec.size(), valid_bytes.data()));
+    EXIT_NOT_OK(builder.Append(vec.data(), vec.size(), valid_bytes.data()));
   } else {
-    ABORT_NOT_OK(builder.Append(vec.data(), vec.size(), nullptr));
+    EXIT_NOT_OK(builder.Append(vec.data(), vec.size(), nullptr));
   }
   std::shared_ptr<::arrow::Array> array;
-  ABORT_NOT_OK(builder.Finish(&array));
+  EXIT_NOT_OK(builder.Finish(&array));
 
   auto field = ::arrow::field("column", type, nullable);
   auto schema = std::make_shared<::arrow::Schema>(
@@ -125,12 +128,12 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
     int n = {0};
     std::generate(valid_bytes.begin(), valid_bytes.end(),
                   [&n] { return (n++ % 2) != 0; });
-    ABORT_NOT_OK(builder.Append(vec, valid_bytes));
+    EXIT_NOT_OK(builder.Append(vec, valid_bytes));
   } else {
-    ABORT_NOT_OK(builder.Append(vec));
+    EXIT_NOT_OK(builder.Append(vec));
   }
   std::shared_ptr<::arrow::Array> array;
-  ABORT_NOT_OK(builder.Finish(&array));
+  EXIT_NOT_OK(builder.Finish(&array));
 
   auto field = ::arrow::field("column", ::arrow::boolean(), nullable);
   auto schema = std::make_shared<::arrow::Schema>(
@@ -148,7 +151,7 @@ static void BM_WriteColumn(::benchmark::State& state) {
 
   while (state.KeepRunning()) {
     auto output = std::make_shared<InMemoryOutputStream>();
-    ABORT_NOT_OK(
+    EXIT_NOT_OK(
         WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
@@ -171,8 +174,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
   auto output = std::make_shared<InMemoryOutputStream>();
-  ABORT_NOT_OK(
-      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
+  EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
   std::shared_ptr<Buffer> buffer = output->GetBuffer();
 
   while (state.KeepRunning()) {
@@ -180,7 +182,7 @@ static void BM_ReadColumn(::benchmark::State& state) {
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     FileReader filereader(::arrow::default_memory_pool(), std::move(reader));
     std::shared_ptr<::arrow::Table> table;
-    ABORT_NOT_OK(filereader.ReadTable(&table));
+    EXIT_NOT_OK(filereader.ReadTable(&table));
   }
   SetBytesProcessed<nullable, ParquetType>(state);
 }

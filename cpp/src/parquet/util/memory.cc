@@ -121,14 +121,18 @@ void ChunkedAllocator::ReturnPartialAllocation(int byte_size) {
 
 template <bool CHECK_LIMIT_FIRST>
 uint8_t* ChunkedAllocator::Allocate(int size) {
-  if (size == 0) return NULL;
+  if (size == 0) {
+    return nullptr;
+  }
 
   int64_t num_bytes = ::arrow::BitUtil::RoundUp(size, 8);
   if (current_chunk_idx_ == -1 ||
       num_bytes + chunks_[current_chunk_idx_].allocated_bytes >
           chunks_[current_chunk_idx_].size) {
-    // If we couldn't allocate a new chunk, return NULL.
-    if (ARROW_PREDICT_FALSE(!FindChunk(num_bytes))) return NULL;
+    // If we couldn't allocate a new chunk, return nullptr.
+    if (ARROW_PREDICT_FALSE(!FindChunk(num_bytes))) {
+      return nullptr;
+    }
   }
   ChunkInfo& info = chunks_[current_chunk_idx_];
   uint8_t* result = info.data + info.allocated_bytes;
@@ -195,7 +199,7 @@ bool ChunkedAllocator::FindChunk(int64_t min_size) {
     // Allocate a new chunk. Return early if malloc fails.
     uint8_t* buf = nullptr;
     PARQUET_THROW_NOT_OK(pool_->Allocate(chunk_size, &buf));
-    if (ARROW_PREDICT_FALSE(buf == NULL)) {
+    if (ARROW_PREDICT_FALSE(buf == nullptr)) {
       DCHECK_EQ(current_chunk_idx_, static_cast<int>(chunks_.size()));
       current_chunk_idx_ = static_cast<int>(chunks_.size()) - 1;
       return false;

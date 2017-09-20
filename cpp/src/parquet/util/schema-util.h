@@ -25,7 +25,6 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/logging.h"
 
 using parquet::ParquetException;
 using parquet::SchemaDescriptor;
@@ -49,14 +48,14 @@ inline bool HasStructListName(const GroupNode& node) {
 }
 
 // TODO(itaiin): This aux. function is to be deleted once repeated structs are supported
-inline bool IsSimpleStruct(const NodePtr& node) {
+inline bool IsSimpleStruct(const Node* node) {
   if (!node->is_group()) return false;
   if (node->is_repeated()) return false;
   if (node->logical_type() == LogicalType::LIST) return false;
   // Special case mentioned in the format spec:
   //   If the name is array or ends in _tuple, this should be a list of struct
   //   even for single child elements.
-  auto group = static_cast<const GroupNode*>(node.get());
+  auto group = static_cast<const GroupNode*>(node);
   if (group->field_count() == 1 && HasStructListName(*group)) return false;
 
   return true;
