@@ -99,6 +99,18 @@ else
           $ARROW_CPP_DIR
 fi
 
+# Fail fast for code linting issues
+$TRAVIS_MAKE lint
+conda install -y -q flake8
+
+# Fail fast on style checks
+flake8 --count $ARROW_PYTHON_DIR/pyarrow
+
+# Check Cython files with some checks turned off
+flake8 --count --config=$ARROW_PYTHON_DIR/pyarrow.flake8.cython \
+       $ARROW_PYTHON_DIR/pyarrowpyarrow
+
+# Build and install libraries
 $TRAVIS_MAKE -j4
 $TRAVIS_MAKE install
 

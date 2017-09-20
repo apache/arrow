@@ -173,7 +173,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 /// A Buffer whose lifetime is tied to a particular MemoryPool
 class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
-  explicit PoolBuffer(MemoryPool* pool = nullptr);
+  PoolBuffer(MemoryPool* pool = nullptr);
   virtual ~PoolBuffer();
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override;
