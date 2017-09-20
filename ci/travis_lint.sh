@@ -19,11 +19,9 @@
 
 set -ex
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
 # Fail fast for code linting issues
-mkdir $ARROW_CPP_DIR/lint
-pushd $ARROW_CPP_DIR/lint
+mkdir $TRAVIS_BUILD_DIR/cpp/lint
+pushd $TRAVIS_BUILD_DIR/cpp/lint
 
 cmake ..
 make lint
@@ -33,8 +31,10 @@ popd
 # Fail fast on style checks
 sudo pip install flake8
 
-flake8 --count $ARROW_PYTHON_DIR/pyarrow
+PYARROW_DIR=$TRAVIS_BUILD_DIR/python
+
+flake8 --count $PYTHON_DIR/pyarrow
 
 # Check Cython files with some checks turned off
-flake8 --count --config=$ARROW_PYTHON_DIR/pyarrow.flake8.cython \
-       $ARROW_PYTHON_DIR/pyarrow
+flake8 --count --config=$PYTHON_DIR/.flake8.cython \
+       $PYTHON_DIR/pyarrow

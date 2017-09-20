@@ -40,8 +40,6 @@ services:
 
 cache:
   ccache: true
-  directories:
-    - $HOME/.conda_packages
 
 matrix:
   fast_finish: true
