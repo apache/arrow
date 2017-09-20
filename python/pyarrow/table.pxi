@@ -315,7 +315,7 @@ cdef int _schema_from_arrays(
 
     fields.resize(K)
 
-    if len(arrays) == 0:
+    if not K:
         raise ValueError('Must pass at least one array')
 
     if isinstance(arrays[0], Column):
