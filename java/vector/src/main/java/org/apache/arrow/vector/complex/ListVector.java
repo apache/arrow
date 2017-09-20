@@ -324,7 +324,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public Field getField() {
-    if (getDataVector() == ZeroVector.INSTANCE) {
+    if (getDataVector() instanceof ZeroVector) {
       return new Field(name, fieldType, ImmutableList.of(new Field(DATA_VECTOR_NAME, FieldType.nullable(Null.INSTANCE), null)));
     }
     return new Field(name, fieldType, ImmutableList.of(getDataVector().getField()));
