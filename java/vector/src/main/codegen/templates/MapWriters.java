@@ -47,6 +47,7 @@ import com.google.common.collect.Maps;
 public class ${mode}MapWriter extends AbstractFieldWriter {
 
   protected final ${containerClass} container;
+  private int initialCapacity;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
@@ -55,6 +56,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     }
     </#if>
     this.container = container;
+    this.initialCapacity = 0;
     for (Field child : container.getField().getChildren()) {
       MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
       switch (minorType) {
@@ -99,6 +101,11 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   @Override
   public int getValueCapacity() {
     return container.getValueCapacity();
+  }
+
+  public void setInitialCapacity(int initialCapacity) {
+    this.initialCapacity = initialCapacity;
+    container.setInitialCapacity(initialCapacity);
   }
 
   @Override
@@ -248,6 +255,9 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;
       if (currentVector == null || currentVector != vector) {
+        if(this.initialCapacity > 0) {
+          vector.setInitialCapacity(this.initialCapacity);
+        }
         vector.allocateNewSafe();
       } 
       writer.setPosition(idx());
