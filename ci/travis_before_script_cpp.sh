@@ -108,7 +108,7 @@ flake8 --count $ARROW_PYTHON_DIR/pyarrow
 
 # Check Cython files with some checks turned off
 flake8 --count --config=$ARROW_PYTHON_DIR/pyarrow.flake8.cython \
-       $ARROW_PYTHON_DIR/pyarrowpyarrow
+       $ARROW_PYTHON_DIR/pyarrow
 
 # Build and install libraries
 $TRAVIS_MAKE -j4
