@@ -30,6 +30,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.file.BaseFileTest;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Validator;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -96,28 +97,25 @@ public class TestJSONFile extends BaseFileTest {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
-
       writeUnionData(count, parent);
-
       printVectors(parent.getChildrenFromFields());
 
-      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
-      validateUnionData(count, root);
-
-      writeJSON(file, root, null);
-    }
-    // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-    ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
-      Schema schema = reader.start();
-      LOGGER.debug("reading schema: " + schema);
-
-      // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"))) {
         validateUnionData(count, root);
+        writeJSON(file, root, null);
+
+        // read
+        try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
+          JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+
+          Schema schema = reader.start();
+          LOGGER.debug("reading schema: " + schema);
+
+          try (VectorSchemaRoot rootFromJson = reader.read();) {
+            validateUnionData(count, rootFromJson);
+            Validator.compareVectorSchemaRoot(root, rootFromJson);
+          }
+        }
       }
     }
   }
