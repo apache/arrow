@@ -48,9 +48,16 @@ class PARQUET_EXPORT CompareDefault<Int96Type> : public Comparator {
   CompareDefault() {}
   virtual ~CompareDefault() {}
   virtual bool operator()(const Int96& a, const Int96& b) {
-    const int32_t* aptr = reinterpret_cast<const int32_t*>(&a.value[0]);
-    const int32_t* bptr = reinterpret_cast<const int32_t*>(&b.value[0]);
-    return std::lexicographical_compare(aptr, aptr + 3, bptr, bptr + 3);
+    // Only the MSB bit is by Signed comparison
+    // For little-endian, this is the last bit of Int96 type
+    const int32_t amsb = static_cast<const int32_t>(a.value[2]);
+    const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
+    if (amsb != bmsb) {
+      return (amsb < bmsb);
+    } else if (a.value[1] != b.value[1]) {
+      return (a.value[1] < b.value[1]);
+    }
+    return (a.value[0] < b.value[0]);
   }
 };
 
@@ -132,9 +139,12 @@ class PARQUET_EXPORT CompareUnsignedInt96 : public CompareDefaultInt96 {
  public:
   virtual ~CompareUnsignedInt96() {}
   bool operator()(const Int96& a, const Int96& b) override {
-    const uint32_t* aptr = reinterpret_cast<const uint32_t*>(&a.value[0]);
-    const uint32_t* bptr = reinterpret_cast<const uint32_t*>(&b.value[0]);
-    return std::lexicographical_compare(aptr, aptr + 3, bptr, bptr + 3);
+    if (a.value[2] != b.value[2]) {
+      return (a.value[2] < b.value[2]);
+    } else if (a.value[1] != b.value[1]) {
+      return (a.value[1] < b.value[1]);
+    }
+    return (a.value[0] < b.value[0]);
   }
 };
 

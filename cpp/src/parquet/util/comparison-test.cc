@@ -137,7 +137,7 @@ TEST(Comparison, UnsignedFLBA) {
 TEST(Comparison, SignedInt96) {
   parquet::Int96 a{{1, 41, 14}}, b{{1, 41, 42}};
   parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, 14}};
-  parquet::Int96 aaa{{static_cast<uint32_t>(-1), 41, 14}}, bbb{{1, 41, 42}};
+  parquet::Int96 aaa{{1, 41, static_cast<uint32_t>(-14)}}, bbb{{1, 41, 42}};
 
   NodePtr node = PrimitiveNode::Make("SignedInt96", Repetition::REQUIRED, Type::INT96);
   ColumnDescriptor descr(node, 0, 0);
@@ -151,7 +151,8 @@ TEST(Comparison, SignedInt96) {
 
 TEST(Comparison, UnsignedInt96) {
   parquet::Int96 a{{1, 41, 14}}, b{{1, static_cast<uint32_t>(-41), 42}};
-  parquet::Int96 aa{{1, 41, 14}}, bb{{static_cast<uint32_t>(-1), 41, 14}};
+  parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, static_cast<uint32_t>(-14)}};
+  parquet::Int96 aaa, bbb;
 
   NodePtr node = PrimitiveNode::Make("UnsignedInt96", Repetition::REQUIRED, Type::INT96);
   ColumnDescriptor descr(node, 0, 0);
@@ -160,6 +161,31 @@ TEST(Comparison, UnsignedInt96) {
 
   ASSERT_TRUE(uless(a, b));
   ASSERT_TRUE(uless(aa, bb));
+
+  // INT96 Timestamp
+  aaa.value[2] = 2451545;  // 2000-01-01
+  bbb.value[2] = 2451546;  // 2000-01-02
+  // 12 hours + 34 minutes + 56 seconds.
+  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 45296000000000;
+  // 12 hours + 34 minutes + 50 seconds.
+  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45290000000000;
+  ASSERT_TRUE(uless(aaa, bbb));
+
+  aaa.value[2] = 2451545;  // 2000-01-01
+  bbb.value[2] = 2451545;  // 2000-01-01
+  // 11 hours + 34 minutes + 56 seconds.
+  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 41696000000000;
+  // 12 hours + 34 minutes + 50 seconds.
+  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45290000000000;
+  ASSERT_TRUE(uless(aaa, bbb));
+
+  aaa.value[2] = 2451545;  // 2000-01-01
+  bbb.value[2] = 2451545;  // 2000-01-01
+  // 12 hours + 34 minutes + 55 seconds.
+  reinterpret_cast<uint64_t*>(&aaa.value[0])[0] = 45295000000000;
+  // 12 hours + 34 minutes + 56 seconds.
+  reinterpret_cast<uint64_t*>(&bbb.value[0])[0] = 45296000000000;
+  ASSERT_TRUE(uless(aaa, bbb));
 }
 
 TEST(Comparison, SignedInt64) {
