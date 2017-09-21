@@ -19,6 +19,8 @@ import { readBuffers } from './reader/arrow';
 import { StructVector } from './vector/struct';
 import { Vector, sliceToRangeArgs } from './vector/vector';
 
+export type RowObject = { [k: string]: any };
+
 export class Table implements Iterable<Map<string, any>> {
     public length: number;
     protected _columns: Vector<any>[];
@@ -66,22 +68,30 @@ export class Table implements Iterable<Map<string, any>> {
             yield column;
         }
     }
+    getRow(rowIndex: number): RowObject;
+    getRow(rowIndex: number, compact: boolean): Array<any>;
     getRow(rowIndex: number, compact?: boolean) {
         return (compact && rowAsArray || rowAsObject)(rowIndex, this._columns);
     }
-    getCell(columnName: string, rowIndex: number) {
-        return this.getColumn(columnName).get(rowIndex);
+    getCell<T extends any>(columnName: string, rowIndex: number) {
+        return this.getColumn<Vector<T>>(columnName).get(rowIndex);
     }
-    getCellAt(columnIndex: number, rowIndex: number) {
-        return this.getColumnAt(columnIndex).get(rowIndex);
+    getCellAt<T extends any>(columnIndex: number, rowIndex: number) {
+        return this.getColumnAt<Vector<T>>(columnIndex).get(rowIndex);
     }
-    getColumn<T = any>(columnName: string) {
-        return this._columnsMap[columnName] as Vector<T>;
+    getColumn<T extends Vector<any>>(columnName: string) {
+        return this._columnsMap[columnName] as T;
     }
-    getColumnAt<T = any>(columnIndex: number) {
-        return this._columns[columnIndex] as Vector<T>;
+    getColumnAt<T extends Vector<any>>(columnIndex: number) {
+        return this._columns[columnIndex] as T;
     }
-    toString({ index = false } = {}) {
+    toString(): string;
+    toString(index: boolean): string;
+    toString(options: { index: boolean }): string;
+    toString(options?: any) {
+        const index = typeof options === 'object' ? options && !!options.index
+                    : typeof options === 'boolean' ? !!options
+                    : false;
         const { length } = this;
         if (length <= 0) { return ''; }
         const maxColumnWidths = [];
