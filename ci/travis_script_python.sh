@@ -38,7 +38,7 @@ which python
 conda install -y -q nomkl
 
 # Expensive dependencies install from Continuum package repo
-conda install -y -q pip numpy pandas cython flake8
+conda install -y -q pip numpy pandas cython
 
 # Build C++ libraries
 pushd $ARROW_CPP_BUILD_DIR
@@ -61,12 +61,6 @@ popd
 
 # Other stuff pip install
 pushd $ARROW_PYTHON_DIR
-
-# Fail fast on style checks
-flake8 --count pyarrow
-
-# Check Cython files with some checks turned off
-flake8 --count --config=.flake8.cython pyarrow
 
 pip install -r requirements.txt
 python setup.py build_ext --with-parquet --with-plasma \

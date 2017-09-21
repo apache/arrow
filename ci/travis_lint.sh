@@ -17,24 +17,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+# Fail fast for code linting issues
+mkdir $TRAVIS_BUILD_DIR/cpp/lint
+pushd $TRAVIS_BUILD_DIR/cpp/lint
 
-# Check licenses according to Apache policy
-git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar.gz
-./dev/release/run-rat.sh arrow-src.tar.gz
-
-pushd $CPP_BUILD_DIR
-
-# ARROW-209: checks depending on the LLVM toolchain are disabled temporarily
-# until we are able to install the full LLVM toolchain in Travis CI again
-
-# if [ $TRAVIS_OS_NAME == "linux" ]; then
-#   make check-format
-#   make check-clang-tidy
-# fi
-
-ctest -VV -L unittest
+cmake ..
+make lint
 
 popd
+
+# Fail fast on style checks
+sudo pip install flake8
+
+PYARROW_DIR=$TRAVIS_BUILD_DIR/python
+
+flake8 --count $PYTHON_DIR/pyarrow
+
+# Check Cython files with some checks turned off
+flake8 --count --config=$PYTHON_DIR/.flake8.cython \
+       $PYTHON_DIR/pyarrow
