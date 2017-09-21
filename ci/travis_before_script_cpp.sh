@@ -99,6 +99,7 @@ else
           $ARROW_CPP_DIR
 fi
 
+# Build and install libraries
 $TRAVIS_MAKE -j4
 $TRAVIS_MAKE install
 
