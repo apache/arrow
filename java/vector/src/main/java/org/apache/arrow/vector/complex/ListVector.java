@@ -49,6 +49,7 @@ import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -323,6 +324,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public Field getField() {
+    if (getDataVector() instanceof ZeroVector) {
+      return new Field(name, fieldType, ImmutableList.of(new Field(DATA_VECTOR_NAME, FieldType.nullable(Null.INSTANCE), null)));
+    }
     return new Field(name, fieldType, ImmutableList.of(getDataVector().getField()));
   }
 
