@@ -674,7 +674,7 @@ garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
 {
   return garrow_array_builder_append_values<arrow::AdaptiveUIntBuilder *>
     (GARROW_ARRAY_BUILDER(builder),
-     values,
+     reinterpret_cast<const uint64_t *>(values),
      values_length,
      is_valids,
      is_valids_length,
