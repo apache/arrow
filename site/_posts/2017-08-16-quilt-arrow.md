@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Building a Package Manager for Data with Apache Arrow"
-date: "2017-08-016 00:00:00 -0400"
+date: "2017-09-021 00:00:00 -0400"
 author: Kevin Moore
 categories: [application]
 ---
@@ -68,7 +68,7 @@ We built the  Quilt client for Python on top of Pandas and pyarrow, which in tur
 Quilt uses Pandas to read data from text files (e.g., CSV), databases and other sources into DataFrames. Arrow converts from DataFrames (e.g., Pandas in Python) into Arrow Tables. The Arrow Tables are then saved to Parquet using:  pyarrow.parquet.write_table.
 
 <b>Push:</b>
-Quilt users can push data packages to a registry service (like a Docker registry).
+Quilt users can push data packages to a [registry](https://github.com/quiltdata/quilt-registry) (like a Docker registry).
 
 <b>Install:</b>
 Install downloads package metadata and data from the registry and installs them locally.
