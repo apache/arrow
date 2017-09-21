@@ -54,7 +54,7 @@ function readTypedVector(field: Field, batch: MessageBatch, iterator: IteratorSt
 }
 
 function readDictionaryVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries) {
-    let encoding: DictionaryEncoding;
+    let encoding: DictionaryEncoding | null;
     if (dictionaries && (encoding = field.dictionary())) {
         let id = encoding.id().toFloat64().toString();
         let fieldType =  encoding.indexType() ||
