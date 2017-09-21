@@ -795,7 +795,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
   // to write an Int96 file.
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   auto writer = ParquetFileWriter::Open(this->sink_, schema);
-  RowGroupWriter* rg_writer = writer->AppendRowGroup(1);
+  RowGroupWriter* rg_writer = writer->AppendRowGroup();
   ColumnWriter* c_writer = rg_writer->NextColumn();
   auto typed_writer = dynamic_cast<TypedColumnWriter<Int96Type>*>(c_writer);
   ASSERT_NE(typed_writer, nullptr);
@@ -954,7 +954,7 @@ class TestPrimitiveParquetIO : public TestParquetIO<TestType> {
         reinterpret_cast<ParquetCDataType<TestType>*>(values_buffer.data());
     std::copy(values.cbegin(), values.cend(), values_parquet);
     for (int i = 0; i < num_chunks; i++) {
-      auto row_group_writer = file_writer->AppendRowGroup(chunk_size);
+      auto row_group_writer = file_writer->AppendRowGroup();
       auto column_writer =
           static_cast<ParquetWriter<TestType>*>(row_group_writer->NextColumn());
       ParquetCDataType<TestType>* data = values_parquet + i * chunk_size;
@@ -1496,7 +1496,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 
     writer_ = parquet::ParquetFileWriter::Open(nested_parquet_, schema,
                                                default_writer_properties());
-    row_group_writer_ = writer_->AppendRowGroup(num_rows);
+    row_group_writer_ = writer_->AppendRowGroup();
   }
 
   void FinalizeParquetFile() {

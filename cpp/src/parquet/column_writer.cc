@@ -113,13 +113,11 @@ std::shared_ptr<WriterProperties> default_writer_properties() {
 }
 
 ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-                           std::unique_ptr<PageWriter> pager, int64_t expected_rows,
-                           bool has_dictionary, Encoding::type encoding,
-                           const WriterProperties* properties)
+                           std::unique_ptr<PageWriter> pager, bool has_dictionary,
+                           Encoding::type encoding, const WriterProperties* properties)
     : metadata_(metadata),
       descr_(metadata->descr()),
       pager_(std::move(pager)),
-      expected_rows_(expected_rows),
       has_dictionary_(has_dictionary),
       encoding_(encoding),
       properties_(properties),
@@ -127,7 +125,7 @@ ColumnWriter::ColumnWriter(ColumnChunkMetaDataBuilder* metadata,
       pool_(properties->memory_pool()),
       num_buffered_values_(0),
       num_buffered_encoded_values_(0),
-      num_rows_(0),
+      rows_written_(0),
       total_bytes_written_(0),
       closed_(false),
       fallback_(false) {
@@ -274,13 +272,6 @@ int64_t ColumnWriter::Close() {
     pager_->Close(has_dictionary_, fallback_);
   }
 
-  if (num_rows_ != expected_rows_) {
-    std::stringstream ss;
-    ss << "Written rows: " << num_rows_ << " != expected rows: " << expected_rows_
-       << "in the current column chunk";
-    throw ParquetException(ss.str());
-  }
-
   return total_bytes_written_;
 }
 
@@ -301,11 +292,10 @@ void ColumnWriter::FlushBufferedDataPages() {
 template <typename Type>
 TypedColumnWriter<Type>::TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
                                            std::unique_ptr<PageWriter> pager,
-                                           int64_t expected_rows, Encoding::type encoding,
+                                           Encoding::type encoding,
                                            const WriterProperties* properties)
-    : ColumnWriter(metadata, std::move(pager), expected_rows,
-                   (encoding == Encoding::PLAIN_DICTIONARY ||
-                    encoding == Encoding::RLE_DICTIONARY),
+    : ColumnWriter(metadata, std::move(pager), (encoding == Encoding::PLAIN_DICTIONARY ||
+                                                encoding == Encoding::RLE_DICTIONARY),
                    encoding, properties) {
   switch (encoding) {
     case Encoding::PLAIN:
@@ -384,7 +374,6 @@ void TypedColumnWriter<Type>::ResetPageStatistics() {
 
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
                                                  std::unique_ptr<PageWriter> pager,
-                                                 int64_t expected_rows,
                                                  const WriterProperties* properties) {
   const ColumnDescriptor* descr = metadata->descr();
   Encoding::type encoding = properties->encoding(descr->path());
@@ -394,29 +383,29 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   }
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<BoolWriter>(metadata, std::move(pager), expected_rows,
-                                          encoding, properties);
+      return std::make_shared<BoolWriter>(metadata, std::move(pager), encoding,
+                                          properties);
     case Type::INT32:
-      return std::make_shared<Int32Writer>(metadata, std::move(pager), expected_rows,
-                                           encoding, properties);
+      return std::make_shared<Int32Writer>(metadata, std::move(pager), encoding,
+                                           properties);
     case Type::INT64:
-      return std::make_shared<Int64Writer>(metadata, std::move(pager), expected_rows,
-                                           encoding, properties);
+      return std::make_shared<Int64Writer>(metadata, std::move(pager), encoding,
+                                           properties);
     case Type::INT96:
-      return std::make_shared<Int96Writer>(metadata, std::move(pager), expected_rows,
-                                           encoding, properties);
+      return std::make_shared<Int96Writer>(metadata, std::move(pager), encoding,
+                                           properties);
     case Type::FLOAT:
-      return std::make_shared<FloatWriter>(metadata, std::move(pager), expected_rows,
-                                           encoding, properties);
+      return std::make_shared<FloatWriter>(metadata, std::move(pager), encoding,
+                                           properties);
     case Type::DOUBLE:
-      return std::make_shared<DoubleWriter>(metadata, std::move(pager), expected_rows,
-                                            encoding, properties);
+      return std::make_shared<DoubleWriter>(metadata, std::move(pager), encoding,
+                                            properties);
     case Type::BYTE_ARRAY:
-      return std::make_shared<ByteArrayWriter>(metadata, std::move(pager), expected_rows,
-                                               encoding, properties);
+      return std::make_shared<ByteArrayWriter>(metadata, std::move(pager), encoding,
+                                               properties);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_shared<FixedLenByteArrayWriter>(
-          metadata, std::move(pager), expected_rows, encoding, properties);
+      return std::make_shared<FixedLenByteArrayWriter>(metadata, std::move(pager),
+                                                       encoding, properties);
     default:
       ParquetException::NYI("type reader not implemented");
   }
@@ -453,18 +442,14 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatch(int64_t num_values,
     // Count the occasions where we start a new row
     for (int64_t i = 0; i < num_values; ++i) {
       if (rep_levels[i] == 0) {
-        num_rows_++;
+        rows_written_++;
       }
     }
 
     WriteRepetitionLevels(num_values, rep_levels);
   } else {
     // Each value is exactly one row
-    num_rows_ += static_cast<int>(num_values);
-  }
-
-  if (num_rows_ > expected_rows_) {
-    throw ParquetException("More rows were written in the column chunk than expected");
+    rows_written_ += static_cast<int>(num_values);
   }
 
   // PARQUET-780
@@ -527,18 +512,14 @@ inline int64_t TypedColumnWriter<DType>::WriteMiniBatchSpaced(
     // Count the occasions where we start a new row
     for (int64_t i = 0; i < num_values; ++i) {
       if (rep_levels[i] == 0) {
-        num_rows_++;
+        rows_written_++;
       }
     }
 
     WriteRepetitionLevels(num_values, rep_levels);
   } else {
     // Each value is exactly one row
-    num_rows_ += static_cast<int>(num_values);
-  }
-
-  if (num_rows_ > expected_rows_) {
-    throw ParquetException("More rows were written in the column chunk than expected");
+    rows_written_ += static_cast<int>(num_values);
   }
 
   if (descr_->schema_node()->is_optional()) {

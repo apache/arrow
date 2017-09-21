@@ -56,14 +56,12 @@ class PARQUET_EXPORT RowGroupWriter {
 
   explicit RowGroupWriter(std::unique_ptr<Contents> contents);
 
-  /**
-   * Construct a ColumnWriter for the indicated row group-relative column.
-   *
-   * Ownership is solely within the RowGroupWriter. The ColumnWriter is only valid
-   * until the next call to NextColumn or Close. As the contents are directly written to
-   * the sink, once a new column is started, the contents of the previous one cannot be
-   * modified anymore.
-   */
+  /// Construct a ColumnWriter for the indicated row group-relative column.
+  ///
+  /// Ownership is solely within the RowGroupWriter. The ColumnWriter is only
+  /// valid until the next call to NextColumn or Close. As the contents are
+  /// directly written to the sink, once a new column is started, the contents
+  /// of the previous one cannot be modified anymore.
   ColumnWriter* NextColumn();
   /// Index of currently written column
   int current_column();
@@ -96,7 +94,10 @@ class PARQUET_EXPORT ParquetFileWriter {
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
 
-    virtual RowGroupWriter* AppendRowGroup(int64_t num_rows) = 0;
+    /// \deprecated Since 1.3.0
+    RowGroupWriter* AppendRowGroup(int64_t num_rows);
+
+    virtual RowGroupWriter* AppendRowGroup() = 0;
 
     virtual int64_t num_rows() const = 0;
     virtual int num_columns() const = 0;
@@ -135,54 +136,45 @@ class PARQUET_EXPORT ParquetFileWriter {
   void Open(std::unique_ptr<Contents> contents);
   void Close();
 
-  /**
-   * Construct a RowGroupWriter for the indicated number of rows.
-   *
-   * Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
-   * until the next call to AppendRowGroup or Close.
-   *
-   * @param num_rows The number of rows that are stored in the new RowGroup
-   */
+  // Construct a RowGroupWriter for the indicated number of rows.
+  //
+  // Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
+  // until the next call to AppendRowGroup or Close.
+  // @param num_rows The number of rows that are stored in the new RowGroup
+  //
+  // \deprecated Since 1.3.0
   RowGroupWriter* AppendRowGroup(int64_t num_rows);
 
-  /**
-   * Number of columns.
-   *
-   * This number is fixed during the lifetime of the writer as it is determined via
-   * the schema.
-   */
+  /// Construct a RowGroupWriter with an arbitrary number of rows.
+  ///
+  /// Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
+  /// until the next call to AppendRowGroup or Close.
+  RowGroupWriter* AppendRowGroup();
+
+  /// Number of columns.
+  ///
+  /// This number is fixed during the lifetime of the writer as it is determined via
+  /// the schema.
   int num_columns() const;
 
-  /**
-   * Number of rows in the yet started RowGroups.
-   *
-   * Changes on the addition of a new RowGroup.
-   */
+  /// Number of rows in the yet started RowGroups.
+  ///
+  /// Changes on the addition of a new RowGroup.
   int64_t num_rows() const;
 
-  /**
-   * Number of started RowGroups.
-   */
+  /// Number of started RowGroups.
   int num_row_groups() const;
 
-  /**
-   * Configuration passed to the writer, e.g. the used Parquet format version.
-   */
+  /// Configuration passed to the writer, e.g. the used Parquet format version.
   const std::shared_ptr<WriterProperties>& properties() const;
 
-  /**
-    * Returns the file schema descriptor
-    */
+  /// Returns the file schema descriptor
   const SchemaDescriptor* schema() const;
 
-  /**
-   * Returns a column descriptor in schema
-   */
+  /// Returns a column descriptor in schema
   const ColumnDescriptor* descr(int i) const;
 
-  /**
-   * Returns the file custom metadata
-   */
+  /// Returns the file custom metadata
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
  private:

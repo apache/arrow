@@ -85,8 +85,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.encoding(column_properties.encoding);
     }
     writer_properties_ = wp_builder.build();
-    std::shared_ptr<ColumnWriter> writer = ColumnWriter::Make(
-        metadata_.get(), std::move(pager), output_size, writer_properties_.get());
+    std::shared_ptr<ColumnWriter> writer =
+        ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
@@ -400,39 +400,6 @@ TYPED_TEST(TestPrimitiveWriter, Repeated) {
   this->values_out_.resize(SMALL_SIZE - 1);
   this->values_.resize(SMALL_SIZE - 1);
   ASSERT_EQ(this->values_, this->values_out_);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RequiredTooFewRows) {
-  this->GenerateData(SMALL_SIZE - 1);
-
-  auto writer = this->BuildWriter();
-  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
-  ASSERT_THROW(writer->Close(), ParquetException);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RequiredTooMany) {
-  this->GenerateData(2 * SMALL_SIZE);
-
-  auto writer = this->BuildWriter();
-  ASSERT_THROW(
-      writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_),
-      ParquetException);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RepeatedTooFewRows) {
-  // Optional and repeated, so definition and repetition levels
-  this->SetUpSchema(Repetition::REPEATED);
-
-  this->GenerateData(SMALL_SIZE);
-  std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
-  definition_levels[1] = 0;
-  std::vector<int16_t> repetition_levels(SMALL_SIZE, 0);
-  repetition_levels[3] = 1;
-
-  auto writer = this->BuildWriter();
-  writer->WriteBatch(this->values_.size(), definition_levels.data(),
-                     repetition_levels.data(), this->values_ptr_);
-  ASSERT_THROW(writer->Close(), ParquetException);
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {

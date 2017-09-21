@@ -75,15 +75,15 @@ class SerializedPageWriter : public PageWriter {
 // RowGroupWriter::Contents implementation for the Parquet file specification
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
-  RowGroupSerializer(int64_t num_rows, OutputStream* sink,
-                     RowGroupMetaDataBuilder* metadata,
+  RowGroupSerializer(OutputStream* sink, RowGroupMetaDataBuilder* metadata,
                      const WriterProperties* properties)
-      : num_rows_(num_rows),
-        sink_(sink),
+      : sink_(sink),
         metadata_(metadata),
         properties_(properties),
         total_bytes_written_(0),
-        closed_(false) {}
+        closed_(false),
+        current_column_index_(0),
+        num_rows_(-1) {}
 
   int num_columns() const override;
   int64_t num_rows() const override;
@@ -93,12 +93,15 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   void Close() override;
 
  private:
-  int64_t num_rows_;
   OutputStream* sink_;
-  RowGroupMetaDataBuilder* metadata_;
+  mutable RowGroupMetaDataBuilder* metadata_;
   const WriterProperties* properties_;
   int64_t total_bytes_written_;
   bool closed_;
+  int current_column_index_;
+  mutable int64_t num_rows_;
+
+  void CheckRowsWritten() const;
 
   std::shared_ptr<ColumnWriter> current_column_writer_;
 };
@@ -116,7 +119,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void Close() override;
 
-  RowGroupWriter* AppendRowGroup(int64_t num_rows) override;
+  RowGroupWriter* AppendRowGroup() override;
 
   const std::shared_ptr<WriterProperties>& properties() const override;
 

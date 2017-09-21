@@ -310,6 +310,7 @@ class FileWriter::Impl {
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
   std::shared_ptr<ArrowWriterProperties> arrow_properties_;
+  bool closed_;
 };
 
 FileWriter::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
@@ -318,13 +319,14 @@ FileWriter::Impl::Impl(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writ
       data_buffer_(pool),
       writer_(std::move(writer)),
       row_group_writer_(nullptr),
-      arrow_properties_(arrow_properties) {}
+      arrow_properties_(arrow_properties),
+      closed_(false) {}
 
 Status FileWriter::Impl::NewRowGroup(int64_t chunk_size) {
   if (row_group_writer_ != nullptr) {
     PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
   }
-  PARQUET_CATCH_NOT_OK(row_group_writer_ = writer_->AppendRowGroup(chunk_size));
+  PARQUET_CATCH_NOT_OK(row_group_writer_ = writer_->AppendRowGroup());
   return Status::OK();
 }
 
@@ -791,10 +793,14 @@ Status FileWriter::Impl::TypedWriteBatch<FLBAType, ::arrow::FixedSizeBinaryType>
 // ----------------------------------------------------------------------
 
 Status FileWriter::Impl::Close() {
-  if (row_group_writer_ != nullptr) {
-    PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
+  if (!closed_) {
+    // Make idempotent
+    closed_ = true;
+    if (row_group_writer_ != nullptr) {
+      PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
+    }
+    PARQUET_CATCH_NOT_OK(writer_->Close());
   }
-  PARQUET_CATCH_NOT_OK(writer_->Close());
   return Status::OK();
 }
 

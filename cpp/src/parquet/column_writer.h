@@ -73,12 +73,11 @@ static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
   ColumnWriter(ColumnChunkMetaDataBuilder*, std::unique_ptr<PageWriter>,
-               int64_t expected_rows, bool has_dictionary, Encoding::type encoding,
+               bool has_dictionary, Encoding::type encoding,
                const WriterProperties* properties);
 
   static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
                                             std::unique_ptr<PageWriter>,
-                                            int64_t expected_rows,
                                             const WriterProperties* properties);
 
   Type::type type() const { return descr_->physical_type(); }
@@ -91,6 +90,8 @@ class PARQUET_EXPORT ColumnWriter {
    * @return Total size of the column in bytes
    */
   int64_t Close();
+
+  int64_t rows_written() const { return rows_written_; }
 
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
@@ -138,8 +139,6 @@ class PARQUET_EXPORT ColumnWriter {
 
   std::unique_ptr<PageWriter> pager_;
 
-  // The number of rows that should be written in this column chunk.
-  int64_t expected_rows_;
   bool has_dictionary_;
   Encoding::type encoding_;
   const WriterProperties* properties_;
@@ -162,7 +161,7 @@ class PARQUET_EXPORT ColumnWriter {
   int64_t num_buffered_encoded_values_;
 
   // Total number of rows written with this ColumnWriter
-  int num_rows_;
+  int rows_written_;
 
   // Records the total number of bytes written by the serializer
   int64_t total_bytes_written_;
@@ -195,8 +194,8 @@ class PARQUET_EXPORT TypedColumnWriter : public ColumnWriter {
   typedef typename DType::c_type T;
 
   TypedColumnWriter(ColumnChunkMetaDataBuilder* metadata,
-                    std::unique_ptr<PageWriter> pager, int64_t expected_rows,
-                    Encoding::type encoding, const WriterProperties* properties);
+                    std::unique_ptr<PageWriter> pager, Encoding::type encoding,
+                    const WriterProperties* properties);
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.

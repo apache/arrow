@@ -138,7 +138,7 @@ class TestRowGroupStatistics : public PrimitiveTypedTest<TestType> {
     std::shared_ptr<WriterProperties> writer_properties =
         WriterProperties::Builder().enable_statistics("column")->build();
     auto file_writer = ParquetFileWriter::Open(sink, gnode, writer_properties);
-    auto row_group_writer = file_writer->AppendRowGroup(num_values);
+    auto row_group_writer = file_writer->AppendRowGroup();
     auto column_writer =
         static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
 
@@ -438,7 +438,7 @@ class TestStatistics : public ::testing::Test {
     auto file_writer = parquet::ParquetFileWriter::Open(parquet_sink_, schema_, props);
 
     // Append a RowGroup with a specific number of rows.
-    auto rg_writer = file_writer->AppendRowGroup(NUM_VALUES);
+    auto rg_writer = file_writer->AppendRowGroup();
 
     this->SetValues();
 

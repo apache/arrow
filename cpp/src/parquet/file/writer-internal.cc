@@ -174,9 +174,31 @@ int64_t SerializedPageWriter::WriteDictionaryPage(const DictionaryPage& page) {
 
 int RowGroupSerializer::num_columns() const { return metadata_->num_columns(); }
 
-int64_t RowGroupSerializer::num_rows() const { return num_rows_; }
+int64_t RowGroupSerializer::num_rows() const {
+  if (current_column_writer_) {
+    CheckRowsWritten();
+  }
+  return num_rows_ < 0 ? 0 : num_rows_;
+}
+
+void RowGroupSerializer::CheckRowsWritten() const {
+  int64_t current_rows = current_column_writer_->rows_written();
+  if (num_rows_ < 0) {
+    num_rows_ = current_rows;
+    metadata_->set_num_rows(current_rows);
+  } else if (num_rows_ != current_rows) {
+    std::stringstream ss;
+    ss << "Column " << current_column_index_ << " had " << current_rows
+       << " while previous column had " << num_rows_;
+    throw ParquetException(ss.str());
+  }
+}
 
 ColumnWriter* RowGroupSerializer::NextColumn() {
+  if (current_column_writer_) {
+    CheckRowsWritten();
+  }
+
   // Throws an error if more columns are being written
   auto col_meta = metadata_->NextColumnChunk();
 
@@ -184,12 +206,13 @@ ColumnWriter* RowGroupSerializer::NextColumn() {
     total_bytes_written_ += current_column_writer_->Close();
   }
 
+  ++current_column_index_;
+
   const ColumnDescriptor* column_descr = col_meta->descr();
   std::unique_ptr<PageWriter> pager(
       new SerializedPageWriter(sink_, properties_->compression(column_descr->path()),
                                col_meta, properties_->memory_pool()));
-  current_column_writer_ =
-      ColumnWriter::Make(col_meta, std::move(pager), num_rows_, properties_);
+  current_column_writer_ = ColumnWriter::Make(col_meta, std::move(pager), properties_);
   return current_column_writer_.get();
 }
 
@@ -200,9 +223,11 @@ void RowGroupSerializer::Close() {
     closed_ = true;
 
     if (current_column_writer_) {
+      CheckRowsWritten();
       total_bytes_written_ += current_column_writer_->Close();
       current_column_writer_.reset();
     }
+
     // Ensures all columns have been written
     metadata_->Finish(total_bytes_written_);
   }
@@ -224,6 +249,7 @@ std::unique_ptr<ParquetFileWriter::Contents> FileSerializer::Open(
 void FileSerializer::Close() {
   if (is_open_) {
     if (row_group_writer_) {
+      num_rows_ += row_group_writer_->num_rows();
       row_group_writer_->Close();
     }
     row_group_writer_.reset();
@@ -246,15 +272,14 @@ const std::shared_ptr<WriterProperties>& FileSerializer::properties() const {
   return properties_;
 }
 
-RowGroupWriter* FileSerializer::AppendRowGroup(int64_t num_rows) {
+RowGroupWriter* FileSerializer::AppendRowGroup() {
   if (row_group_writer_) {
     row_group_writer_->Close();
   }
-  num_rows_ += num_rows;
   num_row_groups_++;
-  auto rg_metadata = metadata_->AppendRowGroup(num_rows);
+  auto rg_metadata = metadata_->AppendRowGroup();
   std::unique_ptr<RowGroupWriter::Contents> contents(
-      new RowGroupSerializer(num_rows, sink_.get(), rg_metadata, properties_.get()));
+      new RowGroupSerializer(sink_.get(), rg_metadata, properties_.get()));
   row_group_writer_.reset(new RowGroupWriter(std::move(contents)));
   return row_group_writer_.get();
 }
