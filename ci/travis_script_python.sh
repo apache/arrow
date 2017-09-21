@@ -34,11 +34,16 @@ source activate $CONDA_ENV_DIR
 python --version
 which python
 
-# faster builds, please
-conda install -y -q nomkl
-
-# Expensive dependencies install from Continuum package repo
-conda install -y -q pip numpy pandas cython
+conda install -y -q pip \
+      nomkl \
+      numpy=1.13.1 \
+      pandas \
+      cython \
+      ipython \
+      matplotlib \
+      numpydoc \
+      sphinx \
+      sphinx_bootstrap_theme
 
 # Build C++ libraries
 pushd $ARROW_CPP_BUILD_DIR
@@ -80,7 +85,6 @@ python -m pytest -vv -r sxX -s $PYARROW_PATH --parquet
 if [ "$PYTHON_VERSION" == "3.6" ] && [ $TRAVIS_OS_NAME == "linux" ]; then
   # Build documentation once
   pushd $ARROW_PYTHON_DIR/doc
-  conda install -y -q --file=requirements.txt
   sphinx-build -b html -d _build/doctrees -W source _build/html
   popd
 fi
