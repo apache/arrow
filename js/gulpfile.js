@@ -73,7 +73,7 @@ gulp.task(`build`, gulp.parallel(runTaskCombos(`build`)));
 gulp.task(`bundle`, gulp.parallel(runTaskCombos(`bundle`)));
 gulp.task(`package`, gulp.parallel(runTaskCombos(`package`)));
 gulp.task(`test:debug`, gulp.series(runTaskCombos(`test:debug`)));
-gulp.task(`default`, gulp.task(`build`));
+gulp.task(`default`, gulp.task(`package`));
 
 function runTaskCombos(name) {
     const combos = [];
