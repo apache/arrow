@@ -137,6 +137,11 @@ G_BEGIN_DECLS
  * you use this builder instead of specific integer size builder such
  * as #GArrowInt8ArrayBuilder.
  *
+ * #GArrowUIntArrayBuilder is the class to create a new unsigned
+ * integer array. Unsigned integer size is automatically chosen. It's
+ * recommend that you use this builder instead of specific unsigned
+ * integer size builder such as #GArrowUInt8ArrayBuilder.
+ *
  * #GArrowInt8ArrayBuilder is the class to create a new
  * #GArrowInt8Array.
  *
@@ -584,6 +589,141 @@ garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
      n,
      error,
      "[int-array-builder][append-nulls]");
+}
+
+
+G_DEFINE_TYPE(GArrowUIntArrayBuilder,
+              garrow_uint_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_uint_array_builder_init(GArrowUIntArrayBuilder *builder)
+{
+}
+
+static void
+garrow_uint_array_builder_class_init(GArrowUIntArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_uint_array_builder_new:
+ *
+ * Returns: A newly created #GArrowUIntArrayBuilder.
+ *
+ * Since: 0.8.0
+ */
+GArrowUIntArrayBuilder *
+garrow_uint_array_builder_new(void)
+{
+  auto memory_pool = arrow::default_memory_pool();
+  auto arrow_builder = new arrow::AdaptiveUIntBuilder(memory_pool);
+  auto builder = garrow_array_builder_new_raw(arrow_builder,
+                                              GARROW_TYPE_UINT_ARRAY_BUILDER);
+  return GARROW_UINT_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_uint_array_builder_append:
+ * @builder: A #GArrowUIntArrayBuilder.
+ * @value: A unsigned int value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_uint_array_builder_append(GArrowUIntArrayBuilder *builder,
+                                 guint64 value,
+                                 GError **error)
+{
+  return garrow_array_builder_append<arrow::AdaptiveUIntBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[uint-array-builder][append]");
+}
+
+/**
+ * garrow_uint_array_builder_append_values:
+ * @builder: A #GArrowUIntArrayBuilder.
+ * @values: (array length=values_length): The array of unsigned int.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's efficient than multiple
+ * `append()` and `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
+                                        const guint64 *values,
+                                        gint64 values_length,
+                                        const gboolean *is_valids,
+                                        gint64 is_valids_length,
+                                        GError **error)
+{
+  return garrow_array_builder_append_values<arrow::AdaptiveUIntBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     reinterpret_cast<const uint64_t *>(values),
+     values_length,
+     is_valids,
+     is_valids_length,
+     error,
+     "[uint-array-builder][append-values]");
+}
+
+/**
+ * garrow_uint_array_builder_append_null:
+ * @builder: A #GArrowUIntArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
+                                      GError **error)
+{
+  return garrow_array_builder_append_null<arrow::AdaptiveUIntBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[uint-array-builder][append-null]");
+}
+
+/**
+ * garrow_uint_array_builder_append_nulls:
+ * @builder: A #GArrowUIntArrayBuilder.
+ * @n: The number of null values to be appended.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple nulls at once. It's efficient than multiple
+ * `append_null()` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_uint_array_builder_append_nulls(GArrowUIntArrayBuilder *builder,
+                                       gint64 n,
+                                       GError **error)
+{
+  return garrow_array_builder_append_nulls<arrow::AdaptiveUIntBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     n,
+     error,
+     "[uint-array-builder][append-nulls]");
 }
 
 

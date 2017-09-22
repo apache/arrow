@@ -20,50 +20,16 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/gobject-type.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_ARRAY_BUILDER               \
-  (garrow_array_builder_get_type())
-#define GARROW_ARRAY_BUILDER(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_ARRAY_BUILDER,        \
-                              GArrowArrayBuilder))
-#define GARROW_ARRAY_BUILDER_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_ARRAY_BUILDER,   \
-                           GArrowArrayBuilderClass))
-#define GARROW_IS_ARRAY_BUILDER(obj)            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),            \
-                              GARROW_TYPE_ARRAY_BUILDER))
-#define GARROW_IS_ARRAY_BUILDER_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_ARRAY_BUILDER))
-#define GARROW_ARRAY_BUILDER_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_ARRAY_BUILDER, \
-                             GArrowArrayBuilderClass))
-
-typedef struct _GArrowArrayBuilder         GArrowArrayBuilder;
-typedef struct _GArrowArrayBuilderClass    GArrowArrayBuilderClass;
-
-/**
- * GArrowArrayBuilder:
- *
- * It wraps `arrow::ArrayBuilder`.
- */
-struct _GArrowArrayBuilder
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-struct _GArrowArrayBuilderClass
-{
-  GObjectClass parent_class;
-};
-
-GType               garrow_array_builder_get_type (void) G_GNUC_CONST;
+#define GARROW_TYPE_ARRAY_BUILDER (garrow_array_builder_get_type())
+GARROW_DECLARE_TYPE(GArrowArrayBuilder,
+                    garrow_array_builder,
+                    GARROW,
+                    ARRAY_BUILDER,
+                    GObject)
 
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
@@ -187,6 +153,31 @@ gboolean garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
 gboolean garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
                                                gint64 n,
                                                GError **error);
+
+
+#define GARROW_TYPE_UINT_ARRAY_BUILDER (garrow_uint_array_builder_get_type())
+GARROW_DECLARE_TYPE(GArrowUIntArrayBuilder,
+                    garrow_uint_array_builder,
+                    GARROW,
+                    UINT_ARRAY_BUILDER,
+                    GArrowArrayBuilder)
+
+GArrowUIntArrayBuilder *garrow_uint_array_builder_new(void);
+
+gboolean garrow_uint_array_builder_append(GArrowUIntArrayBuilder *builder,
+                                          guint64 value,
+                                          GError **error);
+gboolean garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
+                                                 const guint64 *values,
+                                                 gint64 values_length,
+                                                 const gboolean *is_valids,
+                                                 gint64 is_valids_length,
+                                                 GError **error);
+gboolean garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
+                                               GError **error);
+gboolean garrow_uint_array_builder_append_nulls(GArrowUIntArrayBuilder *builder,
+                                                gint64 n,
+                                                GError **error);
 
 
 #define GARROW_TYPE_INT8_ARRAY_BUILDER          \

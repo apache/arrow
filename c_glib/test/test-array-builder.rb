@@ -130,6 +130,28 @@ class TestArrayBuilder < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("UIntArrayBuilder") do
+    def create_builder
+      Arrow::UIntArrayBuilder.new
+    end
+
+    def builder_class_name
+      "uint-array-builder"
+    end
+
+    def sample_values
+      [1, 2, 3]
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+  end
+
   sub_test_case("Int8ArrayBuilder") do
     def create_builder
       Arrow::Int8ArrayBuilder.new
