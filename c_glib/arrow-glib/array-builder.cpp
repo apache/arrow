@@ -626,7 +626,7 @@ garrow_uint_array_builder_new(void)
 /**
  * garrow_uint_array_builder_append:
  * @builder: A #GArrowUIntArrayBuilder.
- * @value: A int value.
+ * @value: A unsigned int value.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
@@ -648,7 +648,7 @@ garrow_uint_array_builder_append(GArrowUIntArrayBuilder *builder,
 /**
  * garrow_uint_array_builder_append_values:
  * @builder: A #GArrowUIntArrayBuilder.
- * @values: (array length=values_length): The array of int.
+ * @values: (array length=values_length): The array of unsigned int.
  * @values_length: The length of `values`.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
