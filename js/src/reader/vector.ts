@@ -54,12 +54,13 @@ function readTypedVector(field: Field, batch: MessageBatch, iterator: IteratorSt
 }
 
 function readDictionaryVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries) {
-    let encoding: DictionaryEncoding;
+    let encoding: DictionaryEncoding | null;
     if (dictionaries && (encoding = field.dictionary())) {
         let id = encoding.id().toFloat64().toString();
         let fieldType =  encoding.indexType() ||
             /* a dictionary index defaults to signed 32 bit int if unspecified */
             { bitWidth: () => 32, isSigned: () => true };
+        // workaround for https://issues.apache.org/jira/browse/ARROW-1363
         let indexField = createSyntheticDictionaryIndexField(field, fieldType);
         let index = readIntVector(indexField, batch, iterator, null, fieldType);
         return DictionaryVector.create(field, index.length, index, dictionaries[id]);
@@ -105,12 +106,16 @@ function createIntVector(field, length, data, validity, offsets, fieldType, batc
     let type = fieldType || field.type(new Int()), bitWidth = type.bitWidth();
     let Vector = valueForBitWidth(bitWidth, intVectors)[+type.isSigned()];
     return Vector.create(field, length, validity, data || offsets);
-    // ---------------------- so this is kinda strange 👆:
-    // The dictionary encoded vectors I generated from sample mapd-core queries have the indicies' data buffers
-    // tagged as VectorType.OFFSET (0) in the field metadata. The current TS impl ignores buffers' layout type,
-    // and assumes the second buffer is the data for a NullableIntVector. Since we've been stricter about enforcing
-    // the Arrow spec while parsing, the IntVector's data buffer reads empty in this case. If so, fallback to using
-    // the offsets buffer as the data, since IntVectors don't have offsets.
+    // ----------------------------------------------- 👆:
+    // Workaround for https://issues.apache.org/jira/browse/ARROW-1363
+    // This bug causes dictionary encoded vector indicies' IntVector data
+    // buffers to be tagged as VectorType.OFFSET (0) in the field metadata
+    // instead of VectorType.DATA. The `readVectorLayout` routine strictly
+    // obeys the types in the field metadata, so if we're parsing an Arrow
+    // file written by a version of the library published before ARROW-1363
+    // was fixed, the IntVector's data buffer will be null, and the offset
+    // buffer will be the actual data. If data is null, it's safe to assume
+    // the offset buffer is the data, because IntVectors don't have offsets.
 }
 
 const readFloatVector = readVectorLayout<number, FloatArray>(

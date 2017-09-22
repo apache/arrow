@@ -17,10 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+npm run clean
 npm run lint
 npm run build
 npm run test
-preset=`conventional-commits-detector` && echo $preset
-bump=`conventional-recommended-bump -p $preset` && echo $bump
-npm --no-git-tag-version version $bump &>/dev/null
+npm --no-git-tag-version version patch &>/dev/null
+npm run bundle
 npm run lerna:publish

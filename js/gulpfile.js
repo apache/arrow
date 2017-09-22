@@ -63,14 +63,17 @@ for (const [target, format] of combinations([`all`, `all`])) {
     gulp.task(`clean:${combo}`, gulp.series(cleanTask(target, format, combo, `targets/${target}/${format}`)));
     gulp.task(`build:${combo}`, gulp.series(buildTask(target, format, combo, `targets/${target}/${format}`)));
     gulp.task(`bundle:${combo}`, gulp.series(bundleTask(target, format, combo, `targets/${target}/${format}`)));
+    gulp.task(`package:${combo}`, gulp.series(packageTask(target, format, combo, `targets/${target}/${format}`)));
     gulp.task(`test:debug:${combo}`, gulp.series(testTask(target, format, combo, `targets/${target}/${format}`, true)));
 }
 
 gulp.task(`test`, gulp.series(runTaskCombos(`test`)));
 gulp.task(`clean`, gulp.parallel(runTaskCombos(`clean`)));
-gulp.task(`build`, gulp.parallel(runTaskCombos(`bundle`)));
+gulp.task(`build`, gulp.parallel(runTaskCombos(`build`)));
+gulp.task(`bundle`, gulp.parallel(runTaskCombos(`bundle`)));
+gulp.task(`package`, gulp.parallel(runTaskCombos(`package`)));
 gulp.task(`test:debug`, gulp.series(runTaskCombos(`test:debug`)));
-gulp.task(`default`, gulp.task(`build`));
+gulp.task(`default`, gulp.task(`package`));
 
 function runTaskCombos(name) {
     const combos = [];
@@ -87,7 +90,7 @@ function cleanTask(target, format, taskName, outDir) {
     return function cleanTask() {
         const globs = [`${outDir}/**`];
         if (target === `es5` && format === `cjs`) {
-            globs.push(`typings`);
+            globs.push(`types`, `typings`);
         }
         return del(globs);
     };
@@ -100,30 +103,32 @@ function buildTask(target, format, taskName, outDir) {
 }
 
 function bundleTask(target, format, taskName, outDir) {
-    return [
-        [`build:${taskName}`],
-        function bundleTask() {
-            return streamMerge([
-                pump(gulp.src([`LICENSE`, `README.md`]), gulp.dest(outDir), onError),
-                pump(
-                    gulp.src(`package.json`),
-                    gulpJsonTransform((orig) => [
-                        `version`, `description`,
-                        `author`, `homepage`, `bugs`, `license`,
-                        `keywords`, `repository`, `peerDependencies`
-                    ].reduce((copy, key) => (
-                        (copy[key] = orig[key]) && copy || copy
-                    ), {
-                        main: `Arrow.js`,
-                        typings: `Arrow.d.ts`,
-                        name: `@apache-arrow/${target}-${format}`
-                    }), 2),
-                    gulp.dest(outDir),
-                    onError
-                )
-            ])
-        }
-    ];
+    return function bundleTask() {
+        return streamMerge([
+            pump(gulp.src([`LICENSE`, `README.md`]), gulp.dest(outDir), onError),
+            pump(
+                gulp.src(`package.json`),
+                gulpJsonTransform((orig) => [
+                    `version`, `description`, `keywords`,
+                    `repository`, `author`, `homepage`, `bugs`, `license`,
+                    `dependencies`, `peerDependencies`
+                ].reduce((copy, key) => (
+                    (copy[key] = orig[key]) && copy || copy
+                ), {
+                    main: `Arrow.js`,
+                    types: `Arrow.d.ts`,
+                    typings: `Arrow.d.ts`,
+                    name: `@apache-arrow/${target}-${format}`
+                }), 2),
+                gulp.dest(outDir),
+                onError
+            )
+        ]);
+    }
+}
+
+function packageTask(target, format, taskName, outDir) {
+    return [`build:${taskName}`, `bundle:${taskName}`];
 }
 
 function testTask(target, format, taskName, outDir, debug) {
@@ -240,10 +245,10 @@ function typescriptTask(target, format, taskName, outDir) {
                 js = [js, sourcemaps.write(), gulp.dest(outDir)];
                 // copy types to the root
                 if (target === `es5` && format === `cjs`) {
-                    dts.push(gulp.dest(`typings`));
+                    dts.push(gulp.dest(`types`));
                 }
                 tsProjects.push({
-                    target, format, 
+                    target, format,
                     js: js = pump(...js, onError),
                     dts: dts = pump(...dts, onError)
                 });

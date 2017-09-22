@@ -19,21 +19,18 @@ import { readVector } from './vector';
 import { MessageBatch } from './message';
 import * as Schema_ from '../format/Schema_generated';
 import { IteratorState, Dictionaries } from './arrow';
-
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
 
-export function* readDictionaries(field: Field,
+export function* readDictionaries(field: Field | null,
                                   batch: MessageBatch,
                                   iterator: IteratorState,
                                   dictionaries: Dictionaries) {
-    let id: string, encoding: DictionaryEncoding;
-    if ((encoding = field.dictionary()) &&
-        batch.id === (id = encoding.id().toFloat64().toString())) {
+    let id: string, encoding = field && field.dictionary();
+    if (encoding && batch.id === (id = encoding.id().toFloat64().toString())) {
         yield [id, readVector(field, batch, iterator, null)];
         return;
     }
-    for (let i = -1, n = field.childrenLength(); ++i < n;) {
+    for (let i = -1, n = field && field.childrenLength() || 0; ++i < n;) {
         // Since a dictionary batch can only contain a single vector, return early after we find it
         for (let result of readDictionaries(field.children(i), batch, iterator, dictionaries)) {
             yield result;
