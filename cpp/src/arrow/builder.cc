@@ -831,11 +831,11 @@ DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
       hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(type, pool),
-      values_builder_(pool) {
+      values_builder_(pool),
+      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {
   if (!::arrow::CpuInfo::initialized()) {
     ::arrow::CpuInfo::Init();
   }
-  byte_width_ = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 }
 
 #ifndef ARROW_NO_DEPRECATED_API
@@ -921,7 +921,7 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
-  const NumericArray<T>& numeric_array = static_cast<const NumericArray<T>&>(array);
+  const auto& numeric_array = static_cast<const NumericArray<T>&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
@@ -938,8 +938,7 @@ Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
     return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
   }
 
-  const FixedSizeBinaryArray& numeric_array =
-      static_cast<const FixedSizeBinaryArray&>(array);
+  const auto& numeric_array = static_cast<const FixedSizeBinaryArray&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
@@ -1493,6 +1492,7 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     DICTIONARY_BUILDER_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(BINARY, BinaryDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
+    DICTIONARY_BUILDER_CASE(DECIMAL, DictionaryBuilder<FixedSizeBinaryType>);
     default:
       return Status::NotImplemented(type->ToString());
   }
@@ -1528,6 +1528,7 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
     DICTIONARY_ARRAY_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
+    DICTIONARY_ARRAY_CASE(DECIMAL, DictionaryBuilder<FixedSizeBinaryType>);
     default:
       std::stringstream ss;
       ss << "Cannot encode array of type " << type->ToString();

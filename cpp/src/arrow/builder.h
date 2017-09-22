@@ -937,8 +937,8 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
-  using DictionaryBuilder::DictionaryBuilder;
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(internal::WrappedBinary(value, length));
@@ -958,8 +958,8 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
 /// \brief Dictionary array builder with convenience methods for strings
 class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
  public:
-  using DictionaryBuilder::DictionaryBuilder;
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(internal::WrappedBinary(value, length));
