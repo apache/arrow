@@ -25,6 +25,10 @@ module Helper
       build_array(Arrow::IntArrayBuilder.new, values)
     end
 
+    def build_uint_array(values)
+      build_array(Arrow::UIntArrayBuilder.new, values)
+    end
+
     def build_int8_array(values)
       build_array(Arrow::Int8ArrayBuilder.new, values)
     end
