@@ -59,7 +59,12 @@ class BitmapReader {
     current_byte_ = bitmap[byte_offset_];
   }
 
+#if defined(_MSC_VER)
+  // MSVC is finicky about this cast
+  bool IsSet() const { return (current_byte_ & (1 << bit_offset_)) != 0; }
+#else
   bool IsSet() const { return current_byte_ & (1 << bit_offset_); }
+#endif
 
   bool IsNotSet() const { return (current_byte_ & (1 << bit_offset_)) == 0; }
 
