@@ -48,6 +48,53 @@
 #endif
 
 namespace arrow {
+namespace internal {
+
+class BitmapReader {
+ public:
+  BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap), position_(0), length_(length) {
+    byte_offset_ = start_offset / 8;
+    bit_offset_ = start_offset % 8;
+    current_byte_ = bitmap[byte_offset_];
+  }
+
+#if defined(_MSC_VER)
+  // MSVC is finicky about this cast
+  bool IsSet() const { return (current_byte_ & (1 << bit_offset_)) != 0; }
+#else
+  bool IsSet() const { return current_byte_ & (1 << bit_offset_); }
+#endif
+
+  bool IsNotSet() const { return (current_byte_ & (1 << bit_offset_)) == 0; }
+
+  void Next() {
+    ++bit_offset_;
+    ++position_;
+    if (bit_offset_ == 8) {
+      bit_offset_ = 0;
+      ++byte_offset_;
+      if (ARROW_PREDICT_TRUE(position_ < length_)) {
+        current_byte_ = bitmap_[byte_offset_];
+      }
+    }
+  }
+
+ private:
+  const uint8_t* bitmap_;
+  int64_t position_;
+  int64_t length_;
+
+  uint8_t current_byte_;
+  int64_t byte_offset_;
+  int64_t bit_offset_;
+};
+
+}  // namespace internal
+
+#ifndef ARROW_NO_DEPRECATED_API
+
+// \deprecated Since > 0.7.0
 
 #define INIT_BITSET(valid_bits_vector, valid_bits_index)            \
   int64_t byte_offset_##valid_bits_vector = (valid_bits_index) / 8; \
@@ -61,6 +108,8 @@ namespace arrow {
     byte_offset_##valid_bits_vector++;                                               \
     bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector]; \
   }
+
+#endif
 
 // TODO(wesm): The source from Impala was depending on boost::make_unsigned
 //

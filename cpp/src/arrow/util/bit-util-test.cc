@@ -72,6 +72,27 @@ TEST(BitUtilTests, TestNextPower2) {
   ASSERT_EQ(1LL << 62, NextPower2((1LL << 62) - 1));
 }
 
+TEST(BitmapReader, DoesNotReadOutOfBounds) {
+  uint8_t bitmap[16] = {0};
+
+  const int length = 128;
+
+  internal::BitmapReader r1(bitmap, 0, length);
+
+  // If this were to read out of bounds, valgrind would tell us
+  for (int i = 0; i < length; ++i) {
+    ASSERT_TRUE(r1.IsNotSet());
+    r1.Next();
+  }
+
+  internal::BitmapReader r2(bitmap, 5, length - 5);
+
+  for (int i = 0; i < (length - 5); ++i) {
+    ASSERT_TRUE(r2.IsNotSet());
+    r2.Next();
+  }
+}
+
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
                                     int64_t length) {
   int64_t count = 0;
