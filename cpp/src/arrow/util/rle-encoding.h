@@ -352,11 +352,12 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
   DCHECK_GE(bit_width_, 0);
   int values_read = 0;
   int remaining_nulls = null_count;
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+
+  internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
   while (values_read < batch_size) {
-    bool is_valid = (bitset_valid_bits & (1 << bit_offset_valid_bits)) != 0;
-    READ_NEXT_BITSET(valid_bits);
+    bool is_valid = bit_reader.IsSet();
+    bit_reader.Next();
 
     if (is_valid) {
       if ((repeat_count_ == 0) && (literal_count_ == 0)) {
@@ -369,14 +370,14 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
         repeat_count_--;
 
         while (repeat_count_ > 0 && (values_read + repeat_batch) < batch_size) {
-          if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+          if (bit_reader.IsSet()) {
             repeat_count_--;
           } else {
             remaining_nulls--;
           }
           repeat_batch++;
 
-          READ_NEXT_BITSET(valid_bits);
+          bit_reader.Next();
         }
         std::fill(values + values_read, values + values_read + repeat_batch, value);
         values_read += repeat_batch;
@@ -397,7 +398,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
 
         // Read the first bitset to the end
         while (literals_read < literal_batch) {
-          if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+          if (bit_reader.IsSet()) {
             values[values_read + literals_read + skipped] =
                 dictionary[indices[literals_read]];
             literals_read++;
@@ -405,7 +406,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
             skipped++;
           }
 
-          READ_NEXT_BITSET(valid_bits);
+          bit_reader.Next();
         }
         literal_count_ -= literal_batch;
         values_read += literal_batch + skipped;

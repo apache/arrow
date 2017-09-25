@@ -261,8 +261,9 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
                                      const FixedSizeBinaryArray& dictionary,
                                      ArrayData* output) {
   using index_c_type = typename IndexType::c_type;
-  const uint8_t* valid_bits = indices.null_bitmap_data();
-  INIT_BITSET(valid_bits, indices.offset());
+
+  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
+                                           indices.length());
 
   const index_c_type* in =
       reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
@@ -271,11 +272,11 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
   int32_t byte_width =
       static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
   for (int64_t i = 0; i < indices.length(); ++i) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       const uint8_t* value = dictionary.Value(in[i]);
       memcpy(out + i * byte_width, value, byte_width);
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
 }
 
@@ -293,8 +294,7 @@ struct CastFunctor<
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -327,21 +327,21 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output->type, &builder));
   BinaryBuilder* binary_builder = static_cast<BinaryBuilder*>(builder.get());
 
-  const uint8_t* valid_bits = indices.null_bitmap_data();
-  INIT_BITSET(valid_bits, indices.offset());
+  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
+                                           indices.length());
 
   const index_c_type* in =
       reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
       indices.offset();
   for (int64_t i = 0; i < indices.length(); ++i) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       int32_t length;
       const uint8_t* value = dictionary.GetValue(in[i], &length);
       RETURN_NOT_OK(binary_builder->Append(value, length));
     } else {
       RETURN_NOT_OK(binary_builder->AppendNull());
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
 
   std::shared_ptr<Array> plain_array;
@@ -366,8 +366,7 @@ struct CastFunctor<T, DictionaryType,
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
@@ -401,17 +400,17 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
                                c_type* out) {
   using index_c_type = typename IndexType::c_type;
 
-  const uint8_t* valid_bits = indices.null_bitmap_data();
-  INIT_BITSET(valid_bits, indices.offset());
+  internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
+                                           indices.length());
 
   const index_c_type* in =
       reinterpret_cast<const index_c_type*>(indices.data()->buffers[1]->data()) +
       indices.offset();
   for (int64_t i = 0; i < indices.length(); ++i) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
 }
 
@@ -429,8 +428,7 @@ struct CastFunctor<T, DictionaryType,
 
     // Check if values and output type match
     DCHECK(values_type.Equals(*output->type))
-      << "Dictionary type: " << values_type
-      << " target type: " << (*output->type);
+        << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
     auto dictionary =
         reinterpret_cast<const c_type*>(type.dictionary()->data()->buffers[1]->data()) +

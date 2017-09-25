@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -58,8 +58,9 @@ for directory, subdirs, files in os.walk(SOURCE_DIR):
 # fi
 
 try:
-    subprocess.check_output([CLANG_FORMAT, '-i'] + files_to_format,
-                            stderr=subprocess.STDOUT)
+    cmd = [CLANG_FORMAT, '-i'] + files_to_format
+    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 except Exception as e:
     print(e)
+    print(' '.join(cmd))
     raise
