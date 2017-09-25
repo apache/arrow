@@ -66,7 +66,11 @@ fetch_archive() {
   download_rc_file ${dist_name}.tar.gz.sha512
   gpg --verify ${dist_name}.tar.gz.asc ${dist_name}.tar.gz
   gpg --print-md MD5 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.md5
-  sha512sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
+  if [ "$(uname)" == "Darwin" ]; then
+    shasum -a 512 ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
+  else
+    sha512sum ${dist_name}.tar.gz | diff - ${dist_name}.tar.gz.sha512
+  fi
 }
 
 setup_tempdir() {
@@ -80,7 +84,11 @@ setup_tempdir() {
 
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
-  MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  if [ "$(uname)" == "Darwin" ]; then
+    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+  else
+    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  fi
 
   MINICONDA=`pwd`/test-miniconda
 
@@ -204,7 +212,11 @@ export PARQUET_HOME=$TMPDIR/install
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:$PKG_CONFIG_PATH
 
-NPROC=$(nproc)
+if [ "$(uname)" == "Darwin" ]; then
+  NPROC=$(sysctl -n hw.ncpu)
+else
+  NPROC=$(nproc)
+fi
 VERSION=$1
 RC_NUMBER=$2
 
