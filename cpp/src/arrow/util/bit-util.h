@@ -54,9 +54,12 @@ class BitmapReader {
  public:
   BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
+    current_byte_ = 0;
     byte_offset_ = start_offset / 8;
     bit_offset_ = start_offset % 8;
-    current_byte_ = bitmap[byte_offset_];
+    if (length > 0) {
+      current_byte_ = bitmap[byte_offset_];
+    }
   }
 
 #if defined(_MSC_VER)
@@ -89,6 +92,55 @@ class BitmapReader {
   int64_t byte_offset_;
   int64_t bit_offset_;
 };
+
+class BitmapWriter {
+public:
+  BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
+  : bitmap_(bitmap), position_(0), length_(length) {
+    current_byte_ = 0;
+    byte_offset_ = start_offset / 8;
+    bit_offset_ = start_offset % 8;
+    if (length > 0) {
+      current_byte_ = bitmap[byte_offset_];
+    }
+  }
+
+  void Set() { current_byte_ |= (1 << bit_offset_); }
+
+  void NotSet() { current_byte_ &= ~(1 << bit_offset_); }
+
+  void Next() {
+    ++bit_offset_;
+    ++position_;
+    bitmap_[byte_offset_] = current_byte_;
+    if (bit_offset_ == 8) {
+      bit_offset_ = 0;
+      ++byte_offset_;
+      if (ARROW_PREDICT_TRUE(position_ < length_)) {
+        current_byte_ = bitmap_[byte_offset_];
+      }
+    }
+  }
+
+  void Finish() {
+    if (ARROW_PREDICT_TRUE(position_ < length_)) {
+      if (bit_offset_ != 0) {
+        bitmap_[byte_offset_] = current_byte_;
+      }
+    }
+  }
+
+  int64_t NumValues(int64_t start_offset) { return bit_offset_ + byte_offset_ * 8 - start_offset; }
+
+  private:
+    uint8_t* bitmap_;
+    int64_t  position_;
+    int64_t  length_;
+
+    uint8_t current_byte_;
+    int64_t byte_offset_;
+    int64_t bit_offset_;
+  };
 
 }  // namespace internal
 
