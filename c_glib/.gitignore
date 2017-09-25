@@ -30,6 +30,7 @@ Makefile.in
 /doc/reference/*.stamp
 /doc/reference/html/
 /doc/reference/xml/
+/doc/reference/tmpl/
 /libtool
 /m4/
 /stamp-h1

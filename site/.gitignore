@@ -4,3 +4,5 @@ _site
 Gemfile.lock
 asf-site
 build/
+.bundle/
+ruby/
