@@ -208,14 +208,6 @@ class build_ext(_build_ext):
 
         # Move the libraries to the place expected by the Python
         # build
-        shared_library_prefix = 'lib'
-        if sys.platform == 'darwin':
-            shared_library_suffix = '.dylib'
-        elif sys.platform == 'win32':
-            shared_library_suffix = '.dll'
-            shared_library_prefix = ''
-        else:
-            shared_library_suffix = '.so'
 
         try:
             os.makedirs(pjoin(build_lib, 'pyarrow'))
@@ -227,40 +219,18 @@ class build_ext(_build_ext):
         else:
             build_prefix = self.build_type
 
-        def move_lib(lib_name):
-            lib_filename = (shared_library_prefix + lib_name +
-                            shared_library_suffix)
-            # Also copy libraries with ABI/SO version suffix
-            if sys.platform == 'darwin':
-                lib_pattern = (shared_library_prefix + lib_name +
-                               ".*" + shared_library_suffix[1:])
-                libs = glob.glob(pjoin(build_prefix, lib_pattern))
-            else:
-                libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
-            # Longest suffix library should be copied, all others symlinked
-            libs.sort(key=lambda s: -len(s))
-            print(libs, libs[0])
-            lib_filename = os.path.basename(libs[0])
-            shutil.move(pjoin(build_prefix, lib_filename),
-                        pjoin(build_lib, 'pyarrow', lib_filename))
-            for lib in libs[1:]:
-                filename = os.path.basename(lib)
-                link_name = pjoin(build_lib, 'pyarrow', filename)
-                if not os.path.exists(link_name):
-                    os.symlink(lib_filename, link_name)
-
         if self.bundle_arrow_cpp:
             print(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
             if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
                 shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
             shutil.move(pjoin(build_prefix, 'include'),
                         pjoin(build_lib, 'pyarrow'))
-            move_lib("arrow")
-            move_lib("arrow_python")
+            move_shared_libs(build_prefix, build_lib, "arrow")
+            move_shared_libs(build_prefix, build_lib, "arrow_python")
             if self.with_plasma:
-                move_lib("plasma")
+                move_shared_libs(build_prefix, build_lib, "plasma")
             if self.with_parquet:
-                move_lib("parquet")
+                move_shared_libs(build_prefix, build_lib, "parquet")
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []
@@ -343,6 +313,49 @@ class build_ext(_build_ext):
         # regular_exts = _build_ext.get_outputs(self)
         return [self._get_cmake_ext_path(name)
                 for name in self.get_names()]
+
+
+def move_shared_libs(build_prefix, build_lib, lib_name):
+    if sys.platform == 'win32':
+        # Move all .dll and .lib files
+        libs = glob.glob(pjoin(build_prefix, lib_name) + '*')
+
+        for filename in libs:
+            shutil.move(pjoin(build_prefix, filename),
+                        pjoin(build_lib, 'pyarrow', filename))
+    else:
+        _move_shared_libs_unix(build_prefix, build_lib, lib_name)
+
+
+def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
+    shared_library_prefix = 'lib'
+    if sys.platform == 'darwin':
+        shared_library_suffix = '.dylib'
+    else:
+        shared_library_suffix = '.so'
+
+    lib_filename = (shared_library_prefix + lib_name +
+                    shared_library_suffix)
+    # Also copy libraries with ABI/SO version suffix
+    if sys.platform == 'darwin':
+        lib_pattern = (shared_library_prefix + lib_name +
+                       ".*" + shared_library_suffix[1:])
+        libs = glob.glob(pjoin(build_prefix, lib_pattern))
+    else:
+        libs = glob.glob(pjoin(build_prefix, lib_filename) + '*')
+
+    # Longest suffix library should be copied, all others symlinked
+    libs.sort(key=lambda s: -len(s))
+    print(libs, libs[0])
+    lib_filename = os.path.basename(libs[0])
+    shutil.move(pjoin(build_prefix, lib_filename),
+                pjoin(build_lib, 'pyarrow', lib_filename))
+    for lib in libs[1:]:
+        filename = os.path.basename(lib)
+        link_name = pjoin(build_lib, 'pyarrow', filename)
+        if not os.path.exists(link_name):
+            os.symlink(lib_filename, link_name)
+
 
 # In the case of a git-archive, we don't have any version information
 # from the SCM to infer a version. The only source is the java/pom.xml.
