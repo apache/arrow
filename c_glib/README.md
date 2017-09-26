@@ -78,7 +78,7 @@ If you use macOS with [Homebrew](https://brew.sh/), you must install `gobject-in
 ```text
 % cd c_glib
 % brew install -y gobject-introspection
-% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig
+% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
 % make
 % sudo make install
 ```
