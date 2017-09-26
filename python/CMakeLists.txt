@@ -176,6 +176,14 @@ find_package(Arrow REQUIRED)
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR})
 
 function(bundle_arrow_lib library_path)
+  set(options)
+  set(one_value_args ABI_VERSION SO_VERSION)
+  set(multi_value_args)
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
   get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
   configure_file(${${library_path}}
@@ -183,30 +191,45 @@ function(bundle_arrow_lib library_path)
       COPYONLY)
 
   if (APPLE)
-    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
         COPYONLY)
-    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARROW_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    configure_file(${LIBRARY_DIR}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.${ARG_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
         COPYONLY)
-  else(NOT MSVC)
-    configure_file(${${library_path}}.${ARROW_ABI_VERSION}
-        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_ABI_VERSION}
+  elseif(NOT MSVC)
+    configure_file(${${library_path}}.${ARG_ABI_VERSION}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_ABI_VERSION}
         COPYONLY)
-    configure_file(${${library_path}}.${ARROW_SO_VERSION}
-        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARROW_SO_VERSION}
+    configure_file(${${library_path}}.${ARG_SO_VERSION}
+        ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}.${ARG_SO_VERSION}
         COPYONLY)
   endif()
 
-  SET(ARROW_SHARED_LIB
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
 endfunction(bundle_arrow_lib)
+
+function(bundle_arrow_implib library_path)
+  get_filename_component(LIBRARY_DIR ${${library_path}} DIRECTORY)
+  get_filename_component(LIBRARY_NAME ${${library_path}} NAME_WE)
+  configure_file(${${library_path}}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME}.lib
+      COPYONLY)
+endfunction(bundle_arrow_implib)
 
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow
   file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
-  bundle_arrow_lib(ARROW_SHARED_LIB)
-  bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB)
+  bundle_arrow_lib(ARROW_SHARED_LIB
+    ABI_VERSION ${ARROW_ABI_VERSION}
+    SO_VERSION ${ARROW_SO_VERSION})
+  bundle_arrow_lib(ARROW_PYTHON_SHARED_LIB
+    ABI_VERSION ${ARROW_ABI_VERSION}
+    SO_VERSION ${ARROW_SO_VERSION})
+
+  if (MSVC)
+    bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
+    bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+  endif()
 endif()
 
 if (MSVC)
@@ -248,30 +271,12 @@ if (PYARROW_BUILD_PARQUET)
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
 
   if (PYARROW_BUNDLE_ARROW_CPP)
-      get_filename_component(PARQUET_LIBRARY_DIR ${PARQUET_SHARED_LIB} DIRECTORY)
-      get_filename_component(PARQUET_LIBRARY_NAME ${PARQUET_SHARED_LIB} NAME_WE)
-      message(STATUS "Configure start")
-      configure_file(${PARQUET_SHARED_LIB}
-          ${BUILD_OUTPUT_ROOT_DIRECTORY}/${PARQUET_LIBRARY_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
-          COPYONLY)
-      if (APPLE)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet.${PARQUET_ABI_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet.${PARQUET_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
-              COPYONLY)
-      elseif (NOT MSVC)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_ABI_VERSION}
-              COPYONLY)
-          configure_file(${PARQUET_LIBRARY_DIR}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
-              ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX}.${PARQUET_SO_VERSION}
-              COPYONLY)
-      endif()
-      message(STATUS "Configure end")
-      #SET(PARQUET_SHARED_LIB
-      #    ${BUILD_OUTPUT_ROOT_DIRECTORY}/libparquet${CMAKE_SHARED_LIBRARY_SUFFIX})
+    bundle_arrow_lib(PARQUET_SHARED_LIB
+      ABI_VERSION ${PARQUET_ABI_VERSION}
+      SO_VERSION ${PARQUET_SO_VERSION})
+    if (MSVC)
+      bundle_arrow_implib(PARQUET_SHARED_IMP_LIB)
+    endif()
   endif()
   if (MSVC)
     ADD_THIRDPARTY_LIB(parquet
@@ -301,7 +306,9 @@ if (PYARROW_BUILD_PLASMA)
     SHARED_LIB ${PLASMA_SHARED_LIB})
 
   if (PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(PLASMA_SHARED_LIB)
+    bundle_arrow_lib(PLASMA_SHARED_LIB
+      ABI_VERSION ${ARROW_ABI_VERSION}
+      SO_VERSION ${ARROW_SO_VERSION})
   endif()
   set(LINK_LIBS
     ${LINK_LIBS}
