@@ -91,6 +91,42 @@ TEST(BitmapReader, DoesNotReadOutOfBounds) {
     ASSERT_TRUE(r2.IsNotSet());
     r2.Next();
   }
+
+  // Does not access invalid memory
+  internal::BitmapReader r3(nullptr, 0, 0);
+}
+
+TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
+  uint8_t bitmap[16] = {0};
+
+  const int length = 128;
+
+  int64_t num_values = 0;
+
+  internal::BitmapWriter r1(bitmap, 0, length);
+
+  // If this were to write out of bounds, valgrind would tell us
+  for (int i = 0; i < length; ++i) {
+    r1.Set();
+    r1.Clear();
+    r1.Next();
+  }
+  r1.Finish();
+  num_values = r1.position();
+
+  ASSERT_EQ(length, num_values);
+
+  internal::BitmapWriter r2(bitmap, 5, length - 5);
+
+  for (int i = 0; i < (length - 5); ++i) {
+    r2.Set();
+    r2.Clear();
+    r2.Next();
+  }
+  r2.Finish();
+  num_values = r2.position();
+
+  ASSERT_EQ((length - 5), num_values);
 }
 
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
