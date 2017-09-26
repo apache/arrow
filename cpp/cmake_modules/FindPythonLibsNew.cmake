@@ -149,19 +149,21 @@ if(CMAKE_HOST_WIN32)
     set(PYTHON_LIBRARY "${PYTHON_PREFIX}/libs/libpython${PYTHON_LIBRARY_SUFFIX}.a")
   endif()
 elseif(APPLE)
-  # In some cases libpythonX.X.dylib is not part of the PYTHON_PREFIX and we
-  # need to call `python-config --prefix` to determine the correct location.
 
-  find_program(PYTHON_CONFIG python-config
-      NO_CMAKE_SYSTEM_PATH)
-  if (PYTHON_CONFIG)
-    execute_process(
-        COMMAND "${PYTHON_CONFIG}" "--prefix"
-        OUTPUT_VARIABLE PYTHON_CONFIG_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    set(PYTHON_LIBRARY "${PYTHON_CONFIG_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
-  else()
-    set(PYTHON_LIBRARY "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+  set(PYTHON_LIBRARY "${PYTHON_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+
+  if (NOT EXISTS ${PYTHON_LIBRARY})
+    # In some cases libpythonX.X.dylib is not part of the PYTHON_PREFIX and we
+    # need to call `python-config --prefix` to determine the correct location.
+    find_program(PYTHON_CONFIG python-config
+        NO_CMAKE_SYSTEM_PATH)
+    if (PYTHON_CONFIG)
+      execute_process(
+          COMMAND "${PYTHON_CONFIG}" "--prefix"
+          OUTPUT_VARIABLE PYTHON_CONFIG_PREFIX
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
+      set(PYTHON_LIBRARY "${PYTHON_CONFIG_PREFIX}/lib/libpython${PYTHON_LIBRARY_SUFFIX}.dylib")
+    endif()
   endif()
 else()
     if(${PYTHON_SIZEOF_VOID_P} MATCHES 8)
