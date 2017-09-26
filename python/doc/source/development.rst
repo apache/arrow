@@ -272,7 +272,8 @@ Now, we build and install Arrow C++ libraries
    cmake -G "Visual Studio 14 2015 Win64" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
-         -DARROW_BUILD_TESTS=off ^
+         -DARROW_BUILD_TESTS=on ^
+         -DARROW_CXXFLAGS="/WX" ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
