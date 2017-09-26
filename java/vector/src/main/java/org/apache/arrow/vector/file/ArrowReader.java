@@ -141,7 +141,6 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
         dictionary.getVector().close();
       }
     }
-    in.close();
   }
 
   protected abstract Schema readSchema(T in) throws IOException;

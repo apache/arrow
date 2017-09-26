@@ -68,5 +68,8 @@ public class FileToStream {
         System.out : new FileOutputStream(new File(args[1]));
 
     convert(in, out);
+
+    in.close();
+    out.close();
   }
 }

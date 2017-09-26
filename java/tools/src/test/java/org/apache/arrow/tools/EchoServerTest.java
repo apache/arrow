@@ -95,9 +95,9 @@ public class EchoServerTest {
                               NullableTinyIntVector vector,
                               int batches)
       throws UnknownHostException, IOException {
-    BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
-    try (Socket socket = new Socket("localhost", serverPort);
+    try (BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
+         Socket socket = new Socket("localhost", serverPort);
          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
          ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
       writer.start();

@@ -95,9 +95,9 @@ public class EchoServer {
     }
 
     public void run() throws IOException {
-      BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
       // Read the entire input stream and write it back
-      try (ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
+      try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+           ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
         VectorSchemaRoot root = reader.getVectorSchemaRoot();
         // load the first batch before instantiating the writer so that we have any dictionaries
         reader.loadNextBatch();
