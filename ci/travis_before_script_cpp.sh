@@ -50,9 +50,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew update > /dev/null
-  brew install jemalloc
-  brew install ccache
+  brew tap Homebrew/bundle && brew bundle
 fi
 
 mkdir $ARROW_CPP_BUILD_DIR

@@ -108,7 +108,7 @@ building Arrow C++:
 
 .. code-block:: shell
 
-   brew install ccache jemalloc boost thrift
+   brew tap Homebrew/bundle && brew bundle
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow' thrid-party toolchain.
