@@ -71,7 +71,19 @@ GLib (replace the version number in the following commands with the one you use)
 You need to build and install Arrow C++ before you build and install
 Arrow GLib. See Arrow C++ document about how to install Arrow C++.
 
-You can build and install Arrow GLib after you install Arrow C++:
+You can build and install Arrow GLib after you install Arrow C++.
+
+If you use macOS with [Homebrew](https://brew.sh/), you must install `gobject-introspection` and set `PKG_CONFIG_PATH` before build Arrow GLib:
+
+```text
+% cd c_glib
+% brew install -y gobject-introspection
+% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
+% make
+% sudo make install
+```
+
+Others:
 
 ```text
 % cd c_glib
