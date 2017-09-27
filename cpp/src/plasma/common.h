@@ -26,6 +26,8 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
+#include "plasma/compat.h"
+
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
