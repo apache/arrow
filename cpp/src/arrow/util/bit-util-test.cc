@@ -98,7 +98,7 @@ TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
 
   const int length = 128;
 
-  int num_values = 0;
+  int64_t num_values = 0;
 
   internal::BitmapWriter r1(bitmap, 0, length);
 
@@ -121,9 +121,21 @@ TEST(BitmapWriter, DoesNotWriteOutOfBounds) {
     r2.Next();
   }
   r2.Finish();
-  num_values = r1.NumValues(5);
+  num_values = r2.NumValues(5);
 
   ASSERT_EQ((length - 5), num_values);
+
+  internal::BitmapWriter r3(bitmap, 0, 0);
+
+  for (int i = 0; i < 0; ++i) {
+    r3.Set();
+    r3.Clear();
+    r3.Next();
+  }
+  r3.Finish();
+  num_values = r3.NumValues(0);
+
+  ASSERT_EQ(0, num_values);
 }
 
 static inline int64_t SlowCountBits(const uint8_t* data, int64_t bit_offset,
