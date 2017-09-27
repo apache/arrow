@@ -17,6 +17,47 @@
   under the License.
 -->
 
+# Apache Arrow 0.7.1 (27 September 2017)
+
+## Bug
+
+* ARROW-1497 - [Java] JsonFileReader doesn't set value count for some vectors
+* ARROW-1500 - [C++] Result of ftruncate ignored in MemoryMappedFile::Create
+* ARROW-1536 - [C++] Do not transitively depend on libboost\_system
+* ARROW-1542 - [C++] Windows release verification script should not modify conda environment
+* ARROW-1544 - [JS] Export Vector type definitions
+* ARROW-1545 - Int64Builder should not need int64() as arg
+* ARROW-1550 - [Python] Fix flaky test on Windows 
+* ARROW-1554 - [Python] Document that pip wheels depend on MSVC14 runtime
+* ARROW-1557 - [PYTHON] pyarrow.Table.from\_arrays doesn't validate names length
+* ARROW-1591 - C++: Xcode 9 is not correctly detected
+* ARROW-1595 - [Python] Fix package dependency issues causing build failures
+* ARROW-1601 - [C++] READ\_NEXT\_BITSET reads one byte past the last byte on last iteration
+* ARROW-1606 - Python: Windows wheels don't include .lib files.
+* ARROW-1610 - C++/Python: Only call python-prefix if the default PYTHON\_LIBRARY is not present
+* ARROW-1611 - Crash in BitmapReader when length is zero
+
+## Improvement
+
+* ARROW-1537 - [C++] Support building with full path install\_name on macOS
+* ARROW-1546 - [GLib] Support GLib 2.40 again
+* ARROW-1578 - [C++/Python] Run lint checks in Travis CI to fail for linting issues as early as possible
+* ARROW-1608 - Support Release verification script on macOS
+* ARROW-1612 - [GLib] add how to install for mac os to README
+
+## New Feature
+
+* ARROW-1548 - [GLib] Support build append in builder
+* ARROW-1592 - [GLib] Add GArrowUIntArrayBuilder
+
+## Test
+
+* ARROW-1529 - [GLib] Fix failure on macOS on Travis CI
+
+## Wish
+
+* ARROW-559 - Script to easily verify release in all languages
+
 # Apache Arrow 0.7.0 (12 September 2017)
 
 ## Bug
@@ -1243,4 +1284,5 @@
 
 * ARROW-260 - TestValueVector.testFixedVectorReallocation and testVariableVectorReallocation are flaky
 * ARROW-83 - Add basic test infrastructure for DecimalType
+
 
