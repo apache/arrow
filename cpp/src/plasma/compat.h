@@ -22,6 +22,7 @@
 // https://issues.apache.org/jira/browse/ARROW-1622 and
 // https://github.com/tensorflow/tensorflow/issues/13220#issuecomment-331579775
 // This should be a short-term fix until the problem is fixed upstream.
+#ifdef __APPLE__
 #ifndef _MACH_PORT_T
 #define _MACH_PORT_T
 #include <sys/_types.h> /* __darwin_mach_port_t */
@@ -29,5 +30,6 @@ typedef __darwin_mach_port_t mach_port_t;
 #include <pthread.h>
 mach_port_t pthread_mach_thread_np(pthread_t);
 #endif /* _MACH_PORT_T */
+#endif /* __APPLE__ */
 
 #endif  // PLASMA_COMPAT_H
