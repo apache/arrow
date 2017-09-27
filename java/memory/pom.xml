@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.7.0</version>
+    <version>0.7.1-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-memory</artifactId>
   <name>Arrow Memory</name>
