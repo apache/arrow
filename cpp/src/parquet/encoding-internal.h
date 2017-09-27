@@ -530,12 +530,13 @@ class DictEncoder : public Encoder<DType> {
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      num_values);
     for (int32_t i = 0; i < num_values; i++) {
-      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      if (valid_bits_reader.IsSet()) {
         Put(src[i]);
       }
-      READ_NEXT_BITSET(valid_bits);
+      valid_bits_reader.Next();
     }
   }
 

@@ -135,28 +135,29 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
   // TODO: support distinct count?
   if (num_not_null == 0) return;
 
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
   // Find first valid entry and use that for min/max
   // As (num_not_null != 0) there must be one
   int64_t length = num_null + num_not_null;
   int64_t i = 0;
+  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                    length);
   for (; i < length; i++) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       break;
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
   T min = values[i];
   T max = values[i];
   for (; i < length; i++) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       if ((std::ref(*(this->comparator_)))(values[i], min)) {
         min = values[i];
       } else if ((std::ref(*(this->comparator_)))(max, values[i])) {
         max = values[i];
       }
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
   if (!has_min_max_) {
     has_min_max_ = true;

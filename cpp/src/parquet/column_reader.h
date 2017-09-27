@@ -148,20 +148,19 @@ static inline void DefinitionLevelsToBitmap(
     const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
     const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
     uint8_t* valid_bits, const int64_t valid_bits_offset) {
-  int64_t byte_offset = valid_bits_offset / 8;
-  int64_t bit_offset = valid_bits_offset % 8;
-  uint8_t bitset = valid_bits[byte_offset];
+  ::arrow::internal::BitmapWriter valid_bits_writer(valid_bits, valid_bits_offset,
+                                                    num_def_levels);
 
   // TODO(itaiin): As an interim solution we are splitting the code path here
   // between repeated+flat column reads, and non-repeated+nested reads.
   // Those paths need to be merged in the future
   for (int i = 0; i < num_def_levels; ++i) {
     if (def_levels[i] == max_definition_level) {
-      bitset |= (1 << bit_offset);
+      valid_bits_writer.Set();
     } else if (max_repetition_level > 0) {
       // repetition+flat case
       if (def_levels[i] == (max_definition_level - 1)) {
-        bitset &= ~(1 << bit_offset);
+        valid_bits_writer.Clear();
         *null_count += 1;
       } else {
         continue;
@@ -169,26 +168,17 @@ static inline void DefinitionLevelsToBitmap(
     } else {
       // non-repeated+nested case
       if (def_levels[i] < max_definition_level) {
-        bitset &= ~(1 << bit_offset);
+        valid_bits_writer.Clear();
         *null_count += 1;
       } else {
         throw ParquetException("definition level exceeds maximum");
       }
     }
 
-    bit_offset++;
-    if (bit_offset == CHAR_BIT) {
-      bit_offset = 0;
-      valid_bits[byte_offset] = bitset;
-      byte_offset++;
-      // TODO: Except for the last byte, this shouldn't be needed
-      bitset = valid_bits[byte_offset];
-    }
+    valid_bits_writer.Next();
   }
-  if (bit_offset != 0) {
-    valid_bits[byte_offset] = bitset;
-  }
-  *values_read = bit_offset + byte_offset * 8 - valid_bits_offset;
+  valid_bits_writer.Finish();
+  *values_read = valid_bits_writer.position();
 }
 
 }  // namespace internal

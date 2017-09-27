@@ -149,15 +149,15 @@ class LevelBuilder {
         } else if (array.null_count() == array.length()) {
           std::fill(def_levels_ptr, def_levels_ptr + array.length(), 0);
         } else {
-          const uint8_t* valid_bits = array.null_bitmap_data();
-          INIT_BITSET(valid_bits, static_cast<int>(array.offset()));
+          ::arrow::internal::BitmapReader valid_bits_reader(
+              array.null_bitmap_data(), array.offset(), array.length());
           for (int i = 0; i < array.length(); i++) {
-            if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+            if (valid_bits_reader.IsSet()) {
               def_levels_ptr[i] = 1;
             } else {
               def_levels_ptr[i] = 0;
             }
-            READ_NEXT_BITSET(valid_bits);
+            valid_bits_reader.Next();
           }
         }
         *def_levels = def_levels_buffer_;
@@ -437,12 +437,13 @@ Status FileWriter::Impl::WriteNullableBatch(TypedColumnWriter<ParquetType>* writ
 
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(ParquetCType)));
   auto buffer_ptr = reinterpret_cast<ParquetCType*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                    num_values);
   for (int i = 0; i < num_values; i++) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       buffer_ptr[i] = static_cast<ParquetCType>(data_ptr[i]);
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
   PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(
       num_levels, def_levels, rep_levels, valid_bits, valid_bits_offset, buffer_ptr));
@@ -458,13 +459,14 @@ Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Date64Type>(
     const int64_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(int32_t)));
   auto buffer_ptr = reinterpret_cast<int32_t*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                    num_values);
   for (int i = 0; i < num_values; i++) {
-    if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+    if (valid_bits_reader.IsSet()) {
       // Convert from milliseconds into days since the epoch
       buffer_ptr[i] = static_cast<int32_t>(data_ptr[i] / 86400000);
     }
-    READ_NEXT_BITSET(valid_bits);
+    valid_bits_reader.Next();
   }
   PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(
       num_levels, def_levels, rep_levels, valid_bits, valid_bits_offset, buffer_ptr));
@@ -480,21 +482,22 @@ Status FileWriter::Impl::WriteNullableBatch<Int32Type, ::arrow::Time32Type>(
     const int32_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(int32_t)));
   auto buffer_ptr = reinterpret_cast<int32_t*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                    num_values);
 
   if (type.unit() == TimeUnit::SECOND) {
     for (int i = 0; i < num_values; i++) {
-      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      if (valid_bits_reader.IsSet()) {
         buffer_ptr[i] = data_ptr[i] * 1000;
       }
-      READ_NEXT_BITSET(valid_bits);
+      valid_bits_reader.Next();
     }
   } else {
     for (int i = 0; i < num_values; i++) {
-      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      if (valid_bits_reader.IsSet()) {
         buffer_ptr[i] = data_ptr[i];
       }
-      READ_NEXT_BITSET(valid_bits);
+      valid_bits_reader.Next();
     }
   }
   PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(
@@ -536,14 +539,14 @@ Status FileWriter::Impl::WriteNullableBatch<Int96Type, ::arrow::TimestampType>(
     const int64_t* data_ptr) {
   RETURN_NOT_OK(data_buffer_.Resize(num_values * sizeof(Int96)));
   auto buffer_ptr = reinterpret_cast<Int96*>(data_buffer_.mutable_data());
-  INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
-
+  ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                    num_values);
   if (type.unit() == TimeUnit::NANO) {
     for (int i = 0; i < num_values; i++) {
-      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      if (valid_bits_reader.IsSet()) {
         internal::NanosecondsToImpalaTimestamp(data_ptr[i], buffer_ptr + i);
       }
-      READ_NEXT_BITSET(valid_bits);
+      valid_bits_reader.Next();
     }
   } else {
     return Status::NotImplemented("Only NANO timestamps are supported for Int96 writing");

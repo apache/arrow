@@ -59,13 +59,14 @@ class Encoder {
       throw ParquetException(ss.str());
     }
     int32_t num_valid_values = 0;
-    INIT_BITSET(valid_bits, static_cast<int>(valid_bits_offset));
+    ::arrow::internal::BitmapReader valid_bits_reader(valid_bits, valid_bits_offset,
+                                                      num_values);
     T* data = reinterpret_cast<T*>(buffer.mutable_data());
     for (int32_t i = 0; i < num_values; i++) {
-      if (bitset_valid_bits & (1 << bit_offset_valid_bits)) {
+      if (valid_bits_reader.IsSet()) {
         data[num_valid_values++] = src[i];
       }
-      READ_NEXT_BITSET(valid_bits);
+      valid_bits_reader.Next();
     }
     Put(data, num_valid_values);
   }
