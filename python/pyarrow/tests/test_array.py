@@ -323,3 +323,17 @@ def test_simple_type_construction():
 )
 def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
+
+
+def test_array_conversions_no_sentinel_values():
+    arr = np.array([1, 2, 3, 4], dtype='int8')
+    refcount = sys.getrefcount(arr)
+    arr2 = pa.array(arr)  # noqa
+    assert sys.getrefcount(arr) == (refcount + 1)
+
+    assert arr2.type == 'int8'
+
+    arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype='float32'),
+                    type='float32')
+    assert arr3.type == 'float32'
+    assert arr3.null_count == 0

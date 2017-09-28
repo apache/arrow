@@ -457,8 +457,26 @@ def test_column_of_arrays(tmpdir):
 
 @parquet
 def test_coerce_timestamps(tmpdir):
+    from collections import OrderedDict
     # ARROW-622
-    df, schema = dataframe_with_arrays()
+    arrays = OrderedDict()
+    fields = [pa.field('datetime64',
+                       pa.list_(pa.timestamp('ms')))]
+    arrays['datetime64'] = [
+        np.array(['2007-07-13T01:23:34.123456789',
+                  None,
+                  '2010-08-13T05:46:57.437699912'],
+                 dtype='datetime64[ms]'),
+        None,
+        None,
+        np.array(['2007-07-13T02',
+                  None,
+                  '2010-08-13T05:46:57.437699912'],
+                 dtype='datetime64[ms]'),
+    ]
+
+    df = pd.DataFrame(arrays)
+    schema = pa.schema(fields)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df, schema=schema)

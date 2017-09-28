@@ -74,11 +74,17 @@ cdef class DataType:
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
 
-    def __richcmp__(DataType self, DataType other, int op):
+    def __richcmp__(DataType self, object other, int op):
+        cdef DataType other_type
+        if not isinstance(other, DataType):
+            other_type = type_for_alias(other)
+        else:
+            other_type = other
+
         if op == cp.Py_EQ:
-            return self.type.Equals(deref(other.type))
+            return self.type.Equals(deref(other_type.type))
         elif op == cp.Py_NE:
-            return not self.type.Equals(deref(other.type))
+            return not self.type.Equals(deref(other_type.type))
         else:
             raise TypeError('Invalid comparison')
 

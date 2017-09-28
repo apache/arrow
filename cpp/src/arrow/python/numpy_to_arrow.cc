@@ -127,29 +127,6 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   return null_count;
 }
 
-template <int TYPE, typename BuilderType>
-Status AppendNdarrayToBuilder(PyArrayObject* array, BuilderType* builder) {
-  typedef internal::npy_traits<TYPE> traits;
-  typedef typename traits::value_type T;
-
-  // TODO(wesm): Vector append when not strided
-  Ndarray1DIndexer<T> values(array);
-  if (traits::supports_nulls) {
-    for (int64_t i = 0; i < values.size(); ++i) {
-      if (traits::isnull(values[i])) {
-        RETURN_NOT_OK(builder->AppendNull());
-      } else {
-        RETURN_NOT_OK(builder->Append(values[i]));
-      }
-    }
-  } else {
-    for (int64_t i = 0; i < values.size(); ++i) {
-      RETURN_NOT_OK(builder->Append(values[i]));
-    }
-  }
-  return Status::OK();
-}
-
 Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
   if (PyArray_NDIM(numpy_array) != 1) {
     return Status::Invalid("only handle 1-dimensional arrays");
@@ -279,11 +256,12 @@ static Status AppendObjectFixedWidthBytes(PyArrayObject* arr, PyArrayObject* mas
 class NumPyConverter {
  public:
   NumPyConverter(MemoryPool* pool, PyObject* ao, PyObject* mo,
-                 const std::shared_ptr<DataType>& type)
+                 const std::shared_ptr<DataType>& type, bool use_pandas_null_sentinels)
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
-        mask_(nullptr) {
+        mask_(nullptr),
+        use_pandas_null_sentinels_(use_pandas_null_sentinels) {
     if (mo != nullptr && mo != Py_None) {
       mask_ = reinterpret_cast<PyArrayObject*>(mo);
     }
@@ -354,6 +332,32 @@ class NumPyConverter {
     return Status::OK();
   }
 
+  template <int TYPE, typename BuilderType>
+  Status AppendNdarrayToBuilder(PyArrayObject* array, BuilderType* builder) {
+    typedef internal::npy_traits<TYPE> traits;
+    typedef typename traits::value_type T;
+
+    const bool null_sentinels_possible =
+        (use_pandas_null_sentinels_ && traits::supports_nulls);
+
+    // TODO(wesm): Vector append when not strided
+    Ndarray1DIndexer<T> values(array);
+    if (null_sentinels_possible) {
+      for (int64_t i = 0; i < values.size(); ++i) {
+        if (traits::isnull(values[i])) {
+          RETURN_NOT_OK(builder->AppendNull());
+        } else {
+          RETURN_NOT_OK(builder->Append(values[i]));
+        }
+      }
+    } else {
+      for (int64_t i = 0; i < values.size(); ++i) {
+        RETURN_NOT_OK(builder->Append(values[i]));
+      }
+    }
+    return Status::OK();
+  }
+
   Status PushArray(const std::shared_ptr<ArrayData>& data) {
     std::shared_ptr<Array> result;
     RETURN_NOT_OK(MakeArray(data, &result));
@@ -365,7 +369,10 @@ class NumPyConverter {
   Status VisitNative() {
     using traits = internal::arrow_traits<ArrowType::type_id>;
 
-    if (mask_ != nullptr || traits::supports_nulls) {
+    const bool null_sentinels_possible =
+        (use_pandas_null_sentinels_ && traits::supports_nulls);
+
+    if (mask_ != nullptr || null_sentinels_possible) {
       RETURN_NOT_OK(InitNullBitmap());
     }
 
@@ -375,7 +382,7 @@ class NumPyConverter {
     int64_t null_count = 0;
     if (mask_ != nullptr) {
       null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
-    } else if (traits::supports_nulls) {
+    } else if (null_sentinels_possible) {
       // TODO(wesm): this presumes the NumPy C type and arrow C type are the
       // same
       null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
@@ -423,6 +430,8 @@ class NumPyConverter {
   PyArrayObject* arr_;
   PyArrayObject* mask_;
   int64_t length_;
+
+  bool use_pandas_null_sentinels_;
 
   // Used in visitor pattern
   std::vector<std::shared_ptr<Array>> out_arrays_;
@@ -1208,7 +1217,7 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
                       bool use_pandas_null_sentinels,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
-  NumPyConverter converter(pool, ao, mo, type);
+  NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
   DCHECK(converter.result()[0]);
   *out = std::make_shared<ChunkedArray>(converter.result());

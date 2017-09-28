@@ -223,7 +223,7 @@ def dataframe_to_arrays(df, schema, preserve_index):
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
 
-        array = pa.array(col, type=type)
+        array = pa.array(col, from_pandas=True, type=type)
         arrays.append(array)
         names.append(name)
         types.append(array.type)
