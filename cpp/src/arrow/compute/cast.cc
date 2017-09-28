@@ -490,7 +490,10 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input
   if (can_pre_allocate_values) {
     std::shared_ptr<Buffer> out_data;
 
-    if (!(is_primitive(out->type->id()) || out->type->id() == Type::FIXED_SIZE_BINARY)) {
+    const Type::type type_id = out->type->id();
+
+    if (!(is_primitive(type_id) || type_id == Type::FIXED_SIZE_BINARY ||
+          type_id == Type::DECIMAL)) {
       std::stringstream ss;
       ss << "Cannot pre-allocate memory for type: " << out->type->ToString();
       return Status::NotImplemented(ss.str());
@@ -614,6 +617,7 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, FloatType);             \
   FN(IN_TYPE, DoubleType);            \
   FN(IN_TYPE, FixedSizeBinaryType);   \
+  FN(IN_TYPE, DecimalType);           \
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 

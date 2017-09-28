@@ -437,7 +437,7 @@ TYPED_TEST(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_OK(this->client_->OpenReadable(src_path, &file));
 
   std::atomic<int> correct_count(0);
-  const int niter = 1000;
+  constexpr int niter = 1000;
 
   auto ReadData = [&file, &correct_count, &data, niter]() {
     for (int i = 0; i < niter; ++i) {
