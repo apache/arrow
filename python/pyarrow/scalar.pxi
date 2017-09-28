@@ -348,10 +348,10 @@ cdef class StructValue(ArrayValue):
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanValue,
-    _Type_UINT8: Int8Value,
-    _Type_UINT16: Int16Value,
-    _Type_UINT32: Int32Value,
-    _Type_UINT64: Int64Value,
+    _Type_UINT8: UInt8Value,
+    _Type_UINT16: UInt16Value,
+    _Type_UINT32: UInt32Value,
+    _Type_UINT64: UInt64Value,
     _Type_INT8: Int8Value,
     _Type_INT16: Int16Value,
     _Type_INT32: Int32Value,
