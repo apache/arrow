@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "plasma/compat.h"
 
 // TODO(pcm): Replace our own custom message header (message type,
 // message length, plasma protocol verion) with one that is serialized

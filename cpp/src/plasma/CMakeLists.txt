@@ -111,6 +111,7 @@ target_link_libraries(plasma_store plasma_static)
 install(FILES
   common.h
   common_generated.h
+  compat.h
   client.h
   events.h
   plasma.h
