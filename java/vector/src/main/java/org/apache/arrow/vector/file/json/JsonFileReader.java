@@ -216,6 +216,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * TODO: A better way of implementing this function is to use `loadFieldBuffers` methods in
+   * FieldVector to set the inner-vector data as done in `ArrowFileReader`.
+   */
   private void readVector(Field field, FieldVector vector) throws JsonParseException, IOException {
     List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
     List<BufferBacked> fieldInnerVectors = vector.getFieldInnerVectors();
@@ -252,7 +256,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       // Set lastSet before valueCount to prevent setValueCount from filling empty values
       switch (vector.getMinorType()) {
         case LIST:
-          // ListVector starts lastSet from index 0
+          // ListVector starts lastSet from index 0, so lastSet value is always last index written + 1
           ((ListVector) vector).getMutator().setLastSet(count);
           break;
         case VARBINARY:
