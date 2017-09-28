@@ -229,6 +229,9 @@ include(BuildUtils)
 # Compiler flags
 ############################################################
 
+# Determine compiler version
+include(CompilerInfo)
+
 if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()
@@ -252,9 +255,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
-# Determine compiler version
-include(CompilerInfo)
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
