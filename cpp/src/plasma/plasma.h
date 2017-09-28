@@ -36,6 +36,14 @@
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 
+#ifndef _MACH_PORT_T
+#define _MACH_PORT_T
+#include <sys/_types.h> /* __darwin_mach_port_t */
+typedef __darwin_mach_port_t mach_port_t;
+#include <pthread.h>
+mach_port_t pthread_mach_thread_np(pthread_t);
+#endif /* _MACH_PORT_T */
+
 namespace plasma {
 
 #define HANDLE_SIGPIPE(s, fd_)                                              \
