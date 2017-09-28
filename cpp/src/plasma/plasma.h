@@ -31,6 +31,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "plasma/compat.h"
+
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "plasma/common.h"
