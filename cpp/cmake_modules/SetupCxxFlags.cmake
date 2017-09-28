@@ -125,7 +125,7 @@ if (BUILD_WARNING_FLAGS)
   # Use BUILD_WARNING_FLAGS with BUILD_WARNING_LEVEL=everything to disable
   # warnings (use with Clang's -Weverything flag to find potential errors)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${BUILD_WARNING_FLAGS}")
-endif(NOT BUILD_WARNING_FLAGS)
+endif(BUILD_WARNING_FLAGS)
 
 if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
 set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -std=c++11")
