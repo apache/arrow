@@ -149,6 +149,10 @@ def test_array_factory_invalid_type():
         pa.array(arr)
 
 
+def test_array_ref_to_ndarray_base():
+    pass
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -170,8 +174,8 @@ def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
 
-    iarr = pa.Array.from_pandas(indices)
-    darr = pa.Array.from_pandas(dictionary)
+    iarr = pa.array(indices)
+    darr = pa.array(dictionary)
 
     d1 = pa.DictionaryArray.from_arrays(iarr, darr)
 
@@ -201,7 +205,7 @@ def test_dictionary_with_pandas():
 
 def test_list_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
-    offsets = pa.Array.from_pandas(offsets_arr, type=pa.int32())
+    offsets = pa.array(offsets_arr, type=pa.int32())
     pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
     values = pa.array(pyvalues, type=pa.binary())
 
@@ -214,10 +218,10 @@ def test_list_from_arrays():
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 
-    in_arr = pa.Array.from_pandas(in_data, type=in_type)
+    in_arr = pa.array(in_data, type=in_type)
 
     casted = in_arr.cast(out_type, safe=safe)
-    expected = pa.Array.from_pandas(out_data, type=out_type)
+    expected = pa.array(out_data, type=out_type)
     assert casted.equals(expected)
 
 
@@ -243,7 +247,7 @@ def test_cast_integers_safe():
         (np.array([50000], dtype='u2'), pa.uint16(), pa.int16())
     ]
     for in_data, in_type, out_type in unsafe_cases:
-        in_arr = pa.Array.from_pandas(in_data, type=in_type)
+        in_arr = pa.array(in_data, type=in_type)
 
         with pytest.raises(pa.ArrowInvalid):
             in_arr.cast(out_type)
