@@ -240,7 +240,7 @@ def dataframe_to_arrays(df, schema, preserve_index):
     return names, arrays, metadata
 
 
-def maybe_coerce_datetime64(values, dtype, type_):
+def get_datetimetz_type(values, dtype, type_):
     from pyarrow.compat import DatetimeTZDtype
 
     if values.dtype.type != np.datetime64:
