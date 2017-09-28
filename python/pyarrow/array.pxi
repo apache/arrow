@@ -102,7 +102,7 @@ cdef _arraylike_to_array(object obj, object mask, DataType type,
     return pyarrow_wrap_array(out)
 
 
-def array(object sequence, DataType type=None, mask=None,
+def array(object sequence, type=None, mask=None,
           MemoryPool memory_pool=None, size=None):
     """
     Create pyarrow.Array instance from a Python sequence
@@ -158,6 +158,8 @@ def array(object sequence, DataType type=None, mask=None,
     array : pyarrow.Array or pyarrow.ChunkedArray (if object data
     overflowed binary storage)
     """
+    if type is not None and not isinstance(type, DataType):
+        type = type_for_alias(type)
     if _is_array_like(sequence):
         return _arraylike_to_array(sequence, mask, type, memory_pool)
     else:

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import re
+
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
@@ -920,6 +922,64 @@ def struct(fields):
 
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
+
+
+cdef dict _type_aliases = {
+    'null': null,
+    'i1': int8,
+    'int8': int8,
+    'i2': int16,
+    'int16': int16,
+    'i4': int32,
+    'int32': int32,
+    'i8': int64,
+    'int64': int64,
+    'u1': uint8,
+    'uint8': uint8,
+    'u2': uint16,
+    'uint16': uint16,
+    'u4': uint32,
+    'uint32': uint32,
+    'u8': uint64,
+    'uint64': uint64,
+    'f4': float32,
+    'float32': float32,
+    'f8': float64,
+    'float64': float64,
+    'string': string,
+    'str': string,
+    'utf8': string,
+    'binary': binary,
+    'date32': date32,
+    'date64': date64,
+    'time32[s]': time32('s'),
+    'time32[ms]': time32('ms'),
+    'time64[us]': time64('us'),
+    'time64[ns]': time64('ns'),
+    'timestamp[s]': timestamp('s'),
+    'timestamp[ms]': timestamp('ms'),
+    'timestamp[us]': timestamp('us'),
+    'timestamp[ns]': timestamp('ns'),
+}
+
+
+def type_for_alias(name):
+    """
+    Return DataType given a string alias if one exists
+
+    Returns
+    -------
+    type : DataType
+    """
+    name = name.lower()
+    try:
+        alias = _type_aliases[name]
+    except KeyError:
+        raise ValueError('No type alias for {0}'.format(name))
+
+    if isinstance(alias, DataType):
+        return alias
+    return alias()
 
 
 def schema(fields):

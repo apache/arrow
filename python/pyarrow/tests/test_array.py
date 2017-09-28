@@ -150,7 +150,11 @@ def test_array_factory_invalid_type():
 
 
 def test_array_ref_to_ndarray_base():
-    pass
+    arr = np.array([1, 2, 3])
+
+    refcount = sys.getrefcount(arr)
+    arr2 = pa.array(arr)  # noqa
+    assert sys.getrefcount(arr) == (refcount + 1)
 
 
 def test_dictionary_from_numpy():
@@ -205,9 +209,9 @@ def test_dictionary_with_pandas():
 
 def test_list_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
-    offsets = pa.array(offsets_arr, type=pa.int32())
+    offsets = pa.array(offsets_arr, type='int32')
     pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
-    values = pa.array(pyvalues, type=pa.binary())
+    values = pa.array(pyvalues, type='binary')
 
     result = pa.ListArray.from_arrays(offsets, values)
     expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]])
