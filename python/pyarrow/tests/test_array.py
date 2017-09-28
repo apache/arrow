@@ -231,13 +231,13 @@ def _check_cast_case(case, safe=True):
 
 def test_cast_integers_safe():
     safe_cases = [
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='i4'), pa.int32()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='u4'), pa.uint16()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='u1'), pa.uint8()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='f8'), pa.float64())
     ]
 
@@ -245,10 +245,10 @@ def test_cast_integers_safe():
         _check_cast_case(case)
 
     unsafe_cases = [
-        (np.array([50000], dtype='i4'), pa.int32(), pa.int16()),
-        (np.array([70000], dtype='i4'), pa.int32(), pa.uint16()),
-        (np.array([-1], dtype='i4'), pa.int32(), pa.uint16()),
-        (np.array([50000], dtype='u2'), pa.uint16(), pa.int16())
+        (np.array([50000], dtype='i4'), 'int32', 'int16'),
+        (np.array([70000], dtype='i4'), 'int32', 'uint16'),
+        (np.array([-1], dtype='i4'), 'int32', 'uint16'),
+        (np.array([50000], dtype='u2'), 'uint16', 'int16')
     ]
     for in_data, in_type, out_type in unsafe_cases:
         in_arr = pa.array(in_data, type=in_type)
@@ -260,11 +260,11 @@ def test_cast_integers_safe():
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [
-        (np.array([50000], dtype='i4'), pa.int32(),
+        (np.array([50000], dtype='i4'), 'int32',
          np.array([50000], dtype='i2'), pa.int16()),
-        (np.array([70000], dtype='i4'), pa.int32(),
+        (np.array([70000], dtype='i4'), 'int32',
          np.array([70000], dtype='u2'), pa.uint16()),
-        (np.array([-1], dtype='i4'), pa.int32(),
+        (np.array([-1], dtype='i4'), 'int32',
          np.array([-1], dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
          np.array([50000], dtype='i2'), pa.int16())

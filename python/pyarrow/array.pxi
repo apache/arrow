@@ -77,6 +77,15 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
+cdef DataType _ensure_type(object type):
+    if type is None:
+        return None
+    elif not isinstance(type, DataType):
+        return type_for_alias(type)
+    else:
+        return type
+
+
 def array(object obj, type=None, mask=None,
           MemoryPool memory_pool=None, size=None,
           from_pandas=False):
@@ -138,8 +147,7 @@ def array(object obj, type=None, mask=None,
     array : pyarrow.Array or pyarrow.ChunkedArray (if object data
     overflowed binary storage)
     """
-    if type is not None and not isinstance(type, DataType):
-        type = type_for_alias(type)
+    type = _ensure_type(type)
     cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
     if _is_array_like(obj):
@@ -205,7 +213,7 @@ cdef class Array:
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
 
-    def cast(self, DataType target_type, safe=True):
+    def cast(self, object target_type, safe=True):
         """
         Cast array values to another data type
 
@@ -223,12 +231,15 @@ cdef class Array:
         cdef:
             CCastOptions options
             shared_ptr[CArray] result
+            DataType type
+
+        type = _ensure_type(target_type)
 
         if not safe:
             options.allow_int_overflow = 1
 
         with nogil:
-            check_status(Cast(_context(), self.ap[0], target_type.sp_type,
+            check_status(Cast(_context(), self.ap[0], type.sp_type,
                               options, &result))
 
         return pyarrow_wrap_array(result)
