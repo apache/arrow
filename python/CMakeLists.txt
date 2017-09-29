@@ -72,8 +72,8 @@ endif(CCACHE_FOUND)
 ############################################################
 
 include(BuildUtils)
-include(SetupCxxFlags)
 include(CompilerInfo)
+include(SetupCxxFlags)
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
