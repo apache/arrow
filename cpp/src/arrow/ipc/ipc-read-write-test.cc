@@ -63,10 +63,10 @@ TEST(TestMessage, Equals) {
   std::string metadata = "foo";
   std::string body = "bar";
 
-  auto b1 = GetBufferFromString(metadata);
-  auto b2 = GetBufferFromString(metadata);
-  auto b3 = GetBufferFromString(body);
-  auto b4 = GetBufferFromString(body);
+  auto b1 = std::make_shared<Buffer>(metadata);
+  auto b2 = std::make_shared<Buffer>(metadata);
+  auto b3 = std::make_shared<Buffer>(body);
+  auto b4 = std::make_shared<Buffer>(body);
 
   Message msg1(b1, b3);
   Message msg2(b2, b4);

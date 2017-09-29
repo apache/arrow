@@ -46,6 +46,14 @@ TEST_F(TestBuffer, IsMutableFlag) {
   ASSERT_TRUE(pbuf.is_mutable());
 }
 
+TEST_F(TestBuffer, FromStdString) {
+  std::string val = "hello, world";
+
+  Buffer buf(val);
+  ASSERT_EQ(0, memcmp(buf.data(), val.c_str(), val.size()));
+  ASSERT_EQ(static_cast<int64_t>(val.size()), buf.size());
+}
+
 TEST_F(TestBuffer, Resize) {
   PoolBuffer buf;
 
