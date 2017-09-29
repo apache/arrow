@@ -48,7 +48,110 @@ if (MSVC)
     set(CXX_COMMON_FLAGS "/W3")
   endif()
 else()
-  set(CXX_COMMON_FLAGS "-Wall -std=c++11")
+  # Common flags set below with warning level
+  set(CXX_COMMON_FLAGS "")
+endif()
+
+# Build warning level (CHECKIN, EVERYTHING, etc.)
+
+# if no build warning level is specified, default to development warning level
+if (NOT BUILD_WARNING_LEVEL)
+  set(BUILD_WARNING_LEVEL Production)
+endif(NOT BUILD_WARNING_LEVEL)
+
+string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
+
+if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
+  # Pre-checkin builds
+  if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+    string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
+    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
+    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
+    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
+    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
+    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
+    -Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
+    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
+
+    # Version numbers where warnings are introduced
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-gnu-folding-constant")
+    endif()
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.6")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
+    endif()
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.7")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
+    endif()
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
+    endif()
+
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wconversion -Wno-sign-conversion")
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+  else()
+    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+  endif()
+elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
+  # Pedantic builds for fixing warnings
+  if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+    string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
+    # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
+    # /wdnnnn disables a warning where "nnnn" is a warning number
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}  /WX")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic")
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wpedantic -Wextra -Wno-unused-parameter")
+    # Treat all compiler warnings as errors
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
+  else()
+    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+  endif()
+else()
+  # Production builds (warning are not treated as errors)
+  if ("${COMPILER_FAMILY}" STREQUAL "msvc")
+    # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
+    # TODO: Enable /Wall and disable individual warnings until build compiles without errors
+    # /wdnnnn disables a warning where "nnnn" is a warning number
+    string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+  elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+  else()
+    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+  endif()
+endif()
+
+# if build warning flags is set, add to CXX_COMMON_FLAGS
+if (BUILD_WARNING_FLAGS)
+  # Use BUILD_WARNING_FLAGS with BUILD_WARNING_LEVEL=everything to disable
+  # warnings (use with Clang's -Weverything flag to find potential errors)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${BUILD_WARNING_FLAGS}")
+endif(BUILD_WARNING_FLAGS)
+
+if (NOT ("${COMPILER_FAMILY}" STREQUAL "msvc"))
+set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -std=c++11")
 endif()
 
 # Only enable additional instruction sets if they are supported
