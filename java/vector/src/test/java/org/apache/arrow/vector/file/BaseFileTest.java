@@ -32,6 +32,7 @@ import org.apache.arrow.vector.NullableDateMilliVector;
 import org.apache.arrow.vector.NullableDecimalVector;
 import org.apache.arrow.vector.NullableIntVector;
 import org.apache.arrow.vector.NullableTimeMilliVector;
+import org.apache.arrow.vector.NullableVarBinaryVector;
 import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -540,5 +541,53 @@ public class BaseFileTest {
     }
     writer.setValueCount(count);
     varchar.release();
+  }
+
+  protected void writeVarBinaryData(int count, NullableMapVector parent) {
+    Assert.assertTrue(count < 100);
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    ListWriter listWriter = rootWriter.list("list");
+    ArrowBuf varbin = allocator.buffer(count);
+    for (int i = 0; i < count; i++) {
+      varbin.setByte(i, i);
+      listWriter.setPosition(i);
+      listWriter.startList();
+      for (int j = 0; j < i % 3; j++) {
+        listWriter.varBinary().writeVarBinary(0, i + 1, varbin);
+      }
+      listWriter.endList();
+    }
+    writer.setValueCount(count);
+    varbin.release();
+  }
+
+  protected void validateVarBinary(int count, VectorSchemaRoot root) {
+    Assert.assertEquals(count, root.getRowCount());
+    ListVector listVector = (ListVector) root.getVector("list");
+    byte[] expectedArray = new byte[count];
+    int numVarBinaryValues = 0;
+    for (int i = 0; i < count; i++) {
+      expectedArray[i] = (byte) i;
+      Object obj = listVector.getAccessor().getObject(i);
+      List<?> objList = (List) obj;
+      if (i % 3 == 0) {
+        Assert.assertTrue(objList.isEmpty());
+      } else {
+        byte[] expected = Arrays.copyOfRange(expectedArray, 0, i + 1);
+        for (int j = 0; j < i % 3; j++) {
+          byte[] result = (byte[]) objList.get(j);
+          Assert.assertArrayEquals(result, expected);
+          numVarBinaryValues++;
+        }
+      }
+    }
+
+    // ListVector lastSet should be the index of last value + 1
+    Assert.assertEquals(listVector.getMutator().getLastSet(), count);
+
+    // NullableVarBinaryVector lastSet should be the index of last value
+    NullableVarBinaryVector binaryVector = (NullableVarBinaryVector) listVector.getChildrenFromFields().get(0);
+    Assert.assertEquals(binaryVector.getMutator().getLastSet(), numVarBinaryValues - 1);
   }
 }
