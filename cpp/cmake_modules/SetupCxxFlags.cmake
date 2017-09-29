@@ -77,7 +77,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
     -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
     -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-cast-align -Wno-shift-sign-overflow \
+    -Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
     -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
     -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
     -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
@@ -135,33 +135,7 @@ else()
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
-    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
-    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
-    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
-    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
-    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
-    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
-    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-cast-align -Wno-shift-sign-overflow \
-    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
-    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
-
-    # Version numbers where warnings are introduced
-    if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-gnu-folding-constant")
-    endif()
-    if ("${COMPILER_VERSION}" VERSION_GREATER "3.6")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
-    endif()
-    if ("${COMPILER_VERSION}" VERSION_GREATER "3.7")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
-    endif()
-    if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
-    endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   else()
