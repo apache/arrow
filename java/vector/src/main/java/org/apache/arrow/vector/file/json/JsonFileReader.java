@@ -44,6 +44,8 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullableVarBinaryVector;
+import org.apache.arrow.vector.NullableVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -63,10 +65,10 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ValueVector.Mutator;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
@@ -84,7 +86,6 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.base.Objects;
 
 public class JsonFileReader implements AutoCloseable, DictionaryProvider {
-  private final File inputFile;
   private final JsonParser parser;
   private final BufferAllocator allocator;
   private Schema schema;
@@ -93,7 +94,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
-    this.inputFile = inputFile;
     this.allocator = allocator;
     MappingJsonFactory jsonFactory = new MappingJsonFactory();
     this.parser = jsonFactory.createParser(inputFile);
@@ -216,10 +216,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
-  /*
-   * TODO: This method doesn't load some vectors correctly. For instance, it doesn't initialize
-   * `lastSet` in ListVector, VarCharVector, NullableVarBinaryVector A better way of implementing
-   * this function is to use `loadFieldBuffers` methods in FieldVector.
+  /**
+   * TODO: A better way of implementing this function is to use `loadFieldBuffers` methods in
+   * FieldVector to set the inner-vector data as done in `ArrowFileReader`.
    */
   private void readVector(Field field, FieldVector vector) throws JsonParseException, IOException {
     List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
@@ -234,29 +233,42 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       if (started && !Objects.equal(field.getName(), name)) {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
+
+      // Initialize the vector with required capacity
       int count = readNextField("count", Integer.class);
+      vector.setInitialCapacity(count);
       vector.allocateNew();
-      vector.getMutator().setValueCount(count);
+
+      // Read inner vectors
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
-        BufferBacked innerVector = fieldInnerVectors.get(v);
+        ValueVector valueVector = (ValueVector) fieldInnerVectors.get(v);
         nextFieldIs(vectorType.getName());
         readToken(START_ARRAY);
-        ValueVector valueVector = (ValueVector) innerVector;
-
         int innerVectorCount = vectorType.equals(OFFSET) ? count + 1 : count;
-        valueVector.setInitialCapacity(innerVectorCount);
-        valueVector.allocateNew();
-
         for (int i = 0; i < innerVectorCount; i++) {
           parser.nextToken();
           setValueFromParser(valueVector, i);
         }
-        Mutator mutator = valueVector.getMutator();
-        mutator.setValueCount(innerVectorCount);
         readToken(END_ARRAY);
       }
-      // if children
+
+      // Set lastSet before valueCount to prevent setValueCount from filling empty values
+      switch (vector.getMinorType()) {
+        case LIST:
+          // ListVector starts lastSet from index 0, so lastSet value is always last index written + 1
+          ((ListVector) vector).getMutator().setLastSet(count);
+          break;
+        case VARBINARY:
+          ((NullableVarBinaryVector) vector).getMutator().setLastSet(count - 1);
+          break;
+        case VARCHAR:
+          ((NullableVarCharVector) vector).getMutator().setLastSet(count - 1);
+          break;
+      }
+      vector.getMutator().setValueCount(count);
+
+      // read child vectors, if any
       List<Field> fields = field.getChildren();
       if (!fields.isEmpty()) {
         List<FieldVector> vectorChildren = vector.getChildrenFromFields();
