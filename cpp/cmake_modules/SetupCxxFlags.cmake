@@ -77,7 +77,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
     -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
     -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
+    -Wno-extra-semi -Wno-shift-sign-overflow \
     -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
     -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
     -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
@@ -104,7 +104,7 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
 elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
-  # Development builds for fixing warnings
+  # Pedantic builds for fixing warnings
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
@@ -140,7 +140,7 @@ else()
     -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
     -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
     -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
+    -Wno-extra-semi -Wno-shift-sign-overflow \
     -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
     -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
     -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
