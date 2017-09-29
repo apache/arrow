@@ -77,10 +77,10 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
     -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
     -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-shorten-64-to-32 -Wno-shift-sign-overflow \
+    -Wno-extra-semi -Wno-shift-sign-overflow \
     -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
     -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
+    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
@@ -143,10 +143,10 @@ else()
     -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
     -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
     -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-shorten-64-to-32 -Wno-shift-sign-overflow \
+    -Wno-extra-semi -Wno-shift-sign-overflow \
     -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
     -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
+    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
