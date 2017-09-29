@@ -368,7 +368,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return vector;
   }
 
-  private int lastSet;
+  private int lastSet = 0;
 
   public class Accessor extends BaseRepeatedAccessor {
 

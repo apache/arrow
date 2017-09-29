@@ -622,6 +622,47 @@ public class TestArrowFile extends BaseFileTest {
     }
   }
 
+  @Test
+  public void testWriteReadVarBin() throws IOException {
+    File file = new File("target/mytest_varbin.arrow");
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    int count = COUNT;
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+      writeVarBinaryData(count, parent);
+      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
+      validateVarBinary(count, root);
+      write(parent.getChild("root"), file, stream);
+    }
+
+    // read from file
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(file);
+        ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
+      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+      Schema schema = root.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+      Assert.assertTrue(arrowReader.loadNextBatch());
+      validateVarBinary(count, root);
+    }
+
+    // read from stream
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        ByteArrayInputStream input = new ByteArrayInputStream(stream.toByteArray());
+        ArrowStreamReader arrowReader = new ArrowStreamReader(input, readerAllocator)) {
+      VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
+      Schema schema = root.getSchema();
+      LOGGER.debug("reading schema: " + schema);
+      Assert.assertTrue(arrowReader.loadNextBatch());
+      validateVarBinary(count, root);
+    }
+  }
+
 
   /**
    * Writes the contents of parents to file. If outStream is non-null, also writes it
