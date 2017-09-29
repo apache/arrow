@@ -69,26 +69,29 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
-    # NOTE: -Wconversion does not return the same warnings on CLang and GNU (build can still fail even when enabled)
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
-      -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
-      -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
-      -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
-      -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
-      -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
-      -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
-      -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-      -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
-      -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
-      -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-      -Wc++11-narrowing -Wnarrowing")
+    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
+    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
+    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
+    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
+    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
+    -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
+    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
 
-    # Version numbers where warnings are introduced are off so add one
+    # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.6")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.7")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
+    endif()
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wundefined-func-template")
     endif()
 
     # Treat all compiler warnings as errors
@@ -130,24 +133,28 @@ else()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
-      -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
-      -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
-      -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
-      -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
-      -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
-      -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
-      -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-      -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
-      -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
-      -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-      -Wc++11-narrowing -Wnarrowing")
+    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
+    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
+    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
+    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
+    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
+    -Wno-extra-semi -Wno-range-loop-analysis -Wno-shift-sign-overflow \
+    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing")
 
-    # Version numbers where warnings are introduced are off so add one
+    # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.6")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
     endif()
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.7")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
+    endif()
+    if ("${COMPILER_VERSION}" VERSION_GREATER "3.8")
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wundefined-func-template")
     endif()
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
