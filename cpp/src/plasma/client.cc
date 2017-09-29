@@ -548,8 +548,6 @@ Status PlasmaClient::Disconnect() {
   return Status::OK();
 }
 
-#define h_addr h_addr_list[0]
-
 Status PlasmaClient::Transfer(const char* address, int port, const ObjectID& object_id) {
   return SendDataRequest(manager_conn_, object_id, address, port);
 }

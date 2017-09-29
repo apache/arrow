@@ -324,24 +324,24 @@ class RecordBatchSerializer : public ArrayVisitor {
 #define VISIT_FIXED_WIDTH(TYPE) \
   Status Visit(const TYPE& array) override { return VisitFixedWidth<TYPE>(array); }
 
-  VISIT_FIXED_WIDTH(Int8Array);
-  VISIT_FIXED_WIDTH(Int16Array);
-  VISIT_FIXED_WIDTH(Int32Array);
-  VISIT_FIXED_WIDTH(Int64Array);
-  VISIT_FIXED_WIDTH(UInt8Array);
-  VISIT_FIXED_WIDTH(UInt16Array);
-  VISIT_FIXED_WIDTH(UInt32Array);
-  VISIT_FIXED_WIDTH(UInt64Array);
-  VISIT_FIXED_WIDTH(HalfFloatArray);
-  VISIT_FIXED_WIDTH(FloatArray);
-  VISIT_FIXED_WIDTH(DoubleArray);
-  VISIT_FIXED_WIDTH(Date32Array);
-  VISIT_FIXED_WIDTH(Date64Array);
-  VISIT_FIXED_WIDTH(TimestampArray);
-  VISIT_FIXED_WIDTH(Time32Array);
-  VISIT_FIXED_WIDTH(Time64Array);
-  VISIT_FIXED_WIDTH(FixedSizeBinaryArray);
-  VISIT_FIXED_WIDTH(DecimalArray);
+  VISIT_FIXED_WIDTH(Int8Array)
+  VISIT_FIXED_WIDTH(Int16Array)
+  VISIT_FIXED_WIDTH(Int32Array)
+  VISIT_FIXED_WIDTH(Int64Array)
+  VISIT_FIXED_WIDTH(UInt8Array)
+  VISIT_FIXED_WIDTH(UInt16Array)
+  VISIT_FIXED_WIDTH(UInt32Array)
+  VISIT_FIXED_WIDTH(UInt64Array)
+  VISIT_FIXED_WIDTH(HalfFloatArray)
+  VISIT_FIXED_WIDTH(FloatArray)
+  VISIT_FIXED_WIDTH(DoubleArray)
+  VISIT_FIXED_WIDTH(Date32Array)
+  VISIT_FIXED_WIDTH(Date64Array)
+  VISIT_FIXED_WIDTH(TimestampArray)
+  VISIT_FIXED_WIDTH(Time32Array)
+  VISIT_FIXED_WIDTH(Time64Array)
+  VISIT_FIXED_WIDTH(FixedSizeBinaryArray)
+  VISIT_FIXED_WIDTH(DecimalArray)
 
 #undef VISIT_FIXED_WIDTH
 

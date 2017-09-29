@@ -76,9 +76,9 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
 -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
--Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
--Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
--Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
+-Wno-float-equal -Wno-missing-prototypes \
+-Wno-covered-switch-default \
+-Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
 -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")

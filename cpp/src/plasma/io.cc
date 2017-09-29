@@ -26,10 +26,6 @@
 
 using arrow::Status;
 
-/* Number of times we try binding to a socket. */
-#define NUM_BIND_ATTEMPTS 5
-#define BIND_TIMEOUT_MS 100
-
 /* Number of times we try connecting to a socket. */
 #define NUM_CONNECT_ATTEMPTS 50
 #define CONNECT_TIMEOUT_MS 100
