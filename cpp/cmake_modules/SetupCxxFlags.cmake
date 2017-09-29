@@ -52,16 +52,16 @@ else()
   set(CXX_COMMON_FLAGS "")
 endif()
 
-# Build warning level (PRODUCTION, EVERYTHING, etc.)
+# Build warning level (CHECKIN, EVERYTHING, etc.)
 
 # if no build warning level is specified, default to development warning level
 if (NOT BUILD_WARNING_LEVEL)
-  set(BUILD_WARNING_LEVEL Development)
+  set(BUILD_WARNING_LEVEL Production)
 endif(NOT BUILD_WARNING_LEVEL)
 
 string(TOUPPER ${BUILD_WARNING_LEVEL} UPPERCASE_BUILD_WARNING_LEVEL)
 
-if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "PRODUCTION")
+if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
@@ -121,7 +121,7 @@ elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
 else()
-  # Development builds (warning are not treated as errors)
+  # Production builds (warning are not treated as errors)
   if ("${COMPILER_FAMILY}" STREQUAL "msvc")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # TODO: Enable /Wall and disable individual warnings until build compiles without errors
