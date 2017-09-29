@@ -543,7 +543,11 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
     ScopedRef iterator(PyObject_GetIter(sequence));
     RETURN_IF_PYERROR();
     ScopedRef item;
-    while (item.reset(PyIter_Next(iterator.get())), item.get()) {
+    while (true) {
+      item.reset(PyIter_Next(iterator.get()));
+      if (!item.get()) {
+        break;
+      }
       RETURN_NOT_OK(Append(context, item.get(), &builder, &sublists, &subtuples,
                            &subdicts, &subsets, tensors_out));
     }

@@ -70,17 +70,18 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
-    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
-    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
-    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
-    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
-    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
-    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
-    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
-    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
-    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
+-Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+-Wno-missing-field-initializers \
+-Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
+-Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
+-Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+-Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
+-Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
+-Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
+-Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
+-Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+-Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+-Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
