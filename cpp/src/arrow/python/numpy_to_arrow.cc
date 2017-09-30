@@ -490,6 +490,7 @@ static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t len
 
   std::shared_ptr<Array> tmp_array, casted_array;
   RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
+  DCHECK(tmp_array);
 
   compute::FunctionContext context(pool);
   compute::CastOptions cast_options;
@@ -652,8 +653,8 @@ Status NumPyConverter::ConvertDecimals() {
   // Import the decimal module and Decimal class
   OwnedRef decimal;
   OwnedRef Decimal;
-  RETURN_NOT_OK(ImportModule("decimal", &decimal));
-  RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
@@ -661,7 +662,7 @@ Status NumPyConverter::ConvertDecimals() {
   int precision;
   int scale;
 
-  RETURN_NOT_OK(InferDecimalPrecisionAndScale(object, &precision, &scale));
+  RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &precision, &scale));
 
   type_ = std::make_shared<DecimalType>(precision, scale);
 
@@ -672,7 +673,7 @@ Status NumPyConverter::ConvertDecimals() {
     object = objects[i];
     if (PyObject_IsInstance(object, Decimal.obj())) {
       std::string string;
-      RETURN_NOT_OK(PythonDecimalToString(object, &string));
+      RETURN_NOT_OK(internal::PythonDecimalToString(object, &string));
 
       Decimal128 value;
       RETURN_NOT_OK(Decimal128::FromString(string, &value));
@@ -893,8 +894,8 @@ Status NumPyConverter::ConvertObjectsInfer() {
 
   OwnedRef decimal;
   OwnedRef Decimal;
-  RETURN_NOT_OK(ImportModule("decimal", &decimal));
-  RETURN_NOT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
 
   for (int64_t i = 0; i < length_; ++i) {
     PyObject* obj = objects[i];
@@ -1182,10 +1183,10 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
     case Type::LIST: {
-      const ListType& list_type = static_cast<const ListType&>(*type);
+      const auto& list_type = static_cast<const ListType&>(*type);
       auto value_builder = static_cast<ListBuilder*>(builder->value_builder());
 
-      auto foreach_item = [&](PyObject* object) {
+      auto foreach_item = [this, &builder, &value_builder, &list_type](PyObject* object) {
         if (PandasObjectIsNull(object)) {
           return builder->AppendNull();
         } else {

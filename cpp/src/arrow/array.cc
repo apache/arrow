@@ -342,6 +342,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
     DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
   }
+  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 
@@ -385,6 +386,7 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
     DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
   }
+  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 

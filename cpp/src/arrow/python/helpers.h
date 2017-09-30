@@ -28,26 +28,27 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
 namespace py {
 
 class OwnedRef;
 
+namespace internal {
+
 ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-Status ARROW_EXPORT ImportModule(const std::string& module_name, OwnedRef* ref);
-Status ARROW_EXPORT ImportFromModule(const OwnedRef& module,
-                                     const std::string& module_name, OwnedRef* ref);
+Status ImportModule(const std::string& module_name, OwnedRef* ref);
+Status ImportFromModule(const OwnedRef& module, const std::string& module_name,
+                        OwnedRef* ref);
 
-Status ARROW_EXPORT PythonDecimalToString(PyObject* python_decimal, std::string* out);
+Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
 
-Status ARROW_EXPORT InferDecimalPrecisionAndScale(PyObject* python_decimal,
-                                                  int* precision = nullptr,
-                                                  int* scale = nullptr);
+Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision = nullptr,
+                                     int* scale = nullptr);
 
-Status ARROW_EXPORT DecimalFromString(PyObject* decimal_constructor,
-                                      const std::string& decimal_string, PyObject** out);
+PyObject* DecimalFromString(PyObject* decimal_constructor,
+                            const std::string& decimal_string);
 
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow
 

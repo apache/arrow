@@ -192,6 +192,7 @@ std::shared_ptr<Array> RecordBatch::column(int i) const {
   if (!boxed_columns_[i]) {
     DCHECK(MakeArray(columns_[i], &boxed_columns_[i]).ok());
   }
+  DCHECK(boxed_columns_[i]);
   return boxed_columns_[i];
 }
 

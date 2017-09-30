@@ -356,6 +356,7 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
     std::vector<uint8_t> buffer;
     RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType_PlasmaContainsReply, &buffer));
     ObjectID object_id2;
+    DCHECK_GT(buffer.size(), 0);
     RETURN_NOT_OK(
         ReadContainsReply(buffer.data(), buffer.size(), &object_id2, has_object));
   }

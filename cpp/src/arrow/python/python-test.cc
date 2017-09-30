@@ -39,10 +39,10 @@ TEST(DecimalTest, TestPythonDecimalToString) {
 
   OwnedRef decimal;
   OwnedRef Decimal;
-  ASSERT_OK(ImportModule("decimal", &decimal));
+  ASSERT_OK(internal::ImportModule("decimal", &decimal));
   ASSERT_NE(decimal.obj(), nullptr);
 
-  ASSERT_OK(ImportFromModule(decimal, "Decimal", &Decimal));
+  ASSERT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
   ASSERT_NE(Decimal.obj(), nullptr);
 
   std::string decimal_string("-39402950693754869342983");
@@ -61,7 +61,7 @@ TEST(DecimalTest, TestPythonDecimalToString) {
   ASSERT_NE(python_object, nullptr);
 
   std::string string_result;
-  ASSERT_OK(PythonDecimalToString(python_object, &string_result));
+  ASSERT_OK(internal::PythonDecimalToString(python_object, &string_result));
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
