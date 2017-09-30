@@ -28,9 +28,6 @@ set(ARROW_SRCS
   type.cc
   visitor.cc
 
-  compute/cast.cc
-  compute/context.cc
-
   io/file.cc
   io/interfaces.cc
   io/memory.cc
