@@ -457,8 +457,26 @@ def test_column_of_arrays(tmpdir):
 
 @parquet
 def test_coerce_timestamps(tmpdir):
+    from collections import OrderedDict
     # ARROW-622
-    df, schema = dataframe_with_arrays()
+    arrays = OrderedDict()
+    fields = [pa.field('datetime64',
+                       pa.list_(pa.timestamp('ms')))]
+    arrays['datetime64'] = [
+        np.array(['2007-07-13T01:23:34.123456789',
+                  None,
+                  '2010-08-13T05:46:57.437699912'],
+                 dtype='datetime64[ms]'),
+        None,
+        None,
+        np.array(['2007-07-13T02',
+                  None,
+                  '2010-08-13T05:46:57.437699912'],
+                 dtype='datetime64[ms]'),
+    ]
+
+    df = pd.DataFrame(arrays)
+    schema = pa.schema(fields)
 
     filename = tmpdir.join('pandas_rountrip.parquet')
     arrow_table = pa.Table.from_pandas(df, schema=schema)
@@ -497,41 +515,41 @@ def test_column_of_lists(tmpdir):
 def test_date_time_types():
     t1 = pa.date32()
     data1 = np.array([17259, 17260, 17261], dtype='int32')
-    a1 = pa.Array.from_pandas(data1, type=t1)
+    a1 = pa.array(data1, type=t1)
 
     t2 = pa.date64()
     data2 = data1.astype('int64') * 86400000
-    a2 = pa.Array.from_pandas(data2, type=t2)
+    a2 = pa.array(data2, type=t2)
 
     t3 = pa.timestamp('us')
     start = pd.Timestamp('2000-01-01').value / 1000
     data3 = np.array([start, start + 1, start + 2], dtype='int64')
-    a3 = pa.Array.from_pandas(data3, type=t3)
+    a3 = pa.array(data3, type=t3)
 
     t4 = pa.time32('ms')
     data4 = np.arange(3, dtype='i4')
-    a4 = pa.Array.from_pandas(data4, type=t4)
+    a4 = pa.array(data4, type=t4)
 
     t5 = pa.time64('us')
-    a5 = pa.Array.from_pandas(data4.astype('int64'), type=t5)
+    a5 = pa.array(data4.astype('int64'), type=t5)
 
     t6 = pa.time32('s')
-    a6 = pa.Array.from_pandas(data4, type=t6)
+    a6 = pa.array(data4, type=t6)
 
     ex_t6 = pa.time32('ms')
-    ex_a6 = pa.Array.from_pandas(data4 * 1000, type=ex_t6)
+    ex_a6 = pa.array(data4 * 1000, type=ex_t6)
 
     t7 = pa.timestamp('ns')
     start = pd.Timestamp('2001-01-01').value
     data7 = np.array([start, start + 1000, start + 2000],
                      dtype='int64')
-    a7 = pa.Array.from_pandas(data7, type=t7)
+    a7 = pa.array(data7, type=t7)
 
     t7_us = pa.timestamp('us')
     start = pd.Timestamp('2001-01-01').value
     data7_us = np.array([start, start + 1000, start + 2000],
                         dtype='int64') // 1000
-    a7_us = pa.Array.from_pandas(data7_us, type=t7_us)
+    a7_us = pa.array(data7_us, type=t7_us)
 
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
                                  ['date32', 'date64', 'timestamp[us]',
@@ -575,7 +593,7 @@ def test_date_time_types():
             _write_table(table, buf, version="2.0")
 
     t7 = pa.time64('ns')
-    a7 = pa.Array.from_pandas(data4.astype('int64'), type=t7)
+    a7 = pa.array(data4.astype('int64'), type=t7)
 
     _assert_unsupported(a7)
 
@@ -1295,7 +1313,7 @@ def test_large_table_int32_overflow():
 
     arr = np.ones(size, dtype='uint8')
 
-    parr = pa.Array.from_pandas(arr, type=pa.uint8())
+    parr = pa.array(arr, type=pa.uint8())
 
     table = pa.Table.from_arrays([parr], names=['one'])
     f = io.BytesIO()

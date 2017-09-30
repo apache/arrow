@@ -18,7 +18,7 @@
 
 from collections import OrderedDict
 
-from datetime import datetime, date, time
+from datetime import date, time
 import unittest
 import decimal
 import json
@@ -82,7 +82,7 @@ class TestPandasConversion(unittest.TestCase):
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
 
     def _check_series_roundtrip(self, s, type_=None):
-        arr = pa.Array.from_pandas(s, type=type_)
+        arr = pa.array(s, from_pandas=True, type=type_)
 
         result = pd.Series(arr.to_pandas(), name=s.name)
         if isinstance(arr.type, pa.TimestampType) and arr.type.tz is not None:
@@ -93,7 +93,7 @@ class TestPandasConversion(unittest.TestCase):
 
     def _check_array_roundtrip(self, values, expected=None, mask=None,
                                type=None):
-        arr = pa.Array.from_pandas(values, mask=mask, type=type)
+        arr = pa.array(values, from_pandas=True, mask=mask, type=type)
         result = arr.to_pandas()
 
         values_nulls = pd.isnull(values)
@@ -152,7 +152,7 @@ class TestPandasConversion(unittest.TestCase):
         for name, arrow_dtype in dtypes:
             values = np.random.randn(num_values).astype(name)
 
-            arr = pa.Array.from_pandas(values, null_mask)
+            arr = pa.array(values, from_pandas=True, mask=null_mask)
             arrays.append(arr)
             fields.append(pa.field(name, arrow_dtype))
             values[null_mask] = np.nan
@@ -223,7 +223,7 @@ class TestPandasConversion(unittest.TestCase):
         for name in int_dtypes:
             values = np.random.randint(0, 100, size=num_values)
 
-            arr = pa.Array.from_pandas(values, null_mask)
+            arr = pa.array(values, mask=null_mask)
             arrays.append(arr)
 
             expected = values.astype('f8')
@@ -244,8 +244,8 @@ class TestPandasConversion(unittest.TestCase):
 
         target_type = pa.int8()
 
-        result = pa.Array.from_pandas(arr, type=target_type)
-        expected = pa.Array.from_pandas(arr.astype('int8'))
+        result = pa.array(arr, type=target_type)
+        expected = pa.array(arr.astype('int8'))
         assert result.equals(expected)
 
     def test_boolean_no_nulls(self):
@@ -266,7 +266,7 @@ class TestPandasConversion(unittest.TestCase):
         mask = np.random.randint(0, 10, size=num_values) < 3
         values = np.random.randint(0, 10, size=num_values) < 5
 
-        arr = pa.Array.from_pandas(values, mask)
+        arr = pa.array(values, mask=mask)
 
         expected = values.astype(object)
         expected[mask] = None
@@ -292,7 +292,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([None], dtype=object)
 
         def _check_type(t):
-            a2 = pa.Array.from_pandas(arr, type=t)
+            a2 = pa.array(arr, type=t)
             assert a2.type == t
             assert a2[0].as_py() is None
 
@@ -325,7 +325,7 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame({
             'strings': np.array([val] * 4000, dtype=object)
         })
-        arr = pa.Array.from_pandas(df['strings'])
+        arr = pa.array(df['strings'])
         assert isinstance(arr, pa.ChunkedArray)
         assert arr.num_chunks == 2
         arr = None
@@ -364,19 +364,6 @@ class TestPandasConversion(unittest.TestCase):
             df,
             expected_schema=schema,
         )
-
-    def test_timestamps_to_ms_explicit_schema(self):
-        # ARROW-1328
-        df = pd.DataFrame({'datetime': [datetime(2017, 1, 1)]})
-        pa_type = pa.from_numpy_dtype(df['datetime'].dtype)
-
-        with tm.assert_produces_warning(FutureWarning,
-                                        check_stacklevel=False):
-            arr = pa.Array.from_pandas(df['datetime'], type=pa_type,
-                                       timestamps_to_ms=True)
-
-        tm.assert_almost_equal(df['datetime'].values.astype('M8[ms]'),
-                               arr.to_pandas())
 
     def test_timestamps_notimezone_nulls(self):
         df = pd.DataFrame({
@@ -450,11 +437,11 @@ class TestPandasConversion(unittest.TestCase):
         t32 = pa.date32()
         t64 = pa.date64()
 
-        a32 = pa.Array.from_pandas(arr, type=t32)
-        a64 = pa.Array.from_pandas(arr, type=t64)
+        a32 = pa.array(arr, type=t32)
+        a64 = pa.array(arr, type=t64)
 
-        a32_expected = pa.Array.from_pandas(arr_i4, mask=mask, type=t32)
-        a64_expected = pa.Array.from_pandas(arr_i8, mask=mask, type=t64)
+        a32_expected = pa.array(arr_i4, mask=mask, type=t32)
+        a64_expected = pa.array(arr_i8, mask=mask, type=t64)
 
         assert a32.equals(a32_expected)
         assert a64.equals(a64_expected)
@@ -481,8 +468,8 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([17259, 17260, 17261], dtype='int32')
         arr2 = arr.astype('int64') * 86400000
 
-        a1 = pa.Array.from_pandas(arr, type=t1)
-        a2 = pa.Array.from_pandas(arr2, type=t2)
+        a1 = pa.array(arr, type=t1)
+        a2 = pa.array(arr2, type=t2)
 
         expected = date(2017, 4, 3)
         assert a1[0].as_py() == expected
@@ -520,7 +507,7 @@ class TestPandasConversion(unittest.TestCase):
             np.arange(1, dtype=dtype)
         ])
         type_ = pa.list_(pa.int8())
-        parr = pa.Array.from_pandas(arr, type=type_)
+        parr = pa.array(arr, type=type_)
 
         assert parr[0].as_py() == list(range(10))
         assert parr[1].as_py() == list(range(5))
@@ -592,7 +579,7 @@ class TestPandasConversion(unittest.TestCase):
     def test_nested_lists_all_none(self):
         data = np.array([[None, None], None], dtype=object)
 
-        arr = pa.Array.from_pandas(data)
+        arr = pa.array(data)
         expected = pa.array(list(data))
         assert arr.equals(expected)
         assert arr.type == pa.list_(pa.null())
@@ -600,7 +587,7 @@ class TestPandasConversion(unittest.TestCase):
         data2 = np.array([None, None, [None, None],
                           np.array([None, None], dtype=object)],
                          dtype=object)
-        arr = pa.Array.from_pandas(data2)
+        arr = pa.array(data2)
         expected = pa.array([None, None, [None, None], [None, None]])
         assert arr.equals(expected)
 
@@ -760,7 +747,7 @@ class TestPandasConversion(unittest.TestCase):
         t1 = pa.time64('us')
 
         aobjs = np.array(pytimes + [None], dtype=object)
-        parr = pa.Array.from_pandas(aobjs)
+        parr = pa.array(aobjs)
         assert parr.type == t1
         assert parr[0].as_py() == pytimes[0]
         assert parr[1].as_py() == pytimes[1]
@@ -775,18 +762,18 @@ class TestPandasConversion(unittest.TestCase):
         arr = np.array([_pytime_to_micros(v) for v in pytimes],
                        dtype='int64')
 
-        a1 = pa.Array.from_pandas(arr, type=pa.time64('us'))
+        a1 = pa.array(arr, type=pa.time64('us'))
         assert a1[0].as_py() == pytimes[0]
 
-        a2 = pa.Array.from_pandas(arr * 1000, type=pa.time64('ns'))
+        a2 = pa.array(arr * 1000, type=pa.time64('ns'))
         assert a2[0].as_py() == pytimes[0]
 
-        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'),
-                                  type=pa.time32('ms'))
+        a3 = pa.array((arr / 1000).astype('i4'),
+                      type=pa.time32('ms'))
         assert a3[0].as_py() == pytimes[0].replace(microsecond=1000)
 
-        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'),
-                                  type=pa.time32('s'))
+        a4 = pa.array((arr / 1000000).astype('i4'),
+                      type=pa.time32('s'))
         assert a4[0].as_py() == pytimes[0].replace(microsecond=0)
 
     def test_arrow_time_to_pandas(self):
@@ -809,14 +796,14 @@ class TestPandasConversion(unittest.TestCase):
 
         null_mask = np.array([False, False, True], dtype=bool)
 
-        a1 = pa.Array.from_pandas(arr, mask=null_mask, type=pa.time64('us'))
-        a2 = pa.Array.from_pandas(arr * 1000, mask=null_mask,
-                                  type=pa.time64('ns'))
+        a1 = pa.array(arr, mask=null_mask, type=pa.time64('us'))
+        a2 = pa.array(arr * 1000, mask=null_mask,
+                      type=pa.time64('ns'))
 
-        a3 = pa.Array.from_pandas((arr / 1000).astype('i4'), mask=null_mask,
-                                  type=pa.time32('ms'))
-        a4 = pa.Array.from_pandas((arr / 1000000).astype('i4'), mask=null_mask,
-                                  type=pa.time32('s'))
+        a3 = pa.array((arr / 1000).astype('i4'), mask=null_mask,
+                      type=pa.time32('ms'))
+        a4 = pa.array((arr / 1000000).astype('i4'), mask=null_mask,
+                      type=pa.time32('s'))
 
         names = ['time64[us]', 'time64[ns]', 'time32[ms]', 'time32[s]']
         batch = pa.RecordBatch.from_arrays([a1, a2, a3, a4], names)
@@ -841,8 +828,8 @@ class TestPandasConversion(unittest.TestCase):
 
         tm.assert_frame_equal(df, expected_df)
 
-    def _check_numpy_array_roundtrip(self, np_array):
-        arr = pa.Array.from_pandas(np_array)
+    def _check_array_from_pandas_roundtrip(self, np_array):
+        arr = pa.array(np_array, from_pandas=True)
         result = arr.to_pandas()
         npt.assert_array_equal(result, np_array)
 
@@ -853,7 +840,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
-        self._check_numpy_array_roundtrip(datetime64_ns)
+        self._check_array_from_pandas_roundtrip(datetime64_ns)
 
         datetime64_us = np.array([
                 '2007-07-13T01:23:34.123456',
@@ -861,7 +848,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432539',
                 '2010-08-13T05:46:57.437699'],
                 dtype='datetime64[us]')
-        self._check_numpy_array_roundtrip(datetime64_us)
+        self._check_array_from_pandas_roundtrip(datetime64_us)
 
         datetime64_ms = np.array([
                 '2007-07-13T01:23:34.123',
@@ -869,7 +856,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
-        self._check_numpy_array_roundtrip(datetime64_ms)
+        self._check_array_from_pandas_roundtrip(datetime64_ms)
 
         datetime64_s = np.array([
                 '2007-07-13T01:23:34',
@@ -877,7 +864,7 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-13T12:34:56',
                 '2010-08-13T05:46:57'],
                 dtype='datetime64[s]')
-        self._check_numpy_array_roundtrip(datetime64_s)
+        self._check_array_from_pandas_roundtrip(datetime64_s)
 
         datetime64_d = np.array([
                 '2007-07-13',
@@ -885,11 +872,11 @@ class TestPandasConversion(unittest.TestCase):
                 '2006-01-15',
                 '2010-08-19'],
                 dtype='datetime64[D]')
-        self._check_numpy_array_roundtrip(datetime64_d)
+        self._check_array_from_pandas_roundtrip(datetime64_d)
 
     def test_all_nones(self):
         def _check_series(s):
-            converted = pa.Array.from_pandas(s)
+            converted = pa.array(s)
             assert isinstance(converted, pa.NullArray)
             assert len(converted) == 3
             assert converted.null_count == 3

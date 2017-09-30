@@ -575,7 +575,7 @@ cdef class RecordBatch:
         pyarrow.RecordBatch
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
-            df, False, schema, preserve_index
+            df, schema, preserve_index
         )
         return cls.from_arrays(arrays, names, metadata)
 
@@ -714,21 +714,13 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(cls, df, bint timestamps_to_ms=False,
-                    Schema schema=None, bint preserve_index=True):
+    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow Table
 
         Parameters
         ----------
         df : pandas.DataFrame
-        timestamps_to_ms : bool
-            Convert datetime columns to ms resolution. This is needed for
-            compability with other functionality like Parquet I/O which
-            only supports milliseconds.
-
-            .. deprecated:: 0.7.0
-
         schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.
@@ -754,7 +746,6 @@ cdef class Table:
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df,
-            timestamps_to_ms=timestamps_to_ms,
             schema=schema,
             preserve_index=preserve_index
         )

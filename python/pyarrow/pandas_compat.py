@@ -203,7 +203,7 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     }
 
 
-def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
+def dataframe_to_arrays(df, schema, preserve_index):
     names = []
     arrays = []
     index_columns = []
@@ -223,15 +223,13 @@ def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
 
-        array = pa.Array.from_pandas(
-            col, type=type, timestamps_to_ms=timestamps_to_ms
-        )
+        array = pa.array(col, from_pandas=True, type=type)
         arrays.append(array)
         names.append(name)
         types.append(array.type)
 
     for i, column in enumerate(index_columns):
-        array = pa.Array.from_pandas(column, timestamps_to_ms=timestamps_to_ms)
+        array = pa.array(column)
         arrays.append(array)
         names.append(index_level_name(column, i))
         types.append(array.type)
@@ -242,25 +240,15 @@ def dataframe_to_arrays(df, timestamps_to_ms, schema, preserve_index):
     return names, arrays, metadata
 
 
-def maybe_coerce_datetime64(values, dtype, type_, timestamps_to_ms=False):
-    if timestamps_to_ms:
-        import warnings
-        warnings.warn('timestamps_to_ms=True is deprecated', FutureWarning)
-
+def get_datetimetz_type(values, dtype, type_):
     from pyarrow.compat import DatetimeTZDtype
 
     if values.dtype.type != np.datetime64:
         return values, type_
 
-    coerce_ms = timestamps_to_ms and values.dtype != 'datetime64[ms]'
-
-    if coerce_ms:
-        values = values.astype('datetime64[ms]')
-        type_ = pa.timestamp('ms')
-
     if isinstance(dtype, DatetimeTZDtype):
         tz = dtype.tz
-        unit = 'ms' if coerce_ms else dtype.unit
+        unit = dtype.unit
         type_ = pa.timestamp(unit, tz)
     elif type_ is None:
         # Trust the NumPy dtype

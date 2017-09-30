@@ -72,11 +72,19 @@ cdef class DataType:
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
 
-    def __richcmp__(DataType self, DataType other, int op):
+    def __richcmp__(DataType self, object other, int op):
+        cdef DataType other_type
+        if not isinstance(other, DataType):
+            if not isinstance(other, six.string_types):
+                raise TypeError(other)
+            other_type = type_for_alias(other)
+        else:
+            other_type = other
+
         if op == cp.Py_EQ:
-            return self.type.Equals(deref(other.type))
+            return self.type.Equals(deref(other_type.type))
         elif op == cp.Py_NE:
-            return not self.type.Equals(deref(other.type))
+            return not self.type.Equals(deref(other_type.type))
         else:
             raise TypeError('Invalid comparison')
 
@@ -920,6 +928,64 @@ def struct(fields):
 
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
+
+
+cdef dict _type_aliases = {
+    'null': null,
+    'i1': int8,
+    'int8': int8,
+    'i2': int16,
+    'int16': int16,
+    'i4': int32,
+    'int32': int32,
+    'i8': int64,
+    'int64': int64,
+    'u1': uint8,
+    'uint8': uint8,
+    'u2': uint16,
+    'uint16': uint16,
+    'u4': uint32,
+    'uint32': uint32,
+    'u8': uint64,
+    'uint64': uint64,
+    'f4': float32,
+    'float32': float32,
+    'f8': float64,
+    'float64': float64,
+    'string': string,
+    'str': string,
+    'utf8': string,
+    'binary': binary,
+    'date32': date32,
+    'date64': date64,
+    'time32[s]': time32('s'),
+    'time32[ms]': time32('ms'),
+    'time64[us]': time64('us'),
+    'time64[ns]': time64('ns'),
+    'timestamp[s]': timestamp('s'),
+    'timestamp[ms]': timestamp('ms'),
+    'timestamp[us]': timestamp('us'),
+    'timestamp[ns]': timestamp('ns'),
+}
+
+
+def type_for_alias(name):
+    """
+    Return DataType given a string alias if one exists
+
+    Returns
+    -------
+    type : DataType
+    """
+    name = name.lower()
+    try:
+        alias = _type_aliases[name]
+    except KeyError:
+        raise ValueError('No type alias for {0}'.format(name))
+
+    if isinstance(alias, DataType):
+        return alias
+    return alias()
 
 
 def schema(fields):

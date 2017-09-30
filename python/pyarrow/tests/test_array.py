@@ -149,6 +149,14 @@ def test_array_factory_invalid_type():
         pa.array(arr)
 
 
+def test_array_ref_to_ndarray_base():
+    arr = np.array([1, 2, 3])
+
+    refcount = sys.getrefcount(arr)
+    arr2 = pa.array(arr)  # noqa
+    assert sys.getrefcount(arr) == (refcount + 1)
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -170,8 +178,8 @@ def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
 
-    iarr = pa.Array.from_pandas(indices)
-    darr = pa.Array.from_pandas(dictionary)
+    iarr = pa.array(indices)
+    darr = pa.array(dictionary)
 
     d1 = pa.DictionaryArray.from_arrays(iarr, darr)
 
@@ -201,9 +209,9 @@ def test_dictionary_with_pandas():
 
 def test_list_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
-    offsets = pa.Array.from_pandas(offsets_arr, type=pa.int32())
+    offsets = pa.array(offsets_arr, type='int32')
     pyvalues = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
-    values = pa.array(pyvalues, type=pa.binary())
+    values = pa.array(pyvalues, type='binary')
 
     result = pa.ListArray.from_arrays(offsets, values)
     expected = pa.array([pyvalues[:2], pyvalues[2:5], pyvalues[5:8]])
@@ -214,22 +222,22 @@ def test_list_from_arrays():
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 
-    in_arr = pa.Array.from_pandas(in_data, type=in_type)
+    in_arr = pa.array(in_data, type=in_type)
 
     casted = in_arr.cast(out_type, safe=safe)
-    expected = pa.Array.from_pandas(out_data, type=out_type)
+    expected = pa.array(out_data, type=out_type)
     assert casted.equals(expected)
 
 
 def test_cast_integers_safe():
     safe_cases = [
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='i4'), pa.int32()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='u4'), pa.uint16()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='u1'), pa.uint8()),
-        (np.array([0, 1, 2, 3], dtype='i1'), pa.int8(),
+        (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
          np.array([0, 1, 2, 3], dtype='f8'), pa.float64())
     ]
 
@@ -237,13 +245,13 @@ def test_cast_integers_safe():
         _check_cast_case(case)
 
     unsafe_cases = [
-        (np.array([50000], dtype='i4'), pa.int32(), pa.int16()),
-        (np.array([70000], dtype='i4'), pa.int32(), pa.uint16()),
-        (np.array([-1], dtype='i4'), pa.int32(), pa.uint16()),
-        (np.array([50000], dtype='u2'), pa.uint16(), pa.int16())
+        (np.array([50000], dtype='i4'), 'int32', 'int16'),
+        (np.array([70000], dtype='i4'), 'int32', 'uint16'),
+        (np.array([-1], dtype='i4'), 'int32', 'uint16'),
+        (np.array([50000], dtype='u2'), 'uint16', 'int16')
     ]
     for in_data, in_type, out_type in unsafe_cases:
-        in_arr = pa.Array.from_pandas(in_data, type=in_type)
+        in_arr = pa.array(in_data, type=in_type)
 
         with pytest.raises(pa.ArrowInvalid):
             in_arr.cast(out_type)
@@ -252,11 +260,11 @@ def test_cast_integers_safe():
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [
-        (np.array([50000], dtype='i4'), pa.int32(),
+        (np.array([50000], dtype='i4'), 'int32',
          np.array([50000], dtype='i2'), pa.int16()),
-        (np.array([70000], dtype='i4'), pa.int32(),
+        (np.array([70000], dtype='i4'), 'int32',
          np.array([70000], dtype='u2'), pa.uint16()),
-        (np.array([-1], dtype='i4'), pa.int32(),
+        (np.array([-1], dtype='i4'), 'int32',
          np.array([-1], dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
          np.array([50000], dtype='i2'), pa.int16())
@@ -315,3 +323,17 @@ def test_simple_type_construction():
 )
 def test_logical_type(type, expected):
     assert get_logical_type(type) == expected
+
+
+def test_array_conversions_no_sentinel_values():
+    arr = np.array([1, 2, 3, 4], dtype='int8')
+    refcount = sys.getrefcount(arr)
+    arr2 = pa.array(arr)  # noqa
+    assert sys.getrefcount(arr) == (refcount + 1)
+
+    assert arr2.type == 'int8'
+
+    arr3 = pa.array(np.array([1, np.nan, 2, 3, np.nan, 4], dtype='float32'),
+                    type='float32')
+    assert arr3.type == 'float32'
+    assert arr3.null_count == 0
