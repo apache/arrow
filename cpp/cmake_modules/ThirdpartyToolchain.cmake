@@ -126,6 +126,7 @@ endif()
 set(Boost_DEBUG TRUE)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_ADDITIONAL_VERSIONS
+  "1.65.0" "1.65"
   "1.64.0" "1.64"
   "1.63.0" "1.63"
   "1.62.0" "1.61"

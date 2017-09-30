@@ -75,8 +75,8 @@ class ARROW_EXPORT Decimal128 {
   ///  -21 /  5 -> -4, -1
   ///   21 / -5 -> -4,  1
   ///  -21 / -5 ->  4, -1
-  /// @param right the number to divide by
-  /// @param remainder the remainder after the division
+  /// \param divisor the number to divide by
+  /// \param remainder the remainder after the division
   Status Divide(const Decimal128& divisor, Decimal128* result,
                 Decimal128* remainder) const;
 

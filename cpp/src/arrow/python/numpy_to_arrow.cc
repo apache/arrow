@@ -149,7 +149,7 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
 /// can fit
 ///
 /// \param[in] offset starting offset for appending
-/// \param[out] values_consumed ending offset where we stopped appending. Will
+/// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
 /// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,

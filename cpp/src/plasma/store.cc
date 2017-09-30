@@ -458,8 +458,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
 /// be
 /// buffered, and this will be called again when the send buffer has room.
 ///
-/// @param client The client to send the notification to.
-/// @return Void.
+/// @param client_fd The client to send the notification to.
 void PlasmaStore::send_notifications(int client_fd) {
   auto it = pending_notifications_.find(client_fd);
 

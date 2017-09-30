@@ -70,7 +70,6 @@ class EvictionPolicy {
   /// cache.
   ///
   /// @param object_id The object ID of the object that was created.
-  /// @return Void.
   void object_created(const ObjectID& object_id);
 
   /// This method will be called when the Plasma store needs more space, perhaps
@@ -94,7 +93,6 @@ class EvictionPolicy {
   /// @param object_id The ID of the object that is now being used.
   /// @param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
-  /// @return Void.
   void begin_object_access(const ObjectID& object_id,
                            std::vector<ObjectID>* objects_to_evict);
 
@@ -106,7 +104,6 @@ class EvictionPolicy {
   /// @param object_id The ID of the object that is no longer being used.
   /// @param objects_to_evict The object IDs that were chosen for eviction will
   ///        be stored into this vector.
-  /// @return Void.
   void end_object_access(const ObjectID& object_id,
                          std::vector<ObjectID>* objects_to_evict);
 

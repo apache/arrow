@@ -194,7 +194,8 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+Status ListArray::FromArrays(const Array& offsets, const Array& values,
+                             MemoryPool* ARROW_ARG_UNUSED(pool),
                              std::shared_ptr<Array>* out) {
   if (ARROW_PREDICT_FALSE(offsets.length() == 0)) {
     return Status::Invalid("List offsets must have non-zero length");
@@ -239,9 +240,6 @@ std::shared_ptr<Array> ListArray::values() const { return values_; }
 // ----------------------------------------------------------------------
 // String and binary
 
-static std::shared_ptr<DataType> kBinary = std::make_shared<BinaryType>();
-static std::shared_ptr<DataType> kString = std::make_shared<StringType>();
-
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK_EQ(data->type->id(), Type::BINARY);
   SetData(data);
@@ -261,8 +259,8 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset)
-    : BinaryArray(kBinary, length, value_offsets, data, null_bitmap, null_count, offset) {
-}
+    : BinaryArray(binary(), length, value_offsets, data, null_bitmap, null_count,
+                  offset) {}
 
 BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::shared_ptr<Buffer>& value_offsets,
@@ -283,8 +281,7 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset)
-    : BinaryArray(kString, length, value_offsets, data, null_bitmap, null_count, offset) {
-}
+    : BinaryArray(utf8(), length, value_offsets, data, null_bitmap, null_count, offset) {}
 
 // ----------------------------------------------------------------------
 // Fixed width binary
@@ -437,13 +434,13 @@ Status Array::Accept(ArrayVisitor* visitor) const {
 namespace internal {
 
 struct ValidateVisitor {
-  Status Visit(const NullArray& array) { return Status::OK(); }
+  Status Visit(const NullArray&) { return Status::OK(); }
 
-  Status Visit(const PrimitiveArray& array) { return Status::OK(); }
+  Status Visit(const PrimitiveArray&) { return Status::OK(); }
 
-  Status Visit(const DecimalArray& array) { return Status::OK(); }
+  Status Visit(const DecimalArray&) { return Status::OK(); }
 
-  Status Visit(const BinaryArray& array) {
+  Status Visit(const BinaryArray&) {
     // TODO(wesm): what to do here?
     return Status::OK();
   }
@@ -585,7 +582,7 @@ class ArrayDataWrapper {
       : data_(data), out_(out) {}
 
   template <typename T>
-  Status Visit(const T& type) {
+  Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     *out_ = std::make_shared<ArrayType>(data_);
     return Status::OK();

@@ -86,11 +86,14 @@ class ARROW_EXPORT FileInterface {
 
 class ARROW_EXPORT Seekable {
  public:
+  virtual ~Seekable() = default;
   virtual Status Seek(int64_t position) = 0;
 };
 
 class ARROW_EXPORT Writeable {
  public:
+  virtual ~Writeable() = default;
+
   virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
 
   /// \brief Flush buffered bytes, if any
@@ -101,6 +104,8 @@ class ARROW_EXPORT Writeable {
 
 class ARROW_EXPORT Readable {
  public:
+  virtual ~Readable() = default;
+
   virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
 
   // Does not copy if not necessary

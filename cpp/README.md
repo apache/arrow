@@ -238,6 +238,13 @@ build failures by running the following checks before submitting your pull reque
     # before running it.
     make format # requires clang-format is installed
 
+We run our CI builds with more compiler warnings enabled for the Clang
+compiler. Please run CMake with
+
+`-DBUILD_WARNING_LEVEL=CHECKIN`
+
+to avoid failures due to compiler warnings.
+
 Note that the clang-tidy target may take a while to run.  You might consider
 running clang-tidy separately on the files you have added/changed before
 invoking the make target to reduce iteration time.  Also, it might generate warnings

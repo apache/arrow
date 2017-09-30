@@ -90,7 +90,7 @@ namespace internal {
 class NullLog {
  public:
   template <class T>
-  NullLog& operator<<(const T& t) {
+  NullLog& operator<<(const T& ARROW_ARG_UNUSED(t)) {
     return *this;
   }
 };

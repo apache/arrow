@@ -43,7 +43,7 @@ int create_temp_file(void) {
  * Seek to the beginning of a file and read a message from it.
  *
  * @param fd File descriptor of the file.
- * @param message type Message type that we expect in the file.
+ * @param message_type Message type that we expect in the file.
  *
  * @return Pointer to the content of the message. Needs to be freed by the
  * caller.
@@ -226,7 +226,7 @@ TEST(PlasmaSerialization, DeleteReply) {
 
 TEST(PlasmaSerialization, StatusRequest) {
   int fd = create_temp_file();
-  int64_t num_objects = 2;
+  constexpr int64_t num_objects = 2;
   ObjectID object_ids[num_objects];
   object_ids[0] = ObjectID::from_random();
   object_ids[1] = ObjectID::from_random();
@@ -249,10 +249,11 @@ TEST(PlasmaSerialization, StatusReply) {
   ARROW_CHECK_OK(SendStatusReply(fd, object_ids, object_statuses, 2));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaStatusReply);
   int64_t num_objects = ReadStatusReply_num_objects(data.data(), data.size());
-  ObjectID object_ids_read[num_objects];
-  int object_statuses_read[num_objects];
-  ARROW_CHECK_OK(ReadStatusReply(data.data(), data.size(), object_ids_read,
-                                 object_statuses_read, num_objects));
+
+  std::vector<ObjectID> object_ids_read(num_objects);
+  std::vector<int> object_statuses_read(num_objects);
+  ARROW_CHECK_OK(ReadStatusReply(data.data(), data.size(), object_ids_read.data(),
+                                 object_statuses_read.data(), num_objects));
   ASSERT_EQ(object_ids[0], object_ids_read[0]);
   ASSERT_EQ(object_ids[1], object_ids_read[1]);
   ASSERT_EQ(object_statuses[0], object_statuses_read[0]);

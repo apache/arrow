@@ -66,7 +66,6 @@ class EventLoop {
   /// Remove a file event handler from the event loop.
   ///
   /// @param fd The file descriptor of the event handler.
-  /// @return Void.
   void RemoveFileEvent(int fd);
 
   /// Register a handler that will be called after a time slice of
@@ -84,8 +83,6 @@ class EventLoop {
   int RemoveTimer(int64_t timer_id);
 
   /// \brief Run the event loop.
-  ///
-  /// @return Void.
   void Start();
 
   /// \brief Stop the event loop
