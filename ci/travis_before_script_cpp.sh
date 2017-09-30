@@ -90,12 +90,12 @@ fi
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
-          -DARROW_CXXFLAGS="-Wconversion -Wno-sign-conversion -Werror" \
+          -DBUILD_WARNING_LEVEL=CHECKIN \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
-          -DARROW_CXXFLAGS=-Werror \
+          -DBUILD_WARNING_LEVEL=CHECKIN \
           $ARROW_CPP_DIR
 fi
 

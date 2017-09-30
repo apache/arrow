@@ -70,11 +70,14 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
 }
 
 static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
-  struct tm date = {0};
+  struct tm date;
+  memset(&date, 0, sizeof(struct tm));
   date.tm_year = PyDateTime_GET_YEAR(pydate) - 1900;
   date.tm_mon = PyDateTime_GET_MONTH(pydate) - 1;
   date.tm_mday = PyDateTime_GET_DAY(pydate);
-  struct tm epoch = {0};
+  struct tm epoch;
+  memset(&epoch, 0, sizeof(struct tm));
+
   epoch.tm_year = 70;
   epoch.tm_mday = 1;
 #ifdef _MSC_VER
@@ -88,7 +91,8 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
 }
 
 static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  struct tm datetime = {0};
+  struct tm datetime;
+  memset(&datetime, 0, sizeof(struct tm));
   datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
   datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
   datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
@@ -96,7 +100,8 @@ static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
   datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
   datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-  struct tm epoch = {0};
+  struct tm epoch;
+  memset(&epoch, 0, sizeof(struct tm));
   epoch.tm_year = 70;
   epoch.tm_mday = 1;
 #ifdef _MSC_VER

@@ -113,7 +113,7 @@ class ARROW_EXPORT Column {
 /// sequence of fields, each a contiguous Arrow array
 class ARROW_EXPORT RecordBatch {
  public:
-  /// \param[in] schema
+  /// \param[in] schema The record batch schema
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
@@ -209,16 +209,16 @@ class ARROW_EXPORT Table {
  public:
   /// \brief Construct Table from schema and columns
   /// If columns is zero-length, the table's number of rows is zero
-  /// \param schema
-  /// \param columns
-  /// \param number of rows in table, -1 (default) to infer from columns
+  /// \param schema The table schema (column types)
+  /// \param columns The table's columns
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
   Table(const std::shared_ptr<Schema>& schema,
         const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows = -1);
 
   /// \brief Construct Table from schema and arrays
-  /// \param schema
-  /// \param arrays
-  /// \param number of rows in table, -1 (default) to infer from columns
+  /// \param schema The table schema (column types)
+  /// \param arrays The table's columns as arrays
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
   Table(const std::shared_ptr<Schema>& schema,
         const std::vector<std::shared_ptr<Array>>& arrays, int64_t num_rows = -1);
 
@@ -231,7 +231,7 @@ class ARROW_EXPORT Table {
   /// \return the table's schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  /// \param[i] i column index, does not boundscheck
+  /// \param[in] i column index, does not boundscheck
   /// \return the i-th column
   std::shared_ptr<Column> column(int i) const { return columns_[i]; }
 
@@ -283,7 +283,7 @@ class ARROW_EXPORT RecordBatchReader {
   /// Read the next record batch in the stream. Return nullptr for batch when
   /// reaching end of stream
   ///
-  /// \param(out) batch the next loaded batch, nullptr at end of stream
+  /// \param[out] batch the next loaded batch, nullptr at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 

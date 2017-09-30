@@ -674,7 +674,7 @@ ARROW_EXPORT
 Status ValidateArray(const Array& array);
 
 #ifndef ARROW_NO_DEPRECATED_API
-// \deprecated Since 0.7.0
+// \note Deprecated since 0.7.0
 
 /// Create new arrays for logical types that are backed by primitive arrays.
 ARROW_EXPORT

@@ -584,7 +584,7 @@ class TypeEqualsVisitor {
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
                               std::is_base_of<PrimitiveCType, T>::value,
                           Status>::type
-  Visit(const T& type) {
+  Visit(const T&) {
     result_ = true;
     return Status::OK();
   }

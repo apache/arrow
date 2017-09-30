@@ -477,7 +477,6 @@ fbs::Type ToFlatbufferType(Type::type type) {
       return fbs::Type_INT64;
     default:
       DCHECK(false) << "Cannot reach this code";
-      break;
   }
   // prevent compiler warning
   return fbs::Type_MIN;
@@ -632,19 +631,19 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 #define VISIT_PRIMITIVE(TYPE) \
   Status Visit(const TYPE& values) override { return WritePrimitiveValues(values); }
 
-  VISIT_PRIMITIVE(BooleanArray);
-  VISIT_PRIMITIVE(Int8Array);
-  VISIT_PRIMITIVE(Int16Array);
-  VISIT_PRIMITIVE(Int32Array);
-  VISIT_PRIMITIVE(Int64Array);
-  VISIT_PRIMITIVE(UInt8Array);
-  VISIT_PRIMITIVE(UInt16Array);
-  VISIT_PRIMITIVE(UInt32Array);
-  VISIT_PRIMITIVE(UInt64Array);
-  VISIT_PRIMITIVE(FloatArray);
-  VISIT_PRIMITIVE(DoubleArray);
-  VISIT_PRIMITIVE(BinaryArray);
-  VISIT_PRIMITIVE(StringArray);
+  VISIT_PRIMITIVE(BooleanArray)
+  VISIT_PRIMITIVE(Int8Array)
+  VISIT_PRIMITIVE(Int16Array)
+  VISIT_PRIMITIVE(Int32Array)
+  VISIT_PRIMITIVE(Int64Array)
+  VISIT_PRIMITIVE(UInt8Array)
+  VISIT_PRIMITIVE(UInt16Array)
+  VISIT_PRIMITIVE(UInt32Array)
+  VISIT_PRIMITIVE(UInt64Array)
+  VISIT_PRIMITIVE(FloatArray)
+  VISIT_PRIMITIVE(DoubleArray)
+  VISIT_PRIMITIVE(BinaryArray)
+  VISIT_PRIMITIVE(StringArray)
 
 #undef VISIT_PRIMITIVE
 

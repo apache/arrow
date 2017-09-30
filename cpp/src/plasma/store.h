@@ -77,7 +77,6 @@ class PlasmaStore {
   /// be called on objects that are returned by the eviction policy to evict.
   ///
   /// @param object_ids Object IDs of the objects to be deleted.
-  /// @return Void.
   void delete_objects(const std::vector<ObjectID>& object_ids);
 
   /// Process a get request from a client. This method assumes that we will
@@ -91,7 +90,6 @@ class PlasmaStore {
   /// @param client The client making this request.
   /// @param object_ids Object IDs of the objects to be gotten.
   /// @param timeout_ms The timeout for the get request in milliseconds.
-  /// @return Void.
   void process_get_request(Client* client, const std::vector<ObjectID>& object_ids,
                            int64_t timeout_ms);
 
@@ -101,7 +99,6 @@ class PlasmaStore {
   /// @param digest The digest of the object. This is used to tell if two
   /// objects
   ///        with the same object ID are the same.
-  /// @return Void.
   void seal_object(const ObjectID& object_id, unsigned char digest[]);
 
   /// Check if the plasma store contains an object:
@@ -115,25 +112,21 @@ class PlasmaStore {
   ///
   /// @param object_id The object ID of the object that is being released.
   /// @param client The client making this request.
-  /// @param Void.
   void release_object(const ObjectID& object_id, Client* client);
 
   /// Subscribe a file descriptor to updates about new sealed objects.
   ///
   /// @param client The client making this request.
-  /// @return Void.
   void subscribe_to_updates(Client* client);
 
   /// Connect a new client to the PlasmaStore.
   ///
   /// @param listener_sock The socket that is listening to incoming connections.
-  /// @return Void.
   void connect_client(int listener_sock);
 
   /// Disconnect a client from the PlasmaStore.
   ///
   /// @param client_fd The client file descriptor that is disconnected.
-  /// @return Void.
   void disconnect_client(int client_fd);
 
   void send_notifications(int client_fd);

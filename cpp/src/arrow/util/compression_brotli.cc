@@ -25,6 +25,7 @@
 #include <brotli/types.h>
 
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -41,7 +42,8 @@ Status BrotliCodec::Decompress(int64_t input_len, const uint8_t* input,
   return Status::OK();
 }
 
-int64_t BrotliCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
+int64_t BrotliCodec::MaxCompressedLen(int64_t input_len,
+                                      const uint8_t* ARROW_ARG_UNUSED(input)) {
   return BrotliEncoderMaxCompressedSize(input_len);
 }
 

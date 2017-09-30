@@ -64,8 +64,9 @@ int recv_fd(int conn) {
   for (struct cmsghdr* header = CMSG_FIRSTHDR(&msg); header != NULL;
        header = CMSG_NXTHDR(&msg, header))
     if (header->cmsg_level == SOL_SOCKET && header->cmsg_type == SCM_RIGHTS) {
-      ssize_t count =
-          (header->cmsg_len - (CMSG_DATA(header) - (unsigned char*)header)) / sizeof(int);
+      ssize_t count = (header->cmsg_len -
+                       (CMSG_DATA(header) - reinterpret_cast<unsigned char*>(header))) /
+                      sizeof(int);
       for (int i = 0; i < count; ++i) {
         int fd = (reinterpret_cast<int*>(CMSG_DATA(header)))[i];
         if (found_fd == -1) {

@@ -70,17 +70,17 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
-    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
-    -Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
-    -Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
-    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
-    -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
-    -Wno-float-equal -Wno-missing-prototypes -Wno-non-virtual-dtor \
-    -Wno-unused-macros -Wno-covered-switch-default -Wno-unreachable-code-break \
-    -Wno-extra-semi -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
-    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
-    -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
-    -Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
+-Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+-Wno-unused-parameter -Wno-undef \
+-Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
+-Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+-Wno-implicit-fallthrough -Wno-unreachable-code-return \
+-Wno-float-equal -Wno-missing-prototypes \
+-Wno-old-style-cast -Wno-covered-switch-default \
+-Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
+-Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+-Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
+-Wno-disabled-macro-expansion -Wno-shorten-64-to-32")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")
@@ -98,11 +98,11 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     endif()
 
     # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wconversion -Wno-sign-conversion")
     # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
