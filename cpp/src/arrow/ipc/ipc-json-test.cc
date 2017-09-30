@@ -279,8 +279,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
 
   std::unique_ptr<JsonReader> reader;
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(result.c_str()),
-                                         static_cast<int>(result.size()));
+  auto buffer = std::make_shared<Buffer>(result);
 
   ASSERT_OK(JsonReader::Open(buffer, &reader));
   ASSERT_TRUE(reader->schema()->Equals(*schema));
@@ -395,8 +394,7 @@ void CheckRoundtrip(const RecordBatch& batch) {
   std::string result;
   ASSERT_OK(writer->Finish(&result));
 
-  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(result.c_str()),
-                                         static_cast<int64_t>(result.size()));
+  auto buffer = std::make_shared<Buffer>(result);
 
   std::unique_ptr<JsonReader> reader;
   ASSERT_OK(JsonReader::Open(buffer, &reader));
