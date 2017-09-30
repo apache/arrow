@@ -24,7 +24,6 @@
 
 namespace arrow {
 namespace py {
-namespace internal {
 
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
   case Type::NAME:                        \
@@ -55,6 +54,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       return nullptr;
   }
 }
+
+namespace internal {
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());

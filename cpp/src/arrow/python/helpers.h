@@ -32,9 +32,10 @@ namespace py {
 
 class OwnedRef;
 
-namespace internal {
+ARROW_EXPORT
+std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
 
-ARROW_EXPORT std::shared_ptr<DataType> GetPrimitiveType(Type::type type);
+namespace internal {
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref);
 Status ImportFromModule(const OwnedRef& module, const std::string& module_name,
