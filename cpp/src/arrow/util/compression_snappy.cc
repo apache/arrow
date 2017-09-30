@@ -50,8 +50,7 @@ int64_t SnappyCodec::MaxCompressedLen(int64_t input_len,
 
 Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
                              int64_t ARROW_ARG_UNUSED(output_buffer_len),
-                             uint8_t* output_buffer,
-                             int64_t* output_length) {
+                             uint8_t* output_buffer, int64_t* output_length) {
   size_t output_len;
   snappy::RawCompress(reinterpret_cast<const char*>(input),
                       static_cast<size_t>(input_len),

@@ -42,7 +42,7 @@ namespace py {
 /// \param[in] pool Memory pool for any memory allocations
 /// \param[in] ao an ndarray with the array data
 /// \param[in] mo an ndarray with a null mask (True is null), optional
-/// \param[in] type
+/// \param[in] type a specific type to cast to, may be null
 /// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_EXPORT
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,

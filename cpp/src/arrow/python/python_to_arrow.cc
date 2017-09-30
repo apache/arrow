@@ -297,12 +297,11 @@ class DictBuilder {
 
   /// Construct an Arrow StructArray representing the dictionary.
   /// Contains a field "keys" for the keys and "vals" for the values.
-
-  /// \param list_data
+  /// \param val_list_data
   ///    List containing the data from nested lists in the value
   ///   list of the dictionary
   ///
-  /// \param dict_data
+  /// \param val_dict_data
   ///   List containing the data from nested dictionaries in the
   ///   value list of the dictionary
   Status Finish(const Array* key_tuple_data, const Array* key_dict_data,
