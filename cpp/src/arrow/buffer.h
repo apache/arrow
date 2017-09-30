@@ -47,8 +47,24 @@ class MemoryPool;
 /// The following invariant is always true: Size < Capacity
 class ARROW_EXPORT Buffer {
  public:
+  /// \brief Construct from buffer and size without copying memory
+  ///
+  /// \param[in] data a memory buffer
+  /// \param[in] size buffer size
+  ///
+  /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
       : is_mutable_(false), data_(data), size_(size), capacity_(size) {}
+
+  /// \brief Construct from std::string without copying memory
+  ///
+  /// \param[in] data a std::string object
+  ///
+  /// \note The std::string must stay alive for the lifetime of the Buffer, so
+  /// temporary rvalue strings must be stored in an lvalue somewhere
+  explicit Buffer(const std::string& data)
+      : Buffer(reinterpret_cast<const uint8_t*>(data.c_str()),
+               static_cast<int64_t>(data.size())) {}
 
   virtual ~Buffer() = default;
 
@@ -69,6 +85,8 @@ class ARROW_EXPORT Buffer {
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes
   bool Equals(const Buffer& other, int64_t nbytes) const;
+
+  /// Return true if both buffers are the same size and contain the same bytes
   bool Equals(const Buffer& other) const;
 
   /// Copy a section of the buffer into a new Buffer.
@@ -100,17 +118,6 @@ class ARROW_EXPORT Buffer {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
-
-/// \brief Create Buffer referencing std::string memory
-///
-/// Warning: string instance must stay alive
-///
-/// \param str std::string instance
-/// \return std::shared_ptr<Buffer>
-static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
-  return std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.c_str()),
-                                  static_cast<int64_t>(str.size()));
-}
 
 /// Construct a view on passed buffer at the indicated offset and length. This
 /// function cannot fail and does not error checking (except in debug builds)
@@ -331,11 +338,24 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
                                std::shared_ptr<ResizableBuffer>* out);
 
 #ifndef ARROW_NO_DEPRECATED_API
+
 /// \deprecated Since 0.7.0
 ARROW_EXPORT
 Status AllocateBuffer(MemoryPool* pool, const int64_t size,
                       std::shared_ptr<MutableBuffer>* out);
-#endif
+
+/// \brief Create Buffer referencing std::string memory
+/// \deprecated Since 0.8.0
+///
+/// Warning: string instance must stay alive
+///
+/// \param str std::string instance
+/// \return std::shared_ptr<Buffer>
+static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
+  return std::make_shared<Buffer>(str);
+}
+
+#endif  // ARROW_NO_DEPRECATED_API
 
 }  // namespace arrow
 
