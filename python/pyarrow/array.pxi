@@ -16,46 +16,19 @@
 # under the License.
 
 
-def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
-          size=None):
-    """
-    Create pyarrow.Array instance from a Python sequence
-
-    Parameters
-    ----------
-    sequence : sequence-like or iterable object of Python objects.
-        If both type and size are specified may be a single use iterable.
-    type : pyarrow.DataType, optional
-        If not passed, will be inferred from the data
-    memory_pool : pyarrow.MemoryPool, optional
-        If not passed, will allocate memory from the currently-set default
-        memory pool
-    size : int64, optional
-        Size of the elements. If the imput is larger than size bail at this
-        length. For iterators, if size is larger than the input iterator this
-        will be treated as a "max size", but will involve an initial allocation
-        of size followed by a resize to the actual size (so if you know the
-        exact size specifying it correctly will give you better performance).
-
-    Returns
-    -------
-    array : pyarrow.Array
-    """
-    cdef:
-        shared_ptr[CArray] sp_array
-        CMemoryPool* pool
-        int64_t c_size
-
-    pool = maybe_unbox_memory_pool(memory_pool)
+cdef _sequence_to_array(object sequence, object size, DataType type,
+                        CMemoryPool* pool):
+    cdef shared_ptr[CArray] out
+    cdef int64_t c_size
     if type is None:
         with nogil:
-            check_status(ConvertPySequence(sequence, pool, &sp_array))
+            check_status(ConvertPySequence(sequence, pool, &out))
     else:
         if size is None:
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &sp_array, type.sp_type
+                        sequence, pool, &out, type.sp_type
                     )
                 )
         else:
@@ -63,11 +36,141 @@ def array(object sequence, DataType type=None, MemoryPool memory_pool=None,
             with nogil:
                 check_status(
                     ConvertPySequence(
-                        sequence, pool, &sp_array, type.sp_type, c_size
+                        sequence, pool, &out, type.sp_type, c_size
                     )
                 )
 
-    return pyarrow_wrap_array(sp_array)
+    return pyarrow_wrap_array(out)
+
+
+cdef _is_array_like(obj):
+    try:
+        import pandas
+        return isinstance(obj, (np.ndarray, pd.Series, pd.Index, Categorical))
+    except:
+        return isinstance(obj, np.ndarray)
+
+
+cdef _ndarray_to_array(object values, object mask, DataType type,
+                       c_bool use_pandas_null_sentinels,
+                       CMemoryPool* pool):
+    cdef shared_ptr[CChunkedArray] chunked_out
+    cdef shared_ptr[CDataType] c_type
+
+    dtype = values.dtype
+
+    if type is None and dtype != object:
+        with nogil:
+            check_status(NumPyDtypeToArrow(dtype, &c_type))
+
+    if type is not None:
+        c_type = type.sp_type
+
+    with nogil:
+        check_status(NdarrayToArrow(pool, values, mask,
+                                    use_pandas_null_sentinels,
+                                    c_type, &chunked_out))
+
+    if chunked_out.get().num_chunks() > 1:
+        return pyarrow_wrap_chunked_array(chunked_out)
+    else:
+        return pyarrow_wrap_array(chunked_out.get().chunk(0))
+
+
+cdef DataType _ensure_type(object type):
+    if type is None:
+        return None
+    elif not isinstance(type, DataType):
+        return type_for_alias(type)
+    else:
+        return type
+
+
+def array(object obj, type=None, mask=None,
+          MemoryPool memory_pool=None, size=None,
+          from_pandas=False):
+    """
+    Create pyarrow.Array instance from a Python object
+
+    Parameters
+    ----------
+    obj : sequence, iterable, ndarray or Series
+        If both type and size are specified may be a single use iterable. If
+        not strongly-typed, Arrow type will be inferred for resulting array
+    mask : array (boolean), optional
+        Indicate which values are null (True) or not null (False).
+    type : pyarrow.DataType
+        Explicit type to attempt to coerce to, otherwise will be inferred from
+        the data
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the currently-set default
+        memory pool
+
+    size : int64, optional
+        Size of the elements. If the imput is larger than size bail at this
+        length. For iterators, if size is larger than the input iterator this
+        will be treated as a "max size", but will involve an initial allocation
+        of size followed by a resize to the actual size (so if you know the
+        exact size specifying it correctly will give you better performance).
+    from_pandas : boolean, default False
+        Use pandas's semantics for inferring nulls from values in ndarray-like
+        data. If passed, the mask tasks precendence, but if a value is unmasked
+        (not-null), but still null according to pandas semantics, then it is
+        null
+
+    Notes
+    -----
+    Localized timestamps will currently be returned as UTC (pandas's native
+    representation).  Timezone-naive data will be implicitly interpreted as
+    UTC.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import pyarrow as pa
+    >>> pa.array(pd.Series([1, 2]))
+    <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
+    [
+      1,
+      2
+    ]
+
+    >>> import numpy as np
+    >>> pa.array(pd.Series([1, 2]), np.array([0, 1],
+    ... dtype=bool))
+    <pyarrow.array.Int64Array object at 0x7f9019e11208>
+    [
+      1,
+      NA
+    ]
+
+    Returns
+    -------
+    array : pyarrow.Array or pyarrow.ChunkedArray (if object data
+    overflowed binary storage)
+    """
+    type = _ensure_type(type)
+    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+    if _is_array_like(obj):
+        if mask is not None:
+            mask = get_series_values(mask)
+
+        values = get_series_values(obj)
+
+        if isinstance(values, Categorical):
+            return DictionaryArray.from_arrays(
+                values.codes, values.categories.values,
+                mask=mask, ordered=values.ordered,
+                memory_pool=memory_pool)
+        else:
+            values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
+                                                        type)
+            return _ndarray_to_array(values, mask, type, from_pandas, pool)
+    else:
+        if mask is not None:
+            raise ValueError("Masks only supported with ndarray-like inputs")
+        return _sequence_to_array(obj, size, type, pool)
 
 
 def _normalize_slice(object arrow_obj, slice key):
@@ -112,7 +215,7 @@ cdef class Array:
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
 
-    def cast(self, DataType target_type, safe=True):
+    def cast(self, object target_type, safe=True):
         """
         Cast array values to another data type
 
@@ -130,42 +233,37 @@ cdef class Array:
         cdef:
             CCastOptions options
             shared_ptr[CArray] result
+            DataType type
+
+        type = _ensure_type(target_type)
 
         if not safe:
             options.allow_int_overflow = 1
 
         with nogil:
-            check_status(Cast(_context(), self.ap[0], target_type.sp_type,
+            check_status(Cast(_context(), self.ap[0], type.sp_type,
                               options, &result))
 
         return pyarrow_wrap_array(result)
 
     @staticmethod
-    def from_pandas(obj, mask=None, DataType type=None,
-                    timestamps_to_ms=False,
-                    MemoryPool memory_pool=None):
+    def from_pandas(obj, mask=None, type=None, MemoryPool memory_pool=None):
         """
-        Convert pandas.Series to an Arrow Array.
+        Convert pandas.Series to an Arrow Array, using pandas's semantics about
+        what values indicate nulls. See pyarrow.array for more general
+        conversion from arrays or sequences to Arrow arrays
 
         Parameters
         ----------
-        series : pandas.Series or numpy.ndarray
-
-        mask : pandas.Series or numpy.ndarray, optional
-            boolean mask if the object is null (True) or valid (False)
-
+        sequence : ndarray, Inded Series
+        mask : array (boolean), optional
+            Indicate which values are null (True) or not null (False)
         type : pyarrow.DataType
-            Explicit type to attempt to coerce to
-
-        timestamps_to_ms : bool, optional
-            Convert datetime columns to ms resolution. This is needed for
-            compatibility with other functionality like Parquet I/O which
-            only supports milliseconds.
-
-            .. deprecated:: 0.7.0
-
-        memory_pool: MemoryPool, optional
-            Specific memory pool to use to allocate the resulting Arrow array.
+            Explicit type to attempt to coerce to, otherwise will be inferred
+            from the data
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the currently-set default
+            memory pool
 
         Notes
         -----
@@ -173,78 +271,13 @@ cdef class Array:
         representation).  Timezone-naive data will be implicitly interpreted as
         UTC.
 
-        Examples
-        --------
-
-        >>> import pandas as pd
-        >>> import pyarrow as pa
-        >>> pa.Array.from_pandas(pd.Series([1, 2]))
-        <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
-        [
-          1,
-          2
-        ]
-
-        >>> import numpy as np
-        >>> pa.Array.from_pandas(pd.Series([1, 2]), np.array([0, 1],
-        ... dtype=bool))
-        <pyarrow.array.Int64Array object at 0x7f9019e11208>
-        [
-          1,
-          NA
-        ]
-
         Returns
         -------
         array : pyarrow.Array or pyarrow.ChunkedArray (if object data
-        overflowed binary storage)
+        overflows binary buffer)
         """
-        cdef:
-            shared_ptr[CArray] out
-            shared_ptr[CChunkedArray] chunked_out
-            shared_ptr[CDataType] c_type
-            CMemoryPool* pool
-
-        if mask is not None:
-            mask = get_series_values(mask)
-
-        values = get_series_values(obj)
-        pool = maybe_unbox_memory_pool(memory_pool)
-
-        if isinstance(values, Categorical):
-            return DictionaryArray.from_arrays(
-                values.codes, values.categories.values,
-                mask=mask, ordered=values.ordered,
-                memory_pool=memory_pool)
-        elif values.dtype == object:
-            # Object dtype undergoes a different conversion path as more type
-            # inference may be needed
-            if type is not None:
-                c_type = type.sp_type
-            with nogil:
-                check_status(PandasObjectsToArrow(
-                    pool, values, mask, c_type, &chunked_out))
-
-            if chunked_out.get().num_chunks() > 1:
-                return pyarrow_wrap_chunked_array(chunked_out)
-            else:
-                out = chunked_out.get().chunk(0)
-        else:
-            values, type = pdcompat.maybe_coerce_datetime64(
-                values, obj.dtype, type, timestamps_to_ms=timestamps_to_ms)
-
-            if type is None:
-                dtype = values.dtype
-                with nogil:
-                    check_status(NumPyDtypeToArrow(dtype, &c_type))
-            else:
-                c_type = type.sp_type
-
-            with nogil:
-                check_status(PandasToArrow(
-                    pool, values, mask, c_type, &out))
-
-        return pyarrow_wrap_array(out)
+        return array(obj, mask=mask, type=type, memory_pool=memory_pool,
+                     from_pandas=True)
 
     property null_count:
 
