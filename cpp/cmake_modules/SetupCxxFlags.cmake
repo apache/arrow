@@ -98,11 +98,11 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     endif()
 
     # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wconversion -Wno-sign-conversion")
     # Treat all compiler warnings as errors
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunknown-warning-option -Werror")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option -Werror")
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
