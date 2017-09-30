@@ -400,7 +400,8 @@ static inline bool compute_object_hash_parallel(XXH64_state_t* hash_state,
     }
   }
 
-  XXH64_update(hash_state, (unsigned char*)threadhash, sizeof(threadhash));
+  XXH64_update(hash_state, reinterpret_cast<unsigned char*>(threadhash),
+               sizeof(threadhash));
   return true;
 }
 
@@ -408,12 +409,14 @@ static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (obj_buffer.data_size >= kBytesInMB) {
-    compute_object_hash_parallel(&hash_state, (unsigned char*)obj_buffer.data,
+    compute_object_hash_parallel(&hash_state,
+                                 reinterpret_cast<unsigned char*>(obj_buffer.data),
                                  obj_buffer.data_size);
   } else {
-    XXH64_update(&hash_state, (unsigned char*)obj_buffer.data, obj_buffer.data_size);
+    XXH64_update(&hash_state, reinterpret_cast<unsigned char*>(obj_buffer.data),
+                 obj_buffer.data_size);
   }
-  XXH64_update(&hash_state, (unsigned char*)obj_buffer.metadata,
+  XXH64_update(&hash_state, reinterpret_cast<unsigned char*>(obj_buffer.metadata),
                obj_buffer.metadata_size);
   return XXH64_digest(&hash_state);
 }

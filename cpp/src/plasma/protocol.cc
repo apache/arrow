@@ -79,8 +79,9 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
   PlasmaObjectSpec plasma_object(object->handle.store_fd, object->handle.mmap_size,
                                  object->data_offset, object->data_size,
                                  object->metadata_offset, object->metadata_size);
-  auto message = CreatePlasmaCreateReply(fbb, fbb.CreateString(object_id.binary()),
-                                         &plasma_object, (PlasmaError)error_code);
+  auto message =
+      CreatePlasmaCreateReply(fbb, fbb.CreateString(object_id.binary()), &plasma_object,
+                              static_cast<PlasmaError>(error_code));
   return PlasmaSend(sock, MessageType_PlasmaCreateReply, &fbb, message);
 }
 
@@ -123,7 +124,7 @@ Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
 Status SendSealReply(int sock, ObjectID object_id, int error) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaSealReply(fbb, fbb.CreateString(object_id.binary()),
-                                       (PlasmaError)error);
+                                       static_cast<PlasmaError>(error));
   return PlasmaSend(sock, MessageType_PlasmaSealReply, &fbb, message);
 }
 
@@ -154,7 +155,7 @@ Status ReadReleaseRequest(uint8_t* data, size_t size, ObjectID* object_id) {
 Status SendReleaseReply(int sock, ObjectID object_id, int error) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaReleaseReply(fbb, fbb.CreateString(object_id.binary()),
-                                          (PlasmaError)error);
+                                          static_cast<PlasmaError>(error));
   return PlasmaSend(sock, MessageType_PlasmaReleaseReply, &fbb, message);
 }
 
@@ -185,7 +186,7 @@ Status ReadDeleteRequest(uint8_t* data, size_t size, ObjectID* object_id) {
 Status SendDeleteReply(int sock, ObjectID object_id, int error) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreatePlasmaDeleteReply(fbb, fbb.CreateString(object_id.binary()),
-                                         (PlasmaError)error);
+                                         static_cast<PlasmaError>(error));
   return PlasmaSend(sock, MessageType_PlasmaDeleteReply, &fbb, message);
 }
 
@@ -526,8 +527,8 @@ Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
   auto message = flatbuffers::GetRoot<PlasmaDataReply>(data);
   DCHECK(verify_flatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  *object_size = (int64_t)message->object_size();
-  *metadata_size = (int64_t)message->metadata_size();
+  *object_size = static_cast<int64_t>(message->object_size());
+  *metadata_size = static_cast<int64_t>(message->metadata_size());
   return Status::OK();
 }
 

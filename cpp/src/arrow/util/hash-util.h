@@ -199,7 +199,7 @@ class HashUtil {
   static uint32_t FnvHash64to32(const void* data, int32_t bytes, uint32_t hash) {
     // IMPALA-2270: this function should never be used for zero-byte inputs.
     DCHECK_GT(bytes, 0);
-    uint64_t hash_u64 = hash | ((uint64_t)hash << 32);
+    uint64_t hash_u64 = hash | (static_cast<uint64_t>(hash) << 32);
     hash_u64 = FnvHash64(data, bytes, hash_u64);
     return static_cast<uint32_t>((hash_u64 >> 32) ^ (hash_u64 & 0xFFFFFFFF));
   }

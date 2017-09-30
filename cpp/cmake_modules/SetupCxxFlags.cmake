@@ -71,17 +71,16 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-missing-field-initializers \
 -Wno-unused-parameter -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
--Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
+-Wno-implicit-fallthrough -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes \
--Wno-covered-switch-default \
+-Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
 -Wno-gnu-zero-variadic-macro-arguments -Wconversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion -Wc++11-narrowing -Wnarrowing -Wno-shorten-64-to-32")
+-Wno-disabled-macro-expansion -Wno-shorten-64-to-32")
 
     # Version numbers where warnings are introduced
     if ("${COMPILER_VERSION}" VERSION_GREATER "3.3")

@@ -130,7 +130,8 @@ int bind_ipc_sock(const std::string& pathname, bool shall_listen) {
   }
   strncpy(socket_address.sun_path, pathname.c_str(), pathname.size() + 1);
 
-  if (bind(socket_fd, (struct sockaddr*)&socket_address, sizeof(socket_address)) != 0) {
+  if (bind(socket_fd, reinterpret_cast<struct sockaddr*>(&socket_address),
+           sizeof(socket_address)) != 0) {
     ARROW_LOG(ERROR) << "Bind failed for pathname " << pathname;
     close(socket_fd);
     return -1;
@@ -193,8 +194,8 @@ int connect_ipc_sock(const std::string& pathname) {
   }
   strncpy(socket_address.sun_path, pathname.c_str(), pathname.size() + 1);
 
-  if (connect(socket_fd, (struct sockaddr*)&socket_address, sizeof(socket_address)) !=
-      0) {
+  if (connect(socket_fd, reinterpret_cast<struct sockaddr*>(&socket_address),
+              sizeof(socket_address)) != 0) {
     close(socket_fd);
     return -1;
   }

@@ -153,13 +153,6 @@ Status Column::ValidateData() {
 // ----------------------------------------------------------------------
 // RecordBatch methods
 
-void AssertBatchValid(const RecordBatch& batch) {
-  Status s = batch.Validate();
-  if (!s.ok()) {
-    DCHECK(false) << s.ToString();
-  }
-}
-
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
     : schema_(schema), num_rows_(num_rows) {
   boxed_columns_.resize(schema->num_fields());
