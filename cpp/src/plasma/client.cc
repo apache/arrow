@@ -286,7 +286,6 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
 /// calls will not do anything. The client will only send a message to the store
 /// releasing the object when the client is truly done with the object.
 ///
-/// @param conn The plasma connection.
 /// @param object_id The object ID to attempt to release.
 Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
   // Decrement the count of the number of instances of this object that are

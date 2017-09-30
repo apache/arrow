@@ -46,11 +46,11 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel);
 
 /// \brief Cast from one array type to another
-/// \param[in] context
-/// \param[in] array
-/// \param[in] to_type
-/// \param[in] options
-/// \param[out] out
+/// \param[in] context the FunctionContext
+/// \param[in] array array to cast
+/// \param[in] to_type type to cast to
+/// \param[in] options casting options
+/// \param[out] out resulting array
 ///
 /// \since 0.7.0
 /// \note API not yet finalized

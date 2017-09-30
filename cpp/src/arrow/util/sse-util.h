@@ -176,27 +176,27 @@ static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) 
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u8(uint32_t crc, uint8_t v) {
+static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u16(uint32_t crc, uint16_t v) {
+static inline uint32_t SSE4_crc32_u16(uint32_t, uint16_t) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
+static inline uint32_t SSE4_crc32_u32(uint32_t, uint32_t) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
 
-static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
+static inline int64_t POPCNT_popcnt_u64(uint64_t) {
   DCHECK(false) << "CPU doesn't support SSE 4.2";
   return 0;
 }
@@ -205,27 +205,27 @@ static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
 
 #else
 
-static inline uint32_t SSE4_crc32_u8(uint32_t crc, uint8_t v) {
+static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u16(uint32_t crc, uint16_t v) {
+static inline uint32_t SSE4_crc32_u16(uint32_t, uint16_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
+static inline uint32_t SSE4_crc32_u32(uint32_t, uint32_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }
 
-static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }
 
-static inline int64_t POPCNT_popcnt_u64(uint64_t a) {
+static inline int64_t POPCNT_popcnt_u64(uint64_t) {
   DCHECK(false) << "SSE support is not enabled";
   return 0;
 }

@@ -72,8 +72,8 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
 -Wno-missing-field-initializers \
--Wno-unused-parameter -Wno-undef -Wno-documentation-deprecated-sync \
--Wno-shadow -Wno-switch-enum -Wno-documentation -Wno-exit-time-destructors \
+-Wno-unused-parameter -Wno-undef \
+-Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-old-style-cast -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes \

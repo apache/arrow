@@ -120,7 +120,7 @@ class ARROW_EXPORT PlasmaClient {
   /// the caller should not release objects that were not retrieved.
   ///
   /// \param object_ids The IDs of the objects to get.
-  /// \param num_object_ids The number of object IDs to get.
+  /// \param num_objects The number of object IDs to get.
   /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
   /// \param object_buffers An array where the results will be stored. If the
@@ -181,7 +181,6 @@ class ARROW_EXPORT PlasmaClient {
 
   /// Compute the hash of an object in the object store.
   ///
-  /// \param conn The object containing the connection state.
   /// \param object_id The ID of the object we want to hash.
   /// \param digest A pointer at which to return the hash digest of the object.
   ///        The pointer must have at least kDigestSize bytes allocated.
@@ -277,7 +276,6 @@ class ARROW_EXPORT PlasmaClient {
 
   /// Transfer local object to a different plasma manager.
   ///
-  /// \param conn The object containing the connection state.
   /// \param addr IP address of the plasma manager we are transfering to.
   /// \param port Port of the plasma manager we are transfering to.
   /// \param object_id ObjectID of the object we are transfering.
@@ -287,7 +285,6 @@ class ARROW_EXPORT PlasmaClient {
   /// Return the status of a given object. This method may query the object
   /// table.
   ///
-  /// \param conn The object containing the connection state.
   /// \param object_id The ID of the object whose status we query.
   /// \param object_status Out parameter for object status. Can take the
   ///         following values.
@@ -305,7 +302,6 @@ class ARROW_EXPORT PlasmaClient {
 
   /// Get the file descriptor for the socket connection to the plasma manager.
   ///
-  /// \param conn The plasma connection.
   /// \return The file descriptor for the manager connection. If there is no
   ///         connection to the manager, this is -1.
   int get_manager_fd();

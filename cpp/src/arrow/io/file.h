@@ -86,7 +86,7 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   /// \param[in] pool a MemoryPool for memory allocations
   /// \param[out] file ReadableFile instance
   /// Open file with one's own memory pool for memory allocations
-  static Status Open(const std::string& path, MemoryPool* memory_pool,
+  static Status Open(const std::string& path, MemoryPool* pool,
                      std::shared_ptr<ReadableFile>* file);
 
   Status Close() override;
