@@ -32,9 +32,7 @@ using std::string;
 
 namespace arrow {
 
-class TestBuffer : public ::testing::Test {};
-
-TEST_F(TestBuffer, IsMutableFlag) {
+TEST(TestBuffer, IsMutableFlag) {
   Buffer buf(nullptr, 0);
 
   ASSERT_FALSE(buf.is_mutable());
@@ -46,7 +44,15 @@ TEST_F(TestBuffer, IsMutableFlag) {
   ASSERT_TRUE(pbuf.is_mutable());
 }
 
-TEST_F(TestBuffer, Resize) {
+TEST(TestBuffer, FromStdString) {
+  std::string val = "hello, world";
+
+  Buffer buf(val);
+  ASSERT_EQ(0, memcmp(buf.data(), val.c_str(), val.size()));
+  ASSERT_EQ(static_cast<int64_t>(val.size()), buf.size());
+}
+
+TEST(TestBuffer, Resize) {
   PoolBuffer buf;
 
   ASSERT_EQ(0, buf.size());
@@ -69,7 +75,7 @@ TEST_F(TestBuffer, Resize) {
   ASSERT_EQ(128, buf.capacity());
 }
 
-TEST_F(TestBuffer, TypedResize) {
+TEST(TestBuffer, TypedResize) {
   PoolBuffer buf;
 
   ASSERT_EQ(0, buf.size());
@@ -88,7 +94,7 @@ TEST_F(TestBuffer, TypedResize) {
   ASSERT_EQ(832, buf.capacity());
 }
 
-TEST_F(TestBuffer, ResizeOOM) {
+TEST(TestBuffer, ResizeOOM) {
 // This test doesn't play nice with AddressSanitizer
 #ifndef ADDRESS_SANITIZER
   // realloc fails, even though there may be no explicit limit
@@ -99,7 +105,7 @@ TEST_F(TestBuffer, ResizeOOM) {
 #endif
 }
 
-TEST_F(TestBuffer, EqualsWithSameContent) {
+TEST(TestBuffer, EqualsWithSameContent) {
   MemoryPool* pool = default_memory_pool();
   const int32_t bufferSize = 128 * 1024;
   uint8_t* rawBuffer1;
@@ -123,7 +129,7 @@ TEST_F(TestBuffer, EqualsWithSameContent) {
   pool->Free(rawBuffer3, bufferSize);
 }
 
-TEST_F(TestBuffer, EqualsWithSameBuffer) {
+TEST(TestBuffer, EqualsWithSameBuffer) {
   MemoryPool* pool = default_memory_pool();
   const int32_t bufferSize = 128 * 1024;
   uint8_t* rawBuffer;
@@ -142,7 +148,7 @@ TEST_F(TestBuffer, EqualsWithSameBuffer) {
   pool->Free(rawBuffer, bufferSize);
 }
 
-TEST_F(TestBuffer, Copy) {
+TEST(TestBuffer, Copy) {
   std::string data_str = "some data to copy";
 
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
@@ -157,7 +163,7 @@ TEST_F(TestBuffer, Copy) {
   ASSERT_TRUE(out->Equals(expected));
 }
 
-TEST_F(TestBuffer, SliceBuffer) {
+TEST(TestBuffer, SliceBuffer) {
   std::string data_str = "some data to slice";
 
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
@@ -171,7 +177,7 @@ TEST_F(TestBuffer, SliceBuffer) {
   ASSERT_EQ(2, buf.use_count());
 }
 
-TEST_F(TestBuffer, SliceMutableBuffer) {
+TEST(TestBuffer, SliceMutableBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
