@@ -74,7 +74,9 @@ public class AllocationManager {
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
   private final int size;
   private final UnsafeDirectLittleEndian underlying;
-  private final IdentityHashMap<BufferAllocator, BufferLedger> map = new IdentityHashMap<>();
+  // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
+  // see JIRA for details
+  private final LowCostIdentityHasMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHasMap<>();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private final AutoCloseableLock readLock = new AutoCloseableLock(lock.readLock());
   private final AutoCloseableLock writeLock = new AutoCloseableLock(lock.writeLock());
@@ -144,7 +146,7 @@ public class AllocationManager {
       if (retain) {
         ledger.inc();
       }
-      BufferLedger oldLedger = map.put(allocator, ledger);
+      BufferLedger oldLedger = map.put(ledger);
       Preconditions.checkArgument(oldLedger == null);
       allocator.associateLedger(ledger);
       return ledger;
@@ -174,7 +176,7 @@ public class AllocationManager {
       } else {
         // we need to change the owning allocator. we've been removed so we'll get whatever is
         // top of list
-        BufferLedger newLedger = map.values().iterator().next();
+        BufferLedger newLedger = map.getNextValue();
 
         // we'll forcefully transfer the ownership and not worry about whether we exceeded the
         // limit
@@ -196,7 +198,7 @@ public class AllocationManager {
    * As with AllocationManager, the only reason this is public is due to ArrowBuf being in io
    * .netty.buffer package.
    */
-  public class BufferLedger {
+  public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator> {
 
     private final IdentityHashMap<ArrowBuf, Object> buffers =
         BaseAllocator.DEBUG ? new IdentityHashMap<ArrowBuf, Object>() : null;
@@ -223,6 +225,11 @@ public class AllocationManager {
      * @return allocator
      */
     private BaseAllocator getAllocator() {
+      return allocator;
+    }
+
+    @Override
+    public BaseAllocator getKey() {
       return allocator;
     }
 
