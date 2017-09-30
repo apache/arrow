@@ -26,7 +26,7 @@
 #endif
 
 #define ARROW_UNUSED(x) (void)x
-
+#define ARROW_ARG_UNUSED(x)
 //
 // GCC can be told that a certain branch is not likely to be taken (for
 // instance, a CHECK failure), and use that information in static analysis.

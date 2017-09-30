@@ -82,15 +82,15 @@ class ARROW_EXPORT PlasmaClient {
   /// Connect to the local plasma store and plasma manager. Return
   /// the resulting connection.
   ///
-  /// @param store_socket_name The name of the UNIX domain socket to use to
+  /// \param store_socket_name The name of the UNIX domain socket to use to
   ///        connect to the Plasma store.
-  /// @param manager_socket_name The name of the UNIX domain socket to use to
+  /// \param manager_socket_name The name of the UNIX domain socket to use to
   ///        connect to the local Plasma manager. If this is "", then this
   ///        function will not connect to a manager.
-  /// @param release_delay Number of released objects that are kept around
+  /// \param release_delay Number of released objects that are kept around
   ///        and not evicted to avoid too many munmaps.
-  /// @param num_retries number of attempts to connect to IPC socket, default 50
-  /// @return The return status.
+  /// \param num_retries number of attempts to connect to IPC socket, default 50
+  /// \return The return status.
   Status Connect(const std::string& store_socket_name,
                  const std::string& manager_socket_name, int release_delay,
                  int num_retries = -1);
@@ -98,17 +98,17 @@ class ARROW_EXPORT PlasmaClient {
   /// Create an object in the Plasma Store. Any metadata for this object must be
   /// be passed in when the object is created.
   ///
-  /// @param object_id The ID to use for the newly created object.
-  /// @param data_size The size in bytes of the space to be allocated for this
+  /// \param object_id The ID to use for the newly created object.
+  /// \param data_size The size in bytes of the space to be allocated for this
   /// object's
   ///        data (this does not include space used for metadata).
-  /// @param metadata The object's metadata. If there is no metadata, this
+  /// \param metadata The object's metadata. If there is no metadata, this
   /// pointer
   ///        should be NULL.
-  /// @param metadata_size The size in bytes of the metadata. If there is no
+  /// \param metadata_size The size in bytes of the metadata. If there is no
   ///        metadata, this should be 0.
-  /// @param data The address of the newly created object will be written here.
-  /// @return The return status.
+  /// \param data The address of the newly created object will be written here.
+  /// \return The return status.
   Status Create(const ObjectID& object_id, int64_t data_size, uint8_t* metadata,
                 int64_t metadata_size, uint8_t** data);
 
@@ -119,14 +119,14 @@ class ARROW_EXPORT PlasmaClient {
   /// but
   /// the caller should not release objects that were not retrieved.
   ///
-  /// @param object_ids The IDs of the objects to get.
-  /// @param num_object_ids The number of object IDs to get.
-  /// @param timeout_ms The amount of time in milliseconds to wait before this
+  /// \param object_ids The IDs of the objects to get.
+  /// \param num_objects The number of object IDs to get.
+  /// \param timeout_ms The amount of time in milliseconds to wait before this
   ///        request times out. If this value is -1, then no timeout is set.
-  /// @param object_buffers An array where the results will be stored. If the
+  /// \param object_buffers An array where the results will be stored. If the
   /// data
   ///        size field is -1, then the object was not retrieved.
-  /// @return The return status.
+  /// \return The return status.
   Status Get(const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
              ObjectBuffer* object_buffers);
 
@@ -136,8 +136,8 @@ class ARROW_EXPORT PlasmaClient {
   /// the address returned by Get is no longer valid. This should be called
   /// once for each call to Get (with the same object ID).
   ///
-  /// @param object_id The ID of the object that is no longer needed.
-  /// @return The return status.
+  /// \param object_id The ID of the object that is no longer needed.
+  /// \return The return status.
   Status Release(const ObjectID& object_id);
 
   /// Check if the object store contains a particular object and the object has
@@ -146,18 +146,18 @@ class ARROW_EXPORT PlasmaClient {
   /// @todo: We may want to indicate if the object has been created but not
   /// sealed.
   ///
-  /// @param object_id The ID of the object whose presence we are checking.
-  /// @param has_object The function will write true at this address if
+  /// \param object_id The ID of the object whose presence we are checking.
+  /// \param has_object The function will write true at this address if
   ///        the object is present and false if it is not present.
-  /// @return The return status.
+  /// \return The return status.
   Status Contains(const ObjectID& object_id, bool* has_object);
 
   /// Seal an object in the object store. The object will be immutable after
   /// this
   /// call.
   ///
-  /// @param object_id The ID of the object to seal.
-  /// @return The return status.
+  /// \param object_id The ID of the object to seal.
+  /// \return The return status.
   Status Seal(const ObjectID& object_id);
 
   /// Delete an object from the object store. This currently assumes that the
@@ -166,52 +166,51 @@ class ARROW_EXPORT PlasmaClient {
   /// @todo We may want to allow the deletion of objects that are not present or
   ///       haven't been sealed.
   ///
-  /// @param object_id The ID of the object to delete.
-  /// @return The return status.
+  /// \param object_id The ID of the object to delete.
+  /// \return The return status.
   Status Delete(const ObjectID& object_id);
 
   /// Delete objects until we have freed up num_bytes bytes or there are no more
   /// released objects that can be deleted.
   ///
-  /// @param num_bytes The number of bytes to try to free up.
-  /// @param num_bytes_evicted Out parameter for total number of bytes of space
+  /// \param num_bytes The number of bytes to try to free up.
+  /// \param num_bytes_evicted Out parameter for total number of bytes of space
   /// retrieved.
-  /// @return The return status.
+  /// \return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
   /// Compute the hash of an object in the object store.
   ///
-  /// @param conn The object containing the connection state.
-  /// @param object_id The ID of the object we want to hash.
-  /// @param digest A pointer at which to return the hash digest of the object.
+  /// \param object_id The ID of the object we want to hash.
+  /// \param digest A pointer at which to return the hash digest of the object.
   ///        The pointer must have at least kDigestSize bytes allocated.
-  /// @return The return status.
+  /// \return The return status.
   Status Hash(const ObjectID& object_id, uint8_t* digest);
 
   /// Subscribe to notifications when objects are sealed in the object store.
   /// Whenever an object is sealed, a message will be written to the client
   /// socket that is returned by this method.
   ///
-  /// @param fd Out parameter for the file descriptor the client should use to
+  /// \param fd Out parameter for the file descriptor the client should use to
   /// read notifications
   ///         from the object store about sealed objects.
-  /// @return The return status.
+  /// \return The return status.
   Status Subscribe(int* fd);
 
   /// Receive next object notification for this client if Subscribe has been called.
   ///
-  /// @param fd The file descriptor we are reading the notification from.
-  /// @param object_id Out parameter, the object_id of the object that was sealed.
-  /// @param data_size Out parameter, the data size of the object that was sealed.
-  /// @param metadata_size Out parameter, the metadata size of the object that was sealed.
-  /// @return The return status.
+  /// \param fd The file descriptor we are reading the notification from.
+  /// \param object_id Out parameter, the object_id of the object that was sealed.
+  /// \param data_size Out parameter, the data size of the object that was sealed.
+  /// \param metadata_size Out parameter, the metadata size of the object that was sealed.
+  /// \return The return status.
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.
   ///
-  /// @return The return status.
+  /// \return The return status.
   Status Disconnect();
 
   /// Attempt to initiate the transfer of some objects from remote Plasma
@@ -236,17 +235,17 @@ class ARROW_EXPORT PlasmaClient {
   /// This method is idempotent in the sense that it is ok to call it multiple
   /// times.
   ///
-  /// @param num_object_ids The number of object IDs fetch is being called on.
-  /// @param object_ids The IDs of the objects that fetch is being called on.
-  /// @return The return status.
+  /// \param num_object_ids The number of object IDs fetch is being called on.
+  /// \param object_ids The IDs of the objects that fetch is being called on.
+  /// \return The return status.
   Status Fetch(int num_object_ids, const ObjectID* object_ids);
 
   /// Wait for (1) a specified number of objects to be available (sealed) in the
   /// local Plasma Store or in a remote Plasma Store, or (2) for a timeout to
   /// expire. This is a blocking call.
   ///
-  /// @param num_object_requests Size of the object_requests array.
-  /// @param object_requests Object event array. Each element contains a request
+  /// \param num_object_requests Size of the object_requests array.
+  /// \param object_requests Object event array. Each element contains a request
   ///        for a particular object_id. The type of request is specified in the
   ///        "type" field.
   ///        - A PLASMA_QUERY_LOCAL request is satisfied when object_id becomes
@@ -260,36 +259,34 @@ class ARROW_EXPORT PlasmaClient {
   ///          available either at the local Plasma Store or on a remote Plasma
   ///          Store. In this case, the functions sets the "status" field to
   ///          ObjectStatus_Local or ObjectStatus_Remote.
-  /// @param num_ready_objects The number of requests in object_requests array
+  /// \param num_ready_objects The number of requests in object_requests array
   /// that
   ///        must be satisfied before the function returns, unless it timeouts.
   ///        The num_ready_objects should be no larger than num_object_requests.
-  /// @param timeout_ms Timeout value in milliseconds. If this timeout expires
+  /// \param timeout_ms Timeout value in milliseconds. If this timeout expires
   ///        before min_num_ready_objects of requests are satisfied, the
   ///        function
   ///        returns.
-  /// @param num_objects_ready Out parameter for number of satisfied requests in
+  /// \param num_objects_ready Out parameter for number of satisfied requests in
   ///        the object_requests list. If the returned number is less than
   ///        min_num_ready_objects this means that timeout expired.
-  /// @return The return status.
+  /// \return The return status.
   Status Wait(int64_t num_object_requests, ObjectRequest* object_requests,
               int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
 
   /// Transfer local object to a different plasma manager.
   ///
-  /// @param conn The object containing the connection state.
-  /// @param addr IP address of the plasma manager we are transfering to.
-  /// @param port Port of the plasma manager we are transfering to.
-  /// @object_id ObjectID of the object we are transfering.
-  /// @return The return status.
+  /// \param addr IP address of the plasma manager we are transfering to.
+  /// \param port Port of the plasma manager we are transfering to.
+  /// \param object_id ObjectID of the object we are transfering.
+  /// \return The return status.
   Status Transfer(const char* addr, int port, const ObjectID& object_id);
 
   /// Return the status of a given object. This method may query the object
   /// table.
   ///
-  /// @param conn The object containing the connection state.
-  /// @param object_id The ID of the object whose status we query.
-  /// @param object_status Out parameter for object status. Can take the
+  /// \param object_id The ID of the object whose status we query.
+  /// \param object_status Out parameter for object status. Can take the
   ///         following values.
   ///         - PLASMA_CLIENT_LOCAL, if object is stored in the local Plasma
   ///         Store.
@@ -300,13 +297,12 @@ class ARROW_EXPORT PlasmaClient {
   ///           Plasma Store.
   ///         - PLASMA_CLIENT_DOES_NOT_EXIST, if the object doesn’t exist in the
   ///           system.
-  /// @return The return status.
+  /// \return The return status.
   Status Info(const ObjectID& object_id, int* object_status);
 
   /// Get the file descriptor for the socket connection to the plasma manager.
   ///
-  /// @param conn The plasma connection.
-  /// @return The file descriptor for the manager connection. If there is no
+  /// \return The file descriptor for the manager connection. If there is no
   ///         connection to the manager, this is -1.
   int get_manager_fd();
 

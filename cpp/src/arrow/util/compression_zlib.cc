@@ -165,7 +165,7 @@ class GZipCodec::GZipCodecImpl {
     return Status::OK();
   }
 
-  int64_t MaxCompressedLen(int64_t input_length, const uint8_t* input) {
+  int64_t MaxCompressedLen(int64_t input_length, const uint8_t* ARROW_ARG_UNUSED(input)) {
     // Most be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();

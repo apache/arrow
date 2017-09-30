@@ -54,7 +54,7 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// _serialize_callback method for serialization and a _deserialize_callback
 /// method for deserialization. If context is None, no custom serialization
 /// will be attempted.
-/// \param[in] object
+/// \param[in] object object to deserialize
 /// \param[in] base a Python object holding the underlying data that any NumPy
 /// arrays will reference, to avoid premature deallocation
 /// \param[out] out the returned object

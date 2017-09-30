@@ -82,11 +82,10 @@ class ARROW_EXPORT Message {
   static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out);
 
-  /// \brief Write length-prefixed metadata and body to output stream
+  /// \brief Return true if message type and contents are equal
   ///
-  /// \param[in] file output stream to write to
-  /// \param[out] output_length the number of bytes written
-  /// \return Status
+  /// \param other another message
+  /// \return true if contents equal
   bool Equals(const Message& other) const;
 
   /// \brief the Message metadata

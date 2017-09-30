@@ -283,7 +283,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
 #define PINT_DECL(CapType, c_type, LOWER, UPPER)    \
   struct P##CapType {                               \
-    PTYPE_DECL(CapType, c_type);                    \
+    PTYPE_DECL(CapType, c_type)                     \
     static void draw(int64_t N, vector<T>* draws) { \
       test::randint<T>(N, LOWER, UPPER, draws);     \
     }                                               \
@@ -291,7 +291,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
 #define PFLOAT_DECL(CapType, c_type, LOWER, UPPER)     \
   struct P##CapType {                                  \
-    PTYPE_DECL(CapType, c_type);                       \
+    PTYPE_DECL(CapType, c_type)                        \
     static void draw(int64_t N, vector<T>* draws) {    \
       test::random_real<T>(N, 0, LOWER, UPPER, draws); \
     }                                                  \
@@ -311,7 +311,7 @@ PFLOAT_DECL(Float, float, -1000, 1000);
 PFLOAT_DECL(Double, double, -1000, 1000);
 
 struct PBoolean {
-  PTYPE_DECL(Boolean, uint8_t);
+  PTYPE_DECL(Boolean, uint8_t)
 };
 
 template <>
@@ -377,8 +377,6 @@ TYPED_TEST_CASE(TestPrimitiveBuilder, Primitives);
 #define DECL_T() typedef typename TestFixture::T T;
 
 #define DECL_TYPE() typedef typename TestFixture::Type Type;
-
-#define DECL_ARRAYTYPE() typedef typename TestFixture::ArrayType ArrayType;
 
 TYPED_TEST(TestPrimitiveBuilder, TestInit) {
   DECL_TYPE();

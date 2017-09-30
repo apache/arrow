@@ -23,6 +23,7 @@
 #include <zstd.h>
 
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 using std::size_t;
 
@@ -42,7 +43,8 @@ Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input, int64_t ou
   return Status::OK();
 }
 
-int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len, const uint8_t* input) {
+int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len,
+                                    const uint8_t* ARROW_ARG_UNUSED(input)) {
   return ZSTD_compressBound(input_len);
 }
 

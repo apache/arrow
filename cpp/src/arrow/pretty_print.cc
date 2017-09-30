@@ -199,7 +199,7 @@ class ArrayPrinter : public PrettyPrinter {
     }
   }
 
-  Status Visit(const NullArray& array) { return Status::OK(); }
+  Status Visit(const NullArray&) { return Status::OK(); }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
@@ -213,7 +213,7 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  Status Visit(const IntervalArray& array) { return Status::NotImplemented("interval"); }
+  Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
   Status WriteValidityBitmap(const Array& array);
 
