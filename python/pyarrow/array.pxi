@@ -98,7 +98,7 @@ def array(object obj, type=None, mask=None,
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array
     mask : array (boolean), optional
-        Indicate which values are null (True) or not null (False)
+        Indicate which values are null (True) or not null (False).
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data
@@ -114,7 +114,9 @@ def array(object obj, type=None, mask=None,
         exact size specifying it correctly will give you better performance).
     from_pandas : boolean, default False
         Use pandas's semantics for inferring nulls from values in ndarray-like
-        data
+        data. If passed, the mask tasks precendence, but if a value is unmasked
+        (not-null), but still null according to pandas semantics, then it is
+        null
 
     Notes
     -----

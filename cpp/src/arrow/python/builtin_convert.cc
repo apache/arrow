@@ -525,7 +525,7 @@ class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Conver
 class DateConverter : public TypedConverterVisitor<Date64Builder, DateConverter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
-    PyDateTime_Date* pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
+    auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
     return typed_builder_->Append(PyDate_to_ms(pydate));
   }
 };
@@ -534,7 +534,7 @@ class TimestampConverter
     : public TypedConverterVisitor<Date64Builder, TimestampConverter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
-    PyDateTime_DateTime* pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
+    auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
     return typed_builder_->Append(PyDateTime_to_us(pydatetime));
   }
 };

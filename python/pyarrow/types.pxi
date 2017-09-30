@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import re
-
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
 cdef dict _pandas_type_map = {
@@ -77,6 +75,8 @@ cdef class DataType:
     def __richcmp__(DataType self, object other, int op):
         cdef DataType other_type
         if not isinstance(other, DataType):
+            if not isinstance(other, six.string_types):
+                raise TypeError(other)
             other_type = type_for_alias(other)
         else:
             other_type = other
