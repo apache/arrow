@@ -34,6 +34,7 @@ namespace arrow {
 // ChunkedArray and Column methods
 
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
+  DCHECK_GT(chunks.size(), 0);
   length_ = 0;
   null_count_ = 0;
   for (const std::shared_ptr<Array>& chunk : chunks) {
@@ -41,6 +42,8 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
     null_count_ += chunk->null_count();
   }
 }
+
+std::shared_ptr<DataType> ChunkedArray::type() const { return chunks_[0]->type(); }
 
 bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (length_ != other.length()) {
@@ -105,11 +108,8 @@ Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
 
 Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data)
     : field_(field) {
-  if (data) {
-    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
-  } else {
-    data_ = std::make_shared<ChunkedArray>(ArrayVector({}));
-  }
+  DCHECK(data);
+  data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
 }
 
 Column::Column(const std::string& name, const std::shared_ptr<Array>& data)

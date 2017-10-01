@@ -59,6 +59,10 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
   const auto& data = static_cast<const StructArray&>(array);
   ScopedRef keys, vals;
   ScopedRef result(PyDict_New());
+  RETURN_IF_PYERROR();
+
+  DCHECK_EQ(2, data.num_fields());
+
   RETURN_NOT_OK(DeserializeList(context, *data.field(0), start_idx, stop_idx, base,
                                 tensors, keys.ref()));
   RETURN_NOT_OK(DeserializeList(context, *data.field(1), start_idx, stop_idx, base,

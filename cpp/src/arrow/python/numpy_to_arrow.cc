@@ -490,7 +490,6 @@ static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t len
 
   std::shared_ptr<Array> tmp_array, casted_array;
   RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
-  DCHECK(tmp_array);
 
   compute::FunctionContext context(pool);
   compute::CastOptions cast_options;
@@ -824,7 +823,7 @@ Status NumPyConverter::ConvertObjectFixedWidthBytes(
     const std::shared_ptr<DataType>& type) {
   PyAcquireGIL lock;
 
-  int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
+  const int32_t byte_width = static_cast<const FixedSizeBinaryType&>(*type).byte_width();
 
   // The output type at this point is inconclusive because there may be bytes
   // and unicode mixed in the object array
@@ -936,7 +935,7 @@ Status NumPyConverter::ConvertObjectsInfer() {
 Status NumPyConverter::ConvertObjectsInferAndCast() {
   size_t position = out_arrays_.size();
   RETURN_NOT_OK(ConvertObjectsInfer());
-
+  DCHECK_EQ(position + 1, out_arrays_.size());
   std::shared_ptr<Array> arr = out_arrays_[position];
 
   // Perform cast

@@ -49,9 +49,7 @@ Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
 
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
-
   uint8_t* out_buf = buffer->mutable_data();
-  DCHECK(out_buf);
   memset(out_buf, 0, static_cast<size_t>(bit_length));
   FillBitsFromBytes(bytes, out_buf);
 
