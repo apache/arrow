@@ -112,8 +112,9 @@ Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t
   // Note: We cannot use realloc() here as it doesn't guarantee alignment.
 
   // Allocate new chunk
-  uint8_t* out;
+  uint8_t* out = nullptr;
   RETURN_NOT_OK(AllocateAligned(new_size, &out));
+  DCHECK(out);
   // Copy contents and release old memory chunk
   memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
 #ifdef _MSC_VER

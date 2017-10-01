@@ -42,6 +42,8 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   }
 }
 
+std::shared_ptr<DataType> ChunkedArray::type() const { return chunks_[0]->type(); }
+
 bool ChunkedArray::Equals(const ChunkedArray& other) const {
   if (length_ != other.length()) {
     return false;
@@ -105,10 +107,10 @@ Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
 
 Column::Column(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& data)
     : field_(field) {
-  if (data) {
-    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
-  } else {
+  if (!data) {
     data_ = std::make_shared<ChunkedArray>(ArrayVector({}));
+  } else {
+    data_ = std::make_shared<ChunkedArray>(ArrayVector({data}));
   }
 }
 
@@ -192,6 +194,7 @@ std::shared_ptr<Array> RecordBatch::column(int i) const {
   if (!boxed_columns_[i]) {
     DCHECK(MakeArray(columns_[i], &boxed_columns_[i]).ok());
   }
+  DCHECK(boxed_columns_[i]);
   return boxed_columns_[i];
 }
 
