@@ -1220,8 +1220,9 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
                       std::shared_ptr<ChunkedArray>* out) {
   NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
-  DCHECK(converter.result()[0]);
-  *out = std::make_shared<ChunkedArray>(converter.result());
+  const auto& output_arrays = converter.result();
+  DCHECK_GT(output_arrays.size(), 0);
+  *out = std::make_shared<ChunkedArray>(output_arrays);
   return Status::OK();
 }
 

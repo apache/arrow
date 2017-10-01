@@ -349,7 +349,6 @@ Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionar
       reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
   RETURN_NOT_OK(
       ReadRecordBatch(batch_meta, dummy_schema, kMaxNestingDepth, file, &batch));
-
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
