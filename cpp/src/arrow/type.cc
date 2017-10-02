@@ -83,12 +83,7 @@ std::string Field::ToString() const {
 DataType::~DataType() {}
 
 bool DataType::Equals(const DataType& other) const {
-  bool are_equal = false;
-  Status error = TypeEquals(*this, other, &are_equal);
-  if (!error.ok()) {
-    DCHECK(false) << "Types not comparable: " << error.ToString();
-  }
-  return are_equal;
+  return TypeEquals(*this, other);
 }
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {

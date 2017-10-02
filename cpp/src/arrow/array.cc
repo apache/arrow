@@ -53,12 +53,7 @@ int64_t Array::null_count() const {
 }
 
 bool Array::Equals(const Array& arr) const {
-  bool are_equal = false;
-  Status error = ArrayEquals(*this, arr, &are_equal);
-  if (!error.ok()) {
-    DCHECK(false) << "Arrays not comparable: " << error.ToString();
-  }
-  return are_equal;
+  return ArrayEquals(*this, arr);
 }
 
 bool Array::Equals(const std::shared_ptr<Array>& arr) const {
@@ -69,12 +64,7 @@ bool Array::Equals(const std::shared_ptr<Array>& arr) const {
 }
 
 bool Array::ApproxEquals(const Array& arr) const {
-  bool are_equal = false;
-  Status error = ArrayApproxEquals(*this, arr, &are_equal);
-  if (!error.ok()) {
-    DCHECK(false) << "Arrays not comparable: " << error.ToString();
-  }
-  return are_equal;
+  return ArrayApproxEquals(*this, arr);
 }
 
 bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
@@ -94,13 +84,7 @@ bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_
 
 bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
                         int64_t other_start_idx) const {
-  bool are_equal = false;
-  Status error =
-      ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx, &are_equal);
-  if (!error.ok()) {
-    DCHECK(false) << "Arrays not comparable: " << error.ToString();
-  }
-  return are_equal;
+  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
 }
 
 static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_t offset,

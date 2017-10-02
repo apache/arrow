@@ -542,22 +542,26 @@ static bool BaseDataEquals(const Array& left, const Array& right) {
 }
 
 template <typename VISITOR>
-inline Status ArrayEqualsImpl(const Array& left, const Array& right, bool* are_equal) {
+inline bool ArrayEqualsImpl(const Array& left, const Array& right) {
+  bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
-    *are_equal = true;
+    are_equal = true;
   } else if (!BaseDataEquals(left, right)) {
-    *are_equal = false;
+    are_equal = false;
   } else if (left.length() == 0) {
-    *are_equal = true;
+    are_equal = true;
   } else if (left.null_count() == left.length()) {
-    *are_equal = true;
+    are_equal = true;
   } else {
     VISITOR visitor(right);
-    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
-    *are_equal = visitor.result();
+    auto error = VisitArrayInline(left, &visitor);
+    if (!error.ok()) {
+      DCHECK(false) << "Arrays are not comparable: " << error.ToString();
+    }
+    are_equal = visitor.result();
   }
-  return Status::OK();
+  return are_equal;
 }
 
 class TypeEqualsVisitor {
@@ -668,29 +672,33 @@ class TypeEqualsVisitor {
 
 }  // namespace internal
 
-Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
-  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right, are_equal);
+bool ArrayEquals(const Array& left, const Array& right) {
+  return internal::ArrayEqualsImpl<internal::ArrayEqualsVisitor>(left, right);
 }
 
-Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
-  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right, are_equal);
+bool ArrayApproxEquals(const Array& left, const Array& right) {
+  return internal::ArrayEqualsImpl<internal::ApproxEqualsVisitor>(left, right);
 }
 
-Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
-                        int64_t left_end_idx, int64_t right_start_idx, bool* are_equal) {
+bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_idx,
+                      int64_t left_end_idx, int64_t right_start_idx) {
+  bool are_equal;
   if (&left == &right) {
-    *are_equal = true;
+    are_equal = true;
   } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
+    are_equal = false;
   } else if (left.length() == 0) {
-    *are_equal = true;
+    are_equal = true;
   } else {
     internal::RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx,
                                          right_start_idx);
-    RETURN_NOT_OK(VisitArrayInline(left, &visitor));
-    *are_equal = visitor.result();
+    auto error = VisitArrayInline(left, &visitor);
+    if (!error.ok()) {
+      DCHECK(false) << "Arrays are not comparable: " << error.ToString();
+    }
+    are_equal = visitor.result();
   }
-  return Status::OK();
+  return are_equal;
 }
 
 bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
@@ -716,24 +724,25 @@ bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t righ
   return true;
 }
 
-Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
+bool TensorEquals(const Tensor& left, const Tensor& right) {
+  bool are_equal;
   // The arrays are the same object
   if (&left == &right) {
-    *are_equal = true;
+    are_equal = true;
   } else if (left.type_id() != right.type_id()) {
-    *are_equal = false;
+    are_equal = false;
   } else if (left.size() == 0) {
-    *are_equal = true;
+    are_equal = true;
   } else {
     if (!left.is_contiguous() || !right.is_contiguous()) {
       const auto& shape = left.shape();
       if (shape != right.shape()) {
-        *are_equal = false;
-        return Status::OK();
+        are_equal = false;
+      } else {
+        const auto& type = static_cast<const FixedWidthType&>(*left.type());
+        are_equal = StridedTensorContentEquals(0, 0, 0,
+                                               type.bit_width() / 8, left, right);
       }
-      const auto& type = static_cast<const FixedWidthType&>(*left.type());
-      *are_equal = StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
-      return Status::OK();
     } else {
       const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
       const int byte_width = size_meta.bit_width() / CHAR_BIT;
@@ -742,24 +751,55 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
       const uint8_t* left_data = left.data()->data();
       const uint8_t* right_data = right.data()->data();
 
-      *are_equal = memcmp(left_data, right_data,
-                          static_cast<size_t>(byte_width * left.size())) == 0;
+      are_equal = memcmp(left_data, right_data,
+                         static_cast<size_t>(byte_width * left.size())) == 0;
     }
   }
+  return are_equal;
+}
+
+bool TypeEquals(const DataType& left, const DataType& right) {
+  bool are_equal;
+  // The arrays are the same object
+  if (&left == &right) {
+    are_equal = true;
+  } else if (left.id() != right.id()) {
+    are_equal = false;
+  } else {
+    internal::TypeEqualsVisitor visitor(right);
+    auto error = VisitTypeInline(left, &visitor);
+    if (!error.ok()) {
+      DCHECK(false) << "Types are not comparable: " << error.ToString();
+    }
+    are_equal = visitor.result();
+  }
+  return are_equal;
+}
+
+Status ArrayEquals(const Array& left, const Array& right, bool* are_equal) {
+  *are_equal = ArrayEquals(left, right);
+  return Status::OK();
+}
+
+Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
+  *are_equal = TensorEquals(left, right);
+  return Status::OK();
+}
+
+Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal) {
+  *are_equal = ArrayApproxEquals(left, right);
+  return Status::OK();
+}
+
+Status ArrayRangeEquals(const Array& left, const Array& right,
+                        int64_t start_idx, int64_t end_idx,
+                        int64_t other_start_idx, bool* are_equal) {
+  *are_equal = ArrayRangeEquals(left, right, start_idx, end_idx, other_start_idx);
   return Status::OK();
 }
 
 Status TypeEquals(const DataType& left, const DataType& right, bool* are_equal) {
-  // The arrays are the same object
-  if (&left == &right) {
-    *are_equal = true;
-  } else if (left.id() != right.id()) {
-    *are_equal = false;
-  } else {
-    internal::TypeEqualsVisitor visitor(right);
-    RETURN_NOT_OK(VisitTypeInline(left, &visitor));
-    *are_equal = visitor.result();
-  }
+  *are_equal = TypeEquals(left, right);
   return Status::OK();
 }
 

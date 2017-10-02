@@ -47,8 +47,7 @@ namespace arrow {
 namespace compute {
 
 void AssertArraysEqual(const Array& left, const Array& right) {
-  bool are_equal = false;
-  ASSERT_OK(ArrayEquals(left, right, &are_equal));
+  bool are_equal = ArrayEquals(left, right);
 
   if (!are_equal) {
     std::stringstream ss;
