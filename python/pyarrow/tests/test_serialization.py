@@ -19,7 +19,7 @@ from __future__ import division
 
 import pytest
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict, defaultdict
 import string
 import sys
 
@@ -50,6 +50,12 @@ def assert_equal(obj1, obj2):
                                                                   .format(
                                                                       obj1,
                                                                       obj2))
+        try:
+            # Workaround to make comparison of OrderedDicts work on Python 2.7
+            if obj1 == obj2:
+                return
+        except:
+            pass
         for key in obj1.__dict__.keys():
             if key not in special_keys:
                 assert_equal(obj1.__dict__[key], obj2.__dict__[key])
@@ -168,7 +174,8 @@ NamedTupleExample = namedtuple("Example",
 
 CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
                   Foo(), Bar(), Baz(), Qux(), SubQux(), SubQuxPickle(),
-                  NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3])]
+                  NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3]),
+                  OrderedDict([("hello", 1), ("world", 2)])]
 
 
 def make_serialization_context():
@@ -212,6 +219,28 @@ def make_serialization_context():
         context.register_type(long, 20 * b"\x11", pickle=False,  # noqa: E501,F821
                               custom_serializer=lambda obj: str(obj),
                               custom_deserializer=deserializer)
+
+    def ordered_dict_custom_serializer(obj):
+        return list(obj.keys()), list(obj.values())
+
+    def ordered_dict_custom_deserializer(obj):
+        return OrderedDict(zip(obj[0], obj[1]))
+
+    context.register_type(OrderedDict, 20 * b"\x12", pickle=False,
+                          custom_serializer=ordered_dict_custom_serializer,
+                          custom_deserializer=ordered_dict_custom_deserializer)
+
+    def default_dict_custom_serializer(obj):
+        return list(obj.keys()), list(obj.values()), obj.default_factory
+
+    def default_dict_custom_deserializer(obj):
+        return defaultdict(obj[2], zip(obj[0], obj[1]))
+
+    context.register_type(defaultdict, 20 * b"\x13", pickle=False,
+                          custom_serializer=default_dict_custom_serializer,
+                          custom_deserializer=default_dict_custom_deserializer)
+
+    context.register_type(type(lambda: 0), 20 * b"\x14", pickle=True)
 
     return context
 
@@ -266,6 +295,11 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
+def test_default_dict_serialization(large_memory_map):
+    cloudpickle = pytest.importorskip("cloudpickle")
+    with pa.memory_map(large_memory_map, mode="r+") as mmap:
+        obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
+        serialization_roundtrip(obj, mmap)
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:

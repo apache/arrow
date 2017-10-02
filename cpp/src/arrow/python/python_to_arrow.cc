@@ -469,7 +469,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   } else if (PyList_Check(elem)) {
     RETURN_NOT_OK(builder->AppendList(PyList_Size(elem)));
     sublists->push_back(elem);
-  } else if (PyDict_Check(elem)) {
+  } else if (PyDict_CheckExact(elem)) {
     RETURN_NOT_OK(builder->AppendDict(PyDict_Size(elem)));
     subdicts->push_back(elem);
   } else if (PyTuple_CheckExact(elem)) {
