@@ -37,6 +37,9 @@ int send_fd(int conn, int fd) {
   init_msg(&msg, &iov, buf, sizeof(buf));
 
   struct cmsghdr* header = CMSG_FIRSTHDR(&msg);
+  if (header == nullptr) {
+    return -1;
+  }
   header->cmsg_level = SOL_SOCKET;
   header->cmsg_type = SCM_RIGHTS;
   header->cmsg_len = CMSG_LEN(sizeof(int));

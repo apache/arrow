@@ -201,7 +201,7 @@ class ARROW_EXPORT BufferBuilder {
     if (elements == 0) {
       return Status::OK();
     }
-    if (capacity_ == 0) {
+    if (buffer_ == nullptr) {
       buffer_ = std::make_shared<PoolBuffer>(pool_);
     }
     int64_t old_capacity = capacity_;

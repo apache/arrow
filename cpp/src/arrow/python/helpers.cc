@@ -55,6 +55,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   }
 }
 
+namespace internal {
+
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
@@ -106,10 +108,9 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision,
   return Decimal128::FromString(c_string, nullptr, precision, scale);
 }
 
-Status DecimalFromString(PyObject* decimal_constructor, const std::string& decimal_string,
-                         PyObject** out) {
+PyObject* DecimalFromString(PyObject* decimal_constructor,
+                            const std::string& decimal_string) {
   DCHECK_NE(decimal_constructor, nullptr);
-  DCHECK_NE(out, nullptr);
 
   auto string_size = decimal_string.size();
   DCHECK_GT(string_size, 0);
@@ -117,11 +118,10 @@ Status DecimalFromString(PyObject* decimal_constructor, const std::string& decim
   auto string_bytes = decimal_string.c_str();
   DCHECK_NE(string_bytes, nullptr);
 
-  *out = PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
+  return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
                                string_size);
-  RETURN_IF_PYERROR();
-  return Status::OK();
 }
 
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow

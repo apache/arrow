@@ -349,7 +349,6 @@ Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionar
       reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
   RETURN_NOT_OK(
       ReadRecordBatch(batch_meta, dummy_schema, kMaxNestingDepth, file, &batch));
-
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
@@ -525,6 +524,13 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     std::shared_ptr<Buffer> buffer;
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+
+    const int64_t expected_footer_size = magic_size + sizeof(int32_t);
+    if (buffer->size() < expected_footer_size) {
+      std::stringstream ss;
+      ss << "Unable to read " << expected_footer_size << "from end of file";
+      return Status::Invalid(ss.str());
+    }
 
     if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
       return Status::Invalid("Not an Arrow file");

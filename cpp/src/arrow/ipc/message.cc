@@ -29,6 +29,7 @@
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace ipc {
@@ -194,8 +195,17 @@ std::string FormatMessageType(Message::Type type) {
 
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
                    std::unique_ptr<Message>* message) {
+  DCHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t));
+
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
+
+  if (buffer->size() < metadata_length) {
+    std::stringstream ss;
+    ss << "Expected to read " << metadata_length << " metadata bytes but got "
+       << buffer->size();
+    return Status::Invalid(ss.str());
+  }
 
   int32_t flatbuffer_size = *reinterpret_cast<const int32_t*>(buffer->data());
 

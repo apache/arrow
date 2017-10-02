@@ -224,6 +224,8 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values,
 
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
+  DCHECK_EQ(data->buffers.size(), 2);
+
   auto value_offsets = data->buffers[1];
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
@@ -246,6 +248,7 @@ BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
 }
 
 void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->buffers.size(), 3);
   auto value_offsets = data->buffers[1];
   auto value_data = data->buffers[2];
   this->Array::SetData(data);
@@ -342,6 +345,7 @@ std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
     DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
   }
+  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 
@@ -350,6 +354,8 @@ std::shared_ptr<Array> StructArray::field(int i) const {
 
 void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
+
+  DCHECK_EQ(data->buffers.size(), 3);
 
   auto type_ids = data_->buffers[1];
   auto value_offsets = data_->buffers[2];
@@ -385,6 +391,7 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
     DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
   }
+  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 
@@ -594,10 +601,11 @@ class ArrayDataWrapper {
 
 }  // namespace internal
 
-// Remove enclosing namespace after 0.7.0
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
   internal::ArrayDataWrapper wrapper_visitor(data, out);
-  return VisitTypeInline(*data->type, &wrapper_visitor);
+  RETURN_NOT_OK(VisitTypeInline(*data->type, &wrapper_visitor));
+  DCHECK(out);
+  return Status::OK();
 }
 
 #ifndef ARROW_NO_DEPRECATED_API

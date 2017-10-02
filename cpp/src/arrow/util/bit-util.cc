@@ -31,6 +31,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -48,9 +49,9 @@ Status BitUtil::BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
 
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateBuffer(pool, bit_length, &buffer));
-
-  memset(buffer->mutable_data(), 0, static_cast<size_t>(bit_length));
-  FillBitsFromBytes(bytes, buffer->mutable_data());
+  uint8_t* out_buf = buffer->mutable_data();
+  memset(out_buf, 0, static_cast<size_t>(bit_length));
+  FillBitsFromBytes(bytes, out_buf);
 
   *out = buffer;
   return Status::OK();
