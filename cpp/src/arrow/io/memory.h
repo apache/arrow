@@ -22,7 +22,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
@@ -99,15 +98,8 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   void set_memcopy_threshold(int64_t threshold);
 
  protected:
-  std::mutex lock_;
-  std::shared_ptr<Buffer> buffer_;
-  uint8_t* mutable_data_;
-  int64_t size_;
-  int64_t position_;
-
-  int memcopy_num_threads_;
-  int64_t memcopy_blocksize_;
-  int64_t memcopy_threshold_;
+  class FixedSizeBufferWriterImpl;
+  std::unique_ptr<FixedSizeBufferWriterImpl> impl_;
 };
 
 /// \class BufferReader
@@ -124,6 +116,12 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* out) override;
+
+  /// Default implementation is thread-safe
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
