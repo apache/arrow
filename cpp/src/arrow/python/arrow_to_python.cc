@@ -28,6 +28,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/python_to_arrow.h"
+#include "arrow/python/util/datetime.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
@@ -126,6 +127,12 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
     case Type::DOUBLE:
       *result = PyFloat_FromDouble(static_cast<const DoubleArray&>(arr).Value(index));
       return Status::OK();
+    case Type::DATE64: {
+      PyDateTime_IMPORT;
+      RETURN_NOT_OK(PyDateTime_from_int(static_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
+      RETURN_IF_PYERROR();
+      return Status::OK();
+    }
     case Type::STRUCT: {
       const auto& s = static_cast<const StructArray&>(arr);
       const auto& l = static_cast<const ListArray&>(*s.field(0));

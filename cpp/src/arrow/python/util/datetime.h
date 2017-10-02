@@ -18,6 +18,8 @@
 #ifndef PYARROW_UTIL_DATETIME_H
 #define PYARROW_UTIL_DATETIME_H
 
+#include <sstream>
+
 #include <datetime.h>
 #include "arrow/python/platform.h"
 
@@ -66,6 +68,48 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
   }
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
                          static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
+  return Status::OK();
+}
+
+static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
+                                         PyObject** out) {
+  int64_t microsecond = 0;
+  switch (unit) {
+    case TimeUnit::NANO:
+      if (val % 1000 != 0) {
+        std::stringstream ss;
+        ss << "Value " << val << " has non-zero nanoseconds";
+        return Status::Invalid(ss.str());
+      }
+      val /= 1000;
+    // fall through
+    case TimeUnit::MICRO:
+      microsecond = val - (val / 1000000LL) * 1000000LL;
+      val /= 1000000LL;
+      break;
+    case TimeUnit::MILLI:
+      microsecond = (val - (val / 1000) * 1000) * 1000;
+      val /= 1000;
+      break;
+    case TimeUnit::SECOND:
+      break;
+    default:
+      break;
+  }
+  // Now val is in seconds and we are going to do the inverse of what
+  // PyDateTime_to_us does. Note that localtime is the inverse of mktime.
+  // Note also that this is probably not threadsafe.
+  time_t t = static_cast<time_t>(val);
+  struct tm epoch;
+  memset(&epoch, 0, sizeof(struct tm));
+  epoch.tm_year = 70;
+  epoch.tm_mday = 1;
+  t += mktime(&epoch);
+  struct tm* datetime = localtime(&t);
+  *out = PyDateTime_FromDateAndTime(datetime->tm_year + 1900, datetime->tm_mon + 1,
+                                    datetime->tm_mday, datetime->tm_hour,
+                                    datetime->tm_min, datetime->tm_sec,
+                                    microsecond);
   return Status::OK();
 }
 

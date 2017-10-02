@@ -20,6 +20,7 @@ from __future__ import division
 import pytest
 
 from collections import namedtuple, OrderedDict, defaultdict
+import datetime
 import string
 import sys
 
@@ -309,6 +310,17 @@ def test_numpy_serialization(large_memory_map):
                   "int32", "uint32", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)
+
+
+def test_datetime_serialization(large_memory_map):
+    data = [datetime.datetime(year=1911, month=6, day=3, hour=4,
+                              minute=55, second=44),
+            datetime.datetime(year=1911, month=2, day=3),
+            datetime.datetime(year=2011, month=6, day=3, hour=3,
+                              minute=55, second=44)]
+    with pa.memory_map(large_memory_map, mode="r+") as mmap:
+        for d in data:
+            serialization_roundtrip(d, mmap)
 
 
 def test_numpy_immutable(large_memory_map):
