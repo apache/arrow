@@ -175,8 +175,7 @@ NamedTupleExample = namedtuple("Example",
 CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
                   Foo(), Bar(), Baz(), Qux(), SubQux(), SubQuxPickle(),
                   NamedTupleExample(1, 1.0, "hi", np.zeros([3, 5]), [1, 2, 3]),
-                  OrderedDict([("hello", 1), ("world", 2)]),
-                  defaultdict(lambda: 0, [("hello", 1), ("world", 2)])]
+                  OrderedDict([("hello", 1), ("world", 2)])]
 
 
 def make_serialization_context():
@@ -296,6 +295,11 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
+def test_default_dict_serialization(large_memory_map):
+    cloudpickle = pytest.importorskip("cloudpickle")
+    with pa.memory_map(large_memory_map, mode="r+") as mmap:
+        obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
+        serialization_roundtrip(obj, mmap)
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
