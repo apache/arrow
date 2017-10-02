@@ -615,8 +615,8 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
   PyAcquireGIL lock;
   OwnedRef decimal_ref;
   OwnedRef Decimal_ref;
-  RETURN_NOT_OK(ImportModule("decimal", &decimal_ref));
-  RETURN_NOT_OK(ImportFromModule(decimal_ref, "Decimal", &Decimal_ref));
+  RETURN_NOT_OK(internal::ImportModule("decimal", &decimal_ref));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal_ref, "Decimal", &Decimal_ref));
   PyObject* Decimal = Decimal_ref.obj();
 
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -633,7 +633,8 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
         const uint8_t* raw_value = arr->GetValue(i);
         std::string decimal_string;
         RETURN_NOT_OK(RawDecimalToString(raw_value, precision, scale, &decimal_string));
-        RETURN_NOT_OK(DecimalFromString(Decimal, decimal_string, out_values++));
+        *out_values++ = internal::DecimalFromString(Decimal, decimal_string);
+        RETURN_IF_PYERROR();
       }
     }
   }

@@ -224,6 +224,7 @@ uint8_t* read_message_async(int sock) {
   uint8_t* message = reinterpret_cast<uint8_t*>(malloc(size));
   s = ReadBytes(sock, message, size);
   if (!s.ok()) {
+    free(message);
     /* The other side has closed the socket. */
     ARROW_LOG(DEBUG) << "Socket has been closed, or some other error has occurred.";
     close(sock);
