@@ -36,6 +36,7 @@ which python
 
 conda install -y -q pip \
       nomkl \
+      cloudpickle \
       numpy=1.13.1 \
       pandas \
       cython \
