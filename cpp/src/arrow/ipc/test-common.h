@@ -708,7 +708,8 @@ Status MakeNull(std::shared_ptr<RecordBatch>* out) {
   auto a1 = std::make_shared<NullArray>(10);
 
   std::vector<int64_t> int_values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  std::vector<bool> is_valid = {true, true, true, false, false, true, true, true, true, true};
+  std::vector<bool> is_valid = {true, true, true, false, false,
+                                true, true, true, true,  true};
   std::shared_ptr<Array> a2;
   ArrayFromVector<Int64Type, int64_t>(f1->type(), is_valid, int_values, &a2);
 
