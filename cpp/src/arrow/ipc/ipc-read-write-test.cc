@@ -121,7 +121,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
                     &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion,               \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
-                    &MakeFWBinary, &MakeDecimal, &MakeBooleanBatch);
+                    &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch);
 
 static int g_file_number = 0;
 

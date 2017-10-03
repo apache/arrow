@@ -470,8 +470,7 @@ class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter
   inline Status AppendItem(const OwnedRef& item) {
     uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint8_t>::max() ||
-                            val < std::numeric_limits<uint8_t>::min())) {
+    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint8_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");
@@ -486,8 +485,7 @@ class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Conver
   inline Status AppendItem(const OwnedRef& item) {
     uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint16_t>::max() ||
-                            val < std::numeric_limits<uint16_t>::min())) {
+    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint16_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");
@@ -502,8 +500,7 @@ class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Conver
   inline Status AppendItem(const OwnedRef& item) {
     uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
-    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint32_t>::max() ||
-                            val < std::numeric_limits<uint32_t>::min())) {
+    if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint32_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");

@@ -697,6 +697,17 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeNull(std::shared_ptr<RecordBatch>* out) {
+  auto f0 = field("f0", null());
+  auto schema = ::arrow::schema({f0});
+
+  auto a1 = std::make_shared<NullArray>(10);
+
+  ArrayVector arrays = {a1};
+  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
+  return Status::OK();
+}
+
 }  // namespace ipc
 }  // namespace arrow
 

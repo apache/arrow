@@ -321,6 +321,11 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const NullArray& array) override {
+    buffers_.push_back(nullptr);
+    return Status::OK();
+  }
+
 #define VISIT_FIXED_WIDTH(TYPE) \
   Status Visit(const TYPE& array) override { return VisitFixedWidth<TYPE>(array); }
 

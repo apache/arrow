@@ -187,7 +187,11 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
+  Status Visit(const NullType& type) {
+    out_->buffers = {nullptr};
+    RETURN_NOT_OK(LoadCommon());
+    return Status::OK();
+  }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&

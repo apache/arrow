@@ -344,6 +344,12 @@ def test_get_record_batch_size():
     assert pa.get_record_batch_size(batch) > (N * itemsize)
 
 
+def _check_serialize_pandas_round_trip(df, nthreads=1):
+    buf = pa.serialize_pandas(df)
+    result = pa.deserialize_pandas(buf, nthreads=nthreads)
+    assert_frame_equal(result, df)
+
+
 def test_pandas_serialize_round_trip():
     index = pd.Index([1, 2, 3], name='my_index')
     columns = ['foo', 'bar']
@@ -351,9 +357,7 @@ def test_pandas_serialize_round_trip():
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
         index=index, columns=columns
     )
-    buf = pa.serialize_pandas(df)
-    result = pa.deserialize_pandas(buf)
-    assert_frame_equal(result, df)
+    _check_serialize_pandas_round_trip(df)
 
 
 def test_pandas_serialize_round_trip_nthreads():
@@ -363,9 +367,7 @@ def test_pandas_serialize_round_trip_nthreads():
         {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
         index=index, columns=columns
     )
-    buf = pa.serialize_pandas(df)
-    result = pa.deserialize_pandas(buf, nthreads=2)
-    assert_frame_equal(result, df)
+    _check_serialize_pandas_round_trip(df, nthreads=2)
 
 
 def test_pandas_serialize_round_trip_multi_index():
@@ -379,9 +381,12 @@ def test_pandas_serialize_round_trip_multi_index():
         index=index,
         columns=columns,
     )
-    buf = pa.serialize_pandas(df)
-    result = pa.deserialize_pandas(buf)
-    assert_frame_equal(result, df)
+    _check_serialize_pandas_round_trip(df)
+
+
+def test_serialize_pandas_empty_dataframe():
+    df = pd.DataFrame()
+    _check_serialize_pandas_round_trip(df)
 
 
 @pytest.mark.xfail(
