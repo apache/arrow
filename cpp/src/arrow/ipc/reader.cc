@@ -74,7 +74,7 @@ class IpcComponentSource {
     }
   }
 
-  Status GetFieldMetadata(int field_index, internal::ArrayData* out) {
+  Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     // pop off a field
     if (field_index >= static_cast<int>(nodes->size())) {
@@ -106,11 +106,11 @@ struct ArrayLoaderContext {
 };
 
 static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, internal::ArrayData* out);
+                        ArrayLoaderContext* context, ArrayData* out);
 
 class ArrayLoader {
  public:
-  ArrayLoader(const std::shared_ptr<DataType>& type, internal::ArrayData* out,
+  ArrayLoader(const std::shared_ptr<DataType>& type, ArrayData* out,
               ArrayLoaderContext* context)
       : type_(type), context_(context), out_(out) {}
 
@@ -168,7 +168,7 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
-  Status LoadChild(const Field& field, internal::ArrayData* out) {
+  Status LoadChild(const Field& field, ArrayData* out) {
     ArrayLoader loader(field.type(), out, context_);
     --context_->max_recursion_depth;
     RETURN_NOT_OK(loader.Load());
@@ -180,7 +180,7 @@ class ArrayLoader {
     out_->child_data.reserve(static_cast<int>(child_fields.size()));
 
     for (const auto& child_field : child_fields) {
-      auto field_array = std::make_shared<internal::ArrayData>();
+      auto field_array = std::make_shared<ArrayData>();
       RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
       out_->child_data.emplace_back(field_array);
     }
@@ -188,8 +188,6 @@ class ArrayLoader {
   }
 
   Status Visit(const NullType& type) { return Status::NotImplemented("null"); }
-
-  Status Visit(const DecimalType& type) { return Status::NotImplemented("decimal"); }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
@@ -259,11 +257,11 @@ class ArrayLoader {
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
-  internal::ArrayData* out_;
+  ArrayData* out_;
 };
 
 static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, internal::ArrayData* out) {
+                        ArrayLoaderContext* context, ArrayData* out) {
   ArrayLoader loader(type, out, context);
   return loader.Load();
 }
@@ -293,9 +291,9 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
   context.buffer_index = 0;
   context.max_recursion_depth = max_recursion_depth;
 
-  std::vector<std::shared_ptr<internal::ArrayData>> arrays(schema->num_fields());
+  std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
-    auto arr = std::make_shared<internal::ArrayData>();
+    auto arr = std::make_shared<ArrayData>();
     RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, arr.get()));
     DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
     arrays[i] = std::move(arr);
@@ -351,7 +349,6 @@ Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionar
       reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
   RETURN_NOT_OK(
       ReadRecordBatch(batch_meta, dummy_schema, kMaxNestingDepth, file, &batch));
-
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
@@ -390,8 +387,6 @@ static Status ReadMessageAndValidate(MessageReader* reader, Message::Type expect
 static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock{block->offset(), block->metaDataLength(), block->bodyLength()};
 }
-
-RecordBatchReader::~RecordBatchReader() {}
 
 class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
  public:
@@ -434,7 +429,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     return GetSchema(message->header(), dictionary_memo_, &schema_);
   }
 
-  Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::RECORD_BATCH,
                                          true, &message));
@@ -506,8 +501,8 @@ std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
   return impl_->schema();
 }
 
-Status RecordBatchStreamReader::ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
-  return impl_->ReadNextRecordBatch(batch);
+Status RecordBatchStreamReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
+  return impl_->ReadNext(batch);
 }
 
 // ----------------------------------------------------------------------
@@ -529,6 +524,13 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     std::shared_ptr<Buffer> buffer;
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+
+    const int64_t expected_footer_size = magic_size + sizeof(int32_t);
+    if (buffer->size() < expected_footer_size) {
+      std::stringstream ss;
+      ss << "Unable to read " << expected_footer_size << "from end of file";
+      return Status::Invalid(ss.str());
+    }
 
     if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
       return Status::Invalid("Not an Arrow file");

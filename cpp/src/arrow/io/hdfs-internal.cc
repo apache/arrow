@@ -44,6 +44,7 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace fs = boost::filesystem;
 
@@ -346,6 +347,7 @@ bool LibHdfsShim::HasPread() {
 tSize LibHdfsShim::Pread(hdfsFS fs, hdfsFile file, tOffset position, void* buffer,
                          tSize length) {
   GET_SYMBOL(this, hdfsPread);
+  DCHECK(this->hdfsPread);
   return this->hdfsPread(fs, file, position, buffer, length);
 }
 

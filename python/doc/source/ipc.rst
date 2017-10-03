@@ -19,8 +19,11 @@
 
 .. _ipc:
 
-IPC: Fast Streaming and Serialization
-=====================================
+Streaming, Serialization, and IPC
+=================================
+
+Writing and Reading Streams
+---------------------------
 
 Arrow defines two types of binary formats for serializing record batches:
 
@@ -35,8 +38,8 @@ Arrow defines two types of binary formats for serializing record batches:
 To follow this section, make sure to first read the section on :ref:`Memory and
 IO <io>`.
 
-Writing and Reading Streams
----------------------------
+Using streams
+~~~~~~~~~~~~~
 
 First, let's create a small record batch:
 
@@ -102,7 +105,7 @@ An important point is that if the input source supports zero-copy reads
 batches are also zero-copy and do not allocate any new memory on read.
 
 Writing and Reading Random Access Files
----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 :class:`~pyarrow.RecordBatchStreamWriter`:
@@ -138,7 +141,7 @@ batches in the file, and can read any at random:
    b.equals(batch)
 
 Reading from Stream and File Format for pandas
-----------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The stream and file reader classes have a special ``read_pandas`` method to
 simplify reading multiple record batches and converting them to a single
@@ -147,4 +150,157 @@ DataFrame output:
 .. ipython:: python
 
    df = pa.open_file(buf).read_pandas()
-   df
+   df[:5]
+
+Arbitrary Object Serialization
+------------------------------
+
+In ``pyarrow`` we are able to serialize and deserialize many kinds of Python
+objects. While not a complete replacement for the ``pickle`` module, these
+functions can be significantly faster, particular when dealing with collections
+of NumPy arrays.
+
+As an example, consider a dictionary containing NumPy arrays:
+
+.. ipython:: python
+
+   import numpy as np
+
+   data = {
+       i: np.random.randn(500, 500)
+       for i in range(100)
+   }
+
+We use the ``pyarrow.serialize`` function to convert this data to a byte
+buffer:
+
+.. ipython:: python
+
+   buf = pa.serialize(data).to_buffer()
+   type(buf)
+   buf.size
+
+``pyarrow.serialize`` creates an intermediate object which can be converted to
+a buffer (the ``to_buffer`` method) or written directly to an output stream.
+
+``pyarrow.deserialize`` converts a buffer-like object back to the original
+Python object:
+
+.. ipython:: python
+
+   restored_data = pa.deserialize(buf)
+   restored_data[0]
+
+When dealing with NumPy arrays, ``pyarrow.deserialize`` can be significantly
+faster than ``pickle`` because the resulting arrays are zero-copy references
+into the input buffer. The larger the arrays, the larger the performance
+savings.
+
+Consider this example, we have for ``pyarrow.deserialize``
+
+.. ipython:: python
+
+   %timeit restored_data = pa.deserialize(buf)
+
+And for pickle:
+
+.. ipython:: python
+
+   import pickle
+   pickled = pickle.dumps(data)
+   %timeit unpickled_data = pickle.loads(pickled)
+
+We aspire to make these functions a high-speed alternative to pickle for
+transient serialization in Python big data applications.
+
+Serializing Custom Data Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If an unrecognized data type is encountered when serializing an object,
+``pyarrow`` will fall back on using ``pickle`` for converting that type to a
+byte string. There may be a more efficient way, though.
+
+Consider a class with two members, one of which is a NumPy array:
+
+.. code-block:: python
+
+   class MyData:
+       def __init__(self, name, data):
+           self.name = name
+           self.data = data
+
+We write functions to convert this to and from a dictionary with simpler types:
+
+.. code-block:: python
+
+   def _serialize_MyData(val):
+       return {'name': val.name, 'data': val.data}
+
+   def _deserialize_MyData(data):
+       return MyData(data['name'], data['data']
+
+then, we must register these functions in a ``SerializationContext`` so that
+``MyData`` can be recognized:
+
+.. code-block:: python
+
+   context = pa.SerializationContext()
+   context.register_type(MyData, 'MyData',
+                         custom_serializer=_serialize_MyData,
+                         custom_deserializer=_deserialize_MyData)
+
+Lastly, we use this context as an additioanl argument to ``pyarrow.serialize``:
+
+.. code-block:: python
+
+   buf = pa.serialize(val, context=context).to_buffer()
+   restored_val = pa.deserialize(buf, context=context)
+
+Feather Format
+--------------
+
+Feather is a lightweight file-format for data frames that uses the Arrow memory
+layout for data representation on disk. It was created early in the Arrow
+project as a proof of concept for fast, language-agnostic data frame storage
+for Python (pandas) and R.
+
+Compared with Arrow streams and files, Feather has some limitations:
+
+* Only non-nested data types and categorical (dictionary-encoded) types are
+  supported
+* Supports only a single batch of rows, where general Arrow streams support an
+  arbitrary number
+* Supports limited scalar value types, adequate only for representing typical
+  data found in R and pandas
+
+We would like to continue to innovate in the Feather format, but we must wait
+for an R implementation for Arrow to mature.
+
+The ``pyarrow.feather`` module contains the read and write functions for the
+format. The input and output are ``pandas.DataFrame`` objects:
+
+.. code-block:: python
+
+   import pyarrow.feather as feather
+
+   feather.write_feather(df, '/path/to/file')
+   read_df = feather.read_feather('/path/to/file')
+
+``read_feather`` supports multithreaded reads, and may yield faster performance
+on some files:
+
+.. code-block:: python
+
+   read_df = feather.read_feather('/path/to/file', nthreads=4)
+
+These functions can read and write with file-like objects. For example:
+
+.. code-block:: python
+
+   with open('/path/to/file', 'wb') as f:
+       feather.write_feather(df, f)
+
+   with open('/path/to/file', 'rb') as f:
+       read_df = feather.read_feather(f)
+
+A file input to ``read_feather`` must support seeking.

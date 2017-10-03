@@ -23,7 +23,9 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew install gtk-doc autoconf-archive gobject-introspection
-  brew upgrade git cmake wget libtool
+  brew upgrade git cmake
+  brew outdated || brew upgrade wget
+  brew outdated || brew upgrade libtool
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
 fi
@@ -32,6 +34,7 @@ gem install test-unit gobject-introspection
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   brew install lua
+  sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 else
   git clone \
     --quiet \
@@ -43,8 +46,8 @@ else
   echo "yes" | ./install.sh > /dev/null
   . ~/torch/install/bin/torch-activate
   popd
+  luarocks install lgi
 fi
-luarocks install lgi
 
 go get github.com/linuxdeepin/go-gir-generator || :
 pushd $GOPATH/src/github.com/linuxdeepin/go-gir-generator

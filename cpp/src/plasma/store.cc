@@ -458,8 +458,7 @@ void PlasmaStore::disconnect_client(int client_fd) {
 /// be
 /// buffered, and this will be called again when the send buffer has room.
 ///
-/// @param client The client to send the notification to.
-/// @return Void.
+/// @param client_fd The client to send the notification to.
 void PlasmaStore::send_notifications(int client_fd) {
   auto it = pending_notifications_.find(client_fd);
 
@@ -666,7 +665,7 @@ class PlasmaStoreRunner {
   std::unique_ptr<PlasmaStore> store_;
 };
 
-static PlasmaStoreRunner* g_runner = nullptr;
+static std::unique_ptr<PlasmaStoreRunner> g_runner = nullptr;
 
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
@@ -684,10 +683,9 @@ void start_server(char* socket_name, int64_t system_memory, std::string plasma_d
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
 
-  PlasmaStoreRunner runner;
-  g_runner = &runner;
+  g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  runner.Start(socket_name, system_memory, plasma_directory, hugepages_enabled);
+  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled);
 }
 
 }  // namespace plasma

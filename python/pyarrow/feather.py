@@ -104,9 +104,15 @@ class FeatherWriter(object):
 
 
 def write_feather(df, dest):
-    '''
+    """
     Write a pandas.DataFrame to Feather format
-    '''
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    dest : string
+        Local file path
+    """
     writer = FeatherWriter(dest)
     try:
         writer.write(df)

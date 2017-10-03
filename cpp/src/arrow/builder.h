@@ -18,6 +18,7 @@
 #ifndef ARROW_BUILDER_H
 #define ARROW_BUILDER_H
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <limits>
@@ -38,19 +39,13 @@
 namespace arrow {
 
 class Array;
+class Decimal128;
 
 namespace internal {
 
 struct ArrayData;
 
 }  // namespace internal
-
-namespace decimal {
-
-template <typename T>
-struct Decimal;
-
-}  // namespace decimal
 
 static constexpr int64_t kMinBuilderCapacity = 1 << 5;
 
@@ -84,9 +79,11 @@ class ARROW_EXPORT ArrayBuilder {
 
   /// Append to null bitmap
   Status AppendToBitmap(bool is_valid);
+
   /// Vector append. Treat each zero byte as a null.   If valid_bytes is null
   /// assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
@@ -152,11 +149,14 @@ class ARROW_EXPORT ArrayBuilder {
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
   void UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t length);
+
+  void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
+
   // Set the next length bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ArrayBuilder);
 };
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
@@ -203,12 +203,35 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
 
   std::shared_ptr<Buffer> data() const { return data_; }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
   Status Append(const value_type* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const value_type* values, int64_t length,
+                const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of values
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<value_type>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of values
+  /// \return Status
+  Status Append(const std::vector<value_type>& values);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
@@ -396,17 +419,20 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
     return Status::OK();
   }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
   Status Append(const uint64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
 
-  Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
+  Status ExpandIntSize(uint8_t new_int_size);
+
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
@@ -455,17 +481,20 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
     return Status::OK();
   }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
   Status Append(const int64_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
 
-  Status ExpandIntSize(uint8_t new_int_size);
   Status Finish(std::shared_ptr<Array>* out) override;
 
  protected:
+  Status ExpandIntSize(uint8_t new_int_size);
+
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
@@ -522,12 +551,46 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status Append(const uint8_t val) { return Append(val != 0); }
 
-  /// Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous array of bytes (non-zero is 1)
+  /// \param[in] length the number of values to append
+  /// \param[in] valid_bytes an optional sequence of bytes where non-zero
+  /// indicates a valid (non-null) value
+  /// \return Status
   Status Append(const uint8_t* values, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a contiguous C array of values
+  /// \param[in] length the number of values to append
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const uint8_t* values, int64_t length, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of bytes
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<uint8_t>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values a std::vector of bytes
+  /// \return Status
+  Status Append(const std::vector<uint8_t>& values);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values an std::vector<bool> indicating true (1) or false
+  /// \param[in] is_valid an std::vector<bool> indicating valid (1) or null
+  /// (0). Equal in length to values
+  /// \return Status
+  Status Append(const std::vector<bool>& values, const std::vector<bool>& is_valid);
+
+  /// \brief Append a sequence of elements in one shot
+  /// \param[in] values an std::vector<bool> indicating true (1) or false
+  /// \return Status
+  Status Append(const std::vector<bool>& values);
 
   Status Finish(std::shared_ptr<Array>* out) override;
   Status Init(int64_t capacity) override;
@@ -642,7 +705,7 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   static constexpr int64_t kMaximumCapacity = std::numeric_limits<int32_t>::max() - 1;
 
   Status AppendNextOffset();
-  Status FinishInternal(std::shared_ptr<internal::ArrayData>* out);
+  Status FinishInternal(std::shared_ptr<ArrayData>* out);
   void Reset();
 };
 
@@ -674,6 +737,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value);
+
+  template <size_t NBYTES>
+  Status Append(const std::array<uint8_t, NBYTES>& value) {
+    RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    return byte_builder_.Append(value);
+  }
+
   Status Append(const uint8_t* data, int64_t length,
                 const uint8_t* valid_bytes = nullptr);
   Status Append(const std::string& value);
@@ -685,6 +756,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
+
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  const uint8_t* GetValue(int64_t i) const;
 
  protected:
   int32_t byte_width_;
@@ -701,8 +777,9 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
 #endif
 
-  template <typename T>
-  ARROW_EXPORT Status Append(const decimal::Decimal<T>& val);
+  using FixedSizeBinaryBuilder::Append;
+
+  Status Append(const Decimal128& val);
 
   Status Finish(std::shared_ptr<Array>* out) override;
 };
@@ -795,6 +872,11 @@ struct DictionaryScalar<StringType> {
   using type = WrappedBinary;
 };
 
+template <>
+struct DictionaryScalar<FixedSizeBinaryType> {
+  using type = uint8_t const*;
+};
+
 }  // namespace internal
 
 /// \brief Array builder for created encoded DictionaryArray from dense array
@@ -850,12 +932,13 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
 
   typename TypeTraits<T>::BuilderType dict_builder_;
   AdaptiveIntBuilder values_builder_;
+  int32_t byte_width_;
 };
 
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
-  using DictionaryBuilder::DictionaryBuilder;
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(internal::WrappedBinary(value, length));
@@ -875,8 +958,8 @@ class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType
 /// \brief Dictionary array builder with convenience methods for strings
 class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
  public:
-  using DictionaryBuilder::DictionaryBuilder;
   using DictionaryBuilder::Append;
+  using DictionaryBuilder::DictionaryBuilder;
 
   Status Append(const uint8_t* value, int32_t length) {
     return Append(internal::WrappedBinary(value, length));

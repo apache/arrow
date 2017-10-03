@@ -30,19 +30,20 @@ To install the latest version of PyArrow from conda-forge using conda:
 Pip
 ---
 
-Install the latest version from PyPI:
+Install the latest version from PyPI (Windows, Linux, and macOS):
 
 .. code-block:: bash
 
     pip install pyarrow
 
+If you encounter any importing issues of the pip wheels on Windows, you may
+need to install the `Visual C++ Redistributable for Visual Studio 2015
+<https://www.microsoft.com/en-us/download/details.aspx?id=48145>`_.
+
 .. note::
 
-    Currently there are only binary artifacts available for Linux and MacOS.
-    Otherwise this will only pull the python sources and assumes an existing
-    installation of the C++ part of Arrow.  To retrieve the binary artifacts,
-    you'll need a recent ``pip`` version that supports features like the
-    ``manylinux1`` tag.
+   Windows packages are only available for Python 3.5 and higher (this is also
+   true for TensorFlow and any package that is implemented with modern C++).
 
 Installing from source
 ----------------------

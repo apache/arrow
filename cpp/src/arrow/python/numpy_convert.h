@@ -57,10 +57,7 @@ bool is_contiguous(PyObject* array);
 ARROW_EXPORT
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
 
-ARROW_EXPORT
 Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
-
-ARROW_EXPORT
 Status GetNumPyType(const DataType& type, int* type_num);
 
 ARROW_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,

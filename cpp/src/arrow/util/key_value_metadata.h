@@ -55,7 +55,7 @@ class ARROW_EXPORT KeyValueMetadata {
   std::vector<std::string> keys_;
   std::vector<std::string> values_;
 
-  DISALLOW_COPY_AND_ASSIGN(KeyValueMetadata);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(KeyValueMetadata);
 };
 
 }  // namespace arrow

@@ -150,6 +150,8 @@ cdef class Column:
 
         if isinstance(field_or_name, Field):
             boxed_field = field_or_name
+            if arr.type != boxed_field.type:
+                raise ValueError('Passed field type does not match array')
         else:
             boxed_field = field(field_or_name, arr.type)
 
@@ -176,7 +178,15 @@ cdef class Column:
                                                         self.sp_column,
                                                         self, &out))
 
-        return pd.Series(wrap_array_output(out), name=self.name)
+        values = wrap_array_output(out)
+        result = pd.Series(values, name=self.name)
+
+        if isinstance(self.type, TimestampType):
+            if self.type.tz is not None:
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(self.type.tz))
+
+        return result
 
     def equals(self, Column other):
         """
@@ -305,7 +315,7 @@ cdef int _schema_from_arrays(
 
     fields.resize(K)
 
-    if len(arrays) == 0:
+    if not K:
         raise ValueError('Must pass at least one array')
 
     if isinstance(arrays[0], Column):
@@ -318,6 +328,9 @@ cdef int _schema_from_arrays(
         if names is None:
             raise ValueError('Must pass names when constructing '
                              'from Array objects')
+        if len(names) != K:
+            raise ValueError("Length of names ({}) does not match "
+                             "length of arrays ({})".format(len(names), K))
         for i in range(K):
             val = arrays[i]
             if isinstance(val, (Array, ChunkedArray)):
@@ -562,7 +575,7 @@ cdef class RecordBatch:
         pyarrow.RecordBatch
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
-            df, False, schema, preserve_index
+            df, schema, preserve_index
         )
         return cls.from_arrays(arrays, names, metadata)
 
@@ -701,18 +714,13 @@ cdef class Table:
         return result
 
     @classmethod
-    def from_pandas(cls, df, bint timestamps_to_ms=False,
-                    Schema schema=None, bint preserve_index=True):
+    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True):
         """
         Convert pandas.DataFrame to an Arrow Table
 
         Parameters
         ----------
         df : pandas.DataFrame
-        timestamps_to_ms : bool
-            Convert datetime columns to ms resolution. This is needed for
-            compability with other functionality like Parquet I/O which
-            only supports milliseconds.
         schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.
@@ -738,14 +746,13 @@ cdef class Table:
         """
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df,
-            timestamps_to_ms=timestamps_to_ms,
             schema=schema,
             preserve_index=preserve_index
         )
         return cls.from_arrays(arrays, names=names, metadata=metadata)
 
     @staticmethod
-    def from_arrays(arrays, names=None, dict metadata=None):
+    def from_arrays(arrays, names=None, schema=None, dict metadata=None):
         """
         Construct a Table from Arrow arrays or columns
 
@@ -764,11 +771,22 @@ cdef class Table:
         """
         cdef:
             vector[shared_ptr[CColumn]] columns
-            shared_ptr[CSchema] schema
+            Schema cy_schema
+            shared_ptr[CSchema] c_schema
             shared_ptr[CTable] table
             int i, K = <int> len(arrays)
 
-        _schema_from_arrays(arrays, names, metadata, &schema)
+        if schema is None:
+            _schema_from_arrays(arrays, names, metadata, &c_schema)
+        elif schema is not None:
+            if names is not None:
+                raise ValueError('Cannot pass schema and arrays')
+            cy_schema = schema
+
+            if len(schema) != len(arrays):
+                raise ValueError('Schema and number of arrays unequal')
+
+            c_schema = cy_schema.sp_schema
 
         columns.reserve(K)
 
@@ -776,23 +794,29 @@ cdef class Table:
             if isinstance(arrays[i], Array):
                 columns.push_back(
                     make_shared[CColumn](
-                        schema.get().field(i),
+                        c_schema.get().field(i),
                         (<Array> arrays[i]).sp_array
                     )
                 )
             elif isinstance(arrays[i], ChunkedArray):
                 columns.push_back(
                     make_shared[CColumn](
-                        schema.get().field(i),
+                        c_schema.get().field(i),
                         (<ChunkedArray> arrays[i]).sp_chunked_array
                     )
                 )
             elif isinstance(arrays[i], Column):
-                columns.push_back((<Column> arrays[i]).sp_column)
+                # Make sure schema field and column are consistent
+                columns.push_back(
+                    make_shared[CColumn](
+                        c_schema.get().field(i),
+                        (<Column> arrays[i]).sp_column.get().data()
+                    )
+                )
             else:
                 raise ValueError(type(arrays[i]))
 
-        table.reset(new CTable(schema, columns))
+        table.reset(new CTable(c_schema, columns))
         return pyarrow_wrap_table(table)
 
     @staticmethod

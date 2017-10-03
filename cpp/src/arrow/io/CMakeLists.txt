@@ -28,6 +28,7 @@ ADD_ARROW_BENCHMARK(io-memory-benchmark)
 
 # Headers: top level
 install(FILES
+  api.h
   file.h
   hdfs.h
   interfaces.h

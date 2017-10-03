@@ -53,6 +53,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
+  <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
   @Override
   public void write(${name}Holder holder) {
     fail("${name}");
@@ -61,6 +62,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     fail("${name}");
   }
+
+  <#if minor.class == "Decimal">
+  public void write${minor.class}(${friendlyType} value) {
+    fail("${name}");
+  }
+  </#if>
 
   </#list></#list>
 

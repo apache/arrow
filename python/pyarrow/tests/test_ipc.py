@@ -40,7 +40,7 @@ class MessagingTest(object):
     def _get_source(self):
         return self.sink.getvalue()
 
-    def write_batches(self, num_batches=5):
+    def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
         df = pd.DataFrame({
             'one': np.random.randn(nrows),
@@ -54,11 +54,16 @@ class MessagingTest(object):
         for i in range(num_batches):
             unique_df = df.copy()
             unique_df['one'] = np.random.randn(len(df))
-
             batch = pa.RecordBatch.from_pandas(unique_df)
-            writer.write_batch(batch)
             frames.append(unique_df)
             batches.append(batch)
+
+        if as_table:
+            table = pa.Table.from_batches(batches)
+            writer.write_table(table)
+        else:
+            for batch in batches:
+                writer.write_batch(batch)
 
         writer.close()
         return frames, batches
@@ -75,8 +80,8 @@ class TestFile(MessagingTest, unittest.TestCase):
         with pytest.raises(pa.ArrowInvalid):
             pa.open_file(buf)
 
-    def test_simple_roundtrip(self):
-        _, batches = self.write_batches()
+    def _check_roundtrip(self, as_table=False):
+        _, batches = self.write_batches(as_table=as_table)
         file_contents = pa.BufferReader(self._get_source())
 
         reader = pa.open_file(file_contents)
@@ -88,6 +93,12 @@ class TestFile(MessagingTest, unittest.TestCase):
             batch = reader.get_batch(i)
             assert batches[i].equals(batch)
             assert reader.schema.equals(batches[0].schema)
+
+    def test_simple_roundtrip(self):
+        self._check_roundtrip(as_table=False)
+
+    def test_write_table(self):
+        self._check_roundtrip(as_table=True)
 
     def test_read_all(self):
         _, batches = self.write_batches()

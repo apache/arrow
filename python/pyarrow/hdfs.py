@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import posixpath
 
 from pyarrow.util import implements
@@ -30,6 +31,9 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
                  driver='libhdfs'):
+        if driver == 'libhdfs':
+            _maybe_set_hadoop_classpath()
+
         self._connect(host, port, user, kerb_ticket, driver)
 
     @implements(FileSystem.isdir)
@@ -44,13 +48,28 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     def delete(self, path, recursive=False):
         return super(HadoopFileSystem, self).delete(path, recursive)
 
-    @implements(FileSystem.mkdir)
-    def mkdir(self, path, create_parents=True):
+    def mkdir(self, path, **kwargs):
+        """
+        Create directory in HDFS
+
+        Parameters
+        ----------
+        path : string
+            Directory path to create, including any parent directories
+
+        Notes
+        -----
+        libhdfs does not support create_parents=False, so we ignore this here
+        """
         return super(HadoopFileSystem, self).mkdir(path)
 
     @implements(FileSystem.rename)
     def rename(self, path, new_path):
         return super(HadoopFileSystem, self).rename(path, new_path)
+
+    @implements(FileSystem.exists)
+    def exists(self, path):
+        return super(HadoopFileSystem, self).exists(path)
 
     def ls(self, path, detail=False):
         """
@@ -88,6 +107,21 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
         for dirname in directories:
             for tup in self.walk(self._path_join(top_path, dirname)):
                 yield tup
+
+
+def _maybe_set_hadoop_classpath():
+    import subprocess
+
+    if 'hadoop' in os.environ.get('CLASSPATH', ''):
+        return
+
+    if 'HADOOP_HOME' in os.environ:
+        hadoop_bin = '{0}/bin/hadoop'.format(os.environ['HADOOP_HOME'])
+    else:
+        hadoop_bin = 'hadoop'
+
+    classpath = subprocess.check_output([hadoop_bin, 'classpath', '--glob'])
+    os.environ['CLASSPATH'] = classpath.decode('utf-8')
 
 
 def _libhdfs_walk_files_dirs(top_path, contents):

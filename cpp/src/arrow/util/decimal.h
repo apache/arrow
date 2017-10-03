@@ -18,127 +18,123 @@
 #ifndef ARROW_DECIMAL_H
 #define ARROW_DECIMAL_H
 
+#include <array>
 #include <cstdint>
-#include <cstdlib>
 #include <string>
+#include <type_traits>
 
 #include "arrow/status.h"
-#include "arrow/util/int128.h"  // IWYU pragma: export
-#include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace decimal {
 
-template <typename T>
-struct ARROW_EXPORT Decimal;
+/// Represents a signed 128-bit integer in two's complement.
+/// Calculations wrap around and overflow is ignored.
+///
+/// For a discussion of the algorithms, look at Knuth's volume 2,
+/// Semi-numerical Algorithms section 4.3.1.
+///
+/// Adapted from the Apache ORC C++ implementation
+class ARROW_EXPORT Decimal128 {
+ public:
+  /// \brief Create an Decimal128 from the two's complement representation.
+  constexpr Decimal128(int64_t high, uint64_t low) : high_bits_(high), low_bits_(low) {}
 
-ARROW_EXPORT void StringToInteger(const std::string& whole, const std::string& fractional,
-                                  int8_t sign, int32_t* out);
-ARROW_EXPORT void StringToInteger(const std::string& whole, const std::string& fractional,
-                                  int8_t sign, int64_t* out);
-ARROW_EXPORT void StringToInteger(const std::string& whole, const std::string& fractional,
-                                  int8_t sign, Int128* out);
+  /// \brief Empty constructor creates an Decimal128 with a value of 0.
+  constexpr Decimal128() : Decimal128(0, 0) {}
 
-template <typename T>
-ARROW_EXPORT Status FromString(const std::string& s, Decimal<T>* out,
-                               int* precision = nullptr, int* scale = nullptr);
+  /// \brief Convert any integer value into an Decimal128.
+  template <typename T,
+            typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+  constexpr Decimal128(T value)
+      : Decimal128(static_cast<int64_t>(value) >= 0 ? 0 : -1,
+                   static_cast<uint64_t>(value)) {}
 
-template <typename T>
-struct ARROW_EXPORT Decimal {
-  Decimal() : value() {}
-  explicit Decimal(const std::string& s) : value() { DCHECK(FromString(s, this).ok()); }
-  explicit Decimal(const char* s) : Decimal(std::string(s)) {}
-  explicit Decimal(const T& value) : value(value) {}
+  /// \brief Parse the number from a base 10 string representation.
+  explicit Decimal128(const std::string& value);
 
-  using value_type = T;
-  value_type value;
+  /// \brief Create an Decimal128 from an array of bytes
+  explicit Decimal128(const uint8_t* bytes);
+
+  /// \brief Negate the current value
+  Decimal128& Negate();
+
+  /// \brief Add a number to this one. The result is truncated to 128 bits.
+  Decimal128& operator+=(const Decimal128& right);
+
+  /// \brief Subtract a number from this one. The result is truncated to 128 bits.
+  Decimal128& operator-=(const Decimal128& right);
+
+  /// \brief Multiply this number by another number. The result is truncated to 128 bits.
+  Decimal128& operator*=(const Decimal128& right);
+
+  /// Divide this number by right and return the result. This operation is
+  /// not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param divisor the number to divide by
+  /// \param remainder the remainder after the division
+  Status Divide(const Decimal128& divisor, Decimal128* result,
+                Decimal128* remainder) const;
+
+  /// \brief In-place division.
+  Decimal128& operator/=(const Decimal128& right);
+
+  /// \brief Cast the value to char. This is used when converting the value a string.
+  explicit operator char() const;
+
+  /// \brief Bitwise or between two Decimal128.
+  Decimal128& operator|=(const Decimal128& right);
+
+  /// \brief Bitwise and between two Decimal128.
+  Decimal128& operator&=(const Decimal128& right);
+
+  /// \brief Shift left by the given number of bits.
+  Decimal128& operator<<=(uint32_t bits);
+
+  /// \brief Shift right by the given number of bits. Negative values will
+  Decimal128& operator>>=(uint32_t bits);
+
+  /// \brief Get the high bits of the two's complement representation of the number.
+  int64_t high_bits() const { return high_bits_; }
+
+  /// \brief Get the low bits of the two's complement representation of the number.
+  uint64_t low_bits() const { return low_bits_; }
+
+  /// \brief Return the raw bytes of the value.
+  std::array<uint8_t, 16> ToBytes() const;
+
+  /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
+  /// precision and scale.
+  std::string ToString(int precision, int scale) const;
+
+  /// \brief Convert a decimal string to an Decimal128 value, optionally including
+  /// precision and scale if they're passed in and not null.
+  static Status FromString(const std::string& s, Decimal128* out,
+                           int* precision = nullptr, int* scale = nullptr);
+
+ private:
+  int64_t high_bits_;
+  uint64_t low_bits_;
 };
 
-using Decimal32 = Decimal<int32_t>;
-using Decimal64 = Decimal<int64_t>;
-using Decimal128 = Decimal<Int128>;
+ARROW_EXPORT bool operator==(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT bool operator!=(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT bool operator<(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT bool operator<=(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT bool operator>(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT bool operator>=(const Decimal128& left, const Decimal128& right);
 
-template <typename T>
-struct ARROW_EXPORT DecimalPrecision {};
+ARROW_EXPORT Decimal128 operator-(const Decimal128& operand);
+ARROW_EXPORT Decimal128 operator+(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT Decimal128 operator-(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT Decimal128 operator*(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT Decimal128 operator/(const Decimal128& left, const Decimal128& right);
+ARROW_EXPORT Decimal128 operator%(const Decimal128& left, const Decimal128& right);
 
-template <>
-struct ARROW_EXPORT DecimalPrecision<int32_t> {
-  constexpr static const int minimum = 1;
-  constexpr static const int maximum = 9;
-};
-
-template <>
-struct ARROW_EXPORT DecimalPrecision<int64_t> {
-  constexpr static const int minimum = 10;
-  constexpr static const int maximum = 18;
-};
-
-template <>
-struct ARROW_EXPORT DecimalPrecision<Int128> {
-  constexpr static const int minimum = 19;
-  constexpr static const int maximum = 38;
-};
-
-template <typename T>
-ARROW_EXPORT std::string ToString(const Decimal<T>& decimal_value, int precision,
-                                  int scale) {
-  T value = decimal_value.value;
-
-  // Decimal values are sent to clients as strings so in the interest of
-  // speed the string will be created without the using stringstream with the
-  // whole/fractional_part().
-  size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
-                         + (scale == precision)   // Add a space for leading 0
-                         + (value < 0);           // Add a space for negative sign
-  std::string str = std::string(last_char_idx, '0');
-  // Start filling in the values in reverse order by taking the last digit
-  // of the value. Use a positive value and worry about the sign later. At this
-  // point the last_char_idx points to the string terminator.
-  T remaining_value = value;
-  size_t first_digit_idx = 0;
-  if (value < 0) {
-    remaining_value = -value;
-    first_digit_idx = 1;
-  }
-  if (scale > 0) {
-    int remaining_scale = scale;
-    do {
-      str[--last_char_idx] =
-          static_cast<char>(remaining_value % 10 + static_cast<T>('0'));  // Ascii offset
-      remaining_value /= 10;
-    } while (--remaining_scale > 0);
-    str[--last_char_idx] = '.';
-    DCHECK_GT(last_char_idx, first_digit_idx) << "Not enough space remaining";
-  }
-  do {
-    str[--last_char_idx] =
-        static_cast<char>(remaining_value % 10 + static_cast<T>('0'));  // Ascii offset
-    remaining_value /= 10;
-    if (remaining_value == 0) {
-      // Trim any extra leading 0's.
-      if (last_char_idx > first_digit_idx) {
-        str.erase(0, last_char_idx - first_digit_idx);
-      }
-
-      break;
-    }
-    // For safety, enforce string length independent of remaining_value.
-  } while (last_char_idx > first_digit_idx);
-  if (value < 0) str[0] = '-';
-  return str;
-}
-
-/// Conversion from raw bytes to a Decimal value
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, Decimal32* value);
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, Decimal64* value);
-ARROW_EXPORT void FromBytes(const uint8_t* bytes, Decimal128* decimal);
-
-/// Conversion from a Decimal value to raw bytes
-ARROW_EXPORT void ToBytes(const Decimal32& value, uint8_t** bytes);
-ARROW_EXPORT void ToBytes(const Decimal64& value, uint8_t** bytes);
-ARROW_EXPORT void ToBytes(const Decimal128& decimal, uint8_t** bytes);
-
-}  // namespace decimal
 }  // namespace arrow
-#endif  // ARROW_DECIMAL_H
+
+#endif  //  ARROW_DECIMAL_H

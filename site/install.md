@@ -20,17 +20,17 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Current Version: 0.6.0
+## Current Version: 0.7.1
 
-### Released: 14 August 2017
+### Released: 1 October 2017
 
 See the [release notes][10] for more about what's new.
 
 ### Source release
 
-* **Source Release**: [apache-arrow-0.6.0.tar.gz][6]
-* **Verification**: [md5][3], [asc][7]
-* [Git tag b173334][2]
+* **Source Release**: [apache-arrow-0.7.1.tar.gz][6]
+* **Verification**: [sha512][3], [asc][7]
+* [Git tag 0e21f84][2]
 
 ### Java Packages
 
@@ -52,8 +52,8 @@ Install them with:
 
 
 ```shell
-conda install arrow-cpp=0.6.* -c conda-forge
-conda install pyarrow==0.6.* -c conda-forge
+conda install arrow-cpp=0.7.* -c conda-forge
+conda install pyarrow==0.7.* -c conda-forge
 ```
 
 ### Python Wheels on PyPI (Unofficial)
@@ -61,10 +61,10 @@ conda install pyarrow==0.6.* -c conda-forge
 We have provided binary wheels on PyPI for Linux, macOS, and Windows:
 
 ```shell
-pip install pyarrow==0.6.*
+pip install pyarrow==0.7.*
 ```
 
-We recommend pinning `0.6.*` in `requirements.txt` to install the latest patch
+We recommend pinning `0.7.*` in `requirements.txt` to install the latest patch
 release.
 
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
@@ -136,13 +136,26 @@ These repositories are managed at
 [red-data-tools/arrow-packages][9]. If you have any feedback, please
 send it to the project instead of Apache Arrow project.
 
-[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.6.0/
-[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.6.0
-[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.6.0/apache-arrow-0.6.0.tar.gz.md5
-[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.6.0%22
+### Nightly Development Builds
+
+To assist with development and debugging, some nightly builds are
+available. These builds are not releases and not necessarily produced on ASF
+infrastructure. They are to be used strictly for development.
+
+* **conda packages** for C++ and Python (Linux only)
+
+```
+conda install arrow-cpp -c twosigma
+conda install pyarrow -c twosigma
+```
+
+[1]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/
+[2]: https://github.com/apache/arrow/releases/tag/apache-arrow-0.7.1
+[3]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz.sha512
+[4]: http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%220.7.1%22
 [5]: http://conda-forge.github.io
-[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.6.0/apache-arrow-0.6.0.tar.gz
-[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.6.0/apache-arrow-0.6.0.tar.gz.asc
+[6]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz
+[7]: https://www.apache.org/dyn/closer.cgi/arrow/arrow-0.7.1/apache-arrow-0.7.1.tar.gz.asc
 [8]: https://github.com/red-data-tools/parquet-glib
 [9]: https://github.com/red-data-tools/arrow-packages
-[10]: http://arrow.apache.org/release/0.6.0.html
+[10]: http://arrow.apache.org/release/0.7.1.html

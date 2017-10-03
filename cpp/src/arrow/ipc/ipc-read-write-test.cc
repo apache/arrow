@@ -63,10 +63,10 @@ TEST(TestMessage, Equals) {
   std::string metadata = "foo";
   std::string body = "bar";
 
-  auto b1 = GetBufferFromString(metadata);
-  auto b2 = GetBufferFromString(metadata);
-  auto b3 = GetBufferFromString(body);
-  auto b4 = GetBufferFromString(body);
+  auto b1 = std::make_shared<Buffer>(metadata);
+  auto b2 = std::make_shared<Buffer>(metadata);
+  auto b3 = std::make_shared<Buffer>(body);
+  auto b4 = std::make_shared<Buffer>(body);
 
   Message msg1(b1, b3);
   Message msg2(b2, b4);
@@ -121,7 +121,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
                     &MakeStringTypesRecordBatch, &MakeStruct, &MakeUnion,               \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
-                    &MakeFWBinary, &MakeBooleanBatch);
+                    &MakeFWBinary, &MakeDecimal, &MakeBooleanBatch);
 
 static int g_file_number = 0;
 
@@ -544,8 +544,8 @@ TEST_P(TestFileFormat, RoundTrip) {
   ASSERT_OK((*GetParam())(&batch1));  // NOLINT clang-tidy gtest issue
   ASSERT_OK((*GetParam())(&batch2));  // NOLINT clang-tidy gtest issue
 
-  std::vector<std::shared_ptr<RecordBatch>> in_batches = {batch1, batch2};
-  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  BatchVector in_batches = {batch1, batch2};
+  BatchVector out_batches;
 
   ASSERT_OK(RoundTripHelper(in_batches, &out_batches));
 
@@ -564,14 +564,14 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
   }
   void TearDown() {}
 
-  Status RoundTripHelper(const RecordBatch& batch,
-                         std::vector<std::shared_ptr<RecordBatch>>* out_batches) {
+  Status RoundTripHelper(const BatchVector& batches, BatchVector* out_batches) {
     // Write the file
     std::shared_ptr<RecordBatchWriter> writer;
-    RETURN_NOT_OK(RecordBatchStreamWriter::Open(sink_.get(), batch.schema(), &writer));
-    int num_batches = 5;
-    for (int i = 0; i < num_batches; ++i) {
-      RETURN_NOT_OK(writer->WriteRecordBatch(batch));
+    RETURN_NOT_OK(
+        RecordBatchStreamWriter::Open(sink_.get(), batches[0]->schema(), &writer));
+
+    for (const auto& batch : batches) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
     }
     RETURN_NOT_OK(writer->Close());
     RETURN_NOT_OK(sink_->Close());
@@ -584,7 +584,7 @@ class TestStreamFormat : public ::testing::TestWithParam<MakeRecordBatch*> {
 
     std::shared_ptr<RecordBatch> chunk;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNextRecordBatch(&chunk));
+      RETURN_NOT_OK(reader->ReadNext(&chunk));
       if (chunk == nullptr) {
         break;
       }
@@ -604,9 +604,9 @@ TEST_P(TestStreamFormat, RoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK((*GetParam())(&batch));  // NOLINT clang-tidy gtest issue
 
-  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  BatchVector out_batches;
 
-  ASSERT_OK(RoundTripHelper(*batch, &out_batches));
+  ASSERT_OK(RoundTripHelper({batch, batch, batch}, &out_batches));
 
   // Compare batches. Same
   for (size_t i = 0; i < out_batches.size(); ++i) {
@@ -666,17 +666,31 @@ TEST_F(TestStreamFormat, DictionaryRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionary(&batch));
 
-  std::vector<std::shared_ptr<RecordBatch>> out_batches;
-  ASSERT_OK(RoundTripHelper(*batch, &out_batches));
+  BatchVector out_batches;
+  ASSERT_OK(RoundTripHelper({batch}, &out_batches));
 
   CheckBatchDictionaries(*out_batches[0]);
+}
+
+TEST_F(TestStreamFormat, WriteTable) {
+  std::shared_ptr<RecordBatch> b1, b2, b3;
+  ASSERT_OK(MakeIntRecordBatch(&b1));
+  ASSERT_OK(MakeIntRecordBatch(&b2));
+  ASSERT_OK(MakeIntRecordBatch(&b3));
+
+  BatchVector out_batches;
+  ASSERT_OK(RoundTripHelper({b1, b2, b3}, &out_batches));
+
+  ASSERT_TRUE(b1->Equals(*out_batches[0]));
+  ASSERT_TRUE(b2->Equals(*out_batches[1]));
+  ASSERT_TRUE(b3->Equals(*out_batches[2]));
 }
 
 TEST_F(TestFileFormat, DictionaryRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionary(&batch));
 
-  std::vector<std::shared_ptr<RecordBatch>> out_batches;
+  BatchVector out_batches;
   ASSERT_OK(RoundTripHelper({batch}, &out_batches));
 
   CheckBatchDictionaries(*out_batches[0]);
@@ -739,11 +753,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   auto data = test::GetBufferFromVector(values);
   Tensor tensor(int64(), data, {4, 3}, {48, 16});
 
-  int32_t metadata_length;
-  int64_t body_length;
-  ASSERT_OK(mmap_->Seek(0));
-  ASSERT_RAISES(Invalid,
-                WriteTensor(tensor, mmap_.get(), &metadata_length, &body_length));
+  CheckTensorRoundTrip(tensor);
 }
 
 }  // namespace ipc

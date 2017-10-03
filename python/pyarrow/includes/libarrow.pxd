@@ -242,6 +242,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CKeyValueMetadata]& metadata)
         shared_ptr[CSchema] RemoveMetadata()
 
+    cdef cppclass PrettyPrintOptions:
+        int indent
+
+    CStatus PrettyPrint(const CSchema& schema,
+                        const PrettyPrintOptions& options,
+                        c_string* result)
+
     cdef cppclass CBooleanArray" arrow::BooleanArray"(CArray):
         c_bool Value(int i)
 
@@ -412,7 +419,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                               shared_ptr[CTable]* result)
 
 
-cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
+cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
         FileMode_READ" arrow::io::FileMode::READ"
         FileMode_WRITE" arrow::io::FileMode::WRITE"
@@ -466,9 +473,6 @@ cdef extern from "arrow/io/interfaces.h" namespace "arrow::io" nogil:
     cdef cppclass FileSystem:
         CStatus Stat(const c_string& path, FileStatistics* stat)
 
-
-cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
-
     cdef cppclass FileOutputStream(OutputStream):
         @staticmethod
         CStatus Open(const c_string& path, shared_ptr[FileOutputStream]* file)
@@ -498,8 +502,9 @@ cdef extern from "arrow/io/file.h" namespace "arrow::io" nogil:
 
         int file_descriptor()
 
+    # ----------------------------------------------------------------------
+    # HDFS
 
-cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
     CStatus HaveLibHdfs()
     CStatus HaveLibHdfs3()
 
@@ -567,8 +572,6 @@ cdef extern from "arrow/io/hdfs.h" namespace "arrow::io" nogil:
                               int64_t default_block_size,
                               shared_ptr[HdfsOutputStream]* handle)
 
-
-cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(RandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
@@ -629,11 +632,13 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
-        CStatus WriteRecordBatch(const CRecordBatch& batch)
+        CStatus WriteRecordBatch(const CRecordBatch& batch,
+                                 c_bool allow_64bit)
+        CStatus WriteTable(const CTable& table)
 
     cdef cppclass CRecordBatchReader" arrow::ipc::RecordBatchReader":
         shared_ptr[CSchema] schema()
-        CStatus ReadNextRecordBatch(shared_ptr[CRecordBatch]* batch)
+        CStatus ReadNext(shared_ptr[CRecordBatch]* batch)
 
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
@@ -703,9 +708,6 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                             InputStream* stream,
                             shared_ptr[CRecordBatch]* out)
 
-
-cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
-
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
         @staticmethod
         CStatus Open(const shared_ptr[OutputStream]& stream,
@@ -734,6 +736,21 @@ cdef extern from "arrow/ipc/feather.h" namespace "arrow::ipc::feather" nogil:
         c_string GetColumnName(int i)
 
 
+cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
+
+    cdef cppclass CFunctionContext" arrow::compute::FunctionContext":
+        CFunctionContext()
+        CFunctionContext(CMemoryPool* pool)
+
+    cdef cppclass CCastOptions" arrow::compute::CastOptions":
+        c_bool allow_int_overflow
+
+    CStatus Cast(CFunctionContext* context, const CArray& array,
+                 const shared_ptr[CDataType]& to_type,
+                 const CCastOptions& options,
+                 shared_ptr[CArray]* out)
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
@@ -749,13 +766,10 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 
-    CStatus PandasToArrow(CMemoryPool* pool, object ao, object mo,
-                          const shared_ptr[CDataType]& type,
-                          shared_ptr[CArray]* out)
-
-    CStatus PandasObjectsToArrow(CMemoryPool* pool, object ao, object mo,
-                                 const shared_ptr[CDataType]& type,
-                                 shared_ptr[CChunkedArray]* out)
+    CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
+                           c_bool use_pandas_null_sentinels,
+                           const shared_ptr[CDataType]& type,
+                           shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
                             shared_ptr[CTensor]* out)

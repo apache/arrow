@@ -56,10 +56,7 @@ ARRAY_VISITOR_DEFAULT(ListArray);
 ARRAY_VISITOR_DEFAULT(StructArray);
 ARRAY_VISITOR_DEFAULT(UnionArray);
 ARRAY_VISITOR_DEFAULT(DictionaryArray);
-
-Status ArrayVisitor::Visit(const DecimalArray& array) {
-  return Status::NotImplemented("decimal");
-}
+ARRAY_VISITOR_DEFAULT(DecimalArray);
 
 #undef ARRAY_VISITOR_DEFAULT
 

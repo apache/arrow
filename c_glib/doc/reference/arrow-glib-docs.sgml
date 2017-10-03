@@ -46,6 +46,10 @@
       <title>Array builder</title>
       <xi:include href="xml/array-builder.xml"/>
     </chapter>
+    <chapter id="compute">
+      <title>Compute</title>
+      <xi:include href="xml/compute.xml"/>
+    </chapter>
     <chapter id="tensor">
       <title>Tensor</title>
       <xi:include href="xml/tensor.xml"/>
@@ -53,7 +57,8 @@
     <chapter id="type">
       <title>Type</title>
       <xi:include href="xml/type.xml"/>
-      <xi:include href="xml/data-type.xml"/>
+      <xi:include href="xml/basic-data-type.xml"/>
+      <xi:include href="xml/composite-data-type.xml"/>
     </chapter>
     <chapter id="schema">
       <title>Schema</title>
@@ -127,6 +132,26 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-8-0" role="0.8.0">
+    <title>Index of new symbols in 0.8.0</title>
+    <xi:include href="xml/api-index-0.8.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-7-0" role="0.7.0">
+    <title>Index of new symbols in 0.7.0</title>
+    <xi:include href="xml/api-index-0.7.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-6-0" role="0.6.0">
+    <title>Index of new symbols in 0.6.0</title>
+    <xi:include href="xml/api-index-0.6.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-5-0" role="0.5.0">
+    <title>Index of new symbols in 0.5.0</title>
+    <xi:include href="xml/api-index-0.5.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-4-0" role="0.4.0">
+    <title>Index of new symbols in 0.4.0</title>
+    <xi:include href="xml/api-index-0.4.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-3-0" role="0.3.0">
     <title>Index of new symbols in 0.3.0</title>

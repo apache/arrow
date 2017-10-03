@@ -37,6 +37,7 @@ class MemoryPool;
 class RecordBatch;
 class Schema;
 class Status;
+class Table;
 class Tensor;
 
 namespace io {
@@ -53,15 +54,20 @@ class ARROW_EXPORT RecordBatchWriter {
  public:
   virtual ~RecordBatchWriter();
 
-  /// Write a record batch to the stream
+  /// \brief Write a record batch to the stream
   ///
   /// \param allow_64bit boolean permitting field lengths exceeding INT32_MAX
-  /// \return Status indicate success or failure
+  /// \return Status
   virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
 
-  /// Perform any logic necessary to finish the stream
+  /// \brief Write possibly-chunked table by creating sequence of record batches
+  /// \param[in] table table to write
+  /// \return Status
+  Status WriteTable(const Table& table);
+
+  /// \brief Perform any logic necessary to finish the stream
   ///
-  /// \return Status indicate success or failure
+  /// \return Status
   virtual Status Close() = 0;
 
   /// In some cases, writing may require memory allocation. We use the default
@@ -81,10 +87,10 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// Create a new writer from stream sink and schema. User is responsible for
   /// closing the actual OutputStream.
   ///
-  /// \param(in) sink output stream to write to
-  /// \param(in) schema the schema of the record batches to be written
-  /// \param(out) out the created stream writer
-  /// \return Status indicating success or failure
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \param[out] out the created stream writer
+  /// \return Status
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
@@ -115,10 +121,10 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 
   /// Create a new writer from stream sink and schema
   ///
-  /// \param(in) sink output stream to write to
-  /// \param(in) schema the schema of the record batches to be written
-  /// \param(out) out the created stream writer
-  /// \return Status indicating success or failure
+  /// \param[in] sink output stream to write to
+  /// \param[in] schema the schema of the record batches to be written
+  /// \param[out] out the created stream writer
+  /// \return Status
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
@@ -149,13 +155,13 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// to the end of the body and end of the metadata / data header (suffixed by
 /// the header size) is returned in out-variables
 ///
-/// \param(in) buffer_start_offset the start offset to use in the buffer metadata,
+/// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
 /// default should be 0
-/// \param(in) allow_64bit permit field lengths exceeding INT32_MAX. May not be
+/// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
 /// readable by other Arrow implementations
-/// \param(out) metadata_length: the size of the length-prefixed flatbuffer
+/// \param[out] metadata_length the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
-/// \param(out) body_length: the size of the contiguous buffer block plus
+/// \param[out] body_length the size of the contiguous buffer block plus
 /// padding bytes
 /// \return Status
 ///
@@ -192,7 +198,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 /// \brief Serialize schema using stream writer as a sequence of one or more
 /// IPC messages
 ///
-/// \param[in] scheam the schema to write
+/// \param[in] schema the schema to write
 /// \param[in] pool a MemoryPool to allocate memory from
 /// \param[out] out the serialized schema
 /// \return Status
@@ -203,6 +209,7 @@ Status SerializeSchema(const Schema& schema, MemoryPool* pool,
 /// \brief Write multiple record batches to OutputStream
 /// \param[in] batches a vector of batches. Must all have same schema
 /// \param[out] dst an OutputStream
+/// \return Status
 ARROW_EXPORT
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               io::OutputStream* dst);

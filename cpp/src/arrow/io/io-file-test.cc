@@ -393,9 +393,9 @@ TEST_F(TestReadableFile, ThreadSafety) {
   ASSERT_OK(ReadableFile::Open(path_, &pool, &file_));
 
   std::atomic<int> correct_count(0);
-  const int niter = 10000;
+  constexpr int niter = 10000;
 
-  auto ReadData = [&correct_count, &data, niter, this]() {
+  auto ReadData = [&correct_count, &data, this, niter]() {
     std::shared_ptr<Buffer> buffer;
 
     for (int i = 0; i < niter; ++i) {
@@ -587,9 +587,9 @@ TEST_F(TestMemoryMappedFile, ThreadSafety) {
                         static_cast<int64_t>(data.size())));
 
   std::atomic<int> correct_count(0);
-  const int niter = 10000;
+  constexpr int niter = 10000;
 
-  auto ReadData = [&correct_count, &data, niter, &file]() {
+  auto ReadData = [&correct_count, &data, &file, niter]() {
     std::shared_ptr<Buffer> buffer;
 
     for (int i = 0; i < niter; ++i) {

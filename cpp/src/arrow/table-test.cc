@@ -33,6 +33,11 @@ using std::vector;
 
 namespace arrow {
 
+std::shared_ptr<Column> column(const std::shared_ptr<Field>& field,
+                               const std::vector<std::shared_ptr<Array>>& arrays) {
+  return std::make_shared<Column>(field, arrays);
+}
+
 class TestChunkedArray : public TestBase {
  protected:
   virtual void Construct() {
@@ -123,9 +128,9 @@ class TestColumn : public TestChunkedArray {
 
 TEST_F(TestColumn, BasicAPI) {
   ArrayVector arrays;
-  arrays.push_back(MakePrimitive<Int32Array>(100));
-  arrays.push_back(MakePrimitive<Int32Array>(100, 10));
-  arrays.push_back(MakePrimitive<Int32Array>(100, 20));
+  arrays.push_back(MakeRandomArray<Int32Array>(100));
+  arrays.push_back(MakeRandomArray<Int32Array>(100, 10));
+  arrays.push_back(MakeRandomArray<Int32Array>(100, 20));
 
   auto f0 = field("c0", int32());
   column_.reset(new Column(f0, arrays));
@@ -135,23 +140,19 @@ TEST_F(TestColumn, BasicAPI) {
   ASSERT_EQ(300, column_->length());
   ASSERT_EQ(30, column_->null_count());
   ASSERT_EQ(3, column_->data()->num_chunks());
-
-  // nullptr array should not break
-  column_.reset(new Column(f0, std::shared_ptr<Array>(nullptr)));
-  ASSERT_NE(column_.get(), nullptr);
 }
 
 TEST_F(TestColumn, ChunksInhomogeneous) {
   ArrayVector arrays;
-  arrays.push_back(MakePrimitive<Int32Array>(100));
-  arrays.push_back(MakePrimitive<Int32Array>(100, 10));
+  arrays.push_back(MakeRandomArray<Int32Array>(100));
+  arrays.push_back(MakeRandomArray<Int32Array>(100, 10));
 
   auto f0 = field("c0", int32());
   column_.reset(new Column(f0, arrays));
 
   ASSERT_OK(column_->ValidateData());
 
-  arrays.push_back(MakePrimitive<Int16Array>(100, 10));
+  arrays.push_back(MakeRandomArray<Int16Array>(100, 10));
   column_.reset(new Column(f0, arrays));
   ASSERT_RAISES(Invalid, column_->ValidateData());
 }
@@ -197,8 +198,8 @@ class TestTable : public TestBase {
     vector<shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
-    arrays_ = {MakePrimitive<Int32Array>(length), MakePrimitive<UInt8Array>(length),
-               MakePrimitive<Int16Array>(length)};
+    arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<UInt8Array>(length),
+               MakeRandomArray<Int16Array>(length)};
 
     columns_ = {std::make_shared<Column>(schema_->field(0), arrays_[0]),
                 std::make_shared<Column>(schema_->field(1), arrays_[1]),
@@ -271,9 +272,10 @@ TEST_F(TestTable, InvalidColumns) {
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
 
   columns_ = {
-      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length)),
-      std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length)),
-      std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length - 1))};
+      std::make_shared<Column>(schema_->field(0), MakeRandomArray<Int32Array>(length)),
+      std::make_shared<Column>(schema_->field(1), MakeRandomArray<UInt8Array>(length)),
+      std::make_shared<Column>(schema_->field(2),
+                               MakeRandomArray<Int16Array>(length - 1))};
 
   table_.reset(new Table(schema_, columns_, length));
   ASSERT_RAISES(Invalid, table_->ValidateColumns());
@@ -295,9 +297,12 @@ TEST_F(TestTable, Equals) {
   ASSERT_FALSE(table_->Equals(Table(other_schema, columns_)));
   // Differing columns
   std::vector<std::shared_ptr<Column>> other_columns = {
-      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length, 10)),
-      std::make_shared<Column>(schema_->field(1), MakePrimitive<UInt8Array>(length, 10)),
-      std::make_shared<Column>(schema_->field(2), MakePrimitive<Int16Array>(length, 10))};
+      std::make_shared<Column>(schema_->field(0),
+                               MakeRandomArray<Int32Array>(length, 10)),
+      std::make_shared<Column>(schema_->field(1),
+                               MakeRandomArray<UInt8Array>(length, 10)),
+      std::make_shared<Column>(schema_->field(2),
+                               MakeRandomArray<Int16Array>(length, 10))};
   ASSERT_FALSE(table_->Equals(Table(schema_, other_columns)));
 }
 
@@ -405,8 +410,8 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_TRUE(status.IsInvalid());
 
   // Add column with wrong length
-  auto longer_col =
-      std::make_shared<Column>(schema_->field(0), MakePrimitive<Int32Array>(length + 1));
+  auto longer_col = std::make_shared<Column>(schema_->field(0),
+                                             MakeRandomArray<Int32Array>(length + 1));
   status = table.AddColumn(0, longer_col, &result);
   ASSERT_TRUE(status.IsInvalid());
 
@@ -437,6 +442,29 @@ TEST_F(TestTable, AddColumn) {
   ASSERT_TRUE(result->Equals(Table(ex_schema, ex_columns)));
 }
 
+TEST_F(TestTable, IsChunked) {
+  ArrayVector c1, c2;
+
+  auto a1 = MakeRandomArray<Int32Array>(10);
+  auto a2 = MakeRandomArray<Int32Array>(20);
+
+  auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
+
+  std::vector<std::shared_ptr<Column>> columns;
+
+  std::shared_ptr<RecordBatch> batch;
+
+  columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a1})};
+  auto t1 = std::make_shared<Table>(sch1, columns);
+
+  ASSERT_FALSE(t1->IsChunked());
+
+  columns = {column(sch1->field(0), {a2}), column(sch1->field(1), {a1, a1})};
+  auto t2 = std::make_shared<Table>(sch1, columns);
+
+  ASSERT_TRUE(t2->IsChunked());
+}
+
 class TestRecordBatch : public TestBase {};
 
 TEST_F(TestRecordBatch, Equals) {
@@ -449,9 +477,9 @@ TEST_F(TestRecordBatch, Equals) {
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = std::make_shared<Schema>(fields);
 
-  auto a0 = MakePrimitive<Int32Array>(length);
-  auto a1 = MakePrimitive<UInt8Array>(length);
-  auto a2 = MakePrimitive<Int16Array>(length);
+  auto a0 = MakeRandomArray<Int32Array>(length);
+  auto a1 = MakeRandomArray<UInt8Array>(length);
+  auto a2 = MakeRandomArray<Int16Array>(length);
 
   RecordBatch b1(schema, length, {a0, a1, a2});
   RecordBatch b3(schema, length, {a0, a1});
@@ -474,10 +502,10 @@ TEST_F(TestRecordBatch, Validate) {
 
   auto schema = ::arrow::schema({f0, f1, f2});
 
-  auto a0 = MakePrimitive<Int32Array>(length);
-  auto a1 = MakePrimitive<UInt8Array>(length);
-  auto a2 = MakePrimitive<Int16Array>(length);
-  auto a3 = MakePrimitive<Int16Array>(5);
+  auto a0 = MakeRandomArray<Int32Array>(length);
+  auto a1 = MakeRandomArray<UInt8Array>(length);
+  auto a2 = MakeRandomArray<Int16Array>(length);
+  auto a3 = MakeRandomArray<Int16Array>(5);
 
   RecordBatch b1(schema, length, {a0, a1, a2});
 
@@ -503,8 +531,8 @@ TEST_F(TestRecordBatch, Slice) {
   vector<shared_ptr<Field>> fields = {f0, f1};
   auto schema = std::make_shared<Schema>(fields);
 
-  auto a0 = MakePrimitive<Int32Array>(length);
-  auto a1 = MakePrimitive<UInt8Array>(length);
+  auto a0 = MakeRandomArray<Int32Array>(length);
+  auto a1 = MakeRandomArray<UInt8Array>(length);
 
   RecordBatch batch(schema, length, {a0, a1});
 
@@ -520,6 +548,55 @@ TEST_F(TestRecordBatch, Slice) {
     ASSERT_EQ(1, batch_slice2->column(i)->offset());
     ASSERT_EQ(5, batch_slice2->column(i)->length());
   }
+}
+
+class TestTableBatchReader : public TestBase {};
+
+TEST_F(TestTableBatchReader, ReadNext) {
+  ArrayVector c1, c2;
+
+  auto a1 = MakeRandomArray<Int32Array>(10);
+  auto a2 = MakeRandomArray<Int32Array>(20);
+  auto a3 = MakeRandomArray<Int32Array>(30);
+  auto a4 = MakeRandomArray<Int32Array>(10);
+
+  auto sch1 = arrow::schema({field("f1", int32()), field("f2", int32())});
+
+  std::vector<std::shared_ptr<Column>> columns;
+
+  std::shared_ptr<RecordBatch> batch;
+
+  columns = {column(sch1->field(0), {a1, a4, a2}), column(sch1->field(1), {a2, a2})};
+  Table t1(sch1, columns);
+
+  TableBatchReader i1(t1);
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(20, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+
+  columns = {column(sch1->field(0), {a1}), column(sch1->field(1), {a4})};
+  Table t2(sch1, columns);
+
+  TableBatchReader i2(t2);
+
+  ASSERT_OK(i2.ReadNext(&batch));
+  ASSERT_EQ(10, batch->num_rows());
+
+  // Ensure non-sliced
+  ASSERT_EQ(a1->data().get(), batch->column_data(0).get());
+  ASSERT_EQ(a4->data().get(), batch->column_data(1).get());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
 }
 
 }  // namespace arrow

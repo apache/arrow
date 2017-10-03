@@ -52,9 +52,8 @@ struct Decimal;
 // ----------------------------------------------------------------------
 // Generic array data container
 
-namespace internal {
-
-/// \brief Mutable internal container for generic Arrow array data
+/// \class ArrayData
+/// \brief Mutable container for generic Arrow array data
 ///
 /// This data structure is a self-contained representation of the memory and
 /// metadata inside an Arrow array data structure (called vectors in Java). The
@@ -85,50 +84,50 @@ namespace internal {
 /// input array and replace them with newly-allocated data, changing the output
 /// data type as well.
 struct ARROW_EXPORT ArrayData {
-  ArrayData() {}
+  ArrayData() : length(0) {}
+
+  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : type(type), length(length), null_count(null_count), offset(offset) {}
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             const std::vector<std::shared_ptr<Buffer>>& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : type(type),
-        length(length),
-        buffers(buffers),
-        null_count(null_count),
-        offset(offset) {}
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = buffers;
+  }
 
   ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
             std::vector<std::shared_ptr<Buffer>>&& buffers,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : type(type),
-        length(length),
-        buffers(std::move(buffers)),
-        null_count(null_count),
-        offset(offset) {}
+      : ArrayData(type, length, null_count, offset) {
+    this->buffers = std::move(buffers);
+  }
 
   // Move constructor
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
         length(other.length),
-        buffers(std::move(other.buffers)),
         null_count(other.null_count),
         offset(other.offset),
+        buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)) {}
 
   ArrayData(const ArrayData& other) noexcept
       : type(other.type),
         length(other.length),
-        buffers(other.buffers),
         null_count(other.null_count),
         offset(other.offset),
+        buffers(other.buffers),
         child_data(other.child_data) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) {
     type = std::move(other.type);
     length = other.length;
-    buffers = std::move(other.buffers);
     null_count = other.null_count;
     offset = other.offset;
+    buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     return *this;
   }
@@ -139,16 +138,18 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<DataType> type;
   int64_t length;
-  std::vector<std::shared_ptr<Buffer>> buffers;
   int64_t null_count;
   int64_t offset;
+  std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
 
+/// \brief Create a strongly-typed Array instance from generic ArrayData
+/// \param[in] data the array contents
+/// \param[out] out the resulting Array instance
+/// \return Status
 ARROW_EXPORT
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
-
-}  // namespace internal
 
 // ----------------------------------------------------------------------
 // User array accessor types
@@ -232,7 +233,7 @@ class ARROW_EXPORT Array {
   /// Slice from offset until end of the array
   std::shared_ptr<Array> Slice(int64_t offset) const;
 
-  std::shared_ptr<internal::ArrayData> data() const { return data_; }
+  std::shared_ptr<ArrayData> data() const { return data_; }
 
   int num_fields() const { return static_cast<int>(data_->child_data.size()); }
 
@@ -242,11 +243,11 @@ class ARROW_EXPORT Array {
  protected:
   Array() {}
 
-  std::shared_ptr<internal::ArrayData> data_;
+  std::shared_ptr<ArrayData> data_;
   const uint8_t* null_bitmap_data_;
 
   /// Protected method for constructors
-  inline void SetData(const std::shared_ptr<internal::ArrayData>& data) {
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
     if (data->buffers.size() > 0 && data->buffers[0]) {
       null_bitmap_data_ = data->buffers[0]->data();
     } else {
@@ -256,7 +257,7 @@ class ARROW_EXPORT Array {
   }
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Array);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
@@ -274,11 +275,11 @@ class ARROW_EXPORT NullArray : public FlatArray {
  public:
   using TypeClass = NullType;
 
-  explicit NullArray(const std::shared_ptr<internal::ArrayData>& data) { SetData(data); }
+  explicit NullArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
   explicit NullArray(int64_t length);
 
  private:
-  inline void SetData(const std::shared_ptr<internal::ArrayData>& data) {
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
     null_bitmap_data_ = nullptr;
     data->null_count = data->length;
     data_ = data;
@@ -302,13 +303,13 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
  protected:
   PrimitiveArray() {}
 
-  inline void SetData(const std::shared_ptr<internal::ArrayData>& data) {
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
     auto values = data->buffers[1];
     this->Array::SetData(data);
     raw_values_ = values == nullptr ? nullptr : values->data();
   }
 
-  explicit inline PrimitiveArray(const std::shared_ptr<internal::ArrayData>& data) {
+  explicit inline PrimitiveArray(const std::shared_ptr<ArrayData>& data) {
     SetData(data);
   }
 
@@ -321,7 +322,7 @@ class ARROW_EXPORT NumericArray : public PrimitiveArray {
   using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
 
-  explicit NumericArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data);
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -348,7 +349,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
  public:
   using TypeClass = BooleanType;
 
-  explicit BooleanArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit BooleanArray(const std::shared_ptr<ArrayData>& data);
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = nullptr,
@@ -370,7 +371,7 @@ class ARROW_EXPORT ListArray : public Array {
  public:
   using TypeClass = ListType;
 
-  explicit ListArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit ListArray(const std::shared_ptr<ArrayData>& data);
 
   ListArray(const std::shared_ptr<DataType>& type, int64_t length,
             const std::shared_ptr<Buffer>& value_offsets,
@@ -410,7 +411,7 @@ class ARROW_EXPORT ListArray : public Array {
   }
 
  protected:
-  void SetData(const std::shared_ptr<internal::ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data);
   const int32_t* raw_value_offsets_;
 
  private:
@@ -424,7 +425,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
  public:
   using TypeClass = BinaryType;
 
-  explicit BinaryArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit BinaryArray(const std::shared_ptr<ArrayData>& data);
 
   BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
@@ -463,7 +464,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   BinaryArray() {}
 
   /// Protected method for constructors
-  void SetData(const std::shared_ptr<internal::ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   // Constructor that allows sub-classes/builders to propagate there logical type up the
   // class hierarchy.
@@ -481,7 +482,7 @@ class ARROW_EXPORT StringArray : public BinaryArray {
  public:
   using TypeClass = StringType;
 
-  explicit StringArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit StringArray(const std::shared_ptr<ArrayData>& data);
 
   StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
@@ -504,7 +505,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
  public:
   using TypeClass = FixedSizeBinaryType;
 
-  explicit FixedSizeBinaryArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data);
 
   FixedSizeBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
@@ -512,11 +513,12 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
                        int64_t null_count = 0, int64_t offset = 0);
 
   const uint8_t* GetValue(int64_t i) const;
+  const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return byte_width_; }
 
  protected:
-  inline void SetData(const std::shared_ptr<internal::ArrayData>& data) {
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
     byte_width_ = static_cast<const FixedSizeBinaryType&>(*type()).byte_width();
   }
@@ -532,8 +534,8 @@ class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
-  /// \brief Construct DecimalArray from internal::ArrayData instance
-  explicit DecimalArray(const std::shared_ptr<internal::ArrayData>& data);
+  /// \brief Construct DecimalArray from ArrayData instance
+  explicit DecimalArray(const std::shared_ptr<ArrayData>& data);
 
   std::string FormatValue(int64_t i) const;
 };
@@ -545,7 +547,7 @@ class ARROW_EXPORT StructArray : public Array {
  public:
   using TypeClass = StructType;
 
-  explicit StructArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit StructArray(const std::shared_ptr<ArrayData>& data);
 
   StructArray(const std::shared_ptr<DataType>& type, int64_t length,
               const std::vector<std::shared_ptr<Array>>& children,
@@ -555,6 +557,10 @@ class ARROW_EXPORT StructArray : public Array {
   // Return a shared pointer in case the requestor desires to share ownership
   // with this array.
   std::shared_ptr<Array> field(int pos) const;
+
+ private:
+  // For caching boxed child data
+  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
 // ----------------------------------------------------------------------
@@ -565,7 +571,7 @@ class ARROW_EXPORT UnionArray : public Array {
   using TypeClass = UnionType;
   using type_id_t = uint8_t;
 
-  explicit UnionArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit UnionArray(const std::shared_ptr<ArrayData>& data);
 
   UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
              const std::vector<std::shared_ptr<Array>>& children,
@@ -588,10 +594,13 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> child(int pos) const;
 
  protected:
-  void SetData(const std::shared_ptr<internal::ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   const type_id_t* raw_type_ids_;
   const int32_t* raw_value_offsets_;
+
+  // For caching boxed child data
+  mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
 // ----------------------------------------------------------------------
@@ -616,7 +625,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
  public:
   using TypeClass = DictionaryType;
 
-  explicit DictionaryArray(const std::shared_ptr<internal::ArrayData>& data);
+  explicit DictionaryArray(const std::shared_ptr<ArrayData>& data);
 
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices);
@@ -627,7 +636,7 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type() const { return dict_type_; }
 
  private:
-  void SetData(const std::shared_ptr<internal::ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data);
 
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
@@ -661,21 +670,27 @@ ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 ///
 /// \param array an Array instance
 /// \return Status
-Status ARROW_EXPORT ValidateArray(const Array& array);
+ARROW_EXPORT
+Status ValidateArray(const Array& array);
+
+#ifndef ARROW_NO_DEPRECATED_API
+// \note Deprecated since 0.7.0
 
 /// Create new arrays for logical types that are backed by primitive arrays.
-Status ARROW_EXPORT MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-                                       int64_t length,
-                                       const std::shared_ptr<Buffer>& data,
-                                       const std::shared_ptr<Buffer>& null_bitmap,
-                                       int64_t null_count, int64_t offset,
-                                       std::shared_ptr<Array>* out);
+ARROW_EXPORT
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
+                          const std::shared_ptr<Buffer>& data,
+                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+                          int64_t offset, std::shared_ptr<Array>* out);
 
-Status ARROW_EXPORT
-MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-                   const std::vector<std::shared_ptr<Buffer>>& buffers, int64_t length,
-                   int64_t null_count, int64_t offset, std::shared_ptr<Array>* out);
+ARROW_EXPORT
+Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
+                          const std::vector<std::shared_ptr<Buffer>>& buffers,
+                          int64_t length, int64_t null_count, int64_t offset,
+                          std::shared_ptr<Array>* out);
+
+#endif
 
 }  // namespace arrow
 
-#endif
+#endif  // ARROW_ARRAY_H

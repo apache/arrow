@@ -81,5 +81,14 @@ Status CheckPyError(StatusCode code) {
   return Status::OK();
 }
 
+Status PassPyError() {
+  if (PyErr_Occurred()) {
+    // Do not call PyErr_Clear, the assumption is that someone further
+    // up the call stack will want to deal with the Python error.
+    return Status(StatusCode::PythonError, "");
+  }
+  return Status::OK();
+}
+
 }  // namespace py
 }  // namespace arrow

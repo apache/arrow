@@ -29,7 +29,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -261,7 +260,7 @@ class RangeEqualsVisitor {
   }
 
   Status Visit(const NullArray& left) {
-    UNUSED(left);
+    ARROW_UNUSED(left);
     result_ = true;
     return Status::OK();
   }
@@ -313,20 +312,14 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
   const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
-  const uint8_t* left_data = nullptr;
-  const uint8_t* right_data = nullptr;
-
-  if (left.values()) {
-    left_data = left.raw_values();
-  }
-  if (right.values()) {
-    right_data = right.raw_values();
-  }
+  const uint8_t* left_data = left.values() ? left.raw_values() : nullptr;
+  const uint8_t* right_data = right.values() ? right.raw_values() : nullptr;
 
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
-      bool left_null = left.IsNull(i);
-      if (!left_null && (memcmp(left_data, right_data, byte_width) || right.IsNull(i))) {
+      const bool left_null = left.IsNull(i);
+      const bool right_null = right.IsNull(i);
+      if (!left_null && (memcmp(left_data, right_data, byte_width) != 0 || right_null)) {
         return false;
       }
       left_data += byte_width;
@@ -334,34 +327,9 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
     }
     return true;
   } else {
-    return memcmp(left_data, right_data,
-                  static_cast<size_t>(byte_width * left.length())) == 0;
+    auto number_of_bytes_to_compare = static_cast<size_t>(byte_width * left.length());
+    return memcmp(left_data, right_data, number_of_bytes_to_compare) == 0;
   }
-}
-
-template <typename T>
-static inline bool CompareBuiltIn(const Array& left, const Array& right, const T* ldata,
-                                  const T* rdata) {
-  if (ldata == nullptr && rdata == nullptr) {
-    return true;
-  }
-
-  if (ldata == nullptr || rdata == nullptr) {
-    return false;
-  }
-
-  if (left.null_count() > 0) {
-    for (int64_t i = 0; i < left.length(); ++i) {
-      if (left.IsNull(i) != right.IsNull(i)) {
-        return false;
-      } else if (!left.IsNull(i) && (ldata[i] != rdata[i])) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  return memcmp(ldata, rdata, sizeof(T) * left.length()) == 0;
 }
 
 class ArrayEqualsVisitor : public RangeEqualsVisitor {
@@ -370,6 +338,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       : RangeEqualsVisitor(right, 0, right.length(), 0) {}
 
   Status Visit(const NullArray& left) {
+    ARROW_UNUSED(left);
     result_ = true;
     return Status::OK();
   }
@@ -507,27 +476,6 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalArray& left) {
-    const int byte_width = left.byte_width();
-    if (byte_width == 4) {
-      result_ = CompareBuiltIn<int32_t>(
-          left, right_, reinterpret_cast<const int32_t*>(left.raw_values()),
-          reinterpret_cast<const int32_t*>(
-              static_cast<const DecimalArray&>(right_).raw_values()));
-      return Status::OK();
-    }
-
-    if (byte_width == 8) {
-      result_ = CompareBuiltIn<int64_t>(
-          left, right_, reinterpret_cast<const int64_t*>(left.raw_values()),
-          reinterpret_cast<const int64_t*>(
-              static_cast<const DecimalArray&>(right_).raw_values()));
-      return Status::OK();
-    }
-
-    return RangeEqualsVisitor::Visit(left);
-  }
-
   template <typename T>
   typename std::enable_if<std::is_base_of<NestedType, typename T::TypeClass>::value,
                           Status>::type
@@ -636,7 +584,7 @@ class TypeEqualsVisitor {
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
                               std::is_base_of<PrimitiveCType, T>::value,
                           Status>::type
-  Visit(const T& type) {
+  Visit(const T&) {
     result_ = true;
     return Status::OK();
   }
@@ -745,6 +693,29 @@ Status ArrayRangeEquals(const Array& left, const Array& right, int64_t left_star
   return Status::OK();
 }
 
+bool StridedTensorContentEquals(int dim_index, int64_t left_offset, int64_t right_offset,
+                                int elem_size, const Tensor& left, const Tensor& right) {
+  if (dim_index == left.ndim() - 1) {
+    for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
+      if (memcmp(left.raw_data() + left_offset + i * left.strides()[dim_index],
+                 right.raw_data() + right_offset + i * right.strides()[dim_index],
+                 elem_size) != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+  for (int64_t i = 0; i < left.shape()[dim_index]; ++i) {
+    if (!StridedTensorContentEquals(dim_index + 1, left_offset, right_offset, elem_size,
+                                    left, right)) {
+      return false;
+    }
+    left_offset += left.strides()[dim_index];
+    right_offset += right.strides()[dim_index];
+  }
+  return true;
+}
+
 Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
   // The arrays are the same object
   if (&left == &right) {
@@ -755,19 +726,25 @@ Status TensorEquals(const Tensor& left, const Tensor& right, bool* are_equal) {
     *are_equal = true;
   } else {
     if (!left.is_contiguous() || !right.is_contiguous()) {
-      return Status::NotImplemented(
-          "Comparison not implemented for non-contiguous tensors");
+      const auto& shape = left.shape();
+      if (shape != right.shape()) {
+        *are_equal = false;
+        return Status::OK();
+      }
+      const auto& type = static_cast<const FixedWidthType&>(*left.type());
+      *are_equal = StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
+      return Status::OK();
+    } else {
+      const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
+      const int byte_width = size_meta.bit_width() / CHAR_BIT;
+      DCHECK_GT(byte_width, 0);
+
+      const uint8_t* left_data = left.data()->data();
+      const uint8_t* right_data = right.data()->data();
+
+      *are_equal = memcmp(left_data, right_data,
+                          static_cast<size_t>(byte_width * left.size())) == 0;
     }
-
-    const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-    const int byte_width = size_meta.bit_width() / CHAR_BIT;
-    DCHECK_GT(byte_width, 0);
-
-    const uint8_t* left_data = left.data()->data();
-    const uint8_t* right_data = right.data()->data();
-
-    *are_equal =
-        memcmp(left_data, right_data, static_cast<size_t>(byte_width * left.size())) == 0;
   }
   return Status::OK();
 }

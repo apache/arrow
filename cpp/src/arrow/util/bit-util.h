@@ -39,7 +39,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/util/compiler-util.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 #ifdef ARROW_USE_SSE
@@ -49,9 +49,13 @@
 
 namespace arrow {
 
-#define INIT_BITSET(valid_bits_vector, valid_bits_index)        \
-  int byte_offset_##valid_bits_vector = (valid_bits_index) / 8; \
-  int bit_offset_##valid_bits_vector = (valid_bits_index) % 8;  \
+#ifndef ARROW_NO_DEPRECATED_API
+
+// \deprecated Since > 0.7.0
+
+#define INIT_BITSET(valid_bits_vector, valid_bits_index)            \
+  int64_t byte_offset_##valid_bits_vector = (valid_bits_index) / 8; \
+  int64_t bit_offset_##valid_bits_vector = (valid_bits_index) % 8;  \
   uint8_t bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector];
 
 #define READ_NEXT_BITSET(valid_bits_vector)                                          \
@@ -61,6 +65,8 @@ namespace arrow {
     byte_offset_##valid_bits_vector++;                                               \
     bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector]; \
   }
+
+#endif
 
 // TODO(wesm): The source from Impala was depending on boost::make_unsigned
 //
@@ -251,7 +257,7 @@ static inline int PopcountNoHw(uint64_t x) {
 /// Returns the number of set bits in x
 static inline int Popcount(uint64_t x) {
 #ifdef ARROW_USE_SSE
-  if (LIKELY(CpuInfo::IsSupported(CpuInfo::POPCNT))) {
+  if (ARROW_PREDICT_TRUE(CpuInfo::IsSupported(CpuInfo::POPCNT))) {
     return POPCNT_popcnt_u64(x);
   } else {
     return PopcountNoHw(x);
@@ -270,8 +276,8 @@ static inline int PopcountSigned(T v) {
 
 /// Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
-  if (UNLIKELY(num_bits == 0)) return 0;
-  if (UNLIKELY(num_bits >= 64)) return v;
+  if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
+  if (ARROW_PREDICT_FALSE(num_bits >= 64)) return v;
   int n = 64 - num_bits;
   return (v << n) >> n;
 }
@@ -380,9 +386,108 @@ static T ShiftRightLogical(T v, int shift) {
 }
 
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits);
-ARROW_EXPORT Status BytesToBits(const std::vector<uint8_t>&, std::shared_ptr<Buffer>*);
+
+/// \brief Convert vector of bytes to bitmap buffer
+ARROW_EXPORT
+Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
 
 }  // namespace BitUtil
+
+namespace internal {
+
+class BitmapReader {
+ public:
+  BitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap), position_(0), length_(length) {
+    current_byte_ = 0;
+    byte_offset_ = start_offset / 8;
+    bit_offset_ = start_offset % 8;
+    if (length > 0) {
+      current_byte_ = bitmap[byte_offset_];
+    }
+  }
+
+#if defined(_MSC_VER)
+  // MSVC is finicky about this cast
+  bool IsSet() const { return (current_byte_ & (1 << bit_offset_)) != 0; }
+#else
+  bool IsSet() const { return current_byte_ & (1 << bit_offset_); }
+#endif
+
+  bool IsNotSet() const { return (current_byte_ & (1 << bit_offset_)) == 0; }
+
+  void Next() {
+    ++bit_offset_;
+    ++position_;
+    if (bit_offset_ == 8) {
+      bit_offset_ = 0;
+      ++byte_offset_;
+      if (ARROW_PREDICT_TRUE(position_ < length_)) {
+        current_byte_ = bitmap_[byte_offset_];
+      }
+    }
+  }
+
+ private:
+  const uint8_t* bitmap_;
+  int64_t position_;
+  int64_t length_;
+
+  uint8_t current_byte_;
+  int64_t byte_offset_;
+  int64_t bit_offset_;
+};
+
+class BitmapWriter {
+ public:
+  BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap), position_(0), length_(length) {
+    current_byte_ = 0;
+    byte_offset_ = start_offset / 8;
+    bit_offset_ = start_offset % 8;
+    if (length > 0) {
+      current_byte_ = bitmap[byte_offset_];
+    }
+  }
+
+  void Set() { current_byte_ |= BitUtil::kBitmask[bit_offset_]; }
+
+  void Clear() { current_byte_ &= BitUtil::kFlippedBitmask[bit_offset_]; }
+
+  void Next() {
+    ++bit_offset_;
+    ++position_;
+    bitmap_[byte_offset_] = current_byte_;
+    if (bit_offset_ == 8) {
+      bit_offset_ = 0;
+      ++byte_offset_;
+      if (ARROW_PREDICT_TRUE(position_ < length_)) {
+        current_byte_ = bitmap_[byte_offset_];
+      }
+    }
+  }
+
+  void Finish() {
+    if (ARROW_PREDICT_TRUE(position_ < length_)) {
+      if (bit_offset_ != 0) {
+        bitmap_[byte_offset_] = current_byte_;
+      }
+    }
+  }
+
+  int64_t position() const { return position_; }
+
+ private:
+  uint8_t* bitmap_;
+  int64_t position_;
+  int64_t length_;
+
+  uint8_t current_byte_;
+  int64_t byte_offset_;
+  int64_t bit_offset_;
+};
+
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Bitmap utilities
