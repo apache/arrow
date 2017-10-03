@@ -409,10 +409,6 @@ def test_serialize_pandas_empty_dataframe():
     _check_serialize_pandas_round_trip(df)
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason='Non string columns are not supported',
-)
 def test_pandas_serialize_round_trip_not_string_columns():
     df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
     buf = pa.serialize_pandas(df)
