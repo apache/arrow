@@ -83,7 +83,7 @@ def format_changelog_website(issues, out):
         'Improvement': NEW_FEATURE,
         'Wish': NEW_FEATURE,
         'Task': NEW_FEATURE,
-        'Test': NEW_FEATURE,
+        'Test': BUGFIX,
         'Bug': BUGFIX
     }
 
