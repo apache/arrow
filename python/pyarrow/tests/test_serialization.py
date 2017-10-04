@@ -295,11 +295,13 @@ def test_custom_serialization(large_memory_map):
         for obj in CUSTOM_OBJECTS:
             serialization_roundtrip(obj, mmap)
 
+
 def test_default_dict_serialization(large_memory_map):
-    cloudpickle = pytest.importorskip("cloudpickle")
+    pytest.importorskip("cloudpickle")
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         obj = defaultdict(lambda: 0, [("hello", 1), ("world", 2)])
         serialization_roundtrip(obj, mmap)
+
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
