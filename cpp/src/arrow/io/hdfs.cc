@@ -511,21 +511,35 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
-  Status GetFileBlockLocations(const std::string& path, int64_t offset, int64_t size,
-                               std::vector<std::vector<std::string>>* block_location) {
-    char*** blocks = driver_->GetHosts(fs_, path.c_str(), offset, size);
-    if (blocks == nullptr) {
-      // TODO : Create a error over here and return
-      return Status::IOError("HDFS:GetFileBlockLocations failed");
+  Status GetFileBlockLocations(
+      const std::string& path, int64_t offset, int64_t total_size,
+      std::vector<std::vector<struct HdfsBlockInfo>>* block_location) {
+    hdfsFileInfo* file_info = driver_->GetPathInfo(fs_, path.c_str());
+    if (file_info == nullptr) {
+      return Status::IOError("HDFS: GetPathInfo failed");
     }
-    for (size_t b = 0; blocks[b]; b++) {
-      std::vector<std::string> host_list;
-      for (size_t h = 0; blocks[b]++; h++) {
-        host_list.push_back(std::string(blocks[b][h]));
+    int64_t temp_size = total_size;
+    int64_t block_size = file_info->mBlockSize;
+    int64_t start_pos = offset;
+    int64_t end_of_block_length =
+        std::min(total_size, block_size * ((start_pos % block_size) + 1) - start_pos);
+    char*** block = nullptr;
+    while (start_pos < offset + total_size) {
+      block = driver_->GetHosts(fs_, path.c_str(), start_pos, end_of_block_length);
+      if (block == nullptr) {
+        return Status::IOError("HDFS:GetFileBlockLocations failed");
       }
-      block_location->push_back(host_list);
+      std::vector<struct HdfsBlockInfo> block_info;
+      for (size_t h = 0; block[0][h]; h++) {
+        block_info.emplace_back(std::string(block[0][h]), start_pos, end_of_block_length);
+      }
+      block_location->push_back(block_info);
+      start_pos += end_of_block_length;
+      temp_size -= end_of_block_length;
+      end_of_block_length += std::min(temp_size, block_size);
     }
-    driver_->FreeHosts(blocks);
+    driver_->FreeHosts(block);
+    driver_->FreeFileInfo(file_info, 1);
     return Status::OK();
   }
 
@@ -634,7 +648,7 @@ Status HadoopFileSystem::Rename(const std::string& src, const std::string& dst) 
 
 Status HadoopFileSystem::GetFileBlockLocations(
     const std::string& path, int64_t offset, int64_t size,
-    std::vector<std::vector<std::string>>* block_location) {
+    std::vector<std::vector<struct HdfsBlockInfo>>* block_location) {
   return impl_->GetFileBlockLocations(path, offset, size, block_location);
 }
 
