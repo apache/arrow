@@ -397,6 +397,17 @@ TYPED_TEST(TestHadoopFileSystem, RenameFile) {
   ASSERT_FALSE(this->client_->Exists(src_path));
   ASSERT_TRUE(this->client_->Exists(dst_path));
 }
+TYPED_TEST(TestHadoopFileSystem , FileBlockLocations) {
+  SKIP_IF_NO_DRIVER();
+  ASSERT_OK(this->MakeScratchDir());
+  auto path = this->ScratchPath("src-file");
+  const int size = 100;
+  std::vector <uint8_t> data = RandomData(size);
+  ASSERT_OK(this->WriteDummyFile(path, data.data(), size, false, 0, 0, 64));
+  std::vector <std::vector <struct HdfsBlockInfo>>  block_location;
+  ASSERT_OK(this->client_->GetFileBlockLocations(path , 0  , 100 , &block_location));
+  //! Need to add more test
+}
 
 TYPED_TEST(TestHadoopFileSystem, ChmodChown) {
   SKIP_IF_NO_DRIVER();
