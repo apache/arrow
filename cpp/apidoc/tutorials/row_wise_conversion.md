@@ -57,12 +57,15 @@ is referenced by the offsets in the former array.
 // the underlying memory regions in-place. At the moment, arrow::jemalloc is only
 // supported on Unix systems, not Windows.
 
-arrow::Int64Builder id_builder(arrow::default_memory_pool());
-arrow::DoubleBuilder cost_builder(arrow::default_memory_pool());
-std::shared_ptr<DoubleBuilder> components_values_builder =
-    std::make_shared<DoubleBuilder>(arrow::default_memory_pool());
-arrow::ListBuilder components_builder(arrow::default_memory_pool(),
-    components_values_builder);
+using arrow::DoubleBuilder;
+using arrow::Int64Builder;
+using arrow::ListBuilder;
+
+arrow::MemoryPool* pool = arrow::default_memory_pool();
+Int64Builder id_builder(pool);
+DoubleBuilder cost_builder(pool);
+std::unique_ptr<DoubleBuilder> components_values_builder(new DoubleBuilder(pool));
+ListBuilder components_builder(pool, std::move(components_values_builder));
 ```
 
 Now we can loop over our existing data and insert it into the builders. The
