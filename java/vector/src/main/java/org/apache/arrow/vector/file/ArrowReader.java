@@ -135,11 +135,19 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
 
   @Override
   public void close() throws IOException {
+    close(true);
+  }
+
+  public void close(boolean closeReadChannel) throws IOException {
     if (initialized) {
       root.close();
       for (Dictionary dictionary : dictionaries.values()) {
         dictionary.getVector().close();
       }
+    }
+
+    if (closeReadChannel) {
+      in.close();
     }
   }
 
