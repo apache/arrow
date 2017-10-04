@@ -44,8 +44,3 @@ conda config --set remote_connect_timeout_secs 12
 conda config --add channels https://repo.continuum.io/pkgs/free
 conda config --add channels conda-forge
 conda info -a
-
-# faster builds, please
-conda install -y nomkl
-
-conda install --y conda-build jinja2 anaconda-client cmake curl
