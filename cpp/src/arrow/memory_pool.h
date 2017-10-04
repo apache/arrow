@@ -20,7 +20,6 @@
 
 #include <atomic>
 #include <cstdint>
-#include <mutex>
 
 #include "arrow/util/visibility.h"
 
@@ -67,26 +66,6 @@ class ARROW_EXPORT MemoryPool {
 
  protected:
   MemoryPool();
-};
-
-class ARROW_EXPORT DefaultMemoryPool : public MemoryPool {
- public:
-  DefaultMemoryPool();
-  virtual ~DefaultMemoryPool();
-
-  Status Allocate(int64_t size, uint8_t** out) override;
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
-
-  void Free(uint8_t* buffer, int64_t size) override;
-
-  int64_t bytes_allocated() const override;
-
-  int64_t max_memory() const override;
-
- private:
-  mutable std::mutex lock_;
-  std::atomic<int64_t> bytes_allocated_;
-  std::atomic<int64_t> max_memory_;
 };
 
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {

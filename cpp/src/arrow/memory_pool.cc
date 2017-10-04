@@ -85,74 +85,82 @@ MemoryPool::~MemoryPool() {}
 
 int64_t MemoryPool::max_memory() const { return -1; }
 
-DefaultMemoryPool::DefaultMemoryPool() : bytes_allocated_(0) { max_memory_ = 0; }
+class DefaultMemoryPool : public MemoryPool {
+ public:
+  DefaultMemoryPool() : bytes_allocated_(0) { max_memory_ = 0; }
 
-Status DefaultMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  RETURN_NOT_OK(AllocateAligned(size, out));
-  bytes_allocated_ += size;
+  ~DefaultMemoryPool() {}
 
-  {
-    std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) {
-      max_memory_ = bytes_allocated_.load();
+  Status Allocate(int64_t size, uint8_t** out) override {
+    RETURN_NOT_OK(AllocateAligned(size, out));
+    bytes_allocated_ += size;
+
+    {
+      std::lock_guard<std::mutex> guard(lock_);
+      if (bytes_allocated_ > max_memory_) {
+        max_memory_ = bytes_allocated_.load();
+      }
     }
+    return Status::OK();
   }
-  return Status::OK();
-}
 
-Status DefaultMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
 #ifdef ARROW_JEMALLOC
-  *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
-  if (*ptr == NULL) {
-    std::stringstream ss;
-    ss << "realloc of size " << new_size << " failed";
-    return Status::OutOfMemory(ss.str());
-  }
+    *ptr = reinterpret_cast<uint8_t*>(rallocx(*ptr, new_size, MALLOCX_ALIGN(kAlignment)));
+    if (*ptr == NULL) {
+      std::stringstream ss;
+      ss << "realloc of size " << new_size << " failed";
+      return Status::OutOfMemory(ss.str());
+    }
 #else
-  // Note: We cannot use realloc() here as it doesn't guarantee alignment.
+    // Note: We cannot use realloc() here as it doesn't guarantee alignment.
 
-  // Allocate new chunk
-  uint8_t* out = nullptr;
-  RETURN_NOT_OK(AllocateAligned(new_size, &out));
-  DCHECK(out);
-  // Copy contents and release old memory chunk
-  memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
+    // Allocate new chunk
+    uint8_t* out = nullptr;
+    RETURN_NOT_OK(AllocateAligned(new_size, &out));
+    DCHECK(out);
+    // Copy contents and release old memory chunk
+    memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
 #ifdef _MSC_VER
-  _aligned_free(*ptr);
+    _aligned_free(*ptr);
 #else
-  std::free(*ptr);
+    std::free(*ptr);
 #endif  // defined(_MSC_VER)
-  *ptr = out;
+    *ptr = out;
 #endif  // defined(ARROW_JEMALLOC)
 
-  bytes_allocated_ += new_size - old_size;
-  {
-    std::lock_guard<std::mutex> guard(lock_);
-    if (bytes_allocated_ > max_memory_) {
-      max_memory_ = bytes_allocated_.load();
+    bytes_allocated_ += new_size - old_size;
+    {
+      std::lock_guard<std::mutex> guard(lock_);
+      if (bytes_allocated_ > max_memory_) {
+        max_memory_ = bytes_allocated_.load();
+      }
     }
+
+    return Status::OK();
   }
 
-  return Status::OK();
-}
+  int64_t bytes_allocated() const override { return bytes_allocated_.load(); }
 
-int64_t DefaultMemoryPool::bytes_allocated() const { return bytes_allocated_.load(); }
-
-void DefaultMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  DCHECK_GE(bytes_allocated_, size);
+  void Free(uint8_t* buffer, int64_t size) override {
+    DCHECK_GE(bytes_allocated_, size);
 #ifdef _MSC_VER
-  _aligned_free(buffer);
+    _aligned_free(buffer);
 #elif defined(ARROW_JEMALLOC)
-  dallocx(buffer, MALLOCX_ALIGN(kAlignment));
+    dallocx(buffer, MALLOCX_ALIGN(kAlignment));
 #else
-  std::free(buffer);
+    std::free(buffer);
 #endif
-  bytes_allocated_ -= size;
-}
+    bytes_allocated_ -= size;
+  }
 
-int64_t DefaultMemoryPool::max_memory() const { return max_memory_.load(); }
+  int64_t max_memory() const override { return max_memory_.load(); }
 
-DefaultMemoryPool::~DefaultMemoryPool() {}
+ private:
+  mutable std::mutex lock_;
+  std::atomic<int64_t> bytes_allocated_;
+  std::atomic<int64_t> max_memory_;
+};
 
 MemoryPool* default_memory_pool() {
   static DefaultMemoryPool default_memory_pool_;
