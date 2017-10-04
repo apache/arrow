@@ -45,7 +45,7 @@ bundle exec jekyll serve
 After following the above instructions the base `site/` directory, run:
 
 ```shell
-bundle exec jekyll build
+JEKYLL_ENV=production bundle exec jekyll build
 rsync -r build/ asf-site/
 cd asf-site
 git status
