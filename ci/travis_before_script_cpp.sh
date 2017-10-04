@@ -47,6 +47,10 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
         curl \
         thrift-cpp \
         ninja
+
+  # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
+  # updated sometime on October 2 or October 3
+  conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
