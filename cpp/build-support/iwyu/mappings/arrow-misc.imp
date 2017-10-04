@@ -24,9 +24,10 @@
   { symbol: ["uint8_t", private, "<cstdint>", public ] },
   { symbol: ["_Node_const_iterator", private, "<flatbuffers/flatbuffers.h>", public ] },
   { symbol: ["unordered_map<>::mapped_type", private, "<flatbuffers/flatbuffers.h>", public ] },
-  { symbol: ["__alloc_traits<>::value_type", private, "<vector>", public ] },
   { symbol: ["move", private, "<utility>", public ] },
   { symbol: ["pair", private, "<utility>", public ] },
   { symbol: ["errno", private, "<cerrno>", public ] },
-  { symbol: ["posix_memalign", private, "<cstdlib>", public ] }
+  { symbol: ["posix_memalign", private, "<cstdlib>", public ] },
+  { include: ["<ext/alloc_traits.h>", private, "<vector>", public ] },
+  { include: ["<string.h>", private, "<cstring>", public ] }
 ]

@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compare.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -39,7 +40,6 @@
 namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
-using internal::ArrayData;
 using internal::WrappedBinary;
 
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
@@ -153,6 +153,37 @@ void ArrayBuilder::UnsafeAppendToBitmap(const uint8_t* valid_bytes, int64_t leng
   length_ += length;
 }
 
+void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
+  int64_t byte_offset = length_ / 8;
+  int64_t bit_offset = length_ % 8;
+  uint8_t bitset = null_bitmap_data_[byte_offset];
+
+  const int64_t length = static_cast<int64_t>(is_valid.size());
+
+  for (int64_t i = 0; i < length; ++i) {
+    if (bit_offset == 8) {
+      bit_offset = 0;
+      null_bitmap_data_[byte_offset] = bitset;
+      byte_offset++;
+      // TODO: Except for the last byte, this shouldn't be needed
+      bitset = null_bitmap_data_[byte_offset];
+    }
+
+    if (is_valid[i]) {
+      bitset |= BitUtil::kBitmask[bit_offset];
+    } else {
+      bitset &= BitUtil::kFlippedBitmask[bit_offset];
+      ++null_count_;
+    }
+
+    bit_offset++;
+  }
+  if (bit_offset != 0) {
+    null_bitmap_data_[byte_offset] = bitset;
+  }
+  length_ += length;
+}
+
 void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   const int64_t new_length = length + length_;
 
@@ -240,6 +271,34 @@ Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
 
   return Status::OK();
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::Append(const value_type* values, int64_t length,
+                                   const std::vector<bool>& is_valid) {
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+
+  if (length > 0) {
+    std::memcpy(raw_data_ + length_, values,
+                static_cast<std::size_t>(TypeTraits<T>::bytes_required(length)));
+  }
+
+  // length_ is update by these
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+
+  return Status::OK();
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values,
+                                   const std::vector<bool>& is_valid) {
+  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
+template <typename T>
+Status PrimitiveBuilder<T>::Append(const std::vector<value_type>& values) {
+  return Append(values.data(), static_cast<int64_t>(values.size()));
 }
 
 template <typename T>
@@ -690,20 +749,61 @@ Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
   RETURN_NOT_OK(Reserve(length));
 
   for (int64_t i = 0; i < length; ++i) {
-    // Skip reading from unitialised memory
-    // TODO: This actually is only to keep valgrind happy but may or may not
-    // have a performance impact.
-    if ((valid_bytes != nullptr) && !valid_bytes[i]) continue;
-
-    if (values[i] > 0) {
-      BitUtil::SetBit(raw_data_, length_ + i);
-    } else {
-      BitUtil::ClearBit(raw_data_, length_ + i);
-    }
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
   }
 
   // this updates length_
   ArrayBuilder::UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const uint8_t* values, int64_t length,
+                              const std::vector<bool>& is_valid) {
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i] != 0);
+  }
+
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const std::vector<uint8_t>& values,
+                              const std::vector<bool>& is_valid) {
+  return Append(values.data(), static_cast<int64_t>(values.size()), is_valid);
+}
+
+Status BooleanBuilder::Append(const std::vector<uint8_t>& values) {
+  return Append(values.data(), static_cast<int64_t>(values.size()));
+}
+
+Status BooleanBuilder::Append(const std::vector<bool>& values,
+                              const std::vector<bool>& is_valid) {
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+  DCHECK_EQ(length, static_cast<int64_t>(is_valid.size()));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+  }
+
+  // this updates length_
+  ArrayBuilder::UnsafeAppendToBitmap(is_valid);
+  return Status::OK();
+}
+
+Status BooleanBuilder::Append(const std::vector<bool>& values) {
+  const int64_t length = static_cast<int64_t>(values.size());
+  RETURN_NOT_OK(Reserve(length));
+
+  for (int64_t i = 0; i < length; ++i) {
+    BitUtil::SetBitTo(raw_data_, length_ + i, values[i]);
+  }
+
+  ArrayBuilder::UnsafeSetNotNull(length);
   return Status::OK();
 }
 
@@ -717,7 +817,22 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
       hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(type, pool),
-      values_builder_(pool) {
+      values_builder_(pool),
+      byte_width_(-1) {
+  if (!::arrow::CpuInfo::initialized()) {
+    ::arrow::CpuInfo::Init();
+  }
+}
+
+template <>
+DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool)
+    : ArrayBuilder(type, pool),
+      hash_table_(new PoolBuffer(pool)),
+      hash_slots_(nullptr),
+      dict_builder_(type, pool),
+      values_builder_(pool),
+      byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()) {
   if (!::arrow::CpuInfo::initialized()) {
     ::arrow::CpuInfo::Init();
   }
@@ -793,8 +908,8 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
     hash_slots_[j] = index;
     RETURN_NOT_OK(AppendDictionary(value));
 
-    if (UNLIKELY(static_cast<int32_t>(dict_builder_.length()) >
-                 hash_table_size_ * kMaxHashTableLoad)) {
+    if (ARROW_PREDICT_FALSE(static_cast<int32_t>(dict_builder_.length()) >
+                            hash_table_size_ * kMaxHashTableLoad)) {
       RETURN_NOT_OK(DoubleTableSize());
     }
   }
@@ -806,7 +921,24 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
 
 template <typename T>
 Status DictionaryBuilder<T>::AppendArray(const Array& array) {
-  const NumericArray<T>& numeric_array = static_cast<const NumericArray<T>&>(array);
+  const auto& numeric_array = static_cast<const NumericArray<T>&>(array);
+  for (int64_t i = 0; i < array.length(); i++) {
+    if (array.IsNull(i)) {
+      RETURN_NOT_OK(AppendNull());
+    } else {
+      RETURN_NOT_OK(Append(numeric_array.Value(i)));
+    }
+  }
+  return Status::OK();
+}
+
+template <>
+Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
+  if (!type_->Equals(*array.type())) {
+    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
+  }
+
+  const auto& numeric_array = static_cast<const FixedSizeBinaryArray&>(array);
   for (int64_t i = 0; i < array.length(); i++) {
     if (array.IsNull(i)) {
       RETURN_NOT_OK(AppendNull());
@@ -874,15 +1006,33 @@ typename DictionaryBuilder<T>::Scalar DictionaryBuilder<T>::GetDictionaryValue(
   return data[index];
 }
 
+template <>
+const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(int64_t index) {
+  return dict_builder_.GetValue(index);
+}
+
 template <typename T>
 int DictionaryBuilder<T>::HashValue(const Scalar& value) {
   return HashUtil::Hash(&value, sizeof(Scalar), 0);
+}
+
+template <>
+int DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
+  return HashUtil::Hash(value, byte_width_, 0);
 }
 
 template <typename T>
 bool DictionaryBuilder<T>::SlotDifferent(hash_slot_t index, const Scalar& value) {
   const Scalar other = GetDictionaryValue(static_cast<int64_t>(index));
   return other != value;
+}
+
+template <>
+bool DictionaryBuilder<FixedSizeBinaryType>::SlotDifferent(hash_slot_t index,
+                                                           const Scalar& value) {
+  int32_t width = static_cast<const FixedSizeBinaryType&>(*type_).byte_width();
+  const Scalar other = GetDictionaryValue(static_cast<int64_t>(index));
+  return memcmp(other, value, width) != 0;
 }
 
 template <typename T>
@@ -951,6 +1101,7 @@ template class DictionaryBuilder<Time64Type>;
 template class DictionaryBuilder<TimestampType>;
 template class DictionaryBuilder<FloatType>;
 template class DictionaryBuilder<DoubleType>;
+template class DictionaryBuilder<FixedSizeBinaryType>;
 template class DictionaryBuilder<BinaryType>;
 template class DictionaryBuilder<StringType>;
 
@@ -965,31 +1116,15 @@ DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>
     : DecimalBuilder(type, pool) {}
 #endif
 
-template <typename T>
-ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal<T>& val) {
+Status DecimalBuilder::Append(const Decimal128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  return FixedSizeBinaryBuilder::Append(reinterpret_cast<const uint8_t*>(&val.value));
-}
-
-template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal32& val);
-template ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal64& val);
-
-template <>
-ARROW_EXPORT Status DecimalBuilder::Append(const decimal::Decimal128& value) {
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  uint8_t stack_bytes[16] = {0};
-  uint8_t* bytes = stack_bytes;
-  decimal::ToBytes(value, &bytes);
-  return FixedSizeBinaryBuilder::Append(bytes);
+  return FixedSizeBinaryBuilder::Append(value.ToBytes());
 }
 
 Status DecimalBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
-
-  /// TODO(phillipc): not sure where to get the offset argument here
-  *out =
-      std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_, 0);
+  *out = std::make_shared<DecimalArray>(type_, length_, data, null_bitmap_, null_count_);
   return Status::OK();
 }
 
@@ -1228,6 +1363,11 @@ Status FixedSizeBinaryBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
+const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
+  const uint8_t* data_ptr = byte_builder_.data();
+  return data_ptr + i * byte_width_;
+}
+
 // ----------------------------------------------------------------------
 // Struct
 
@@ -1351,6 +1491,8 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
     DICTIONARY_BUILDER_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_BUILDER_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_BUILDER_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_BUILDER_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
+    DICTIONARY_BUILDER_CASE(DECIMAL, DictionaryBuilder<FixedSizeBinaryType>);
     default:
       return Status::NotImplemented(type->ToString());
   }
@@ -1385,8 +1527,13 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
     DICTIONARY_ARRAY_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_ARRAY_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_ARRAY_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_ARRAY_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
+    DICTIONARY_ARRAY_CASE(DECIMAL, DictionaryBuilder<FixedSizeBinaryType>);
     default:
-      return Status::NotImplemented(type->ToString());
+      std::stringstream ss;
+      ss << "Cannot encode array of type " << type->ToString();
+      ss << " to dictionary";
+      return Status::NotImplemented(ss.str());
   }
 }
 #define DICTIONARY_COLUMN_CASE(ENUM, BuilderType)                             \
@@ -1429,8 +1576,12 @@ Status EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
     DICTIONARY_COLUMN_CASE(DOUBLE, DictionaryBuilder<DoubleType>);
     DICTIONARY_COLUMN_CASE(STRING, StringDictionaryBuilder);
     DICTIONARY_COLUMN_CASE(BINARY, BinaryDictionaryBuilder);
+    DICTIONARY_COLUMN_CASE(FIXED_SIZE_BINARY, DictionaryBuilder<FixedSizeBinaryType>);
     default:
-      return Status::NotImplemented(type->ToString());
+      std::stringstream ss;
+      ss << "Cannot encode column of type " << type->ToString();
+      ss << " to dictionary";
+      return Status::NotImplemented(ss.str());
   }
 }
 

@@ -19,6 +19,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
@@ -43,7 +44,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   private final Mutator mutator = new Mutator();
 
   int valueCount;
-  private int allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+  private int allocationSizeInBytes = getSizeFromCount(INITIAL_VALUE_ALLOCATION);
   private int allocationMonitor = 0;
 
   public BitVector(String name, BufferAllocator allocator) {
@@ -175,7 +176,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   @Override
   public void reset() {
     valueCount = 0;
-    allocationSizeInBytes = INITIAL_VALUE_ALLOCATION;
+    allocationSizeInBytes = getSizeFromCount(INITIAL_VALUE_ALLOCATION);
     allocationMonitor = 0;
     zeroVector();
     super.reset();
@@ -208,7 +209,14 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    * Allocate new buffer with double capacity, and copy data into the new buffer. Replace vector's buffer with new buffer, and release old one
    */
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes * 2L;
+    long baseSize  = allocationSizeInBytes;
+    final int currentBufferCapacity = data.capacity();
+    if (baseSize < (long)currentBufferCapacity) {
+      baseSize = (long)currentBufferCapacity;
+    }
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
@@ -216,7 +224,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     final int curSize = (int) newAllocationSize;
     final ArrowBuf newBuf = allocator.buffer(curSize);
     newBuf.setZero(0, newBuf.capacity());
-    newBuf.setBytes(0, data, 0, data.capacity());
+    newBuf.setBytes(0, data, 0, currentBufferCapacity);
     data.release();
     data = newBuf;
     allocationSizeInBytes = curSize;

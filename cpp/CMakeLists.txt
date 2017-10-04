@@ -56,6 +56,14 @@ if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
+find_package(InferTools)
+if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR INFER_FOUND)
+  # Generate a Clang compile_commands.json "compilation database" file for use
+  # with various development tools, such as Vim's YouCompleteMe plugin.
+  # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
+  set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+endif()
+
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
@@ -92,6 +100,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   option(ARROW_NO_DEPRECATED_API
     "Exclude deprecated APIs from build"
+    OFF)
+
+  option(ARROW_COMPUTE
+    "Build the Arrow Compute Modules"
+    ON)
+
+  option(ARROW_EXTRA_ERROR_CONTEXT
+    "Compile with extra error context (line numbers, code)"
     OFF)
 
   option(ARROW_IPC
@@ -141,6 +157,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(ARROW_RPATH_ORIGIN
     "Build Arrow libraries with RATH set to \$ORIGIN"
     OFF)
+
+  option(ARROW_INSTALL_NAME_RPATH
+    "Build Arrow libraries with install_name set to @rpath"
+    ON)
 
   option(ARROW_PLASMA
     "Build the plasma object store along with Arrow"
@@ -211,14 +231,19 @@ else()
   set(ARROW_BOOST_HEADER_ONLY 1)
 endif()
 
-include(BuildUtils)
-
 ############################################################
 # Compiler flags
 ############################################################
 
+# Determine compiler version
+include(CompilerInfo)
+
 if (ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
+endif()
+
+if (ARROW_EXTRA_ERROR_CONTEXT)
+  add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
 endif()
 
 include(SetupCxxFlags)
@@ -229,6 +254,9 @@ include(SetupCxxFlags)
 
 add_custom_target(arrow_dependencies)
 
+include(BuildUtils)
+enable_testing()
+
 include(ThirdpartyToolchain)
 
 # Add common flags
@@ -236,9 +264,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
-# Determine compiler version
-include(CompilerInfo)
 
 if ("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -339,153 +364,6 @@ if (PARQUET_BUILD_SHARED)
 endif()
 
 ############################################################
-# Benchmarking
-############################################################
-# Add a new micro benchmark, with or without an executable that should be built.
-# If benchmarks are enabled then they will be run along side unit tests with ctest.
-# 'make runbenchmark' and 'make unittest' to build/run only benchmark or unittests,
-# respectively.
-#
-# REL_BENCHMARK_NAME is the name of the benchmark app. It may be a single component
-# (e.g. monotime-benchmark) or contain additional components (e.g.
-# net/net_util-benchmark). Either way, the last component must be a globally
-# unique name.
-
-# The benchmark will registered as unit test with ctest with a label
-# of 'benchmark'.
-#
-# Arguments after the test name will be passed to set_tests_properties().
-function(ADD_ARROW_BENCHMARK REL_BENCHMARK_NAME)
-  if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
-    # This benchmark has a corresponding .cc file, set it up as an executable.
-    set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
-    add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
-    target_link_libraries(${BENCHMARK_NAME} ${ARROW_BENCHMARK_LINK_LIBS})
-    add_dependencies(runbenchmark ${BENCHMARK_NAME})
-    set(NO_COLOR "--color_print=false")
-  else()
-    # No executable, just invoke the benchmark (probably a script) directly.
-    set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
-    set(NO_COLOR "")
-  endif()
-
-  add_test(${BENCHMARK_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} benchmark ${BENCHMARK_PATH} ${NO_COLOR})
-  set_tests_properties(${BENCHMARK_NAME} PROPERTIES LABELS "benchmark")
-  if(ARGN)
-    set_tests_properties(${BENCHMARK_NAME} PROPERTIES ${ARGN})
-  endif()
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_BENCHMARKS.
-function(ADD_ARROW_BENCHMARK_DEPENDENCIES REL_BENCHMARK_NAME)
-  if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  add_dependencies(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_BENCHMARKS.
-function(ARROW_BENCHMARK_LINK_LIBRARIES REL_BENCHMARK_NAME)
-    if(NO_BENCHMARKS)
-    return()
-  endif()
-  get_filename_component(BENCHMARK_NAME ${REL_BENCHMARK_NAME} NAME_WE)
-
-  target_link_libraries(${BENCHMARK_NAME} ${ARGN})
-endfunction()
-
-
-############################################################
-# Testing
-############################################################
-# Add a new test case, with or without an executable that should be built.
-#
-# REL_TEST_NAME is the name of the test. It may be a single component
-# (e.g. monotime-test) or contain additional components (e.g.
-# net/net_util-test). Either way, the last component must be a globally
-# unique name.
-#
-# The unit test is added with a label of "unittest" to support filtering with
-# ctest.
-#
-# Arguments after the test name will be passed to set_tests_properties().
-function(ADD_ARROW_TEST REL_TEST_NAME)
-  set(options)
-  set(single_value_args)
-  set(multi_value_args STATIC_LINK_LIBS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
-  if(ARG_UNPARSED_ARGUMENTS)
-    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
-  endif()
-
-  if(NO_TESTS OR NOT ARROW_BUILD_STATIC)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME}.cc)
-    # This test has a corresponding .cc file, set it up as an executable.
-    set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-    add_executable(${TEST_NAME} "${REL_TEST_NAME}.cc")
-
-    if (ARG_STATIC_LINK_LIBS)
-      # Customize link libraries
-      target_link_libraries(${TEST_NAME} ${ARG_STATIC_LINK_LIBS})
-    else()
-      target_link_libraries(${TEST_NAME} ${ARROW_TEST_LINK_LIBS})
-    endif()
-    add_dependencies(unittest ${TEST_NAME})
-  else()
-    # No executable, just invoke the test (probably a script) directly.
-    set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
-  endif()
-
-  if (ARROW_TEST_MEMCHECK)
-    SET_PROPERTY(TARGET ${TEST_NAME}
-      APPEND_STRING PROPERTY
-      COMPILE_FLAGS " -DARROW_VALGRIND")
-    add_test(${TEST_NAME}
-      bash -c "cd ${EXECUTABLE_OUTPUT_PATH}; valgrind --tool=memcheck --leak-check=full --leak-check-heuristics=stdstring --error-exitcode=1 ${TEST_PATH}")
-  elseif(MSVC)
-    add_test(${TEST_NAME} ${TEST_PATH})
-  else()
-    add_test(${TEST_NAME}
-      ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test ${TEST_PATH})
-  endif()
-  set_tests_properties(${TEST_NAME} PROPERTIES LABELS "unittest")
-endfunction()
-
-# A wrapper for add_dependencies() that is compatible with NO_TESTS.
-function(ADD_ARROW_TEST_DEPENDENCIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  add_dependencies(${TEST_NAME} ${ARGN})
-endfunction()
-
-# A wrapper for target_link_libraries() that is compatible with NO_TESTS.
-function(ARROW_TEST_LINK_LIBRARIES REL_TEST_NAME)
-  if(NO_TESTS)
-    return()
-  endif()
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  target_link_libraries(${TEST_NAME} ${ARGN})
-endfunction()
-
-enable_testing()
-
-############################################################
 # "make ctags" target
 ############################################################
 if (UNIX)
@@ -551,7 +429,7 @@ endif (UNIX)
 # "make format" and "make check-format" targets
 ############################################################
 
-set(CLANG_FORMAT_VERSION 3.9)
+set(CLANG_FORMAT_VERSION 4.0)
 
 # runs clang format and updates files in place.
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
@@ -578,6 +456,19 @@ if (${CLANG_TIDY_FOUND})
   add_custom_target(check-clang-tidy ${BUILD_SUPPORT_DIR}/run-clang-tidy.sh ${CLANG_TIDY_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json
   0 `find ${CMAKE_CURRENT_SOURCE_DIR}/src -name \\*.cc |grep -v -F -f ${CMAKE_CURRENT_SOURCE_DIR}/src/.clang-tidy-ignore | sed -e '/_generated/g'`)
 
+endif()
+
+############################################################
+# "make infer" target
+############################################################
+
+if (${INFER_FOUND})
+  # runs infer capture
+  add_custom_target(infer ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 1)
+  # runs infer analyze
+  add_custom_target(infer-analyze ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 2)
+  # runs infer report
+  add_custom_target(infer-report ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN} ${CMAKE_BINARY_DIR}/compile_commands.json 3)
 endif()
 
 ############################################################
@@ -717,111 +608,6 @@ if(NOT WIN32 AND ARROW_PLASMA)
 endif()
 
 add_subdirectory(src/arrow)
-add_subdirectory(src/arrow/io)
-
-if (ARROW_GPU)
-  # IPC extensions required to build the GPU library
-  set(ARROW_IPC ON)
-  add_subdirectory(src/arrow/gpu)
-endif()
-
-if (ARROW_IPC)
-  add_subdirectory(src/arrow/ipc)
-  add_dependencies(arrow_dependencies metadata_fbs)
-endif()
-
-set(ARROW_SRCS
-  src/arrow/array.cc
-  src/arrow/buffer.cc
-  src/arrow/builder.cc
-  src/arrow/compare.cc
-  src/arrow/memory_pool.cc
-  src/arrow/pretty_print.cc
-  src/arrow/status.cc
-  src/arrow/table.cc
-  src/arrow/tensor.cc
-  src/arrow/type.cc
-  src/arrow/visitor.cc
-
-  src/arrow/io/file.cc
-  src/arrow/io/interfaces.cc
-  src/arrow/io/memory.cc
-
-  src/arrow/util/bit-util.cc
-  src/arrow/util/compression.cc
-  src/arrow/util/cpu-info.cc
-  src/arrow/util/decimal.cc
-  src/arrow/util/int128.cc
-  src/arrow/util/key_value_metadata.cc
-)
-
-if (ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-  SET(ARROW_SRCS src/arrow/util/compression_brotli.cc ${ARROW_SRCS})
-endif()
-
-if (ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-  SET(ARROW_SRCS src/arrow/util/compression_lz4.cc ${ARROW_SRCS})
-endif()
-
-if (ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-  SET(ARROW_SRCS src/arrow/util/compression_snappy.cc ${ARROW_SRCS})
-endif()
-
-if (ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-  SET(ARROW_SRCS src/arrow/util/compression_zlib.cc ${ARROW_SRCS})
-endif()
-
-if (ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-  SET(ARROW_SRCS src/arrow/util/compression_zstd.cc ${ARROW_SRCS})
-endif()
-
-if (NOT ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_SRCS ${ARROW_SRCS}
-    src/arrow/io/hdfs.cc
-    src/arrow/io/hdfs-internal.cc
-  )
-endif()
-
-if (ARROW_IPC)
-  set(ARROW_SRCS ${ARROW_SRCS}
-    src/arrow/ipc/dictionary.cc
-    src/arrow/ipc/feather.cc
-    src/arrow/ipc/json.cc
-    src/arrow/ipc/json-internal.cc
-    src/arrow/ipc/message.cc
-    src/arrow/ipc/metadata-internal.cc
-    src/arrow/ipc/reader.cc
-    src/arrow/ipc/writer.cc
-  )
-endif()
-
-
-if(NOT APPLE AND NOT MSVC)
-  # Localize thirdparty symbols using a linker version script. This hides them
-  # from the client application. The OS X linker does not support the
-  # version-script option.
-  set(ARROW_SHARED_LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/arrow/symbols.map")
-endif()
-
-set(ARROW_ALL_SRCS
-  ${ARROW_SRCS})
-
-ADD_ARROW_LIB(arrow
-  SOURCES ${ARROW_ALL_SRCS}
-  DEPENDENCIES arrow_dependencies
-  SHARED_LINK_FLAGS ${ARROW_SHARED_LINK_FLAGS}
-  SHARED_LINK_LIBS ${ARROW_LINK_LIBS}
-  SHARED_PRIVATE_LINK_LIBS ${ARROW_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS ${ARROW_STATIC_LINK_LIBS}
-  STATIC_PRIVATE_LINK_LIBS ${ARROW_STATIC_PRIVATE_LINK_LIBS}
-)
-
-add_subdirectory(src/arrow/util)
 
 if(ARROW_PYTHON)
   find_package(PythonLibsNew REQUIRED)

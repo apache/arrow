@@ -25,7 +25,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/io.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/pandas_to_arrow.h"
+#include "arrow/python/numpy_to_arrow.h"
 #include "arrow/python/python_to_arrow.h"
 
 #endif  // ARROW_PYTHON_API_H

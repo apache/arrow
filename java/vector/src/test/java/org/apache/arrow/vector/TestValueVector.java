@@ -44,6 +44,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -889,8 +890,279 @@ public class TestValueVector {
    *  TODO:
    *
    *  The realloc() related tests below should be moved up and we need to
-   *  realloc related tests (edge cases) for more vector types.
+   *  add realloc related tests (edge cases) for more vector types.
    */
+
+  @Test /* Float8Vector */
+  public void testReallocAfterVectorTransfer1() {
+    try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      final Float8Vector.Mutator mutator = vector.getMutator();
+      final Float8Vector.Accessor accessor = vector.getAccessor();
+      final int initialDefaultCapacity = 4096;
+      boolean error = false;
+
+      /* use the default capacity; 4096*8 => 32KB */
+      vector.allocateNew();
+
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      double baseValue = 100.375;
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      /* the above setSafe calls should not have triggered a realloc as
+       * we are within the capacity. check the vector contents
+       */
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity, baseValue + (double)initialDefaultCapacity);
+      assertEquals(initialDefaultCapacity * 2, vector.getValueCapacity());
+
+      for (int i = initialDefaultCapacity + 1; i < (initialDefaultCapacity * 2); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 2); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity * 2, baseValue + (double)(initialDefaultCapacity * 2));
+      assertEquals(initialDefaultCapacity * 4, vector.getValueCapacity());
+
+      for (int i = (initialDefaultCapacity * 2) + 1; i < (initialDefaultCapacity * 4); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* at this point we are working with a 128KB buffer data for this
+       * vector. now let's transfer this vector
+       */
+
+      TransferPair transferPair = vector.getTransferPair(allocator);
+      transferPair.transfer();
+
+      Float8Vector toVector = (Float8Vector)transferPair.getTo();
+
+      /* now let's realloc the toVector */
+      toVector.reAlloc();
+      assertEquals(initialDefaultCapacity * 8, toVector.getValueCapacity());
+
+      final Float8Vector.Accessor toAccessor = toVector.getAccessor();
+
+      for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
+        double value = toAccessor.get(i);
+        if (i < (initialDefaultCapacity * 4)) {
+          assertEquals(baseValue + (double)i, value, 0);
+        }
+        else {
+          assertEquals(0, value, 0);
+        }
+      }
+
+      toVector.close();
+    }
+  }
+
+  @Test /* NullableFloat8Vector */
+  public void testReallocAfterVectorTransfer2() {
+    try (final NullableFloat8Vector vector = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      final NullableFloat8Vector.Mutator mutator = vector.getMutator();
+      final NullableFloat8Vector.Accessor accessor = vector.getAccessor();
+      final int initialDefaultCapacity = 4096;
+      boolean error = false;
+
+      vector.allocateNew(initialDefaultCapacity);
+
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      double baseValue = 100.375;
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      /* the above setSafe calls should not have triggered a realloc as
+       * we are within the capacity. check the vector contents
+       */
+      assertEquals(initialDefaultCapacity, vector.getValueCapacity());
+
+      for (int i = 0; i < initialDefaultCapacity; i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity, baseValue + (double)initialDefaultCapacity);
+      assertEquals(initialDefaultCapacity * 2, vector.getValueCapacity());
+
+      for (int i = initialDefaultCapacity + 1; i < (initialDefaultCapacity * 2); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 2); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* this should trigger a realloc */
+      mutator.setSafe(initialDefaultCapacity * 2, baseValue + (double)(initialDefaultCapacity * 2));
+      assertEquals(initialDefaultCapacity * 4, vector.getValueCapacity());
+
+      for (int i = (initialDefaultCapacity * 2) + 1; i < (initialDefaultCapacity * 4); i++) {
+        mutator.setSafe(i, baseValue + (double)i);
+      }
+
+      for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
+        double value = accessor.get(i);
+        assertEquals(baseValue + (double)i, value, 0);
+      }
+
+      /* at this point we are working with a 128KB buffer data for this
+       * vector. now let's transfer this vector
+       */
+
+      TransferPair transferPair = vector.getTransferPair(allocator);
+      transferPair.transfer();
+
+      NullableFloat8Vector toVector = (NullableFloat8Vector)transferPair.getTo();
+      final NullableFloat8Vector.Accessor toAccessor = toVector.getAccessor();
+
+      /* check toVector contents before realloc */
+      for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
+        assertFalse("unexpected null value at index: " + i, toAccessor.isNull(i));
+        double value = toAccessor.get(i);
+        assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
+      }
+
+      /* now let's realloc the toVector and check contents again */
+      toVector.reAlloc();
+      assertEquals(initialDefaultCapacity * 8, toVector.getValueCapacity());
+
+      for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
+        if (i < (initialDefaultCapacity * 4)) {
+          assertFalse("unexpected null value at index: " + i, toAccessor.isNull(i));
+          double value = toAccessor.get(i);
+          assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
+        }
+        else {
+          assertTrue("unexpected non-null value at index: " + i, toAccessor.isNull(i));
+        }
+      }
+
+      toVector.close();
+    }
+  }
+
+  @Test /* NullableVarCharVector */
+  public void testReallocAfterVectorTransfer3() {
+    try (final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      final NullableVarCharVector.Mutator mutator = vector.getMutator();
+      final NullableVarCharVector.Accessor accessor = vector.getAccessor();
+
+      /* 4096 values with 10 byte per record */
+      vector.allocateNew(4096 * 10, 4096);
+      int valueCapacity = vector.getValueCapacity();
+
+      /* populate the vector */
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          mutator.set(i, STR1);
+        }
+        else {
+          mutator.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, accessor.get(i));
+        }
+        else {
+          assertArrayEquals(STR2, accessor.get(i));
+        }
+      }
+
+      /* trigger first realloc */
+      mutator.setSafe(valueCapacity, STR2, 0, STR2.length);
+
+      /* populate the remaining vector */
+      for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
+        if ((i & 1) == 1) {
+          mutator.set(i, STR1);
+        }
+        else {
+          mutator.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      valueCapacity = vector.getValueCapacity();
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, accessor.get(i));
+        }
+        else {
+          assertArrayEquals(STR2, accessor.get(i));
+        }
+      }
+
+      /* trigger second realloc */
+      mutator.setSafe(valueCapacity + 10, STR2, 0, STR2.length);
+
+      /* populate the remaining vector */
+      for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
+        if ((i & 1) == 1) {
+          mutator.set(i, STR1);
+        }
+        else {
+          mutator.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      valueCapacity = vector.getValueCapacity();
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, accessor.get(i));
+        }
+        else {
+          assertArrayEquals(STR2, accessor.get(i));
+        }
+      }
+
+      /* we are potentially working with 4x the size of vector buffer
+       * that we initially started with. Now let's transfer the vector.
+       */
+
+      TransferPair transferPair = vector.getTransferPair(allocator);
+      transferPair.transfer();
+      NullableVarCharVector toVector = (NullableVarCharVector)transferPair.getTo();
+      NullableVarCharVector.Mutator toMutator = toVector.getMutator();
+      NullableVarCharVector.Accessor toAccessor = toVector.getAccessor();
+
+      valueCapacity = toVector.getValueCapacity();
+
+      /* trigger a realloc of this toVector */
+      toMutator.setSafe(valueCapacity + 10, STR2, 0, STR2.length);
+
+      toVector.close();
+    }
+  }
 
   @Test
   public void testReAllocNullableFixedWidthVector() {

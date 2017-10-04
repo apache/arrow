@@ -23,6 +23,7 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/buffer.hpp>
+#include <arrow-glib/compute.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/type.hpp>
@@ -52,6 +53,28 @@ garrow_primitive_array_new(gint64 length,
   const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
   auto arrow_specific_array =
     std::make_shared<typename arrow::TypeTraits<T>::ArrayType>(length,
+                                                               arrow_data,
+                                                               arrow_bitmap,
+                                                               n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_specific_array);
+  return garrow_array_new_raw(&arrow_array);
+};
+
+template <typename T>
+GArrowArray *
+garrow_primitive_array_new(GArrowDataType *data_type,
+                           gint64 length,
+                           GArrowBuffer *data,
+                           GArrowBuffer *null_bitmap,
+                           gint64 n_nulls)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_data = garrow_buffer_get_raw(data);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_specific_array =
+    std::make_shared<typename arrow::TypeTraits<T>::ArrayType>(arrow_data_type,
+                                                               length,
                                                                arrow_data,
                                                                arrow_bitmap,
                                                                n_nulls);
@@ -155,6 +178,22 @@ G_BEGIN_DECLS
  * UNIX epoch in 64-bit signed integer array. It can store zero or
  * more date data. If you don't have Arrow format data, you need to
  * use #GArrowDate64ArrayBuilder to create a new array.
+ *
+ * #GArrowTimestampArray is a class for the number of
+ * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
+ * 64-bit signed integer array. It can store zero or more timestamp
+ * data. If you don't have Arrow format data, you need to use
+ * #GArrowTimestampArrayBuilder to create a new array.
+ *
+ * #GArrowTime32Array is a class for the number of seconds or
+ * milliseconds since midnight in 32-bit signed integer array. It can
+ * store zero or more time data. If you don't have Arrow format data,
+ * you need to use #GArrowTime32ArrayBuilder to create a new array.
+ *
+ * #GArrowTime64Array is a class for the number of microseconds or
+ * nanoseconds since midnight in 64-bit signed integer array. It can
+ * store zero or more time data. If you don't have Arrow format data,
+ * you need to use #GArrowTime64ArrayBuilder to create a new array.
  *
  * #GArrowListArray is a class for list array. It can store zero or
  * more list data. If you don't have Arrow format data, you need to
@@ -460,6 +499,61 @@ garrow_array_to_string(GArrowArray *array, GError **error)
   } else {
     return NULL;
   }
+}
+
+/**
+ * garrow_array_cast:
+ * @array: A #GArrowArray.
+ * @target_data_type: A #GArrowDataType of cast target data.
+ * @options: (nullable): A #GArrowCastOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   A newly created casted array on success, %NULL on error.
+ *
+ * Since: 0.7.0
+ */
+GArrowArray *
+garrow_array_cast(GArrowArray *array,
+                  GArrowDataType *target_data_type,
+                  GArrowCastOptions *options,
+                  GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  auto arrow_target_data_type = garrow_data_type_get_raw(target_data_type);
+  std::shared_ptr<arrow::Array> arrow_casted_array;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_cast_options_get_raw(options);
+    status = arrow::compute::Cast(&context,
+                                  *arrow_array_raw,
+                                  arrow_target_data_type,
+                                  *arrow_options,
+                                  &arrow_casted_array);
+  } else {
+    arrow::compute::CastOptions arrow_options;
+    status = arrow::compute::Cast(&context,
+                                  *arrow_array_raw,
+                                  arrow_target_data_type,
+                                  arrow_options,
+                                  &arrow_casted_array);
+  }
+
+  if (!status.ok()) {
+    std::stringstream message;
+    message << "[array][cast] <";
+    message << arrow_array->type()->ToString();
+    message << "> -> <";
+    message << arrow_target_data_type->ToString();
+    message << ">";
+    garrow_error_check(error, status, message.str().c_str());
+    return NULL;
+  }
+
+  return garrow_array_new_raw(&arrow_casted_array);
 }
 
 
@@ -1672,6 +1766,253 @@ garrow_date64_array_get_values(GArrowDate64Array *array,
 }
 
 
+G_DEFINE_TYPE(GArrowTimestampArray,             \
+              garrow_timestamp_array,           \
+              GARROW_TYPE_PRIMITIVE_ARRAY)
+
+static void
+garrow_timestamp_array_init(GArrowTimestampArray *object)
+{
+}
+
+static void
+garrow_timestamp_array_class_init(GArrowTimestampArrayClass *klass)
+{
+}
+
+/**
+ * garrow_timestamp_array_new:
+ * @data_type: The #GArrowTimestampDataType.
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowTimestampArray.
+ *
+ * Since: 0.7.0
+ */
+GArrowTimestampArray *
+garrow_timestamp_array_new(GArrowTimestampDataType *data_type,
+                           gint64 length,
+                           GArrowBuffer *data,
+                           GArrowBuffer *null_bitmap,
+                           gint64 n_nulls)
+{
+  auto array =
+    garrow_primitive_array_new<arrow::TimestampType>(GARROW_DATA_TYPE(data_type),
+                                                     length,
+                                                     data,
+                                                     null_bitmap,
+                                                     n_nulls);
+  return GARROW_TIMESTAMP_ARRAY(array);
+}
+
+/**
+ * garrow_timestamp_array_get_value:
+ * @array: A #GArrowTimestampArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ *
+ * Since: 0.7.0
+ */
+gint64
+garrow_timestamp_array_get_value(GArrowTimestampArray *array,
+                                 gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::TimestampArray *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_timestamp_array_get_values:
+ * @array: A #GArrowTimestampArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 0.7.0
+ */
+const gint64 *
+garrow_timestamp_array_get_values(GArrowTimestampArray *array,
+                                  gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto values =
+    garrow_array_get_values_raw<arrow::TimestampType>(arrow_array, length);
+  return reinterpret_cast<const gint64 *>(values);
+}
+
+
+G_DEFINE_TYPE(GArrowTime32Array,               \
+              garrow_time32_array,             \
+              GARROW_TYPE_PRIMITIVE_ARRAY)
+
+static void
+garrow_time32_array_init(GArrowTime32Array *object)
+{
+}
+
+static void
+garrow_time32_array_class_init(GArrowTime32ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_time32_array_new:
+ * @data_type: The #GArrowTime32DataType.
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowTime32Array.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime32Array *
+garrow_time32_array_new(GArrowTime32DataType *data_type,
+                        gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  auto array =
+    garrow_primitive_array_new<arrow::Time32Type>(GARROW_DATA_TYPE(data_type),
+                                                  length,
+                                                  data,
+                                                  null_bitmap,
+                                                  n_nulls);
+  return GARROW_TIME32_ARRAY(array);
+}
+
+/**
+ * garrow_time32_array_get_value:
+ * @array: A #GArrowTime32Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ *
+ * Since: 0.7.0
+ */
+gint32
+garrow_time32_array_get_value(GArrowTime32Array *array,
+                              gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Time32Array *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_time32_array_get_values:
+ * @array: A #GArrowTime32Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 0.7.0
+ */
+const gint32 *
+garrow_time32_array_get_values(GArrowTime32Array *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::Time32Type>(arrow_array, length);
+}
+
+
+G_DEFINE_TYPE(GArrowTime64Array,               \
+              garrow_time64_array,             \
+              GARROW_TYPE_PRIMITIVE_ARRAY)
+
+static void
+garrow_time64_array_init(GArrowTime64Array *object)
+{
+}
+
+static void
+garrow_time64_array_class_init(GArrowTime64ArrayClass *klass)
+{
+}
+
+/**
+ * garrow_time64_array_new:
+ * @data_type: The #GArrowTime64DataType.
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowTime64Array.
+ *
+ * Since: 0.7.0
+ */
+GArrowTime64Array *
+garrow_time64_array_new(GArrowTime64DataType *data_type,
+                        gint64 length,
+                        GArrowBuffer *data,
+                        GArrowBuffer *null_bitmap,
+                        gint64 n_nulls)
+{
+  auto array =
+    garrow_primitive_array_new<arrow::Time64Type>(GARROW_DATA_TYPE(data_type),
+                                                  length,
+                                                  data,
+                                                  null_bitmap,
+                                                  n_nulls);
+  return GARROW_TIME64_ARRAY(array);
+}
+
+/**
+ * garrow_time64_array_get_value:
+ * @array: A #GArrowTime64Array.
+ * @i: The index of the target value.
+ *
+ * Returns: The i-th value.
+ *
+ * Since: 0.7.0
+ */
+gint64
+garrow_time64_array_get_value(GArrowTime64Array *array,
+                              gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::Time64Array *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_time64_array_get_values:
+ * @array: A #GArrowTime64Array.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 0.7.0
+ */
+const gint64 *
+garrow_time64_array_get_values(GArrowTime64Array *array,
+                               gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto values =
+    garrow_array_get_values_raw<arrow::Time64Type>(arrow_array, length);
+  return reinterpret_cast<const gint64 *>(values);
+}
+
+
 G_DEFINE_TYPE(GArrowListArray,               \
               garrow_list_array,             \
               GARROW_TYPE_ARRAY)
@@ -1916,6 +2257,15 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
     break;
   case arrow::Type::type::DATE64:
     type = GARROW_TYPE_DATE64_ARRAY;
+    break;
+  case arrow::Type::type::TIMESTAMP:
+    type = GARROW_TYPE_TIMESTAMP_ARRAY;
+    break;
+  case arrow::Type::type::TIME32:
+    type = GARROW_TYPE_TIME32_ARRAY;
+    break;
+  case arrow::Type::type::TIME64:
+    type = GARROW_TYPE_TIME64_ARRAY;
     break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_ARRAY;

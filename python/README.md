@@ -32,7 +32,7 @@ package manager:
 conda install pyarrow -c conda-forge
 ```
 
-On Linux, you can also install binary wheels from PyPI with pip:
+On Linux/macOS and Windows, you can also install binary wheels from PyPI with pip:
 
 ```shell
 pip install pyarrow

@@ -36,11 +36,15 @@ std::shared_ptr<Field> Field::AddMetadata(
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
 }
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 Status Field::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
                           std::shared_ptr<Field>* out) const {
   *out = AddMetadata(metadata);
   return Status::OK();
 }
+
+#endif
 
 std::shared_ptr<Field> Field::RemoveMetadata() const {
   return std::make_shared<Field>(name_, type_, nullable_);
@@ -307,11 +311,15 @@ std::shared_ptr<Schema> Schema::AddMetadata(
   return std::make_shared<Schema>(fields_, metadata);
 }
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 Status Schema::AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
                            std::shared_ptr<Schema>* out) const {
   *out = AddMetadata(metadata);
   return Status::OK();
 }
+
+#endif
 
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const { return metadata_; }
 
@@ -455,7 +463,7 @@ std::shared_ptr<Field> field(const std::string& name,
   return std::make_shared<Field>(name, type, nullable, metadata);
 }
 
-std::shared_ptr<DataType> decimal(int precision, int scale) {
+std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
   return std::make_shared<DecimalType>(precision, scale);
 }
 

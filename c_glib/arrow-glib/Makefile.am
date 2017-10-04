@@ -44,12 +44,15 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
+	basic-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
+	composite-data-type.h			\
 	data-type.h				\
 	error.h					\
 	field.h					\
+	gobject-type.h				\
 	record-batch.h				\
 	schema.h				\
 	table.h					\
@@ -70,6 +73,9 @@ libarrow_glib_la_headers +=			\
 	reader.h				\
 	writer.h
 
+libarrow_glib_la_headers +=			\
+	compute.h
+
 libarrow_glib_la_generated_headers =		\
 	enums.h
 
@@ -80,10 +86,11 @@ libarrow_glib_la_generated_sources =		\
 libarrow_glib_la_sources =			\
 	array.cpp				\
 	array-builder.cpp			\
+	basic-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
-	data-type.cpp				\
+	composite-data-type.cpp			\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
@@ -108,10 +115,14 @@ libarrow_glib_la_sources +=			\
 	reader.cpp				\
 	writer.cpp
 
+libarrow_glib_la_sources +=			\
+	compute.cpp
+
 libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
 	arrow-glib.hpp				\
+	basic-data-type.hpp			\
 	buffer.hpp				\
 	chunked-array.hpp			\
 	column.hpp				\
@@ -137,6 +148,9 @@ libarrow_glib_la_cpp_headers +=			\
 	metadata-version.hpp			\
 	reader.hpp				\
 	writer.hpp
+
+libarrow_glib_la_cpp_headers +=			\
+	compute.hpp
 
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\

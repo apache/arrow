@@ -26,10 +26,6 @@
 
 using arrow::Status;
 
-/* Number of times we try binding to a socket. */
-#define NUM_BIND_ATTEMPTS 5
-#define BIND_TIMEOUT_MS 100
-
 /* Number of times we try connecting to a socket. */
 #define NUM_CONNECT_ATTEMPTS 50
 #define CONNECT_TIMEOUT_MS 100
@@ -134,7 +130,8 @@ int bind_ipc_sock(const std::string& pathname, bool shall_listen) {
   }
   strncpy(socket_address.sun_path, pathname.c_str(), pathname.size() + 1);
 
-  if (bind(socket_fd, (struct sockaddr*)&socket_address, sizeof(socket_address)) != 0) {
+  if (bind(socket_fd, reinterpret_cast<struct sockaddr*>(&socket_address),
+           sizeof(socket_address)) != 0) {
     ARROW_LOG(ERROR) << "Bind failed for pathname " << pathname;
     close(socket_fd);
     return -1;
@@ -197,8 +194,8 @@ int connect_ipc_sock(const std::string& pathname) {
   }
   strncpy(socket_address.sun_path, pathname.c_str(), pathname.size() + 1);
 
-  if (connect(socket_fd, (struct sockaddr*)&socket_address, sizeof(socket_address)) !=
-      0) {
+  if (connect(socket_fd, reinterpret_cast<struct sockaddr*>(&socket_address),
+              sizeof(socket_address)) != 0) {
     close(socket_fd);
     return -1;
   }
@@ -227,6 +224,7 @@ uint8_t* read_message_async(int sock) {
   uint8_t* message = reinterpret_cast<uint8_t*>(malloc(size));
   s = ReadBytes(sock, message, size);
   if (!s.ok()) {
+    free(message);
     /* The other side has closed the socket. */
     ARROW_LOG(DEBUG) << "Socket has been closed, or some other error has occurred.";
     close(sock);

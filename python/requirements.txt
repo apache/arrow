@@ -1,3 +1,4 @@
 pytest
+cloudpickle
 numpy>=1.10.0
 six

@@ -107,20 +107,40 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+#if defined(_MSC_VER)
 #include <boost/filesystem.hpp>           // NOLINT
 #include <boost/system/system_error.hpp>  // NOLINT
-
 namespace fs = boost::filesystem;
+#define PlatformFilename fs::path
 
 namespace arrow {
 namespace io {
 
-static inline Status CheckOpenResult(int ret, int errno_actual,
-                                     const fs::path& file_name) {
+#else
+namespace arrow {
+namespace io {
+
+struct PlatformFilename {
+  PlatformFilename() {}
+  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
+
+  const char* c_str() const { return utf8_path.c_str(); }
+
+  const std::string& string() const { return utf8_path; }
+
+  size_t length() const { return utf8_path.size(); }
+
+  std::string utf8_path;
+};
+#endif
+
+static inline Status CheckFileOpResult(int ret, int errno_actual,
+                                       const PlatformFilename& file_name,
+                                       const std::string& opname) {
   if (ret == -1) {
-    // TODO: errno codes to strings
     std::stringstream ss;
-    ss << "Failed to open local file: " << file_name.string();
+    ss << "Failed to " << opname << " file: " << file_name.string();
+    ss << " , error: " << std::strerror(errno_actual);
     return Status::IOError(ss.str());
   }
   return Status::OK();
@@ -137,7 +157,7 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 #endif
 }
 
-static inline Status FileOpenReadable(const fs::path& file_name, int* fd) {
+static inline Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret;
   errno_t errno_actual = 0;
 #if defined(_MSC_VER)
@@ -149,10 +169,10 @@ static inline Status FileOpenReadable(const fs::path& file_name, int* fd) {
   errno_actual = errno;
 #endif
 
-  return CheckOpenResult(ret, errno_actual, file_name);
+  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
 }
 
-static inline Status FileOpenWriteable(const fs::path& file_name, bool write_only,
+static inline Status FileOpenWriteable(const PlatformFilename& file_name, bool write_only,
                                        bool truncate, int* fd) {
   int ret;
   errno_t errno_actual = 0;
@@ -192,7 +212,7 @@ static inline Status FileOpenWriteable(const fs::path& file_name, bool write_onl
 
   ret = *fd = open(file_name.c_str(), oflag, ARROW_WRITE_SHMODE);
 #endif
-  return CheckOpenResult(ret, errno_actual, file_name);
+  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
 }
 
 static inline Status FileTell(int fd, int64_t* pos) {
@@ -366,20 +386,20 @@ class OSFile {
 
  protected:
   Status SetFileName(const std::string& file_name) {
-    try {
 #if defined(_MSC_VER)
+    try {
       std::codecvt_utf8_utf16<wchar_t> utf16_converter;
       file_name_.assign(file_name, utf16_converter);
-#else
-      file_name_ = file_name;
-#endif
     } catch (boost::system::system_error& e) {
       return Status::Invalid(e.what());
     }
+#else
+    file_name_ = PlatformFilename(file_name);
+#endif
     return Status::OK();
   }
 
-  fs::path file_name_;
+  PlatformFilename file_name_;
 
   std::mutex lock_;
 
@@ -580,13 +600,21 @@ MemoryMappedFile::~MemoryMappedFile() {}
 
 Status MemoryMappedFile::Create(const std::string& path, int64_t size,
                                 std::shared_ptr<MemoryMappedFile>* out) {
+  int ret;
+  errno_t errno_actual;
   std::shared_ptr<FileOutputStream> file;
   RETURN_NOT_OK(FileOutputStream::Open(path, &file));
+
 #ifdef _MSC_VER
-  _chsize_s(file->file_descriptor(), static_cast<size_t>(size));
+  errno_actual = _chsize_s(file->file_descriptor(), static_cast<size_t>(size));
+  ret = errno_actual == 0 ? 0 : -1;
 #else
-  ftruncate(file->file_descriptor(), static_cast<size_t>(size));
+  ret = ftruncate(file->file_descriptor(), static_cast<size_t>(size));
+  errno_actual = errno;
 #endif
+
+  RETURN_NOT_OK(CheckFileOpResult(ret, errno_actual, PlatformFilename(path), "truncate"));
+
   RETURN_NOT_OK(file->Close());
   return MemoryMappedFile::Open(path, FileMode::READWRITE, out);
 }

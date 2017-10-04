@@ -68,6 +68,9 @@ cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
+    if status.IsPythonError():
+        return -1
+
     with gil:
         message = frombytes(status.message())
         if status.IsInvalid():

@@ -64,9 +64,19 @@ elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-7")
   set(COMPILER_VERSION "3.7.0svn")
 
 # clang on Mac OS X, XCode 8.
+elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-802")
+  set(COMPILER_FAMILY "clang")
+  set(COMPILER_VERSION "3.9.0svn")
+
+# clang on Mac OS X, XCode 8.
 elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-8")
   set(COMPILER_FAMILY "clang")
   set(COMPILER_VERSION "3.8.0svn")
+
+# clang on Mac OS X, XCode 8.
+elseif("${COMPILER_VERSION_FULL}" MATCHES ".*clang-9")
+  set(COMPILER_FAMILY "clang")
+  set(COMPILER_VERSION "4.0.0svn")
 
 # gcc
 elseif("${COMPILER_VERSION_FULL_LOWER}" MATCHES ".*gcc[ -]version.*")

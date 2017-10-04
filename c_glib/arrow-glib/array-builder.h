@@ -20,50 +20,16 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/gobject-type.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_ARRAY_BUILDER               \
-  (garrow_array_builder_get_type())
-#define GARROW_ARRAY_BUILDER(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_ARRAY_BUILDER,        \
-                              GArrowArrayBuilder))
-#define GARROW_ARRAY_BUILDER_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_ARRAY_BUILDER,   \
-                           GArrowArrayBuilderClass))
-#define GARROW_IS_ARRAY_BUILDER(obj)            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),            \
-                              GARROW_TYPE_ARRAY_BUILDER))
-#define GARROW_IS_ARRAY_BUILDER_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_ARRAY_BUILDER))
-#define GARROW_ARRAY_BUILDER_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_ARRAY_BUILDER, \
-                             GArrowArrayBuilderClass))
-
-typedef struct _GArrowArrayBuilder         GArrowArrayBuilder;
-typedef struct _GArrowArrayBuilderClass    GArrowArrayBuilderClass;
-
-/**
- * GArrowArrayBuilder:
- *
- * It wraps `arrow::ArrayBuilder`.
- */
-struct _GArrowArrayBuilder
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-struct _GArrowArrayBuilderClass
-{
-  GObjectClass parent_class;
-};
-
-GType               garrow_array_builder_get_type (void) G_GNUC_CONST;
+#define GARROW_TYPE_ARRAY_BUILDER (garrow_array_builder_get_type())
+GARROW_DECLARE_TYPE(GArrowArrayBuilder,
+                    garrow_array_builder,
+                    GARROW,
+                    ARRAY_BUILDER,
+                    GObject)
 
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
@@ -116,8 +82,17 @@ GArrowBooleanArrayBuilder *garrow_boolean_array_builder_new(void);
 gboolean garrow_boolean_array_builder_append(GArrowBooleanArrayBuilder *builder,
                                              gboolean value,
                                              GError **error);
+gboolean garrow_boolean_array_builder_append_values(GArrowBooleanArrayBuilder *builder,
+                                                    const gboolean *values,
+                                                    gint64 values_length,
+                                                    const gboolean *is_valids,
+                                                    gint64 is_valids_length,
+                                                    GError **error);
 gboolean garrow_boolean_array_builder_append_null(GArrowBooleanArrayBuilder *builder,
                                                   GError **error);
+gboolean garrow_boolean_array_builder_append_nulls(GArrowBooleanArrayBuilder *builder,
+                                                   gint64 n,
+                                                   GError **error);
 
 
 #define GARROW_TYPE_INT_ARRAY_BUILDER           \
@@ -167,8 +142,42 @@ GArrowIntArrayBuilder *garrow_int_array_builder_new(void);
 gboolean garrow_int_array_builder_append(GArrowIntArrayBuilder *builder,
                                          gint64 value,
                                          GError **error);
+gboolean garrow_int_array_builder_append_values(GArrowIntArrayBuilder *builder,
+                                                const gint64 *values,
+                                                gint64 values_length,
+                                                const gboolean *is_valids,
+                                                gint64 is_valids_length,
+                                                GError **error);
 gboolean garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
                                               GError **error);
+gboolean garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
+                                               gint64 n,
+                                               GError **error);
+
+
+#define GARROW_TYPE_UINT_ARRAY_BUILDER (garrow_uint_array_builder_get_type())
+GARROW_DECLARE_TYPE(GArrowUIntArrayBuilder,
+                    garrow_uint_array_builder,
+                    GARROW,
+                    UINT_ARRAY_BUILDER,
+                    GArrowArrayBuilder)
+
+GArrowUIntArrayBuilder *garrow_uint_array_builder_new(void);
+
+gboolean garrow_uint_array_builder_append(GArrowUIntArrayBuilder *builder,
+                                          guint64 value,
+                                          GError **error);
+gboolean garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
+                                                 const guint64 *values,
+                                                 gint64 values_length,
+                                                 const gboolean *is_valids,
+                                                 gint64 is_valids_length,
+                                                 GError **error);
+gboolean garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
+                                               GError **error);
+gboolean garrow_uint_array_builder_append_nulls(GArrowUIntArrayBuilder *builder,
+                                                gint64 n,
+                                                GError **error);
 
 
 #define GARROW_TYPE_INT8_ARRAY_BUILDER          \
@@ -218,8 +227,17 @@ GArrowInt8ArrayBuilder *garrow_int8_array_builder_new(void);
 gboolean garrow_int8_array_builder_append(GArrowInt8ArrayBuilder *builder,
                                           gint8 value,
                                           GError **error);
+gboolean garrow_int8_array_builder_append_values(GArrowInt8ArrayBuilder *builder,
+                                                 const gint8 *values,
+                                                 gint64 values_length,
+                                                 const gboolean *is_valids,
+                                                 gint64 is_valids_length,
+                                                 GError **error);
 gboolean garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
                                                GError **error);
+gboolean garrow_int8_array_builder_append_nulls(GArrowInt8ArrayBuilder *builder,
+                                                gint64 n,
+                                                GError **error);
 
 
 #define GARROW_TYPE_UINT8_ARRAY_BUILDER         \
@@ -269,8 +287,17 @@ GArrowUInt8ArrayBuilder *garrow_uint8_array_builder_new(void);
 gboolean garrow_uint8_array_builder_append(GArrowUInt8ArrayBuilder *builder,
                                            guint8 value,
                                            GError **error);
+gboolean garrow_uint8_array_builder_append_values(GArrowUInt8ArrayBuilder *builder,
+                                                  const guint8 *values,
+                                                  gint64 values_length,
+                                                  const gboolean *is_valids,
+                                                  gint64 is_valids_length,
+                                                  GError **error);
 gboolean garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
                                                 GError **error);
+gboolean garrow_uint8_array_builder_append_nulls(GArrowUInt8ArrayBuilder *builder,
+                                                 gint64 n,
+                                                 GError **error);
 
 
 #define GARROW_TYPE_INT16_ARRAY_BUILDER         \
@@ -320,8 +347,17 @@ GArrowInt16ArrayBuilder *garrow_int16_array_builder_new(void);
 gboolean garrow_int16_array_builder_append(GArrowInt16ArrayBuilder *builder,
                                            gint16 value,
                                            GError **error);
+gboolean garrow_int16_array_builder_append_values(GArrowInt16ArrayBuilder *builder,
+                                                  const gint16 *values,
+                                                  gint64 values_length,
+                                                  const gboolean *is_valids,
+                                                  gint64 is_valids_length,
+                                                  GError **error);
 gboolean garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
                                                 GError **error);
+gboolean garrow_int16_array_builder_append_nulls(GArrowInt16ArrayBuilder *builder,
+                                                 gint64 n,
+                                                 GError **error);
 
 
 #define GARROW_TYPE_UINT16_ARRAY_BUILDER        \
@@ -371,8 +407,17 @@ GArrowUInt16ArrayBuilder *garrow_uint16_array_builder_new(void);
 gboolean garrow_uint16_array_builder_append(GArrowUInt16ArrayBuilder *builder,
                                             guint16 value,
                                             GError **error);
+gboolean garrow_uint16_array_builder_append_values(GArrowUInt16ArrayBuilder *builder,
+                                                   const guint16 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_uint16_array_builder_append_nulls(GArrowUInt16ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_INT32_ARRAY_BUILDER         \
@@ -422,8 +467,17 @@ GArrowInt32ArrayBuilder *garrow_int32_array_builder_new(void);
 gboolean garrow_int32_array_builder_append(GArrowInt32ArrayBuilder *builder,
                                            gint32 value,
                                            GError **error);
+gboolean garrow_int32_array_builder_append_values(GArrowInt32ArrayBuilder *builder,
+                                                  const gint32 *values,
+                                                  gint64 values_length,
+                                                  const gboolean *is_valids,
+                                                  gint64 is_valids_length,
+                                                  GError **error);
 gboolean garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
                                                 GError **error);
+gboolean garrow_int32_array_builder_append_nulls(GArrowInt32ArrayBuilder *builder,
+                                                 gint64 n,
+                                                 GError **error);
 
 
 #define GARROW_TYPE_UINT32_ARRAY_BUILDER        \
@@ -473,8 +527,17 @@ GArrowUInt32ArrayBuilder *garrow_uint32_array_builder_new(void);
 gboolean garrow_uint32_array_builder_append(GArrowUInt32ArrayBuilder *builder,
                                             guint32 value,
                                             GError **error);
+gboolean garrow_uint32_array_builder_append_values(GArrowUInt32ArrayBuilder *builder,
+                                                   const guint32 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_uint32_array_builder_append_nulls(GArrowUInt32ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_INT64_ARRAY_BUILDER         \
@@ -524,8 +587,17 @@ GArrowInt64ArrayBuilder *garrow_int64_array_builder_new(void);
 gboolean garrow_int64_array_builder_append(GArrowInt64ArrayBuilder *builder,
                                            gint64 value,
                                            GError **error);
+gboolean garrow_int64_array_builder_append_values(GArrowInt64ArrayBuilder *builder,
+                                                  const gint64 *values,
+                                                  gint64 values_length,
+                                                  const gboolean *is_valids,
+                                                  gint64 is_valids_length,
+                                                  GError **error);
 gboolean garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
                                                 GError **error);
+gboolean garrow_int64_array_builder_append_nulls(GArrowInt64ArrayBuilder *builder,
+                                                 gint64 n,
+                                                 GError **error);
 
 
 #define GARROW_TYPE_UINT64_ARRAY_BUILDER        \
@@ -575,8 +647,17 @@ GArrowUInt64ArrayBuilder *garrow_uint64_array_builder_new(void);
 gboolean garrow_uint64_array_builder_append(GArrowUInt64ArrayBuilder *builder,
                                             guint64 value,
                                             GError **error);
+gboolean garrow_uint64_array_builder_append_values(GArrowUInt64ArrayBuilder *builder,
+                                                   const guint64 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_FLOAT_ARRAY_BUILDER         \
@@ -626,8 +707,17 @@ GArrowFloatArrayBuilder *garrow_float_array_builder_new(void);
 gboolean garrow_float_array_builder_append(GArrowFloatArrayBuilder *builder,
                                            gfloat value,
                                            GError **error);
+gboolean garrow_float_array_builder_append_values(GArrowFloatArrayBuilder *builder,
+                                                  const gfloat *values,
+                                                  gint64 values_length,
+                                                  const gboolean *is_valids,
+                                                  gint64 is_valids_length,
+                                                  GError **error);
 gboolean garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
                                                 GError **error);
+gboolean garrow_float_array_builder_append_nulls(GArrowFloatArrayBuilder *builder,
+                                                 gint64 n,
+                                                 GError **error);
 
 
 #define GARROW_TYPE_DOUBLE_ARRAY_BUILDER        \
@@ -677,8 +767,17 @@ GArrowDoubleArrayBuilder *garrow_double_array_builder_new(void);
 gboolean garrow_double_array_builder_append(GArrowDoubleArrayBuilder *builder,
                                             gdouble value,
                                             GError **error);
+gboolean garrow_double_array_builder_append_values(GArrowDoubleArrayBuilder *builder,
+                                                   const gdouble *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_double_array_builder_append_nulls(GArrowDoubleArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_BINARY_ARRAY_BUILDER        \
@@ -829,8 +928,17 @@ GArrowDate32ArrayBuilder *garrow_date32_array_builder_new(void);
 gboolean garrow_date32_array_builder_append(GArrowDate32ArrayBuilder *builder,
                                             gint32 value,
                                             GError **error);
+gboolean garrow_date32_array_builder_append_values(GArrowDate32ArrayBuilder *builder,
+                                                   const gint32 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_date32_array_builder_append_nulls(GArrowDate32ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_DATE64_ARRAY_BUILDER        \
@@ -880,8 +988,198 @@ GArrowDate64ArrayBuilder *garrow_date64_array_builder_new(void);
 gboolean garrow_date64_array_builder_append(GArrowDate64ArrayBuilder *builder,
                                             gint64 value,
                                             GError **error);
+gboolean garrow_date64_array_builder_append_values(GArrowDate64ArrayBuilder *builder,
+                                                   const gint64 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
 gboolean garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
                                                  GError **error);
+gboolean garrow_date64_array_builder_append_nulls(GArrowDate64ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
+
+
+#define GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER     \
+  (garrow_timestamp_array_builder_get_type())
+#define GARROW_TIMESTAMP_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
+                              GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER,      \
+                              GArrowTimestampArrayBuilder))
+#define GARROW_TIMESTAMP_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER, \
+                           GArrowTimestampArrayBuilderClass))
+#define GARROW_IS_TIMESTAMP_ARRAY_BUILDER(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER))
+#define GARROW_IS_TIMESTAMP_ARRAY_BUILDER_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
+                           GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER))
+#define GARROW_TIMESTAMP_ARRAY_BUILDER_GET_CLASS(obj)                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
+                             GARROW_TYPE_TIMESTAMP_ARRAY_BUILDER,       \
+                             GArrowTimestampArrayBuilderClass))
+
+typedef struct _GArrowTimestampArrayBuilder      GArrowTimestampArrayBuilder;
+typedef struct _GArrowTimestampArrayBuilderClass GArrowTimestampArrayBuilderClass;
+
+/**
+ * GArrowTimestampArrayBuilder:
+ *
+ * It wraps `arrow::TimestampBuilder`.
+ */
+struct _GArrowTimestampArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTimestampArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_timestamp_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTimestampArrayBuilder *
+garrow_timestamp_array_builder_new(GArrowTimestampDataType *data_type);
+
+gboolean garrow_timestamp_array_builder_append(GArrowTimestampArrayBuilder *builder,
+                                               gint64 value,
+                                               GError **error);
+gboolean garrow_timestamp_array_builder_append_values(GArrowTimestampArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error);
+gboolean garrow_timestamp_array_builder_append_null(GArrowTimestampArrayBuilder *builder,
+                                                    GError **error);
+gboolean garrow_timestamp_array_builder_append_nulls(GArrowTimestampArrayBuilder *builder,
+                                                     gint64 n,
+                                                     GError **error);
+
+
+#define GARROW_TYPE_TIME32_ARRAY_BUILDER        \
+  (garrow_time32_array_builder_get_type())
+#define GARROW_TIME32_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME32_ARRAY_BUILDER, \
+                              GArrowTime32ArrayBuilder))
+#define GARROW_TIME32_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME32_ARRAY_BUILDER,    \
+                           GArrowTime32ArrayBuilderClass))
+#define GARROW_IS_TIME32_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIME32_ARRAY_BUILDER))
+#define GARROW_IS_TIME32_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME32_ARRAY_BUILDER))
+#define GARROW_TIME32_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME32_ARRAY_BUILDER,  \
+                             GArrowTime32ArrayBuilderClass))
+
+typedef struct _GArrowTime32ArrayBuilder         GArrowTime32ArrayBuilder;
+typedef struct _GArrowTime32ArrayBuilderClass    GArrowTime32ArrayBuilderClass;
+
+/**
+ * GArrowTime32ArrayBuilder:
+ *
+ * It wraps `arrow::Time32Builder`.
+ */
+struct _GArrowTime32ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTime32ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_time32_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTime32ArrayBuilder *garrow_time32_array_builder_new(GArrowTime32DataType *data_type);
+
+gboolean garrow_time32_array_builder_append(GArrowTime32ArrayBuilder *builder,
+                                            gint32 value,
+                                            GError **error);
+gboolean garrow_time32_array_builder_append_values(GArrowTime32ArrayBuilder *builder,
+                                                   const gint32 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
+gboolean garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
+                                                 GError **error);
+gboolean garrow_time32_array_builder_append_nulls(GArrowTime32ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
+
+
+#define GARROW_TYPE_TIME64_ARRAY_BUILDER        \
+  (garrow_time64_array_builder_get_type())
+#define GARROW_TIME64_ARRAY_BUILDER(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIME64_ARRAY_BUILDER, \
+                              GArrowTime64ArrayBuilder))
+#define GARROW_TIME64_ARRAY_BUILDER_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
+                           GARROW_TYPE_TIME64_ARRAY_BUILDER,    \
+                           GArrowTime64ArrayBuilderClass))
+#define GARROW_IS_TIME64_ARRAY_BUILDER(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
+                              GARROW_TYPE_TIME64_ARRAY_BUILDER))
+#define GARROW_IS_TIME64_ARRAY_BUILDER_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIME64_ARRAY_BUILDER))
+#define GARROW_TIME64_ARRAY_BUILDER_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIME64_ARRAY_BUILDER,  \
+                             GArrowTime64ArrayBuilderClass))
+
+typedef struct _GArrowTime64ArrayBuilder         GArrowTime64ArrayBuilder;
+typedef struct _GArrowTime64ArrayBuilderClass    GArrowTime64ArrayBuilderClass;
+
+/**
+ * GArrowTime64ArrayBuilder:
+ *
+ * It wraps `arrow::Time64Builder`.
+ */
+struct _GArrowTime64ArrayBuilder
+{
+  /*< private >*/
+  GArrowArrayBuilder parent_instance;
+};
+
+struct _GArrowTime64ArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GType garrow_time64_array_builder_get_type(void) G_GNUC_CONST;
+
+GArrowTime64ArrayBuilder *garrow_time64_array_builder_new(GArrowTime64DataType *data_type);
+
+gboolean garrow_time64_array_builder_append(GArrowTime64ArrayBuilder *builder,
+                                            gint64 value,
+                                            GError **error);
+gboolean garrow_time64_array_builder_append_values(GArrowTime64ArrayBuilder *builder,
+                                                   const gint64 *values,
+                                                   gint64 values_length,
+                                                   const gboolean *is_valids,
+                                                   gint64 is_valids_length,
+                                                   GError **error);
+gboolean garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
+                                                 GError **error);
+gboolean garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
+                                                  gint64 n,
+                                                  GError **error);
 
 
 #define GARROW_TYPE_LIST_ARRAY_BUILDER          \

@@ -32,10 +32,58 @@
 
 namespace arrow {
 
-class ArrayPrinter {
+class PrettyPrinter {
+ public:
+  PrettyPrinter(int indent, std::ostream* sink) : indent_(indent), sink_(sink) {}
+
+  void Write(const char* data);
+  void Write(const std::string& data);
+  void WriteIndented(const char* data);
+  void WriteIndented(const std::string& data);
+  void Newline();
+  void Indent();
+  void OpenArray();
+  void CloseArray();
+
+  void Flush() { (*sink_) << std::flush; }
+
+ protected:
+  int indent_;
+  std::ostream* sink_;
+};
+
+void PrettyPrinter::OpenArray() { (*sink_) << "["; }
+
+void PrettyPrinter::CloseArray() { (*sink_) << "]"; }
+
+void PrettyPrinter::Write(const char* data) { (*sink_) << data; }
+void PrettyPrinter::Write(const std::string& data) { (*sink_) << data; }
+
+void PrettyPrinter::WriteIndented(const char* data) {
+  Indent();
+  Write(data);
+}
+
+void PrettyPrinter::WriteIndented(const std::string& data) {
+  Indent();
+  Write(data);
+}
+
+void PrettyPrinter::Newline() {
+  (*sink_) << "\n";
+  Indent();
+}
+
+void PrettyPrinter::Indent() {
+  for (int i = 0; i < indent_; ++i) {
+    (*sink_) << " ";
+  }
+}
+
+class ArrayPrinter : public PrettyPrinter {
  public:
   ArrayPrinter(const Array& array, int indent, std::ostream* sink)
-      : array_(array), indent_(indent), sink_(sink) {}
+      : PrettyPrinter(indent, sink), array_(array) {}
 
   template <typename T>
   inline typename std::enable_if<IsInteger<T>::value, void>::type WriteDataValues(
@@ -99,7 +147,7 @@ class ArrayPrinter {
       if (array.IsNull(i)) {
         Write("null");
       } else {
-        const char* buf = reinterpret_cast<const char*>(array.GetValue(i, &length));
+        const uint8_t* buf = array.GetValue(i, &length);
         (*sink_) << HexEncode(buf, length);
       }
     }
@@ -116,8 +164,22 @@ class ArrayPrinter {
       if (array.IsNull(i)) {
         Write("null");
       } else {
-        const char* buf = reinterpret_cast<const char*>(array.GetValue(i));
-        (*sink_) << HexEncode(buf, width);
+        (*sink_) << HexEncode(array.GetValue(i), width);
+      }
+    }
+  }
+
+  template <typename T>
+  inline typename std::enable_if<std::is_same<DecimalArray, T>::value, void>::type
+  WriteDataValues(const T& array) {
+    for (int i = 0; i < array.length(); ++i) {
+      if (i > 0) {
+        (*sink_) << ", ";
+      }
+      if (array.IsNull(i)) {
+        Write("null");
+      } else {
+        (*sink_) << array.FormatValue(i);
       }
     }
   }
@@ -137,14 +199,7 @@ class ArrayPrinter {
     }
   }
 
-  void Write(const char* data);
-  void Write(const std::string& data);
-  void Newline();
-  void Indent();
-  void OpenArray();
-  void CloseArray();
-
-  Status Visit(const NullArray& array) { return Status::OK(); }
+  Status Visit(const NullArray&) { return Status::OK(); }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
@@ -158,9 +213,7 @@ class ArrayPrinter {
     return Status::OK();
   }
 
-  Status Visit(const IntervalArray& array) { return Status::NotImplemented("interval"); }
-
-  Status Visit(const DecimalArray& array) { return Status::NotImplemented("decimal"); }
+  Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
 
   Status WriteValidityBitmap(const Array& array);
 
@@ -247,13 +300,14 @@ class ArrayPrinter {
     return PrettyPrint(*array.indices(), indent_ + 2, sink_);
   }
 
-  Status Print() { return VisitArrayInline(array_, this); }
+  Status Print() {
+    RETURN_NOT_OK(VisitArrayInline(array_, this));
+    Flush();
+    return Status::OK();
+  }
 
  private:
   const Array& array_;
-  int indent_;
-
-  std::ostream* sink_;
 };
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
@@ -270,24 +324,6 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   }
 }
 
-void ArrayPrinter::OpenArray() { (*sink_) << "["; }
-void ArrayPrinter::CloseArray() { (*sink_) << "]"; }
-
-void ArrayPrinter::Write(const char* data) { (*sink_) << data; }
-
-void ArrayPrinter::Write(const std::string& data) { (*sink_) << data; }
-
-void ArrayPrinter::Newline() {
-  (*sink_) << "\n";
-  Indent();
-}
-
-void ArrayPrinter::Indent() {
-  for (int i = 0; i < indent_; ++i) {
-    (*sink_) << " ";
-  }
-}
-
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
   ArrayPrinter printer(arr, indent, sink);
   return printer.Print();
@@ -300,11 +336,81 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
     RETURN_NOT_OK(PrettyPrint(*batch.column(i), indent + 2, sink));
     (*sink) << "\n";
   }
+  (*sink) << std::flush;
   return Status::OK();
 }
 
-Status ARROW_EXPORT DebugPrint(const Array& arr, int indent) {
+Status DebugPrint(const Array& arr, int indent) {
   return PrettyPrint(arr, indent, &std::cout);
+}
+
+class SchemaPrinter : public PrettyPrinter {
+ public:
+  SchemaPrinter(const Schema& schema, int indent, std::ostream* sink)
+      : PrettyPrinter(indent, sink), schema_(schema) {}
+
+  Status PrintType(const DataType& type);
+  Status PrintField(const Field& field);
+
+  Status Print() {
+    for (int i = 0; i < schema_.num_fields(); ++i) {
+      if (i > 0) {
+        Newline();
+      }
+      RETURN_NOT_OK(PrintField(*schema_.field(i)));
+    }
+    Flush();
+    return Status::OK();
+  }
+
+ private:
+  const Schema& schema_;
+};
+
+Status SchemaPrinter::PrintType(const DataType& type) {
+  Write(type.ToString());
+  if (type.id() == Type::DICTIONARY) {
+    Newline();
+
+    indent_ += 2;
+    WriteIndented("dictionary: ");
+    const auto& dict_type = static_cast<const DictionaryType&>(type);
+    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_, sink_));
+    indent_ -= 2;
+  } else {
+    for (int i = 0; i < type.num_children(); ++i) {
+      Newline();
+
+      std::stringstream ss;
+      ss << "child " << i << ", ";
+
+      indent_ += 2;
+      WriteIndented(ss.str());
+      RETURN_NOT_OK(PrintField(*type.child(i)));
+      indent_ -= 2;
+    }
+  }
+  return Status::OK();
+}
+
+Status SchemaPrinter::PrintField(const Field& field) {
+  Write(field.name());
+  Write(": ");
+  return PrintType(*field.type());
+}
+
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  SchemaPrinter printer(schema, options.indent, sink);
+  return printer.Print();
+}
+
+Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
+                   std::string* result) {
+  std::ostringstream sink;
+  RETURN_NOT_OK(PrettyPrint(schema, options, &sink));
+  *result = sink.str();
+  return Status::OK();
 }
 
 }  // namespace arrow

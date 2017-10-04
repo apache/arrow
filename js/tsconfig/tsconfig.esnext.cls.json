@@ -1,0 +1,10 @@
+//Compiler configuaration to build the ESNext Closure Compiler target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNEXT",
+    "module": "es2015",
+    "noEmitHelpers": true,
+    "importHelpers": false
+  }
+}

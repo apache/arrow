@@ -1,12 +1,39 @@
 {
-    "defaultSeverity": "error",
-    "extends": [
-        "tslint:recommended"
-    ],
-    "jsRules": {},
-    "rules": {
-      "no-bitwise": false,
-      "max-classes-per-file": false
-    },
-    "rulesDirectory": []
+  "rules": {
+    "curly": true,
+    "eofline": false,
+    "align": [true, "parameters"],
+    "class-name": true,
+    "indent": [true, "spaces"],
+    "max-line-length": [false, 150],
+    "no-consecutive-blank-lines": [true],
+    "no-trailing-whitespace": true,
+    "no-duplicate-variable": true,
+    "no-var-keyword": true,
+    "no-empty": false,
+    "no-unused-expression": false,
+    "no-use-before-declare": false,
+    "no-var-requires": true,
+    "no-require-imports": true,
+    "one-line": [true,
+      "check-else",
+      "check-whitespace",
+      "check-open-brace"],
+    "quotemark": [true,
+      "single",
+      "avoid-escape"],
+    "semicolon": [true, "always"],
+    "typedef-whitespace": [true, {
+      "call-signature": "nospace",
+      "index-signature": "nospace",
+      "parameter": "nospace",
+      "property-declaration": "nospace",
+      "variable-declaration": "nospace"
+    }],
+    "whitespace": [true,
+      "check-branch",
+      "check-decl",
+      "check-operator",
+      "check-type"]
+  }
 }

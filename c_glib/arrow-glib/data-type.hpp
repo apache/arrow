@@ -19,9 +19,5 @@
 
 #pragma once
 
-#include <arrow/api.h>
-
-#include <arrow-glib/data-type.h>
-
-GArrowDataType *garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type);
-std::shared_ptr<arrow::DataType> garrow_data_type_get_raw(GArrowDataType *data_type);
+#include <arrow-glib/basic-data-type.hpp>
+#include <arrow-glib/composite-data-type.h>

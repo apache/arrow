@@ -1,0 +1,9 @@
+{
+  "lerna": "2.0.0",
+  "version": "0.1.1",
+  "packages": [
+    "targets/es5/*",
+    "targets/es2015/*",
+    "targets/esnext/*"
+  ]
+}

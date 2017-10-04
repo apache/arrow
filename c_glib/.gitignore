@@ -33,7 +33,6 @@ Makefile.in
 /libtool
 /m4/
 /stamp-h1
-/version
 /arrow-glib/enums.c
 /arrow-glib/enums.h
 /arrow-glib/stamp-*

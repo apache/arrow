@@ -31,6 +31,7 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 
 namespace arrow {
 
@@ -53,6 +54,13 @@ void CheckArray(const Array& arr, int indent, const char* expected) {
   std::stringstream ss;
   ss << arr;
   ASSERT_EQ(result, ss.str());
+}
+
+template <typename T>
+void Check(const T& obj, const PrettyPrintOptions& options, const char* expected) {
+  std::string result;
+  ASSERT_OK(PrettyPrint(obj, options, &result));
+  ASSERT_EQ(std::string(expected, strlen(expected)), result);
 }
 
 template <typename TYPE, typename C_TYPE>
@@ -99,6 +107,30 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   CheckArray(*array, 0, ex);
 }
 
+TEST_F(TestPrettyPrint, DecimalType) {
+  int32_t p = 19;
+  int32_t s = 4;
+
+  auto type = decimal(p, s);
+
+  DecimalBuilder builder(type);
+
+  Decimal128 val;
+
+  ASSERT_OK(Decimal128::FromString("123.4567", &val));
+  ASSERT_OK(builder.Append(val));
+
+  ASSERT_OK(Decimal128::FromString("456.7891", &val));
+  ASSERT_OK(builder.Append(val));
+  ASSERT_OK(builder.AppendNull());
+
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+
+  static const char* ex = R"expected([123.4567, 456.7891, null])expected";
+  CheckArray(*array, 0, ex);
+}
+
 TEST_F(TestPrettyPrint, DictionaryType) {
   std::vector<bool> is_valid = {true, true, false, true, true, true};
 
@@ -117,7 +149,38 @@ TEST_F(TestPrettyPrint, DictionaryType) {
 -- dictionary: ["foo", "bar", "baz"]
 -- indices: [1, 2, null, 0, 2, 0])expected";
 
-  CheckArray(*arr.get(), 0, expected);
+  CheckArray(*arr, 0, expected);
+}
+
+TEST_F(TestPrettyPrint, SchemaWithDictionary) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+
+  std::shared_ptr<Array> dict;
+  std::vector<std::string> dict_values = {"foo", "bar", "baz"};
+  ArrayFromVector<StringType, std::string>(dict_values, &dict);
+
+  auto simple = field("one", int32());
+  auto simple_dict = field("two", dictionary(int16(), dict));
+  auto list_of_dict = field("three", list(simple_dict));
+
+  auto struct_with_dict = field("four", struct_({simple, simple_dict}));
+
+  auto sch = schema({simple, simple_dict, list_of_dict, struct_with_dict});
+
+  static const char* expected = R"expected(one: int32
+two: dictionary<values=string, indices=int16, ordered=0>
+  dictionary: ["foo", "bar", "baz"]
+three: list<two: dictionary<values=string, indices=int16, ordered=0>>
+  child 0, two: dictionary<values=string, indices=int16, ordered=0>
+      dictionary: ["foo", "bar", "baz"]
+four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
+  child 0, one: int32
+  child 1, two: dictionary<values=string, indices=int16, ordered=0>
+      dictionary: ["foo", "bar", "baz"])expected";
+
+  PrettyPrintOptions options{0};
+
+  Check(*sch, options, expected);
 }
 
 }  // namespace arrow

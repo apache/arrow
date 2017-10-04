@@ -40,13 +40,11 @@ services:
 
 cache:
   ccache: true
-  directories:
-    - $HOME/.conda_packages
 
 matrix:
   fast_finish: true
   allow_failures:
-  - env: ARROW_TEST_GROUP=packaging
+  - jdk: oraclejdk9
   include:
   - compiler: gcc
     language: cpp
@@ -58,11 +56,15 @@ matrix:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - compiler: clang
+    language: cpp
     osx_image: xcode6.4
     os: osx
     cache:
@@ -73,7 +75,9 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
+    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - language: cpp
     before_script:
     - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
@@ -90,6 +94,10 @@ matrix:
     jdk: oraclejdk9
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+    addons:
+      apt:
+        packages:
+          - oracle-java9-installer
   - language: java
     os: linux
     env: ARROW_TEST_GROUP=integration
@@ -98,6 +106,7 @@ matrix:
     - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
@@ -115,12 +124,13 @@ matrix:
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
   - compiler: clang
-    osx_image: xcode6.4
+    osx_image: xcode8.3
     os: osx
     cache:
     addons:

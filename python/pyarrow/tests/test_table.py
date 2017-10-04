@@ -82,6 +82,18 @@ def test_recordbatch_basics():
         batch[2]
 
 
+def test_recordbatch_from_arrays_invalid_names():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, names=['a', 'b', 'c'])
+
+    with pytest.raises(ValueError):
+        pa.RecordBatch.from_arrays(data, names=['a'])
+
+
 def test_recordbatch_empty_metadata():
     data = [
         pa.array(range(5)),
@@ -135,9 +147,9 @@ def test_recordbatch_from_to_pandas():
     data = pd.DataFrame({
         'c1': np.array([1, 2, 3, 4, 5], dtype='int64'),
         'c2': np.array([1, 2, 3, 4, 5], dtype='uint32'),
-        'c2': np.random.randn(5),
-        'c3': ['foo', 'bar', None, 'baz', 'qux'],
-        'c4': [False, True, False, True, False]
+        'c3': np.random.randn(5),
+        'c4': ['foo', 'bar', None, 'baz', 'qux'],
+        'c5': [False, True, False, True, False]
     })
 
     batch = pa.RecordBatch.from_pandas(data)
@@ -198,6 +210,18 @@ def test_table_basics():
     for col in table.itercolumns():
         for chunk in col.data.iterchunks():
             assert chunk is not None
+
+
+def test_table_from_arrays_invalid_names():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_arrays(data, names=['a'])
 
 
 def test_table_add_column():
@@ -285,3 +309,12 @@ def test_table_negative_indexing():
 def test_table_ctor_errors():
     with pytest.raises(ReferenceError):
         repr(pa.Table())
+    with pytest.raises(ReferenceError):
+        str(pa.Table())
+
+
+def test_schema_ctor_errors():
+    with pytest.raises(ReferenceError):
+        repr(pa.Schema())
+    with pytest.raises(ReferenceError):
+        str(pa.Schema())

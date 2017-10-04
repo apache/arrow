@@ -17,7 +17,10 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], m4_include(version))
+m4_define([arrow_glib_version],
+           m4_esyscmd(grep "^  <version>" "$(dirname $0)/../java/pom.xml" | \
+                        sed -e 's/\(^  <version>\|<\/version>$\)//g' | \
+                        tr -d '\n'))
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -73,7 +76,7 @@ AC_ARG_WITH(arrow-cpp-build-dir,
   [GARROW_ARROW_CPP_BUILD_DIR="$withval"],
   [GARROW_ARROW_CPP_BUILD_DIR=""])
 if test "x$GARROW_ARROW_CPP_BUILD_DIR" = "x"; then
-  PKG_CHECK_MODULES([ARROW], [arrow])
+  PKG_CHECK_MODULES([ARROW], [arrow arrow-compute])
 else
   ARROW_INCLUDE_DIR="\$(abs_top_srcdir)/../cpp/src"
   ARROW_LIB_DIR="${GARROW_ARROW_CPP_BUILD_DIR}/${GARROW_ARROW_CPP_BUILD_TYPE}"

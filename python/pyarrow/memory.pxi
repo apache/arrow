@@ -36,7 +36,12 @@ cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
 
 
 cdef class LoggingMemoryPool(MemoryPool):
-    pass
+    cdef:
+        unique_ptr[CLoggingMemoryPool] logging_pool
+
+    def __cinit__(self, MemoryPool pool):
+        self.logging_pool.reset(new CLoggingMemoryPool(pool.pool))
+        self.init(self.logging_pool.get())
 
 
 def default_memory_pool():
@@ -48,6 +53,26 @@ def default_memory_pool():
 
 def set_memory_pool(MemoryPool pool):
     c_set_default_memory_pool(pool.pool)
+
+
+cdef MemoryPool _default_memory_pool = default_memory_pool()
+cdef LoggingMemoryPool _logging_memory_pool = (
+    LoggingMemoryPool(_default_memory_pool))
+
+
+def log_memory_allocations(enable=True):
+    """
+    Enable or disable memory allocator logging for debugging purposes
+
+    Parameters
+    ----------
+    enable : boolean, default True
+        Pass False to disable logging
+    """
+    if enable:
+        set_memory_pool(_logging_memory_pool)
+    else:
+        set_memory_pool(_default_memory_pool)
 
 
 def total_allocated_bytes():

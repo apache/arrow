@@ -20,11 +20,6 @@
 set -u
 set -e
 
-ruby \
-    -e 'print ARGF.read.scan(/^  <version>(.+?)<\/version>/)[0][0]' \
-    ../java/pom.xml > \
-    version
-
 mkdir -p m4
 
 gtkdocize --copy --docdir doc/reference

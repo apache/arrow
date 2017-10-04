@@ -21,19 +21,9 @@
 set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-# Download flatbuffers
-export FLATBUFFERS_HOME=$TRAVIS_BUILD_DIR/flatbuffers
-conda create -y -q -p $FLATBUFFERS_HOME python=2.7 flatbuffers
-export PATH="$FLATBUFFERS_HOME/bin:$PATH"
-
-npm install -g typescript
-npm install -g webpack
 
 pushd $ARROW_JS_DIR
 
 npm install
-npm run build
 
 popd

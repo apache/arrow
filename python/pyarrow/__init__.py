@@ -36,7 +36,7 @@ from pyarrow.lib import (null, bool_,
                          time32, time64, timestamp, date32, date64,
                          float16, float32, float64,
                          binary, string, decimal,
-                         list_, struct, dictionary, field,
+                         list_, struct, dictionary, field, type_for_alias,
                          DataType, NAType,
                          Field,
                          Schema,
@@ -65,7 +65,8 @@ from pyarrow.lib import (null, bool_,
                          FloatValue, DoubleValue, ListValue,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
                          DecimalValue,
-                         Date32Value, Date64Value, TimestampValue)
+                         Date32Value, Date64Value, TimestampValue,
+                         TimestampType)
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          FixedSizeBufferWriter,
@@ -76,9 +77,12 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          have_libhdfs, have_libhdfs3, MockOutputStream)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
-                         set_memory_pool, default_memory_pool)
+                         set_memory_pool, default_memory_pool,
+                         log_memory_allocations)
+
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
                          concat_tables)
+
 from pyarrow.lib import (ArrowException,
                          ArrowKeyError,
                          ArrowInvalid,

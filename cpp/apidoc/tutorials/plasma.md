@@ -219,7 +219,7 @@ int main(int argc, char** argv) {
   // Start up and connect a Plasma client.
   PlasmaClient client;
   ARROW_CHECK_OK(client.Connect("/tmp/plasma", "", PLASMA_DEFAULT_RELEASE_DELAY));
-  // Create an object with a random ObjectID.
+  // Create an object with a fixed ObjectID.
   ObjectID object_id = ObjectID::from_binary("00000000000000000000");
   int64_t data_size = 1000;
   uint8_t *data;

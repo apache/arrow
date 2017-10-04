@@ -1,0 +1,8 @@
+//Compiler configuaration to build the ES2015 CommonJS target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "commonjs"
+  }
+}

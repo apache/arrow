@@ -94,7 +94,14 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE malloc.cc
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
-    " -Wno-parentheses-equality -Wno-shorten-64-to-32")
+    " -Wno-parentheses-equality \
+-Wno-shorten-64-to-32 \
+-Wno-unused-macros ")
+
+  set_property(SOURCE thirdparty/xxhash.cc
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS
+    "-Wno-unused-macros")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "gcc")
@@ -111,6 +118,7 @@ target_link_libraries(plasma_store plasma_static)
 install(FILES
   common.h
   common_generated.h
+  compat.h
   client.h
   events.h
   plasma.h

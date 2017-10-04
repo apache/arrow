@@ -92,3 +92,37 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_NA;
   }
 }
+
+GArrowTimeUnit
+garrow_time_unit_from_raw(arrow::TimeUnit::type unit)
+{
+  switch (unit) {
+  case arrow::TimeUnit::type::SECOND:
+    return GARROW_TIME_UNIT_SECOND;
+  case arrow::TimeUnit::type::MILLI:
+    return GARROW_TIME_UNIT_MILLI;
+  case arrow::TimeUnit::type::MICRO:
+    return GARROW_TIME_UNIT_MICRO;
+  case arrow::TimeUnit::type::NANO:
+    return GARROW_TIME_UNIT_NANO;
+  default:
+    return GARROW_TIME_UNIT_SECOND;
+  }
+}
+
+arrow::TimeUnit::type
+garrow_time_unit_to_raw(GArrowTimeUnit unit)
+{
+  switch (unit) {
+  case GARROW_TIME_UNIT_SECOND:
+    return arrow::TimeUnit::type::SECOND;
+  case GARROW_TIME_UNIT_MILLI:
+    return arrow::TimeUnit::type::MILLI;
+  case GARROW_TIME_UNIT_MICRO:
+    return arrow::TimeUnit::type::MICRO;
+  case GARROW_TIME_UNIT_NANO:
+    return arrow::TimeUnit::type::NANO;
+  default:
+    return arrow::TimeUnit::type::SECOND;
+  }
+}

@@ -175,6 +175,21 @@ cdef class _RecordBatchWriter:
                                               &self.writer))
         self.closed = False
 
+    def write(self, table_or_batch):
+        """
+        Write RecordBatch or Table to stream
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        """
+        if isinstance(table_or_batch, RecordBatch):
+            self.write_batch(table_or_batch)
+        elif isinstance(table_or_batch, Table):
+            self.write_table(table_or_batch)
+        else:
+            raise ValueError(type(table_or_batch))
+
     def write_batch(self, RecordBatch batch):
         """
         Write RecordBatch to stream
@@ -185,7 +200,18 @@ cdef class _RecordBatchWriter:
         """
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(deref(batch.batch)))
+                         .WriteRecordBatch(deref(batch.batch), 1))
+
+    def write_table(self, Table table):
+        """
+        Write RecordBatch to stream
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        """
+        with nogil:
+            check_status(self.writer.get().WriteTable(table.table[0]))
 
     def close(self):
         """
@@ -245,7 +271,7 @@ cdef class _RecordBatchReader:
         cdef shared_ptr[CRecordBatch] batch
 
         with nogil:
-            check_status(self.reader.get().ReadNextRecordBatch(&batch))
+            check_status(self.reader.get().ReadNext(&batch))
 
         if batch.get() == NULL:
             raise StopIteration
@@ -263,7 +289,7 @@ cdef class _RecordBatchReader:
 
         with nogil:
             while True:
-                check_status(self.reader.get().ReadNextRecordBatch(&batch))
+                check_status(self.reader.get().ReadNext(&batch))
                 if batch.get() == NULL:
                     break
                 batches.push_back(batch)

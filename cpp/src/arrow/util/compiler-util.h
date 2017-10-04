@@ -15,45 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Deprecated header, here for backwards compatibility in parquet-cpp
+
 #ifndef ARROW_UTIL_COMPILER_UTIL_H
 #define ARROW_UTIL_COMPILER_UTIL_H
 
-// Branch prediction macro hints for GCC
-#ifdef LIKELY
-#undef LIKELY
-#endif
-
-#ifdef UNLIKELY
-#undef UNLIKELY
-#endif
-
-#ifdef _MSC_VER
-#define LIKELY(expr) expr
-#define UNLIKELY(expr) expr
-#else
-#define LIKELY(expr) __builtin_expect(!!(expr), 1)
-#define UNLIKELY(expr) __builtin_expect(!!(expr), 0)
-#endif
-
-#define PREFETCH(addr) __builtin_prefetch(addr)
-
-// macros to disable padding
-// these macros are portable across different compilers and platforms
-//[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
-#if defined(_MSC_VER)
-#define MANUALLY_ALIGNED_STRUCT(alignment) \
-  __pragma(pack(1));                       \
-  struct __declspec(align(alignment))
-#define STRUCT_END(name, size) \
-  __pragma(pack());            \
-  static_assert(sizeof(name) == size, "compiler breaks packing rules")
-#elif defined(__GNUC__) || defined(__clang__)
-#define MANUALLY_ALIGNED_STRUCT(alignment) \
-  _Pragma("pack(1)") struct __attribute__((aligned(alignment)))
-#define STRUCT_END(name, size) \
-  _Pragma("pack()") static_assert(sizeof(name) == size, "compiler breaks packing rules")
-#else
-#error Unknown compiler, please define structure alignment macros
-#endif
+#include "arrow/util/macros.h"
 
 #endif  // ARROW_UTIL_COMPILER_UTIL_H

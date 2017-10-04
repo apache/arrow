@@ -72,11 +72,19 @@ cdef class DataType:
     def __repr__(self):
         return '{0.__class__.__name__}({0})'.format(self)
 
-    def __richcmp__(DataType self, DataType other, int op):
+    def __richcmp__(DataType self, object other, int op):
+        cdef DataType other_type
+        if not isinstance(other, DataType):
+            if not isinstance(other, six.string_types):
+                raise TypeError(other)
+            other_type = type_for_alias(other)
+        else:
+            other_type = other
+
         if op == cp.Py_EQ:
-            return self.type.Equals(deref(other.type))
+            return self.type.Equals(deref(other_type.type))
         elif op == cp.Py_NE:
-            return not self.type.Equals(deref(other.type))
+            return not self.type.Equals(deref(other_type.type))
         else:
             raise TypeError('Invalid comparison')
 
@@ -133,6 +141,16 @@ cdef class TimestampType(DataType):
                 return frombytes(self.ts_type.timezone())
             else:
                 return None
+
+    def to_pandas_dtype(self):
+        """
+        Return the NumPy dtype that would be used for storing this
+        """
+        if self.tz is None:
+            return _pandas_type_map[_Type_TIMESTAMP]
+        else:
+            # Return DatetimeTZ
+            return pdcompat.make_datetimetz(self.tz)
 
 
 cdef class Time32Type(DataType):
@@ -289,7 +307,6 @@ cdef class Schema:
         return self.schema.num_fields()
 
     def __getitem__(self, int i):
-
         cdef:
             Field result = Field()
             int num_fields = self.schema.num_fields()
@@ -307,6 +324,10 @@ cdef class Schema:
         result.type = pyarrow_wrap_data_type(result.field.type())
 
         return result
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
     def _check_null(self):
         if self.schema == NULL:
@@ -423,7 +444,23 @@ cdef class Schema:
         return pyarrow_wrap_schema(new_schema)
 
     def __str__(self):
-        return frombytes(self.schema.ToString())
+        self._check_null()
+
+        cdef:
+            PrettyPrintOptions options
+            c_string result
+
+        options.indent = 0
+        with nogil:
+            check_status(PrettyPrint(deref(self.schema), options, &result))
+
+        printed = frombytes(result)
+        if self.metadata is not None:
+            import pprint
+            metadata_formatted = pprint.pformat(self.metadata)
+            printed += '\nmetadata\n--------\n' + metadata_formatted
+
+        return printed
 
     def __repr__(self):
         return self.__str__()
@@ -835,7 +872,7 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
+cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
                                 bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
@@ -852,7 +889,7 @@ cpdef DictionaryType dictionary(DataType index_type, Array dictionary,
     cdef DictionaryType out = DictionaryType()
     cdef shared_ptr[CDataType] dict_type
     dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dictionary.sp_array,
+                                        dict_values.sp_array,
                                         ordered == 1))
     out.init(dict_type)
     return out
@@ -891,6 +928,64 @@ def struct(fields):
 
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
+
+
+cdef dict _type_aliases = {
+    'null': null,
+    'i1': int8,
+    'int8': int8,
+    'i2': int16,
+    'int16': int16,
+    'i4': int32,
+    'int32': int32,
+    'i8': int64,
+    'int64': int64,
+    'u1': uint8,
+    'uint8': uint8,
+    'u2': uint16,
+    'uint16': uint16,
+    'u4': uint32,
+    'uint32': uint32,
+    'u8': uint64,
+    'uint64': uint64,
+    'f4': float32,
+    'float32': float32,
+    'f8': float64,
+    'float64': float64,
+    'string': string,
+    'str': string,
+    'utf8': string,
+    'binary': binary,
+    'date32': date32,
+    'date64': date64,
+    'time32[s]': time32('s'),
+    'time32[ms]': time32('ms'),
+    'time64[us]': time64('us'),
+    'time64[ns]': time64('ns'),
+    'timestamp[s]': timestamp('s'),
+    'timestamp[ms]': timestamp('ms'),
+    'timestamp[us]': timestamp('us'),
+    'timestamp[ns]': timestamp('ns'),
+}
+
+
+def type_for_alias(name):
+    """
+    Return DataType given a string alias if one exists
+
+    Returns
+    -------
+    type : DataType
+    """
+    name = name.lower()
+    try:
+        alias = _type_aliases[name]
+    except KeyError:
+        raise ValueError('No type alias for {0}'.format(name))
+
+    if isinstance(alias, DataType):
+        return alias
+    return alias()
 
 
 def schema(fields):

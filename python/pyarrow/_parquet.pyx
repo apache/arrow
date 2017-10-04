@@ -467,6 +467,25 @@ cdef class ParquetReader:
                              .ReadTable(&ctable))
         return pyarrow_wrap_table(ctable)
 
+    def scan_contents(self, column_indices=None, batch_size=65536):
+        cdef:
+            vector[int] c_column_indices
+            int32_t c_batch_size
+            int64_t c_num_rows
+
+        if column_indices is not None:
+            for index in column_indices:
+                c_column_indices.push_back(index)
+
+        c_batch_size = batch_size
+
+        with nogil:
+            check_status(self.reader.get()
+                         .ScanContents(c_column_indices, c_batch_size,
+                                       &c_num_rows))
+
+        return c_num_rows
+
     def column_name_idx(self, column_name):
         """
         Find the matching index of a column in the schema.
@@ -543,6 +562,7 @@ cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
         shared_ptr[OutputStream] sink
+        bint own_sink
 
     cdef readonly:
         object use_dictionary
@@ -569,8 +589,10 @@ cdef class ParquetWriter:
                 check_status(FileOutputStream.Open(c_where,
                                                    &filestream))
             self.sink = <shared_ptr[OutputStream]> filestream
+            self.own_sink = True
         else:
             get_writer(where, &self.sink)
+            self.own_sink = False
 
         self.use_dictionary = use_dictionary
         self.compression = compression
@@ -645,6 +667,8 @@ cdef class ParquetWriter:
     def close(self):
         with nogil:
             check_status(self.writer.get().Close())
+            if self.own_sink:
+                check_status(self.sink.get().Close())
 
     def write_table(self, Table table, row_group_size=None):
         cdef CTable* ctable = table.table

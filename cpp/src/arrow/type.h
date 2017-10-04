@@ -148,7 +148,14 @@ class ARROW_EXPORT DataType {
 
   virtual Status Accept(TypeVisitor* visitor) const = 0;
 
+  /// \brief A string representation of the type, including any children
   virtual std::string ToString() const = 0;
+
+  /// \brief A string name of the type, omitting any child fields
+  ///
+  /// \note Experimental API
+  /// \since 0.7.0
+  virtual std::string name() const = 0;
 
   virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
 
@@ -159,8 +166,13 @@ class ARROW_EXPORT DataType {
   std::vector<std::shared_ptr<Field>> children_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(DataType);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
+
+inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
+  os << type.ToString();
+  return os;
+}
 
 // TODO(wesm): Remove this from parquet-cpp
 using TypePtr = std::shared_ptr<DataType>;
@@ -179,15 +191,20 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
   using FixedWidthType::FixedWidthType;
 };
 
-class ARROW_EXPORT Integer : public PrimitiveCType {
+class ARROW_EXPORT Number : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
+};
+
+class ARROW_EXPORT Integer : public Number {
+ public:
+  using Number::Number;
   virtual bool is_signed() const = 0;
 };
 
-class ARROW_EXPORT FloatingPoint : public PrimitiveCType {
+class ARROW_EXPORT FloatingPoint : public Number {
  public:
-  using PrimitiveCType::PrimitiveCType;
+  using Number::Number;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -195,7 +212,6 @@ class ARROW_EXPORT FloatingPoint : public PrimitiveCType {
 class ARROW_EXPORT NestedType : public DataType {
  public:
   using DataType::DataType;
-  static std::string name() { return "nested"; }
 };
 
 class NoExtraMeta {};
@@ -211,9 +227,11 @@ class ARROW_EXPORT Field {
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
-  /// \deprecated
+#ifndef ARROW_NO_DEPRECATED_API
+  /// \note Deprecated since 0.8.0
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
                      std::shared_ptr<Field>* out) const;
+#endif
 
   std::shared_ptr<Field> AddMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const;
@@ -258,7 +276,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
     return visitor->Visit(*static_cast<const DERIVED*>(this));
   }
 
-  std::string ToString() const override { return std::string(DERIVED::name()); }
+  std::string ToString() const override { return this->name(); }
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
@@ -277,7 +295,7 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
-  static std::string name() { return "null"; }
+  std::string name() const override { return "null"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
@@ -292,76 +310,76 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   std::string ToString() const override;
 
   int bit_width() const override { return 1; }
-  static std::string name() { return "bool"; }
+  std::string name() const override { return "bool"; }
 };
 
 class ARROW_EXPORT UInt8Type
     : public detail::IntegerTypeImpl<UInt8Type, Type::UINT8, uint8_t> {
  public:
-  static std::string name() { return "uint8"; }
+  std::string name() const override { return "uint8"; }
 };
 
 class ARROW_EXPORT Int8Type
     : public detail::IntegerTypeImpl<Int8Type, Type::INT8, int8_t> {
  public:
-  static std::string name() { return "int8"; }
+  std::string name() const override { return "int8"; }
 };
 
 class ARROW_EXPORT UInt16Type
     : public detail::IntegerTypeImpl<UInt16Type, Type::UINT16, uint16_t> {
  public:
-  static std::string name() { return "uint16"; }
+  std::string name() const override { return "uint16"; }
 };
 
 class ARROW_EXPORT Int16Type
     : public detail::IntegerTypeImpl<Int16Type, Type::INT16, int16_t> {
  public:
-  static std::string name() { return "int16"; }
+  std::string name() const override { return "int16"; }
 };
 
 class ARROW_EXPORT UInt32Type
     : public detail::IntegerTypeImpl<UInt32Type, Type::UINT32, uint32_t> {
  public:
-  static std::string name() { return "uint32"; }
+  std::string name() const override { return "uint32"; }
 };
 
 class ARROW_EXPORT Int32Type
     : public detail::IntegerTypeImpl<Int32Type, Type::INT32, int32_t> {
  public:
-  static std::string name() { return "int32"; }
+  std::string name() const override { return "int32"; }
 };
 
 class ARROW_EXPORT UInt64Type
     : public detail::IntegerTypeImpl<UInt64Type, Type::UINT64, uint64_t> {
  public:
-  static std::string name() { return "uint64"; }
+  std::string name() const override { return "uint64"; }
 };
 
 class ARROW_EXPORT Int64Type
     : public detail::IntegerTypeImpl<Int64Type, Type::INT64, int64_t> {
  public:
-  static std::string name() { return "int64"; }
+  std::string name() const override { return "int64"; }
 };
 
 class ARROW_EXPORT HalfFloatType
     : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
   Precision precision() const override;
-  static std::string name() { return "halffloat"; }
+  std::string name() const override { return "halffloat"; }
 };
 
 class ARROW_EXPORT FloatType
     : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
   Precision precision() const override;
-  static std::string name() { return "float"; }
+  std::string name() const override { return "float"; }
 };
 
 class ARROW_EXPORT DoubleType
     : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
-  static std::string name() { return "double"; }
+  std::string name() const override { return "double"; }
 };
 
 class ARROW_EXPORT ListType : public NestedType {
@@ -383,7 +401,7 @@ class ARROW_EXPORT ListType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
-  static std::string name() { return "list"; }
+  std::string name() const override { return "list"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
@@ -397,7 +415,7 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "binary"; }
+  std::string name() const override { return "binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
@@ -418,7 +436,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "fixed_size_binary"; }
+  std::string name() const override { return "fixed_size_binary"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 
@@ -438,7 +456,7 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "utf8"; }
+  std::string name() const override { return "utf8"; }
 };
 
 class ARROW_EXPORT StructType : public NestedType {
@@ -452,41 +470,28 @@ class ARROW_EXPORT StructType : public NestedType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "struct"; }
+  std::string name() const override { return "struct"; }
 
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
-
-static inline int decimal_byte_width(int precision) {
-  if (precision >= 0 && precision < 10) {
-    return 4;
-  } else if (precision >= 10 && precision < 19) {
-    return 8;
-  } else {
-    // TODO(phillipc): validate that we can't construct > 128 bit types
-    return 16;
-  }
-}
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
-  explicit DecimalType(int precision, int scale)
-      : FixedSizeBinaryType(decimal_byte_width(precision), Type::DECIMAL),
-        precision_(precision),
-        scale_(scale) {}
+  explicit DecimalType(int32_t precision, int32_t scale)
+      : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "decimal"; }
+  std::string name() const override { return "decimal"; }
 
-  int precision() const { return precision_; }
-  int scale() const { return scale_; }
+  int32_t precision() const { return precision_; }
+  int32_t scale() const { return scale_; }
 
  private:
-  int precision_;
-  int scale_;
+  int32_t precision_;
+  int32_t scale_;
 };
 
 enum class UnionMode : char { SPARSE, DENSE };
@@ -499,7 +504,7 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
-  static std::string name() { return "union"; }
+  std::string name() const override { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
 
   std::vector<BufferDescr> GetBufferLayout() const override;
@@ -544,6 +549,8 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "date32"; }
 };
 
 /// Date as int64_t milliseconds since UNIX epoch
@@ -559,7 +566,8 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "date"; }
+
+  std::string name() const override { return "date64"; }
 };
 
 struct TimeUnit {
@@ -604,6 +612,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "time32"; }
 };
 
 class ARROW_EXPORT Time64Type : public TimeType {
@@ -617,6 +627,8 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
+
+  std::string name() const override { return "time64"; }
 };
 
 class ARROW_EXPORT TimestampType : public FixedWidthType {
@@ -636,7 +648,7 @@ class ARROW_EXPORT TimestampType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "timestamp"; }
+  std::string name() const override { return "timestamp"; }
 
   TimeUnit::type unit() const { return unit_; }
   const std::string& timezone() const { return timezone_; }
@@ -660,7 +672,7 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override { return name(); }
-  static std::string name() { return "date"; }
+  std::string name() const override { return "date"; }
 
   Unit unit() const { return unit_; }
 
@@ -686,7 +698,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
-  static std::string name() { return "dictionary"; }
+  std::string name() const override { return "dictionary"; }
 
   bool ordered() const { return ordered_; }
 
@@ -739,9 +751,11 @@ class ARROW_EXPORT Schema {
                   std::shared_ptr<Schema>* out) const;
   Status RemoveField(int i, std::shared_ptr<Schema>* out) const;
 
-  /// \deprecated
+#ifndef ARROW_NO_DEPRECATED_API
+  /// \note Deprecated since 0.8.0
   Status AddMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
                      std::shared_ptr<Schema>* out) const;
+#endif
 
   /// \brief Replace key-value metadata with new metadata
   ///
@@ -766,14 +780,29 @@ class ARROW_EXPORT Schema {
 // ----------------------------------------------------------------------
 // Factory functions
 
-std::shared_ptr<DataType> ARROW_EXPORT fixed_size_binary(int32_t byte_width);
+/// \brief Make an instance of FixedSizeBinaryType
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<Field>& value_type);
-std::shared_ptr<DataType> ARROW_EXPORT list(const std::shared_ptr<DataType>& value_type);
+/// \brief Make an instance of DecimalType
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit);
-std::shared_ptr<DataType> ARROW_EXPORT timestamp(TimeUnit::type unit,
-                                                 const std::string& timezone);
+/// \brief Make an instance of ListType
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
+
+/// \brief Make an instance of ListType
+ARROW_EXPORT
+std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Make an instance of TimestampType
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit);
+
+/// \brief Make an instance of TimestampType
+ARROW_EXPORT
+std::shared_ptr<DataType> timestamp(TimeUnit::type unit, const std::string& timezone);
 
 /// \brief Create an instance of 32-bit time type
 /// Unit can be either SECOND or MILLI
@@ -812,89 +841,20 @@ std::shared_ptr<Field> ARROW_EXPORT field(
 /// \param fields the schema's fields
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
-schema(const std::vector<std::shared_ptr<Field>>& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    const std::vector<std::shared_ptr<Field>>& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 /// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields (rvalue reference)
 /// \param metadata any custom key-value metadata, default nullptr
 /// \return schema shared_ptr to Schema
-std::shared_ptr<Schema> ARROW_EXPORT
-schema(std::vector<std::shared_ptr<Field>>&& fields,
-       const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
-
-// ----------------------------------------------------------------------
-//
-
-static inline bool is_integer(Type::type type_id) {
-  switch (type_id) {
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_floating(Type::type type_id) {
-  switch (type_id) {
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_primitive(Type::type type_id) {
-  switch (type_id) {
-    case Type::NA:
-    case Type::BOOL:
-    case Type::UINT8:
-    case Type::INT8:
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-    case Type::DATE32:
-    case Type::DATE64:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-    case Type::INTERVAL:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_binary_like(Type::type type_id) {
-  switch (type_id) {
-    case Type::BINARY:
-    case Type::STRING:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>>&& fields,
+    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
 
 }  // namespace arrow
 

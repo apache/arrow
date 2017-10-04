@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.h>
 
 G_BEGIN_DECLS
@@ -80,6 +81,11 @@ GArrowArray   *garrow_array_slice       (GArrowArray *array,
                                          gint64 offset,
                                          gint64 length);
 gchar         *garrow_array_to_string   (GArrowArray *array,
+                                         GError **error);
+
+GArrowArray   *garrow_array_cast        (GArrowArray *array,
+                                         GArrowDataType *target_data_type,
+                                         GArrowCastOptions *options,
                                          GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \
@@ -963,6 +969,168 @@ GArrowDate64Array *garrow_date64_array_new(gint64 length,
 gint64 garrow_date64_array_get_value(GArrowDate64Array *array,
                                      gint64 i);
 const gint64 *garrow_date64_array_get_values(GArrowDate64Array *array,
+                                             gint64 *length);
+
+
+#define GARROW_TYPE_TIMESTAMP_ARRAY             \
+  (garrow_timestamp_array_get_type())
+#define GARROW_TIMESTAMP_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
+                              GARROW_TYPE_TIMESTAMP_ARRAY,      \
+                              GArrowTimestampArray))
+#define GARROW_TIMESTAMP_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_TIMESTAMP_ARRAY, \
+                           GArrowTimestampArrayClass))
+#define GARROW_IS_TIMESTAMP_ARRAY(obj)                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIMESTAMP_ARRAY))
+#define GARROW_IS_TIMESTAMP_ARRAY_CLASS(klass)                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
+                           GARROW_TYPE_TIMESTAMP_ARRAY))
+#define GARROW_TIMESTAMP_ARRAY_GET_CLASS(obj)                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
+                             GARROW_TYPE_TIMESTAMP_ARRAY,       \
+                             GArrowTimestampArrayClass))
+
+typedef struct _GArrowTimestampArray         GArrowTimestampArray;
+typedef struct _GArrowTimestampArrayClass    GArrowTimestampArrayClass;
+
+/**
+ * GArrowTimestampArray:
+ *
+ * It wraps `arrow::TimestampArray`.
+ */
+struct _GArrowTimestampArray
+{
+  /*< private >*/
+  GArrowPrimitiveArray parent_instance;
+};
+
+struct _GArrowTimestampArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GType garrow_timestamp_array_get_type(void) G_GNUC_CONST;
+
+GArrowTimestampArray *garrow_timestamp_array_new(GArrowTimestampDataType *data_type,
+                                                 gint64 length,
+                                                 GArrowBuffer *data,
+                                                 GArrowBuffer *null_bitmap,
+                                                 gint64 n_nulls);
+
+gint64 garrow_timestamp_array_get_value(GArrowTimestampArray *array,
+                                        gint64 i);
+const gint64 *garrow_timestamp_array_get_values(GArrowTimestampArray *array,
+                                                gint64 *length);
+
+
+#define GARROW_TYPE_TIME32_ARRAY                \
+  (garrow_time32_array_get_type())
+#define GARROW_TIME32_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_TIME32_ARRAY, \
+                              GArrowTime32Array))
+#define GARROW_TIME32_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_TIME32_ARRAY,    \
+                           GArrowTime32ArrayClass))
+#define GARROW_IS_TIME32_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIME32_ARRAY))
+#define GARROW_IS_TIME32_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_TIME32_ARRAY))
+#define GARROW_TIME32_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_TIME32_ARRAY,  \
+                             GArrowTime32ArrayClass))
+
+typedef struct _GArrowTime32Array         GArrowTime32Array;
+typedef struct _GArrowTime32ArrayClass    GArrowTime32ArrayClass;
+
+/**
+ * GArrowTime32Array:
+ *
+ * It wraps `arrow::Time32Array`.
+ */
+struct _GArrowTime32Array
+{
+  /*< private >*/
+  GArrowPrimitiveArray parent_instance;
+};
+
+struct _GArrowTime32ArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GType garrow_time32_array_get_type(void) G_GNUC_CONST;
+
+GArrowTime32Array *garrow_time32_array_new(GArrowTime32DataType *data_type,
+                                           gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
+gint32 garrow_time32_array_get_value(GArrowTime32Array *array,
+                                     gint64 i);
+const gint32 *garrow_time32_array_get_values(GArrowTime32Array *array,
+                                             gint64 *length);
+
+
+#define GARROW_TYPE_TIME64_ARRAY                \
+  (garrow_time64_array_get_type())
+#define GARROW_TIME64_ARRAY(obj)                        \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
+                              GARROW_TYPE_TIME64_ARRAY, \
+                              GArrowTime64Array))
+#define GARROW_TIME64_ARRAY_CLASS(klass)                \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
+                           GARROW_TYPE_TIME64_ARRAY,    \
+                           GArrowTime64ArrayClass))
+#define GARROW_IS_TIME64_ARRAY(obj)                             \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
+                              GARROW_TYPE_TIME64_ARRAY))
+#define GARROW_IS_TIME64_ARRAY_CLASS(klass)             \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
+                           GARROW_TYPE_TIME64_ARRAY))
+#define GARROW_TIME64_ARRAY_GET_CLASS(obj)              \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
+                             GARROW_TYPE_TIME64_ARRAY,  \
+                             GArrowTime64ArrayClass))
+
+typedef struct _GArrowTime64Array         GArrowTime64Array;
+typedef struct _GArrowTime64ArrayClass    GArrowTime64ArrayClass;
+
+/**
+ * GArrowTime64Array:
+ *
+ * It wraps `arrow::Time64Array`.
+ */
+struct _GArrowTime64Array
+{
+  /*< private >*/
+  GArrowPrimitiveArray parent_instance;
+};
+
+struct _GArrowTime64ArrayClass
+{
+  GArrowPrimitiveArrayClass parent_class;
+};
+
+GType garrow_time64_array_get_type(void) G_GNUC_CONST;
+
+GArrowTime64Array *garrow_time64_array_new(GArrowTime64DataType *data_type,
+                                           gint64 length,
+                                           GArrowBuffer *data,
+                                           GArrowBuffer *null_bitmap,
+                                           gint64 n_nulls);
+
+gint64 garrow_time64_array_get_value(GArrowTime64Array *array,
+                                     gint64 i);
+const gint64 *garrow_time64_array_get_values(GArrowTime64Array *array,
                                              gint64 *length);
 
 

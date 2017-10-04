@@ -30,6 +30,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.file.BaseFileTest;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Validator;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -96,28 +97,25 @@ public class TestJSONFile extends BaseFileTest {
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
-
       writeUnionData(count, parent);
-
       printVectors(parent.getChildrenFromFields());
 
-      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
-      validateUnionData(count, root);
-
-      writeJSON(file, root, null);
-    }
-    // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-    ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
-      Schema schema = reader.start();
-      LOGGER.debug("reading schema: " + schema);
-
-      // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"))) {
         validateUnionData(count, root);
+        writeJSON(file, root, null);
+
+        // read
+        try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
+          JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+
+          Schema schema = reader.start();
+          LOGGER.debug("reading schema: " + schema);
+
+          try (VectorSchemaRoot rootFromJson = reader.read();) {
+            validateUnionData(count, rootFromJson);
+            Validator.compareVectorSchemaRoot(root, rootFromJson);
+          }
+        }
       }
     }
   }
@@ -238,6 +236,38 @@ public class TestJSONFile extends BaseFileTest {
   }
 
   @Test
+  public void testWriteReadDecimalJSON() throws IOException {
+    File file = new File("target/mytest_decimal.json");
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+
+      try (VectorSchemaRoot root = writeDecimalData(vectorAllocator)) {
+        printVectors(root.getFieldVectors());
+        validateDecimalData(root);
+        writeJSON(file, root, null);
+      }
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateDecimalData(root);
+      }
+      reader.close();
+    }
+  }
+
+  @Test
   public void testSetStructLength() throws IOException {
     File file = new File("../../integration/data/struct_example.json");
     try (
@@ -255,4 +285,33 @@ public class TestJSONFile extends BaseFileTest {
     }
   }
 
+  @Test
+  public void testWriteReadVarBinJSON() throws IOException {
+    File file = new File("target/mytest_varbin.json");
+    int count = COUNT;
+
+    // write
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
+      writeVarBinaryData(count, parent);
+      VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
+      validateVarBinary(count, root);
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateVarBinary(count, root);
+      }
+      reader.close();
+    }
+  }
 }

@@ -16,18 +16,19 @@
 # under the License.
 
 import os
+import inspect
 import json
-
+import re
 import six
 
 import numpy as np
 
-from pyarrow.filesystem import FileSystem, LocalFileSystem
+from pyarrow.filesystem import FileSystem, LocalFileSystem, S3FSWrapper
 from pyarrow._parquet import (ParquetReader, FileMetaData,  # noqa
-                              RowGroupMetaData, ParquetSchema,
-                              ParquetWriter)
+                              RowGroupMetaData, ParquetSchema)
 import pyarrow._parquet as _parquet  # noqa
 import pyarrow.lib as lib
+import pyarrow as pa
 
 
 # ----------------------------------------------------------------------
@@ -117,6 +118,27 @@ class ParquetFile(object):
         return self.reader.read_all(column_indices=column_indices,
                                     nthreads=nthreads)
 
+    def scan_contents(self, columns=None, batch_size=65536):
+        """
+        Read contents of file with a single thread for indicated columns and
+        batch size. Number of rows in file is returned. This function is used
+        for benchmarking
+
+        Parameters
+        ----------
+        columns : list of integers, default None
+            If None, scan all columns
+        batch_size : int, default 64K
+            Number of rows to read at a time internally
+
+        Returns
+        -------
+        num_rows : number of rows in file
+        """
+        column_indices = self._get_column_indices(columns)
+        return self.reader.scan_contents(column_indices,
+                                         batch_size=batch_size)
+
     def _get_column_indices(self, column_names, use_pandas_metadata=False):
         if column_names is None:
             return None
@@ -140,6 +162,73 @@ class ParquetFile(object):
                 indices += map(self.reader.column_name_idx, index_columns)
 
         return indices
+
+
+_SPARK_DISALLOWED_CHARS = re.compile('[ ,;{}()\n\t=]')
+
+
+def _sanitized_spark_field_name(name):
+    return _SPARK_DISALLOWED_CHARS.sub('_', name)
+
+
+def _sanitize_schema(schema, flavor):
+    if 'spark' in flavor:
+        sanitized_fields = []
+
+        schema_changed = False
+
+        for field in schema:
+            name = field.name
+            sanitized_name = _sanitized_spark_field_name(name)
+
+            if sanitized_name != name:
+                schema_changed = True
+                sanitized_field = pa.field(sanitized_name, field.type,
+                                           field.nullable, field.metadata)
+                sanitized_fields.append(sanitized_field)
+            else:
+                sanitized_fields.append(field)
+        return pa.schema(sanitized_fields), schema_changed
+    else:
+        return schema, False
+
+
+def _sanitize_table(table, new_schema, flavor):
+    # TODO: This will not handle prohibited characters in nested field names
+    if 'spark' in flavor:
+        column_data = [table[i].data for i in range(table.num_columns)]
+        return pa.Table.from_arrays(column_data, schema=new_schema)
+    else:
+        return table
+
+
+class ParquetWriter(object):
+    """
+
+    Parameters
+    ----------
+    where
+    schema
+    flavor : {'spark', ...}
+        Set options for compatibility with a particular reader
+    """
+    def __init__(self, where, schema, flavor=None, **options):
+        self.flavor = flavor
+        if flavor is not None:
+            schema, self.schema_changed = _sanitize_schema(schema, flavor)
+        else:
+            self.schema_changed = False
+
+        self.schema = schema
+        self.writer = _parquet.ParquetWriter(where, schema, **options)
+
+    def write_table(self, table, row_group_size=None):
+        if self.schema_changed:
+            table = _sanitize_table(table, self.schema, self.flavor)
+        self.writer.write_table(table, row_group_size=row_group_size)
+
+    def close(self):
+        self.writer.close()
 
 
 def _get_pandas_index_columns(keyvalues):
@@ -645,13 +734,20 @@ class ParquetDataset(object):
 
 
 def _ensure_filesystem(fs):
-    if not isinstance(fs, FileSystem):
-        if type(fs).__name__ == 'S3FileSystem':
-            from pyarrow.filesystem import S3FSWrapper
-            return S3FSWrapper(fs)
-        else:
-            raise IOError('Unrecognized filesystem: {0}'
-                          .format(type(fs)))
+    fs_type = type(fs)
+
+    # If the arrow filesystem was subclassed, assume it supports the full
+    # interface and return it
+    if not issubclass(fs_type, FileSystem):
+        for mro in inspect.getmro(fs_type):
+            if mro.__name__ is 'S3FileSystem':
+                return S3FSWrapper(fs)
+            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
+            # FS
+            elif mro.__name__ is 'LocalFileSystem':
+                return LocalFileSystem.get_instance()
+
+        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
     else:
         return fs
 
@@ -758,8 +854,9 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
 
 def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
-                use_deprecated_int96_timestamps=False,
-                coerce_timestamps=None, **kwargs):
+                use_deprecated_int96_timestamps=None,
+                coerce_timestamps=None,
+                flavor=None, **kwargs):
     """
     Write a Table to Parquet format
 
@@ -775,15 +872,26 @@ def write_table(table, where, row_group_size=None, version='1.0',
     use_dictionary : bool or list
         Specify if we should use dictionary encoding in general or only for
         some columns.
-    use_deprecated_int96_timestamps : boolean, default False
-        Write nanosecond resolution timestamps to INT96 Parquet format
+    use_deprecated_int96_timestamps : boolean, default None
+        Write nanosecond resolution timestamps to INT96 Parquet
+        format. Defaults to False unless enabled by flavor argument
     coerce_timestamps : string, default None
         Cast timestamps a particular resolution.
         Valid values: {None, 'ms', 'us'}
     compression : str or dict
         Specify the compression codec, either on a general basis or per-column.
+    flavor : {'spark'}, default None
+        Sanitize schema or set other compatibility options for compatibility
     """
     row_group_size = kwargs.get('chunk_size', row_group_size)
+
+    if use_deprecated_int96_timestamps is None:
+        # Use int96 timestamps for Spark
+        if flavor is not None and 'spark' in flavor:
+            use_deprecated_int96_timestamps = True
+        else:
+            use_deprecated_int96_timestamps = False
+
     options = dict(
         use_dictionary=use_dictionary,
         compression=compression,
@@ -793,7 +901,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
 
     writer = None
     try:
-        writer = ParquetWriter(where, table.schema, **options)
+        writer = ParquetWriter(where, table.schema, flavor=flavor,
+                               **options)
         writer.write_table(table, row_group_size=row_group_size)
     except:
         if writer is not None:
@@ -806,6 +915,84 @@ def write_table(table, where, row_group_size=None, version='1.0',
         raise
     else:
         writer.close()
+
+
+def write_to_dataset(table, root_path, partition_cols=None,
+                     filesystem=None, preserve_index=True, **kwargs):
+    """
+    Wrapper around parquet.write_table for writing a Table to
+    Parquet format by partitions.
+    For each combination of partition columns and values,
+    a subdirectories are created in the following
+    manner:
+
+    root_dir/
+      group1=value1
+        group2=value1
+          <uuid>.parquet
+        group2=value2
+          <uuid>.parquet
+      group1=valueN
+        group2=value1
+          <uuid>.parquet
+        group2=valueN
+          <uuid>.parquet
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+    root_path : string,
+        The root directory of the dataset
+    filesystem : FileSystem, default None
+        If nothing passed, paths assumed to be found in the local on-disk
+        filesystem
+    partition_cols : list,
+        Column names by which to partition the dataset
+        Columns are partitioned in the order they are given
+    preserve_index : bool,
+        Parameter for instantiating Table; preserve pandas index or not.
+    **kwargs : dict, kwargs for write_table function.
+    """
+    from pyarrow import (
+        Table,
+        compat
+    )
+
+    if filesystem is None:
+        fs = LocalFileSystem.get_instance()
+    else:
+        fs = _ensure_filesystem(filesystem)
+
+    if not fs.exists(root_path):
+        fs.mkdir(root_path)
+
+    if partition_cols is not None and len(partition_cols) > 0:
+        df = table.to_pandas()
+        partition_keys = [df[col] for col in partition_cols]
+        data_df = df.drop(partition_cols, axis='columns')
+        data_cols = df.columns.drop(partition_cols)
+        if len(data_cols) == 0:
+            raise ValueError("No data left to save outside partition columns")
+        for keys, subgroup in data_df.groupby(partition_keys):
+            if not isinstance(keys, tuple):
+                keys = (keys,)
+            subdir = "/".join(
+                ["{colname}={value}".format(colname=name, value=val)
+                 for name, val in zip(partition_cols, keys)])
+            subtable = Table.from_pandas(subgroup,
+                                         preserve_index=preserve_index)
+            prefix = "/".join([root_path, subdir])
+            if not fs.exists(prefix):
+                fs.mkdir(prefix)
+            outfile = compat.guid() + ".parquet"
+            full_path = "/".join([prefix, outfile])
+            with fs.open(full_path, 'wb') as f:
+                write_table(subtable, f, **kwargs)
+    else:
+        outfile = compat.guid() + ".parquet"
+        full_path = "/".join([root_path, outfile])
+        with fs.open(full_path, 'wb') as f:
+            write_table(table, f, **kwargs)
 
 
 def write_metadata(schema, where, version='1.0',
