@@ -266,11 +266,12 @@ class NumPyConverter {
       mask_ = reinterpret_cast<PyArrayObject*>(mo);
     }
     length_ = static_cast<int64_t>(PyArray_SIZE(arr_));
+    itemsize_ = static_cast<int>(PyArray_DESCR(arr_)->elsize);
+    stride_ = static_cast<int64_t>(PyArray_STRIDES(arr_)[0]);
   }
 
   bool is_strided() const {
-    npy_intp* astrides = PyArray_STRIDES(arr_);
-    return astrides[0] != PyArray_DESCR(arr_)->elsize;
+    return itemsize_ != stride_;
   }
 
   Status Convert();
@@ -293,7 +294,9 @@ class NumPyConverter {
 
   Status Visit(const NullType& type) { return TypeNotImplemented(type.ToString()); }
 
-  Status Visit(const BinaryType& type) { return TypeNotImplemented(type.ToString()); }
+  Status Visit(const BinaryType& type);
+
+  Status Visit(const StringType& type) { return TypeNotImplemented(type.ToString()); }
 
   Status Visit(const FixedSizeBinaryType& type) {
     return TypeNotImplemented(type.ToString());
@@ -430,6 +433,8 @@ class NumPyConverter {
   PyArrayObject* arr_;
   PyArrayObject* mask_;
   int64_t length_;
+  int64_t stride_;
+  int itemsize_;
 
   bool use_pandas_null_sentinels_;
 
@@ -1213,10 +1218,55 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type) {
   return PushBuilderResult(list_builder);
 }
 
+Status NumPyConverter::Visit(const BinaryType& type) {
+  BinaryBuilder builder(pool_);
+
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+
+  int item_length = 0;
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        // This is annoying. NumPy allows strings to have nul-terminators, so
+        // we must check for them here
+        for (item_length = 0; item_length < itemsize_; ++item_length) {
+          if (data[item_length] == 0) {
+            break;
+          }
+        }
+        RETURN_NOT_OK(builder.Append(data, item_length));
+      }
+      data += stride_;
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      for (item_length = 0; item_length < itemsize_; ++item_length) {
+        // Look for nul-terminator
+        if (data[item_length] == 0) {
+          break;
+        }
+      }
+      RETURN_NOT_OK(builder.Append(data, item_length));
+      data += stride_;
+    }
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo,
                       bool use_pandas_null_sentinels,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
+  if (!PyArray_Check(ao)) {
+    return Status::Invalid("Input object was not a NumPy array");
+  }
+
   NumPyConverter converter(pool, ao, mo, type, use_pandas_null_sentinels);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
