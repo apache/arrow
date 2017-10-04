@@ -61,7 +61,7 @@ using arrow::DoubleBuilder;
 using arrow::Int64Builder;
 using arrow::ListBuilder;
 
-MemoryPool* pool = arrow::default_memory_pool();
+arrow::MemoryPool* pool = arrow::default_memory_pool();
 Int64Builder id_builder(pool);
 DoubleBuilder cost_builder(pool);
 std::unique_ptr<DoubleBuilder> components_values_builder(new DoubleBuilder(pool));
