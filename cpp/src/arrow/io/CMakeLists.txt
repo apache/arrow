@@ -20,7 +20,7 @@
 
 ADD_ARROW_TEST(io-file-test)
 if (NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(io-hdfs-test)
+  ADD_ARROW_TEST(io-hdfs-test NO_VALGRIND)
 endif()
 ADD_ARROW_TEST(io-memory-test)
 
