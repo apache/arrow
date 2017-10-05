@@ -369,29 +369,32 @@ def test_array_from_numpy_ascii():
 
 
 def test_array_from_numpy_unicode():
-    arr = np.array(['abcde', 'abc', ''], dtype='|U5')
+    dtypes = ['<U5', '>U5']
 
-    arrow_arr = pa.array(arr)
-    assert arrow_arr.type == 'utf8'
-    expected = pa.array(['abcde', 'abc', ''], type='utf8')
-    assert arrow_arr.equals(expected)
+    for dtype in dtypes:
+        arr = np.array(['abcde', 'abc', ''], dtype=dtype)
 
-    mask = np.array([False, True, False])
-    arrow_arr = pa.array(arr, mask=mask)
-    expected = pa.array(['abcde', None, ''], type='utf8')
-    assert arrow_arr.equals(expected)
+        arrow_arr = pa.array(arr)
+        assert arrow_arr.type == 'utf8'
+        expected = pa.array(['abcde', 'abc', ''], type='utf8')
+        assert arrow_arr.equals(expected)
 
-    # Strided variant
-    arr = np.array(['abcde', 'abc', ''] * 5, dtype='|U5')[::2]
-    mask = np.array([False, True, False] * 5)[::2]
-    arrow_arr = pa.array(arr, mask=mask)
+        mask = np.array([False, True, False])
+        arrow_arr = pa.array(arr, mask=mask)
+        expected = pa.array(['abcde', None, ''], type='utf8')
+        assert arrow_arr.equals(expected)
 
-    expected = pa.array(['abcde', '', None, 'abcde', '', None, 'abcde', ''],
-                        type='utf8')
-    assert arrow_arr.equals(expected)
+        # Strided variant
+        arr = np.array(['abcde', 'abc', ''] * 5, dtype=dtype)[::2]
+        mask = np.array([False, True, False] * 5)[::2]
+        arrow_arr = pa.array(arr, mask=mask)
+
+        expected = pa.array(['abcde', '', None, 'abcde', '', None,
+                             'abcde', ''], type='utf8')
+        assert arrow_arr.equals(expected)
 
     # 0 itemsize
-    arr = np.array(['', '', ''], dtype='|U0')
+    arr = np.array(['', '', ''], dtype='<U0')
     arrow_arr = pa.array(arr)
     expected = pa.array(['', '', ''], type='utf8')
     assert arrow_arr.equals(expected)
