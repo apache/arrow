@@ -451,8 +451,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   std::string GetString(int64_t i) const {
     int32_t length = 0;
     const uint8_t* bytes = GetValue(i, &length);
-    return std::string(reinterpret_cast<const char*>(bytes),
-                       static_cast<size_t>(length));
+    return std::string(reinterpret_cast<const char*>(bytes), static_cast<size_t>(length));
   }
 
   /// Note that this buffer does not account for any slice offset
@@ -683,24 +682,6 @@ ARROW_EXTERN_TEMPLATE NumericArray<TimestampType>;
 /// \return Status
 ARROW_EXPORT
 Status ValidateArray(const Array& array);
-
-#ifndef ARROW_NO_DEPRECATED_API
-// \note Deprecated since 0.7.0
-
-/// Create new arrays for logical types that are backed by primitive arrays.
-ARROW_EXPORT
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
-                          const std::shared_ptr<Buffer>& data,
-                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                          int64_t offset, std::shared_ptr<Array>* out);
-
-ARROW_EXPORT
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-                          const std::vector<std::shared_ptr<Buffer>>& buffers,
-                          int64_t length, int64_t null_count, int64_t offset,
-                          std::shared_ptr<Array>* out);
-
-#endif
 
 }  // namespace arrow
 

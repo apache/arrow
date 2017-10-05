@@ -82,9 +82,7 @@ std::string Field::ToString() const {
 
 DataType::~DataType() {}
 
-bool DataType::Equals(const DataType& other) const {
-  return TypeEquals(*this, other);
-}
+bool DataType::Equals(const DataType& other) const { return TypeEquals(*this, other); }
 
 bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   if (!other) {

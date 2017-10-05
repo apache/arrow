@@ -181,11 +181,6 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : ArrayBuilder(type, pool), data_(nullptr), raw_data_(nullptr) {}
 
-#ifndef ARROW_NO_DEPRECATED_API
-  explicit PrimitiveBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : PrimitiveBuilder(type, pool) {}
-#endif
-
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
@@ -514,11 +509,6 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  explicit BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
-#endif
-
   using ArrayBuilder::Advance;
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
@@ -667,11 +657,6 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
  public:
   explicit BinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
-#endif
-
   BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   Status Append(const uint8_t* value, int32_t length);
@@ -728,11 +713,6 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
 
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  FixedSizeBinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
-#endif
-
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
@@ -772,11 +752,6 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
   explicit DecimalBuilder(const std::shared_ptr<DataType>& type,
                           MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  explicit DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
-#endif
-
   using FixedSizeBinaryBuilder::Append;
 
   Status Append(const Decimal128& val);
@@ -794,12 +769,6 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 /// called to maintain data-structure consistency.
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
-#endif
-
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                 std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders);
 
@@ -887,11 +856,6 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   using Scalar = typename internal::DictionaryScalar<T>::type;
 
   ~DictionaryBuilder() {}
-
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.6.0
-  explicit DictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type);
-#endif
 
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 

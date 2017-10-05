@@ -94,12 +94,6 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.7.0
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchStreamWriter>* out);
-#endif
-
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
   void set_memory_pool(MemoryPool* pool) override;
@@ -127,12 +121,6 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \return Status
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
-
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.7.0
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchFileWriter>* out);
-#endif
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
   Status Close() override;
@@ -230,16 +218,6 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size);
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
-
-#ifndef ARROW_NO_DEPRECATED_API
-/// EXPERIMENTAL: Write RecordBatch allowing lengths over INT32_MAX. This data
-/// may not be readable by all Arrow implementations
-/// \deprecated Since 0.7.0
-ARROW_EXPORT
-Status WriteLargeRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
-                             io::OutputStream* dst, int32_t* metadata_length,
-                             int64_t* body_length, MemoryPool* pool);
-#endif
 
 }  // namespace ipc
 }  // namespace arrow

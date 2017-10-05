@@ -691,11 +691,6 @@ BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool
   DCHECK_EQ(Type::BOOL, type->id());
 }
 
-#ifndef ARROW_NO_DEPRECATED_API
-BooleanBuilder::BooleanBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : BooleanBuilder(type, pool) {}
-#endif
-
 Status BooleanBuilder::Init(int64_t capacity) {
   RETURN_NOT_OK(ArrayBuilder::Init(capacity));
   data_ = std::make_shared<PoolBuffer>(pool_);
@@ -837,13 +832,6 @@ DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
     ::arrow::CpuInfo::Init();
   }
 }
-
-#ifndef ARROW_NO_DEPRECATED_API
-template <typename T>
-DictionaryBuilder<T>::DictionaryBuilder(MemoryPool* pool,
-                                        const std::shared_ptr<DataType>& type)
-    : DictionaryBuilder(type, pool) {}
-#endif
 
 template <typename T>
 Status DictionaryBuilder<T>::Init(int64_t elements) {
@@ -1111,11 +1099,6 @@ template class DictionaryBuilder<StringType>;
 DecimalBuilder::DecimalBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool) {}
 
-#ifndef ARROW_NO_DEPRECATED_API
-DecimalBuilder::DecimalBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : DecimalBuilder(type, pool) {}
-#endif
-
 Status DecimalBuilder::Append(const Decimal128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   return FixedSizeBinaryBuilder::Append(value.ToBytes());
@@ -1211,11 +1194,6 @@ ArrayBuilder* ListBuilder::value_builder() const {
 
 BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : ArrayBuilder(type, pool), offsets_builder_(pool), value_data_builder_(pool) {}
-
-#ifndef ARROW_NO_DEPRECATED_API
-BinaryBuilder::BinaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-    : BinaryBuilder(type, pool) {}
-#endif
 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
 
@@ -1316,12 +1294,6 @@ FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& 
       byte_width_(static_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
-#ifndef ARROW_NO_DEPRECATED_API
-FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(MemoryPool* pool,
-                                               const std::shared_ptr<DataType>& type)
-    : FixedSizeBinaryBuilder(type, pool) {}
-#endif
-
 Status FixedSizeBinaryBuilder::Append(const uint8_t* value) {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(true);
@@ -1376,12 +1348,6 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
     : ArrayBuilder(type, pool) {
   field_builders_ = std::move(field_builders);
 }
-
-#ifndef ARROW_NO_DEPRECATED_API
-StructBuilder::StructBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                             std::vector<std::unique_ptr<ArrayBuilder>>&& field_builders)
-    : StructBuilder(type, pool, std::move(field_builders)) {}
-#endif
 
 Status StructBuilder::Finish(std::shared_ptr<Array>* out) {
   std::vector<std::shared_ptr<Array>> fields(field_builders_.size());
