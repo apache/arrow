@@ -294,11 +294,6 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[out] batch the next loaded batch, nullptr at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
-
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.7.0
-  Status ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch);
-#endif
 };
 
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table

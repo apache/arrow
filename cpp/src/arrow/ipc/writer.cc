@@ -858,17 +858,6 @@ Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
   return Status::OK();
 }
 
-#ifndef ARROW_NO_DEPRECATED_API
-Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
-                                     const std::shared_ptr<Schema>& schema,
-                                     std::shared_ptr<RecordBatchStreamWriter>* out) {
-  // ctor is private
-  *out = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
-  (*out)->impl_.reset(new RecordBatchStreamWriterImpl(sink, schema));
-  return Status::OK();
-}
-#endif
-
 Status RecordBatchStreamWriter::Close() { return impl_->Close(); }
 
 // ----------------------------------------------------------------------
@@ -931,17 +920,6 @@ Status RecordBatchFileWriter::Open(io::OutputStream* sink,
   *out = result;
   return Status::OK();
 }
-
-#ifndef ARROW_NO_DEPRECATED_API
-Status RecordBatchFileWriter::Open(io::OutputStream* sink,
-                                   const std::shared_ptr<Schema>& schema,
-                                   std::shared_ptr<RecordBatchFileWriter>* out) {
-  // ctor is private
-  *out = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
-  (*out)->impl_.reset(new RecordBatchFileWriterImpl(sink, schema));
-  return Status::OK();
-}
-#endif
 
 Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
                                                bool allow_64bit) {

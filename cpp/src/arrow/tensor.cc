@@ -117,8 +117,6 @@ bool Tensor::is_column_major() const {
 
 Type::type Tensor::type_id() const { return type_->id(); }
 
-bool Tensor::Equals(const Tensor& other) const {
-  return TensorEquals(*this, other);
-}
+bool Tensor::Equals(const Tensor& other) const { return TensorEquals(*this, other); }
 
 }  // namespace arrow
