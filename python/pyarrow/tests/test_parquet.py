@@ -599,6 +599,23 @@ def test_date_time_types():
 
 
 @parquet
+def test_large_list_records():
+    # This was fixed in PARQUET-1100
+
+    list_lengths = np.random.randint(0, 500, size=50)
+    list_lengths[::10] = 0
+
+    list_values = [list(map(int, np.random.randint(0, 100, size=x)))
+                   if i % 8 else None
+                   for i, x in enumerate(list_lengths)]
+
+    a1 = pa.array(list_values)
+
+    table = pa.Table.from_arrays([a1], ['int_lists'])
+    _check_roundtrip(table)
+
+
+@parquet
 def test_sanitized_spark_field_names():
     a0 = pa.array([0, 1, 2, 3, 4])
     name = 'prohib; ,\t{}'
