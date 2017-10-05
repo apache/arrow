@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -104,6 +105,9 @@ class ARROW_EXPORT Column {
  protected:
   std::shared_ptr<Field> field_;
   std::shared_ptr<ChunkedArray> data_;
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Column);
 };
 
 /// \class RecordBatch
@@ -193,6 +197,8 @@ class ARROW_EXPORT RecordBatch {
   Status Validate() const;
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
+
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
 
   std::shared_ptr<Schema> schema_;
@@ -266,6 +272,8 @@ class ARROW_EXPORT Table {
   bool IsChunked() const;
 
  private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Table);
+
   std::shared_ptr<Schema> schema_;
   std::vector<std::shared_ptr<Column>> columns_;
 
