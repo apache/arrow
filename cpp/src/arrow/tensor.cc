@@ -118,12 +118,7 @@ bool Tensor::is_column_major() const {
 Type::type Tensor::type_id() const { return type_->id(); }
 
 bool Tensor::Equals(const Tensor& other) const {
-  bool are_equal = false;
-  Status error = TensorEquals(*this, other, &are_equal);
-  if (!error.ok()) {
-    DCHECK(false) << "Tensors not comparable: " << error.ToString();
-  }
-  return are_equal;
+  return TensorEquals(*this, other);
 }
 
 }  // namespace arrow
