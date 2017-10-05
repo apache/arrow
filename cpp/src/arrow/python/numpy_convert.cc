@@ -167,6 +167,8 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
 #endif
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
+    TO_ARROW_TYPE_CASE(STRING, binary);
+    TO_ARROW_TYPE_CASE(UNICODE, utf8);
     case NPY_DATETIME: {
       auto date_dtype =
           reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);

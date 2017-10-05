@@ -337,3 +337,64 @@ def test_array_conversions_no_sentinel_values():
                     type='float32')
     assert arr3.type == 'float32'
     assert arr3.null_count == 0
+
+
+def test_array_from_numpy_ascii():
+    arr = np.array(['abcde', 'abc', ''], dtype='|S5')
+
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == 'binary'
+    expected = pa.array(['abcde', 'abc', ''], type='binary')
+    assert arrow_arr.equals(expected)
+
+    mask = np.array([False, True, False])
+    arrow_arr = pa.array(arr, mask=mask)
+    expected = pa.array(['abcde', None, ''], type='binary')
+    assert arrow_arr.equals(expected)
+
+    # Strided variant
+    arr = np.array(['abcde', 'abc', ''] * 5, dtype='|S5')[::2]
+    mask = np.array([False, True, False] * 5)[::2]
+    arrow_arr = pa.array(arr, mask=mask)
+
+    expected = pa.array(['abcde', '', None, 'abcde', '', None, 'abcde', ''],
+                        type='binary')
+    assert arrow_arr.equals(expected)
+
+    # 0 itemsize
+    arr = np.array(['', '', ''], dtype='|S0')
+    arrow_arr = pa.array(arr)
+    expected = pa.array(['', '', ''], type='binary')
+    assert arrow_arr.equals(expected)
+
+
+def test_array_from_numpy_unicode():
+    dtypes = ['<U5', '>U5']
+
+    for dtype in dtypes:
+        arr = np.array(['abcde', 'abc', ''], dtype=dtype)
+
+        arrow_arr = pa.array(arr)
+        assert arrow_arr.type == 'utf8'
+        expected = pa.array(['abcde', 'abc', ''], type='utf8')
+        assert arrow_arr.equals(expected)
+
+        mask = np.array([False, True, False])
+        arrow_arr = pa.array(arr, mask=mask)
+        expected = pa.array(['abcde', None, ''], type='utf8')
+        assert arrow_arr.equals(expected)
+
+        # Strided variant
+        arr = np.array(['abcde', 'abc', ''] * 5, dtype=dtype)[::2]
+        mask = np.array([False, True, False] * 5)[::2]
+        arrow_arr = pa.array(arr, mask=mask)
+
+        expected = pa.array(['abcde', '', None, 'abcde', '', None,
+                             'abcde', ''], type='utf8')
+        assert arrow_arr.equals(expected)
+
+    # 0 itemsize
+    arr = np.array(['', '', ''], dtype='<U0')
+    arrow_arr = pa.array(arr)
+    expected = pa.array(['', '', ''], type='utf8')
+    assert arrow_arr.equals(expected)
