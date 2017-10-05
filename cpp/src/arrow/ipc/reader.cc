@@ -51,6 +51,9 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
+using internal::FileBlock;
+using internal::kArrowMagicBytes;
+
 // ----------------------------------------------------------------------
 // Record batch read path
 
@@ -422,7 +425,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     RETURN_NOT_OK(
         ReadMessageAndValidate(message_reader_.get(), Message::SCHEMA, false, &message));
 
-    RETURN_NOT_OK(GetDictionaryTypes(message->header(), &dictionary_types_));
+    RETURN_NOT_OK(internal::GetDictionaryTypes(message->header(), &dictionary_types_));
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
@@ -431,7 +434,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       RETURN_NOT_OK(ReadNextDictionary());
     }
 
-    return GetSchema(message->header(), dictionary_memo_, &schema_);
+    return internal::GetSchema(message->header(), dictionary_memo_, &schema_);
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) {
@@ -588,7 +591,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   }
 
   Status ReadSchema() {
-    RETURN_NOT_OK(GetDictionaryTypes(footer_->schema(), &dictionary_fields_));
+    RETURN_NOT_OK(internal::GetDictionaryTypes(footer_->schema(), &dictionary_fields_));
 
     // Read all the dictionaries
     for (int i = 0; i < num_dictionaries(); ++i) {
@@ -611,7 +614,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     }
 
     // Get the schema
-    return GetSchema(footer_->schema(), *dictionary_memo_, &schema_);
+    return internal::GetSchema(footer_->schema(), *dictionary_memo_, &schema_);
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
@@ -732,8 +735,8 @@ Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
   std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   std::vector<std::string> dim_names;
-  RETURN_NOT_OK(
-      GetTensorMetadata(*message->metadata(), &type, &shape, &strides, &dim_names));
+  RETURN_NOT_OK(internal::GetTensorMetadata(*message->metadata(), &type, &shape, &strides,
+                                            &dim_names));
   *out = std::make_shared<Tensor>(type, message->body(), shape, strides, dim_names);
   return Status::OK();
 }
