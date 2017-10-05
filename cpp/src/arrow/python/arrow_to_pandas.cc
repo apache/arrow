@@ -1599,6 +1599,7 @@ Status ConvertColumnToPandas(PandasOptions options, const std::shared_ptr<Column
 
 Status ConvertTableToPandas(PandasOptions options, const std::shared_ptr<Table>& table,
                             int nthreads, MemoryPool* pool, PyObject** out) {
+  RETURN_NOT_OK(table->ValidateColumns());
   DataFrameBlockCreator helper(options, table, pool);
   return helper.Convert(nthreads, out);
 }
