@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 import argparse
+import binascii
 import glob
 import itertools
 import json
@@ -29,6 +30,7 @@ import tempfile
 import uuid
 
 import numpy as np
+
 
 ARROW_HOME = os.path.abspath(__file__).rsplit("/", 2)[0]
 
@@ -63,11 +65,24 @@ def rands(nchars):
     return ''.join(np.random.choice(RANDS_CHARS, nchars))
 
 
-def str_from_bytes(x):
-    if six.PY2:
-        return x
-    else:
-        return x.decode('utf-8')
+if six.PY2:
+    def frombytes(o):
+        return o
+
+    def tobytes(o):
+        if isinstance(o, unicode):
+            return o.encode('utf8')
+        else:
+            return o
+else:
+    def tobytes(o):
+        if isinstance(o, str):
+            return o.encode('utf8')
+        else:
+            return o
+
+    def frombytes(o):
+        return o.decode('utf8')
 
 
 # from the merge_arrow_pr.py script
@@ -82,11 +97,11 @@ def run_cmd(cmd):
         print('Command failed: %s' % ' '.join(cmd))
         print('With output:')
         print('--------------')
-        print(str_from_bytes(e.output))
+        print(frombytes(e.output))
         print('--------------')
         raise e
 
-    return str_from_bytes(output)
+    return frombytes(output)
 
 # ----------------------------------------------------------------------
 # Data generation
@@ -353,6 +368,7 @@ class DecimalType(PrimitiveType):
 
 
 class DecimalColumn(PrimitiveColumn):
+
     def __init__(self, name, count, is_valid, values, bit_width):
         PrimitiveColumn.__init__(self, name, count, is_valid, values)
         self.bit_width = bit_width
@@ -416,7 +432,7 @@ class BinaryType(PrimitiveType):
                         .tostring())
                 values.append(draw)
             else:
-                values.append("")
+                values.append(b"")
 
         if name is None:
             name = self.name
@@ -439,9 +455,9 @@ class StringType(BinaryType):
 
         for i in range(size):
             if is_valid[i]:
-                values.append(rands(K))
+                values.append(tobytes(rands(K)))
             else:
-                values.append("")
+                values.append(b"")
 
         if name is None:
             name = self.name
@@ -462,7 +478,7 @@ class JsonSchema(object):
 class BinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return ''.join('{:02x}'.format(c).upper() for c in x)
+        return frombytes(binascii.hexlify(x))
 
     def _get_buffers(self):
         offset = 0
@@ -473,7 +489,7 @@ class BinaryColumn(PrimitiveColumn):
             if self.is_valid[i]:
                 offset += len(v)
             else:
-                v = ""
+                v = b""
 
             offsets.append(offset)
             data.append(self._encode_value(v))
@@ -488,7 +504,8 @@ class BinaryColumn(PrimitiveColumn):
 class StringColumn(BinaryColumn):
 
     def _encode_value(self, x):
-        return x
+        return frombytes(x)
+
 
 class ListType(DataType):
 
