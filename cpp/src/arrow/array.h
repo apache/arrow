@@ -444,6 +444,17 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
     return raw_data_ + pos;
   }
 
+  /// \brief Get binary value as a std::string
+  ///
+  /// \param i the value index
+  /// \return the value copied into a std::string
+  std::string GetString(int64_t i) const {
+    int32_t length = 0;
+    const uint8_t* bytes = GetValue(i, &length);
+    return std::string(reinterpret_cast<const char*>(bytes),
+                       static_cast<size_t>(length));
+  }
+
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
 
