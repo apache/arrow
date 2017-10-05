@@ -199,7 +199,10 @@ class ArrayPrinter : public PrettyPrinter {
     }
   }
 
-  Status Visit(const NullArray&) { return Status::OK(); }
+  Status Visit(const NullArray& array) {
+    (*sink_) << array.length() << " nulls";
+    return Status::OK();
+  }
 
   template <typename T>
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
