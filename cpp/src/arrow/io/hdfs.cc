@@ -455,9 +455,13 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
-      // TODO(wesm): determine cause of failure
       std::stringstream ss;
-      ss << "Unable to open file " << path;
+      if (!Exists(path)) {
+        ss << "HDFS file does not exist: " << path;
+      } else {
+        // TODO(wesm): determine other causes of failure
+        ss << "HDFS path exists, but opening file failed: " << path;
+      }
       return Status::IOError(ss.str());
     }
 
