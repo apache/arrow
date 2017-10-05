@@ -147,6 +147,26 @@ class TestStream(MessagingTest, unittest.TestCase):
                  .read_all())
         assert_frame_equal(table.to_pandas(), df)
 
+    def test_stream_write_dispatch(self):
+        # ARROW-1616
+        df = pd.DataFrame({
+            'one': np.random.randn(5),
+            'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
+                                  categories=['foo', 'bar'],
+                                  ordered=True)
+        })
+        table = pa.Table.from_pandas(df, preserve_index=False)
+        batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
+        writer = self._get_writer(self.sink, table.schema)
+        writer.write(table)
+        writer.write(batch)
+        writer.close()
+
+        table = (pa.open_stream(pa.BufferReader(self._get_source()))
+                 .read_all())
+        assert_frame_equal(table.to_pandas(),
+                           pd.concat([df, df], ignore_index=True))
+
     def test_simple_roundtrip(self):
         _, batches = self.write_batches()
         file_contents = pa.BufferReader(self._get_source())
