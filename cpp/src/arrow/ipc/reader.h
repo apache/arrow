@@ -60,16 +60,6 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   static Status Open(std::unique_ptr<MessageReader> message_reader,
                      std::shared_ptr<RecordBatchReader>* out);
 
-#ifndef ARROW_NO_DEPRECATED_API
-  /// \deprecated Since 0.7.0
-  static Status Open(std::unique_ptr<MessageReader> message_reader,
-                     std::shared_ptr<RecordBatchStreamReader>* out);
-
-  /// \deprecated Since 0.7.0
-  static Status Open(const std::shared_ptr<io::InputStream>& stream,
-                     std::shared_ptr<RecordBatchStreamReader>* out);
-#endif
-
   /// \brief Record batch stream reader from InputStream
   ///
   /// \param[in] stream an input stream instance. Must stay alive throughout
@@ -212,15 +202,6 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 ARROW_EXPORT
 Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
                   std::shared_ptr<Tensor>* out);
-
-#ifndef ARROW_NO_DEPRECATED_API
-/// \deprecated Since 0.7.0
-///
-/// Deprecated in favor of more general InputStream-based API
-ARROW_EXPORT
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, int64_t offset,
-                       io::RandomAccessFile* stream, std::shared_ptr<RecordBatch>* out);
-#endif
 
 }  // namespace ipc
 }  // namespace arrow

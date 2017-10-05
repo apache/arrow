@@ -172,11 +172,6 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   ARROW_DISALLOW_COPY_AND_ASSIGN(HadoopFileSystem);
 };
 
-#ifndef ARROW_NO_DEPRECATED_API
-/// \deprecated Since 0.6.0
-using HdfsClient = HadoopFileSystem;
-#endif
-
 class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
  public:
   ~HdfsReadableFile();

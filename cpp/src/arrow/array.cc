@@ -52,9 +52,7 @@ int64_t Array::null_count() const {
   return data_->null_count;
 }
 
-bool Array::Equals(const Array& arr) const {
-  return ArrayEquals(*this, arr);
-}
+bool Array::Equals(const Array& arr) const { return ArrayEquals(*this, arr); }
 
 bool Array::Equals(const std::shared_ptr<Array>& arr) const {
   if (!arr) {
@@ -63,9 +61,7 @@ bool Array::Equals(const std::shared_ptr<Array>& arr) const {
   return Equals(*arr);
 }
 
-bool Array::ApproxEquals(const Array& arr) const {
-  return ArrayApproxEquals(*this, arr);
-}
+bool Array::ApproxEquals(const Array& arr) const { return ArrayApproxEquals(*this, arr); }
 
 bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
   if (!arr) {
@@ -591,28 +587,6 @@ Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>*
   DCHECK(out);
   return Status::OK();
 }
-
-#ifndef ARROW_NO_DEPRECATED_API
-// \deprecated Since 0.7.0
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
-                          const std::shared_ptr<Buffer>& data,
-                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                          int64_t offset, std::shared_ptr<Array>* out) {
-  BufferVector buffers = {null_bitmap, data};
-  auto internal_data =
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
-  return MakeArray(internal_data, out);
-}
-
-Status MakePrimitiveArray(const std::shared_ptr<DataType>& type,
-                          const std::vector<std::shared_ptr<Buffer>>& buffers,
-                          int64_t length, int64_t null_count, int64_t offset,
-                          std::shared_ptr<Array>* out) {
-  auto internal_data =
-      std::make_shared<ArrayData>(type, length, buffers, null_count, offset);
-  return MakeArray(internal_data, out);
-}
-#endif
 
 // ----------------------------------------------------------------------
 // Instantiate templates

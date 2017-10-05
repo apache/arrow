@@ -49,25 +49,6 @@
 
 namespace arrow {
 
-#ifndef ARROW_NO_DEPRECATED_API
-
-// \deprecated Since > 0.7.0
-
-#define INIT_BITSET(valid_bits_vector, valid_bits_index)            \
-  int64_t byte_offset_##valid_bits_vector = (valid_bits_index) / 8; \
-  int64_t bit_offset_##valid_bits_vector = (valid_bits_index) % 8;  \
-  uint8_t bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector];
-
-#define READ_NEXT_BITSET(valid_bits_vector)                                          \
-  bit_offset_##valid_bits_vector++;                                                  \
-  if (bit_offset_##valid_bits_vector == 8) {                                         \
-    bit_offset_##valid_bits_vector = 0;                                              \
-    byte_offset_##valid_bits_vector++;                                               \
-    bitset_##valid_bits_vector = valid_bits_vector[byte_offset_##valid_bits_vector]; \
-  }
-
-#endif
-
 // TODO(wesm): The source from Impala was depending on boost::make_unsigned
 //
 // We add a partial stub implementation here
@@ -521,13 +502,6 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                   int64_t right_offset, int64_t bit_length);
-
-#ifndef ARROW_NO_DEPRECATED_API
-/// \deprecated Since 0.7.0
-ARROW_EXPORT
-Status GetEmptyBitmap(MemoryPool* pool, int64_t length,
-                      std::shared_ptr<MutableBuffer>* result);
-#endif
 
 }  // namespace arrow
 

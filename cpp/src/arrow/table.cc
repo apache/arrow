@@ -503,12 +503,6 @@ Status MakeTable(const std::shared_ptr<Schema>& schema,
 
 RecordBatchReader::~RecordBatchReader() {}
 
-#ifndef ARROW_NO_DEPRECATED_API
-Status RecordBatchReader::ReadNextRecordBatch(std::shared_ptr<RecordBatch>* batch) {
-  return ReadNext(batch);
-}
-#endif
-
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
 

@@ -740,8 +740,8 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
         are_equal = false;
       } else {
         const auto& type = static_cast<const FixedWidthType&>(*left.type());
-        are_equal = StridedTensorContentEquals(0, 0, 0,
-                                               type.bit_width() / 8, left, right);
+        are_equal =
+            StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
       }
     } else {
       const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
@@ -791,9 +791,8 @@ Status ArrayApproxEquals(const Array& left, const Array& right, bool* are_equal)
   return Status::OK();
 }
 
-Status ArrayRangeEquals(const Array& left, const Array& right,
-                        int64_t start_idx, int64_t end_idx,
-                        int64_t other_start_idx, bool* are_equal) {
+Status ArrayRangeEquals(const Array& left, const Array& right, int64_t start_idx,
+                        int64_t end_idx, int64_t other_start_idx, bool* are_equal) {
   *are_equal = ArrayRangeEquals(left, right, start_idx, end_idx, other_start_idx);
   return Status::OK();
 }

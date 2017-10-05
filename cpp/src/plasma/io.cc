@@ -95,9 +95,9 @@ Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(type), sizeof(*type)),
                      *type = DISCONNECT_CLIENT);
   int64_t length_temp;
-  RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t*>(&length_temp),
-                               sizeof(length_temp)),
-                     *type = DISCONNECT_CLIENT);
+  RETURN_NOT_OK_ELSE(
+      ReadBytes(fd, reinterpret_cast<uint8_t*>(&length_temp), sizeof(length_temp)),
+      *type = DISCONNECT_CLIENT);
   // The length must be read as an int64_t, but it should be used as a size_t.
   size_t length = length_temp;
   if (length > buffer->size()) {
