@@ -99,7 +99,7 @@ Status ReadMessage(int fd, int64_t* type, std::vector<uint8_t>* buffer) {
       ReadBytes(fd, reinterpret_cast<uint8_t*>(&length_temp), sizeof(length_temp)),
       *type = DISCONNECT_CLIENT);
   // The length must be read as an int64_t, but it should be used as a size_t.
-  size_t length = length_temp;
+  size_t length = static_cast<size_t>(length_temp);
   if (length > buffer->size()) {
     buffer->resize(length);
   }
