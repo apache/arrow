@@ -27,6 +27,8 @@ import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.ArrowVectorType;
 
+import javax.annotation.Nullable;
+
 public class VectorUnloader {
 
   private final VectorSchemaRoot root;
@@ -53,8 +55,17 @@ public class VectorUnloader {
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    Accessor accessor = vector.getAccessor();
-    nodes.add(new ArrowFieldNode(accessor.getValueCount(), includeNullCount ? accessor.getNullCount() : -1));
+    Accessor accessor = null;
+    if (vector instanceof NullableIntVector) {
+      nodes.add(new ArrowFieldNode(((NullableIntVector)vector).getValueCount(),
+                includeNullCount ? ((NullableIntVector)vector).getNullCount() : -1));
+    } else if (vector instanceof NullableVarCharVector) {
+      nodes.add(new ArrowFieldNode(((NullableVarCharVector)vector).getValueCount(),
+                includeNullCount ? ((NullableVarCharVector)vector).getNullCount() : -1));
+    } else {
+      accessor = vector.getAccessor();
+      nodes.add(new ArrowFieldNode(accessor.getValueCount(), includeNullCount ? accessor.getNullCount() : -1));
+    }
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     List<ArrowVectorType> expectedBuffers = vector.getField().getTypeLayout().getVectorTypes();
     if (fieldBuffers.size() != expectedBuffers.size()) {

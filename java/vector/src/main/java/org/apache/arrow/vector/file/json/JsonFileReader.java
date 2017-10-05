@@ -263,7 +263,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           ((NullableVarBinaryVector) vector).getMutator().setLastSet(count - 1);
           break;
         case VARCHAR:
-          ((NullableVarCharVector) vector).getMutator().setLastSet(count - 1);
+          ((NullableVarCharVector) vector).setLastSet(count - 1);
           break;
       }
       vector.getMutator().setValueCount(count);
