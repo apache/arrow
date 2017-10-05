@@ -1045,6 +1045,18 @@ TEST_F(TestBinaryArray, TestGetValue) {
   }
 }
 
+TEST_F(TestBinaryArray, TestGetString) {
+  for (size_t i = 0; i < expected_.size(); ++i) {
+    if (valid_bytes_[i] == 0) {
+      ASSERT_TRUE(strings_->IsNull(i));
+    } else {
+      std::string val = strings_->GetString(i);
+      ASSERT_EQ(0, std::memcmp(expected_[i].data(), val.c_str(),
+                               val.size()));
+    }
+  }
+}
+
 TEST_F(TestBinaryArray, TestEqualsEmptyStrings) {
   BinaryBuilder builder;
 
