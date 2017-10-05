@@ -270,9 +270,7 @@ class NumPyConverter {
     stride_ = static_cast<int64_t>(PyArray_STRIDES(arr_)[0]);
   }
 
-  bool is_strided() const {
-    return itemsize_ != stride_;
-  }
+  bool is_strided() const { return itemsize_ != stride_; }
 
   Status Convert();
 
@@ -294,9 +292,11 @@ class NumPyConverter {
 
   Status Visit(const NullType& type) { return TypeNotImplemented(type.ToString()); }
 
+  // NumPy ascii string arrays
   Status Visit(const BinaryType& type);
 
-  Status Visit(const StringType& type) { return TypeNotImplemented(type.ToString()); }
+  // NumPy unicode arrays
+  Status Visit(const StringType& type);
 
   Status Visit(const FixedSizeBinaryType& type) {
     return TypeNotImplemented(type.ToString());
@@ -1250,6 +1250,76 @@ Status NumPyConverter::Visit(const BinaryType& type) {
         }
       }
       RETURN_NOT_OK(builder.Append(data, item_length));
+      data += stride_;
+    }
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
+namespace {
+
+// NumPy unicode is UCS4/UTF32 always
+constexpr int kNumPyUnicodeSize = 4;
+
+Status AppendUTF32(const char* data, int itemsize, int byteorder,
+                   StringBuilder* builder) {
+  // The binary \x00\x00\x00\x00 indicates a nul terminator in NumPy unicode,
+  // so we need to detect that here to truncate if necessary. Yep.
+  int actual_length = 0;
+  for (; actual_length < itemsize / kNumPyUnicodeSize; ++actual_length) {
+    const char* code_point = data + actual_length * kNumPyUnicodeSize;
+    if ((*code_point == '\0') && (*(code_point + 1) == '\0') &&
+        (*(code_point + 2) == '\0') && (*(code_point + 3) == '\0')) {
+      break;
+    }
+  }
+
+  ScopedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
+                                              nullptr, &byteorder));
+  RETURN_IF_PYERROR();
+  ScopedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.get()));
+  if (utf8_obj.get() == NULL) {
+    PyErr_Clear();
+    return Status::Invalid("failed converting UTF32 to UTF8");
+  }
+
+  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.get()));
+  if (builder->value_data_length() + length > kBinaryMemoryLimit) {
+    return Status::Invalid("Encoded string length exceeds maximum size (2GB)");
+  }
+  return builder->Append(PyBytes_AS_STRING(utf8_obj.get()), length);
+}
+
+}  // namespace
+
+Status NumPyConverter::Visit(const StringType& type) {
+  StringBuilder builder(pool_);
+
+  auto data = reinterpret_cast<const char*>(PyArray_DATA(arr_));
+
+  char numpy_byteorder = PyArray_DESCR(arr_)->byteorder;
+
+  // For Python C API, -1 is little-endian, 1 is big-endian
+  int byteorder = numpy_byteorder == '>' ? 1 : -1;
+
+  PyAcquireGIL gil_lock;
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
+      }
+      data += stride_;
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      RETURN_NOT_OK(AppendUTF32(data, itemsize_, byteorder, &builder));
       data += stride_;
     }
   }
