@@ -46,7 +46,7 @@ set_source_files_properties(Message_generated.h PROPERTIES GENERATED TRUE)
 set_source_files_properties(feather_generated.h PROPERTIES GENERATED TRUE)
 set_source_files_properties(File_generated.h PROPERTIES GENERATED TRUE)
 
-set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/src/arrow/ipc)
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/src/arrow/ipc)
 set(FBS_OUTPUT_FILES
   "${OUTPUT_DIR}/File_generated.h"
   "${OUTPUT_DIR}/Message_generated.h"

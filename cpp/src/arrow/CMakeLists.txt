@@ -60,11 +60,6 @@ if (ARROW_GPU)
   add_subdirectory(gpu)
 endif()
 
-if (ARROW_IPC)
-  add_subdirectory(ipc)
-  add_dependencies(arrow_dependencies metadata_fbs)
-endif()
-
 if (ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
   SET(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
@@ -98,7 +93,9 @@ if (NOT ARROW_BOOST_HEADER_ONLY)
 endif()
 
 if (ARROW_IPC)
-  set(ARROW_SRCS ${ARROW_SRCS}
+  add_subdirectory(ipc)
+
+  set(ARROW_IPC_SRCS
     ipc/dictionary.cc
     ipc/feather.cc
     ipc/json.cc
@@ -108,6 +105,10 @@ if (ARROW_IPC)
     ipc/reader.cc
     ipc/writer.cc
   )
+  SET(ARROW_SRCS ${ARROW_SRCS}
+    ${ARROW_IPC_SRCS})
+
+  add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
 if(NOT APPLE AND NOT MSVC)
