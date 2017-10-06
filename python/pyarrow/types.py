@@ -17,15 +17,6 @@
 
 # Tools for dealing with Arrow type metadata in Python
 
-from pyarrow.lib import (null, bool_,  # noqa
-                         int8, int16, int32, int64,
-                         uint8, uint16, uint32, uint64,
-                         time32, time64, timestamp, date32, date64,
-                         float16, float32, float64,
-                         binary, string, decimal,
-                         list_, struct, dictionary, field, type_for_alias,
-                         DataType, NAType,
-                         NA, DataType, TimestampType)
 import pyarrow.lib as lib
 
 
@@ -45,7 +36,7 @@ def is_boolean(t):
     """
     Return True if value is an instance of a boolean type
     """
-    return t == bool_()
+    return t.id == lib.Type_BOOL
 
 
 def is_integer(t):
