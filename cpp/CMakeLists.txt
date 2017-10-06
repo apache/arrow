@@ -517,6 +517,7 @@ endif()
 set(ARROW_BENCHMARK_LINK_LIBS
   arrow_static
   arrow_benchmark_main
+  gtest
   ${ARROW_STATIC_LINK_LIBS})
 
 set(ARROW_LINK_LIBS

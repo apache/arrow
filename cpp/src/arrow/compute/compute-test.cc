@@ -46,20 +46,6 @@ using std::vector;
 namespace arrow {
 namespace compute {
 
-void AssertArraysEqual(const Array& left, const Array& right) {
-  bool are_equal = ArrayEquals(left, right);
-
-  if (!are_equal) {
-    std::stringstream ss;
-
-    ss << "Left: ";
-    EXPECT_OK(PrettyPrint(left, 0, &ss));
-    ss << "\nRight: ";
-    EXPECT_OK(PrettyPrint(right, 0, &ss));
-    FAIL() << ss.str();
-  }
-}
-
 class ComputeFixture {
  public:
   ComputeFixture() : ctx_(default_memory_pool()) {}
