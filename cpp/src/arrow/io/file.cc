@@ -355,8 +355,13 @@ class OSFile {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-    std::lock_guard<std::mutex> guard(lock_);
     return FileRead(fd_, out, nbytes, bytes_read);
+  }
+
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+    std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(Seek(position));
+    return Read(nbytes, bytes_read, out);
   }
 
   Status Seek(int64_t pos) {
@@ -460,14 +465,13 @@ Status ReadableFile::Close() { return impl_->Close(); }
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->Read(nbytes, bytes_read, out);
 }
 
 Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                             uint8_t* out) {
-  std::lock_guard<std::mutex> guard(impl_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, out);
+  return impl_->ReadAt(position, nbytes, bytes_read, out);
 }
 
 Status ReadableFile::ReadAt(int64_t position, int64_t nbytes,

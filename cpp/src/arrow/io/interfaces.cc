@@ -30,6 +30,18 @@ FileInterface::~FileInterface() {}
 
 RandomAccessFile::RandomAccessFile() { set_mode(FileMode::READ); }
 
+Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                                uint8_t* out) {
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, bytes_read, out);
+}
+
+Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
+                                std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, out);
+}
+
 Status Writeable::Write(const std::string& data) {
   return Write(reinterpret_cast<const uint8_t*>(data.c_str()),
                static_cast<int64_t>(data.size()));
