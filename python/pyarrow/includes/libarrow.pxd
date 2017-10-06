@@ -63,7 +63,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         _Type_LIST" arrow::Type::LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
+        _Type_UNION" arrow::Type::UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
+        _Type_MAP" arrow::Type::MAP"
 
     enum TimeUnit" arrow::TimeUnit::type":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"

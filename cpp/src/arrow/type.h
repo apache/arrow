@@ -35,82 +35,101 @@
 
 namespace arrow {
 
-// Data types in this library are all *logical*. They can be expressed as
-// either a primitive physical type (bytes or bits of some fixed size), a
-// nested type consisting of other data types, or another data type (e.g. a
-// timestamp encoded as an int64)
+/// \brief Main data type enumeration
+///
+/// Data types in this library are all *logical*. They can be expressed as
+/// either a primitive physical type (bytes or bits of some fixed size), a
+/// nested type consisting of other data types, or another data type (e.g. a
+/// timestamp encoded as an int64)
 struct Type {
   enum type {
-    // A degenerate NULL type represented as 0 bytes/bits
+    /// A NULL type having no physical storage
     NA,
 
-    // A boolean value represented as 1 bit
+    /// Boolean as 1 bit, LSB bit-packed ordering
     BOOL,
 
-    // Little-endian integer types
+    /// Unsigned 8-bit little-endian integer
     UINT8,
+
+    /// Signed 8-bit little-endian integer
     INT8,
+
+    /// Unsigned 16-bit little-endian integer
     UINT16,
+
+    /// Signed 16-bit little-endian integer
     INT16,
+
+    /// Unsigned 32-bit little-endian integer
     UINT32,
+
+    /// Signed 32-bit little-endian integer
     INT32,
+
+    /// Unsigned 64-bit little-endian integer
     UINT64,
+
+    /// Signed 64-bit little-endian integer
     INT64,
 
-    // 2-byte floating point value
+    /// 2-byte floating point value
     HALF_FLOAT,
 
-    // 4-byte floating point value
+    /// 4-byte floating point value
     FLOAT,
 
-    // 8-byte floating point value
+    /// 8-byte floating point value
     DOUBLE,
 
-    // UTF8 variable-length string as List<Char>
+    /// UTF8 variable-length string as List<Char>
     STRING,
 
-    // Variable-length bytes (no guarantee of UTF8-ness)
+    /// Variable-length bytes (no guarantee of UTF8-ness)
     BINARY,
 
-    // Fixed-size binary. Each value occupies the same number of bytes
+    /// Fixed-size binary. Each value occupies the same number of bytes
     FIXED_SIZE_BINARY,
 
-    // int32_t days since the UNIX epoch
+    /// int32_t days since the UNIX epoch
     DATE32,
 
-    // int64_t milliseconds since the UNIX epoch
+    /// int64_t milliseconds since the UNIX epoch
     DATE64,
 
-    // Exact timestamp encoded with int64 since UNIX epoch
-    // Default unit millisecond
+    /// Exact timestamp encoded with int64 since UNIX epoch
+    /// Default unit millisecond
     TIMESTAMP,
 
-    // Time as signed 32-bit integer, representing either seconds or
-    // milliseconds since midnight
+    /// Time as signed 32-bit integer, representing either seconds or
+    /// milliseconds since midnight
     TIME32,
 
-    // Time as signed 64-bit integer, representing either microseconds or
-    // nanoseconds since midnight
+    /// Time as signed 64-bit integer, representing either microseconds or
+    /// nanoseconds since midnight
     TIME64,
 
-    // YEAR_MONTH or DAY_TIME interval in SQL style
+    /// YEAR_MONTH or DAY_TIME interval in SQL style
     INTERVAL,
 
-    // Precision- and scale-based decimal type. Storage type depends on the
-    // parameters.
+    /// Precision- and scale-based decimal type. Storage type depends on the
+    /// parameters.
     DECIMAL,
 
-    // A list of some logical data type
+    /// A list of some logical data type
     LIST,
 
-    // Struct of logical types
+    /// Struct of logical types
     STRUCT,
 
-    // Unions of logical types
+    /// Unions of logical types
     UNION,
 
-    // Dictionary aka Category type
-    DICTIONARY
+    /// Dictionary aka Category type
+    DICTIONARY,
+
+    /// Map, a repeated struct logical type
+    MAP
   };
 };
 
