@@ -332,6 +332,8 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
 
 ############################################################
