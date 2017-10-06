@@ -32,22 +32,7 @@ class MemoryPool;
 
 namespace py {
 
-// A common interface to a Python file-like object. Must acquire GIL before
-// calling any methods
-class ARROW_EXPORT PythonFile {
- public:
-  explicit PythonFile(PyObject* file);
-  ~PythonFile();
-
-  Status Close();
-  Status Seek(int64_t position, int whence);
-  Status Read(int64_t nbytes, PyObject** out);
-  Status Tell(int64_t* position);
-  Status Write(const uint8_t* data, int64_t nbytes);
-
- private:
-  PyObject* file_;
-};
+class ARROW_NO_EXPORT PythonFile;
 
 class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
  public:
@@ -58,6 +43,13 @@ class ARROW_EXPORT PyReadableFile : public io::RandomAccessFile {
 
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  // Thread-safe version
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* out) override;
+
+  // Thread-safe version
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status GetSize(int64_t* size) override;
 
