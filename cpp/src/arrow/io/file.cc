@@ -478,10 +478,11 @@ Status ReadableFile::ReadAt(int64_t position, int64_t nbytes,
                             std::shared_ptr<Buffer>* out) {
   std::lock_guard<std::mutex> guard(impl_->lock());
   RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, out);
+  return impl_->ReadBuffer(nbytes, out);
 }
 
 Status ReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->ReadBuffer(nbytes, out);
 }
 
