@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
+#include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -277,6 +278,17 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
     }
   }
   return builder->Finish(out);
+}
+
+void AssertArraysEqual(const Array& expected, const Array& actual) {
+  if (!actual.Equals(expected)) {
+    std::stringstream pp_result;
+    std::stringstream pp_expected;
+
+    EXPECT_OK(PrettyPrint(actual, 0, &pp_result));
+    EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
+    FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str();
+  }
 }
 
 }  // namespace arrow
