@@ -71,21 +71,21 @@ def is_list(t):
     """
     Return True if value is an instance of a list type
     """
-    return isinstance(t, lib.ListType)
+    return t.id == lib.Type_LIST
 
 
 def is_struct(t):
     """
     Return True if value is an instance of a struct type
     """
-    return isinstance(t, lib.StructType)
+    return t.id == lib.Type_STRUCT
 
 
 def is_union(t):
     """
     Return True if value is an instance of a union type
     """
-    return isinstance(t, lib.UnionType)
+    return t.id == lib.Type_UNION
 
 
 def is_nested(t):
@@ -107,7 +107,7 @@ def is_timestamp(t):
     """
     Return True if value is an instance of a timestamp type
     """
-    return isinstance(t, lib.TimestampType)
+    return t.id == lib.Type_TIMESTAMP
 
 
 def is_time(t):
