@@ -38,26 +38,30 @@ namespace ipc {
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
 using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
-// Memoization data structure for handling shared dictionaries
+/// \brief Memoization data structure for handling shared dictionaries
 class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
 
-  // Returns KeyError if dictionary not found
+  /// \brief Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
-  /// Return id for dictionary, computing new id if necessary
+  /// \brief Return id for dictionary, computing new id if necessary
   int64_t GetId(const std::shared_ptr<Array>& dictionary);
 
+  /// \brief Return true if dictionary array object is in this memo
   bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
+
+  /// \brief Return true if we have a dictionary for the input id
   bool HasDictionaryId(int64_t id) const;
 
-  // Add a dictionary to the memo with a particular id. Returns KeyError if
-  // that dictionary already exists
+  /// \brief Add a dictionary to the memo with a particular id. Returns
+  /// KeyError if that dictionary already exists
   Status AddDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
 
   const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
 
+  /// \brief The number of dictionaries stored in the memo
   int size() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:

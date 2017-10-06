@@ -42,6 +42,9 @@
 namespace arrow {
 namespace ipc {
 
+using internal::FileBlock;
+using internal::kArrowMagicBytes;
+
 // ----------------------------------------------------------------------
 // Record batch write path
 
@@ -201,7 +204,7 @@ class RecordBatchSerializer : public ArrayVisitor {
     // itself as an int32_t.
     std::shared_ptr<Buffer> metadata_fb;
     RETURN_NOT_OK(WriteMetadataMessage(batch.num_rows(), *body_length, &metadata_fb));
-    RETURN_NOT_OK(WriteMessage(*metadata_fb, dst, metadata_length));
+    RETURN_NOT_OK(internal::WriteMessage(*metadata_fb, dst, metadata_length));
 
 #ifndef NDEBUG
     RETURN_NOT_OK(dst->Tell(&current_position));
@@ -491,8 +494,8 @@ class RecordBatchSerializer : public ArrayVisitor {
   // In some cases, intermediate buffers may need to be allocated (with sliced arrays)
   MemoryPool* pool_;
 
-  std::vector<FieldMetadata> field_nodes_;
-  std::vector<BufferMetadata> buffer_meta_;
+  std::vector<internal::FieldMetadata> field_nodes_;
+  std::vector<internal::BufferMetadata> buffer_meta_;
   std::vector<std::shared_ptr<Buffer>> buffers_;
 
   int64_t max_recursion_depth_;
@@ -593,8 +596,8 @@ Status WriteTensorHeader(const Tensor& tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length) {
   RETURN_NOT_OK(AlignStreamPosition(dst));
   std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(WriteTensorMessage(tensor, 0, &metadata));
-  return WriteMessage(*metadata, dst, metadata_length);
+  RETURN_NOT_OK(internal::WriteTensorMessage(tensor, 0, &metadata));
+  return internal::WriteMessage(*metadata, dst, metadata_length);
 }
 
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
@@ -715,10 +718,10 @@ class SchemaWriter : public StreamBookKeeper {
 
   Status WriteSchema() {
     std::shared_ptr<Buffer> schema_fb;
-    RETURN_NOT_OK(WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb));
+    RETURN_NOT_OK(internal::WriteSchemaMessage(schema_, dictionary_memo_, &schema_fb));
 
     int32_t metadata_length = 0;
-    RETURN_NOT_OK(WriteMessage(*schema_fb, sink_, &metadata_length));
+    RETURN_NOT_OK(internal::WriteMessage(*schema_fb, sink_, &metadata_length));
     RETURN_NOT_OK(UpdatePosition());
     DCHECK_EQ(0, position_ % 8) << "WriteSchema did not perform an aligned write";
     return Status::OK();

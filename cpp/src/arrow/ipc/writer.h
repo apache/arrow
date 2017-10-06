@@ -94,8 +94,17 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
+  /// \brief Write a record batch to the stream
+  ///
+  /// \param[in] batch the record batch to write
+  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
+  /// \return Status
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+
+  /// \brief Close the stream by writing a 4-byte int32 0 EOS market
+  /// \return Status
   Status Close() override;
+
   void set_memory_pool(MemoryPool* pool) override;
 
  protected:
@@ -122,7 +131,15 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
                      std::shared_ptr<RecordBatchWriter>* out);
 
+  /// \brief Write a record batch to the file
+  ///
+  /// \param[in] batch the record batch to write
+  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
+  /// \return Status
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+
+  /// \brief Close the file stream by writing the file footer and magic number
+  /// \return Status
   Status Close() override;
 
  private:
@@ -131,6 +148,21 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   std::unique_ptr<RecordBatchFileWriterImpl> impl_;
 };
 
+/// \brief Low-level API for writing a record batch (without schema) to an OutputStream
+///
+/// \param[in] batch the record batch to write
+/// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
+/// generally should be 0
+/// \param[in] dst an OutputStream
+/// \param[out] metadata_length the size of the length-prefixed flatbuffer
+/// including padding to a 64-byte boundary
+/// \param[out] body_length the size of the contiguous buffer block plus
+/// \param[in] max_recursion_depth the maximum permitted nesting schema depth
+/// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
+/// readable by other Arrow implementations
+/// padding bytes
+/// \return Status
+///
 /// Write the RecordBatch (collection of equal-length Arrow arrays) to the
 /// output stream in a contiguous block. The record batch metadata is written as
 /// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
@@ -142,18 +174,6 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// Finally, the absolute offsets (relative to the start of the output stream)
 /// to the end of the body and end of the metadata / data header (suffixed by
 /// the header size) is returned in out-variables
-///
-/// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
-/// default should be 0
-/// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
-/// readable by other Arrow implementations
-/// \param[out] metadata_length the size of the length-prefixed flatbuffer
-/// including padding to a 64-byte boundary
-/// \param[out] body_length the size of the contiguous buffer block plus
-/// padding bytes
-/// \return Status
-///
-/// Low-level API
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
@@ -174,6 +194,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 /// \brief Write record batch to OutputStream
 ///
 /// \param[in] batch the record batch to write
+/// \param[in] pool a MemoryPool to use for temporary allocations, if needed
 /// \param[in] out the OutputStream to write the output to
 /// \return Status
 ///
@@ -194,7 +215,7 @@ ARROW_EXPORT
 Status SerializeSchema(const Schema& schema, MemoryPool* pool,
                        std::shared_ptr<Buffer>* out);
 
-/// \brief Write multiple record batches to OutputStream
+/// \brief Write multiple record batches to OutputStream, including schema
 /// \param[in] batches a vector of batches. Must all have same schema
 /// \param[out] dst an OutputStream
 /// \return Status
@@ -202,18 +223,30 @@ ARROW_EXPORT
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               io::OutputStream* dst);
 
-// Compute the precise number of bytes needed in a contiguous memory segment to
-// write the record batch. This involves generating the complete serialized
-// Flatbuffers metadata.
+/// \brief Compute the number of bytes needed to write a record batch including metadata
+///
+/// \param[in] batch the record batch to write
+/// \param[out] size the size of the complete encapsulated message
+/// \return Status
 ARROW_EXPORT
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
-// Compute the precise number of bytes needed in a contiguous memory segment to
-// write the tensor including metadata, padding, and data
+/// \brief Compute the number of bytes needed to write a tensor including metadata
+///
+/// \param[in] tensor the tenseor to write
+/// \param[out] size the size of the complete encapsulated message
+/// \return Status
 ARROW_EXPORT
 Status GetTensorSize(const Tensor& tensor, int64_t* size);
 
-/// EXPERIMENTAL: Write arrow::Tensor as a contiguous message
+/// \brief EXPERIMENTAL: Write arrow::Tensor as a contiguous message
+///
+/// \param[in] tensor the Tensor to write
+/// \param[in] dst the OutputStream to write to
+/// \param[out] metadata_length the actual metadata length
+/// \param[out] body_length the acutal message body length
+/// \return Status
+///
 /// <metadata size><metadata><tensor data>
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,

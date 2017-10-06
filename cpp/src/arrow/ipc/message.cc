@@ -44,7 +44,7 @@ class Message::MessageImpl {
     message_ = flatbuf::GetMessage(metadata_->data());
 
     // Check that the metadata version is supported
-    if (message_->version() < kMinMetadataVersion) {
+    if (message_->version() < internal::kMinMetadataVersion) {
       return Status::Invalid("Old metadata version not supported");
     }
 
@@ -166,7 +166,7 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
 
 Status Message::SerializeTo(io::OutputStream* file, int64_t* output_length) const {
   int32_t metadata_length = 0;
-  RETURN_NOT_OK(WriteMessage(*metadata(), file, &metadata_length));
+  RETURN_NOT_OK(internal::WriteMessage(*metadata(), file, &metadata_length));
 
   *output_length = metadata_length;
 

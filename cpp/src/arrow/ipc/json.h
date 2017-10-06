@@ -35,14 +35,29 @@ class Schema;
 
 namespace ipc {
 
+/// \class JsonWriter
+/// \brief Write the JSON representation of an Arrow record batch file or stream
+///
+/// This is used for integration testing
 class ARROW_EXPORT JsonWriter {
  public:
   ~JsonWriter();
 
+  /// \brief Create a new JSON writer that writes to memory
+  ///
+  /// \param[in] schema the schema of record batches
+  /// \param[out] out the returned writer object
+  /// \return Status
   static Status Open(const std::shared_ptr<Schema>& schema,
                      std::unique_ptr<JsonWriter>* out);
 
+  /// \brief Append a record batch
   Status WriteRecordBatch(const RecordBatch& batch);
+
+  /// \brief Finish the JSON payload and return as a std::string
+  ///
+  /// \param[out] result the JSON as as a std::string
+  /// \return Status
   Status Finish(std::string* result);
 
  private:
@@ -53,23 +68,41 @@ class ARROW_EXPORT JsonWriter {
   std::unique_ptr<JsonWriterImpl> impl_;
 };
 
-// TODO(wesm): Read from a file stream rather than an in-memory buffer
+/// \class JsonReader
+/// \brief Read the JSON representation of an Arrow record batch file or stream
+///
+/// This is used for integration testing
 class ARROW_EXPORT JsonReader {
  public:
   ~JsonReader();
 
+  /// \brief Create a new JSON reader
+  ///
+  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[in] data a Buffer containing the JSON data
+  /// \param[out] reader the returned reader object
+  /// \return Status
   static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
                      std::unique_ptr<JsonReader>* reader);
 
-  // Use the default memory pool
+  /// \brief Create a new JSON reader that uses the default memory pool
+  ///
+  /// \param[in] data a Buffer containing the JSON data
+  /// \param[out] reader the returned reader object
+  /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& data,
                      std::unique_ptr<JsonReader>* reader);
 
+  /// \brief Return the schema read from the JSON
   std::shared_ptr<Schema> schema() const;
 
+  /// \brief Return the number of record batches
   int num_record_batches() const;
 
-  // Read a record batch from the file
+  /// \brief Read a particular record batch from the file
+  ///
+  /// \param[in] i the record batch index, does not boundscheck
+  /// \param[out] batch the read record batch
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
 
  private:
