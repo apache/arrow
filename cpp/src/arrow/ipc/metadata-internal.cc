@@ -46,6 +46,7 @@ namespace arrow {
 namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
+namespace internal {
 
 using FBB = flatbuffers::FlatBufferBuilder;
 using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
@@ -933,5 +934,6 @@ Status WriteMessage(const Buffer& message, io::OutputStream* file,
   return Status::OK();
 }
 
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

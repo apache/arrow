@@ -27,8 +27,7 @@ namespace py {
 
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
   case Type::NAME:                        \
-    return FACTORY();                     \
-    break;
+    return FACTORY()
 
 std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
   switch (type) {

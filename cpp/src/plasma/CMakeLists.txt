@@ -96,12 +96,13 @@ if ("${COMPILER_FAMILY}" STREQUAL "clang")
     PROPERTY COMPILE_FLAGS
     " -Wno-parentheses-equality \
 -Wno-shorten-64-to-32 \
--Wno-unused-macros ")
+-Wno-unused-macros")
 
   set_property(SOURCE thirdparty/xxhash.cc
     APPEND_STRING
     PROPERTY COMPILE_FLAGS
-    "-Wno-unused-macros")
+    "-Wno-unused-macros \
+-Wno-unreachable-code")
 endif()
 
 if ("${COMPILER_FAMILY}" STREQUAL "gcc")

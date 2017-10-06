@@ -48,28 +48,47 @@ static constexpr const int kFeatherVersion = 2;
 // ----------------------------------------------------------------------
 // Metadata accessor classes
 
+/// \class TableReader
+/// \brief An interface for reading columns from Feather files
 class ARROW_EXPORT TableReader {
  public:
   TableReader();
   ~TableReader();
 
+  /// \brief Open a Feather file from a RandomAccessFile interface
+  ///
+  /// \param[in] source a RandomAccessFile instance
+  /// \param[out] out the table reader
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& source,
                      std::unique_ptr<TableReader>* out);
 
-  // Optional table description
-  //
-  // This does not return a const std::string& because a string has to be
-  // copied from the flatbuffer to be able to return a non-flatbuffer type
+  /// \brief Optional table description
+  ///
+  /// This does not return a const std::string& because a string has to be
+  /// copied from the flatbuffer to be able to return a non-flatbuffer type
   std::string GetDescription() const;
+
+  /// \brief Return true if the table has a description field populated
   bool HasDescription() const;
 
+  /// \brief Return the version number of the Feather file
   int version() const;
 
+  /// \brief Return the number of rows in the file
   int64_t num_rows() const;
+
+  /// \brief Return the number of columns in the file
   int64_t num_columns() const;
 
   std::string GetColumnName(int i) const;
 
+  /// \brief Read a column from the file as an arrow::Column.
+  ///
+  /// \param[in] i the column index to read
+  /// \param[out] out the returned column
+  /// \return Status
+  ///
+  /// This function is zero-copy if the file source supports zero-copy reads
   Status GetColumn(int i, std::shared_ptr<Column>* out);
 
  private:
@@ -77,19 +96,34 @@ class ARROW_EXPORT TableReader {
   std::unique_ptr<TableReaderImpl> impl_;
 };
 
+/// \class TableWriter
+/// \brief Interface for writing Feather files
 class ARROW_EXPORT TableWriter {
  public:
   ~TableWriter();
 
+  /// \brief Create a new TableWriter that writes to an OutputStream
+  /// \param[in] stream an output stream
+  /// \param[out] out the returned table writer
+  /// \return Status
   static Status Open(const std::shared_ptr<io::OutputStream>& stream,
                      std::unique_ptr<TableWriter>* out);
 
+  /// \brief Set the description field in the file metadata
   void SetDescription(const std::string& desc);
+
+  /// \brief Set the number of rows in the file
   void SetNumRows(int64_t num_rows);
 
+  /// \brief Append a column to the file
+  ///
+  /// \param[in] name the column name
+  /// \param[in] values the column values as a contiguous arrow::Array
+  /// \return Status
   Status Append(const std::string& name, const Array& values);
 
-  // We are done, write the file metadata and footer
+  /// \brief Finalize the file by writing the file metadata and footer
+  /// \return Status
   Status Finalize();
 
  private:

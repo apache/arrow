@@ -45,6 +45,7 @@ class OutputStream;
 }  // namespace io
 
 namespace ipc {
+namespace internal {
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
     flatbuf::MetadataVersion_V3;
@@ -130,6 +131,7 @@ Status WriteDictionaryMessage(const int64_t id, const int64_t length,
                               const std::vector<BufferMetadata>& buffers,
                               std::shared_ptr<Buffer>* out);
 
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
 

@@ -53,6 +53,7 @@ constexpr int kMaxNestingDepth = 64;
 // individual fields metadata can be retrieved from very large schema without
 //
 
+/// \class Message
 /// \brief An IPC message including metadata and body
 class ARROW_EXPORT Message {
  public:
@@ -70,6 +71,7 @@ class ARROW_EXPORT Message {
   /// \param[in] metadata a buffer containing the Flatbuffer metadata
   /// \param[in] body a buffer containing the message body, which may be nullptr
   /// \param[out] out the created message
+  /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& metadata,
                      const std::shared_ptr<Buffer>& body, std::unique_ptr<Message>* out);
 
@@ -77,6 +79,7 @@ class ARROW_EXPORT Message {
   /// \param[in] metadata containing a serialized Message flatbuffer
   /// \param[in] stream an InputStream
   /// \param[out] out the created Message
+  /// \return Status
   ///
   /// \note If stream supports zero-copy, this is zero-copy
   static Status ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
@@ -98,8 +101,10 @@ class ARROW_EXPORT Message {
   /// \return buffer is nullptr if no body
   std::shared_ptr<Buffer> body() const;
 
+  /// \brief The Message type
   Type type() const;
 
+  /// \brief The Message metadata version
   MetadataVersion metadata_version() const;
 
   const void* header() const;
