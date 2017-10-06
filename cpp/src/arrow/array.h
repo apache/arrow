@@ -169,10 +169,17 @@ class ARROW_EXPORT Array {
  public:
   virtual ~Array() = default;
 
-  /// Determine if a slot is null. For inner loops. Does *not* boundscheck
+  /// \brief Return true if value at index is null. Does not boundscheck
   bool IsNull(int64_t i) const {
     return null_bitmap_data_ != nullptr &&
            BitUtil::BitNotSet(null_bitmap_data_, i + data_->offset);
+  }
+
+  /// \brief Return true if value at index is valid (not null). Does not
+  /// boundscheck
+  bool IsValid(int64_t i) const {
+    return null_bitmap_data_ != nullptr &&
+      BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
   }
 
   /// Size in the number of elements this array contains.

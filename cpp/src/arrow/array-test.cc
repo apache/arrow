@@ -142,7 +142,7 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
   ASSERT_EQ(6, null_arr_sliced->null_count());
 }
 
-TEST_F(TestArray, TestIsNull) {
+TEST_F(TestArray, TestIsNullIsValid) {
   // clang-format off
   vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
                                  1, 0, 1, 1, 0, 1, 0, 0,
@@ -170,6 +170,7 @@ TEST_F(TestArray, TestIsNull) {
 
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
     EXPECT_EQ(null_bitmap[i] != 0, !arr->IsNull(i)) << i;
+    EXPECT_EQ(null_bitmap[i] != 0, arr->IsValid(i)) << i;
   }
 }
 
