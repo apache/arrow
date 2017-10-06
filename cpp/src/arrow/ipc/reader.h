@@ -74,7 +74,7 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
 
   /// \brief Open stream and retain ownership of stream object
   /// \param[in] stream the input stream
-  /// \param[out] the batch reader
+  /// \param[out] out the batch reader
   /// \return Status
   static Status Open(const std::shared_ptr<io::InputStream>& stream,
                      std::shared_ptr<RecordBatchReader>* out);

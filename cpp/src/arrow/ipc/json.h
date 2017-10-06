@@ -80,7 +80,7 @@ class ARROW_EXPORT JsonReader {
   ///
   /// \param[in] pool a MemoryPool to use for buffer allocations
   /// \param[in] data a Buffer containing the JSON data
-  /// \param[out] out the returned reader object
+  /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
                      std::unique_ptr<JsonReader>* reader);
@@ -88,7 +88,7 @@ class ARROW_EXPORT JsonReader {
   /// \brief Create a new JSON reader that uses the default memory pool
   ///
   /// \param[in] data a Buffer containing the JSON data
-  /// \param[out] out the returned reader object
+  /// \param[out] reader the returned reader object
   /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& data,
                      std::unique_ptr<JsonReader>* reader);
