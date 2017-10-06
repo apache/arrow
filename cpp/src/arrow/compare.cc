@@ -351,7 +351,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       const uint8_t* right_data = right.values()->data();
 
       for (int64_t i = 0; i < left.length(); ++i) {
-        if (!left.IsNull(i) &&
+        if (left.IsValid(i) &&
             BitUtil::GetBit(left_data, i + left.offset()) !=
                 BitUtil::GetBit(right_data, i + right.offset())) {
           result_ = false;
