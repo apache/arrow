@@ -270,7 +270,7 @@ endfunction()
 #
 # Arguments after the test name will be passed to set_tests_properties().
 function(ADD_ARROW_TEST REL_TEST_NAME)
-  set(options)
+  set(options NO_VALGRIND)
   set(single_value_args)
   set(multi_value_args STATIC_LINK_LIBS)
   cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -300,7 +300,7 @@ function(ADD_ARROW_TEST REL_TEST_NAME)
     set(TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_TEST_NAME})
   endif()
 
-  if (ARROW_TEST_MEMCHECK)
+  if (ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
     SET_PROPERTY(TARGET ${TEST_NAME}
       APPEND_STRING PROPERTY
       COMPILE_FLAGS " -DARROW_VALGRIND")

@@ -117,7 +117,8 @@ install(
 
 if (ARROW_BUILD_TESTS)
   ADD_ARROW_TEST(python-test
-    STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}")
+    STATIC_LINK_LIBS "${ARROW_PYTHON_TEST_LINK_LIBS}"
+    NO_VALGRIND)
   target_link_libraries(python-test
     ${PYTHON_LIBRARIES})
 endif()

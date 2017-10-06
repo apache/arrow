@@ -41,7 +41,7 @@ TEST(stl_allocator, MemoryTracking) {
 
 TEST(stl_allocator, TestOOM) {
   stl_allocator<uint64_t> alloc;
-  uint64_t to_alloc = std::numeric_limits<uint64_t>::max();
+  uint64_t to_alloc = std::numeric_limits<uint64_t>::max() / 2;
   ASSERT_THROW(alloc.allocate(to_alloc), std::bad_alloc);
 }
 
