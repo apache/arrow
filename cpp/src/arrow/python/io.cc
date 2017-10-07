@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 
 #include "arrow/io/memory.h"
@@ -33,10 +34,6 @@ namespace py {
 // ----------------------------------------------------------------------
 // Python file
 
-PythonFile::PythonFile(PyObject* file) : file_(file) { Py_INCREF(file_); }
-
-PythonFile::~PythonFile() { Py_DECREF(file_); }
-
 // This is annoying: because C++11 does not allow implicit conversion of string
 // literals to non-const char*, we need to go through some gymnastics to use
 // PyObject_CallMethod without a lot of pain (its arguments are non-const
@@ -48,53 +45,68 @@ static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* metho
                              const_cast<char*>(argspec), args...);
 }
 
-Status PythonFile::Close() {
-  // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = cpp_PyObject_CallMethod(file_, "close", "()");
-  Py_XDECREF(result);
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
-  return Status::OK();
-}
+// A common interface to a Python file-like object. Must acquire GIL before
+// calling any methods
+class PythonFile {
+ public:
+  explicit PythonFile(PyObject* file) : file_(file) { Py_INCREF(file_); }
 
-Status PythonFile::Seek(int64_t position, int whence) {
-  // whence: 0 for relative to start of file, 2 for end of file
-  PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
-  Py_XDECREF(result);
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
-  return Status::OK();
-}
+  ~PythonFile() { Py_DECREF(file_); }
 
-Status PythonFile::Read(int64_t nbytes, PyObject** out) {
-  PyObject* result = cpp_PyObject_CallMethod(file_, "read", "(i)", nbytes);
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
-  *out = result;
-  return Status::OK();
-}
+  Status Close() {
+    // whence: 0 for relative to start of file, 2 for end of file
+    PyObject* result = cpp_PyObject_CallMethod(file_, "close", "()");
+    Py_XDECREF(result);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    return Status::OK();
+  }
 
-Status PythonFile::Write(const uint8_t* data, int64_t nbytes) {
-  PyObject* py_data =
-      PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
+  Status Seek(int64_t position, int whence) {
+    // whence: 0 for relative to start of file, 2 for end of file
+    PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ii)", position, whence);
+    Py_XDECREF(result);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    return Status::OK();
+  }
 
-  PyObject* result = cpp_PyObject_CallMethod(file_, "write", "(O)", py_data);
-  Py_XDECREF(py_data);
-  Py_XDECREF(result);
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
-  return Status::OK();
-}
+  Status Read(int64_t nbytes, PyObject** out) {
+    PyObject* result = cpp_PyObject_CallMethod(file_, "read", "(i)", nbytes);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    *out = result;
+    return Status::OK();
+  }
 
-Status PythonFile::Tell(int64_t* position) {
-  PyObject* result = cpp_PyObject_CallMethod(file_, "tell", "()");
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
+  Status Write(const uint8_t* data, int64_t nbytes) {
+    PyObject* py_data =
+        PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
 
-  *position = PyLong_AsLongLong(result);
-  Py_DECREF(result);
+    PyObject* result = cpp_PyObject_CallMethod(file_, "write", "(O)", py_data);
+    Py_XDECREF(py_data);
+    Py_XDECREF(result);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    return Status::OK();
+  }
 
-  // PyLong_AsLongLong can raise OverflowError
-  PY_RETURN_IF_ERROR(StatusCode::IOError);
+  Status Tell(int64_t* position) {
+    PyObject* result = cpp_PyObject_CallMethod(file_, "tell", "()");
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
 
-  return Status::OK();
-}
+    *position = PyLong_AsLongLong(result);
+    Py_DECREF(result);
+
+    // PyLong_AsLongLong can raise OverflowError
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+
+    return Status::OK();
+  }
+
+  std::mutex& lock() { return lock_; }
+
+ private:
+  std::mutex lock_;
+  PyObject* file_;
+};
 
 // ----------------------------------------------------------------------
 // Seekable input stream
@@ -140,6 +152,20 @@ Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   Py_DECREF(bytes_obj);
 
   return Status::OK();
+}
+
+Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                              uint8_t* out) {
+  std::lock_guard<std::mutex> guard(file_->lock());
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, bytes_read, out);
+}
+
+Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes,
+                              std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> guard(file_->lock());
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, out);
 }
 
 Status PyReadableFile::GetSize(int64_t* size) {

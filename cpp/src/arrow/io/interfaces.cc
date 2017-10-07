@@ -32,14 +32,12 @@ RandomAccessFile::RandomAccessFile() { set_mode(FileMode::READ); }
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 uint8_t* out) {
-  std::lock_guard<std::mutex> guard(lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
 }
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> guard(lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, out);
 }

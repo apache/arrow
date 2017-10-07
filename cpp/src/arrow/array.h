@@ -179,7 +179,7 @@ class ARROW_EXPORT Array {
   /// boundscheck
   bool IsValid(int64_t i) const {
     return null_bitmap_data_ != nullptr &&
-      BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
+           BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
   }
 
   /// Size in the number of elements this array contains.

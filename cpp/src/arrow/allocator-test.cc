@@ -59,17 +59,16 @@ TEST(stl_allocator, FreeLargeMemory) {
 }
 
 TEST(stl_allocator, MaxMemory) {
-  DefaultMemoryPool pool;
+  auto pool = default_memory_pool();
 
-  ASSERT_EQ(0, pool.max_memory());
-  stl_allocator<uint8_t> alloc(&pool);
-  uint8_t* data = alloc.allocate(100);
-  uint8_t* data2 = alloc.allocate(100);
+  stl_allocator<uint8_t> alloc(pool);
+  uint8_t* data = alloc.allocate(1000);
+  uint8_t* data2 = alloc.allocate(1000);
 
-  alloc.deallocate(data, 100);
-  alloc.deallocate(data2, 100);
+  alloc.deallocate(data, 1000);
+  alloc.deallocate(data2, 1000);
 
-  ASSERT_EQ(200, pool.max_memory());
+  ASSERT_EQ(2000, pool->max_memory());
 }
 
 #endif  // ARROW_VALGRIND

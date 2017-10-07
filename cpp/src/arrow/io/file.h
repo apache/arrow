@@ -96,6 +96,13 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
+  /// \brief Thread-safe implementation of ReadAt
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* out) override;
+
+  /// \brief Thread-safe implementation of ReadAt
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
   Status GetSize(int64_t* size) override;
   Status Seek(int64_t position) override;
 
@@ -138,6 +145,12 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   // Zero copy read. Not thread-safe
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                uint8_t* out) override;
+
+  /// Default implementation is thread-safe
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   bool supports_zero_copy() const override;
 

@@ -355,8 +355,13 @@ class OSFile {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-    std::lock_guard<std::mutex> guard(lock_);
     return FileRead(fd_, out, nbytes, bytes_read);
+  }
+
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+    std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(Seek(position));
+    return Read(nbytes, bytes_read, out);
   }
 
   Status Seek(int64_t pos) {
@@ -383,6 +388,8 @@ class OSFile {
   int64_t size() const { return size_; }
 
   FileMode::type mode() const { return mode_; }
+
+  std::mutex& lock() { return lock_; }
 
  protected:
   Status SetFileName(const std::string& file_name) {
@@ -458,10 +465,24 @@ Status ReadableFile::Close() { return impl_->Close(); }
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
 Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->Read(nbytes, bytes_read, out);
 }
 
+Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                            uint8_t* out) {
+  return impl_->ReadAt(position, nbytes, bytes_read, out);
+}
+
+Status ReadableFile::ReadAt(int64_t position, int64_t nbytes,
+                            std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> guard(impl_->lock());
+  RETURN_NOT_OK(Seek(position));
+  return impl_->ReadBuffer(nbytes, out);
+}
+
 Status ReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->ReadBuffer(nbytes, out);
 }
 
@@ -590,6 +611,8 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
 
   int fd() const { return file_->fd(); }
 
+  std::mutex& lock() { return file_->lock(); }
+
  private:
   std::unique_ptr<OSFile> file_;
   int64_t position_;
@@ -671,10 +694,24 @@ Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return Status::OK();
 }
 
+Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                                uint8_t* out) {
+  std::lock_guard<std::mutex> guard(memory_map_->lock());
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, bytes_read, out);
+}
+
+Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
+                                std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> guard(memory_map_->lock());
+  RETURN_NOT_OK(Seek(position));
+  return Read(nbytes, out);
+}
+
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
-  std::lock_guard<std::mutex> guard(lock_);
+  std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");
@@ -685,7 +722,7 @@ Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t 
 }
 
 Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
-  std::lock_guard<std::mutex> guard(lock_);
+  std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
     return Status::IOError("Unable to write");

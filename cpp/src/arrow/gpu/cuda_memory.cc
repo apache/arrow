@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 
 #include <cuda.h>
 
@@ -151,70 +152,138 @@ Status CudaBufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 // ----------------------------------------------------------------------
 // CudaBufferWriter
 
-CudaBufferWriter::CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer)
-    : io::FixedSizeBufferWriter(buffer),
-      context_(buffer->context()),
-      buffer_size_(0),
-      buffer_position_(0) {}
+class CudaBufferWriter::CudaBufferWriterImpl {
+ public:
+  explicit CudaBufferWriterImpl(const std::shared_ptr<CudaBuffer>& buffer)
+      : context_(buffer->context()),
+        buffer_(buffer),
+        buffer_size_(0),
+        buffer_position_(0) {
+    buffer_ = buffer;
+    DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
+    mutable_data_ = buffer->mutable_data();
+    size_ = buffer->size();
+    position_ = 0;
+  }
+
+  Status Seek(int64_t position) {
+    if (position < 0 || position >= size_) {
+      return Status::IOError("position out of bounds");
+    }
+    position_ = position;
+    return Status::OK();
+  }
+
+  Status Flush() {
+    if (buffer_size_ > 0 && buffer_position_ > 0) {
+      // Only need to flush when the write has been buffered
+      RETURN_NOT_OK(
+          context_->CopyHostToDevice(mutable_data_ + position_ - buffer_position_,
+                                     host_buffer_data_, buffer_position_));
+      buffer_position_ = 0;
+    }
+    return Status::OK();
+  }
+
+  Status Tell(int64_t* position) const {
+    *position = position_;
+    return Status::OK();
+  }
+
+  Status Write(const uint8_t* data, int64_t nbytes) {
+    if (nbytes == 0) {
+      return Status::OK();
+    }
+
+    if (buffer_size_ > 0) {
+      if (nbytes + buffer_position_ >= buffer_size_) {
+        // Reach end of buffer, write everything
+        RETURN_NOT_OK(Flush());
+        RETURN_NOT_OK(
+            context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
+      } else {
+        // Write bytes to buffer
+        std::memcpy(host_buffer_data_ + buffer_position_, data, nbytes);
+        buffer_position_ += nbytes;
+      }
+    } else {
+      // Unbuffered write
+      RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
+    }
+    position_ += nbytes;
+    return Status::OK();
+  }
+
+  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+    std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(Seek(position));
+    return Write(data, nbytes);
+  }
+
+  Status SetBufferSize(const int64_t buffer_size) {
+    if (buffer_position_ > 0) {
+      // Flush any buffered data
+      RETURN_NOT_OK(Flush());
+    }
+    RETURN_NOT_OK(AllocateCudaHostBuffer(buffer_size, &host_buffer_));
+    host_buffer_data_ = host_buffer_->mutable_data();
+    buffer_size_ = buffer_size;
+    return Status::OK();
+  }
+
+  int64_t buffer_size() const { return buffer_size_; }
+
+  int64_t buffer_position() const { return buffer_position_; }
+
+ private:
+  std::shared_ptr<CudaContext> context_;
+  std::shared_ptr<CudaBuffer> buffer_;
+  std::mutex lock_;
+  uint8_t* mutable_data_;
+  int64_t size_;
+  int64_t position_;
+
+  // Pinned host buffer for buffering writes on CPU before calling cudaMalloc
+  int64_t buffer_size_;
+  int64_t buffer_position_;
+  std::shared_ptr<CudaHostBuffer> host_buffer_;
+  uint8_t* host_buffer_data_;
+};
+
+CudaBufferWriter::CudaBufferWriter(const std::shared_ptr<CudaBuffer>& buffer) {
+  impl_.reset(new CudaBufferWriterImpl(buffer));
+}
 
 CudaBufferWriter::~CudaBufferWriter() {}
 
 Status CudaBufferWriter::Close() { return Flush(); }
 
-Status CudaBufferWriter::Flush() {
-  if (buffer_size_ > 0 && buffer_position_ > 0) {
-    // Only need to flush when the write has been buffered
-    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_ - buffer_position_,
-                                             host_buffer_data_, buffer_position_));
-    buffer_position_ = 0;
-  }
-  return Status::OK();
-}
+Status CudaBufferWriter::Flush() { return impl_->Flush(); }
 
 Status CudaBufferWriter::Seek(int64_t position) {
-  if (buffer_position_ > 0) {
+  if (impl_->buffer_position() > 0) {
     RETURN_NOT_OK(Flush());
   }
-  return io::FixedSizeBufferWriter::Seek(position);
+  return impl_->Seek(position);
 }
 
+Status CudaBufferWriter::Tell(int64_t* position) const { return impl_->Tell(position); }
+
 Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
-  if (memcopy_num_threads_ > 1) {
-    return Status::Invalid("parallel CUDA memcpy not supported");
-  }
+  return impl_->Write(data, nbytes);
+}
 
-  if (nbytes == 0) {
-    return Status::OK();
-  }
-
-  if (buffer_size_ > 0) {
-    if (nbytes + buffer_position_ >= buffer_size_) {
-      // Reach end of buffer, write everything
-      RETURN_NOT_OK(Flush());
-      RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
-    } else {
-      // Write bytes to buffer
-      std::memcpy(host_buffer_data_ + buffer_position_, data, nbytes);
-      buffer_position_ += nbytes;
-    }
-  } else {
-    // Unbuffered write
-    RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
-  }
-  position_ += nbytes;
-  return Status::OK();
+Status CudaBufferWriter::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+  return impl_->WriteAt(position, data, nbytes);
 }
 
 Status CudaBufferWriter::SetBufferSize(const int64_t buffer_size) {
-  if (buffer_position_ > 0) {
-    // Flush any buffered data
-    RETURN_NOT_OK(Flush());
-  }
-  RETURN_NOT_OK(AllocateCudaHostBuffer(buffer_size, &host_buffer_));
-  host_buffer_data_ = host_buffer_->mutable_data();
-  buffer_size_ = buffer_size;
-  return Status::OK();
+  return impl_->SetBufferSize(buffer_size);
 }
+
+int64_t CudaBufferWriter::buffer_size() const { return impl_->buffer_size(); }
+
+int64_t CudaBufferWriter::num_bytes_buffered() const { return impl_->buffer_position(); }
 
 // ----------------------------------------------------------------------
 
