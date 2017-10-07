@@ -123,6 +123,18 @@ cdef class ListType(DataType):
             return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
+cdef class StructType(DataType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+
+
+cdef class UnionType(DataType):
+
+    cdef void init(self, const shared_ptr[CDataType]& type):
+        DataType.init(self, type)
+
+
 cdef class TimestampType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
