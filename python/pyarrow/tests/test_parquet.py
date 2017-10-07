@@ -162,6 +162,28 @@ def test_pandas_parquet_custom_metadata(tmpdir):
 
 
 @parquet
+def test_pandas_parquet_column_multiindex(tmpdir):
+    import pyarrow.parquet as pq
+
+    df = alltypes_sample(size=10)
+    df.columns = pd.MultiIndex.from_tuples(
+        list(zip(df.columns, df.columns[::-1])),
+        names=['level_1', 'level_2']
+    )
+
+    filename = tmpdir.join('pandas_rountrip.parquet')
+    arrow_table = pa.Table.from_pandas(df)
+    assert b'pandas' in arrow_table.schema.metadata
+
+    _write_table(arrow_table, filename.strpath, version="2.0",
+                 coerce_timestamps='ms')
+
+    table_read = pq.read_pandas(filename.strpath)
+    df_read = table_read.to_pandas()
+    tm.assert_frame_equal(df, df_read)
+
+
+@parquet
 def test_pandas_parquet_2_0_rountrip_read_pandas_no_index_written(tmpdir):
     import pyarrow.parquet as pq
 
