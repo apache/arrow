@@ -125,6 +125,74 @@ class TestPandasConversion(unittest.TestCase):
         table = pa.Table.from_pandas(df)
         assert table.column(0).name == '0'
 
+    def test_column_index_names_are_preserved(self):
+        df = pd.DataFrame({'data': [1, 2, 3]})
+        df.columns.names = ['a']
+        self._check_pandas_roundtrip(df, check_index=True)
+
+    def test_multiindex_columns(self):
+        columns = pd.MultiIndex.from_arrays([
+            ['one', 'two'], ['X', 'Y']
+        ])
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
+        self._check_pandas_roundtrip(df, check_index=True)
+
+    def test_multiindex_columns_with_dtypes(self):
+        columns = pd.MultiIndex.from_arrays(
+            [
+                ['one', 'two'],
+                pd.DatetimeIndex(['2017-08-01', '2017-08-02']),
+            ],
+            names=['level_1', 'level_2'],
+        )
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
+        self._check_pandas_roundtrip(df, check_index=True)
+
+    def test_integer_index_column(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
+        self._check_pandas_roundtrip(df, check_index=True)
+
+    def test_categorical_column_index(self):
+        # I *really* hope no one uses category dtypes for single level column
+        # indexes
+        df = pd.DataFrame(
+            [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
+            columns=pd.Index(list('def'), dtype='category')
+        )
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        column_indexes, = js['column_indexes']
+        assert column_indexes['name'] is None
+        assert column_indexes['pandas_type'] == 'categorical'
+        assert column_indexes['numpy_type'] == 'object'
+
+        md = column_indexes['metadata']
+        assert md['num_categories'] == 3
+        assert md['ordered'] is False
+
+    def test_datetimetz_column_index(self):
+        # I *really* hope no one uses category dtypes for single level column
+        # indexes
+        df = pd.DataFrame(
+            [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
+            columns=pd.date_range(
+                start='2017-01-01', periods=3, tz='America/New_York'
+            )
+        )
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        column_indexes, = js['column_indexes']
+        assert column_indexes['name'] is None
+        assert column_indexes['pandas_type'] == 'datetimetz'
+        assert column_indexes['numpy_type'] == 'datetime64[ns]'
+
+        md = column_indexes['metadata']
+        assert md['timezone'] == 'America/New_York'
+
     def test_float_no_nulls(self):
         data = {}
         fields = []
