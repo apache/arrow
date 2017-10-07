@@ -819,6 +819,12 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
     const ::arrow::DictionaryType& dict_type =
         static_cast<const ::arrow::DictionaryType&>(*data.type());
 
+    // TODO(ARROW-1648): Remove this special handling once we require an Arrow
+    // version that has this fixed.
+    if (dict_type.dictionary()->type()->id() == ::arrow::Type::NA) {
+      return WriteColumnChunk(::arrow::NullArray(data.length()));
+    }
+
     FunctionContext ctx(pool_);
     std::shared_ptr<Array> plain_array;
     RETURN_NOT_OK(

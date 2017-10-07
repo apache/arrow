@@ -926,6 +926,34 @@ TEST_F(TestNullParquetIO, NullColumn) {
   internal::AssertArraysEqual(*values, *chunked_array->chunk(0));
 }
 
+TEST_F(TestNullParquetIO, NullDictionaryColumn) {
+  std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(0);
+  std::shared_ptr<Array> indices =
+      std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, nullptr, SMALL_SIZE);
+  std::shared_ptr<::arrow::DictionaryType> dict_type =
+      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), values);
+  std::shared_ptr<Array> dict_values =
+      std::make_shared<::arrow::DictionaryArray>(dict_type, indices);
+  std::shared_ptr<Table> table = MakeSimpleTable(dict_values, true);
+  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                dict_values->length(), default_writer_properties()));
+
+  std::shared_ptr<Table> out;
+  std::unique_ptr<FileReader> reader;
+  this->ReaderFromSink(&reader);
+  this->ReadTableFromFile(std::move(reader), &out);
+  ASSERT_EQ(1, out->num_columns());
+  ASSERT_EQ(100, out->num_rows());
+
+  std::shared_ptr<ChunkedArray> chunked_array = out->column(0)->data();
+  ASSERT_EQ(1, chunked_array->num_chunks());
+
+  std::shared_ptr<Array> expected_values =
+      std::make_shared<::arrow::NullArray>(SMALL_SIZE);
+  AssertArraysEqual(*expected_values, *chunked_array->chunk(0));
+}
+
 template <typename T>
 using ParquetCDataType = typename ParquetDataType<T>::c_type;
 
