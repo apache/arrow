@@ -58,6 +58,39 @@ Type and Schema Factory Functions
    schema
    from_numpy_dtype
 
+.. currentmodule:: pyarrow.types
+.. _api.types.checking:
+
+Type checking functions
+-----------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   is_boolean
+   is_integer
+   is_signed_integer
+   is_unsigned_integer
+   is_floating
+   is_decimal
+   is_list
+   is_struct
+   is_union
+   is_nested
+   is_temporal
+   is_timestamp
+   is_date
+   is_time
+   is_null
+   is_binary
+   is_unicode
+   is_string
+   is_fixed_size_binary
+   is_map
+   is_dictionary
+
+.. currentmodule:: pyarrow
+
 .. _api.value:
 
 Scalar Value Types

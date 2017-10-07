@@ -33,6 +33,7 @@ import pandas.util.testing as tm
 
 from pyarrow.compat import u
 import pyarrow as pa
+import pyarrow.types as patypes
 
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 
@@ -85,7 +86,7 @@ class TestPandasConversion(unittest.TestCase):
         arr = pa.array(s, from_pandas=True, type=type_)
 
         result = pd.Series(arr.to_pandas(), name=s.name)
-        if isinstance(arr.type, pa.TimestampType) and arr.type.tz is not None:
+        if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
             result = (result.dt.tz_localize('utc')
                       .dt.tz_convert(arr.type.tz))
 

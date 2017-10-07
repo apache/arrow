@@ -88,7 +88,9 @@ Type_STRING = _Type_STRING
 Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
 Type_LIST = _Type_LIST
 Type_STRUCT = _Type_STRUCT
+Type_UNION = _Type_UNION
 Type_DICTIONARY = _Type_DICTIONARY
+Type_MAP = _Type_MAP
 
 
 # Exception types

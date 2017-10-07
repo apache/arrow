@@ -69,6 +69,10 @@ cdef public api object pyarrow_wrap_data_type(
         out = DictionaryType()
     elif type.get().id() == _Type_LIST:
         out = ListType()
+    elif type.get().id() == _Type_STRUCT:
+        out = StructType()
+    elif type.get().id() == _Type_UNION:
+        out = StructType()
     elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType()
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
