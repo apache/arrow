@@ -87,6 +87,7 @@ Type checking functions
    is_string
    is_fixed_size_binary
    is_map
+   is_dictionary
 
 .. currentmodule:: pyarrow
 

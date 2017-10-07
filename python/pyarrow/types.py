@@ -171,3 +171,10 @@ def is_decimal(t):
     Return True if value is an instance of a decimal type
     """
     return t.id == lib.Type_DECIMAL
+
+
+def is_dictionary(t):
+    """
+    Return True if value is an instance of a dictionary-encoded type
+    """
+    return t.id == lib.Type_DICTIONARY

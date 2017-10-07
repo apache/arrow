@@ -66,6 +66,13 @@ def test_is_list():
     assert not types.is_list(pa.int32())
 
 
+def test_is_dictionary():
+    assert types.is_dictionary(
+        pa.dictionary(pa.int32(),
+                      pa.array(['a', 'b', 'c'])))
+    assert not types.is_dictionary(pa.int32())
+
+
 def test_is_nested_or_struct():
     struct_ex = pa.struct([pa.field('a', pa.int32()),
                            pa.field('b', pa.int8()),
