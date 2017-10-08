@@ -18,12 +18,28 @@
 #ifndef ARROW_UTIL_BIT_UTIL_H
 #define ARROW_UTIL_BIT_UTIL_H
 
-#if defined(__APPLE__)
+#ifdef _WIN32
+#define ARROW_LITTLE_ENDIAN 1
+#else
+#ifdef __APPLE__
 #include <machine/endian.h>
-#elif defined(_WIN32)
-#define __LITTLE_ENDIAN 1
 #else
 #include <endian.h>
+#endif
+#
+#ifndef __BYTE_ORDER__
+#error "__BYTE_ORDER__ not defined"
+#endif
+#
+#ifndef __ORDER_LITTLE_ENDIAN__
+#error "__ORDER_LITTLE_ENDIAN__ not defined"
+#endif
+#
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define ARROW_LITTLE_ENDIAN 1
+#else
+#define ARROW_LITTLE_ENDIAN 0
+#endif
 #endif
 
 #if defined(_MSC_VER)
@@ -324,7 +340,7 @@ static inline void ByteSwap(void* dst, const void* src, int len) {
 
 /// Converts to big endian format (if not already in big endian) from the
 /// machine's native endian format.
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if ARROW_LITTLE_ENDIAN
 static inline int64_t ToBigEndian(int64_t value) { return ByteSwap(value); }
 static inline uint64_t ToBigEndian(uint64_t value) { return ByteSwap(value); }
 static inline int32_t ToBigEndian(int32_t value) { return ByteSwap(value); }
@@ -341,7 +357,7 @@ static inline uint16_t ToBigEndian(uint16_t val) { return val; }
 #endif
 
 /// Converts from big endian format to the machine's native endian format.
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if ARROW_LITTLE_ENDIAN
 static inline int64_t FromBigEndian(int64_t value) { return ByteSwap(value); }
 static inline uint64_t FromBigEndian(uint64_t value) { return ByteSwap(value); }
 static inline int32_t FromBigEndian(int32_t value) { return ByteSwap(value); }
