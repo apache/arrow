@@ -319,6 +319,16 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
         convert_types.append(None)
         names.append(index_level_name(column, i))
 
+    # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
+    # using a thread pool is worth it. Currently the heuristic is whether the
+    # nrows > 100 * ncols.
+    if nthreads is None:
+        nrows, ncols = len(df), len(df.columns)
+        if nrows > ncols * 100:
+            nthreads = pa.cpu_count()
+        else:
+            nthreads = 1
+
     def convert_column(col, ty):
         return pa.array(col, from_pandas=True, type=ty)
 
