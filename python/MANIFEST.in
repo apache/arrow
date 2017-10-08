@@ -2,9 +2,8 @@ include README.md
 include LICENSE.txt
 
 global-include CMakeLists.txt
+graft pyarrow
 graft cmake_modules
-recursive-include src/pyarrow *.cc *.h
-recursive-include pyarrow *.pxd
 
 global-exclude *.so
 global-exclude *.pyc
