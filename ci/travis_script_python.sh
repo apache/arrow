@@ -68,6 +68,10 @@ popd
 # Other stuff pip install
 pushd $ARROW_PYTHON_DIR
 
+if [ "$PYTHON_VERSION" == "2.7" ]; then
+  pip install futures
+fi
+
 pip install -r requirements.txt
 python setup.py build_ext --with-parquet --with-plasma \
        install --single-version-externally-managed --record=record.text

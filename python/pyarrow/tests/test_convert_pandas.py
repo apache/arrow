@@ -72,9 +72,13 @@ class TestPandasConversion(unittest.TestCase):
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 expected_schema=None,
                                 check_dtype=True, schema=None,
-                                check_index=False):
-        table = pa.Table.from_pandas(df,
-                                     schema=schema, preserve_index=check_index)
+                                check_index=False,
+                                as_batch=False):
+        klass = pa.RecordBatch if as_batch else pa.Table
+        table = klass.from_pandas(df, schema=schema,
+                                  preserve_index=check_index,
+                                  nthreads=nthreads)
+
         result = table.to_pandas(nthreads=nthreads)
         if expected_schema:
             assert table.schema.equals(expected_schema)
@@ -663,6 +667,7 @@ class TestPandasConversion(unittest.TestCase):
     def test_threaded_conversion(self):
         df = _alltypes_example()
         self._check_pandas_roundtrip(df, nthreads=2)
+        self._check_pandas_roundtrip(df, nthreads=2, as_batch=True)
 
     def test_category(self):
         repeats = 5
