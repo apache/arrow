@@ -26,18 +26,27 @@
 namespace arrow {
 namespace io {
 
-FileInterface::~FileInterface() {}
+FileInterface::~FileInterface() = default;
 
-RandomAccessFile::RandomAccessFile() { set_mode(FileMode::READ); }
+struct RandomAccessFile::RandomAccessFileImpl {
+  std::mutex lock_;
+};
+
+RandomAccessFile::~RandomAccessFile() = default;
+
+RandomAccessFile::RandomAccessFile()
+    : impl_(new RandomAccessFile::RandomAccessFileImpl()) {}
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 uint8_t* out) {
+  std::lock_guard<std::mutex> lock(impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
 }
 
 Status RandomAccessFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
+  std::lock_guard<std::mutex> lock(impl_->lock_);
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, out);
 }

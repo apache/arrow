@@ -144,8 +144,6 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
     position_ = 0;
   }
 
-  ~FixedSizeBufferWriterImpl() {}
-
   Status Close() {
     // No-op
     return Status::OK();
@@ -199,10 +197,10 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
   int64_t memcopy_threshold_;
 };
 
-FixedSizeBufferWriter::~FixedSizeBufferWriter() {}
-
 FixedSizeBufferWriter::FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer)
     : impl_(new FixedSizeBufferWriterImpl(buffer)) {}
+
+FixedSizeBufferWriter::~FixedSizeBufferWriter() = default;
 
 Status FixedSizeBufferWriter::Close() { return impl_->Close(); }
 
@@ -242,8 +240,6 @@ BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
 BufferReader::BufferReader(const uint8_t* data, int64_t size)
     : buffer_(nullptr), data_(data), size_(size), position_(0) {}
 
-BufferReader::~BufferReader() {}
-
 Status BufferReader::Close() {
   // no-op
   return Status::OK();
@@ -278,14 +274,12 @@ Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                             uint8_t* out) {
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, out);
+  return RandomAccessFile::ReadAt(position, nbytes, bytes_read, out);
 }
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes,
                             std::shared_ptr<Buffer>* out) {
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, out);
+  return RandomAccessFile::ReadAt(position, nbytes, out);
 }
 
 Status BufferReader::GetSize(int64_t* size) {

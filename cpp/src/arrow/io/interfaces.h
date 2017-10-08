@@ -45,14 +45,11 @@ struct ARROW_EXPORT FileStatistics {
   /// Size of file, -1 if finding length is unsupported
   int64_t size;
   ObjectType::type kind;
-
-  FileStatistics() {}
-  FileStatistics(int64_t size, ObjectType::type kind) : size(size), kind(kind) {}
 };
 
 class ARROW_EXPORT FileSystem {
  public:
-  virtual ~FileSystem() {}
+  virtual ~FileSystem() = default;
 
   virtual Status MakeDirectory(const std::string& path) = 0;
 
@@ -75,7 +72,7 @@ class ARROW_EXPORT FileInterface {
   FileMode::type mode() const { return mode_; }
 
  protected:
-  FileInterface() {}
+  FileInterface() : mode_(FileMode::READ) {}
   FileMode::type mode_;
   void set_mode(FileMode::type mode) { mode_ = mode; }
 
@@ -113,32 +110,54 @@ class ARROW_EXPORT Readable {
 
 class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writeable {
  protected:
-  OutputStream() {}
+  OutputStream() = default;
 };
 
 class ARROW_EXPORT InputStream : virtual public FileInterface, public Readable {
  protected:
-  InputStream() {}
+  InputStream() = default;
 };
 
 class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
  public:
+  /// Necessary because we hold a std::unique_ptr
+  ~RandomAccessFile() override;
+
   virtual Status GetSize(int64_t* size) = 0;
 
   virtual bool supports_zero_copy() const = 0;
 
-  /// Read at position, provide default implementations using Read(...), but can
-  /// be overridden
+  /// \brief Read nbytes at position, provide default implementations using Read(...), but
+  /// can be overridden. Default implementation is thread-safe.
   ///
-  /// Default implementation is not thread-safe
+  /// \note Child classes must explicitly call this implementation or provide their own.
+  ///
+  /// \param[in] position Where to read bytes from
+  /// \param[in] nbytes The number of bytes to read
+  /// \param[out] bytes_read The number of bytes read
+  /// \param[out] out The buffer to read bytes into
+  /// \return Status
   virtual Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                        uint8_t* out);
+                        uint8_t* out) = 0;
 
-  /// Default implementation is not thread-safe
-  virtual Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+  /// \brief Read nbytes at position, provide default implementations using Read(...), but
+  /// can be overridden. Default implementation is thread-safe.
+  ///
+  /// \note Child classes must explicitly call this implementation or provide their own.
+  ///
+  /// \param[in] position Where to read bytes from
+  /// \param[in] nbytes The number of bytes to read
+  /// \param[out] out The buffer to read bytes into. The number of bytes read can be
+  /// retrieved by calling Buffer::size().
+  virtual Status ReadAt(int64_t position, int64_t nbytes,
+                        std::shared_ptr<Buffer>* out) = 0;
 
  protected:
   RandomAccessFile();
+
+ private:
+  struct ARROW_NO_EXPORT RandomAccessFileImpl;
+  std::unique_ptr<RandomAccessFileImpl> impl_;
 };
 
 class ARROW_EXPORT WriteableFile : public OutputStream, public Seekable {
@@ -146,7 +165,7 @@ class ARROW_EXPORT WriteableFile : public OutputStream, public Seekable {
   virtual Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) = 0;
 
  protected:
-  WriteableFile() { set_mode(FileMode::READ); }
+  WriteableFile() = default;
 };
 
 class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile,

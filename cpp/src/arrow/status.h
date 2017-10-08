@@ -33,7 +33,7 @@
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
       return _s;                         \
     }                                    \
-  } while (0)
+  } while (false)
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
@@ -41,7 +41,7 @@
   do {                                                      \
     ::arrow::Status _s = (to_call);                         \
     ARROW_CHECK(_s.ok()) << (msg) << ": " << _s.ToString(); \
-  } while (0)
+  } while (false)
 
 // If the status is bad, CHECK immediately, appending the status to the
 // logged message.
@@ -69,7 +69,7 @@ namespace arrow {
     if (ARROW_PREDICT_FALSE(!_s.ok())) { \
       return _s;                         \
     }                                    \
-  } while (0)
+  } while (false)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
@@ -80,7 +80,7 @@ namespace arrow {
       else_;                         \
       return _s;                     \
     }                                \
-  } while (0)
+  } while (false)
 
 enum class StatusCode : char {
   OK = 0,
