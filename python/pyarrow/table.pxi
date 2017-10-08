@@ -557,7 +557,7 @@ cdef class RecordBatch:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    int nthreads=1):
+                    nthreads=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
@@ -570,7 +570,7 @@ cdef class RecordBatch:
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``RecordBatch``.
-        nthreads : int, default 1
+        nthreads : int, default to system CPU count
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
 
@@ -578,6 +578,8 @@ cdef class RecordBatch:
         -------
         pyarrow.RecordBatch
         """
+        if nthreads is None:
+            nthreads = cpu_count()
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads
         )
@@ -719,7 +721,7 @@ cdef class Table:
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
-                    int nthreads=1):
+                    nthreads=None):
         """
         Convert pandas.DataFrame to an Arrow Table
 
@@ -732,7 +734,7 @@ cdef class Table:
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``Table``.
-        nthreads : int, default 1
+        nthreads : int, default to system CPU count
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
 
@@ -752,6 +754,9 @@ cdef class Table:
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
+        if nthreads is None:
+            nthreads = cpu_count()
+
         names, arrays, metadata = pdcompat.dataframe_to_arrays(
             df,
             schema=schema,
