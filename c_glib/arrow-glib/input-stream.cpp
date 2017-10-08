@@ -436,6 +436,17 @@ namespace garrow {
       }
     }
 
+    arrow::Status ReadAt(int64_t position, int64_t n_bytes,
+			 int64_t *n_read_bytes, uint8_t* out) {
+	return arrow::io::RandomAccessFile::ReadAt(
+	    position, n_bytes, n_read_bytes, out);
+    }
+
+    arrow::Status ReadAt(int64_t position, int64_t n_bytes,
+			 std::shared_ptr<arrow::Buffer>* out) {
+	return arrow::io::RandomAccessFile::ReadAt(position, n_bytes, out);
+    }
+
     arrow::Status Read(int64_t n_bytes,
                        std::shared_ptr<arrow::Buffer> *out) override {
       arrow::MemoryPool *pool = arrow::default_memory_pool();
