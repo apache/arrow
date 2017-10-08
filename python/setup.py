@@ -384,7 +384,7 @@ class BinaryDistribution(Distribution):
 
 install_requires = ['numpy >= 1.10', 'six >= 1.0.0']
 
-if sys.version_info.major:
+if sys.version_info.major == 2:
     install_requires.append('futures')
 
 
