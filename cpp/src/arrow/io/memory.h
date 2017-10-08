@@ -43,7 +43,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
                        std::shared_ptr<BufferOutputStream>* out);
 
-  ~BufferOutputStream();
+  ~BufferOutputStream() override;
 
   // Implement the OutputStream interface
   Status Close() override;
@@ -85,7 +85,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
  public:
   /// Input buffer must be mutable, will abort if not
   explicit FixedSizeBufferWriter(const std::shared_ptr<Buffer>& buffer);
-  ~FixedSizeBufferWriter();
+  ~FixedSizeBufferWriter() override;
 
   Status Close() override;
   Status Seek(int64_t position) override;
@@ -108,7 +108,6 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
   BufferReader(const uint8_t* data, int64_t size);
-  virtual ~BufferReader();
 
   Status Close() override;
   Status Tell(int64_t* position) const override;
@@ -116,7 +115,6 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                 uint8_t* out) override;
 
