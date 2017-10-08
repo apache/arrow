@@ -365,7 +365,7 @@ def test_get_record_batch_size():
 
 
 def _check_serialize_pandas_round_trip(df, nthreads=1):
-    buf = pa.serialize_pandas(df)
+    buf = pa.serialize_pandas(df, nthreads=nthreads)
     result = pa.deserialize_pandas(buf, nthreads=nthreads)
     assert_frame_equal(result, df)
 

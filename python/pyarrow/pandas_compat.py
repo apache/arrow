@@ -290,17 +290,17 @@ def _column_name_to_strings(name):
     return str(name)
 
 
-def dataframe_to_arrays(df, schema, preserve_index):
+def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     names = []
-    arrays = []
     index_columns = []
-    types = []
     type = None
 
     if preserve_index:
         n = len(getattr(df.index, 'levels', [df.index]))
         index_columns.extend(df.index.get_level_values(i) for i in range(n))
 
+    columns_to_convert = []
+    convert_types = []
     for name in df.columns:
         col = df[name]
         if not isinstance(name, six.string_types):
@@ -310,16 +310,40 @@ def dataframe_to_arrays(df, schema, preserve_index):
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
 
-        array = pa.array(col, from_pandas=True, type=type)
-        arrays.append(array)
+        columns_to_convert.append(col)
+        convert_types.append(type)
         names.append(name)
-        types.append(array.type)
 
     for i, column in enumerate(index_columns):
-        array = pa.array(column)
-        arrays.append(array)
+        columns_to_convert.append(column)
+        convert_types.append(None)
         names.append(index_level_name(column, i))
-        types.append(array.type)
+
+    # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
+    # using a thread pool is worth it. Currently the heuristic is whether the
+    # nrows > 100 * ncols.
+    if nthreads is None:
+        nrows, ncols = len(df), len(df.columns)
+        if nrows > ncols * 100:
+            nthreads = pa.cpu_count()
+        else:
+            nthreads = 1
+
+    def convert_column(col, ty):
+        return pa.array(col, from_pandas=True, type=ty)
+
+    if nthreads == 1:
+        arrays = [convert_column(c, t)
+                  for c, t in zip(columns_to_convert,
+                                  convert_types)]
+    else:
+        from concurrent import futures
+        with futures.ThreadPoolExecutor(nthreads) as executor:
+            arrays = list(executor.map(convert_column,
+                                       columns_to_convert,
+                                       convert_types))
+
+    types = [x.type for x in arrays]
 
     metadata = construct_metadata(
         df, names, index_columns, preserve_index, types

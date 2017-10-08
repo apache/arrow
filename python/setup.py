@@ -381,6 +381,13 @@ class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
         return True
 
+
+install_requires = ['numpy >= 1.10', 'six >= 1.0.0']
+
+if sys.version_info.major == 2:
+    install_requires.append('futures')
+
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
@@ -390,19 +397,18 @@ setup(
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
-
     cmdclass={
         'clean': clean,
         'build_ext': build_ext
     },
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
     use_scm_version={"root": "..", "relative_to": __file__},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
-    install_requires=['numpy >= 1.10', 'six >= 1.0.0'],
+    install_requires=install_requires,
     tests_require=['pytest'],
     description="Python library for Apache Arrow",
     long_description=long_description,
