@@ -97,18 +97,12 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
       break;
   }
   // Now val is in seconds and we are going to do the inverse of what
-  // PyDateTime_to_us does. Note that localtime is the inverse of mktime.
-  // Note also that this is probably not threadsafe.
+  // PyDateTime_to_us does. Note also that this is probably not threadsafe.
   time_t t = static_cast<time_t>(val);
-  struct tm epoch;
-  memset(&epoch, 0, sizeof(struct tm));
-  epoch.tm_year = 70;
-  epoch.tm_mday = 1;
-  t += mktime(&epoch);
-  struct tm* datetime = localtime(&t);
+  struct tm* datetime = gmtime(&t);
   *out = PyDateTime_FromDateAndTime(datetime->tm_year + 1900, datetime->tm_mon + 1,
                                     datetime->tm_mday, datetime->tm_hour,
-                                    datetime->tm_min, datetime->tm_sec,
+                                    datetime->tm_min, std::min(59, datetime->tm_sec),
                                     microsecond);
   return Status::OK();
 }
