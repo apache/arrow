@@ -830,6 +830,16 @@ DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
   }
 }
 
+DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
+                                               MemoryPool* pool)
+    : ArrayBuilder(type, pool), values_builder_(pool) {
+  if (!::arrow::CpuInfo::initialized()) {
+    ::arrow::CpuInfo::Init();
+  }
+}
+
+DictionaryBuilder<NullType>::~DictionaryBuilder() {}
+
 template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -858,8 +868,25 @@ Status DictionaryBuilder<T>::Init(int64_t elements) {
   return values_builder_.Init(elements);
 }
 
+Status DictionaryBuilder<NullType>::Init(int64_t elements) {
+  RETURN_NOT_OK(ArrayBuilder::Init(elements));
+  return values_builder_.Init(elements);
+}
+
 template <typename T>
 Status DictionaryBuilder<T>::Resize(int64_t capacity) {
+  if (capacity < kMinBuilderCapacity) {
+    capacity = kMinBuilderCapacity;
+  }
+
+  if (capacity_ == 0) {
+    return Init(capacity);
+  } else {
+    return ArrayBuilder::Resize(capacity);
+  }
+}
+
+Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
   if (capacity < kMinBuilderCapacity) {
     capacity = kMinBuilderCapacity;
   }
@@ -878,6 +905,16 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   RETURN_NOT_OK(values_builder_.FinishInternal(out));
   (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+  return Status::OK();
+}
+
+Status DictionaryBuilder<NullType>::Finish(std::shared_ptr<Array>* out) {
+  std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
+  std::shared_ptr<Array> values;
+  RETURN_NOT_OK(values_builder_.Finish(&values));
+
+  auto type = std::make_shared<DictionaryType>(values->type(), dictionary);
+  *out = std::make_shared<DictionaryArray>(type, values);
   return Status::OK();
 }
 
@@ -928,6 +965,13 @@ Status DictionaryBuilder<T>::AppendArray(const Array& array) {
   return Status::OK();
 }
 
+Status DictionaryBuilder<NullType>::AppendArray(const Array& array) {
+  for (int64_t i = 0; i < array.length(); i++) {
+    RETURN_NOT_OK(AppendNull());
+  }
+  return Status::OK();
+}
+
 template <>
 Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
   if (!type_->Equals(*array.type())) {
@@ -949,6 +993,8 @@ template <typename T>
 Status DictionaryBuilder<T>::AppendNull() {
   return values_builder_.AppendNull();
 }
+
+Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.AppendNull(); }
 
 template <typename T>
 Status DictionaryBuilder<T>::DoubleTableSize() {
@@ -1438,6 +1484,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              std::shared_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
+    DICTIONARY_BUILDER_CASE(NA, DictionaryBuilder<NullType>);
     DICTIONARY_BUILDER_CASE(UINT8, DictionaryBuilder<UInt8Type>);
     DICTIONARY_BUILDER_CASE(INT8, DictionaryBuilder<Int8Type>);
     DICTIONARY_BUILDER_CASE(UINT16, DictionaryBuilder<UInt16Type>);
@@ -1474,6 +1521,7 @@ Status EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
   const std::shared_ptr<DataType>& type = input.data()->type;
   std::shared_ptr<ArrayBuilder> builder;
   switch (type->id()) {
+    DICTIONARY_ARRAY_CASE(NA, DictionaryBuilder<NullType>);
     DICTIONARY_ARRAY_CASE(UINT8, DictionaryBuilder<UInt8Type>);
     DICTIONARY_ARRAY_CASE(INT8, DictionaryBuilder<Int8Type>);
     DICTIONARY_ARRAY_CASE(UINT16, DictionaryBuilder<UInt16Type>);

@@ -379,7 +379,7 @@ TEST_F(TestCast, PreallocatedMemory) {
 template <typename TestType>
 class TestDictionaryCast : public TestCast {};
 
-typedef ::testing::Types<UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
+typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
                          UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
                          Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
     TestTypes;
