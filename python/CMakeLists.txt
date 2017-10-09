@@ -21,7 +21,17 @@
 cmake_minimum_required(VERSION 2.7)
 project(pyarrow)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake_modules")
+# Running from a Python sdist tarball
+set(LOCAL_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/cmake_modules")
+if (EXISTS "${LOCAL_CMAKE_MODULES}")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LOCAL_CMAKE_MODULES})
+endif()
+
+# Running from a git source tree
+set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
+if (EXISTS "${CPP_CMAKE_MODULES}")
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
+endif()
 
 include(CMakeParseArguments)
 

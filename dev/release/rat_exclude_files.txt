@@ -34,11 +34,7 @@ cpp/src/plasma/thirdparty/xxhash.h
 dev/release/rat_exclude_files.txt
 js/.npmignore
 js/closure-compiler-scripts/*
-python/cmake_modules/BuildUtils.cmake
-python/cmake_modules/FindPythonLibsNew.cmake
-python/cmake_modules/FindNumPy.cmake
-python/cmake_modules/SetupCxxFlags.cmake
-python/cmake_modules/CompilerInfo.cmake
+python/cmake_modules
 python/doc/requirements.txt
 python/MANIFEST.in
 python/pyarrow/includes/__init__.pxd
