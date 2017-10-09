@@ -424,6 +424,10 @@ def test_serialize_pandas_no_preserve_index():
     result = pa.deserialize_pandas(buf)
     assert_frame_equal(result, expected)
 
+    buf = pa.serialize_pandas(df, preserve_index=True)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
 
 def test_schema_batch_serialize_methods():
     nrows = 5
