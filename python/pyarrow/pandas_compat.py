@@ -485,8 +485,8 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             )
         ]
         new_levels = [
-            level if level.dtype == dtype else level.astype(dtype)
-            for level, dtype in levels_dtypes
+            _level if _level.dtype == _dtype else _level.astype(_dtype)
+            for _level, _dtype in levels_dtypes
         ]
         columns = pd.MultiIndex(
             levels=new_levels,

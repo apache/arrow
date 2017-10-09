@@ -416,6 +416,19 @@ def test_pandas_serialize_round_trip_not_string_columns():
     assert_frame_equal(result, df)
 
 
+def test_serialize_pandas_no_preserve_index():
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
+    expected = pd.DataFrame({'a': [1, 2, 3]})
+
+    buf = pa.serialize_pandas(df, preserve_index=False)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, expected)
+
+    buf = pa.serialize_pandas(df, preserve_index=True)
+    result = pa.deserialize_pandas(buf)
+    assert_frame_equal(result, df)
+
+
 def test_schema_batch_serialize_methods():
     nrows = 5
     df = pd.DataFrame({
