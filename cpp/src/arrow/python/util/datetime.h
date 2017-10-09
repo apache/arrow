@@ -18,9 +18,11 @@
 #ifndef PYARROW_UTIL_DATETIME_H
 #define PYARROW_UTIL_DATETIME_H
 
+#include <algorithm>
 #include <sstream>
 
 #include <datetime.h>
+#include "arrow/util/logging.h"
 #include "arrow/python/platform.h"
 
 namespace arrow {
@@ -99,10 +101,12 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   // Now val is in seconds and we are going to do the inverse of what
   // PyDateTime_to_us does. Note also that this is probably not threadsafe.
   time_t t = static_cast<time_t>(val);
-  struct tm* datetime = gmtime(&t);
-  *out = PyDateTime_FromDateAndTime(datetime->tm_year + 1900, datetime->tm_mon + 1,
-                                    datetime->tm_mday, datetime->tm_hour,
-                                    datetime->tm_min, std::min(59, datetime->tm_sec),
+  struct tm datetime;
+  struct tm* result = gmtime_r(&t, &datetime);
+  ARROW_CHECK(result != NULL);
+  *out = PyDateTime_FromDateAndTime(datetime.tm_year + 1900, datetime.tm_mon + 1,
+                                    datetime.tm_mday, datetime.tm_hour,
+                                    datetime.tm_min, std::min(59, datetime.tm_sec),
                                     microsecond);
   return Status::OK();
 }
@@ -149,7 +153,7 @@ static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
   return (current_timestamp - epoch_timestamp) * 1000000L + us;
 #else
   return static_cast<int64_t>(
-      lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
+      llrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
 #endif
 }
 

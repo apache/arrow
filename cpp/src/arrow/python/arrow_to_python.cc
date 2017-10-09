@@ -129,7 +129,8 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       return Status::OK();
     case Type::DATE64: {
       PyDateTime_IMPORT;
-      RETURN_NOT_OK(PyDateTime_from_int(static_cast<const Date64Array&>(arr).Value(index), TimeUnit::MICRO, result));
+      RETURN_NOT_OK(PyDateTime_from_int(static_cast<const Date64Array&>(arr).Value(index),
+                                        TimeUnit::MICRO, result));
       RETURN_IF_PYERROR();
       return Status::OK();
     }
