@@ -22,7 +22,7 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew tap Homebrew/bundle && brew bundle
+  brew update && brew bundle --file=c_glib/Brewfile
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
 fi

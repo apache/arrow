@@ -1,0 +1,8 @@
+brew "gtk-doc"
+brew "autoconf-archive"
+brew "gobject-introspection"
+brew "git"
+brew "cmake"
+brew "wget"
+brew "libtool"
+brew "lua"
