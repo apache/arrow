@@ -22,7 +22,8 @@ import threading
 
 import numpy as np
 
-from pandas.util.testing import assert_frame_equal
+from pandas.util.testing import (assert_frame_equal,
+                                 assert_series_equal)
 import pandas as pd
 
 from pyarrow.compat import unittest
@@ -427,6 +428,20 @@ def test_serialize_pandas_no_preserve_index():
     buf = pa.serialize_pandas(df, preserve_index=True)
     result = pa.deserialize_pandas(buf)
     assert_frame_equal(result, df)
+
+
+def test_serialize_with_pandas_objects():
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
+
+    data = {
+        'a_series': df['a'],
+        'a_frame': df
+    }
+
+    serialized = pa.serialize(data).to_buffer()
+    deserialized = pa.deserialize(serialized)
+    assert_frame_equal(deserialized['a_frame'], df)
+    assert_series_equal(deserialized['a_series'], df['a'])
 
 
 def test_schema_batch_serialize_methods():

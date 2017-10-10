@@ -209,7 +209,8 @@ def serialize(object value, SerializationContext context=None):
     value: object
         Python object for the sequence that is to be serialized.
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context, uses a default
+        context with some standard type handlers if not specified
 
     Returns
     -------
@@ -236,7 +237,8 @@ def serialize_to(object value, sink, SerializationContext context=None):
     sink: NativeFile or file-like
         File the sequence will be written to.
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context, uses a default
+        context with some standard type handlers if not specified
     """
     serialized = serialize(value, context)
     serialized.write_to(sink)
