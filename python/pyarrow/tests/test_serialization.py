@@ -314,8 +314,7 @@ def test_numpy_serialization(large_memory_map):
 
 def test_datetime_serialization(large_memory_map):
     data = [# Principia Mathematica published
-            # datetime.datetime(year=1687, month=7, day=5),
-            # (this is currently not working)
+            datetime.datetime(year=1687, month=7, day=5),
             # Some random date
             datetime.datetime(year=1911, month=6, day=3, hour=4,
                               minute=55, second=44),
