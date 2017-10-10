@@ -42,7 +42,7 @@ sudo apt-get install cmake \
 On OS X, you can use [Homebrew][1]:
 
 ```shell
-brew install boost cmake
+brew update && brew bundle --file=cpp/Brewfile
 ```
 
 If you are developing on Windows, see the [Windows developer guide][2].
