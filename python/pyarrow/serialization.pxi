@@ -137,6 +137,10 @@ cdef class SerializationContext:
                     obj.__dict__.update(serialized_obj)
         return obj
 
+
+_default_serialization_context = SerializationContext()
+
+
 cdef class SerializedPyObject:
     """
     Arrow-serialized representation of Python object
@@ -174,6 +178,9 @@ cdef class SerializedPyObject:
         """
         cdef PyObject* result
 
+        if context is None:
+            context = _default_serialization_context
+
         with nogil:
             check_status(DeserializeObject(context, self.data,
                                            <PyObject*> self.base, &result))
@@ -202,7 +209,8 @@ def serialize(object value, SerializationContext context=None):
     value: object
         Python object for the sequence that is to be serialized.
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context, uses a default
+        context with some standard type handlers if not specified
 
     Returns
     -------
@@ -210,6 +218,10 @@ def serialize(object value, SerializationContext context=None):
     """
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
+
+    if context is None:
+        context = _default_serialization_context
+
     with nogil:
         check_status(SerializeObject(context, wrapped_value, &serialized.data))
     return serialized
@@ -225,7 +237,8 @@ def serialize_to(object value, sink, SerializationContext context=None):
     sink: NativeFile or file-like
         File the sequence will be written to.
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context, uses a default
+        context with some standard type handlers if not specified
     """
     serialized = serialize(value, context)
     serialized.write_to(sink)
