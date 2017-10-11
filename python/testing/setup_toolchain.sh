@@ -59,7 +59,5 @@ conda create -y -q -p $CPP_TOOLCHAIN python=3.6 \
     ninja
 
 if [ $BUILD_OS_NAME == "osx" ]; then
-  brew update > /dev/null
-  brew install jemalloc
-  brew install ccache
+  brew update && brew bundle --file=python/Brewfile
 fi

@@ -72,7 +72,7 @@ matrix:
     before_script:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_PLASMA=1
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    - travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh

@@ -22,10 +22,7 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew install gtk-doc autoconf-archive gobject-introspection
-  brew upgrade git cmake
-  brew outdated || brew upgrade wget
-  brew outdated || brew upgrade libtool
+  brew update && brew bundle --file=c_glib/Brewfile
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
 fi
@@ -33,7 +30,6 @@ fi
 gem install test-unit gobject-introspection
 
 if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew install lua
   sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 else
   git clone \
