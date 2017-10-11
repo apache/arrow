@@ -39,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
 public class ZeroVector implements FieldVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
 
-  private final String name = "[DEFAULT]";
+  public static final String NAME = "[DEFAULT]";
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -109,7 +109,7 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public Field getField() {
-    return new Field(name, FieldType.nullable(new Null()), null);
+    return new Field(NAME, FieldType.nullable(new Null()), null);
   }
 
   @Override

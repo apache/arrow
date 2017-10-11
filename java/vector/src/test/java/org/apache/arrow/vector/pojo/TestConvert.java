@@ -21,13 +21,20 @@ package org.apache.arrow.vector.pojo;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
@@ -48,6 +55,73 @@ import org.junit.Test;
  */
 public class TestConvert {
 
+  private static String badSchemaJson = "{\n" +
+    "  \"fields\" : [ {\n" +
+    "    \"nullable\" : true,\n" +
+    "    \"type\" : {\n" +
+    "      \"name\" : \"struct\"\n" +
+    "    },\n" +
+    "    \"children\" : [ {\n" +
+    "      \"nullable\" : true,\n" +
+    "      \"type\" : {\n" +
+    "        \"name\" : \"list\"\n" +
+    "      },\n" +
+    "      \"children\" : [ {\n" +
+    "        \"nullable\" : true,\n" +
+    "        \"type\" : {\n" +
+    "          \"name\" : \"null\"\n" +
+    "        },\n" +
+    "        \"children\" : [ ],\n" +
+    "        \"typeLayout\" : {\n" +
+    "          \"vectors\" : [ ]\n" +
+    "        },\n" +
+    "        \"name\" : \"[DEFAULT]\"\n" +
+    "      } ],\n" +
+    "      \"typeLayout\" : {\n" +
+    "        \"vectors\" : [ {\n" +
+    "          \"type\" : \"VALIDITY\",\n" +
+    "          \"typeBitWidth\" : 1\n" +
+    "        }, {\n" +
+    "          \"type\" : \"OFFSET\",\n" +
+    "          \"typeBitWidth\" : 32\n" +
+    "        } ]\n" +
+    "      },\n" +
+    "      \"name\" : \"list\"\n" +
+    "    }, {\n" +
+    "      \"nullable\" : true,\n" +
+    "      \"type\" : {\n" +
+    "        \"name\" : \"fixedsizelist\",\n" +
+    "        \"listSize\" : 5\n" +
+    "      },\n" +
+    "      \"children\" : [ {\n" +
+    "        \"nullable\" : true,\n" +
+    "        \"type\" : {\n" +
+    "          \"name\" : \"null\"\n" +
+    "        },\n" +
+    "        \"children\" : [ ],\n" +
+    "        \"typeLayout\" : {\n" +
+    "          \"vectors\" : [ ]\n" +
+    "        },\n" +
+    "        \"name\" : \"$data$\"\n" +
+    "      } ],\n" +
+    "      \"typeLayout\" : {\n" +
+    "        \"vectors\" : [ {\n" +
+    "          \"type\" : \"VALIDITY\",\n" +
+    "          \"typeBitWidth\" : 1\n" +
+    "        } ]\n" +
+    "      },\n" +
+    "      \"name\" : \"fixedlist\"\n" +
+    "    } ],\n" +
+    "    \"typeLayout\" : {\n" +
+    "      \"vectors\" : [ {\n" +
+    "        \"type\" : \"VALIDITY\",\n" +
+    "        \"typeBitWidth\" : 1\n" +
+    "      } ]\n" +
+    "    },\n" +
+    "    \"name\" : \"a\"\n" +
+    "  } ]\n" +
+    "}\n";
+
   @Test
   public void simple() {
     Field initialField = new Field("a", FieldType.nullable(new Int(32, true)), null);
@@ -62,6 +136,40 @@ public class TestConvert {
 
     Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
     run(initialField);
+  }
+
+  @Test
+  public void list() throws Exception {
+    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         ListVector writeVector = ListVector.empty("list", allocator)) {
+      Field listVectorField = writeVector.getField();
+      childrenBuilder.add(listVectorField);
+    }
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         FixedSizeListVector writeVector = FixedSizeListVector.empty("fixedlist", 5, allocator)) {
+      Field listVectorField = writeVector.getField();
+      childrenBuilder.add(listVectorField);
+    }
+
+    Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
+    ImmutableList.Builder<Field> parentBuilder = ImmutableList.builder();
+    parentBuilder.add(initialField);
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    builder.finish(initialField.getField(builder));
+    org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
+    Field finalField = Field.convertField(flatBufField);
+    assertEquals(initialField, finalField);
+    assertTrue(!finalField.toString().contains(ZeroVector.NAME));
+
+
+    Schema initialSchema = new Schema(parentBuilder.build());
+    Schema tempSchema = Schema.fromJSON(badSchemaJson);
+    FlatBufferBuilder schemaBuilder = new FlatBufferBuilder();
+    org.apache.arrow.vector.types.pojo.Schema schema = new org.apache.arrow.vector.types.pojo.Schema(tempSchema.getFields());
+    schemaBuilder.finish(schema.getSchema(schemaBuilder));
+    Schema finalSchema = Schema.deserialize(ByteBuffer.wrap(schemaBuilder.sizedByteArray()));
+    assertTrue(!finalSchema.toString().contains(ZeroVector.NAME));
   }
 
   @Test

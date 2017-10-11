@@ -633,11 +633,11 @@ public class TestListVector {
   public void testConsistentChildName() throws Exception {
     try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
       String emptyListStr = listVector.getField().toString();
-      assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
+      Assert.assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
 
-      listVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
+      listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       String emptyVectorStr = listVector.getField().toString();
-      assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+      Assert.assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
     }
   }
 }

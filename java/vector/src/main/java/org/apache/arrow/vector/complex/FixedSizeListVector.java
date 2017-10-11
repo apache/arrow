@@ -31,7 +31,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 
-import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -53,6 +52,8 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 public class FixedSizeListVector extends BaseValueVector implements FieldVector, PromotableVector {
 
@@ -98,6 +99,9 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public Field getField() {
+    if (getDataVector() instanceof ZeroVector) {
+      return new Field(name, fieldType, ImmutableList.of(new Field(DATA_VECTOR_NAME, FieldType.nullable(ArrowType.Null.INSTANCE), null)));
+    }
     List<Field> children = ImmutableList.of(getDataVector().getField());
     return new Field(name, fieldType, children);
   }

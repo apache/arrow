@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types.pojo;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.Iterator;
@@ -39,8 +40,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -121,7 +124,18 @@ public class Field {
     }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
-      childrenBuilder.add(convertField(field.children(i)));
+      Field childField = convertField(field.children(i));
+      if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
+        && childField.getName().equals(ZeroVector.NAME)) {
+        Field modifiedField = new Field(DATA_VECTOR_NAME, childField.isNullable(), childField.getType(),
+          childField.getDictionary(),
+          childField.getChildren(),
+          childField.getTypeLayout(),
+          childField.getMetadata());
+        childrenBuilder.add(modifiedField);
+        continue;
+      }
+      childrenBuilder.add(childField);
     }
     List<Field> children = childrenBuilder.build();
     ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
