@@ -110,3 +110,33 @@ Studio 2015):
 ```
 dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
 ```
+
+## Creating API documentation
+
+The generation of API documentation for `C++`, `C Glib`, `Python` 
+and `Java` has been Dockerized. To generate the API documentation
+run the following command:
+
+```shell
+bash dev/gen_apidocs.sh
+```
+
+This script assumes that the `parquet-cpp` Git repository 
+https://github.com/apache/parquet-cpp has been cloned
+besides the Arrow repository and a `dist` directory can be created
+at the same level by the current user. Please note that most of the
+software must be built in order to create the documentation, so this
+step may take some time to run, especially the first time around as the
+Docker container will also have to be built.
+
+After successfully creating the API documentation the website can be
+run locally to browse the API documentation from the top level
+`Documentation` menu. To run the website issue the command:
+
+```shell
+bash dev/run_site.sh
+```
+
+The local URL for the website running inside the docker container
+will be shown as `Server address:` in the output of the command.
+To stop the server press `Ctrl-C` in that window.
