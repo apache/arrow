@@ -22,11 +22,15 @@
 #include <sstream>
 
 #include <datetime.h>
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/python/platform.h"
 
 namespace arrow {
 namespace py {
+
+// The following code is adapted from
+// https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
 
 // Days per month, regular year and leap year
 static int _days_per_month_table[2][12] = {
@@ -95,6 +99,68 @@ static int64_t get_days_from_date(int64_t date_year,
     return days;
 }
 
+// Modifies '*days_' to be the day offset within the year,
+// and returns the year.
+static int64_t days_to_yearsdays(int64_t* days_) {
+    const int64_t days_per_400years = (400*365 + 100 - 4 + 1);
+    // Adjust so it's relative to the year 2000 (divisible by 400)
+    int64_t days = (*days_) - (365*30 + 7);
+    int64_t year;
+
+    // Break down the 400 year cycle to get the year and day within the year
+    if (days >= 0) {
+        year = 400 * (days / days_per_400years);
+        days = days % days_per_400years;
+    } else {
+        year = 400 * ((days - (days_per_400years - 1)) / days_per_400years);
+        days = days % days_per_400years;
+        if (days < 0) {
+            days += days_per_400years;
+        }
+    }
+
+    // Work out the year/day within the 400 year cycle
+    if (days >= 366) {
+        year += 100 * ((days-1) / (100*365 + 25 - 1));
+        days = (days-1) % (100*365 + 25 - 1);
+        if (days >= 365) {
+            year += 4 * ((days+1) / (4*365 + 1));
+            days = (days+1) % (4*365 + 1);
+            if (days >= 366) {
+                year += (days-1) / 365;
+                days = (days-1) % 365;
+            }
+        }
+    }
+
+    *days_ = days;
+    return year + 2000;
+}
+
+// Extracts the month and year and day number from a number of days
+static void get_date_from_days(int64_t days,
+                               int64_t* date_year,
+                               int64_t* date_month,
+                               int64_t* date_day) {
+    int *month_lengths, i;
+
+    *date_year = days_to_yearsdays(&days);
+    month_lengths = _days_per_month_table[is_leapyear(*date_year)];
+
+    for (i = 0; i < 12; ++i) {
+        if (days < month_lengths[i]) {
+            *date_month = i + 1;
+            *date_day = days + 1;
+            return;
+        } else {
+            days -= month_lengths[i];
+        }
+    }
+
+    // Should never get here
+    return;
+}
+
 static inline int64_t PyTime_to_us(PyObject* pytime) {
   return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
           static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
@@ -102,9 +168,28 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
-static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
-                                     PyObject** out) {
-  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+
+// Splitting time quantities, for example splitting total seconds into
+// minutes and remaining seconds. After we run
+// int64_t remaining = split_time(total, quotient, &next)
+// we have
+// total = next * quotient + remaining. Handles negative values by propagating
+// them: If total is negative, next will be negative and remaining will
+// always be non-negative.
+static inline int64_t split_time(int64_t total, int64_t quotient, int64_t* next) {
+  int64_t r = total % quotient;
+  if (r < 0) {
+    *next = total / quotient - 1;
+    return r + quotient;
+  } else {
+    *next = total / quotient;
+    return r;
+  }
+}
+
+static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
+                                        int64_t *hour, int64_t *minute,
+                                        int64_t *second, int64_t *microsecond) {
   switch (unit) {
     case TimeUnit::NANO:
       if (val % 1000 != 0) {
@@ -115,26 +200,27 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
       val /= 1000;
     // fall through
     case TimeUnit::MICRO:
-      microsecond = val - (val / 1000000LL) * 1000000LL;
-      val /= 1000000LL;
-      second = val - (val / 60) * 60;
-      val /= 60;
-      minute = val - (val / 60) * 60;
-      hour = val / 60;
+      *microsecond = split_time(val, 1000000LL, &val);
+      *second = split_time(val, 60, &val);
+      *minute = split_time(val, 60, hour);
       break;
     case TimeUnit::MILLI:
-      microsecond = (val - (val / 1000) * 1000) * 1000;
-      val /= 1000;
+      *microsecond = split_time(val, 1000, &val) * 1000;
     // fall through
     case TimeUnit::SECOND:
-      second = val - (val / 60) * 60;
-      val /= 60;
-      minute = val - (val / 60) * 60;
-      hour = val / 60;
+      *second = split_time(val, 60, &val);
+      *minute = split_time(val, 60, hour);
       break;
     default:
       break;
   }
+  return Status::OK();
+}
+
+static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
+                                     PyObject** out) {
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
                          static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
   return Status::OK();
@@ -142,39 +228,14 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
 
 static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
                                          PyObject** out) {
-  int64_t microsecond = 0;
-  switch (unit) {
-    case TimeUnit::NANO:
-      if (val % 1000 != 0) {
-        std::stringstream ss;
-        ss << "Value " << val << " has non-zero nanoseconds";
-        return Status::Invalid(ss.str());
-      }
-      val /= 1000;
-    // fall through
-    case TimeUnit::MICRO:
-      microsecond = val - (val / 1000000LL) * 1000000LL;
-      val /= 1000000LL;
-      break;
-    case TimeUnit::MILLI:
-      microsecond = (val - (val / 1000) * 1000) * 1000;
-      val /= 1000;
-      break;
-    case TimeUnit::SECOND:
-      break;
-    default:
-      break;
-  }
-  // Now val is in seconds and we are going to do the inverse of what
-  // PyDateTime_to_us does.
-  time_t t = static_cast<time_t>(val);
-  struct tm datetime;
-  struct tm* result = gmtime_r(&t, &datetime);
-  ARROW_CHECK(result != NULL);
-  *out = PyDateTime_FromDateAndTime(datetime.tm_year + 1900, datetime.tm_mon + 1,
-                                    datetime.tm_mday, datetime.tm_hour,
-                                    datetime.tm_min, std::min(59, datetime.tm_sec),
-                                    microsecond);
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
+  int64_t total_days = 0;
+  hour = split_time(hour, 24, &total_days);
+  int64_t year = 0, month = 0, day = 0;
+  get_date_from_days(total_days, &year, &month, &day);
+  *out = PyDateTime_FromDateAndTime(year, month, day, hour,
+                                    minute, second, microsecond);
   return Status::OK();
 }
 
@@ -191,17 +252,9 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
 }
 
 static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DATE_GET_SECOND(pydatetime);
-  total_seconds += PyDateTime_DATE_GET_MINUTE(pydatetime) * 60;
-  total_seconds += PyDateTime_DATE_GET_HOUR(pydatetime) * 3600;
-  int64_t days = get_days_from_date(PyDateTime_GET_YEAR(pydatetime),
-                                    PyDateTime_GET_MONTH(pydatetime),
-                                    PyDateTime_GET_DAY(pydatetime));
-  total_seconds += days * 24 * 3600;
+  int64_t ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-
-  return total_seconds * 1000000 + us;
+  return ms * 1000 + us;
 }
 
 static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {

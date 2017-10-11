@@ -326,7 +326,10 @@ def test_datetime_serialization(large_memory_map):
             datetime.datetime(year=1989, month=11, day=9),
             # Another random date
             datetime.datetime(year=2011, month=6, day=3, hour=4,
-                              minute=55, second=44)]
+                              minute=0, second=3),
+            # Another random date
+            datetime.datetime(year=1970, month=1, day=3, hour=4,
+                              minute=0, second=0)]
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for d in data:
             serialization_roundtrip(d, mmap)
