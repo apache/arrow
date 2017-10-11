@@ -33,12 +33,12 @@ namespace py {
 // https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
 
 // Days per month, regular year and leap year
-static int _days_per_month_table[2][12] = {
+static int64_t _days_per_month_table[2][12] = {
     { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 },
     { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
 };
 
-static int is_leapyear(int64_t year) {
+static bool is_leapyear(int64_t year) {
     return (year & 0x3) == 0 && // year % 4 == 0
            ((year % 100) != 0 ||
             (year % 400) == 0);
@@ -48,9 +48,9 @@ static int is_leapyear(int64_t year) {
 static int64_t get_days_from_date(int64_t date_year,
                                   int64_t date_month,
                                   int64_t date_day) {
-    int i, month;
+    int64_t i, month;
     int64_t year, days = 0;
-    int *month_lengths;
+    int64_t *month_lengths;
 
     year = date_year - 1970;
     days = year * 365;
@@ -142,7 +142,7 @@ static void get_date_from_days(int64_t days,
                                int64_t* date_year,
                                int64_t* date_month,
                                int64_t* date_day) {
-    int *month_lengths, i;
+    int64_t *month_lengths, i;
 
     *date_year = days_to_yearsdays(&days);
     month_lengths = _days_per_month_table[is_leapyear(*date_year)];
@@ -234,8 +234,13 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   hour = split_time(hour, 24, &total_days);
   int64_t year = 0, month = 0, day = 0;
   get_date_from_days(total_days, &year, &month, &day);
-  *out = PyDateTime_FromDateAndTime(year, month, day, hour,
-                                    minute, second, microsecond);
+  *out = PyDateTime_FromDateAndTime(static_cast<int32_t>(year),
+                                    static_cast<int32_t>(month),
+                                    static_cast<int32_t>(day),
+                                    static_cast<int32_t>(hour),
+                                    static_cast<int32_t>(minute),
+                                    static_cast<int32_t>(second),
+                                    static_cast<int32_t>(microsecond));
   return Status::OK();
 }
 
