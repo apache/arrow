@@ -43,6 +43,9 @@ class DeserializationCallbackError(ArrowSerializationError):
         self.type_id = type_id
 
 
+_default_serialization_context = SerializationContext()
+
+
 cdef class SerializationContext:
     cdef:
         object type_to_type_id
@@ -136,9 +139,6 @@ cdef class SerializationContext:
                     serialized_obj.pop("_pytype_")
                     obj.__dict__.update(serialized_obj)
         return obj
-
-
-_default_serialization_context = SerializationContext()
 
 
 cdef class SerializedPyObject:
