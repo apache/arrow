@@ -116,6 +116,8 @@ from pyarrow.ipc import (Message, MessageReader,
 
 localfs = LocalFileSystem.get_instance()
 
+from pyarrow.serialization import _default_serialization_context
+
 import pyarrow.types as types
 
 # Entry point for starting the plasma store
