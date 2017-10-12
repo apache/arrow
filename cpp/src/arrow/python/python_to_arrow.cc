@@ -434,7 +434,6 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
               std::vector<PyObject*>* sublists, std::vector<PyObject*>* subtuples,
               std::vector<PyObject*>* subdicts, std::vector<PyObject*>* subsets,
               std::vector<PyObject*>* tensors_out) {
-  PyDateTime_IMPORT;
   // The bool case must precede the int case (PyInt_Check passes for bools)
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
@@ -670,6 +669,7 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
+  PyDateTime_IMPORT;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
   std::vector<PyObject*> py_tensors;
