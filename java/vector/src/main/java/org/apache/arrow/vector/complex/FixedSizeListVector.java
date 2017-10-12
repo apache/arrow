@@ -99,9 +99,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public Field getField() {
-    if (getDataVector() instanceof ZeroVector) {
-      return new Field(name, fieldType, ImmutableList.of(new Field(DATA_VECTOR_NAME, FieldType.nullable(ArrowType.Null.INSTANCE), null)));
-    }
     List<Field> children = ImmutableList.of(getDataVector().getField());
     return new Field(name, fieldType, children);
   }

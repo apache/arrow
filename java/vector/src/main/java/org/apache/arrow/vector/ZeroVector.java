@@ -18,6 +18,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -109,7 +111,7 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public Field getField() {
-    return new Field(NAME, FieldType.nullable(new Null()), null);
+    return new Field(DATA_VECTOR_NAME, FieldType.nullable(new Null()), null);
   }
 
   @Override
