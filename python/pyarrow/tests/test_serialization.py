@@ -181,67 +181,18 @@ CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
 
 def make_serialization_context():
 
-    def array_custom_serializer(obj):
-        return obj.tolist(), obj.dtype.str
+    context = pa._default_serialization_context
 
-    def array_custom_deserializer(serialized_obj):
-        return np.array(serialized_obj[0], dtype=np.dtype(serialized_obj[1]))
-
-    context = pa.SerializationContext()
-
-    # This is for numpy arrays of "object" only; primitive types are handled
-    # efficiently with Arrow's Tensor facilities (see python_to_arrow.cc)
-    context.register_type(np.ndarray, 20 * b"\x00",
-                          custom_serializer=array_custom_serializer,
-                          custom_deserializer=array_custom_deserializer)
-
-    context.register_type(Foo, 20 * b"\x01")
-    context.register_type(Bar, 20 * b"\x02")
-    context.register_type(Baz, 20 * b"\x03")
-    context.register_type(Qux, 20 * b"\x04")
-    context.register_type(SubQux, 20 * b"\x05")
-    context.register_type(SubQuxPickle, 20 * b"\x05", pickle=True)
-    context.register_type(Exception, 20 * b"\x06")
-    context.register_type(CustomError, 20 * b"\x07")
-    context.register_type(Point, 20 * b"\x08")
-    context.register_type(NamedTupleExample, 20 * b"\x09")
-
-    # TODO(pcm): This is currently a workaround until arrow supports
-    # arbitrary precision integers. This is only called on long integers,
-    # see the associated case in the append method in python_to_arrow.cc
-    context.register_type(int, 20 * b"\x10", pickle=False,
-                          custom_serializer=lambda obj: str(obj),
-                          custom_deserializer=(
-                              lambda serialized_obj: int(serialized_obj)))
-
-    if (sys.version_info < (3, 0)):
-        deserializer = (
-            lambda serialized_obj: long(serialized_obj))  # noqa: E501,F821
-        context.register_type(long, 20 * b"\x11", pickle=False,  # noqa: E501,F821
-                              custom_serializer=lambda obj: str(obj),
-                              custom_deserializer=deserializer)
-
-    def ordered_dict_custom_serializer(obj):
-        return list(obj.keys()), list(obj.values())
-
-    def ordered_dict_custom_deserializer(obj):
-        return OrderedDict(zip(obj[0], obj[1]))
-
-    context.register_type(OrderedDict, 20 * b"\x12", pickle=False,
-                          custom_serializer=ordered_dict_custom_serializer,
-                          custom_deserializer=ordered_dict_custom_deserializer)
-
-    def default_dict_custom_serializer(obj):
-        return list(obj.keys()), list(obj.values()), obj.default_factory
-
-    def default_dict_custom_deserializer(obj):
-        return defaultdict(obj[2], zip(obj[0], obj[1]))
-
-    context.register_type(defaultdict, 20 * b"\x13", pickle=False,
-                          custom_serializer=default_dict_custom_serializer,
-                          custom_deserializer=default_dict_custom_deserializer)
-
-    context.register_type(type(lambda: 0), 20 * b"\x14", pickle=True)
+    context.register_type(Foo, "Foo")
+    context.register_type(Bar, "Bar")
+    context.register_type(Baz, "Baz")
+    context.register_type(Qux, "Quz")
+    context.register_type(SubQux, "SubQux")
+    context.register_type(SubQuxPickle, "SubQuxPickle", pickle=True)
+    context.register_type(Exception, "Exception")
+    context.register_type(CustomError, "CustomError")
+    context.register_type(Point, "Point")
+    context.register_type(NamedTupleExample, "NamedTupleExample")
 
     return context
 
