@@ -36,6 +36,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
+#include "arrow/python/util/datetime.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
@@ -59,6 +60,7 @@ class SequenceBuilder {
         strings_(pool),
         floats_(::arrow::float32(), pool),
         doubles_(::arrow::float64(), pool),
+        date64s_(::arrow::date64(), pool),
         tensor_indices_(::arrow::int32(), pool),
         list_offsets_({0}),
         tuple_offsets_({0}),
@@ -123,6 +125,11 @@ class SequenceBuilder {
   /// Appending a double to the sequence
   Status AppendDouble(const double data) {
     return AppendPrimitive(data, &double_tag_, &doubles_);
+  }
+
+  /// Appending a Date64 timestamp to the sequence
+  Status AppendDate64(const int64_t timestamp) {
+    return AppendPrimitive(timestamp, &date64_tag_, &date64s_);
   }
 
   /// Appending a tensor to the sequence
@@ -217,6 +224,7 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddElement(bytes_tag_, &bytes_));
     RETURN_NOT_OK(AddElement(float_tag_, &floats_));
     RETURN_NOT_OK(AddElement(double_tag_, &doubles_));
+    RETURN_NOT_OK(AddElement(date64_tag_, &date64s_));
     RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_));
 
     RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
@@ -244,6 +252,7 @@ class SequenceBuilder {
   StringBuilder strings_;
   FloatBuilder floats_;
   DoubleBuilder doubles_;
+  Date64Builder date64s_;
 
   // We use an Int32Builder here to distinguish the tensor indices from
   // the ints_ above (see the case Type::INT32 in get_value in python.cc).
@@ -267,6 +276,7 @@ class SequenceBuilder {
   int8_t bytes_tag_ = -1;
   int8_t float_tag_ = -1;
   int8_t double_tag_ = -1;
+  int8_t date64_tag_ = -1;
 
   int8_t tensor_tag_ = -1;
   int8_t list_tag_ = -1;
@@ -485,6 +495,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
                                  subdicts, tensors_out));
   } else if (elem == Py_None) {
     RETURN_NOT_OK(builder->AppendNone());
+  } else if (PyDateTime_CheckExact(elem)) {
+    PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
+    RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
@@ -656,6 +669,7 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
+  PyDateTime_IMPORT;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
   std::vector<PyObject*> py_tensors;
