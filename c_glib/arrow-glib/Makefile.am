@@ -17,7 +17,8 @@
 
 CLEANFILES =
 
-EXTRA_DIST =
+EXTRA_DIST =					\
+	meson.build
 
 AM_CPPFLAGS =					\
 	-I$(top_builddir)			\

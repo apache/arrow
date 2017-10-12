@@ -1,3 +1,5 @@
+# -*- indent-tabs-mode: nil -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,20 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
-
-SUBDIRS =					\
-	arrow-glib				\
-	doc					\
-	example					\
-	tool
-
-EXTRA_DIST =					\
-	README.md				\
-	meson.build				\
-	meson_options.txt			\
-	test
-
-arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
-arrow_glib_doc_DATA =				\
-	README.md
+option('enable_gtk_doc',
+       type: 'boolean',
+       value: false,
+       description: 'Build document by GTK-Doc')

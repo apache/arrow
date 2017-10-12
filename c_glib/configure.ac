@@ -100,8 +100,10 @@ AC_CONFIG_FILES([
   arrow-glib/arrow-glib.pc
   doc/Makefile
   doc/reference/Makefile
+  doc/reference/xml/Makefile
   example/Makefile
   example/lua/Makefile
+  tool/Makefile
 ])
 
 AC_OUTPUT

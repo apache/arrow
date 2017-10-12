@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,20 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+import os
+import re
 
-SUBDIRS =					\
-	arrow-glib				\
-	doc					\
-	example					\
-	tool
-
-EXTRA_DIST =					\
-	README.md				\
-	meson.build				\
-	meson_options.txt			\
-	test
-
-arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
-arrow_glib_doc_DATA =				\
-	README.md
+root = os.environ.get("MESON_SOURCE_ROOT", ".")
+pom_xml = os.path.join(root, "..", "java", "pom.xml")
+with open(pom_xml) as pom:
+    version_tag = re.search('^  <version>(.+)</version>',
+                            pom.read(),
+                            re.MULTILINE)
+    print(version_tag.group(1))

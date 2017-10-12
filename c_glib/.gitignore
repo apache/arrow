@@ -30,6 +30,9 @@ Makefile.in
 /doc/reference/*.stamp
 /doc/reference/html/
 /doc/reference/xml/
+/doc/reference/xml/*
+!/doc/reference/xml/meson.build
+!/doc/reference/xml/gtkdocentities.ent.in
 /doc/reference/tmpl/
 /libtool
 /m4/

@@ -15,20 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
-
-SUBDIRS =					\
-	arrow-glib				\
-	doc					\
-	example					\
-	tool
-
 EXTRA_DIST =					\
-	README.md				\
-	meson.build				\
-	meson_options.txt			\
-	test
-
-arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
-arrow_glib_doc_DATA =				\
-	README.md
+	get-version.py
