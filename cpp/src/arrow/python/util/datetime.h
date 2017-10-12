@@ -18,11 +18,148 @@
 #ifndef PYARROW_UTIL_DATETIME_H
 #define PYARROW_UTIL_DATETIME_H
 
+#include <algorithm>
+#include <sstream>
+
 #include <datetime.h>
+#include "arrow/status.h"
+#include "arrow/util/logging.h"
 #include "arrow/python/platform.h"
 
 namespace arrow {
 namespace py {
+
+// The following code is adapted from
+// https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
+
+// Days per month, regular year and leap year
+static int64_t _days_per_month_table[2][12] = {
+    { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 },
+    { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+};
+
+static bool is_leapyear(int64_t year) {
+    return (year & 0x3) == 0 && // year % 4 == 0
+           ((year % 100) != 0 ||
+            (year % 400) == 0);
+}
+
+// Calculates the days offset from the 1970 epoch.
+static int64_t get_days_from_date(int64_t date_year,
+                                  int64_t date_month,
+                                  int64_t date_day) {
+    int64_t i, month;
+    int64_t year, days = 0;
+    int64_t *month_lengths;
+
+    year = date_year - 1970;
+    days = year * 365;
+
+    // Adjust for leap years
+    if (days >= 0) {
+        // 1968 is the closest leap year before 1970.
+        // Exclude the current year, so add 1.
+        year += 1;
+        // Add one day for each 4 years
+        days += year / 4;
+        // 1900 is the closest previous year divisible by 100
+        year += 68;
+        // Subtract one day for each 100 years
+        days -= year / 100;
+        // 1600 is the closest previous year divisible by 400
+        year += 300;
+        // Add one day for each 400 years
+        days += year / 400;
+    } else {
+        // 1972 is the closest later year after 1970.
+        // Include the current year, so subtract 2.
+        year -= 2;
+        // Subtract one day for each 4 years
+        days += year / 4;
+        // 2000 is the closest later year divisible by 100
+        year -= 28;
+        // Add one day for each 100 years
+        days -= year / 100;
+        // 2000 is also the closest later year divisible by 400
+        // Subtract one day for each 400 years
+        days += year / 400;
+    }
+
+    month_lengths = _days_per_month_table[is_leapyear(date_year)];
+    month = date_month - 1;
+
+    // Add the months
+    for (i = 0; i < month; ++i) {
+        days += month_lengths[i];
+    }
+
+    // Add the days
+    days += date_day - 1;
+
+    return days;
+}
+
+// Modifies '*days_' to be the day offset within the year,
+// and returns the year.
+static int64_t days_to_yearsdays(int64_t* days_) {
+    const int64_t days_per_400years = (400*365 + 100 - 4 + 1);
+    // Adjust so it's relative to the year 2000 (divisible by 400)
+    int64_t days = (*days_) - (365*30 + 7);
+    int64_t year;
+
+    // Break down the 400 year cycle to get the year and day within the year
+    if (days >= 0) {
+        year = 400 * (days / days_per_400years);
+        days = days % days_per_400years;
+    } else {
+        year = 400 * ((days - (days_per_400years - 1)) / days_per_400years);
+        days = days % days_per_400years;
+        if (days < 0) {
+            days += days_per_400years;
+        }
+    }
+
+    // Work out the year/day within the 400 year cycle
+    if (days >= 366) {
+        year += 100 * ((days-1) / (100*365 + 25 - 1));
+        days = (days-1) % (100*365 + 25 - 1);
+        if (days >= 365) {
+            year += 4 * ((days+1) / (4*365 + 1));
+            days = (days+1) % (4*365 + 1);
+            if (days >= 366) {
+                year += (days-1) / 365;
+                days = (days-1) % 365;
+            }
+        }
+    }
+
+    *days_ = days;
+    return year + 2000;
+}
+
+// Extracts the month and year and day number from a number of days
+static void get_date_from_days(int64_t days,
+                               int64_t* date_year,
+                               int64_t* date_month,
+                               int64_t* date_day) {
+    int64_t *month_lengths, i;
+
+    *date_year = days_to_yearsdays(&days);
+    month_lengths = _days_per_month_table[is_leapyear(*date_year)];
+
+    for (i = 0; i < 12; ++i) {
+        if (days < month_lengths[i]) {
+            *date_month = i + 1;
+            *date_day = days + 1;
+            return;
+        } else {
+            days -= month_lengths[i];
+        }
+    }
+
+    // Should never get here
+    return;
+}
 
 static inline int64_t PyTime_to_us(PyObject* pytime) {
   return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
@@ -31,9 +168,28 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
-static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
-                                     PyObject** out) {
-  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+
+// Splitting time quantities, for example splitting total seconds into
+// minutes and remaining seconds. After we run
+// int64_t remaining = split_time(total, quotient, &next)
+// we have
+// total = next * quotient + remaining. Handles negative values by propagating
+// them: If total is negative, next will be negative and remaining will
+// always be non-negative.
+static inline int64_t split_time(int64_t total, int64_t quotient, int64_t* next) {
+  int64_t r = total % quotient;
+  if (r < 0) {
+    *next = total / quotient - 1;
+    return r + quotient;
+  } else {
+    *next = total / quotient;
+    return r;
+  }
+}
+
+static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
+                                        int64_t *hour, int64_t *minute,
+                                        int64_t *second, int64_t *microsecond) {
   switch (unit) {
     case TimeUnit::NANO:
       if (val % 1000 != 0) {
@@ -44,75 +200,66 @@ static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
       val /= 1000;
     // fall through
     case TimeUnit::MICRO:
-      microsecond = val - (val / 1000000LL) * 1000000LL;
-      val /= 1000000LL;
-      second = val - (val / 60) * 60;
-      val /= 60;
-      minute = val - (val / 60) * 60;
-      hour = val / 60;
+      *microsecond = split_time(val, 1000000LL, &val);
+      *second = split_time(val, 60, &val);
+      *minute = split_time(val, 60, hour);
       break;
     case TimeUnit::MILLI:
-      microsecond = (val - (val / 1000) * 1000) * 1000;
-      val /= 1000;
+      *microsecond = split_time(val, 1000, &val) * 1000;
     // fall through
     case TimeUnit::SECOND:
-      second = val - (val / 60) * 60;
-      val /= 60;
-      minute = val - (val / 60) * 60;
-      hour = val / 60;
+      *second = split_time(val, 60, &val);
+      *minute = split_time(val, 60, hour);
       break;
     default:
       break;
   }
+  return Status::OK();
+}
+
+static inline Status PyTime_from_int(int64_t val, const TimeUnit::type unit,
+                                     PyObject** out) {
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
   *out = PyTime_FromTime(static_cast<int32_t>(hour), static_cast<int32_t>(minute),
                          static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
   return Status::OK();
 }
 
-static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
-  struct tm date;
-  memset(&date, 0, sizeof(struct tm));
-  date.tm_year = PyDateTime_GET_YEAR(pydate) - 1900;
-  date.tm_mon = PyDateTime_GET_MONTH(pydate) - 1;
-  date.tm_mday = PyDateTime_GET_DAY(pydate);
-  struct tm epoch;
-  memset(&epoch, 0, sizeof(struct tm));
+static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
+                                         PyObject** out) {
+  int64_t hour = 0, minute = 0, second = 0, microsecond = 0;
+  RETURN_NOT_OK(PyTime_convert_int(val, unit, &hour, &minute, &second, &microsecond));
+  int64_t total_days = 0;
+  hour = split_time(hour, 24, &total_days);
+  int64_t year = 0, month = 0, day = 0;
+  get_date_from_days(total_days, &year, &month, &day);
+  *out = PyDateTime_FromDateAndTime(static_cast<int32_t>(year),
+                                    static_cast<int32_t>(month),
+                                    static_cast<int32_t>(day),
+                                    static_cast<int32_t>(hour),
+                                    static_cast<int32_t>(minute),
+                                    static_cast<int32_t>(second),
+                                    static_cast<int32_t>(microsecond));
+  return Status::OK();
+}
 
-  epoch.tm_year = 70;
-  epoch.tm_mday = 1;
-#ifdef _MSC_VER
-  // Milliseconds since the epoch
-  const int64_t current_timestamp = static_cast<int64_t>(_mkgmtime64(&date));
-  const int64_t epoch_timestamp = static_cast<int64_t>(_mkgmtime64(&epoch));
-  return (current_timestamp - epoch_timestamp) * 1000LL;
-#else
-  return lrint(difftime(mktime(&date), mktime(&epoch)) * 1000);
-#endif
+static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
+  int64_t total_seconds = 0;
+  total_seconds += PyDateTime_DATE_GET_SECOND(pydate);
+  total_seconds += PyDateTime_DATE_GET_MINUTE(pydate) * 60;
+  total_seconds += PyDateTime_DATE_GET_HOUR(pydate) * 3600;
+  int64_t days = get_days_from_date(PyDateTime_GET_YEAR(pydate),
+                                    PyDateTime_GET_MONTH(pydate),
+                                    PyDateTime_GET_DAY(pydate));
+  total_seconds += days * 24 * 3600;
+  return total_seconds * 1000;
 }
 
 static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  struct tm datetime;
-  memset(&datetime, 0, sizeof(struct tm));
-  datetime.tm_year = PyDateTime_GET_YEAR(pydatetime) - 1900;
-  datetime.tm_mon = PyDateTime_GET_MONTH(pydatetime) - 1;
-  datetime.tm_mday = PyDateTime_GET_DAY(pydatetime);
-  datetime.tm_hour = PyDateTime_DATE_GET_HOUR(pydatetime);
-  datetime.tm_min = PyDateTime_DATE_GET_MINUTE(pydatetime);
-  datetime.tm_sec = PyDateTime_DATE_GET_SECOND(pydatetime);
+  int64_t ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-  struct tm epoch;
-  memset(&epoch, 0, sizeof(struct tm));
-  epoch.tm_year = 70;
-  epoch.tm_mday = 1;
-#ifdef _MSC_VER
-  // Microseconds since the epoch
-  const int64_t current_timestamp = static_cast<int64_t>(_mkgmtime64(&datetime));
-  const int64_t epoch_timestamp = static_cast<int64_t>(_mkgmtime64(&epoch));
-  return (current_timestamp - epoch_timestamp) * 1000000L + us;
-#else
-  return static_cast<int64_t>(
-      lrint(difftime(mktime(&datetime), mktime(&epoch))) * 1000000 + us);
-#endif
+  return ms * 1000 + us;
 }
 
 static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {
