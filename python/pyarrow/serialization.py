@@ -18,6 +18,8 @@
 from collections import OrderedDict, defaultdict
 import sys
 
+import numpy as np
+
 from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.lib import _default_serialization_context
 
@@ -75,23 +77,20 @@ _default_serialization_context.register_type(
 # Set up serialization for numpy with dtype object (primitive types are
 # handled efficiently with Arrow's Tensor facilities, see python_to_arrow.cc)
 
-try:
-    import numpy as np
 
-    def _serialize_numpy_array(obj):
-        return obj.tolist(), obj.dtype.str
+def _serialize_numpy_array(obj):
+    return obj.tolist(), obj.dtype.str
 
-    def _deserialize_numpy_array(data):
-        return np.array(data[0], dtype=np.dtype(data[1]))
 
-    _default_serialization_context.register_type(
-        np.ndarray, 'np.array',
-        custom_serializer=_serialize_numpy_array,
-        custom_deserializer=_deserialize_numpy_array)
+def _deserialize_numpy_array(data):
+    return np.array(data[0], dtype=np.dtype(data[1]))
 
-except ImportError:
-    # no numpy
-    pass
+
+_default_serialization_context.register_type(
+    np.ndarray, 'np.array',
+    custom_serializer=_serialize_numpy_array,
+    custom_deserializer=_deserialize_numpy_array)
+
 
 # ----------------------------------------------------------------------
 # Set up serialization for pandas Series and DataFrame
