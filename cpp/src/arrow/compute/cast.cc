@@ -123,6 +123,12 @@ struct CastFunctor<T, NullType, typename std::enable_if<
   }
 };
 
+template <>
+struct CastFunctor<NullType, DictionaryType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {}
+};
+
 // ----------------------------------------------------------------------
 // Boolean to other things
 
@@ -499,23 +505,25 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input
       return Status::NotImplemented(ss.str());
     }
 
-    const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
+    if (type_id != Type::NA) {
+      const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
 
-    int bit_width = fw_type.bit_width();
-    int64_t buffer_size = 0;
+      int bit_width = fw_type.bit_width();
+      int64_t buffer_size = 0;
 
-    if (bit_width == 1) {
-      buffer_size = BitUtil::BytesForBits(length);
-    } else if (bit_width % 8 == 0) {
-      buffer_size = length * fw_type.bit_width() / 8;
-    } else {
-      DCHECK(false);
+      if (bit_width == 1) {
+        buffer_size = BitUtil::BytesForBits(length);
+      } else if (bit_width % 8 == 0) {
+        buffer_size = length * fw_type.bit_width() / 8;
+      } else {
+        DCHECK(false);
+      }
+
+      RETURN_NOT_OK(ctx->Allocate(buffer_size, &out_data));
+      memset(out_data->mutable_data(), 0, buffer_size);
+
+      out->buffers.push_back(out_data);
     }
-
-    RETURN_NOT_OK(ctx->Allocate(buffer_size, &out_data));
-    memset(out_data->mutable_data(), 0, buffer_size);
-
-    out->buffers.push_back(out_data);
   }
 
   return Status::OK();
@@ -601,6 +609,7 @@ class CastKernel : public UnaryKernel {
 #define TIMESTAMP_CASES(FN, IN_TYPE) FN(TimestampType, TimestampType);
 
 #define DICTIONARY_CASES(FN, IN_TYPE) \
+  FN(IN_TYPE, NullType);              \
   FN(IN_TYPE, Time32Type);            \
   FN(IN_TYPE, Date32Type);            \
   FN(IN_TYPE, TimestampType);         \

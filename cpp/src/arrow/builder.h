@@ -905,6 +905,28 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   int32_t byte_width_;
 };
 
+template <>
+class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
+ public:
+  ~DictionaryBuilder();
+
+  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  explicit DictionaryBuilder(MemoryPool* pool);
+
+  /// \brief Append a scalar null value
+  Status AppendNull();
+
+  /// \brief Append a whole dense array to the builder
+  Status AppendArray(const Array& array);
+
+  Status Init(int64_t elements) override;
+  Status Resize(int64_t capacity) override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+ protected:
+  AdaptiveIntBuilder values_builder_;
+};
+
 class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
  public:
   using DictionaryBuilder::Append;

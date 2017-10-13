@@ -75,6 +75,12 @@ std::shared_ptr<Array> TestBase::MakeRandomArray(int64_t length, int64_t null_co
 }
 
 template <>
+std::shared_ptr<Array> TestBase::MakeRandomArray<NullArray>(int64_t length,
+                                                            int64_t null_count) {
+  return std::make_shared<NullArray>(length);
+}
+
+template <>
 std::shared_ptr<Array> TestBase::MakeRandomArray<FixedSizeBinaryArray>(
     int64_t length, int64_t null_count) {
   const int byte_width = 10;
