@@ -257,7 +257,7 @@ def test_default_dict_serialization(large_memory_map):
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["int8", "uint8", "int16", "uint16", "int32", "uint32",
+        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32", "uint32",
                   "float16", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)

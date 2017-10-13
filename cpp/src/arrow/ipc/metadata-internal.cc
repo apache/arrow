@@ -462,6 +462,10 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
 static Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type,
                                      flatbuf::Type* out_type, Offset* offset) {
   switch (type.id()) {
+    case Type::BOOL:
+      *out_type = flatbuf::Type_Bool;
+      *offset = flatbuf::CreateBool(fbb).Union();
+      break;
     case Type::UINT8:
       INT_TO_FB_CASE(8, false);
     case Type::INT8:
