@@ -328,7 +328,7 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
 
-  int bit_width() const override { return 8; }
+  int bit_width() const override { return CHAR_BIT; }
   std::string name() const override { return "bool"; }
 };
 
