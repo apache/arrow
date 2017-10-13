@@ -908,13 +908,11 @@ Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-Status DictionaryBuilder<NullType>::Finish(std::shared_ptr<Array>* out) {
+Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
-  std::shared_ptr<Array> values;
-  RETURN_NOT_OK(values_builder_.Finish(&values));
 
-  auto type = std::make_shared<DictionaryType>(values->type(), dictionary);
-  *out = std::make_shared<DictionaryArray>(type, values);
+  RETURN_NOT_OK(values_builder_.FinishInternal(out));
+  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
   return Status::OK();
 }
 

@@ -913,9 +913,6 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
   DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
   explicit DictionaryBuilder(MemoryPool* pool);
 
-  /// \brief Append a scalar value
-  // Status Append(const Scalar& value);
-
   /// \brief Append a scalar null value
   Status AppendNull();
 
@@ -924,7 +921,7 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
-  Status Finish(std::shared_ptr<Array>* out) override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  protected:
   AdaptiveIntBuilder values_builder_;
