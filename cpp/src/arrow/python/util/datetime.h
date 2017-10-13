@@ -22,9 +22,9 @@
 #include <sstream>
 
 #include <datetime.h>
+#include "arrow/python/platform.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/python/platform.h"
 
 namespace arrow {
 namespace py {
@@ -34,131 +34,126 @@ namespace py {
 
 // Days per month, regular year and leap year
 static int64_t _days_per_month_table[2][12] = {
-    { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 },
-    { 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
-};
+    {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+    {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}};
 
 static bool is_leapyear(int64_t year) {
-    return (year & 0x3) == 0 && // year % 4 == 0
-           ((year % 100) != 0 ||
-            (year % 400) == 0);
+  return (year & 0x3) == 0 &&  // year % 4 == 0
+         ((year % 100) != 0 || (year % 400) == 0);
 }
 
 // Calculates the days offset from the 1970 epoch.
-static int64_t get_days_from_date(int64_t date_year,
-                                  int64_t date_month,
+static int64_t get_days_from_date(int64_t date_year, int64_t date_month,
                                   int64_t date_day) {
-    int64_t i, month;
-    int64_t year, days = 0;
-    int64_t *month_lengths;
+  int64_t i, month;
+  int64_t year, days = 0;
+  int64_t* month_lengths;
 
-    year = date_year - 1970;
-    days = year * 365;
+  year = date_year - 1970;
+  days = year * 365;
 
-    // Adjust for leap years
-    if (days >= 0) {
-        // 1968 is the closest leap year before 1970.
-        // Exclude the current year, so add 1.
-        year += 1;
-        // Add one day for each 4 years
-        days += year / 4;
-        // 1900 is the closest previous year divisible by 100
-        year += 68;
-        // Subtract one day for each 100 years
-        days -= year / 100;
-        // 1600 is the closest previous year divisible by 400
-        year += 300;
-        // Add one day for each 400 years
-        days += year / 400;
-    } else {
-        // 1972 is the closest later year after 1970.
-        // Include the current year, so subtract 2.
-        year -= 2;
-        // Subtract one day for each 4 years
-        days += year / 4;
-        // 2000 is the closest later year divisible by 100
-        year -= 28;
-        // Add one day for each 100 years
-        days -= year / 100;
-        // 2000 is also the closest later year divisible by 400
-        // Subtract one day for each 400 years
-        days += year / 400;
-    }
+  // Adjust for leap years
+  if (days >= 0) {
+    // 1968 is the closest leap year before 1970.
+    // Exclude the current year, so add 1.
+    year += 1;
+    // Add one day for each 4 years
+    days += year / 4;
+    // 1900 is the closest previous year divisible by 100
+    year += 68;
+    // Subtract one day for each 100 years
+    days -= year / 100;
+    // 1600 is the closest previous year divisible by 400
+    year += 300;
+    // Add one day for each 400 years
+    days += year / 400;
+  } else {
+    // 1972 is the closest later year after 1970.
+    // Include the current year, so subtract 2.
+    year -= 2;
+    // Subtract one day for each 4 years
+    days += year / 4;
+    // 2000 is the closest later year divisible by 100
+    year -= 28;
+    // Add one day for each 100 years
+    days -= year / 100;
+    // 2000 is also the closest later year divisible by 400
+    // Subtract one day for each 400 years
+    days += year / 400;
+  }
 
-    month_lengths = _days_per_month_table[is_leapyear(date_year)];
-    month = date_month - 1;
+  month_lengths = _days_per_month_table[is_leapyear(date_year)];
+  month = date_month - 1;
 
-    // Add the months
-    for (i = 0; i < month; ++i) {
-        days += month_lengths[i];
-    }
+  // Add the months
+  for (i = 0; i < month; ++i) {
+    days += month_lengths[i];
+  }
 
-    // Add the days
-    days += date_day - 1;
+  // Add the days
+  days += date_day - 1;
 
-    return days;
+  return days;
 }
 
 // Modifies '*days_' to be the day offset within the year,
 // and returns the year.
 static int64_t days_to_yearsdays(int64_t* days_) {
-    const int64_t days_per_400years = (400*365 + 100 - 4 + 1);
-    // Adjust so it's relative to the year 2000 (divisible by 400)
-    int64_t days = (*days_) - (365*30 + 7);
-    int64_t year;
+  const int64_t days_per_400years = (400 * 365 + 100 - 4 + 1);
+  // Adjust so it's relative to the year 2000 (divisible by 400)
+  int64_t days = (*days_) - (365 * 30 + 7);
+  int64_t year;
 
-    // Break down the 400 year cycle to get the year and day within the year
-    if (days >= 0) {
-        year = 400 * (days / days_per_400years);
-        days = days % days_per_400years;
-    } else {
-        year = 400 * ((days - (days_per_400years - 1)) / days_per_400years);
-        days = days % days_per_400years;
-        if (days < 0) {
-            days += days_per_400years;
-        }
+  // Break down the 400 year cycle to get the year and day within the year
+  if (days >= 0) {
+    year = 400 * (days / days_per_400years);
+    days = days % days_per_400years;
+  } else {
+    year = 400 * ((days - (days_per_400years - 1)) / days_per_400years);
+    days = days % days_per_400years;
+    if (days < 0) {
+      days += days_per_400years;
     }
+  }
 
-    // Work out the year/day within the 400 year cycle
-    if (days >= 366) {
-        year += 100 * ((days-1) / (100*365 + 25 - 1));
-        days = (days-1) % (100*365 + 25 - 1);
-        if (days >= 365) {
-            year += 4 * ((days+1) / (4*365 + 1));
-            days = (days+1) % (4*365 + 1);
-            if (days >= 366) {
-                year += (days-1) / 365;
-                days = (days-1) % 365;
-            }
-        }
+  // Work out the year/day within the 400 year cycle
+  if (days >= 366) {
+    year += 100 * ((days - 1) / (100 * 365 + 25 - 1));
+    days = (days - 1) % (100 * 365 + 25 - 1);
+    if (days >= 365) {
+      year += 4 * ((days + 1) / (4 * 365 + 1));
+      days = (days + 1) % (4 * 365 + 1);
+      if (days >= 366) {
+        year += (days - 1) / 365;
+        days = (days - 1) % 365;
+      }
     }
+  }
 
-    *days_ = days;
-    return year + 2000;
+  *days_ = days;
+  return year + 2000;
 }
 
 // Extracts the month and year and day number from a number of days
-static void get_date_from_days(int64_t days,
-                               int64_t* date_year,
-                               int64_t* date_month,
+static void get_date_from_days(int64_t days, int64_t* date_year, int64_t* date_month,
                                int64_t* date_day) {
-    int64_t *month_lengths, i;
+  int64_t *month_lengths, i;
 
-    *date_year = days_to_yearsdays(&days);
-    month_lengths = _days_per_month_table[is_leapyear(*date_year)];
+  *date_year = days_to_yearsdays(&days);
+  month_lengths = _days_per_month_table[is_leapyear(*date_year)];
 
-    for (i = 0; i < 12; ++i) {
-        if (days < month_lengths[i]) {
-            *date_month = i + 1;
-            *date_day = days + 1;
-            return;
-        } else {
-            days -= month_lengths[i];
-        }
+  for (i = 0; i < 12; ++i) {
+    if (days < month_lengths[i]) {
+      *date_month = i + 1;
+      *date_day = days + 1;
+      return;
+    } else {
+      days -= month_lengths[i];
     }
+  }
 
-    // Should never get here
-    return;
+  // Should never get here
+  return;
 }
 
 static inline int64_t PyTime_to_us(PyObject* pytime) {
@@ -167,7 +162,6 @@ static inline int64_t PyTime_to_us(PyObject* pytime) {
           static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
-
 
 // Splitting time quantities, for example splitting total seconds into
 // minutes and remaining seconds. After we run
@@ -188,8 +182,8 @@ static inline int64_t split_time(int64_t total, int64_t quotient, int64_t* next)
 }
 
 static inline Status PyTime_convert_int(int64_t val, const TimeUnit::type unit,
-                                        int64_t *hour, int64_t *minute,
-                                        int64_t *second, int64_t *microsecond) {
+                                        int64_t* hour, int64_t* minute, int64_t* second,
+                                        int64_t* microsecond) {
   switch (unit) {
     case TimeUnit::NANO:
       if (val % 1000 != 0) {
@@ -234,13 +228,10 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   hour = split_time(hour, 24, &total_days);
   int64_t year = 0, month = 0, day = 0;
   get_date_from_days(total_days, &year, &month, &day);
-  *out = PyDateTime_FromDateAndTime(static_cast<int32_t>(year),
-                                    static_cast<int32_t>(month),
-                                    static_cast<int32_t>(day),
-                                    static_cast<int32_t>(hour),
-                                    static_cast<int32_t>(minute),
-                                    static_cast<int32_t>(second),
-                                    static_cast<int32_t>(microsecond));
+  *out = PyDateTime_FromDateAndTime(
+      static_cast<int32_t>(year), static_cast<int32_t>(month), static_cast<int32_t>(day),
+      static_cast<int32_t>(hour), static_cast<int32_t>(minute),
+      static_cast<int32_t>(second), static_cast<int32_t>(microsecond));
   return Status::OK();
 }
 
@@ -249,9 +240,9 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   total_seconds += PyDateTime_DATE_GET_SECOND(pydate);
   total_seconds += PyDateTime_DATE_GET_MINUTE(pydate) * 60;
   total_seconds += PyDateTime_DATE_GET_HOUR(pydate) * 3600;
-  int64_t days = get_days_from_date(PyDateTime_GET_YEAR(pydate),
-                                    PyDateTime_GET_MONTH(pydate),
-                                    PyDateTime_GET_DAY(pydate));
+  int64_t days =
+      get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
+                         PyDateTime_GET_DAY(pydate));
   total_seconds += days * 24 * 3600;
   return total_seconds * 1000;
 }
