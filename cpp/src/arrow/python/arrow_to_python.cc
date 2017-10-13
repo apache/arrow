@@ -177,7 +177,7 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       uint8_t type = type_ids[i];                                                     \
       PyObject* value;                                                                \
       RETURN_NOT_OK(                                                                  \
-          GetValue(context, *data.child(type), offset, type, base, tensors, &value)); \
+          GetValue(context, *data.UnsafeChild(type), offset, type, base, tensors, &value)); \
       SET_ITEM_FN(result.get(), i - start_idx, value);                                \
     }                                                                                 \
   }                                                                                   \
@@ -217,7 +217,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
       int8_t type = type_ids[i];
       PyObject* value;
       RETURN_NOT_OK(
-          GetValue(context, *data.child(type), offset, type, base, tensors, &value));
+          GetValue(context, *data.UnsafeChild(type), offset, type, base, tensors, &value));
       if (PySet_Add(result.get(), value) < 0) {
         RETURN_IF_PYERROR();
       }

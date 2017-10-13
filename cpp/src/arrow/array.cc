@@ -375,6 +375,14 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
   return boxed_fields_[i];
 }
 
+const Array* UnionArray::UnsafeChild(int i) const {
+  if (!boxed_fields_[i]) {
+    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+  }
+  DCHECK(boxed_fields_[i]);
+  return boxed_fields_[i].get();
+}
+
 // ----------------------------------------------------------------------
 // DictionaryArray
 
