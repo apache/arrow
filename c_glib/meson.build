@@ -55,6 +55,7 @@ configure_file(output: 'config.h', configuration: conf)
 root_inc = include_directories('.')
 
 subdir('arrow-glib')
+subdir('example')
 
 if get_option('enable_gtk_doc')
   subdir('doc/reference')

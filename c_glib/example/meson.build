@@ -1,3 +1,5 @@
+# -*- indent-tabs-mode: nil -*-
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,41 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS	=					\
-	lua
-
-EXTRA_DIST =					\
-	meson.build
-
-AM_CPPFLAGS =					\
-	-I$(top_builddir)			\
-	-I$(top_srcdir)				\
-	-DGARROW_DISABLE_DEPRECATED
-
-AM_CFLAGS =					\
-	$(GLIB_CFLAGS)				\
-	$(GARROW_CFLAGS)
-
-AM_LDFLAGS =						\
-	$(GLIB_LIBS)					\
-	$(builddir)/../arrow-glib/libarrow-glib.la
-
-noinst_PROGRAMS =				\
-	build					\
-	read-batch				\
-	read-stream
-
-build_SOURCES =					\
-	build.c
-
-read_batch_SOURCES =				\
-	read-batch.c
-
-read_stream_SOURCES =				\
-	read-stream.c
-
-dist_example_DATA =				\
-	README.md				\
-	$(build_SOURCES)			\
-	$(read_batch_SOURCES)			\
-	$(read_stream_SOURCES)
+executable('build', 'build.c',
+	   dependencies: [libarrow_glib_dependency])
+executable('read-batch', 'read-batch.c',
+	   dependencies: [libarrow_glib_dependency])
+executable('read-stream', 'read-stream.c',
+	   dependencies: [libarrow_glib_dependency])
