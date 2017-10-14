@@ -163,26 +163,25 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
   return Status::OK();
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                                  \
-  const auto& data = static_cast<const UnionArray&>(array);                           \
-  int64_t size = array.length();                                                      \
-  ScopedRef result(CREATE_FN(stop_idx - start_idx));                                  \
-  auto types = std::make_shared<Int8Array>(size, data.type_ids());                    \
-  auto offsets = std::make_shared<Int32Array>(size, data.value_offsets());            \
-  for (int64_t i = start_idx; i < stop_idx; ++i) {                                    \
-    if (data.IsNull(i)) {                                                             \
-      Py_INCREF(Py_None);                                                             \
-      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                              \
-    } else {                                                                          \
-      int64_t offset = offsets->Value(i);                                             \
-      int8_t type = types->Value(i);                                                  \
-      PyObject* value;                                                                \
-      RETURN_NOT_OK(                                                                  \
-          GetValue(context, *data.child(type), offset, type, base, tensors, &value)); \
-      SET_ITEM_FN(result.get(), i - start_idx, value);                                \
-    }                                                                                 \
-  }                                                                                   \
-  *out = result.release();                                                            \
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                               \
+  const auto& data = static_cast<const UnionArray&>(array);                        \
+  ScopedRef result(CREATE_FN(stop_idx - start_idx));                               \
+  const uint8_t* type_ids = data.raw_type_ids();                                   \
+  const int32_t* value_offsets = data.raw_value_offsets();                         \
+  for (int64_t i = start_idx; i < stop_idx; ++i) {                                 \
+    if (data.IsNull(i)) {                                                          \
+      Py_INCREF(Py_None);                                                          \
+      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                           \
+    } else {                                                                       \
+      int64_t offset = value_offsets[i];                                           \
+      uint8_t type = type_ids[i];                                                  \
+      PyObject* value;                                                             \
+      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base, \
+                             tensors, &value));                                    \
+      SET_ITEM_FN(result.get(), i - start_idx, value);                             \
+    }                                                                              \
+  }                                                                                \
+  *out = result.release();                                                         \
   return Status::OK()
 
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,
@@ -204,10 +203,9 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
                       const std::vector<std::shared_ptr<Tensor>>& tensors,
                       PyObject** out) {
   const auto& data = static_cast<const UnionArray&>(array);
-  int64_t size = array.length();
   ScopedRef result(PySet_New(nullptr));
-  auto types = std::make_shared<Int8Array>(size, data.type_ids());
-  auto offsets = std::make_shared<Int32Array>(size, data.value_offsets());
+  const uint8_t* type_ids = data.raw_type_ids();
+  const int32_t* value_offsets = data.raw_value_offsets();
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
@@ -215,11 +213,11 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
         RETURN_IF_PYERROR();
       }
     } else {
-      int64_t offset = offsets->Value(i);
-      int8_t type = types->Value(i);
+      int32_t offset = value_offsets[i];
+      int8_t type = type_ids[i];
       PyObject* value;
-      RETURN_NOT_OK(
-          GetValue(context, *data.child(type), offset, type, base, tensors, &value));
+      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base,
+                             tensors, &value));
       if (PySet_Add(result.get(), value) < 0) {
         RETURN_IF_PYERROR();
       }
