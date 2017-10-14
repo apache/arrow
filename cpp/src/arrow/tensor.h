@@ -32,6 +32,8 @@ namespace arrow {
 
 static inline bool is_tensor_supported(Type::type type_id) {
   switch (type_id) {
+    case Type::BOOL:
+    case Type::BOOL8:
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
