@@ -49,7 +49,7 @@ struct Type {
     /// Boolean as 1 bit, LSB bit-packed ordering
     BOOL,
 
-    /// Boolean as 1 byte
+    /// Boolean as 1 byte (may only be used in Tensors)
     BOOL8,
 
     /// Unsigned 8-bit little-endian integer
