@@ -190,6 +190,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build with zstd compression"
     ON)
 
+  option(ARROW_WITH_GRPC
+    "Build with GRPC"
+    OFF)
+
   option(ARROW_VERBOSE_THIRDPARTY_BUILD
     "If off, output from ExternalProjects will be logged to files rather than shown"
     ON)
@@ -508,6 +512,14 @@ endif()
 
 if (ARROW_WITH_ZSTD)
   SET(ARROW_STATIC_LINK_LIBS zstd_static ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_WITH_GRPC)
+  SET(ARROW_STATIC_LINK_LIBS
+    grpc_grp
+    grpc_grpc
+    grpc_grpcpp
+    ${ARROW_STATIC_LINK_LIBS})
 endif()
 
 if (ARROW_STATIC_LINK_LIBS)
