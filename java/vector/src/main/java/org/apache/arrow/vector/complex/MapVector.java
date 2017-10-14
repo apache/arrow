@@ -35,9 +35,7 @@ import com.google.common.primitives.Ints;
 import io.netty.buffer.ArrowBuf;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BaseValueVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -272,10 +270,19 @@ public class MapVector extends AbstractMapVector {
       Map<String, Object> vv = new JsonStringHashMap<>();
       for (String child : getChildFieldNames()) {
         ValueVector v = getChild(child);
-        if (v != null && index < v.getAccessor().getValueCount()) {
-          Object value = v.getAccessor().getObject(index);
-          if (value != null) {
-            vv.put(child, value);
+        if (v instanceof  NullableVarCharVector || v instanceof  NullableIntVector) {
+          if (v != null && index < v.getValueCount()) {
+            Object value = v.getObject(index);
+            if (value != null) {
+              vv.put(child, value);
+            }
+          }
+        } else {
+          if (v != null && index < v.getAccessor().getValueCount()) {
+            Object value = v.getAccessor().getObject(index);
+            if (value != null) {
+              vv.put(child, value);
+            }
           }
         }
       }
@@ -302,7 +309,11 @@ public class MapVector extends AbstractMapVector {
     @Override
     public void setValueCount(int valueCount) {
       for (final ValueVector v : getChildren()) {
-        v.getMutator().setValueCount(valueCount);
+        if (v instanceof NullableIntVector || v instanceof NullableVarCharVector) {
+          v.setValueCount(valueCount);
+        } else {
+          v.getMutator().setValueCount(valueCount);
+        }
       }
       MapVector.this.valueCount = valueCount;
     }
@@ -361,5 +372,11 @@ public class MapVector extends AbstractMapVector {
   public List<FieldVector> getChildrenFromFields() {
     return getChildren();
   }
+
+  public int getValueCount() { return 0; }
+
+  public void setValueCount(int valueCount) { }
+
+  public Object getObject(int index) { return null; }
 
 }

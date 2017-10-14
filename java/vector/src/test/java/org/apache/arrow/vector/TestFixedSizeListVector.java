@@ -54,15 +54,14 @@ public class TestFixedSizeListVector {
   public void testIntType() {
     try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
       NullableIntVector nested = (NullableIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
-      NullableIntVector.Mutator mutator = nested.getMutator();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
         vector.getMutator().setNotNull(i);
-        mutator.set(i * 2, i);
-        mutator.set(i * 2 + 1, i + 10);
+        nested.set(i * 2, i);
+        nested.set(i * 2 + 1, i + 10);
       }
-      vector.getMutator().setValueCount(10);
+      vector.setValueCount(10);
 
       UnionFixedSizeListReader reader = vector.getReader();
       for (int i = 0; i < 10; i++) {
@@ -119,7 +118,7 @@ public class TestFixedSizeListVector {
       ListVector.Mutator mutator = vector.getMutator();
       FixedSizeListVector tuples = (FixedSizeListVector) vector.addOrGetVector(FieldType.nullable(new ArrowType.FixedSizeList(2))).getVector();
       FixedSizeListVector.Mutator tupleMutator = tuples.getMutator();
-      NullableIntVector.Mutator innerMutator = (NullableIntVector.Mutator) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector().getMutator();
+      NullableIntVector innerVector = (NullableIntVector) tuples.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
@@ -127,8 +126,8 @@ public class TestFixedSizeListVector {
           int position = mutator.startNewValue(i);
           for (int j = 0; j < i % 7; j++) {
             tupleMutator.setNotNull(position + j);
-            innerMutator.set((position + j) * 2, j);
-            innerMutator.set((position + j) * 2 + 1, j + 1);
+            innerVector.set((position + j) * 2, j);
+            innerVector.set((position + j) * 2 + 1, j + 1);
           }
           mutator.endValue(i, i % 7);
         }
