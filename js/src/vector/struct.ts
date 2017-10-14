@@ -26,8 +26,8 @@ export class StructVector extends Vector<any[]> {
         this.length = Math.max(0, ...vectors.map((v) => v.length));
         validity && (this.validity = BitVector.from(validity));
     }
-    get(index: number) {
-        return this.validity.get(index) ? this.vectors.map((v) => v.get(index)) : null;
+    get(index: number, batch?: number) {
+        return this.validity.get(index, batch) ? this.vectors.map((v) => v.get(index, batch)) : null;
     }
     concat(vector: StructVector) {
         return StructVector.from(this,

@@ -59,9 +59,10 @@ export class Vector<T> implements Iterable<T> {
     public type: string;
     public length: number;
     public stride: number;
+    public *batches() {}
     public props: Map<PropertyKey, any>;
     protected validity: Vector<boolean>;
-    get(index: number): T { return null; }
+    get(index: number, batch?: number): T { return null; }
     concat(vector: Vector<T>) { return vector; }
     slice<R = T>(start?: number, end?: number, batch?: number) {
         const { stride } = this;
