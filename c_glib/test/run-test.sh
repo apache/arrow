@@ -18,10 +18,16 @@
 # under the License.
 
 test_dir="$(cd $(dirname $0); pwd)"
-libs_dir="${test_dir}/../arrow-glib/.libs"
+base_dir="$(cd .; pwd)"
 
+libs_dir="${base_dir}/arrow-glib/.libs"
 if [ -d "${libs_dir}" ]; then
   LD_LIBRARY_PATH="${libs_dir}:${LD_LIBRARY_PATH}"
+else
+  build_dir="${base_dir}/arrow-glib"
+  if [ -d "${build_dir}" ]; then
+    LD_LIBRARY_PATH="${build_dir}:${LD_LIBRARY_PATH}"
+  fi
 fi
 
 if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
