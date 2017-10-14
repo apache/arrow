@@ -182,7 +182,7 @@ libarrow_glib = library('arrow-glib',
                        version: library_version)
 libarrow_glib_dependency = declare_dependency(link_with: libarrow_glib,
                                               include_directories: [
-                                                include_directories('.'),
+                                                include_directories('..'),
                                               ],
                                               dependencies: dependencies,
                                               sources: generated_headers)
