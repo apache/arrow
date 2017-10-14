@@ -29,6 +29,7 @@ set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
+set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -103,6 +104,10 @@ endif()
 
 if (DEFINED ENV{ZSTD_HOME})
   set(ZSTD_HOME "$ENV{ZSTD_HOME}")
+endif()
+
+if (DEFINED ENV{GRPC_HOME})
+  set(GRPC_HOME "$ENV{GRPC_HOME}")
 endif()
 
 # Ensure that a default make is set
@@ -781,4 +786,50 @@ if (ARROW_WITH_ZSTD)
   if (ZSTD_VENDORED)
     add_dependencies(zstd_static zstd_ep)
   endif()
+endif()
+
+if (ARROW_WITH_GRPC)
+# ----------------------------------------------------------------------
+# GRPC
+  if ("${GRPC_HOME}" STREQUAL "")
+    set(GRPC_VENDORED 1)
+    set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
+    set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep/src/grpc_ep-install")
+    set(GRPC_HOME "${GRPC_PREFIX}")
+    set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
+    set(GRPC_STATIC_LIBRARY_GPR "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_GRPC "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_STATIC_LIBRARY_GRPCPP "${GRPC_BUILD_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(GRPC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                          "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+                          "-DCMAKE_C_FLAGS=${EX_C_FLAGS}"
+                          -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
+                          -DBUILD_SHARED_LIBS=OFF)
+
+    ExternalProject_Add(grpc_ep
+      GIT_REPOSITORY "https://github.com/grpc/grpc"
+      GIT_TAG ${GRPC_VERSION}
+      BUILD_BYPRODUCTS "${GRPC_STATIC_LIBRARY_GPR}" "${GRPC_STATIC_LIBRARY_GRPC}" "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      ${GRPC_BUILD_BYPRODUCTS}
+      ${EP_LOG_OPTIONS}
+      CMAKE_ARGS ${GRPC_CMAKE_ARGS})
+  else()
+    find_package(gRPC CONFIG REQUIRED)
+    set(GRPC_VENDORED 0)
+  endif()
+
+  include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(grpc_grp
+    STATIC_LIB ${GRPC_STATIC_LIBRARY_GPR})
+  ADD_THIRDPARTY_LIB(grpc_grpc
+    STATIC_LIB ${GRPC_STATIC_LIBRARY_GRPC})
+  ADD_THIRDPARTY_LIB(grpc_grpcpp
+    STATIC_LIB ${GRPC_STATIC_LIBRARY_GRPCPP})
+
+  if (GRPC_VENDORED)
+    add_dependencies(grpc_grp grpc_ep)
+    add_dependencies(grpc_grpc grpc_ep)
+    add_dependencies(grpc_grpcpp grpc_ep)
+  endif()
+
 endif()
