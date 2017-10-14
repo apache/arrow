@@ -34,14 +34,7 @@ import com.google.common.collect.ObjectArrays;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.AddOrGetResult;
-import org.apache.arrow.vector.BaseDataValueVector;
-import org.apache.arrow.vector.BaseValueVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -331,9 +324,15 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
         return null;
       }
       final List<Object> vals = new JsonStringArrayList<>(listSize);
-      final ValueVector.Accessor valuesAccessor = vector.getAccessor();
-      for (int i = 0; i < listSize; i++) {
-        vals.add(valuesAccessor.getObject(index * listSize + i));
+      if (vector instanceof NullableIntVector || vector instanceof NullableVarCharVector) {
+        for (int i = 0; i < listSize; i++) {
+          vals.add(vector.getObject(index * listSize + i));
+        }
+      } else {
+        final ValueVector.Accessor valuesAccessor = vector.getAccessor();
+        for (int i = 0; i < listSize; i++) {
+          vals.add(valuesAccessor.getObject(index * listSize + i));
+        }
       }
       return vals;
     }
@@ -367,7 +366,11 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     @Override
     public void setValueCount(int valueCount) {
       bits.getMutator().setValueCount(valueCount);
-      vector.getMutator().setValueCount(valueCount * listSize);
+      if (vector instanceof  NullableIntVector || vector instanceof NullableVarCharVector) {
+        vector.setValueCount(valueCount * listSize);
+      } else {
+        vector.getMutator().setValueCount(valueCount * listSize);
+      }
     }
   }
 

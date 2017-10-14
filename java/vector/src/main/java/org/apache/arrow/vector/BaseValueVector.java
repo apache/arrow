@@ -18,8 +18,10 @@
 
 package org.apache.arrow.vector;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.memory.BufferAllocator;
@@ -122,5 +124,23 @@ public abstract class BaseValueVector implements ValueVector {
   public BufferAllocator getAllocator() {
     return allocator;
   }
+
+  protected void compareTypes(BaseValueVector target, String caller) {
+    if (this.getMinorType() != target.getMinorType()) {
+      throw new UnsupportedOperationException(caller + " should have vectors of exact same type");
+    }
+  }
+
+  protected ArrowBuf releaseBuffer(ArrowBuf buffer) {
+    buffer.release();
+    buffer = allocator.getEmpty();
+    return buffer;
+  }
+
+  public int getValueCount() { return 0; }
+
+  public void setValueCount(int valueCount) { }
+
+  public Object getObject(int index) { return null; }
 }
 

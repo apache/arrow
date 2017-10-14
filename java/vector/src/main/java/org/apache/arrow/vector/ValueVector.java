@@ -255,4 +255,10 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return buffer
    */
   public ArrowBuf getOffsetBuffer();
+
+  public int getValueCount();
+
+  public void setValueCount(int valueCount);
+
+  public Object getObject(int index);
 }

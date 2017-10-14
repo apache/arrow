@@ -97,8 +97,14 @@ public class BaseFileTest {
 
   protected void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
-      Assert.assertEquals(i, root.getVector("int").getAccessor().getObject(i));
-      Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
+      FieldVector fv = root.getVector("int");
+      if (fv instanceof NullableIntVector) {
+        Assert.assertEquals(i, fv.getObject(i));
+        Assert.assertEquals(Integer.valueOf(i), fv.getObject(i));
+      } else {
+        Assert.assertEquals(i, fv.getAccessor().getObject(i));
+        Assert.assertEquals(Long.valueOf(i), fv.getAccessor().getObject(i));
+      }
     }
   }
 
@@ -152,6 +158,7 @@ public class BaseFileTest {
     Assert.assertEquals(count, root.getRowCount());
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
+
       Object intVal = root.getVector("int").getAccessor().getObject(i);
       if (i % 5 != 3) {
         Assert.assertEquals(i, intVal);
@@ -220,22 +227,20 @@ public class BaseFileTest {
     // Define dictionaries and add to provider
     NullableVarCharVector dictionary1Vector = newNullableVarCharVector("D1", bufferAllocator);
     dictionary1Vector.allocateNewSafe();
-    NullableVarCharVector.Mutator mutator = dictionary1Vector.getMutator();
-    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    mutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-    mutator.setValueCount(3);
+    dictionary1Vector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    dictionary1Vector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    dictionary1Vector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+    dictionary1Vector.setValueCount(3);
 
     Dictionary dictionary1 = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
     provider.put(dictionary1);
 
     NullableVarCharVector dictionary2Vector = newNullableVarCharVector("D2", bufferAllocator);
     dictionary2Vector.allocateNewSafe();
-    mutator = dictionary2Vector.getMutator();
-    mutator.set(0, "micro".getBytes(StandardCharsets.UTF_8));
-    mutator.set(1, "small".getBytes(StandardCharsets.UTF_8));
-    mutator.set(2, "large".getBytes(StandardCharsets.UTF_8));
-    mutator.setValueCount(3);
+    dictionary2Vector.set(0, "micro".getBytes(StandardCharsets.UTF_8));
+    dictionary2Vector.set(1, "small".getBytes(StandardCharsets.UTF_8));
+    dictionary2Vector.set(2, "large".getBytes(StandardCharsets.UTF_8));
+    dictionary2Vector.setValueCount(3);
 
     Dictionary dictionary2 = new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
     provider.put(dictionary2);
@@ -243,13 +248,12 @@ public class BaseFileTest {
     // Populate the vectors
     NullableVarCharVector vector1A = newNullableVarCharVector("varcharA", bufferAllocator);
     vector1A.allocateNewSafe();
-    mutator = vector1A.getMutator();
-    mutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    mutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-    mutator.set(3, "baz".getBytes(StandardCharsets.UTF_8));
-    mutator.set(4, "bar".getBytes(StandardCharsets.UTF_8));
-    mutator.set(5, "baz".getBytes(StandardCharsets.UTF_8));
-    mutator.setValueCount(6);
+    vector1A.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    vector1A.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    vector1A.set(3, "baz".getBytes(StandardCharsets.UTF_8));
+    vector1A.set(4, "bar".getBytes(StandardCharsets.UTF_8));
+    vector1A.set(5, "baz".getBytes(StandardCharsets.UTF_8));
+    vector1A.setValueCount(6);
 
     FieldVector encodedVector1A = (FieldVector) DictionaryEncoder.encode(vector1A, dictionary1);
     vector1A.close();  // Done with this vector after encoding
@@ -257,22 +261,20 @@ public class BaseFileTest {
     // Write this vector using indices instead of encoding
     NullableIntVector encodedVector1B = new NullableIntVector("varcharB", bufferAllocator);
     encodedVector1B.allocateNewSafe();
-    NullableIntVector.Mutator mutator1B = encodedVector1B.getMutator();
-    mutator1B.set(0, 2);  // "baz"
-    mutator1B.set(1, 1);  // "bar"
-    mutator1B.set(2, 2);  // "baz"
-    mutator1B.set(4, 1);  // "bar"
-    mutator1B.set(5, 0);  // "foo"
-    mutator1B.setValueCount(6);
+    encodedVector1B.set(0, 2);  // "baz"
+    encodedVector1B.set(1, 1);  // "bar"
+    encodedVector1B.set(2, 2);  // "baz"
+    encodedVector1B.set(4, 1);  // "bar"
+    encodedVector1B.set(5, 0);  // "foo"
+    encodedVector1B.setValueCount(6);
 
     NullableVarCharVector vector2 = newNullableVarCharVector("sizes", bufferAllocator);
     vector2.allocateNewSafe();
-    mutator = vector2.getMutator();
-    mutator.set(1, "large".getBytes(StandardCharsets.UTF_8));
-    mutator.set(2, "small".getBytes(StandardCharsets.UTF_8));
-    mutator.set(3, "small".getBytes(StandardCharsets.UTF_8));
-    mutator.set(4, "large".getBytes(StandardCharsets.UTF_8));
-    mutator.setValueCount(6);
+    vector2.set(1, "large".getBytes(StandardCharsets.UTF_8));
+    vector2.set(2, "small".getBytes(StandardCharsets.UTF_8));
+    vector2.set(3, "small".getBytes(StandardCharsets.UTF_8));
+    vector2.set(4, "large".getBytes(StandardCharsets.UTF_8));
+    vector2.setValueCount(6);
 
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
     vector2.close();  // Done with this vector after encoding
@@ -355,8 +357,8 @@ public class BaseFileTest {
     // Define the dictionary and add to the provider
     NullableVarCharVector dictionaryVector = newNullableVarCharVector("D2", bufferAllocator);
     dictionaryVector.allocateNewSafe();
-    dictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    dictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.getMutator().setValueCount(2);
 
     Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(2L, false, null));

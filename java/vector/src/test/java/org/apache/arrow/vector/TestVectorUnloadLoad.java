@@ -45,13 +45,21 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.*;
 
 public class TestVectorUnloadLoad {
 
-  static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+  private BufferAllocator allocator;
+
+  @Before
+  public void init() {
+    allocator = new RootAllocator(Long.MAX_VALUE);
+  }
+
+  @After
+  public void terminate() throws Exception {
+    allocator.close();
+  }
 
   @Test
   public void testUnloadLoad() throws IOException {
@@ -183,24 +191,40 @@ public class TestVectorUnloadLoad {
    * @throws IOException
    */
   @Test
-  public void testLoadEmptyValidityBuffer() throws IOException {
+  public void testLoadValidityBuffer() throws IOException {
     Schema schema = new Schema(asList(
         new Field("intDefined", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList()),
         new Field("intNull", FieldType.nullable(new ArrowType.Int(32, true)), Collections.<Field>emptyList())
     ));
     int count = 10;
-    ArrowBuf validity = allocator.buffer(10).slice(0, 0);
-    ArrowBuf[] values = new ArrowBuf[2];
-    for (int i = 0; i < values.length; i++) {
-      ArrowBuf arrowBuf = allocator.buffer(count * 4); // integers
-      values[i] = arrowBuf;
+    ArrowBuf[] values = new ArrowBuf[4];
+    for (int i = 0; i < 4; i+=2) {
+      ArrowBuf buf1 = allocator.buffer((int)Math.ceil(count / 8.0));
+      ArrowBuf buf2 = allocator.buffer(count * 4); // integers
+      values[i] = buf1;
+      values[i+1] = buf2;
       for (int j = 0; j < count; j++) {
-        arrowBuf.setInt(j * 4, j);
+        if (i == 2) {
+          BitVectorHelper.setValidityBit(buf1, j, 0);
+        } else {
+          BitVectorHelper.setValidityBitToOne(buf1, j);
+        }
+
+        buf2.setInt(j * 4, j);
       }
-      arrowBuf.writerIndex(count * 4);
+      buf1.writerIndex((int)Math.ceil(count / 8));
+      buf2.writerIndex(count * 4);
     }
+
+    /*
+     * values[0] - validity buffer for first vector
+     * values[1] - data buffer for first vector
+     * values[2] - validity buffer for second vector
+     * values[3] - data buffer for second vector
+     */
+
     try (
-        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(validity, values[0], validity, values[1]));
+        ArrowRecordBatch recordBatch = new ArrowRecordBatch(count, asList(new ArrowFieldNode(count, 0), new ArrowFieldNode(count, count)), asList(values[0], values[1], values[2], values[3]));
         BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
     ) {
@@ -213,32 +237,31 @@ public class TestVectorUnloadLoad {
       NullableIntVector intDefinedVector = (NullableIntVector) newRoot.getVector("intDefined");
       NullableIntVector intNullVector = (NullableIntVector) newRoot.getVector("intNull");
       for (int i = 0; i < count; i++) {
-        assertFalse("#" + i, intDefinedVector.getAccessor().isNull(i));
-        assertEquals("#" + i, i, intDefinedVector.getAccessor().get(i));
-        assertTrue("#" + i, intNullVector.getAccessor().isNull(i));
+        assertFalse("#" + i, intDefinedVector.isNull(i));
+        assertEquals("#" + i, i, intDefinedVector.get(i));
+        assertTrue("#" + i, intNullVector.isNull(i));
       }
-      intDefinedVector.getMutator().setSafe(count + 10, 1234);
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 1));
+      intDefinedVector.setSafe(count + 10, 1234);
+      assertTrue(intDefinedVector.isNull(count + 1));
       // empty slots should still default to unset
-      intDefinedVector.getMutator().setSafe(count + 1, 789);
-      assertFalse(intDefinedVector.getAccessor().isNull(count + 1));
-      assertEquals(789, intDefinedVector.getAccessor().get(count + 1));
-      assertTrue(intDefinedVector.getAccessor().isNull(count));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 2));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 3));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 4));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 5));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 6));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 7));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 8));
-      assertTrue(intDefinedVector.getAccessor().isNull(count + 9));
-      assertFalse(intDefinedVector.getAccessor().isNull(count + 10));
-      assertEquals(1234, intDefinedVector.getAccessor().get(count + 10));
+      intDefinedVector.setSafe(count + 1, 789);
+      assertFalse(intDefinedVector.isNull(count + 1));
+      assertEquals(789, intDefinedVector.get(count + 1));
+      assertTrue(intDefinedVector.isNull(count));
+      assertTrue(intDefinedVector.isNull(count + 2));
+      assertTrue(intDefinedVector.isNull(count + 3));
+      assertTrue(intDefinedVector.isNull(count + 4));
+      assertTrue(intDefinedVector.isNull(count + 5));
+      assertTrue(intDefinedVector.isNull(count + 6));
+      assertTrue(intDefinedVector.isNull(count + 7));
+      assertTrue(intDefinedVector.isNull(count + 8));
+      assertTrue(intDefinedVector.isNull(count + 9));
+      assertFalse(intDefinedVector.isNull(count + 10));
+      assertEquals(1234, intDefinedVector.get(count + 10));
     } finally {
       for (ArrowBuf arrowBuf : values) {
         arrowBuf.release();
       }
-      validity.release();
     }
   }
 
@@ -258,11 +281,11 @@ public class TestVectorUnloadLoad {
         FieldVector vector = field.createVector(originalVectorsAllocator);
         vector.allocateNew();
         sources.add(vector);
-        NullableIntVector.Mutator mutator = (NullableIntVector.Mutator) vector.getMutator();
+        NullableIntVector intVector = (NullableIntVector)vector;
         for (int i = 0; i < count; i++) {
-          mutator.set(i, i);
+          intVector.set(i, i);
         }
-        mutator.setValueCount(count);
+        intVector.setValueCount(count);
       }
 
       try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), sources, count)) {
@@ -277,8 +300,8 @@ public class TestVectorUnloadLoad {
           List<FieldVector> targets = newRoot.getFieldVectors();
           Assert.assertEquals(sources.size(), targets.size());
           for (int k = 0; k < sources.size(); k++) {
-            NullableIntVector.Accessor src = (NullableIntVector.Accessor) sources.get(k).getAccessor();
-            NullableIntVector.Accessor tgt = (NullableIntVector.Accessor) targets.get(k).getAccessor();
+            NullableIntVector src = (NullableIntVector) sources.get(k);
+            NullableIntVector tgt = (NullableIntVector) targets.get(k);
             Assert.assertEquals(src.getValueCount(), tgt.getValueCount());
             for (int i = 0; i < count; i++) {
               Assert.assertEquals(src.get(i), tgt.get(i));
@@ -295,10 +318,5 @@ public class TestVectorUnloadLoad {
     List<FieldVector> fields = root.getChildrenFromFields();
     VectorSchemaRoot vsr = new VectorSchemaRoot(schema.getFields(), fields, valueCount);
     return new VectorUnloader(vsr);
-  }
-
-  @AfterClass
-  public static void afterClass() {
-    allocator.close();
   }
 }
