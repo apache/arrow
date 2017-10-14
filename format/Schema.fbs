@@ -108,6 +108,9 @@ table FixedSizeBinary {
 }
 
 table Bool {
+  /// If this flag is set, the bool is represented as a byte,
+  /// by default it is represented as a bit.
+  is_byte: bool;
 }
 
 table Decimal {

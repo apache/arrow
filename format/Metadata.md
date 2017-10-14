@@ -352,6 +352,9 @@ table FloatingPoint {
 
 The Boolean logical type is represented as a 1-bit wide primitive physical
 type. The bits are numbered using least-significant bit (LSB) ordering.
+Inside of tensors, boolean data may also be represented as
+a 1-byte wide primitive physical type; in this case the
+flag `is_byte` is set.
 
 Like other fixed bit-width primitive types, boolean data appears as 2 buffers
 in the data header (one bitmap for the validity vector and one for the values).

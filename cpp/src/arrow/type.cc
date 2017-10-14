@@ -93,6 +93,8 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
 
 std::string BooleanType::ToString() const { return name(); }
 
+std::string Boolean8Type::ToString() const { return name(); }
+
 FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
 
 FloatingPoint::Precision FloatType::precision() const { return FloatingPoint::SINGLE; }
@@ -368,6 +370,7 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
 
 ACCEPT_VISITOR(NullType);
 ACCEPT_VISITOR(BooleanType);
+ACCEPT_VISITOR(Boolean8Type);
 ACCEPT_VISITOR(BinaryType);
 ACCEPT_VISITOR(FixedSizeBinaryType);
 ACCEPT_VISITOR(StringType);
@@ -391,6 +394,7 @@ ACCEPT_VISITOR(DictionaryType);
 
 TYPE_FACTORY(null, NullType);
 TYPE_FACTORY(boolean, BooleanType);
+TYPE_FACTORY(boolean8, Boolean8Type);
 TYPE_FACTORY(int8, Int8Type);
 TYPE_FACTORY(uint8, UInt8Type);
 TYPE_FACTORY(int16, Int16Type);
@@ -464,6 +468,7 @@ static const BufferDescr kValidityBuffer(BufferType::VALIDITY, 1);
 static const BufferDescr kOffsetBuffer(BufferType::OFFSET, 32);
 static const BufferDescr kTypeBuffer(BufferType::TYPE, 32);
 static const BufferDescr kBooleanBuffer(BufferType::DATA, 1);
+static const BufferDescr kBoolean8Buffer(BufferType::DATA, 8);
 static const BufferDescr kValues64(BufferType::DATA, 64);
 static const BufferDescr kValues32(BufferType::DATA, 32);
 static const BufferDescr kValues16(BufferType::DATA, 16);
