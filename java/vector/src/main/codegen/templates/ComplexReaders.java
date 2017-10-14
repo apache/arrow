@@ -70,7 +70,11 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   
   public boolean isSet(){
     <#if nullMode == "Nullable">
-    return !vector.getAccessor().isNull(idx());
+      <#if minor.class != "Int" && minor.class != "VarChar">
+        return !vector.getAccessor().isNull(idx());
+      <#else>
+        return !vector.isNull(idx());
+      </#if>
     <#else>
     return true;
     </#if>
@@ -93,11 +97,19 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   </#if>
 
   public void read(Nullable${minor.class?cap_first}Holder h){
-    vector.getAccessor().get(idx(), h);
+    <#if minor.class != "Int" && minor.class != "VarChar">
+      vector.getAccessor().get(idx(), h);
+    <#else>
+      vector.get(idx(), h);
+    </#if>
   }
   
   public ${friendlyType} read${safeType}(){
-    return vector.getAccessor().getObject(idx());
+    <#if minor.class == "Int" || minor.class == "VarChar">
+      return vector.getObject(idx());
+    <#else>
+      return vector.getAccessor().getObject(idx());
+    </#if>
   }
 
   <#if minor.class == "TimeStampSec" ||
@@ -115,7 +127,11 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   }
   
   public Object readObject(){
-    return vector.getAccessor().getObject(idx());
+    <#if minor.class == "Int" || minor.class == "VarChar">
+      return (Object)vector.getObject(idx());
+    <#else>
+      return vector.getAccessor().getObject(idx());
+    </#if>
   }
 }
 </#if>

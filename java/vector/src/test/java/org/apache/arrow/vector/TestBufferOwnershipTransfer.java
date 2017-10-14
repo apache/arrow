@@ -40,7 +40,7 @@ public class TestBufferOwnershipTransfer {
 
     NullableIntVector v1 = new NullableIntVector("v1", childAllocator1);
     v1.allocateNew();
-    v1.getMutator().setValueCount(4095);
+    v1.setValueCount(4095);
 
     NullableIntVector v2 = new NullableIntVector("v2", childAllocator2);
 
@@ -60,8 +60,8 @@ public class TestBufferOwnershipTransfer {
 
     NullableVarCharVector v1 = new NullableVarCharVector("v1", childAllocator1);
     v1.allocateNew();
-    v1.getMutator().setSafe(4094, "hello world".getBytes(), 0, 11);
-    v1.getMutator().setValueCount(4001);
+    v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+    v1.setValueCount(4001);
 
     NullableVarCharVector v2 = new NullableVarCharVector("v2", childAllocator2);
 

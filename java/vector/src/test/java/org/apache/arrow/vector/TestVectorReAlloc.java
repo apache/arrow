@@ -76,24 +76,23 @@ public class TestVectorReAlloc {
   @Test
   public void testNullableType() {
     try (final NullableVarCharVector vector = new NullableVarCharVector("", allocator)) {
-      final NullableVarCharVector.Mutator m = vector.getMutator();
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
+        vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
 
       vector.reAlloc();
-      assertEquals(1023, vector.getValueCapacity());
+      assertEquals(1024, vector.getValueCapacity());
 
-      m.set(512, "foo".getBytes(StandardCharsets.UTF_8));
-      assertEquals("foo", new String(vector.getAccessor().get(512), StandardCharsets.UTF_8));
+      vector.set(512, "foo".getBytes(StandardCharsets.UTF_8));
+      assertEquals("foo", new String(vector.get(512), StandardCharsets.UTF_8));
     }
   }
 
@@ -105,7 +104,7 @@ public class TestVectorReAlloc {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
-      assertEquals(1023, vector.getValueCapacity()); // TODO this doubles for some reason...
+      assertEquals(1023, vector.getValueCapacity());
 
       try {
         vector.getOffsetVector().getAccessor().get(2014);

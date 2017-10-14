@@ -581,7 +581,7 @@ public class TestArrowFile extends BaseFileTest {
         tuples.getMutator().setNotNull(i);
         floats.getMutator().set(i * 2, i + 0.1f);
         floats.getMutator().set(i * 2 + 1, i + 10.1f);
-        ints.getMutator().set(i, i);
+        ints.set(i, i);
       }
 
       parent.getMutator().setValueCount(10);
