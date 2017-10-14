@@ -26,6 +26,10 @@ pushd $ARROW_C_GLIB_DIR
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 NO_MAKE=yes test/run-test.sh
 
+if [ $BUILD_SYSTEM = "meson" ]; then
+  exit
+fi
+
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
 export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
