@@ -30,7 +30,7 @@ html_images = [
 
 glib_prefix = dependency('glib-2.0').get_pkgconfig_variable('prefix')
 glib_doc_path = join_paths(glib_prefix, 'share', 'gtk-doc', 'html')
-doc_path = join_paths(datadir, meson.project_name(), 'gtk-doc', 'html')
+doc_path = join_paths(data_dir, meson.project_name(), 'gtk-doc', 'html')
 
 gnome.gtkdoc(meson.project_name(),
              main_xml: meson.project_name() + '-docs.sgml',

@@ -17,20 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-pkg_conf = configuration_data()
-pkg_conf.set('prefix', prefix)
-pkg_conf.set('exec_prefix', prefix)
-pkg_conf.set('libdir', libdir)
-pkg_conf.set('includedir', includedir)
-pkg_conf.set('VERSION', version)
-
-pc = meson.project_name() + '.pc'
-configure_file(input: pc + '.in',
-               output: pc,
-               configuration: pkg_conf,
-               install: true,
-               install_dir: join_paths(libdir, 'pkgconfig'))
-
 sources = files(
   'array.cpp',
   'array-builder.cpp',
@@ -155,7 +141,7 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'garrow',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(includedir, meson.project_name()),
+                      install_dir: join_paths(include_dir, meson.project_name()),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
@@ -185,6 +171,14 @@ libarrow_glib_dependency = declare_dependency(link_with: libarrow_glib,
                                               ],
                                               dependencies: dependencies,
                                               sources: enums_header)
+
+pkgconfig.generate(filebase: meson.project_name(),
+                   name: 'Apache Arrow GLib',
+                   description: 'C API for Apache Arrow based on GLib',
+                   version: version,
+                   requires: ['gobject-2.0', 'arrow'],
+                   libraries: [libarrow_glib],
+                   subdirs: ['arrow-glib'])
 
 gnome.generate_gir(libarrow_glib,
                    sources: sources + c_headers + enums,

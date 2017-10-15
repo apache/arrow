@@ -40,17 +40,11 @@ so_version = 0
 library_version = '@0@.@1@.@2@'.format(so_version, 0, 0)
 
 prefix = get_option('prefix')
-libdir = join_paths(prefix, get_option('libdir'))
-sysconfdir = join_paths(prefix, get_option('sysconfdir'))
-includedir = join_paths(prefix, get_option('includedir'))
-datadir = join_paths(prefix, get_option('datadir'))
-libexecdir = join_paths(prefix, get_option('libexecdir'))
-
-conf = configuration_data()
-conf.set_quoted('VERSION', version)
+include_dir = join_paths(prefix, get_option('includedir'))
+data_dir = join_paths(prefix, get_option('datadir'))
 
 gnome = import('gnome')
-configure_file(output: 'config.h', configuration: conf)
+pkgconfig = import('pkgconfig')
 
 root_inc = include_directories('.')
 
