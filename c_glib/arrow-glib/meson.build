@@ -149,19 +149,19 @@ cpp_headers += files(
 )
 
 
-gnome.mkenums('enums',
-              sources: c_headers,
-              identifier_prefix: 'GArrow',
-              symbol_prefix: 'garrow',
-              c_template: 'enums.c.template',
-              h_template: 'enums.h.template',
-              install_dir: includedir,
-              install_header: true)
-generated_sources = files('enums.c')
-generated_headers = files('enums.h')
+enums = gnome.mkenums('enums',
+                      sources: c_headers,
+                      identifier_prefix: 'GArrow',
+                      symbol_prefix: 'garrow',
+                      c_template: 'enums.c.template',
+                      h_template: 'enums.h.template',
+                      install_dir: includedir,
+                      install_header: true)
+enums_source = enums[0]
+enums_header = enums[1]
 
 
-headers = c_headers + cpp_headers + generated_headers
+headers = c_headers + cpp_headers + [enums_header.full_path()]
 install_headers(headers, subdir: meson.project_name())
 
 
@@ -171,7 +171,7 @@ dependencies = [
   dependency('gio-2.0'),
 ]
 libarrow_glib = library('arrow-glib',
-                        sources: sources + generated_sources,
+                        sources: sources + [enums_source],
                         install: true,
                         dependencies: dependencies,
                         include_directories: [
@@ -185,10 +185,10 @@ libarrow_glib_dependency = declare_dependency(link_with: libarrow_glib,
                                                 include_directories('..'),
                                               ],
                                               dependencies: dependencies,
-                                              sources: generated_headers)
+                                              sources: enums_header)
 
 gnome.generate_gir(libarrow_glib,
-                   sources: sources + c_headers + generated_headers,
+                   sources: sources + c_headers + enums,
                    namespace: 'Arrow',
                    nsversion: api_version,
                    identifier_prefix: 'GArrow',
