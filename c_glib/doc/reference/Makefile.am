@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+SUBDIRS =                                       \
+	xml
+
 DOC_MODULE = arrow-glib
 
 DOC_MAIN_SGML_FILE = $(DOC_MODULE)-docs.sgml
@@ -32,8 +35,7 @@ MKDB_OPTIONS =					\
 HFILE_GLOB =					\
 	$(top_srcdir)/arrow-glib/*.h
 
-IGNORE_HFILES =					\
-	enums.h
+IGNORE_HFILES =
 
 CFILE_GLOB =					\
 	$(top_srcdir)/arrow-glib/*.cpp
@@ -57,3 +59,6 @@ CLEANFILES +=					\
 	$(DOC_MODULE)-overrides.txt		\
 	$(DOC_MODULE)-sections.txt		\
 	$(DOC_MODULE).types
+
+EXTRA_DIST +=					\
+	meson.build
