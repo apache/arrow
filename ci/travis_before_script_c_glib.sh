@@ -48,10 +48,11 @@ elif [ $BUILD_SYSTEM = "autotools" ]; then
     echo "yes" | ./install.sh > /dev/null
     . ~/torch/install/bin/torch-activate
     popd
+    luarocks install lgi
   else
     sudo apt install -y -qq luarocks
+    sudo luarocks install lgi
   fi
-  luarocks install lgi
 fi
 
 if [ $BUILD_SYSTEM = "autotools" ]; then

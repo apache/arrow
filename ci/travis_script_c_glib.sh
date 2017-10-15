@@ -25,7 +25,11 @@ pushd $ARROW_C_GLIB_DIR
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
-export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
+if [ $BUILD_SYSTEM = "autotools" ]; then
+  export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
+else
+  export GI_TYPELIB_PATH=$(echo $ARROW_C_GLIB_INSTALL/lib/*/girepository-1.0)
+fi
 test/run-test.rb
 
 if [ $BUILD_SYSTEM = "meson" ]; then
