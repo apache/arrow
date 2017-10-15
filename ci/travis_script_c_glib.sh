@@ -36,7 +36,7 @@ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_C_GLIB_INSTALL/lib/pkgconfig
 
 pushd example/lua
-if [ $TRAVIS_OS_NAME == "osx" ]; then
+if [ $TRAVIS_OS_NAME = "osx" ]; then
   lua write-batch.lua
   lua read-batch.lua
   lua write-stream.lua

@@ -21,7 +21,7 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
+if [ $TRAVIS_OS_NAME = "osx" ]; then
   brew update && brew bundle --file=c_glib/Brewfile
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
@@ -34,7 +34,7 @@ fi
 
 gem install test-unit gobject-introspection
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
+if [ $TRAVIS_OS_NAME = "osx" ]; then
   sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 elif [ $BUILD_SYSTEM = "autotools" ]; then
   git clone \
