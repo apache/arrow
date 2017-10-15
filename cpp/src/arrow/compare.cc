@@ -740,19 +740,27 @@ bool TensorEquals(const Tensor& left, const Tensor& right) {
         are_equal = false;
       } else {
         const auto& type = static_cast<const FixedWidthType&>(*left.type());
+        // Type::BOOL strided tensors are currently not supported
+        DCHECK_GT(type.bit_width() / CHAR_BIT, 0);
         are_equal =
-            StridedTensorContentEquals(0, 0, 0, type.bit_width() / 8, left, right);
+            StridedTensorContentEquals(0, 0, 0, type.bit_width() / CHAR_BIT, left, right);
       }
     } else {
       const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
-      const int byte_width = size_meta.bit_width() / CHAR_BIT;
-      DCHECK_GT(byte_width, 0);
 
       const uint8_t* left_data = left.data()->data();
       const uint8_t* right_data = right.data()->data();
 
-      are_equal = memcmp(left_data, right_data,
-                         static_cast<size_t>(byte_width * left.size())) == 0;
+      if (size_meta.bit_width() == 1) {
+        int64_t bytes = (left.size() + CHAR_BIT - 1) / CHAR_BIT;
+        are_equal = memcmp(left_data, right_data,
+                           static_cast<size_t>(bytes)) == 0;
+      } else {
+        const int byte_width = size_meta.bit_width() / CHAR_BIT;
+        DCHECK_GT(byte_width, 0);
+        are_equal = memcmp(left_data, right_data,
+                           static_cast<size_t>(byte_width * left.size())) == 0;
+      }
     }
   }
   return are_equal;
