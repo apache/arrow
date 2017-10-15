@@ -740,8 +740,8 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 
   Tensor t0(int64(), data, shape, strides, dim_names);
   Tensor tzero(int64(), data, {}, {}, {});
-  Tensor tbool(boolean(), bool_data, shape, strides, dim_names);
-  Tensor tbool8(boolean8(), bool8_data, shape, strides, dim_names);
+  Tensor tbool(boolean(), bool_data, {}, {}, {});
+  Tensor tbool8(boolean8(), bool8_data, {}, {}, {});
 
   CheckTensorRoundTrip(t0);
   CheckTensorRoundTrip(tzero);
