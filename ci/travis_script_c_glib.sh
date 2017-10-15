@@ -42,12 +42,19 @@ if [ $TRAVIS_OS_NAME = "osx" ]; then
   lua write-stream.lua
   lua read-stream.lua
 else
-  . ~/torch/install/bin/torch-activate
-  luajit write-batch.lua
-  luajit read-batch.lua
-  luajit write-stream.lua
-  luajit read-stream.lua
-  luajit stream-to-torch-tensor.lua
+  if [ $BUILD_TORCH_EXAMPLE = "yes" ]; then
+    . ~/torch/install/bin/torch-activate
+    luajit write-batch.lua
+    luajit read-batch.lua
+    luajit write-stream.lua
+    luajit read-stream.lua
+    luajit stream-to-torch-tensor.lua
+  else
+    lua write-batch.lua
+    lua read-batch.lua
+    lua write-stream.lua
+    lua read-stream.lua
+  fi
 fi
 popd
 

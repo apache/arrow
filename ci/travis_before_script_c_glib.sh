@@ -37,16 +37,20 @@ gem install test-unit gobject-introspection
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 elif [ $BUILD_SYSTEM = "autotools" ]; then
-  git clone \
-    --quiet \
-    --depth 1 \
-    --recursive \
-    https://github.com/torch/distro.git ~/torch
-  pushd ~/torch
-  ./install-deps > /dev/null
-  echo "yes" | ./install.sh > /dev/null
-  . ~/torch/install/bin/torch-activate
-  popd
+  if [ $BUILD_TORCH_EXAMPLE = "yes" ]; then
+    git clone \
+      --quiet \
+      --depth 1 \
+      --recursive \
+      https://github.com/torch/distro.git ~/torch
+    pushd ~/torch
+    ./install-deps > /dev/null
+    echo "yes" | ./install.sh > /dev/null
+    . ~/torch/install/bin/torch-activate
+    popd
+  else
+    sudo apt install -y -qq luarocks
+  fi
   luarocks install lgi
 fi
 

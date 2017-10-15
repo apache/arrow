@@ -122,6 +122,7 @@ matrix:
     os: linux
     env:
       BUILD_SYSTEM: autotools
+      BUILD_TORCH_EXAMPLE: false
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
@@ -135,6 +136,7 @@ matrix:
     os: linux
     env:
       BUILD_SYSTEM: meson
+      BUILD_TORCH_EXAMPLE: false
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
