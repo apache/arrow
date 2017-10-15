@@ -729,7 +729,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   std::vector<int64_t> values;
   test::randint<int64_t>(size, 0, 100, &values);
   std::vector<bool> bool_values;
-  test::randint<bool>(size, 0, 1, &bool_values);
+  test::randbool(size, &bool_values);
   std::vector<uint8_t> bool8_values;
   test::randint<uint8_t>(size, 0, 1, &bool8_values);
 
