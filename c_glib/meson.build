@@ -62,4 +62,6 @@ if get_option('enable_gtk_doc')
 endif
 
 run_test = find_program('test/run-test.sh')
-test('unit test', run_test)
+test('unit test',
+     run_test,
+     env: ['GARROW_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root())])
