@@ -34,4 +34,13 @@ if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
   make -j8 > /dev/null || exit $?
 fi
 
+arrow_glib_typelib_dir="${ARROW_GLIB_TYPELIB_DIR}"
+if [ -z "${arrow_glib_typelib_dir}" ]; then
+  arrow_glib_typelib_dir="${build_dir}/arrow-glib"
+fi
+
+if [ -d "${arrow_glib_typelib_dir}" ]; then
+  GI_TYPELIB_PATH="${arrow_glib_typelib_dir}:${GI_TYPELIB_PATH}"
+fi
+
 ${GDB} ruby ${test_dir}/run-test.rb "$@"

@@ -23,14 +23,6 @@ require "test-unit"
 base_dir = Pathname(__dir__).parent
 test_dir = base_dir + "test"
 
-garrow_typelib_dir = ENV["GARROW_TYPELIB_DIR"]
-garrow_typelib_dir ||= (base_dir + "arrow-glib").to_s
-
-ENV["GI_TYPELIB_PATH"] = [
-  garrow_typelib_dir.to_s,
-  ENV["GI_TYPELIB_PATH"],
-].compact.join(File::PATH_SEPARATOR)
-
 require "gi"
 
 Gio = GI.load("Gio")

@@ -24,14 +24,14 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 pushd $ARROW_C_GLIB_DIR
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
-NO_MAKE=yes test/run-test.sh
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
+export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
+test/run-test.rb
 
 if [ $BUILD_SYSTEM = "meson" ]; then
   exit
 fi
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
-export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_C_GLIB_INSTALL/lib/pkgconfig
 
