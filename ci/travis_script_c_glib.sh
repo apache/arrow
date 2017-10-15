@@ -24,12 +24,13 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 pushd $ARROW_C_GLIB_DIR
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_C_GLIB_INSTALL/lib
 if [ $BUILD_SYSTEM = "autotools" ]; then
-  export GI_TYPELIB_PATH=$ARROW_C_GLIB_INSTALL/lib/girepository-1.0
+  arrow_c_glib_lib_dir=$ARROW_C_GLIB_INSTALL/lib
 else
-  export GI_TYPELIB_PATH=$(echo $ARROW_C_GLIB_INSTALL/lib/*/girepository-1.0)
+  arrow_c_glib_lib_dir=$ARROW_C_GLIB_INSTALL/lib/$(arch)-linux-gnu
 fi
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
+export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
 test/run-test.rb
 
 if [ $BUILD_SYSTEM = "meson" ]; then
@@ -37,7 +38,7 @@ if [ $BUILD_SYSTEM = "meson" ]; then
 fi
 
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_C_GLIB_INSTALL/lib/pkgconfig
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$arrow_c_glib_lib_dir/pkgconfig
 
 pushd example/lua
 if [ $TRAVIS_OS_NAME = "osx" ]; then
