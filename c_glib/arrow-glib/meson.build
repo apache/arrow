@@ -155,13 +155,13 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'garrow',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: includedir,
+                      install_dir: join_paths(includedir, meson.project_name()),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
 
 
-headers = c_headers + cpp_headers + [enums_header.full_path()]
+headers = c_headers + cpp_headers
 install_headers(headers, subdir: meson.project_name())
 
 
@@ -171,18 +171,17 @@ dependencies = [
   dependency('gio-2.0'),
 ]
 libarrow_glib = library('arrow-glib',
-                        sources: sources + [enums_source],
+                        sources: sources + enums,
                         install: true,
                         dependencies: dependencies,
                         include_directories: [
                           root_inc,
-                          include_directories('.'),
                         ],
                        soversion: so_version,
                        version: library_version)
 libarrow_glib_dependency = declare_dependency(link_with: libarrow_glib,
                                               include_directories: [
-                                                include_directories('..'),
+                                                root_inc,
                                               ],
                                               dependencies: dependencies,
                                               sources: enums_header)
