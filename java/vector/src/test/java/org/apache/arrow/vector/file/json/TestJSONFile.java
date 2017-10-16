@@ -280,7 +280,7 @@ public class TestJSONFile extends BaseFileTest {
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
         FieldVector vector = root.getVector("struct_nullable");
-        Assert.assertEquals(7, vector.getAccessor().getValueCount());
+        Assert.assertEquals(7, vector.getValueCount());
       }
     }
   }

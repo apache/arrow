@@ -141,8 +141,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   private boolean nullFilled(ValueVector vector) {
-    for (int r = 0; r < vector.getAccessor().getValueCount(); r++) {
-      if (!vector.getAccessor().isNull(r)) {
+    for (int r = 0; r < vector.getValueCount(); r++) {
+      if (!vector.isNull(r)) {
         return false;
       }
     }

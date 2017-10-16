@@ -456,7 +456,7 @@ public class TestComplexWriter {
         unionWriter.writeFloat4((float) i);
       }
     }
-    vector.getMutator().setValueCount(COUNT);
+    vector.setValueCount(COUNT);
     UnionReader unionReader = new UnionReader(vector);
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
@@ -834,7 +834,7 @@ public class TestComplexWriter {
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     MapVector toMapVector = (MapVector) tp.getTo();
-    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getAccessor().getObject(0);
+    JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toMapVector.getObject(0);
     JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
     assertEquals(1, object.get(0));
     assertEquals(2, object.get(1));

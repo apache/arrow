@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,10 +14,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package org.apache.arrow.vector;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -27,16 +27,13 @@ import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
 
 /**
- * NullableIntVector implements a fixed width vector of values which could
- * be null. A validity buffer (bit vector) is maintained to track which
- * elements in the vector are null.
+ * NullableIntVector implements a fixed width (4 bytes) vector of
+ * integer values which could be null. A validity buffer (bit vector) is
+ * maintained to track which elements in the vector are null.
  */
 public class NullableIntVector extends BaseNullableFixedWidthVector {
-   private static final org.slf4j.Logger logger =
-           org.slf4j.LoggerFactory.getLogger(NullableIntVector.class);
    private static final byte TYPE_WIDTH = 4;
    private final FieldReader reader;
 
@@ -48,11 +45,6 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
    public NullableIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       reader = new IntReaderImpl(NullableIntVector.this);
-   }
-
-   @Override
-   protected org.slf4j.Logger getLogger() {
-      return logger;
    }
 
    @Override
@@ -234,17 +226,42 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
-   public void set(int index, int isSet, int valueField ) {
+   public void set(int index, int isSet, int value) {
       if (isSet > 0) {
-         set(index, valueField);
+         set(index, value);
       } else {
          BitVectorHelper.setValidityBit(validityBuffer, index, 0);
       }
    }
 
-   public void setSafe(int index, int isSet, int valueField ) {
+   public void setSafe(int index, int isSet, int value) {
       handleSafe(index);
-      set(index, isSet, valueField);
+      set(index, isSet, value);
+   }
+
+   /******************************************************************
+    *                                                                *
+    *          helper routines currently                             *
+    *          used in JsonFileReader and JsonFileWriter             *
+    *                                                                *
+    ******************************************************************/
+
+
+   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
+                              int valueCount, int index, int value) {
+      if (buffer == null) {
+         buffer = allocator.buffer(valueCount * TYPE_WIDTH);
+      }
+      buffer.setInt(index * TYPE_WIDTH, value);
+      if (index == (valueCount - 1)) {
+         buffer.writerIndex(valueCount * TYPE_WIDTH);
+      }
+
+      return buffer;
+   }
+
+   public static int get(final ArrowBuf buffer, final int index) {
+      return buffer.getInt(index * TYPE_WIDTH);
    }
 
 

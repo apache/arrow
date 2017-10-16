@@ -36,11 +36,11 @@ package org.apache.arrow.vector.complex.impl;
 public class UnionListWriter extends AbstractFieldWriter {
 
   private ListVector vector;
-  private UInt4Vector offsets;
   private PromotableWriter writer;
   private boolean inMap = false;
   private String mapName;
   private int lastIndex = 0;
+  private static final int OFFSET_WIDTH = 4;
 
   public UnionListWriter(ListVector vector) {
     this(vector, NullableMapWriterFactory.getNullableMapWriterFactoryInstance());
@@ -49,7 +49,6 @@ public class UnionListWriter extends AbstractFieldWriter {
   public UnionListWriter(ListVector vector, NullableMapWriterFactory nullableMapWriterFactory) {
     this.vector = vector;
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableMapWriterFactory);
-    this.offsets = vector.getOffsetVector();
   }
 
   public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
@@ -72,7 +71,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   public void setValueCount(int count) {
-    vector.getMutator().setValueCount(count);
+    vector.setValueCount(count);
   }
 
   @Override
@@ -133,13 +132,13 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void startList() {
-    vector.getMutator().startNewValue(idx());
-    writer.setPosition(offsets.getAccessor().get(idx() + 1));
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
   }
 
   @Override
   public void endList() {
-    offsets.getMutator().set(idx() + 1, writer.idx());
+    vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
   }
 

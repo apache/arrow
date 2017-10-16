@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +14,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package org.apache.arrow.vector;
 
@@ -33,8 +32,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import java.nio.ByteBuffer;
 
 public class NullableVarCharVector extends BaseNullableVariableWidthVector {
-   private static final org.slf4j.Logger logger =
-           org.slf4j.LoggerFactory.getLogger(NullableIntVector.class);
    private final FieldReader reader;
 
    public NullableVarCharVector(String name, BufferAllocator allocator) {
@@ -44,11 +41,6 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
    public NullableVarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType);
       reader = new VarCharReaderImpl(NullableVarCharVector.this);
-   }
-
-   @Override
-   protected org.slf4j.Logger getLogger() {
-      return logger;
    }
 
    @Override
@@ -383,21 +375,21 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
-   public void set(int index, int isSet, int startField, int endField, ArrowBuf bufferField ) {
+   public void set(int index, int isSet, int start, int end, ArrowBuf buffer) {
       assert index >= 0;
       fillHoles(index);
       BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
       final int startOffset = offsetBuffer.getInt(index * OFFSET_WIDTH);
-      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + endField);
-      final ArrowBuf bb = bufferField.slice(startField, endField);
+      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + end);
+      final ArrowBuf bb = buffer.slice(start, end);
       valueBuffer.setBytes(startOffset, bb);
       lastSet = index;
    }
 
-   public void setSafe(int index, int isSet, int startField, int endField, ArrowBuf bufferField ) {
+   public void setSafe(int index, int isSet, int start, int end, ArrowBuf buffer) {
       assert index >= 0;
-      handleSafe(index, endField);
-      set(index, isSet, startField, endField, bufferField);
+      handleSafe(index, end);
+      set(index, isSet, start, end, buffer);
    }
 
 

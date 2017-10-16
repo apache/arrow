@@ -56,7 +56,6 @@ public abstract class BaseValueVector implements ValueVector {
 
   @Override
   public void clear() {
-    getMutator().reset();
   }
 
   @Override
@@ -137,10 +136,26 @@ public abstract class BaseValueVector implements ValueVector {
     return buffer;
   }
 
+  @Override
   public int getValueCount() { return 0; }
 
+  @Override
   public void setValueCount(int valueCount) { }
 
+  @Override
+
   public Object getObject(int index) { return null; }
+
+  @Override
+
+  public int getNullCount() { return 0; }
+
+  @Override
+  public boolean isNull(int index) { return false; }
+
+  /* number of bytes for the validity buffer for the given valueCount */
+  protected static int getValidityBufferSizeFromCount(final int valueCount) {
+    return (int) Math.ceil(valueCount / 8.0);
+  }
 }
 

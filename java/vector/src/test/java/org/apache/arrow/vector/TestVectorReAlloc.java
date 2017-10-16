@@ -28,6 +28,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Assert;
@@ -115,7 +116,7 @@ public class TestVectorReAlloc {
 
       vector.reAlloc();
       assertEquals(2047, vector.getValueCapacity()); // note: size - 1
-      assertEquals(0, vector.getOffsetVector().getAccessor().get(2014));
+      assertEquals(0, vector.getOffsetBuffer().getInt(2014 * ListVector.OFFSET_WIDTH));
     }
   }
 
@@ -138,7 +139,7 @@ public class TestVectorReAlloc {
 
       vector.reAlloc();
       assertEquals(1024, vector.getValueCapacity());
-      assertNull(vector.getAccessor().getObject(513));
+      assertNull(vector.getObject(513));
     }
   }
 }
