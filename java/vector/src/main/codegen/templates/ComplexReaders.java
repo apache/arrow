@@ -70,11 +70,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   
   public boolean isSet(){
     <#if nullMode == "Nullable">
-      <#if minor.class != "Int" && minor.class != "VarChar">
-        return !vector.getAccessor().isNull(idx());
-      <#else>
         return !vector.isNull(idx());
-      </#if>
     <#else>
     return true;
     </#if>
@@ -97,19 +93,11 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   </#if>
 
   public void read(Nullable${minor.class?cap_first}Holder h){
-    <#if minor.class != "Int" && minor.class != "VarChar">
-      vector.getAccessor().get(idx(), h);
-    <#else>
-      vector.get(idx(), h);
-    </#if>
+    vector.get(idx(), h);
   }
   
   public ${friendlyType} read${safeType}(){
-    <#if minor.class == "Int" || minor.class == "VarChar">
-      return vector.getObject(idx());
-    <#else>
-      return vector.getAccessor().getObject(idx());
-    </#if>
+    return vector.getObject(idx());
   }
 
   <#if minor.class == "TimeStampSec" ||
@@ -118,7 +106,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
        minor.class == "TimeStampNano">
   @Override
   public ${minor.boxedType} read${minor.boxedType}(){
-    return vector.getAccessor().get(idx());
+    return vector.get(idx());
   }
   </#if>
   
@@ -127,11 +115,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   }
   
   public Object readObject(){
-    <#if minor.class == "Int" || minor.class == "VarChar">
-      return (Object)vector.getObject(idx());
-    <#else>
-      return vector.getAccessor().getObject(idx());
-    </#if>
+    return (Object)vector.getObject(idx());
   }
 }
 </#if>

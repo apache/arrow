@@ -256,9 +256,17 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   public ArrowBuf getOffsetBuffer();
 
+  /* temporarily add these methods here until we remove other vectors
+   * (non-nullable) which are under ValueVector hierarchy and still
+   * use the mutator/accessor interfaces.
+   */
   public int getValueCount();
 
   public void setValueCount(int valueCount);
 
   public Object getObject(int index);
+
+  public int getNullCount();
+
+  public boolean isNull(int index);
 }

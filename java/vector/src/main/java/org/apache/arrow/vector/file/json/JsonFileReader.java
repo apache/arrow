@@ -23,60 +23,28 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.arrow.vector.schema.ArrowVectorType.OFFSET;
+import static org.apache.arrow.vector.schema.ArrowVectorType.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.*;
 
 import com.google.common.collect.ImmutableList;
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.NullableVarBinaryVector;
-import org.apache.arrow.vector.NullableVarCharVector;
-import org.apache.arrow.vector.SmallIntVector;
-import org.apache.arrow.vector.TimeMicroVector;
-import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.TimeNanoVector;
-import org.apache.arrow.vector.TimeSecVector;
-import org.apache.arrow.vector.TimeStampMicroTZVector;
-import org.apache.arrow.vector.TimeStampMicroVector;
-import org.apache.arrow.vector.TimeStampMilliTZVector;
-import org.apache.arrow.vector.TimeStampMilliVector;
-import org.apache.arrow.vector.TimeStampNanoTZVector;
-import org.apache.arrow.vector.TimeStampNanoVector;
-import org.apache.arrow.vector.TimeStampSecTZVector;
-import org.apache.arrow.vector.TimeStampSecVector;
-import org.apache.arrow.vector.TinyIntVector;
-import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt2Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.UInt8Vector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowVectorType;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -153,7 +121,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       FieldVector vector = dict.getVector();
       List<Field> fields = ImmutableList.of(vector.getField());
       List<FieldVector> vectors = ImmutableList.of(vector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getAccessor().getValueCount());
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
       read(root);
 
       readToken(END_OBJECT);
@@ -177,7 +145,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         {
           for (Field field : root.getSchema().getFields()) {
             FieldVector vector = root.getVector(field.getName());
-            readVector(field, vector);
+            readFromJsonIntoVector(field, vector);
           }
         }
         readToken(END_ARRAY);
@@ -204,7 +172,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         {
           for (Field field : schema.getFields()) {
             FieldVector vector = recordBatch.getVector(field.getName());
-            readVector(field, vector);
+            readFromJsonIntoVector(field, vector);
           }
         }
         readToken(END_ARRAY);
@@ -218,16 +186,24 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
-  /**
-   * TODO: A better way of implementing this function is to use `loadFieldBuffers` methods in
-   * FieldVector to set the inner-vector data as done in `ArrowFileReader`.
-   */
-  private void readVector(Field field, FieldVector vector) throws JsonParseException, IOException {
+  private void readFromJsonIntoVector(Field field, FieldVector vector) throws JsonParseException, IOException {
     List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
-    List<BufferBacked> fieldInnerVectors = vector.getFieldInnerVectors();
-    if (vectorTypes.size() != fieldInnerVectors.size()) {
-      throw new IllegalArgumentException("vector types and inner vectors are not the same size: " + vectorTypes.size() + " != " + fieldInnerVectors.size());
-    }
+    ArrowBuf[] vectorBuffers = new ArrowBuf[vectorTypes.size()];
+    /*
+     * The order of inner buffers is :
+     * Fixed width vector:
+     *    -- validity buffer
+     *    -- data buffer
+     * Variable width vector:
+     *    -- validity buffer
+     *    -- offset buffer
+     *    -- data buffer
+     *
+     * This is similar to what getFieldInnerVectors() used to give but now that we don't have
+     * inner vectors anymore, we will work directly at the buffer level -- populate buffers
+     * locally as we read from Json parser and do loadFieldBuffers on the vector followed by
+     * releasing the local buffers.
+     */
     readToken(START_OBJECT);
     {
       // If currently reading dictionaries, field name is not important so don't check
@@ -236,39 +212,41 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         throw new IllegalArgumentException("Expected field " + field.getName() + " but got " + name);
       }
 
-      // Initialize the vector with required capacity
-      int count = readNextField("count", Integer.class);
-      vector.setInitialCapacity(count);
-      vector.allocateNew();
+      /* Initialize the vector with required capacity but don't allocate since we would
+       * be doing loadFieldBuffers.
+       */
+      int valueCount = readNextField("count", Integer.class);
+      vector.setInitialCapacity(valueCount);
 
-      // Read inner vectors
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
-        ValueVector valueVector = (ValueVector) fieldInnerVectors.get(v);
         nextFieldIs(vectorType.getName());
         readToken(START_ARRAY);
-        int innerVectorCount = vectorType.equals(OFFSET) ? count + 1 : count;
-        for (int i = 0; i < innerVectorCount; i++) {
+        int innerBufferValueCount = valueCount;
+        if (vectorType.equals(OFFSET)) {
+          /* offset buffer has 1 additional value capacity */
+          innerBufferValueCount = valueCount + 1;
+        }
+        for (int i = 0; i < innerBufferValueCount; i++) {
+          /* write data to the buffer */
           parser.nextToken();
-          setValueFromParser(valueVector, i);
+          /* for variable width vectors, value count doesn't help pre-determining the capacity of
+           * the underlying data buffer. So we need to pass down the offset buffer (which was already
+           * populated in the previous iteration of this loop).
+           */
+          if (vectorType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR
+                  || vector.getMinorType() == Types.MinorType.VARBINARY)) {
+            vectorBuffers[v] = setValueFromParser(vectorType, vector, vectorBuffers[v],
+                    vectorBuffers[v-1], i, innerBufferValueCount);
+          } else {
+            vectorBuffers[v] = setValueFromParser(vectorType, vector, vectorBuffers[v],
+                    null, i, innerBufferValueCount);
+          }
         }
         readToken(END_ARRAY);
       }
 
-      // Set lastSet before valueCount to prevent setValueCount from filling empty values
-      switch (vector.getMinorType()) {
-        case LIST:
-          // ListVector starts lastSet from index 0, so lastSet value is always last index written + 1
-          ((ListVector) vector).getMutator().setLastSet(count);
-          break;
-        case VARBINARY:
-          ((NullableVarBinaryVector) vector).getMutator().setLastSet(count - 1);
-          break;
-        case VARCHAR:
-          ((NullableVarCharVector) vector).setLastSet(count - 1);
-          break;
-      }
-      vector.getMutator().setValueCount(count);
+      vector.loadFieldBuffers(new ArrowFieldNode(valueCount, 0), Arrays.asList(vectorBuffers));
 
       // read child vectors, if any
       List<Field> fields = field.getChildren();
@@ -282,12 +260,16 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         for (int i = 0; i < fields.size(); i++) {
           Field childField = fields.get(i);
           FieldVector childVector = vectorChildren.get(i);
-          readVector(childField, childVector);
+          readFromJsonIntoVector(childField, childVector);
         }
         readToken(END_ARRAY);
       }
     }
     readToken(END_OBJECT);
+
+    for (ArrowBuf buffer: vectorBuffers) {
+      buffer.release();
+    }
   }
 
   private byte[] decodeHexSafe(String hexString) throws IOException {
@@ -298,99 +280,124 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
-  private void setValueFromParser(ValueVector valueVector, int i) throws IOException {
-    switch (valueVector.getMinorType()) {
-      case BIT:
-        ((BitVector) valueVector).getMutator().set(i, parser.readValueAs(Boolean.class) ? 1 : 0);
-        break;
-      case TINYINT:
-        ((TinyIntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case SMALLINT:
-        ((SmallIntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case INT:
-        ((IntVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case BIGINT:
-        ((BigIntVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case UINT1:
-        ((UInt1Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case UINT2:
-        ((UInt2Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case UINT4:
-        ((UInt4Vector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case UINT8:
-        ((UInt8Vector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case FLOAT4:
-        ((Float4Vector) valueVector).getMutator().set(i, parser.readValueAs(Float.class));
-        break;
-      case FLOAT8:
-        ((Float8Vector) valueVector).getMutator().set(i, parser.readValueAs(Double.class));
-        break;
-      case DECIMAL: {
-          DecimalVector decimalVector = (DecimalVector) valueVector;
-          // Here we assume the decimal value is the unscaled integer value as a string
-          BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
-          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, decimalVector.getBuffer(), i);
-        }
-        break;
-      case VARBINARY:
-        ((VarBinaryVector) valueVector).getMutator().setSafe(i, decodeHexSafe(parser.readValueAs(String.class)));
-        break;
-      case VARCHAR:
-        ((VarCharVector) valueVector).getMutator().setSafe(i, parser.readValueAs(String.class).getBytes(UTF_8));
-        break;
-      case DATEDAY:
-        ((DateDayVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case DATEMILLI:
-        ((DateMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESEC:
-        ((TimeSecVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case TIMEMILLI:
-        ((TimeMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Integer.class));
-        break;
-      case TIMEMICRO:
-        ((TimeMicroVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMENANO:
-        ((TimeNanoVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPSEC:
-        ((TimeStampSecVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPMILLI:
-        ((TimeStampMilliVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPMICRO:
-        ((TimeStampMicroVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPNANO:
-        ((TimeStampNanoVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPSECTZ:
-        ((TimeStampSecTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPMILLITZ:
-        ((TimeStampMilliTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPMICROTZ:
-        ((TimeStampMicroTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      case TIMESTAMPNANOTZ:
-        ((TimeStampNanoTZVector) valueVector).getMutator().set(i, parser.readValueAs(Long.class));
-        break;
-      default:
-        throw new UnsupportedOperationException("minor type: " + valueVector.getMinorType());
+  private ArrowBuf setValueFromParser(ArrowVectorType bufferType, FieldVector vector,
+                                      ArrowBuf buffer, ArrowBuf offsetBuffer, int index,
+                                      int valueCount) throws IOException {
+    if (bufferType.equals(TYPE)) {
+      buffer = NullableTinyIntVector.set(buffer, allocator,
+              valueCount, index, parser.readValueAs(Byte.class));
+    } else if (bufferType.equals(OFFSET)) {
+      buffer = BaseNullableVariableWidthVector.set(buffer, allocator,
+              valueCount, index, parser.readValueAs(Integer.class));
+    } else if (bufferType.equals(VALIDITY)) {
+      buffer = BitVectorHelper.setValidityBit(buffer, allocator,
+              valueCount, index, parser.readValueAs(Boolean.class) ? 1 : 0);
+    } else if (bufferType.equals(DATA)) {
+      switch (vector.getMinorType()) {
+        case BIT:
+          buffer = BitVectorHelper.setValidityBit(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Boolean.class) ? 1 : 0);
+          break;
+        case TINYINT:
+          buffer = NullableTinyIntVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Byte.class));
+          break;
+        case SMALLINT:
+          buffer = NullableSmallIntVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Short.class));
+          break;
+        case INT:
+          buffer = NullableIntVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Integer.class));
+          break;
+        case BIGINT:
+          buffer = NullableBigIntVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case FLOAT4:
+          buffer = NullableFloat4Vector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Float.class));
+          break;
+        case FLOAT8:
+          buffer = NullableFloat8Vector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Double.class));
+          break;
+        case DECIMAL:
+          buffer = NullableDecimalVector.set(buffer, allocator,
+                  valueCount, index, decodeHexSafe(parser.readValueAs(String.class)));
+          break;
+        case VARBINARY:
+          assert (offsetBuffer != null);
+          buffer = BaseNullableVariableWidthVector.set(buffer, offsetBuffer, allocator, index,
+                  decodeHexSafe(parser.readValueAs(String.class)), valueCount);
+          break;
+        case VARCHAR:
+          assert (offsetBuffer != null);
+          buffer = BaseNullableVariableWidthVector.set(buffer, offsetBuffer, allocator, index,
+                  parser.readValueAs(String.class).getBytes(UTF_8), valueCount);
+          break;
+        case DATEDAY:
+          buffer = NullableDateDayVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Integer.class));
+          break;
+        case DATEMILLI:
+          buffer = NullableDateMilliVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESEC:
+          buffer = NullableTimeSecVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Integer.class));
+          break;
+        case TIMEMILLI:
+          buffer = NullableTimeMilliVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Integer.class));
+          break;
+        case TIMEMICRO:
+          buffer = NullableTimeMicroVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMENANO:
+          buffer = NullableTimeNanoVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPSEC:
+          buffer = NullableTimeStampSecVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPMILLI:
+          buffer = NullableTimeStampMilliVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPMICRO:
+          buffer = NullableTimeStampMicroVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPNANO:
+          buffer = NullableTimeStampNanoVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPSECTZ:
+          buffer = NullableTimeStampSecTZVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPMILLITZ:
+          buffer = NullableTimeStampMilliTZVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPMICROTZ:
+          buffer = NullableTimeStampMicroTZVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        case TIMESTAMPNANOTZ:
+          buffer = NullableTimeStampNanoTZVector.set(buffer, allocator,
+                  valueCount, index, parser.readValueAs(Long.class));
+          break;
+        default:
+          throw new UnsupportedOperationException("minor type: " + vector.getMinorType());
+      }
     }
+
+    return buffer;
   }
 
   @Override

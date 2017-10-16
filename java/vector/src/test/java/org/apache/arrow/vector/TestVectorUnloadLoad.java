@@ -199,8 +199,10 @@ public class TestVectorUnloadLoad {
     int count = 10;
     ArrowBuf[] values = new ArrowBuf[4];
     for (int i = 0; i < 4; i+=2) {
-      ArrowBuf buf1 = allocator.buffer((int)Math.ceil(count / 8.0));
+      ArrowBuf buf1 = allocator.buffer(BitVectorHelper.getValidityBufferSize(count));
       ArrowBuf buf2 = allocator.buffer(count * 4); // integers
+      buf1.setZero(0, buf1.capacity());
+      buf2.setZero(0, buf2.capacity());
       values[i] = buf1;
       values[i+1] = buf2;
       for (int j = 0; j < count; j++) {
@@ -314,7 +316,7 @@ public class TestVectorUnloadLoad {
 
   public static VectorUnloader newVectorUnloader(FieldVector root) {
     Schema schema = new Schema(root.getField().getChildren());
-    int valueCount = root.getAccessor().getValueCount();
+    int valueCount = root.getValueCount();
     List<FieldVector> fields = root.getChildrenFromFields();
     VectorSchemaRoot vsr = new VectorSchemaRoot(schema.getFields(), fields, valueCount);
     return new VectorUnloader(vsr);

@@ -47,11 +47,10 @@ public class DictionaryEncoder {
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
     validateType(vector.getMinorType());
     // load dictionary values into a hashmap for lookup
-    ValueVector.Accessor dictionaryAccessor = dictionary.getVector().getAccessor();
-    Map<Object, Integer> lookUps = new HashMap<>(dictionaryAccessor.getValueCount());
-    for (int i = 0; i < dictionaryAccessor.getValueCount(); i++) {
+    Map<Object, Integer> lookUps = new HashMap<>(dictionary.getVector().getValueCount());
+    for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
       // for primitive array types we need a wrapper that implements equals and hashcode appropriately
-      lookUps.put(dictionaryAccessor.getObject(i), i);
+      lookUps.put(dictionary.getVector().getObject(i), i);
     }
 
     Field valueField = vector.getField();
@@ -61,14 +60,13 @@ public class DictionaryEncoder {
 
     // vector to hold our indices (dictionary encoded values)
     FieldVector indices = indexField.createVector(vector.getAllocator());
-    ValueVector.Mutator mutator = indices.getMutator();
 
     // use reflection to pull out the set method
     // TODO implement a common interface for int vectors
     Method setter = null;
     for (Class<?> c : ImmutableList.of(int.class, long.class)) {
       try {
-        setter = mutator.getClass().getMethod("setSafe", int.class, c);
+        setter = indices.getClass().getMethod("setSafe", int.class, c);
         break;
       } catch (NoSuchMethodException e) {
         // ignore
@@ -78,21 +76,20 @@ public class DictionaryEncoder {
       throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" + indices.getClass());
     }
 
-    ValueVector.Accessor accessor = vector.getAccessor();
-    int count = accessor.getValueCount();
+    int count = vector.getValueCount();
 
     indices.allocateNew();
 
     try {
       for (int i = 0; i < count; i++) {
-        Object value = accessor.getObject(i);
+        Object value = vector.getObject(i);
         if (value != null) { // if it's null leave it null
           // note: this may fail if value was not included in the dictionary
           Object encoded = lookUps.get(value);
           if (encoded == null) {
             throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
           }
-          setter.invoke(mutator, i, encoded);
+          setter.invoke(indices, i, encoded);
         }
       }
     } catch (IllegalAccessException e) {
@@ -101,7 +98,7 @@ public class DictionaryEncoder {
       throw new RuntimeException("InvocationTargetException invoking vector mutator set():", e.getCause());
     }
 
-    mutator.setValueCount(count);
+    indices.setValueCount(count);
 
     return indices;
   }
@@ -114,15 +111,14 @@ public class DictionaryEncoder {
    * @return vector with values restored from dictionary
    */
   public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
-    ValueVector.Accessor accessor = indices.getAccessor();
-    int count = accessor.getValueCount();
+    int count = indices.getValueCount();
     ValueVector dictionaryVector = dictionary.getVector();
-    int dictionaryCount = dictionaryVector.getAccessor().getValueCount();
+    int dictionaryCount = dictionaryVector.getValueCount();
     // copy the dictionary values into the decoded vector
     TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
     transfer.getTo().allocateNewSafe();
     for (int i = 0; i < count; i++) {
-      Object index = accessor.getObject(i);
+      Object index = indices.getObject(i);
       if (index != null) {
         int indexAsInt = ((Number) index).intValue();
         if (indexAsInt > dictionaryCount) {
@@ -133,7 +129,7 @@ public class DictionaryEncoder {
     }
     // TODO do we need to worry about the field?
     ValueVector decoded = transfer.getTo();
-    decoded.getMutator().setValueCount(count);
+    decoded.setValueCount(count);
     return decoded;
   }
 

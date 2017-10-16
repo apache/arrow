@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -27,13 +28,9 @@ import java.util.List;
 import com.google.common.collect.ObjectArrays;
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BaseDataValueVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableVectorDefinitionSetter;
-import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
@@ -44,6 +41,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 public class NullableMapVector extends MapVector implements FieldVector {
@@ -56,12 +54,8 @@ public class NullableMapVector extends MapVector implements FieldVector {
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
   private final NullableMapWriter writer = new NullableMapWriter(this);
 
-  protected final BitVector bits;
-
-  private final List<BufferBacked> innerVectors;
-
-  private final Accessor accessor;
-  private final Mutator mutator;
+  private ArrowBuf validityBuffer;
+  private int validityAllocationSizeInBytes;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
@@ -77,10 +71,8 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   public NullableMapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
-    this.bits = new BitVector("$bits$", allocator);
-    this.innerVectors = Collections.unmodifiableList(Arrays.<BufferBacked>asList(bits));
-    this.accessor = new Accessor();
-    this.mutator = new Mutator();
+    this.validityBuffer = allocator.getEmpty();
+    this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
   }
 
   @Override
@@ -92,18 +84,33 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    BaseDataValueVector.load(fieldNode, getFieldInnerVectors(), ownBuffers);
-    this.valueCount = fieldNode.getLength();
+    if (ownBuffers.size() != 1) {
+      throw new IllegalArgumentException("Illegal buffer count, expected " + 1 + ", got: " + ownBuffers.size());
+    }
+
+    ArrowBuf bitBuffer = ownBuffers.get(0);
+
+    validityBuffer.release();
+    validityBuffer = bitBuffer.retain(allocator);
+    valueCount = fieldNode.getLength();
+    validityAllocationSizeInBytes = validityBuffer.capacity();
   }
 
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    return BaseDataValueVector.unload(getFieldInnerVectors());
+    List<ArrowBuf> result = new ArrayList<>(1);
+
+    validityBuffer.readerIndex(0);
+    validityBuffer.writerIndex(BitVectorHelper.getValidityBufferSize(valueCount));
+    result.add(validityBuffer);
+
+    return result;
   }
 
   @Override
+  @Deprecated
   public List<BufferBacked> getFieldInnerVectors() {
-    return innerVectors;
+    throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
 
   @Override
@@ -146,49 +153,129 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
     @Override
     public void transfer() {
-      bits.transferTo(target.bits);
+      target.clear();
+      target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
       super.transfer();
     }
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      target.bits.copyFromSafe(fromIndex, toIndex, bits);
+      while (toIndex >= target.getValidityBufferValueCapacity()) {
+        target.reallocValidityBuffer();
+      }
+      BitVectorHelper.setValidityBit(target.validityBuffer, toIndex, isSet(fromIndex));
       super.copyValueSafe(fromIndex, toIndex);
     }
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      bits.splitAndTransferTo(startIndex, length, target.bits);
+      target.clear();
+      splitAndTransferValidityBuffer(startIndex, length, target);
       super.splitAndTransfer(startIndex, length);
     }
   }
 
+  /*
+   * transfer the validity.
+   */
+  private void splitAndTransferValidityBuffer(int startIndex, int length, NullableMapVector target) {
+    assert startIndex + length <= valueCount;
+    int firstByteSource = BitVectorHelper.byteIndex(startIndex);
+    int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
+    int byteSizeTarget = BitVectorHelper.getValidityBufferSize(length);
+    int offset = startIndex % 8;
+
+    if (length > 0) {
+      if (offset == 0) {
+        // slice
+        if (target.validityBuffer != null) {
+          target.validityBuffer.release();
+        }
+        target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+        target.validityBuffer.retain(1);
+      }
+      else {
+        /* Copy data
+         * When the first bit starts from the middle of a byte (offset != 0),
+         * copy data from src BitVector.
+         * Each byte in the target is composed by a part in i-th byte,
+         * another part in (i+1)-th byte.
+         */
+        target.allocateValidityBuffer(byteSizeTarget);
+
+        for (int i = 0; i < byteSizeTarget - 1; i++) {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
+          byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer, firstByteSource + i + 1, offset);
+
+          target.validityBuffer.setByte(i, (b1 + b2));
+        }
+
+        /* Copying the last piece is done in the following manner:
+         * if the source vector has 1 or more bytes remaining, we copy
+         * the last piece as a byte formed by shifting data
+         * from the current byte and the next byte.
+         *
+         * if the source vector has no more bytes remaining
+         * (we are at the last byte), we copy the last piece as a byte
+         * by shifting data from the current byte.
+         */
+        if((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
+                  firstByteSource + byteSizeTarget - 1, offset);
+          byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
+                  firstByteSource + byteSizeTarget, offset);
+
+          target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
+        }
+        else {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
+                  firstByteSource + byteSizeTarget - 1, offset);
+          target.validityBuffer.setByte(byteSizeTarget - 1, b1);
+        }
+      }
+    }
+  }
+
+  private int getValidityBufferValueCapacity() {
+    return (int)(validityBuffer.capacity() * 8L);
+  }
+
   @Override
   public int getValueCapacity() {
-    return Math.min(bits.getValueCapacity(), super.getValueCapacity());
+    return Math.min(getValidityBufferValueCapacity(),
+            super.getValueCapacity());
   }
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    return ObjectArrays.concat(bits.getBuffers(clear), super.getBuffers(clear), ArrowBuf.class);
+    if (clear) {
+      validityBuffer.retain(1);
+    }
+    return ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(clear), ArrowBuf.class);
   }
 
   @Override
   public void close() {
-    bits.close();
+    clearValidityBuffer();
     super.close();
   }
 
   @Override
   public void clear() {
-    bits.clear();
+    clearValidityBuffer();
     super.clear();
   }
 
+  private void clearValidityBuffer() {
+    validityBuffer.release();
+    validityBuffer = allocator.getEmpty();
+  }
 
   @Override
   public int getBufferSize() {
-    return super.getBufferSize() + bits.getBufferSize();
+    if (valueCount == 0) { return 0; }
+    return super.getBufferSize() +
+            BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override
@@ -197,12 +284,12 @@ public class NullableMapVector extends MapVector implements FieldVector {
       return 0;
     }
     return super.getBufferSizeFor(valueCount)
-        + bits.getBufferSizeFor(valueCount);
+        + BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    bits.setInitialCapacity(numRecords);
+    validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(numRecords);
     super.setInitialCapacity(numRecords);
   }
 
@@ -215,25 +302,59 @@ public class NullableMapVector extends MapVector implements FieldVector {
      */
     boolean success = false;
     try {
-      success = super.allocateNewSafe() && bits.allocateNewSafe();
+      clearValidityBuffer();
+      allocateValidityBuffer(validityAllocationSizeInBytes);
+      success = super.allocateNewSafe();
     } finally {
       if (!success) {
         clear();
+        return false;
       }
     }
-    bits.zeroVector();
-    return success;
+    return true;
+  }
+
+  private void allocateValidityBuffer(final long size) {
+    final int curSize = (int)size;
+    validityBuffer = allocator.buffer(curSize);
+    validityBuffer.readerIndex(0);
+    validityAllocationSizeInBytes = curSize;
+    validityBuffer.setZero(0, validityBuffer.capacity());
   }
 
   @Override
   public void reAlloc() {
-    bits.reAlloc();
+    /* reallocate the validity buffer */
+    reallocValidityBuffer();
     super.reAlloc();
+  }
+
+  private void reallocValidityBuffer() {
+    final int currentBufferCapacity = validityBuffer.capacity();
+    long baseSize = validityAllocationSizeInBytes;
+
+    if (baseSize < (long)currentBufferCapacity) {
+      baseSize = (long)currentBufferCapacity;
+    }
+
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+
+    if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
+    newBuf.setZero(0, newBuf.capacity());
+    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
+    validityBuffer.release(1);
+    validityBuffer = newBuf;
+    validityAllocationSizeInBytes = (int)newAllocationSize;
   }
 
   @Override
   public long getValidityBufferAddress() {
-    return bits.getBuffer().memoryAddress();
+    return validityBuffer.memoryAddress();
   }
 
   @Override
@@ -248,7 +369,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public ArrowBuf getValidityBuffer() {
-    return bits.getDataBuffer();
+    return validityBuffer;
   }
 
   @Override
@@ -261,82 +382,76 @@ public class NullableMapVector extends MapVector implements FieldVector {
     throw new UnsupportedOperationException();
   }
 
-  public final class Accessor extends MapVector.Accessor {
-    final BitVector.Accessor bAccessor = bits.getAccessor();
-
-    @Override
-    public Object getObject(int index) {
-      if (isNull(index)) {
-        return null;
-      } else {
-        return super.getObject(index);
-      }
+  @Override
+  public Object getObject(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return super.getObject(index);
     }
-
-    @Override
-    public void get(int index, ComplexHolder holder) {
-      holder.isSet = isSet(index);
-      super.get(index, holder);
-    }
-
-    @Override
-    public int getNullCount() {
-      return bits.getAccessor().getNullCount();
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return isSet(index) == 0;
-    }
-
-    public int isSet(int index) {
-      return bAccessor.get(index);
-    }
-
-  }
-
-  public final class Mutator extends MapVector.Mutator implements NullableVectorDefinitionSetter {
-
-    private Mutator() {
-    }
-
-    @Override
-    public void setIndexDefined(int index) {
-      bits.getMutator().setSafe(index, 1);
-    }
-
-    public void setNull(int index) {
-      bits.getMutator().setSafe(index, 0);
-    }
-
-    @Override
-    public void setValueCount(int valueCount) {
-      assert valueCount >= 0;
-      super.setValueCount(valueCount);
-      bits.getMutator().setValueCount(valueCount);
-    }
-
-    @Override
-    public void generateTestData(int valueCount) {
-      super.generateTestData(valueCount);
-      bits.getMutator().generateTestDataAlt(valueCount);
-    }
-
-    @Override
-    public void reset() {
-      bits.getMutator().setValueCount(0);
-    }
-
   }
 
   @Override
+  public void get(int index, ComplexHolder holder) {
+    holder.isSet = isSet(index);
+    super.get(index, holder);
+  }
+
+  public int getNullCount() {
+    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+  }
+
+  public boolean isNull(int index) {
+    return isSet(index) == 0;
+  }
+
+  public int isSet(int index) {
+    final int byteIndex = index >> 3;
+    final byte b = validityBuffer.getByte(byteIndex);
+    final int bitIndex = index & 7;
+    return Long.bitCount(b & (1L << bitIndex));
+  }
+
+  public void setIndexDefined(int index) {
+    while (index >= getValidityBufferValueCapacity()) {
+      /* realloc the inner buffers if needed */
+      reallocValidityBuffer();
+    }
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+  }
+
+  public void setNull(int index) {
+    while (index >= getValidityBufferValueCapacity()) {
+      /* realloc the inner buffers if needed */
+      reallocValidityBuffer();
+    }
+    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+  }
+
+  @Override
+  public void setValueCount(int valueCount) {
+    assert valueCount >= 0;
+    while (valueCount > getValueCapacity()) {
+      /* realloc the inner buffers if needed */
+      reallocValidityBuffer();
+    }
+    super.setValueCount(valueCount);
+    this.valueCount = valueCount;
+  }
+
+  public void reset() {
+    valueCount = 0;
+  }
+
+  @Override
+  @Deprecated
   public Accessor getAccessor() {
-    return accessor;
+    throw new UnsupportedOperationException("Accessor is not supported for reading from Nullable MAP");
   }
 
   @Override
+  @Deprecated
   public Mutator getMutator() {
-    return mutator;
+    throw new UnsupportedOperationException("Mutator is not supported for writing to Nullable MAP");
   }
-
 }

@@ -78,8 +78,8 @@ public class ArrowFileTestFixtures {
   static void validateContent(int count, VectorSchemaRoot root) {
     Assert.assertEquals(count, root.getRowCount());
     for (int i = 0; i < count; i++) {
-      Assert.assertEquals(i, root.getVector("int").getAccessor().getObject(i));
-      Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getAccessor().getObject(i));
+      Assert.assertEquals(i, root.getVector("int").getObject(i));
+      Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
     }
   }
 

@@ -82,7 +82,7 @@ public abstract class ArrowWriter implements AutoCloseable {
     for (long id : dictionaryIdsUsed) {
       Dictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
-      int count = vector.getAccessor().getValueCount();
+      int count = vector.getValueCount();
       VectorSchemaRoot dictRoot = new VectorSchemaRoot(ImmutableList.of(vector.getField()), ImmutableList.of(vector), count);
       VectorUnloader unloader = new VectorUnloader(dictRoot);
       ArrowRecordBatch batch = unloader.getRecordBatch();
