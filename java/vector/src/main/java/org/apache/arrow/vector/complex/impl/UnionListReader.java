@@ -19,6 +19,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -33,12 +34,11 @@ public class UnionListReader extends AbstractFieldReader {
 
   private ListVector vector;
   private ValueVector data;
-  private UInt4Vector offsets;
+  private static final int OFFSET_WIDTH = 4;
 
   public UnionListReader(ListVector vector) {
     this.vector = vector;
     this.data = vector.getDataVector();
-    this.offsets = vector.getOffsetVector();
   }
 
   @Override
@@ -48,7 +48,7 @@ public class UnionListReader extends AbstractFieldReader {
 
   @Override
   public boolean isSet() {
-    return !vector.getAccessor().isNull(idx());
+    return !vector.isNull(idx());
   }
 
   private int currentOffset;
@@ -57,8 +57,8 @@ public class UnionListReader extends AbstractFieldReader {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    currentOffset = offsets.getAccessor().get(index) - 1;
-    maxOffset = offsets.getAccessor().get(index + 1);
+    currentOffset = vector.getOffsetBuffer().getInt(index * OFFSET_WIDTH) - 1;
+    maxOffset = vector.getOffsetBuffer().getInt((index + 1) * OFFSET_WIDTH);
   }
 
   @Override
@@ -68,7 +68,7 @@ public class UnionListReader extends AbstractFieldReader {
 
   @Override
   public Object readObject() {
-    return vector.getAccessor().getObject(idx());
+    return vector.getObject(idx());
   }
 
   @Override

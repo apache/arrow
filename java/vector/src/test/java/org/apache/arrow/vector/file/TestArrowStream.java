@@ -70,11 +70,11 @@ public class TestArrowStream extends BaseFileTest {
       int numBatches = 1;
 
       root.getFieldVectors().get(0).allocateNew();
-      NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
+      NullableTinyIntVector vector = (NullableTinyIntVector)root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
-        mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
+        vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
-      mutator.setValueCount(16);
+      vector.setValueCount(16);
       root.setRowCount(16);
 
       ByteArrayOutputStream out = new ByteArrayOutputStream();

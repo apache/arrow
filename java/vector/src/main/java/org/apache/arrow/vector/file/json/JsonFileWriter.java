@@ -18,9 +18,10 @@
 
 package org.apache.arrow.vector.file.json;
 
+import static org.apache.arrow.vector.schema.ArrowVectorType.*;
+
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -28,28 +29,11 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
 import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.DateMilliVector;
-import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.TimeMicroVector;
-import org.apache.arrow.vector.TimeMilliVector;
-import org.apache.arrow.vector.TimeNanoVector;
-import org.apache.arrow.vector.TimeSecVector;
-import org.apache.arrow.vector.TimeStampMicroVector;
-import org.apache.arrow.vector.TimeStampMilliVector;
-import org.apache.arrow.vector.TimeStampNanoVector;
-import org.apache.arrow.vector.TimeStampSecVector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ValueVector.Accessor;
-import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -135,7 +119,7 @@ public class JsonFileWriter implements AutoCloseable {
       FieldVector vector = dictionary.getVector();
       List<Field> fields = ImmutableList.of(vector.getField());
       List<FieldVector> vectors = ImmutableList.of(vector);
-      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getAccessor().getValueCount());
+      VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, vector.getValueCount());
       writeBatch(root);
 
       generator.writeEndObject();
@@ -157,31 +141,36 @@ public class JsonFileWriter implements AutoCloseable {
       generator.writeArrayFieldStart("columns");
       for (Field field : recordBatch.getSchema().getFields()) {
         FieldVector vector = recordBatch.getVector(field.getName());
-        writeVector(field, vector);
+        writeFromVectorIntoJson(field, vector);
       }
       generator.writeEndArray();
     }
     generator.writeEndObject();
   }
 
-  private void writeVector(Field field, FieldVector vector) throws IOException {
+  private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
     List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
-    List<BufferBacked> fieldInnerVectors = vector.getFieldInnerVectors();
-    if (vectorTypes.size() != fieldInnerVectors.size()) {
-      throw new IllegalArgumentException("vector types and inner vectors are not the same size: " + vectorTypes.size() + " != " + fieldInnerVectors.size());
+    List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
+    if (vectorTypes.size() != vectorBuffers.size()) {
+      throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " + vectorTypes.size() + " != " + vectorBuffers.size());
     }
     generator.writeStartObject();
     {
       generator.writeObjectField("name", field.getName());
-      int valueCount = vector.getAccessor().getValueCount();
+      int valueCount = vector.getValueCount();
       generator.writeObjectField("count", valueCount);
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
-        BufferBacked innerVector = fieldInnerVectors.get(v);
+        ArrowBuf vectorBuffer = vectorBuffers.get(v);
         generator.writeArrayFieldStart(vectorType.getName());
-        ValueVector valueVector = (ValueVector) innerVector;
-        for (int i = 0; i < valueVector.getAccessor().getValueCount(); i++) {
-          writeValueToGenerator(valueVector, i);
+        final int bufferValueCount = (vectorType.equals(OFFSET)) ? valueCount + 1 : valueCount;
+        for (int i = 0; i < bufferValueCount; i++) {
+          if (vectorType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR ||
+                  vector.getMinorType() == Types.MinorType.VARBINARY)) {
+            writeValueToGenerator(vectorType, vectorBuffer, vectorBuffers.get(v-1), vector, i);
+          } else {
+            writeValueToGenerator(vectorType, vectorBuffer, null, vector, i);
+          }
         }
         generator.writeEndArray();
       }
@@ -195,7 +184,7 @@ public class JsonFileWriter implements AutoCloseable {
         for (int i = 0; i < fields.size(); i++) {
           Field childField = fields.get(i);
           FieldVector childVector = children.get(i);
-          writeVector(childField, childVector);
+          writeFromVectorIntoJson(childField, childVector);
         }
         generator.writeEndArray();
       }
@@ -203,62 +192,101 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndObject();
   }
 
-  private void writeValueToGenerator(ValueVector valueVector, int i) throws IOException {
-    switch (valueVector.getMinorType()) {
-      case DATEDAY:
-        generator.writeNumber(((DateDayVector) valueVector).getAccessor().get(i));
-        break;
-      case DATEMILLI:
-        generator.writeNumber(((DateMilliVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMESEC:
-        generator.writeNumber(((TimeSecVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMEMILLI:
-        generator.writeNumber(((TimeMilliVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMEMICRO:
-        generator.writeNumber(((TimeMicroVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMENANO:
-        generator.writeNumber(((TimeNanoVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMESTAMPSEC:
-        generator.writeNumber(((TimeStampSecVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMESTAMPMILLI:
-        generator.writeNumber(((TimeStampMilliVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMESTAMPMICRO:
-        generator.writeNumber(((TimeStampMicroVector) valueVector).getAccessor().get(i));
-        break;
-      case TIMESTAMPNANO:
-        generator.writeNumber(((TimeStampNanoVector) valueVector).getAccessor().get(i));
-        break;
-      case BIT:
-        generator.writeNumber(((BitVector) valueVector).getAccessor().get(i));
-        break;
-      case VARBINARY: {
-          String hexString = Hex.encodeHexString(((VarBinaryVector) valueVector).getAccessor().get(i));
+  private void writeValueToGenerator(ArrowVectorType bufferType, ArrowBuf buffer,
+                                     ArrowBuf offsetBuffer, FieldVector vector, int index) throws IOException {
+    if (bufferType.equals(TYPE)) {
+      generator.writeNumber(buffer.getByte(index * NullableTinyIntVector.TYPE_WIDTH));
+    } else if (bufferType.equals(OFFSET)) {
+      generator.writeNumber(buffer.getInt(index * BaseNullableVariableWidthVector.OFFSET_WIDTH));
+    } else if(bufferType.equals(VALIDITY)) {
+      generator.writeNumber(vector.isNull(index) ? 0 : 1);
+    } else if (bufferType.equals(DATA)) {
+      switch (vector.getMinorType()) {
+        case TINYINT:
+          generator.writeNumber(NullableTinyIntVector.get(buffer, index));
+          break;
+        case SMALLINT:
+          generator.writeNumber(NullableSmallIntVector.get(buffer, index));
+          break;
+        case INT:
+          generator.writeNumber(NullableIntVector.get(buffer, index));
+          break;
+        case BIGINT:
+          generator.writeNumber(NullableBigIntVector.get(buffer, index));
+          break;
+        case FLOAT4:
+          generator.writeNumber(NullableFloat4Vector.get(buffer, index));
+          break;
+        case FLOAT8:
+          generator.writeNumber(NullableFloat8Vector.get(buffer, index));
+          break;
+        case DATEDAY:
+          generator.writeNumber(NullableDateDayVector.get(buffer, index));
+          break;
+        case DATEMILLI:
+          generator.writeNumber(NullableDateMilliVector.get(buffer, index));
+          break;
+        case TIMESEC:
+          generator.writeNumber(NullableTimeSecVector.get(buffer, index));
+          break;
+        case TIMEMILLI:
+          generator.writeNumber(NullableTimeMilliVector.get(buffer, index));
+          break;
+        case TIMEMICRO:
+          generator.writeNumber(NullableTimeMicroVector.get(buffer, index));
+          break;
+        case TIMENANO:
+          generator.writeNumber(NullableTimeNanoVector.get(buffer, index));
+          break;
+        case TIMESTAMPSEC:
+          generator.writeNumber(NullableTimeStampSecVector.get(buffer, index));
+          break;
+        case TIMESTAMPMILLI:
+          generator.writeNumber(NullableTimeStampMilliVector.get(buffer, index));
+          break;
+        case TIMESTAMPMICRO:
+          generator.writeNumber(NullableTimeStampMicroVector.get(buffer, index));
+          break;
+        case TIMESTAMPNANO:
+          generator.writeNumber(NullableTimeStampNanoVector.get(buffer, index));
+          break;
+        case TIMESTAMPSECTZ:
+          generator.writeNumber(NullableTimeStampSecTZVector.get(buffer, index));
+          break;
+        case TIMESTAMPMILLITZ:
+          generator.writeNumber(NullableTimeStampMilliTZVector.get(buffer, index));
+          break;
+        case TIMESTAMPMICROTZ:
+          generator.writeNumber(NullableTimeStampMicroTZVector.get(buffer, index));
+          break;
+        case TIMESTAMPNANOTZ:
+          generator.writeNumber(NullableTimeStampNanoTZVector.get(buffer, index));
+          break;
+        case BIT:
+          generator.writeNumber(BitVectorHelper.get(buffer, index));
+          break;
+        case VARBINARY: {
+          assert offsetBuffer != null;
+          String hexString = Hex.encodeHexString(BaseNullableVariableWidthVector.get(buffer,
+                  offsetBuffer, index));
+          generator.writeObject(hexString);
+          break;
+        }
+        case VARCHAR: {
+          assert offsetBuffer != null;
+          byte[] b = (BaseNullableVariableWidthVector.get(buffer, offsetBuffer, index));
+          generator.writeString(new String(b, "UTF-8"));
+          break;
+        }
+        case DECIMAL: {
+          String hexString = Hex.encodeHexString(DecimalUtility.getByteArrayFromArrowBuf(buffer,
+                  index));
           generator.writeString(hexString);
+          break;
         }
-        break;
-      case DECIMAL: {
-          BigDecimal decimalValue = ((DecimalVector) valueVector).getAccessor().getObject(i);
-          // We write the unscaled value, because the scale is stored in the type metadata.
-          generator.writeString(decimalValue.unscaledValue().toString());
-        }
-        break;
-      default:
-        // TODO: each type
-        Accessor accessor = valueVector.getAccessor();
-        Object value = accessor.getObject(i);
-        if (value instanceof Number || value instanceof Boolean) {
-          generator.writeObject(value);
-        } else {
-          generator.writeObject(value.toString());
-        }
-        break;
+        default:
+          throw new UnsupportedOperationException("minor type: " + vector.getMinorType());
+      }
     }
   }
 

@@ -56,8 +56,6 @@ public class MapVector extends AbstractMapVector {
   }
 
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
-  private final Accessor accessor = new Accessor();
-  private final Mutator mutator = new Mutator();
   protected final FieldType fieldType;
   public int valueCount;
 
@@ -70,6 +68,7 @@ public class MapVector extends AbstractMapVector {
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
+    this.valueCount = 0;
   }
 
   @Override
@@ -230,7 +229,7 @@ public class MapVector extends AbstractMapVector {
       for (TransferPair p : pairs) {
         p.splitAndTransfer(startIndex, length);
       }
-      to.getMutator().setValueCount(length);
+      to.setValueCount(length);
     }
   }
 
@@ -255,76 +254,54 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public Accessor getAccessor() {
-    return accessor;
+    throw new UnsupportedOperationException("accessor is not needed for MAP");
   }
 
   @Override
   public Mutator getMutator() {
-    return mutator;
+    throw new UnsupportedOperationException("mutator is not needed for MAP");
   }
 
-  public class Accessor extends BaseValueVector.BaseAccessor {
-
-    @Override
-    public Object getObject(int index) {
-      Map<String, Object> vv = new JsonStringHashMap<>();
-      for (String child : getChildFieldNames()) {
-        ValueVector v = getChild(child);
-        if (v instanceof  NullableVarCharVector || v instanceof  NullableIntVector) {
-          if (v != null && index < v.getValueCount()) {
-            Object value = v.getObject(index);
-            if (value != null) {
-              vv.put(child, value);
-            }
-          }
-        } else {
-          if (v != null && index < v.getAccessor().getValueCount()) {
-            Object value = v.getAccessor().getObject(index);
-            if (value != null) {
-              vv.put(child, value);
-            }
-          }
+  @Override
+  public Object getObject(int index) {
+    Map<String, Object> vv = new JsonStringHashMap<>();
+    for (String child : getChildFieldNames()) {
+      ValueVector v = getChild(child);
+      if (v != null && index < v.getValueCount()) {
+        Object value = v.getObject(index);
+        if (value != null) {
+          vv.put(child, value);
         }
       }
-      return vv;
     }
+    return vv;
+  }
 
-    public void get(int index, ComplexHolder holder) {
-      reader.setPosition(index);
-      holder.reader = reader;
-    }
+  @Override
+  public boolean isNull(int index) { return false; }
+  @Override
+  public int getNullCount() { return 0; }
 
-    @Override
-    public int getValueCount() {
-      return valueCount;
-    }
+  public void get(int index, ComplexHolder holder) {
+    reader.setPosition(index);
+    holder.reader = reader;
+  }
+
+  @Override
+  public int getValueCount() {
+    return valueCount;
   }
 
   public ValueVector getVectorById(int id) {
-    return getChildByOrdinal(id);
-  }
+  return getChildByOrdinal(id);
+}
 
-  public class Mutator extends BaseValueVector.BaseMutator {
-
-    @Override
-    public void setValueCount(int valueCount) {
-      for (final ValueVector v : getChildren()) {
-        if (v instanceof NullableIntVector || v instanceof NullableVarCharVector) {
-          v.setValueCount(valueCount);
-        } else {
-          v.getMutator().setValueCount(valueCount);
-        }
-      }
-      MapVector.this.valueCount = valueCount;
+  @Override
+  public void setValueCount(int valueCount) {
+    for (final ValueVector v : getChildren()) {
+      v.setValueCount(valueCount);
     }
-
-    @Override
-    public void reset() {
-    }
-
-    @Override
-    public void generateTestData(int values) {
-    }
+    MapVector.this.valueCount = valueCount;
   }
 
   @Override
@@ -372,11 +349,4 @@ public class MapVector extends AbstractMapVector {
   public List<FieldVector> getChildrenFromFields() {
     return getChildren();
   }
-
-  public int getValueCount() { return 0; }
-
-  public void setValueCount(int valueCount) { }
-
-  public Object getObject(int index) { return null; }
-
 }

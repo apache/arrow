@@ -317,11 +317,11 @@ public class TestArrowFile extends BaseFileTest {
 
     try (VectorSchemaRoot root = VectorSchemaRoot.create(MessageSerializerTest.testSchema(), allocator)) {
       root.getFieldVectors().get(0).allocateNew();
-      NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
+      NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
-        mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
+        vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
-      mutator.setValueCount(16);
+      vector.setValueCount(16);
       root.setRowCount(16);
 
       // write file
@@ -368,9 +368,9 @@ public class TestArrowFile extends BaseFileTest {
     NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
     for (int i = 0; i < 16; i++) {
       if (i < 8) {
-        Assert.assertEquals((byte) (i + 1), vector.getAccessor().get(i));
+        Assert.assertEquals((byte) (i + 1), vector.get(i));
       } else {
-        Assert.assertTrue(vector.getAccessor().isNull(i));
+        Assert.assertTrue(vector.isNull(i));
       }
     }
   }
@@ -397,7 +397,7 @@ public class TestArrowFile extends BaseFileTest {
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          NullableMapVector vector = (NullableMapVector) field.createVector(originalVectorAllocator)) {
       vector.allocateNewSafe();
-      vector.getMutator().setValueCount(0);
+      vector.setValueCount(0);
 
       List<FieldVector> vectors = ImmutableList.<FieldVector>of(vector);
       VectorSchemaRoot root = new VectorSchemaRoot(originalSchema, vectors, 0);
@@ -578,13 +578,13 @@ public class TestArrowFile extends BaseFileTest {
       parent.allocateNew();
 
       for (int i = 0; i < 10; i++) {
-        tuples.getMutator().setNotNull(i);
-        floats.getMutator().set(i * 2, i + 0.1f);
-        floats.getMutator().set(i * 2 + 1, i + 10.1f);
+        tuples.setNotNull(i);
+        floats.set(i * 2, i + 0.1f);
+        floats.set(i * 2 + 1, i + 10.1f);
         ints.set(i, i);
       }
 
-      parent.getMutator().setValueCount(10);
+      parent.setValueCount(10);
       write(parent, file, stream);
     }
 
@@ -600,8 +600,8 @@ public class TestArrowFile extends BaseFileTest {
         arrowReader.loadRecordBatch(rbBlock);
         Assert.assertEquals(count, root.getRowCount());
         for (int i = 0; i < 10; i++) {
-          Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getAccessor().getObject(i));
-          Assert.assertEquals(i, root.getVector("ints").getAccessor().getObject(i));
+          Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getObject(i));
+          Assert.assertEquals(i, root.getVector("ints").getObject(i));
         }
       }
     }
@@ -616,8 +616,8 @@ public class TestArrowFile extends BaseFileTest {
       arrowReader.loadNextBatch();
       Assert.assertEquals(count, root.getRowCount());
       for (int i = 0; i < 10; i++) {
-        Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getAccessor().getObject(i));
-        Assert.assertEquals(i, root.getVector("ints").getAccessor().getObject(i));
+        Assert.assertEquals(Lists.newArrayList(i + 0.1f, i + 10.1f), root.getVector("float-pairs").getObject(i));
+        Assert.assertEquals(i, root.getVector("ints").getObject(i));
       }
     }
   }

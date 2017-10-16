@@ -114,13 +114,13 @@ public class Validator {
     if (!field1.equals(vector2.getField())) {
       throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" + vector2.getField());
     }
-    int valueCount = vector1.getAccessor().getValueCount();
-    if (valueCount != vector2.getAccessor().getValueCount()) {
-      throw new IllegalArgumentException("Different value count for field " + field1 + " : " + valueCount + " != " + vector2.getAccessor().getValueCount());
+    int valueCount = vector1.getValueCount();
+    if (valueCount != vector2.getValueCount()) {
+      throw new IllegalArgumentException("Different value count for field " + field1 + " : " + valueCount + " != " + vector2.getValueCount());
     }
     for (int j = 0; j < valueCount; j++) {
-      Object obj1 = vector1.getAccessor().getObject(j);
-      Object obj2 = vector2.getAccessor().getObject(j);
+      Object obj1 = vector1.getObject(j);
+      Object obj2 = vector2.getObject(j);
       if (!equals(field1.getType(), obj1, obj2)) {
         throw new IllegalArgumentException(
             "Different values in column:\n" + field1 + " at index " + j + ": " + obj1 + " != " + obj2);

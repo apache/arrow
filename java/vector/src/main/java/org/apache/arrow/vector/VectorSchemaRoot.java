@@ -38,7 +38,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   private final Map<String, FieldVector> fieldVectorsMap = new HashMap<>();
 
   public VectorSchemaRoot(FieldVector parent) {
-    this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getAccessor().getValueCount());
+    this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getValueCount());
   }
 
   public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors, int rowCount) {

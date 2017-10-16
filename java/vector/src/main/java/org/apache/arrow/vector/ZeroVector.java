@@ -268,4 +268,10 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public Object getObject(int index) { return null; }
+
+  @Override
+  public int getNullCount() { return 0; }
+
+  @Override
+  public boolean isNull(int index) { return false; }
 }

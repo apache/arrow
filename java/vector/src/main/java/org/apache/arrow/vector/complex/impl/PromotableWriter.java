@@ -162,7 +162,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     writer = new UnionWriter(unionVector, nullableMapWriterFactory);
     writer.setPosition(idx());
     for (int i = 0; i <= idx(); i++) {
-      unionVector.getMutator().setType(i, vector.getMinorType());
+      unionVector.setType(i, vector.getMinorType());
     }
     vector = null;
     state = State.UNION;
