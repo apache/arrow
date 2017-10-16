@@ -21,13 +21,7 @@ require "pathname"
 require "test-unit"
 
 base_dir = Pathname(__dir__).parent
-typelib_dir = base_dir + "arrow-glib"
 test_dir = base_dir + "test"
-
-ENV["GI_TYPELIB_PATH"] = [
-  typelib_dir.to_s,
-  ENV["GI_TYPELIB_PATH"],
-].compact.join(File::PATH_SEPARATOR)
 
 require "gi"
 

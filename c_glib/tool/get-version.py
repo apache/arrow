@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env python
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,30 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_dir="$(cd $(dirname $0); pwd)"
-build_dir="$(cd .; pwd)"
+import os
+import re
 
-arrow_glib_build_dir="${build_dir}/arrow-glib/"
-libtool_dir="${arrow_glib_build_dir}/.libs"
-if [ -d "${libtool_dir}" ]; then
-  LD_LIBRARY_PATH="${libtool_dir}:${LD_LIBRARY_PATH}"
-else
-  if [ -d "${arrow_glib_build_dir}" ]; then
-    LD_LIBRARY_PATH="${arrow_glib_build_dir}:${LD_LIBRARY_PATH}"
-  fi
-fi
-
-if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
-  make -j8 > /dev/null || exit $?
-fi
-
-arrow_glib_typelib_dir="${ARROW_GLIB_TYPELIB_DIR}"
-if [ -z "${arrow_glib_typelib_dir}" ]; then
-  arrow_glib_typelib_dir="${build_dir}/arrow-glib"
-fi
-
-if [ -d "${arrow_glib_typelib_dir}" ]; then
-  GI_TYPELIB_PATH="${arrow_glib_typelib_dir}:${GI_TYPELIB_PATH}"
-fi
-
-${GDB} ruby ${test_dir}/run-test.rb "$@"
+root = os.environ.get("MESON_SOURCE_ROOT", ".")
+pom_xml = os.path.join(root, "..", "java", "pom.xml")
+with open(pom_xml) as pom:
+    version_tag = re.search('^  <version>(.+)</version>',
+                            pom.read(),
+                            re.MULTILINE)
+    print(version_tag.group(1))
