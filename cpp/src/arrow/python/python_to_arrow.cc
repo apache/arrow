@@ -449,7 +449,8 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
   } else if (PyArray_DescrFromScalar(elem)->type_num == NPY_HALF) {
-    RETURN_NOT_OK(builder->AppendHalfFloat(((PyHalfScalarObject *)elem)->obval));
+    uint16_t halffloat = reinterpret_cast<PyHalfScalarObject *>(elem)->obval;
+    RETURN_NOT_OK(builder->AppendHalfFloat(halffloat));
   } else if (PyFloat_Check(elem)) {
     RETURN_NOT_OK(builder->AppendDouble(PyFloat_AS_DOUBLE(elem)));
   } else if (PyLong_Check(elem)) {

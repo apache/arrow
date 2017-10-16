@@ -127,8 +127,9 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       return CheckPyError();
     }
     case Type::HALF_FLOAT: {
+      uint16_t halffloat = static_cast<const HalfFloatArray&>(arr).Value(index);
       *result = PyArrayScalar_New(Half);
-      PyArrayScalar_ASSIGN(*result, Half, static_cast<const HalfFloatArray&>(arr).Value(index));
+      PyArrayScalar_ASSIGN(*result, Half, halffloat);
       return Status::OK();
     }
     case Type::FLOAT:
