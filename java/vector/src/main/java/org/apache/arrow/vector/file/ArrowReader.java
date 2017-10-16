@@ -41,6 +41,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 
+/**
+ * Abstract class to read ArrowRecordBatches from a ReadChannel.
+ *
+ * @param <T> Type of ReadChannel to use
+ */
 public abstract class ArrowReader<T extends ReadChannel> implements DictionaryProvider, AutoCloseable {
 
   private final T in;
@@ -58,7 +63,7 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
   }
 
   /**
-   * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch
+   * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch.
    *
    * @return the vector schema root
    * @throws IOException if reading of schema fails
@@ -69,9 +74,9 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
   }
 
   /**
-   * Returns any dictionaries
+   * Returns any dictionaries that were loaded along with ArrowRecordBatches.
    *
-   * @return dictionaries, if any
+   * @return Map of dictionaries to dictionary id, empty if no dictionaries loaded
    * @throws IOException if reading of schema fails
    */
   public Map<Long, Dictionary> getDictionaryVectors() throws IOException {
@@ -79,6 +84,12 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     return dictionaries;
   }
 
+  /**
+   * Lookup a dictionary that has been loaded using the dictionary id.
+   *
+   * @param id Unique identifier for a dictionary
+   * @return the requested dictionary or null if not found
+   */
   @Override
   public Dictionary lookup(long id) {
     if (!initialized) {
@@ -88,7 +99,12 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     return dictionaries.get(id);
   }
 
-  // Returns true if a batch was read, false on EOS
+  /**
+   * Load the next ArrowRecordBatch to the vector schema root if available.
+   *
+   * @return true if a batch was read, false on EOS
+   * @throws IOException
+   */
   public boolean loadNextBatch() throws IOException {
     ensureInitialized();
     // read in all dictionary batches, then stop after our first record batch
@@ -129,19 +145,44 @@ public abstract class ArrowReader<T extends ReadChannel> implements DictionaryPr
     return readBatch;
   }
 
+  /**
+   * Return the number of bytes read from the ReadChannel.
+   *
+   * @return number of bytes read
+   */
   public long bytesRead() {
     return in.bytesRead();
   }
 
+  /**
+   * Close resources, including vector schema root and dictionary vectors, and the
+   * underlying ReadChannel.
+   *
+   * @throws IOException
+   */
   @Override
   public void close() throws IOException {
+    close(true);
+  }
+
+  /**
+   * Close resources, including vector schema root and dictionary vectors. If the flag
+   * closeReadChannel is true then close the underlying ReadChannel, otherwise leave it open.
+   *
+   * @param closeReadChannel Flag to control if closing the underlying ReadChannel
+   * @throws IOException
+   */
+  public void close(boolean closeReadChannel) throws IOException {
     if (initialized) {
       root.close();
       for (Dictionary dictionary : dictionaries.values()) {
         dictionary.getVector().close();
       }
     }
-    in.close();
+
+    if (closeReadChannel) {
+      in.close();
+    }
   }
 
   protected abstract Schema readSchema(T in) throws IOException;

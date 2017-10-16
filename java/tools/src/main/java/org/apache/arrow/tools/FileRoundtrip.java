@@ -79,8 +79,9 @@ public class FileRoundtrip {
 
       File inFile = validateFile("input", inFileName);
       File outFile = validateFile("output", outFileName);
-      BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE); // TODO: close
-      try (FileInputStream fileInputStream = new FileInputStream(inFile);
+
+      try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+           FileInputStream fileInputStream = new FileInputStream(inFile);
            ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
                allocator)) {
 

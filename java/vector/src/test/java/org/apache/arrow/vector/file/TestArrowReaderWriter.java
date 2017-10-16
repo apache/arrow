@@ -92,8 +92,8 @@ public class TestArrowReaderWriter {
 
     byte[] byteArray = out.toByteArray();
 
-    SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(byteArray));
-    try (ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+    try (SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(byteArray));
+         ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
       Schema readSchema = reader.getVectorSchemaRoot().getSchema();
       assertEquals(schema, readSchema);
       assertTrue(readSchema.getFields().get(0).getTypeLayout().getVectorTypes().toString(), readSchema.getFields().get(0).getTypeLayout().getVectors().size() > 0);
