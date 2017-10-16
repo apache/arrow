@@ -39,16 +39,9 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${eName}WriterImpl extends AbstractFieldWriter {
 
-  <#if minor.class != "Int" && minor.class != "VarChar">
-    private final Nullable${name}Vector.Mutator mutator;
-  </#if>
-
   final Nullable${name}Vector vector;
 
   public ${eName}WriterImpl(Nullable${name}Vector vector) {
-    <#if minor.class != "Int" && minor.class != "VarChar">
-      this.mutator = vector.getMutator();
-    </#if>
     this.vector = vector;
   }
 
@@ -108,51 +101,31 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   <#else>
 
   public void write(${minor.class}Holder h) {
-    <#if minor.class != "Int" && minor.class != "VarChar">
-      mutator.setSafe(idx(), h);
-      vector.getMutator().setValueCount(idx()+1);
-    <#else>
-        vector.setSafe(idx(), h);
-        vector.setValueCount(idx()+1);
-    </#if>
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
   }
 
   public void write(Nullable${minor.class}Holder h) {
-    <#if minor.class != "Int" && minor.class != "VarChar">
-      mutator.setSafe(idx(), h);
-      vector.getMutator().setValueCount(idx()+1);
-    <#else>
-      vector.setSafe(idx(), h);
-      vector.setValueCount(idx()+1);
-    </#if>
+    vector.setSafe(idx(), h);
+    vector.setValueCount(idx()+1);
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    <#if minor.class != "Int" && minor.class != "VarChar">
-      mutator.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
-      vector.getMutator().setValueCount(idx()+1);
-    <#else>
-      vector.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
-      vector.setValueCount(idx()+1);
-    </#if>
+    vector.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
+    vector.setValueCount(idx()+1);
   }
-  <#if minor.class == "Decimal">
 
+  <#if minor.class == "Decimal">
   public void write${minor.class}(${friendlyType} value) {
-    mutator.setSafe(idx(), value);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx()+1);
   }
   </#if>
-  <#if mode == "Nullable">
 
+  <#if mode == "Nullable">
   public void writeNull() {
-    <#if minor.class != "Int" && minor.class != "VarChar">
-        mutator.setNull(idx());
-        vector.getMutator().setValueCount(idx()+1);
-    <#else>
-        vector.setNull(idx());
-        vector.setValueCount(idx()+1);
-    </#if>
+    vector.setNull(idx());
+    vector.setValueCount(idx()+1);
   }
   </#if>
   </#if>

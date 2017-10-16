@@ -80,24 +80,23 @@ public class TestPromotableWriter {
 
       writer.end();
 
-      container.getMutator().setValueCount(5);
+      container.setValueCount(5);
 
       final UnionVector uv = v.getChild("A", UnionVector.class);
-      final UnionVector.Accessor accessor = uv.getAccessor();
 
-      assertFalse("0 shouldn't be null", accessor.isNull(0));
-      assertEquals(false, accessor.getObject(0));
+      assertFalse("0 shouldn't be null", uv.isNull(0));
+      assertEquals(false, uv.getObject(0));
 
-      assertFalse("1 shouldn't be null", accessor.isNull(1));
-      assertEquals(true, accessor.getObject(1));
+      assertFalse("1 shouldn't be null", uv.isNull(1));
+      assertEquals(true, uv.getObject(1));
 
-      assertFalse("2 shouldn't be null", accessor.isNull(2));
-      assertEquals(10, accessor.getObject(2));
+      assertFalse("2 shouldn't be null", uv.isNull(2));
+      assertEquals(10, uv.getObject(2));
 
-      assertTrue("3 should be null", accessor.isNull(3));
+      assertTrue("3 should be null", uv.isNull(3));
 
-      assertFalse("4 shouldn't be null", accessor.isNull(4));
-      assertEquals(100, accessor.getObject(4));
+      assertFalse("4 shouldn't be null", uv.isNull(4));
+      assertEquals(100, uv.getObject(4));
 
       container.clear();
       container.allocateNew();

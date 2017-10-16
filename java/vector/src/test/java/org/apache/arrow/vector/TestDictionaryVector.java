@@ -135,9 +135,9 @@ public class TestDictionaryVector {
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
           assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getAccessor().getValueCount(), decoded.getAccessor().getValueCount());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < count; ++i) {
-            assertEquals(vector.getAccessor().getObject(i), decoded.getAccessor().getObject(i));
+            assertEquals(vector.getObject(i), decoded.getObject(i));
           }
         }
       }

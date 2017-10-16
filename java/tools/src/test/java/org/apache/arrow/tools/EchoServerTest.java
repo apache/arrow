@@ -104,10 +104,10 @@ public class EchoServerTest {
       for (int i = 0; i < batches; i++) {
         vector.allocateNew(16);
         for (int j = 0; j < 8; j++) {
-          vector.getMutator().set(j, j + i);
-          vector.getMutator().set(j + 8, 0, (byte) (j + i));
+          vector.set(j, j + i);
+          vector.set(j + 8, 0, (byte) (j + i));
         }
-        vector.getMutator().setValueCount(16);
+        vector.setValueCount(16);
         root.setRowCount(16);
         writer.writeBatch();
       }
@@ -120,10 +120,10 @@ public class EchoServerTest {
       for (int i = 0; i < batches; i++) {
         Assert.assertTrue(reader.loadNextBatch());
         assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
-        assertEquals(16, readVector.getAccessor().getValueCount());
+        assertEquals(16, readVector.getValueCount());
         for (int j = 0; j < 8; j++) {
-          assertEquals(j + i, readVector.getAccessor().get(j));
-          assertTrue(readVector.getAccessor().isNull(j + 8));
+          assertEquals(j + i, readVector.get(j));
+          assertTrue(readVector.isNull(j + 8));
         }
       }
       Assert.assertFalse(reader.loadNextBatch());
@@ -169,20 +169,18 @@ public class EchoServerTest {
                  FieldType.nullable(VARCHAR.getType()),
                  allocator)) {
       writeVector.allocateNewSafe();
-      NullableIntVector.Mutator mutator = writeVector.getMutator();
-      mutator.set(0, 0);
-      mutator.set(1, 1);
-      mutator.set(3, 2);
-      mutator.set(4, 1);
-      mutator.set(5, 2);
-      mutator.setValueCount(6);
+      writeVector.set(0, 0);
+      writeVector.set(1, 1);
+      writeVector.set(3, 2);
+      writeVector.set(4, 1);
+      writeVector.set(5, 2);
+      writeVector.setValueCount(6);
 
       writeDictionaryVector.allocateNewSafe();
-      NullableVarCharVector.Mutator dictionaryMutator = writeDictionaryVector.getMutator();
-      dictionaryMutator.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      dictionaryMutator.setValueCount(3);
+      writeDictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.setValueCount(3);
 
       List<Field> fields = ImmutableList.of(writeVector.getField());
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
@@ -210,23 +208,21 @@ public class EchoServerTest {
         Assert.assertNotNull(readEncoding);
         Assert.assertEquals(1L, readEncoding.getId());
 
-        FieldVector.Accessor accessor = readVector.getAccessor();
-        Assert.assertEquals(6, accessor.getValueCount());
-        Assert.assertEquals(0, accessor.getObject(0));
-        Assert.assertEquals(1, accessor.getObject(1));
-        Assert.assertEquals(null, accessor.getObject(2));
-        Assert.assertEquals(2, accessor.getObject(3));
-        Assert.assertEquals(1, accessor.getObject(4));
-        Assert.assertEquals(2, accessor.getObject(5));
+        Assert.assertEquals(6, readVector.getValueCount());
+        Assert.assertEquals(0, readVector.getObject(0));
+        Assert.assertEquals(1, readVector.getObject(1));
+        Assert.assertEquals(null, readVector.getObject(2));
+        Assert.assertEquals(2, readVector.getObject(3));
+        Assert.assertEquals(1, readVector.getObject(4));
+        Assert.assertEquals(2, readVector.getObject(5));
 
         Dictionary dictionary = reader.lookup(1L);
         Assert.assertNotNull(dictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector) dictionary
-            .getVector()).getAccessor();
-        Assert.assertEquals(3, dictionaryAccessor.getValueCount());
-        Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-        Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
-        Assert.assertEquals(new Text("baz"), dictionaryAccessor.getObject(2));
+        NullableVarCharVector dictionaryVector = ((NullableVarCharVector) dictionary.getVector());
+        Assert.assertEquals(3, dictionaryVector.getValueCount());
+        Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
+        Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
+        Assert.assertEquals(new Text("baz"), dictionaryVector.getObject(2));
       }
     }
   }
@@ -243,9 +239,9 @@ public class EchoServerTest {
       // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
 
       writeDictionaryVector.allocateNew();
-      writeDictionaryVector.getMutator().set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.getMutator().set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.getMutator().setValueCount(2);
+      writeDictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
+      writeDictionaryVector.setValueCount(2);
 
       writeVector.addOrGetVector(new FieldType(true, MinorType.INT.getType(), writeEncoding, null));
       writeVector.allocateNew();
@@ -297,19 +293,17 @@ public class EchoServerTest {
         Assert.assertEquals(2L, encoding.getId());
         Assert.assertEquals(new Int(32, true), encoding.getIndexType());
 
-        ListVector.Accessor accessor = readVector.getAccessor();
-        Assert.assertEquals(3, accessor.getValueCount());
-        Assert.assertEquals(Arrays.asList(0, 1), accessor.getObject(0));
-        Assert.assertEquals(Arrays.asList(0), accessor.getObject(1));
-        Assert.assertEquals(Arrays.asList(1), accessor.getObject(2));
+        Assert.assertEquals(3, readVector.getValueCount());
+        Assert.assertEquals(Arrays.asList(0, 1), readVector.getObject(0));
+        Assert.assertEquals(Arrays.asList(0), readVector.getObject(1));
+        Assert.assertEquals(Arrays.asList(1), readVector.getObject(2));
 
         Dictionary readDictionary = reader.lookup(2L);
         Assert.assertNotNull(readDictionary);
-        NullableVarCharVector.Accessor dictionaryAccessor = ((NullableVarCharVector)
-            readDictionary.getVector()).getAccessor();
-        Assert.assertEquals(2, dictionaryAccessor.getValueCount());
-        Assert.assertEquals(new Text("foo"), dictionaryAccessor.getObject(0));
-        Assert.assertEquals(new Text("bar"), dictionaryAccessor.getObject(1));
+        NullableVarCharVector dictionaryVector = ((NullableVarCharVector) readDictionary.getVector());
+        Assert.assertEquals(2, dictionaryVector.getValueCount());
+        Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
+        Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
       }
     }
   }

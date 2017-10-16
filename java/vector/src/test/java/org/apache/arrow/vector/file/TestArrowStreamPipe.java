@@ -62,13 +62,13 @@ public class TestArrowStreamPipe {
         writer.start();
         for (int j = 0; j < numBatches; j++) {
           root.getFieldVectors().get(0).allocateNew();
-          NullableTinyIntVector.Mutator mutator = (NullableTinyIntVector.Mutator) root.getFieldVectors().get(0).getMutator();
+          NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
           // Send a changing batch id first
-          mutator.set(0, j);
+          vector.set(0, j);
           for (int i = 1; i < 16; i++) {
-            mutator.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
+            vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
           }
-          mutator.setValueCount(16);
+          vector.setValueCount(16);
           root.setRowCount(16);
 
           writer.writeBatch();
@@ -117,12 +117,12 @@ public class TestArrowStreamPipe {
             VectorSchemaRoot root = getVectorSchemaRoot();
             Assert.assertEquals(16, root.getRowCount());
             NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
-            Assert.assertEquals((byte) (batchesRead - 1), vector.getAccessor().get(0));
+            Assert.assertEquals((byte) (batchesRead - 1), vector.get(0));
             for (int i = 1; i < 16; i++) {
               if (i < 8) {
-                Assert.assertEquals((byte) (i + 1), vector.getAccessor().get(i));
+                Assert.assertEquals((byte) (i + 1), vector.get(i));
               } else {
-                Assert.assertTrue(vector.getAccessor().isNull(i));
+                Assert.assertTrue(vector.isNull(i));
               }
             }
           }

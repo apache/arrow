@@ -35,12 +35,17 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * BaseNullableFixedWidthVector provides an abstract interface for
+ * implementing vectors of fixed width values. The vectors are nullable
+ * implying that zero or more elements in the vector could be NULL.
+ */
 public abstract class BaseNullableFixedWidthVector extends BaseValueVector
         implements FixedWidthVector, FieldVector {
    private final byte typeWidth;
 
-   private int valueAllocationSizeInBytes;
-   private int validityAllocationSizeInBytes;
+   protected int valueAllocationSizeInBytes;
+   protected int validityAllocationSizeInBytes;
 
    protected final Field field;
    private int allocationMonitor;
@@ -52,23 +57,21 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
                                        FieldType fieldType, final byte typeWidth) {
       super(name, allocator);
       this.typeWidth = typeWidth;
-      valueAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * typeWidth;
-      validityAllocationSizeInBytes = getSizeFromCount(INITIAL_VALUE_ALLOCATION);
       field = new Field(name, fieldType, null);
       valueCount = 0;
       allocationMonitor = 0;
       validityBuffer = allocator.getEmpty();
       valueBuffer = allocator.getEmpty();
+      if (typeWidth > 0) {
+         valueAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * typeWidth;
+         validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+      } else {
+         /* specialized handling for NullableBitVector */
+         valueAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+         validityAllocationSizeInBytes = valueAllocationSizeInBytes;
+      }
    }
 
-   /* TODO:
-    * Determine how writerIndex and readerIndex need to be used. Right now we
-    * are setting the writerIndex and readerIndex in the call to getFieldBuffers
-    * using the valueCount -- this assumes that the caller of getFieldBuffers
-    * on the vector has already invoked setValueCount.
-    *
-    * Do we need to set them during vector transfer and splitAndTransfer?
-    */
 
    /* TODO:
     *
@@ -84,57 +87,91 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     * abstracted out to top level base class.
     *
     * Right now BaseValueVector is the top level base class for other
-    * vector types in ValueVector hierarchy and those vectors have not
-    * yet been refactored so moving things to the top class as of now
-    * is not a good idea.
+    * vector types in ValueVector hierarchy (non-nullable) and those
+    * vectors have not yet been refactored/removed so moving things to
+    * the top class as of now is not a good idea.
     */
 
-   /* TODO:
-    * See if we need logger -- unnecessary object probably
-    */
-
-   protected abstract org.slf4j.Logger getLogger();
 
    @Override
+   @Deprecated
    public Mutator getMutator() {
-      throw new  UnsupportedOperationException("Mutator is not needed to write into vector");
+      throw new UnsupportedOperationException("Mutator is not supported for writing to vector");
    }
 
    @Override
+   @Deprecated
    public Accessor getAccessor() {
-      throw new UnsupportedOperationException("Accessor is not needed to read from vector");
+      throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
    }
 
+   /**
+    * Get the memory address of buffer that manages the validity
+    * (NULL or NON-NULL nature) of elements in the vector.
+    * @return starting address of the buffer
+    */
    @Override
    public long getValidityBufferAddress() {
       return (validityBuffer.memoryAddress());
    }
 
+   /**
+    * Get the memory address of buffer that stores the data for elements
+    * in the vector.
+    * @return starting address of the buffer
+    */
    @Override
    public long getDataBufferAddress() {
       return (valueBuffer.memoryAddress());
    }
 
+   /**
+    * Get the memory address of buffer that stores the offsets for elements
+    * in the vector. This operation is not supported for fixed-width vectors.
+    * @return starting address of the buffer
+    * @throws UnsupportedOperationException for fixed width vectors
+    */
    @Override
    public long getOffsetBufferAddress() {
       throw new UnsupportedOperationException("not supported for fixed-width vectors");
    }
 
+   /**
+    * Get buffer that manages the validity (NULL or NON-NULL nature) of
+    * elements in the vector. Consider it as a buffer for internal bit vector
+    * data structure.
+    * @return buffer
+    */
    @Override
    public ArrowBuf getValidityBuffer() {
       return validityBuffer;
    }
 
+   /**
+    * Get the buffer that stores the data for elements in the vector.
+    * @return buffer
+    */
    @Override
    public ArrowBuf getDataBuffer() {
       return valueBuffer;
    }
 
+   /**
+    * buffer that stores the offsets for elements
+    * in the vector. This operation is not supported for fixed-width vectors.
+    * @return buffer
+    * @throws UnsupportedOperationException for fixed width vectors
+    */
    @Override
    public ArrowBuf getOffsetBuffer() {
       throw new UnsupportedOperationException("not supported for fixed-width vectors");
    }
 
+   /**
+    * Sets the desired value capacity for the vector. This function doesn't
+    * allocate any memory for the vector.
+    * @param valueCount desired number of elements in the vector
+    */
    @Override
    public void setInitialCapacity(int valueCount) {
       final long size = (long)valueCount * typeWidth;
@@ -142,52 +179,65 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
          throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
       }
       valueAllocationSizeInBytes = (int)size;
-      validityAllocationSizeInBytes = getSizeFromCount(valueCount);
+      validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
    }
 
+   /**
+    * Get the current value capacity for the vector
+    * @return number of elements that vector can hold.
+    */
    @Override
    public int getValueCapacity(){
       return Math.min(getValueBufferValueCapacity(), getValidityBufferValueCapacity());
    }
 
-   /* for test purposes */
    private int getValueBufferValueCapacity() {
       return (int)((valueBuffer.capacity() * 1.0)/typeWidth);
    }
 
-   /* for test purposes */
    private int getValidityBufferValueCapacity() {
       return (int)(validityBuffer.capacity() * 8L);
    }
 
-   /* number of bytes for the validity buffer for the given valueCount */
-   protected int getSizeFromCount(int valueCount) {
-      return (int) Math.ceil(valueCount / 8.0);
-   }
-
+   /**
+    * zero out the vector and the data in associated buffers.
+    */
    @Override
    public void zeroVector() {
       initValidityBuffer();
       initValueBuffer();
    }
 
+   /* zero out the validity buffer */
    private void initValidityBuffer() {
       validityBuffer.setZero(0, validityBuffer.capacity());
    }
 
+   /* zero out the data buffer */
    private void initValueBuffer() {
       valueBuffer.setZero(0, valueBuffer.capacity());
    }
 
+   /**
+    * Reset the vector to initial state. Same as {@link #zeroVector()}.
+    * Note that this method doesn't release any memory.
+    */
    public void reset() {
       zeroVector();
    }
 
+   /**
+    * Close the vector and release the associated buffers.
+    */
    @Override
    public void close() { clear(); }
 
+   /**
+    * Same as {@link #close()}
+    */
    @Override
    public void clear() {
+      valueCount = 0;
       validityBuffer = releaseBuffer(validityBuffer);
       valueBuffer = releaseBuffer(valueBuffer);
    }
@@ -208,6 +258,9 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       allocationMonitor--;
    }
 
+   /**
+    * Same as {@link #allocateNewSafe()}.
+    */
    @Override
    public void allocateNew() {
       if(!allocateNewSafe()){
@@ -215,6 +268,15 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       }
    }
 
+   /**
+    * Allocate memory for the vector. We internally use a default value count
+    * of 4096 to allocate memory for at least these many elements in the
+    * vector. See {@link #allocateNew(int)} for allocating memory for specific
+    * number of elements in the vector.
+    *
+    * @return false if memory allocation fails, true otherwise.
+    */
+   @Override
    public boolean allocateNewSafe() {
       long curAllocationSizeValue = valueAllocationSizeInBytes;
       long curAllocationSizeValidity = validityAllocationSizeInBytes;
@@ -229,8 +291,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       try{
          allocateBytes(curAllocationSizeValue, curAllocationSizeValidity);
       } catch (Exception e) {
-         getLogger().error("ERROR: Failure in allocateNewSafe");
-         getLogger().error(e.getMessage());
+         e.printStackTrace();
          clear();
          return false;
       }
@@ -238,9 +299,20 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       return true;
    }
 
+   /**
+    * Allocate memory for the vector to support storing at least the provided number of
+    * elements in the vector. This method must be called prior to using the ValueVector.
+    *
+    * @param valueCount the desired number of elements in the vector
+    * @throws org.apache.arrow.memory.OutOfMemoryException
+    */
    public void allocateNew(int valueCount) {
       long valueBufferSize = valueCount * typeWidth;
-      long validityBufferSize = getSizeFromCount(valueCount);
+      long validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+      if (typeWidth == 0) {
+         /* specialized handling for NullableBitVector */
+         valueBufferSize = validityBufferSize;
+      }
 
       if (allocationMonitor > 10) {
          /* step down the default memory allocation since we have observed
@@ -266,8 +338,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       try {
          allocateBytes(valueBufferSize, validityBufferSize);
       } catch(Exception e) {
-         getLogger().error("ERROR: Failure in allocateNew");
-         getLogger().error(e.getMessage());
+         e.printStackTrace();
          clear();
          throw e;
       }
@@ -294,8 +365,8 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       initValidityBuffer();
    }
 
-   /*
-    * during splitAndTransfer, if we splitting from a random position within a byte,
+   /**
+    * During splitAndTransfer, if we splitting from a random position within a byte,
     * we can't just slice the source buffer so we have to explicitly allocate the
     * validityBuffer of the target vector. This is unlike the databuffer which we can
     * always slice for the target vector.
@@ -307,23 +378,49 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       initValidityBuffer();
    }
 
+   /**
+    * Get the potential buffer size for a particular number of records.
+    * @param count desired number of elements in the vector
+    * @return estimated size of underlying buffers if the vector holds
+    *         a given number of elements
+    */
    @Override
    public int getBufferSizeFor(final int count) {
       if (count == 0) { return 0; }
-      return (count * typeWidth) + getSizeFromCount(count);
+      return (count * typeWidth) + getValidityBufferSizeFromCount(count);
    }
 
+   /**
+    * Get the size (number of bytes) of underlying buffers used by this
+    * vector
+    * @return size of underlying buffers.
+    */
    @Override
    public int getBufferSize() {
       if (valueCount == 0) { return 0; }
-      return (valueCount * typeWidth) + getSizeFromCount(valueCount);
+      return (valueCount * typeWidth) + getValidityBufferSizeFromCount(valueCount);
    }
 
+   /**
+    * Get information about how this field is materialized.
+    * @return the field corresponding to this vector
+    */
    @Override
    public Field getField() {
       return field;
    }
 
+   /**
+    * Return the underlying buffers associated with this vector. Note that this doesn't
+    * impact the reference counts for this buffer so it only should be used for in-context
+    * access. Also note that this buffer changes regularly thus
+    * external classes shouldn't hold a reference to it (unless they change it).
+    *
+    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+    *              but the returned array will be the only reference to them
+    * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+    *         vector instance.
+    */
    @Override
    public ArrowBuf[] getBuffers(boolean clear) {
       final ArrowBuf[] buffers = new ArrowBuf[2];
@@ -338,12 +435,20 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       return buffers;
    }
 
+   /**
+    * Resize the vector to increase the capacity. The internal behavior is to
+    * double the current value capacity.
+    */
    @Override
    public void reAlloc() {
       valueBuffer = reallocBufferHelper(valueBuffer, true);
       validityBuffer = reallocBufferHelper(validityBuffer, false);
    }
 
+   /**
+    * Helper method for reallocating a particular internal buffer
+    * Returns the new buffer.
+    */
    private ArrowBuf reallocBufferHelper(ArrowBuf buffer, final boolean dataBuffer) {
       final int currentBufferCapacity = buffer.capacity();
       long baseSize  = (dataBuffer ? valueAllocationSizeInBytes
@@ -359,10 +464,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       if (newAllocationSize > MAX_ALLOCATION_SIZE) {
          throw new OversizedAllocationException("Unable to expand the buffer");
       }
-
-      getLogger().debug("Reallocating vector [{}]. # of bytes: [{}] -> [{}]",
-              name, (dataBuffer ? valueAllocationSizeInBytes : validityAllocationSizeInBytes),
-              newAllocationSize);
 
       final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
       newBuf.setBytes(0, buffer, 0, currentBufferCapacity);
@@ -381,8 +482,17 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    }
 
    @Override
-   public List<BufferBacked> getFieldInnerVectors() { throw new UnsupportedOperationException(); }
+   @Deprecated
+   public List<BufferBacked> getFieldInnerVectors() {
+      throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
+   }
 
+   /**
+    * Initialize the children in schema for this Field. This operation is a
+    * NO-OP for scalar types since they don't have any children.
+    * @param children the schema
+    * @throws IllegalArgumentException if children is a non-empty list for scalar types.
+    */
    @Override
    public void initializeChildrenFromFields(List<Field> children) {
       if (!children.isEmpty()) {
@@ -390,11 +500,23 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       }
    }
 
+   /**
+    * Get the inner child vectors.
+    * @return list of child vectors for complex types, empty list for scalar vector
+    * types
+    */
    @Override
    public List<FieldVector> getChildrenFromFields() {
       return Collections.emptyList();
    }
 
+   /**
+    * Load the buffers of this vector with provided source buffers.
+    * The caller manages the source buffers and populates them before invoking
+    * this method.
+    * @param fieldNode  the fieldNode indicating the value count
+    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
+    */
    @Override
    public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
       if (ownBuffers.size() != 2) {
@@ -415,13 +537,22 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       validityAllocationSizeInBytes = validityBuffer.capacity();
    }
 
+   /**
+    * Get the buffers belonging to this vector
+    * @return the inner buffers.
+    */
    public List<ArrowBuf> getFieldBuffers() {
       List<ArrowBuf> result = new ArrayList<>(2);
 
       validityBuffer.readerIndex(0);
-      validityBuffer.writerIndex(getSizeFromCount(valueCount));
+      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       valueBuffer.readerIndex(0);
-      valueBuffer.writerIndex(valueCount * typeWidth);
+      if (typeWidth == 0) {
+         /* specialized handling for NullableBitVector */
+         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
+      } else {
+         valueBuffer.writerIndex(valueCount * typeWidth);
+      }
 
       result.add(validityBuffer);
       result.add(valueBuffer);
@@ -429,18 +560,42 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       return result;
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @param callBack
+    * @return TransferPair
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
       return getTransferPair(ref, allocator);
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param allocator allocator for the target vector
+    * @return TransferPair
+    */
    @Override
    public TransferPair getTransferPair(BufferAllocator allocator){
       return getTransferPair(name, allocator);
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return TransferPair
+    */
    public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+   /**
+    * Transfer this vector'data to another vector. The memory associated
+    * with this vector is transferred to the allocator of target vector
+    * for accounting and management purposes.
+    * @param target destination vector for transfer
+    */
    public void transferTo(BaseNullableFixedWidthVector target){
       compareTypes(target, "transferTo");
       target.clear();
@@ -450,6 +605,13 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       clear();
    }
 
+   /**
+    * Slice this vector at desired index and length and transfer the
+    * corresponding data to the target vector.
+    * @param startIndex start position of the split in source vector.
+    * @param length length of the split.
+    * @param target destination vector
+    */
    public void splitAndTransferTo(int startIndex, int length,
                                   BaseNullableFixedWidthVector target) {
       compareTypes(target, "splitAndTransferTo");
@@ -459,6 +621,9 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       target.setValueCount(length);
    }
 
+   /**
+    * Data buffer can always be split and transferred using slicing.
+    */
    private void splitAndTransferValueBuffer(int startIndex, int length,
                                             BaseNullableFixedWidthVector target) {
       final int startPoint = startIndex * typeWidth;
@@ -466,17 +631,21 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       target.valueBuffer = valueBuffer.slice(startPoint, sliceLength).transferOwnership(target.allocator).buffer;
    }
 
+   /**
+    * Validity buffer has multiple cases of split and transfer depending on
+    * the starting position of the source index.
+    */
    private void splitAndTransferValidityBuffer(int startIndex, int length,
                                                BaseNullableFixedWidthVector target) {
       assert startIndex + length <= valueCount;
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
-      int byteSizeTarget = getSizeFromCount(length);
+      int byteSizeTarget = getValidityBufferSizeFromCount(length);
       int offset = startIndex % 8;
 
       if (length > 0) {
          if (offset == 0) {
-            // slice
+            /* slice */
             if (target.validityBuffer != null) {
                target.validityBuffer.release();
             }
@@ -493,8 +662,10 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
             target.allocateValidityBuffer(byteSizeTarget);
 
             for (int i = 0; i < byteSizeTarget - 1; i++) {
-               byte b1 = getBitsFromCurrentByte(this.validityBuffer, firstByteSource + i, offset);
-               byte b2 = getBitsFromNextByte(this.validityBuffer, firstByteSource + i + 1, offset);
+               byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+                       firstByteSource + i, offset);
+               byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+                       firstByteSource + i + 1, offset);
 
                target.validityBuffer.setByte(i, (b1 + b2));
             }
@@ -509,28 +680,20 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
              * by shifting data from the current byte.
              */
             if((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-               byte b1 = getBitsFromCurrentByte(this.validityBuffer,
+               byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
                        firstByteSource + byteSizeTarget - 1, offset);
-               byte b2 = getBitsFromNextByte(this.validityBuffer,
+               byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
                        firstByteSource + byteSizeTarget, offset);
 
                target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
             }
             else {
-               byte b1 = getBitsFromCurrentByte(this.validityBuffer,
+               byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
                        firstByteSource + byteSizeTarget - 1, offset);
                target.validityBuffer.setByte(byteSizeTarget - 1, b1);
             }
          }
       }
-   }
-
-   private static byte getBitsFromCurrentByte(ArrowBuf data, int index, int offset) {
-      return (byte)((data.getByte(index) & 0xFF) >>> offset);
-   }
-
-   private static byte getBitsFromNextByte(ArrowBuf data, int index, int offset) {
-      return (byte)((data.getByte(index) << (8 - offset)));
    }
 
 
@@ -547,26 +710,8 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     * @return the number of null elements.
     */
    public int getNullCount() {
-      int count = 0;
-      final int sizeInBytes = getSizeFromCount(valueCount);
-
-      for (int i = 0; i < sizeInBytes; ++i) {
-         final byte byteValue = validityBuffer.getByte(i);
-         /* Java uses two's complement binary representation, hence 11111111_b which is -1
-          * when converted to Int will have 32bits set to 1. Masking the MSB and then
-          * adding it back solves the issue.
-          */
-         count += Integer.bitCount(byteValue & 0x7F) - (byteValue >> 7);
-      }
-      int nullCount = (sizeInBytes * 8) - count;
-      /* if the valueCount is not a multiple of 8,
-       * the bits on the right were counted as null bits.
-       */
-      int remainder = valueCount % 8;
-      nullCount -= remainder == 0 ? 0 : 8 - remainder;
-      return nullCount;
+      return BitVectorHelper.getNullCount(validityBuffer, valueCount);
    }
-
 
    /**
     * Get the value count of vector. This will always be zero unless
@@ -577,7 +722,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    public int getValueCount(){
       return valueCount;
    }
-
 
    /**
     * Set value count for the vector.
@@ -625,7 +769,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       }
    }
 
-
    /**
     * Check if the given index is within the current value capacity
     * of the vector
@@ -637,7 +780,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       return index < getValueCapacity();
    }
 
-
    /**
     * Check if element at given index is null.
     *
@@ -647,7 +789,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    public boolean isNull(int index) {
       return (isSet(index) == 0);
    }
-
 
    /**
     * Same as {@link #isNull(int)}.
@@ -662,6 +803,11 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       return Long.bitCount(b & (1L << bitIndex));
    }
 
+   /**
+    * Mark the particular position in the vector as non-null.
+    *
+    * @param index position of the element.
+    */
    public void setIndexDefined(int index) {
       handleSafe(index);
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
@@ -689,7 +835,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     *                helper methods for setters                      *
     *                                                                *
     ******************************************************************/
-
 
 
    protected void handleSafe(int index) {

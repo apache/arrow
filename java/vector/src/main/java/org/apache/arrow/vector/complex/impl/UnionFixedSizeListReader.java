@@ -46,7 +46,7 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
 
   @Override
   public boolean isSet() {
-    return !vector.getAccessor().isNull(idx());
+    return !vector.isNull(idx());
   }
 
   @Override
@@ -56,7 +56,7 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
 
   @Override
   public Object readObject() {
-    return vector.getAccessor().getObject(idx());
+    return vector.getObject(idx());
   }
 
   @Override

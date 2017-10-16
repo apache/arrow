@@ -71,14 +71,14 @@ public class TestDecimalVector {
       for (int i = 0; i < intValues.length; i++) {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(intValues[i]), scale);
         values[i] = decimal;
-        decimalVector.getMutator().setSafe(i, decimal);
+        decimalVector.setSafe(i, decimal);
       }
 
-      decimalVector.getMutator().setValueCount(intValues.length);
+      decimalVector.setValueCount(intValues.length);
 
       for (int i = 0; i < intValues.length; i++) {
-        BigDecimal value = decimalVector.getAccessor().getObject(i);
-        assertEquals(values[i], value);
+        BigDecimal value = decimalVector.getObject(i);
+        assertEquals("unexpected data at index: " + i, values[i], value);
       }
     }
   }
@@ -92,7 +92,7 @@ public class TestDecimalVector {
       boolean hasError = false;
       try {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(0), 3);
-        decimalVector.getMutator().setSafe(0, decimal);
+        decimalVector.setSafe(0, decimal);
       } catch (UnsupportedOperationException ue) {
         hasError = true;
       } finally {
@@ -103,7 +103,7 @@ public class TestDecimalVector {
       hasError = false;
       try {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
-        decimalVector.getMutator().setSafe(0, decimal);
+        decimalVector.setSafe(0, decimal);
       } catch (UnsupportedOperationException ue) {
         hasError = true;
       } finally {

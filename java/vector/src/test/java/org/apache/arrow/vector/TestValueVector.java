@@ -487,8 +487,6 @@ public class TestValueVector {
 
     // Create a new value vector for 1024 integers.
     try (final NullableUInt4Vector vector = newVector(NullableUInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
-      final NullableUInt4Vector.Mutator mutator = vector.getMutator();
-      final NullableUInt4Vector.Accessor accessor = vector.getAccessor();
       boolean error = false;
       int initialCapacity = 1024;
 
@@ -500,33 +498,33 @@ public class TestValueVector {
       assertEquals(initialCapacity, vector.getValueCapacity());
 
       // Put and set a few values
-      mutator.set(0, 100);
-      mutator.set(1, 101);
-      mutator.set(100, 102);
-      mutator.set(1022, 103);
-      mutator.set(1023, 104);
+      vector.set(0, 100);
+      vector.set(1, 101);
+      vector.set(100, 102);
+      vector.set(1022, 103);
+      vector.set(1023, 104);
 
       /* check vector contents */
-      assertEquals(100, accessor.get(0));
-      assertEquals(101, accessor.get(1));
-      assertEquals(102, accessor.get(100));
-      assertEquals(103, accessor.get(1022));
-      assertEquals(104, accessor.get(1023));
+      assertEquals(100, vector.get(0));
+      assertEquals(101, vector.get(1));
+      assertEquals(102, vector.get(100));
+      assertEquals(103, vector.get(1022));
+      assertEquals(104, vector.get(1023));
 
       int val = 0;
 
       /* check unset bits/null values */
       for (int i = 2, j = 101; i <= 99 || j <= 1021; i++, j++) {
         if (i <= 99) {
-          assertTrue(accessor.isNull(i));
+          assertTrue(vector.isNull(i));
         }
         if(j <= 1021) {
-          assertTrue(accessor.isNull(j));
+          assertTrue(vector.isNull(j));
         }
       }
 
       try {
-        mutator.set(1024, 10000);
+        vector.set(1024, 10000);
       }
       catch (IndexOutOfBoundsException ie) {
         error = true;
@@ -537,7 +535,7 @@ public class TestValueVector {
       }
 
       try {
-        accessor.get(1024);
+        vector.get(1024);
       }
       catch (IndexOutOfBoundsException ie) {
         error = true;
@@ -548,28 +546,28 @@ public class TestValueVector {
       }
 
       /* should trigger a realloc of the underlying bitvector and valuevector */
-      mutator.setSafe(1024, 10000);
+      vector.setSafe(1024, 10000);
 
       /* check new capacity */
       assertEquals(initialCapacity * 2, vector.getValueCapacity());
 
       /* vector contents should still be intact after realloc */
-      assertEquals(100, accessor.get(0));
-      assertEquals(101, accessor.get(1));
-      assertEquals(102, accessor.get(100));
-      assertEquals(103, accessor.get(1022));
-      assertEquals(104, accessor.get(1023));
-      assertEquals(10000, accessor.get(1024));
+      assertEquals(100, vector.get(0));
+      assertEquals(101, vector.get(1));
+      assertEquals(102, vector.get(100));
+      assertEquals(103, vector.get(1022));
+      assertEquals(104, vector.get(1023));
+      assertEquals(10000, vector.get(1024));
 
       val = 0;
 
       /* check unset bits/null values */
       for (int i = 2, j = 101; i < 99 || j < 1021; i++, j++) {
         if (i <= 99) {
-          assertTrue(accessor.isNull(i));
+          assertTrue(vector.isNull(i));
         }
         if(j <= 1021) {
-          assertTrue(accessor.isNull(j));
+          assertTrue(vector.isNull(j));
         }
       }
 
@@ -581,7 +579,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for(int i = 0; i < (initialCapacity * 2); i++) {
-        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
@@ -590,8 +588,6 @@ public class TestValueVector {
   public void testNullableFixedType2() {
     // Create a new value vector for 1024 integers
     try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
-      final NullableFloat4Vector.Mutator mutator = vector.getMutator();
-      final NullableFloat4Vector.Accessor accessor = vector.getAccessor();
       boolean error = false;
       int initialCapacity = 16;
 
@@ -603,17 +599,17 @@ public class TestValueVector {
       assertEquals(initialCapacity, vector.getValueCapacity());
 
       /* populate the vector */
-      mutator.set(0, 100.5f);
-      mutator.set(2, 201.5f);
-      mutator.set(4, 300.3f);
-      mutator.set(6, 423.8f);
-      mutator.set(8, 555.6f);
-      mutator.set(10, 66.6f);
-      mutator.set(12, 78.8f);
-      mutator.set(14, 89.5f);
+      vector.set(0, 100.5f);
+      vector.set(2, 201.5f);
+      vector.set(4, 300.3f);
+      vector.set(6, 423.8f);
+      vector.set(8, 555.6f);
+      vector.set(10, 66.6f);
+      vector.set(12, 78.8f);
+      vector.set(14, 89.5f);
 
       try {
-        mutator.set(16, 90.5f);
+        vector.set(16, 90.5f);
       }
       catch (IndexOutOfBoundsException ie) {
         error = true;
@@ -624,25 +620,25 @@ public class TestValueVector {
       }
 
       /* check vector contents */
-      assertEquals(100.5f, accessor.get(0), 0);
-      assertTrue(accessor.isNull(1));
-      assertEquals(201.5f, accessor.get(2), 0);
-      assertTrue(accessor.isNull(3));
-      assertEquals(300.3f, accessor.get(4), 0);
-      assertTrue(accessor.isNull(5));
-      assertEquals(423.8f, accessor.get(6), 0);
-      assertTrue(accessor.isNull(7));
-      assertEquals(555.6f, accessor.get(8), 0);
-      assertTrue(accessor.isNull(9));
-      assertEquals(66.6f, accessor.get(10), 0);
-      assertTrue(accessor.isNull(11));
-      assertEquals(78.8f, accessor.get(12), 0);
-      assertTrue(accessor.isNull(13));
-      assertEquals(89.5f, accessor.get(14), 0);
-      assertTrue(accessor.isNull(15));
+      assertEquals(100.5f, vector.get(0), 0);
+      assertTrue(vector.isNull(1));
+      assertEquals(201.5f, vector.get(2), 0);
+      assertTrue(vector.isNull(3));
+      assertEquals(300.3f, vector.get(4), 0);
+      assertTrue(vector.isNull(5));
+      assertEquals(423.8f, vector.get(6), 0);
+      assertTrue(vector.isNull(7));
+      assertEquals(555.6f, vector.get(8), 0);
+      assertTrue(vector.isNull(9));
+      assertEquals(66.6f, vector.get(10), 0);
+      assertTrue(vector.isNull(11));
+      assertEquals(78.8f, vector.get(12), 0);
+      assertTrue(vector.isNull(13));
+      assertEquals(89.5f, vector.get(14), 0);
+      assertTrue(vector.isNull(15));
 
       try {
-        accessor.get(16);
+        vector.get(16);
       }
       catch (IndexOutOfBoundsException ie) {
         error = true;
@@ -653,29 +649,28 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc() */
-      mutator.setSafe(16, 90.5f);
+      vector.setSafe(16, 90.5f);
 
       /* underlying buffer should now be able to store double the number of values */
       assertEquals(initialCapacity * 2, vector.getValueCapacity());
 
       /* vector data should still be intact after realloc */
-      assertEquals(100.5f, accessor.get(0), 0);
-      assertTrue(accessor.isNull(1));
-      assertEquals(201.5f, accessor.get(2), 0);
-      assertTrue(accessor.isNull(3));
-      assertEquals(300.3f, accessor.get(4), 0);
-      assertTrue(accessor.isNull(5));
-      assertEquals(423.8f, accessor.get(6), 0);
-      assertTrue(accessor.isNull(7));
-      assertEquals(555.6f, accessor.get(8), 0);
-      assertTrue(accessor.isNull(9));
-      assertEquals(66.6f, accessor.get(10), 0);
-      assertTrue(accessor.isNull(11));
-      assertEquals(78.8f, accessor.get(12), 0);
-      assertTrue(accessor.isNull(13));
-      assertEquals(89.5f, accessor.get(14), 0);
-      assertTrue(accessor.isNull(15));
-      assertEquals(90.5f, accessor.get(16), 0);
+      assertEquals(100.5f, vector.get(0), 0);
+      assertTrue(vector.isNull(1));
+      assertEquals(201.5f, vector.get(2), 0);
+      assertTrue(vector.isNull(3));
+      assertEquals(300.3f, vector.get(4), 0);
+      assertTrue(vector.isNull(5));
+      assertEquals(423.8f, vector.get(6), 0);
+      assertTrue(vector.isNull(7));
+      assertEquals(555.6f, vector.get(8), 0);
+      assertTrue(vector.isNull(9));
+      assertEquals(66.6f, vector.get(10), 0);
+      assertTrue(vector.isNull(11));
+      assertEquals(78.8f, vector.get(12), 0);
+      assertTrue(vector.isNull(13));
+      assertEquals(89.5f, vector.get(14), 0);
+      assertTrue(vector.isNull(15));
 
       /* reset the vector */
       vector.reset();
@@ -685,7 +680,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for(int i = 0; i < (initialCapacity * 2); i++) {
-        assertTrue("non-null data not expected at index: " + i, accessor.isNull(i));
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
@@ -928,32 +923,30 @@ public class TestValueVector {
 
     // Create a new value vector for 1024 integers.
     try (final NullableVarBinaryVector vector = newNullableVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      final NullableVarBinaryVector.Mutator m = vector.getMutator();
       vector.allocateNew(1024 * 10, 1024);
 
-      m.set(0, STR1);
-      m.set(1, STR2);
-      m.set(2, STR3);
-      m.setSafe(3, STR3, 1, STR3.length - 1);
-      m.setSafe(4, STR3, 2, STR3.length - 2);
+      vector.set(0, STR1);
+      vector.set(1, STR2);
+      vector.set(2, STR3);
+      vector.setSafe(3, STR3, 1, STR3.length - 1);
+      vector.setSafe(4, STR3, 2, STR3.length - 2);
       ByteBuffer STR3ByteBuffer = ByteBuffer.wrap(STR3);
-      m.setSafe(5, STR3ByteBuffer, 1, STR3.length - 1);
-      m.setSafe(6, STR3ByteBuffer, 2, STR3.length - 2);
+      vector.setSafe(5, STR3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, STR3ByteBuffer, 2, STR3.length - 2);
 
       // Check the sample strings.
-      final NullableVarBinaryVector.Accessor accessor = vector.getAccessor();
-      assertArrayEquals(STR1, accessor.get(0));
-      assertArrayEquals(STR2, accessor.get(1));
-      assertArrayEquals(STR3, accessor.get(2));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), accessor.get(3));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), accessor.get(4));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), accessor.get(5));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), accessor.get(6));
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
 
       // Ensure null value throws.
       boolean b = false;
       try {
-        vector.getAccessor().get(7);
+        vector.get(7);
       } catch (IllegalStateException e) {
         b = true;
       } finally {
@@ -1064,8 +1057,6 @@ public class TestValueVector {
   @Test /* NullableFloat8Vector */
   public void testReallocAfterVectorTransfer2() {
     try (final NullableFloat8Vector vector = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
-      final NullableFloat8Vector.Mutator mutator = vector.getMutator();
-      final NullableFloat8Vector.Accessor accessor = vector.getAccessor();
       final int initialDefaultCapacity = 4096;
       boolean error = false;
 
@@ -1076,7 +1067,7 @@ public class TestValueVector {
       double baseValue = 100.375;
 
       for (int i = 0; i < initialDefaultCapacity; i++) {
-        mutator.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double)i);
       }
 
       /* the above setSafe calls should not have triggered a realloc as
@@ -1085,33 +1076,33 @@ public class TestValueVector {
       assertEquals(initialDefaultCapacity, vector.getValueCapacity());
 
       for (int i = 0; i < initialDefaultCapacity; i++) {
-        double value = accessor.get(i);
+        double value = vector.get(i);
         assertEquals(baseValue + (double)i, value, 0);
       }
 
       /* this should trigger a realloc */
-      mutator.setSafe(initialDefaultCapacity, baseValue + (double)initialDefaultCapacity);
+      vector.setSafe(initialDefaultCapacity, baseValue + (double)initialDefaultCapacity);
       assertEquals(initialDefaultCapacity * 2, vector.getValueCapacity());
 
       for (int i = initialDefaultCapacity + 1; i < (initialDefaultCapacity * 2); i++) {
-        mutator.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double)i);
       }
 
       for (int i = 0; i < (initialDefaultCapacity * 2); i++) {
-        double value = accessor.get(i);
+        double value = vector.get(i);
         assertEquals(baseValue + (double)i, value, 0);
       }
 
       /* this should trigger a realloc */
-      mutator.setSafe(initialDefaultCapacity * 2, baseValue + (double)(initialDefaultCapacity * 2));
+      vector.setSafe(initialDefaultCapacity * 2, baseValue + (double)(initialDefaultCapacity * 2));
       assertEquals(initialDefaultCapacity * 4, vector.getValueCapacity());
 
       for (int i = (initialDefaultCapacity * 2) + 1; i < (initialDefaultCapacity * 4); i++) {
-        mutator.setSafe(i, baseValue + (double)i);
+        vector.setSafe(i, baseValue + (double)i);
       }
 
       for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
-        double value = accessor.get(i);
+        double value = vector.get(i);
         assertEquals(baseValue + (double)i, value, 0);
       }
 
@@ -1123,12 +1114,11 @@ public class TestValueVector {
       transferPair.transfer();
 
       NullableFloat8Vector toVector = (NullableFloat8Vector)transferPair.getTo();
-      final NullableFloat8Vector.Accessor toAccessor = toVector.getAccessor();
 
       /* check toVector contents before realloc */
       for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
-        assertFalse("unexpected null value at index: " + i, toAccessor.isNull(i));
-        double value = toAccessor.get(i);
+        assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
+        double value = toVector.get(i);
         assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
       }
 
@@ -1138,12 +1128,12 @@ public class TestValueVector {
 
       for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
         if (i < (initialDefaultCapacity * 4)) {
-          assertFalse("unexpected null value at index: " + i, toAccessor.isNull(i));
-          double value = toAccessor.get(i);
+          assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
+          double value = toVector.get(i);
           assertEquals("unexpected value at index: " + i, baseValue + (double)i, value, 0);
         }
         else {
-          assertTrue("unexpected non-null value at index: " + i, toAccessor.isNull(i));
+          assertTrue("unexpected non-null value at index: " + i, toVector.isNull(i));
         }
       }
 
@@ -1351,32 +1341,30 @@ public class TestValueVector {
   public void testReAllocNullableFixedWidthVector() {
     // Create a new value vector for 1024 integers
     try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator)) {
-      final NullableFloat4Vector.Mutator m = vector.getMutator();
       vector.allocateNew(1024);
 
       assertEquals(1024, vector.getValueCapacity());
 
       // Put values in indexes that fall within the initial allocation
-      m.setSafe(0, 100.1f);
-      m.setSafe(100, 102.3f);
-      m.setSafe(1023, 104.5f);
+      vector.setSafe(0, 100.1f);
+      vector.setSafe(100, 102.3f);
+      vector.setSafe(1023, 104.5f);
 
       // Now try to put values in space that falls beyond the initial allocation
-      m.setSafe(2000, 105.5f);
+      vector.setSafe(2000, 105.5f);
 
       // Check valueCapacity is more than initial allocation
       assertEquals(1024 * 2, vector.getValueCapacity());
 
-      final NullableFloat4Vector.Accessor accessor = vector.getAccessor();
-      assertEquals(100.1f, accessor.get(0), 0);
-      assertEquals(102.3f, accessor.get(100), 0);
-      assertEquals(104.5f, accessor.get(1023), 0);
-      assertEquals(105.5f, accessor.get(2000), 0);
+      assertEquals(100.1f, vector.get(0), 0);
+      assertEquals(102.3f, vector.get(100), 0);
+      assertEquals(104.5f, vector.get(1023), 0);
+      assertEquals(105.5f, vector.get(2000), 0);
 
       // Set the valueCount to be more than valueCapacity of current allocation. This is possible for NullableValueVectors
       // as we don't call setSafe for null values, but we do call setValueCount when all values are inserted into the
       // vector
-      m.setValueCount(vector.getValueCapacity() + 200);
+      vector.setValueCount(vector.getValueCapacity() + 200);
     }
   }
 
