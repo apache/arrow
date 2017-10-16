@@ -141,6 +141,7 @@ public class TestArrowStreamPipe {
         while (!done) {
           assertTrue(reader.loadNextBatch());
         }
+        reader.close();
       } catch (IOException e) {
         e.printStackTrace();
         Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
