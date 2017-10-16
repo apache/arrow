@@ -554,7 +554,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     if (values.null_count() > 0) {
       // We assume there is one bit for each value in values.nulls, aligned on a
       // byte boundary, and we write this much data into the stream
-      int64_t null_bitmap_size = BitUtil::BytesForBits(values.length());
+      int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
         RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
                                   null_bitmap_size, &bytes_written));

@@ -266,6 +266,8 @@ class TestFeatherReader(unittest.TestCase):
         expected = pd.DataFrame({'arr': values.to_pandas()})
         assert_frame_equal(result, expected)
 
+        self._check_pandas_roundtrip(expected, null_counts=[1])
+
     def test_boolean_object_nulls(self):
         repeats = 100
         arr = np.array([False, None, True] * repeats, dtype=object)
