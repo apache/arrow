@@ -251,22 +251,23 @@ class TestFeatherReader(unittest.TestCase):
 
     def test_buffer_bounds_error(self):
         # ARROW-1676
-        values = pa.array([None] + list(range(128)), type=pa.float64())
-
         path = random_path()
         self.test_files.append(path)
 
-        writer = FeatherWriter()
-        writer.open(path)
+        for i in range(16, 256):
+            values = pa.array([None] + list(range(i)), type=pa.float64())
 
-        writer.write_array('arr', values)
-        writer.close()
+            writer = FeatherWriter()
+            writer.open(path)
 
-        result = read_feather(path)
-        expected = pd.DataFrame({'arr': values.to_pandas()})
-        assert_frame_equal(result, expected)
+            writer.write_array('arr', values)
+            writer.close()
 
-        self._check_pandas_roundtrip(expected, null_counts=[1])
+            result = read_feather(path)
+            expected = pd.DataFrame({'arr': values.to_pandas()})
+            assert_frame_equal(result, expected)
+
+            self._check_pandas_roundtrip(expected, null_counts=[1])
 
     def test_boolean_object_nulls(self):
         repeats = 100
