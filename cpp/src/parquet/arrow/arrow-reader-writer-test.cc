@@ -951,7 +951,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
 
   std::shared_ptr<Array> expected_values =
       std::make_shared<::arrow::NullArray>(SMALL_SIZE);
-  AssertArraysEqual(*expected_values, *chunked_array->chunk(0));
+  internal::AssertArraysEqual(*expected_values, *chunked_array->chunk(0));
 }
 
 template <typename T>
