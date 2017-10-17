@@ -124,3 +124,23 @@ try:
 except ImportError:
     # no pandas
     pass
+
+# ----------------------------------------------------------------------
+# Set up serialization for pytorch tensors
+
+try:
+    import torch
+
+    def _serialize_torch_tensor(obj):
+        return obj.numpy()
+
+    def _deserialize_torch_tensor(data):
+        return torch.from_numpy(data)
+
+    _default_serialization_context.register_type(
+        torch.DoubleTensor, "torch.DoubleTensor",
+        custom_serializer=_serialize_torch_tensor,
+        custom_deserializer=_deserialize_torch_tensor)
+except ImportError:
+    # no torch
+    pass
