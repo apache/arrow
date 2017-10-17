@@ -88,7 +88,7 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
   int type_num = cast_npy_type_compat(descr->type_num);
 
   switch (type_num) {
-    TO_ARROW_TYPE_CASE(BOOL, boolean);
+    TO_ARROW_TYPE_CASE(BOOL, uint8);
     TO_ARROW_TYPE_CASE(INT8, int8);
     TO_ARROW_TYPE_CASE(INT16, int16);
     TO_ARROW_TYPE_CASE(INT32, int32);
@@ -122,7 +122,6 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     break;
 
   switch (type.id()) {
-    NUMPY_TYPE_CASE(BOOL, BOOL);
     NUMPY_TYPE_CASE(UINT8, UINT8);
     NUMPY_TYPE_CASE(INT8, INT8);
     NUMPY_TYPE_CASE(UINT16, UINT16);

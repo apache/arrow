@@ -51,7 +51,6 @@ def test_tensor_base_object():
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('bool', pa.bool_()),
     ('i1', pa.int8()),
     ('i2', pa.int16()),
     ('i4', pa.int32()),
