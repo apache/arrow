@@ -145,6 +145,26 @@ module Helper
       builder.finish
     end
 
+    def build_table(arrays)
+      fields = arrays.collect do |name, array|
+        Arrow::Field.new(name, array.value_data_type)
+      end
+      schema = Arrow::Schema.new(fields)
+      columns = arrays.collect.with_index do |(_name, array), i|
+        Arrow::Column.new(fields[i], array)
+      end
+      Arrow::Table.new(schema, columns)
+    end
+
+    def build_record_batch(arrays)
+      n_rows = arrays.collect {|_, array| array.length}.min || 0
+      fields = arrays.collect do |name, array|
+        Arrow::Field.new(name, array.value_data_type)
+      end
+      schema = Arrow::Schema.new(fields)
+      Arrow::RecordBatch.new(schema, n_rows, arrays.values)
+    end
+
     private
     def build_array(builder, values)
       values.each do |value|
