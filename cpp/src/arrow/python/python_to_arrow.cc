@@ -537,6 +537,7 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_INT32:
     case NPY_UINT64:
     case NPY_INT64:
+    case NPY_HALF:
     case NPY_FLOAT:
     case NPY_DOUBLE: {
       RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(tensors_out->size())));
