@@ -165,6 +165,7 @@ Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
 #if (NPY_UINT64 != NPY_ULONGLONG)
     TO_ARROW_CASE(ULONGLONG);
 #endif
+    TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
     TO_ARROW_TYPE_CASE(STRING, binary);
