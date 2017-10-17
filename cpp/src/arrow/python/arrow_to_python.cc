@@ -17,9 +17,14 @@
 
 #include "arrow/python/arrow_to_python.h"
 
+#include "arrow/python/numpy_interop.h"
+
 #include <cstdint>
 #include <memory>
 #include <vector>
+
+#include <numpy/arrayobject.h>
+#include <numpy/arrayscalars.h>
 
 #include "arrow/array.h"
 #include "arrow/io/interfaces.h"
@@ -120,6 +125,14 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       const uint8_t* str = static_cast<const StringArray&>(arr).GetValue(index, &nchars);
       *result = PyUnicode_FromStringAndSize(reinterpret_cast<const char*>(str), nchars);
       return CheckPyError();
+    }
+    case Type::HALF_FLOAT: {
+      *result = PyArrayScalar_New(Half);
+      RETURN_IF_PYERROR();
+
+      npy_half halffloat = static_cast<const HalfFloatArray&>(arr).Value(index);
+      PyArrayScalar_ASSIGN(*result, Half, halffloat);
+      return Status::OK();
     }
     case Type::FLOAT:
       *result = PyFloat_FromDouble(static_cast<const FloatArray&>(arr).Value(index));

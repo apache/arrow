@@ -381,6 +381,10 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       INT_TO_FB_CASE(64, false);
     case Type::INT64:
       INT_TO_FB_CASE(64, true);
+    case Type::HALF_FLOAT:
+      *out_type = flatbuf::Type_FloatingPoint;
+      *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_HALF);
+      break;
     case Type::FLOAT:
       *out_type = flatbuf::Type_FloatingPoint;
       *offset = FloatToFlatbuffer(fbb, flatbuf::Precision_SINGLE);

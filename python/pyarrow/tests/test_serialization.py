@@ -99,7 +99,7 @@ PRIMITIVE_OBJECTS = [
     {True: "hello", False: "world"}, {"hello": "world", 1: 42, 2.5: 45},
     {"hello": set([2, 3]), "world": set([42.0]), "this": None},
     np.int8(3), np.int32(4), np.int64(5),
-    np.uint8(3), np.uint32(4), np.uint64(5), np.float32(1.9),
+    np.uint8(3), np.uint32(4), np.uint64(5), np.float16(1.9), np.float32(1.9),
     np.float64(1.9), np.zeros([100, 100]),
     np.random.normal(size=[100, 100]), np.array(["hi", 3]),
     np.array(["hi", 3], dtype=object),
@@ -257,8 +257,8 @@ def test_default_dict_serialization(large_memory_map):
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["int8", "uint8", "int16", "uint16",
-                  "int32", "uint32", "float32", "float64"]:
+        for t in ["int8", "uint8", "int16", "uint16", "int32", "uint32",
+                  "float16", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)
 

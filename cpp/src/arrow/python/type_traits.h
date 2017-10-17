@@ -24,6 +24,8 @@
 
 #include "arrow/python/numpy_interop.h"
 
+#include <numpy/halffloat.h>
+
 #include "arrow/builder.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
@@ -70,6 +72,17 @@ NPY_INT_DECL(UINT64, UInt64, uint64_t);
 NPY_INT_DECL(LONGLONG, Int64, int64_t);
 NPY_INT_DECL(ULONGLONG, UInt64, uint64_t);
 #endif
+
+template <>
+struct npy_traits<NPY_FLOAT16> {
+  typedef npy_half value_type;
+  using TypeClass = HalfFloatType;
+  using BuilderClass = HalfFloatBuilder;
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(npy_half v) { return v == NPY_HALF_NAN; }
+};
 
 template <>
 struct npy_traits<NPY_FLOAT32> {
@@ -142,6 +155,14 @@ INT_DECL(UINT8);
 INT_DECL(UINT16);
 INT_DECL(UINT32);
 INT_DECL(UINT64);
+
+template <>
+struct arrow_traits<Type::HALF_FLOAT> {
+  static constexpr int npy_type = NPY_FLOAT16;
+  static constexpr bool supports_nulls = true;
+  static constexpr uint16_t na_value = NPY_HALF_NAN;
+  typedef typename npy_traits<NPY_FLOAT16>::value_type T;
+};
 
 template <>
 struct arrow_traits<Type::FLOAT> {

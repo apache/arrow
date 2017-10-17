@@ -1438,6 +1438,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(TIME64, Time64Builder);
       BUILDER_CASE(TIMESTAMP, TimestampBuilder);
       BUILDER_CASE(BOOL, BooleanBuilder);
+      BUILDER_CASE(HALF_FLOAT, HalfFloatBuilder);
       BUILDER_CASE(FLOAT, FloatBuilder);
       BUILDER_CASE(DOUBLE, DoubleBuilder);
       BUILDER_CASE(STRING, StringBuilder);

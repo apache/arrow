@@ -58,6 +58,7 @@ class SequenceBuilder {
         ints_(::arrow::int64(), pool),
         bytes_(::arrow::binary(), pool),
         strings_(pool),
+        half_floats_(::arrow::float16(), pool),
         floats_(::arrow::float32(), pool),
         doubles_(::arrow::float64(), pool),
         date64s_(::arrow::date64(), pool),
@@ -115,6 +116,11 @@ class SequenceBuilder {
   Status AppendString(const char* data, int32_t length) {
     RETURN_NOT_OK(Update(strings_.length(), &string_tag_));
     return strings_.Append(data, length);
+  }
+
+  /// Appending a half_float to the sequence
+  Status AppendHalfFloat(const npy_half data) {
+    return AppendPrimitive(data, &half_float_tag_, &half_floats_);
   }
 
   /// Appending a float to the sequence
@@ -222,6 +228,7 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddElement(int_tag_, &ints_));
     RETURN_NOT_OK(AddElement(string_tag_, &strings_));
     RETURN_NOT_OK(AddElement(bytes_tag_, &bytes_));
+    RETURN_NOT_OK(AddElement(half_float_tag_, &half_floats_));
     RETURN_NOT_OK(AddElement(float_tag_, &floats_));
     RETURN_NOT_OK(AddElement(double_tag_, &doubles_));
     RETURN_NOT_OK(AddElement(date64_tag_, &date64s_));
@@ -250,6 +257,7 @@ class SequenceBuilder {
   Int64Builder ints_;
   BinaryBuilder bytes_;
   StringBuilder strings_;
+  HalfFloatBuilder half_floats_;
   FloatBuilder floats_;
   DoubleBuilder doubles_;
   Date64Builder date64s_;
@@ -274,6 +282,7 @@ class SequenceBuilder {
   int8_t int_tag_ = -1;
   int8_t string_tag_ = -1;
   int8_t bytes_tag_ = -1;
+  int8_t half_float_tag_ = -1;
   int8_t float_tag_ = -1;
   int8_t double_tag_ = -1;
   int8_t date64_tag_ = -1;
@@ -394,6 +403,8 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
 Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
     return builder->AppendBool(reinterpret_cast<PyBoolScalarObject*>(obj)->obval != 0);
+  } else if (PyArray_IsScalar(obj, Half)) {
+    return builder->AppendHalfFloat(reinterpret_cast<PyHalfScalarObject*>(obj)->obval);
   } else if (PyArray_IsScalar(obj, Float)) {
     return builder->AppendFloat(reinterpret_cast<PyFloatScalarObject*>(obj)->obval);
   } else if (PyArray_IsScalar(obj, Double)) {
@@ -437,6 +448,9 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   // The bool case must precede the int case (PyInt_Check passes for bools)
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
+  } else if (PyArray_DescrFromScalar(elem)->type_num == NPY_HALF) {
+    npy_half halffloat = reinterpret_cast<PyHalfScalarObject *>(elem)->obval;
+    RETURN_NOT_OK(builder->AppendHalfFloat(halffloat));
   } else if (PyFloat_Check(elem)) {
     RETURN_NOT_OK(builder->AppendDouble(PyFloat_AS_DOUBLE(elem)));
   } else if (PyLong_Check(elem)) {
@@ -523,6 +537,7 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_INT32:
     case NPY_UINT64:
     case NPY_INT64:
+    case NPY_HALF:
     case NPY_FLOAT:
     case NPY_DOUBLE: {
       RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(tensors_out->size())));

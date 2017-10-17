@@ -284,6 +284,8 @@ class NumPyConverter {
     return VisitNative<T>();
   }
 
+  Status Visit(const HalfFloatType& type) { return VisitNative<UInt16Type>(); }
+
   Status Visit(const Date32Type& type) { return VisitNative<Date32Type>(); }
   Status Visit(const Date64Type& type) { return VisitNative<Int64Type>(); }
   Status Visit(const TimestampType& type) { return VisitNative<TimestampType>(); }
@@ -1183,6 +1185,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(UINT64, NPY_UINT64, UInt64Type)
     LIST_CASE(INT64, NPY_INT64, Int64Type)
     LIST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+    LIST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
     LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
