@@ -77,12 +77,18 @@ GType garrow_record_batch_reader_get_type(void) G_GNUC_CONST;
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);
 #ifndef GARROW_DISABLE_DEPRECATED
-G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next_record_batch)
+G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
 GArrowRecordBatch *garrow_record_batch_reader_get_next_record_batch(
   GArrowRecordBatchReader *reader,
   GError **error);
 #endif
+#ifndef GARROW_DISABLE_DEPRECATED
+G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
 GArrowRecordBatch *garrow_record_batch_reader_read_next_record_batch(
+  GArrowRecordBatchReader *reader,
+  GError **error);
+#endif
+GArrowRecordBatch *garrow_record_batch_reader_read_next(
   GArrowRecordBatchReader *reader,
   GError **error);
 

@@ -168,13 +168,13 @@ garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader)
  * Since: 0.4.0
  *
  * Deprecated: 0.5.0:
- *   Use garrow_record_batch_reader_read_next_record_batch() instead.
+ *   Use garrow_record_batch_reader_read_next() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader,
                                                  GError **error)
 {
-  return garrow_record_batch_reader_read_next_record_batch(reader, error);
+  return garrow_record_batch_reader_read_next(reader, error);
 }
 
 /**
@@ -186,10 +186,30 @@ garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader
  *   The next record batch in the stream or %NULL on end of stream.
  *
  * Since: 0.5.0
+ *
+ * Deprecated: 0.8.0:
+ *   Use garrow_record_batch_reader_read_next() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reader,
                                                   GError **error)
+{
+  return garrow_record_batch_reader_read_next(reader, error);
+}
+
+/**
+ * garrow_record_batch_reader_read_next:
+ * @reader: A #GArrowRecordBatchReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The next record batch in the stream or %NULL on end of stream.
+ *
+ * Since: 0.8.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_reader_read_next(GArrowRecordBatchReader *reader,
+                                     GError **error)
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
@@ -197,7 +217,7 @@ garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reade
 
   if (garrow_error_check(error,
                          status,
-                         "[record-batch-reader][read-next-record-batch]")) {
+                         "[record-batch-reader][read-next]")) {
     if (arrow_record_batch == nullptr) {
       return NULL;
     } else {

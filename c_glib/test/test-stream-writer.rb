@@ -44,8 +44,8 @@ class TestStreamWriter < Test::Unit::TestCase
       assert_equal(["enabled"],
                    stream_reader.schema.fields.collect(&:name))
       assert_equal(true,
-                   stream_reader.read_next_record_batch.get_column(0).get_value(0))
-      assert_nil(stream_reader.read_next_record_batch)
+                   stream_reader.read_next.get_column(0).get_value(0))
+      assert_nil(stream_reader.read_next)
     ensure
       input.close
     end
