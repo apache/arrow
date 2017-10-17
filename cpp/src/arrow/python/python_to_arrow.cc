@@ -119,7 +119,7 @@ class SequenceBuilder {
   }
 
   /// Appending a half_float to the sequence
-  Status AppendHalfFloat(const uint16_t data) {
+  Status AppendHalfFloat(const npy_half data) {
     return AppendPrimitive(data, &half_float_tag_, &half_floats_);
   }
 
@@ -449,7 +449,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
   } else if (PyArray_DescrFromScalar(elem)->type_num == NPY_HALF) {
-    uint16_t halffloat = reinterpret_cast<PyHalfScalarObject *>(elem)->obval;
+    npy_half halffloat = reinterpret_cast<PyHalfScalarObject *>(elem)->obval;
     RETURN_NOT_OK(builder->AppendHalfFloat(halffloat));
   } else if (PyFloat_Check(elem)) {
     RETURN_NOT_OK(builder->AppendDouble(PyFloat_AS_DOUBLE(elem)));

@@ -75,13 +75,13 @@ NPY_INT_DECL(ULONGLONG, UInt64, uint64_t);
 
 template <>
 struct npy_traits<NPY_FLOAT16> {
-  typedef uint16_t value_type;
+  typedef npy_half value_type;
   using TypeClass = HalfFloatType;
   using BuilderClass = HalfFloatBuilder;
 
   static constexpr bool supports_nulls = true;
 
-  static inline bool isnull(uint16_t v) { return v == NPY_HALF_NAN; }
+  static inline bool isnull(npy_half v) { return v == NPY_HALF_NAN; }
 };
 
 template <>
