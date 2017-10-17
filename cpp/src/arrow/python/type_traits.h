@@ -22,9 +22,9 @@
 #include <cstdint>
 #include <limits>
 
-#include <numpy/halffloat.h>
-
 #include "arrow/python/numpy_interop.h"
+
+#include <numpy/halffloat.h>
 
 #include "arrow/builder.h"
 #include "arrow/type.h"

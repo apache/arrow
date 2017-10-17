@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/python/numpy_interop.h"
-
 #include "arrow/python/arrow_to_python.h"
+
+#include "arrow/python/numpy_interop.h"
 
 #include <cstdint>
 #include <memory>
