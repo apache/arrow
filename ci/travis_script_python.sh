@@ -47,7 +47,7 @@ conda install -y -q pip \
       sphinx_bootstrap_theme
 
 # Install pytorch for torch tensor conversion tests
-conda install pytorch torchvision -c soumith
+conda install -y pytorch torchvision -c soumith
 
 # Build C++ libraries
 pushd $ARROW_CPP_BUILD_DIR
