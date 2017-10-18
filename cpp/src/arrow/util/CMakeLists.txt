@@ -42,6 +42,7 @@ install(FILES
   rle-encoding.h
   sse-util.h
   stl.h
+  type_traits.h
   visibility.h
   DESTINATION include/arrow/util)
 

@@ -41,9 +41,8 @@ concepts, here is a small glossary to help disambiguate.
   or a fully-specified nested type. When we say slot we mean a relative type
   value, not necessarily any physical storage region.
 * Logical type: A data type that is implemented using some relative (physical)
-  type. For example, a Decimal value stored in 16 bytes could be stored in a
-  primitive array with slot size 16 bytes. Similarly, strings can be stored as
-  `List<1-byte>`.
+  type. For example, Decimal values are stored as 16 bytes in a fixed byte
+  size array. Similarly, strings can be stored as `List<1-byte>`.
 * Parent and child arrays: names to express relationships between physical
   value arrays in a nested type structure. For example, a `List<T>`-type parent
   array has a T-type array as its child (see more on lists below).
