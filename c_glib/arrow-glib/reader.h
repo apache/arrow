@@ -19,8 +19,10 @@
 
 #pragma once
 
+#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
+#include <arrow-glib/table.h>
 
 #include <arrow-glib/input-stream.h>
 
@@ -28,51 +30,12 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_RECORD_BATCH_READER         \
-  (garrow_record_batch_reader_get_type())
-#define GARROW_RECORD_BATCH_READER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH_READER,  \
-                              GArrowRecordBatchReader))
-#define GARROW_RECORD_BATCH_READER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_RECORD_BATCH_READER,     \
-                           GArrowRecordBatchReaderClass))
-#define GARROW_IS_RECORD_BATCH_READER(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH_READER))
-#define GARROW_IS_RECORD_BATCH_READER_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_RECORD_BATCH_READER))
-#define GARROW_RECORD_BATCH_READER_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_RECORD_BATCH_READER,   \
-                             GArrowRecordBatchReaderClass))
-
-typedef struct _GArrowRecordBatchReader      GArrowRecordBatchReader;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowRecordBatchReaderClass GArrowRecordBatchReaderClass;
-#endif
-
-/**
- * GArrowRecordBatchReader:
- *
- * It wraps `arrow::ipc::RecordBatchReader`.
- */
-struct _GArrowRecordBatchReader
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
-struct _GArrowRecordBatchReaderClass
-{
-  GObjectClass parent_class;
-};
-#endif
-
-GType garrow_record_batch_reader_get_type(void) G_GNUC_CONST;
+#define GARROW_TYPE_RECORD_BATCH_READER (garrow_record_batch_reader_get_type())
+GARROW_DECLARE_TYPE(GArrowRecordBatchReader,
+                    garrow_record_batch_reader,
+                    GARROW,
+                    RECORD_BATCH_READER,
+                    GObject)
 
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);
@@ -91,6 +54,16 @@ GArrowRecordBatch *garrow_record_batch_reader_read_next_record_batch(
 GArrowRecordBatch *garrow_record_batch_reader_read_next(
   GArrowRecordBatchReader *reader,
   GError **error);
+
+
+#define GARROW_TYPE_TABLE_BATCH_READER (garrow_table_batch_reader_get_type())
+GARROW_DECLARE_TYPE(GArrowTableBatchReader,
+                    garrow_table_batch_reader,
+                    GARROW,
+                    TABLE_BATCH_READER,
+                    GArrowRecordBatchReader)
+
+GArrowTableBatchReader *garrow_table_batch_reader_new(GArrowTable *table);
 
 
 #define GARROW_TYPE_RECORD_BATCH_STREAM_READER          \

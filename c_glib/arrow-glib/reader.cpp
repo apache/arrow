@@ -25,6 +25,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
+#include <arrow-glib/table.hpp>
 
 #include <arrow-glib/input-stream.hpp>
 
@@ -226,6 +227,38 @@ garrow_record_batch_reader_read_next(GArrowRecordBatchReader *reader,
   } else {
     return NULL;
   }
+}
+
+
+G_DEFINE_TYPE(GArrowTableBatchReader,
+              garrow_table_batch_reader,
+              GARROW_TYPE_RECORD_BATCH_READER);
+
+static void
+garrow_table_batch_reader_init(GArrowTableBatchReader *object)
+{
+}
+
+static void
+garrow_table_batch_reader_class_init(GArrowTableBatchReaderClass *klass)
+{
+}
+
+/**
+ * garrow_table_batch_reader_new:
+ * @table: The table to be read.
+ *
+ * Returns: A newly created #GArrowTableBatchReader.
+ *
+ * Since: 0.8.0
+ */
+GArrowTableBatchReader *
+garrow_table_batch_reader_new(GArrowTable *table)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_table_batch_reader =
+    std::make_shared<arrow::TableBatchReader>(*arrow_table);
+  return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader);
 }
 
 
@@ -788,6 +821,16 @@ garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader)
 
   priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(reader);
   return priv->record_batch_reader;
+}
+
+GArrowTableBatchReader *
+garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader)
+{
+  auto reader =
+    GARROW_TABLE_BATCH_READER(g_object_new(GARROW_TYPE_TABLE_BATCH_READER,
+                                           "record-batch-reader", arrow_reader,
+                                           NULL));
+  return reader;
 }
 
 GArrowRecordBatchStreamReader *
