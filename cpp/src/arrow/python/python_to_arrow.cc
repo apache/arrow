@@ -528,7 +528,6 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
                       std::vector<PyObject*>* tensors_out) {
   int dtype = PyArray_TYPE(array);
   switch (dtype) {
-    case NPY_BOOL:
     case NPY_UINT8:
     case NPY_INT8:
     case NPY_UINT16:
