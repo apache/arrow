@@ -25,6 +25,7 @@ if [ $TRAVIS_OS_NAME = "osx" ]; then
   brew update && brew bundle --file=c_glib/Brewfile
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
+  export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
 fi
 
 if [ $BUILD_SYSTEM = "meson" ]; then
