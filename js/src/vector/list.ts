@@ -28,16 +28,23 @@ export class ListVectorBase<T> extends Vector<T> {
         this.offsets = offsets;
         validity && (this.validity = BitVector.from(validity));
     }
-    get(index: number) {
-        let batch, from, to, { offsets } = this;
-        if (!this.validity.get(index) ||
-            /* return null if `to` is null */
-            ((to = offsets.get(index + 1)) === null) || !(
-            /*
-            return null if `batch` is less than than 0. this check is placed
-            second to avoid creating the [from, batch] tuple if `to` is null
-            */
-            ([from, batch] = offsets.get(index, true) as number[]) && batch > -1)) {
+    get(index: number, batch?: number) {
+        let from, to, { offsets } = this;
+
+        if (batch == undefined) {
+            batch = -1;
+            for (let length of this.offsets.batches()) {
+                batch++;
+                // offset batch size is one higher than the actual element count,
+                // decrement it
+                if ((index < --length) || (index -= length) < 0) { break; }
+            }
+        }
+
+        if (index < 0 || !this.validity.get(index, batch) ||
+            /* return null if `to` or `from` is null */
+            ((to = offsets.get(index + 1, batch)) === null) ||
+            ((from = offsets.get(index, batch)) === null)) {
             return null;
         }
         return this.values.slice(from, to, batch) as any;
@@ -63,8 +70,8 @@ export class ListVectorBase<T> extends Vector<T> {
 export class ListVector<T> extends ListVectorBase<T[]> {}
 export class Utf8Vector extends ListVectorBase<string> {
     protected static decoder = new TextDecoder(`utf-8`);
-    get(index: number) {
-        let chars = super.get(index) as any;
+    get(index: number, batch?: number) {
+        let chars = super.get(index, batch) as any;
         return chars ? Utf8Vector.decoder.decode(chars) : null;
     }
     *[Symbol.iterator]() {
@@ -84,9 +91,9 @@ export class FixedSizeListVector<T> extends Vector<T[]> {
         this.size = Math.abs(size | 0) || 1;
         validity && (this.validity = BitVector.from(validity));
     }
-    get(index: number) {
-        return !this.validity.get(index) ? null : this.values.slice(
-            this.size * index, this.size * (index + 1)
+    get(index: number, batch?: number) {
+        return !this.validity.get(index, batch) ? null : this.values.slice(
+            this.size * index, this.size * (index + 1), batch
         ) as T[];
     }
     concat(vector: FixedSizeListVector<T>) {

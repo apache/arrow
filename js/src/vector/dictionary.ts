@@ -26,14 +26,17 @@ export class DictionaryVector<T> extends Vector<T> {
         this.data = dictionary;
         this.length = index && index.length || 0;
     }
-    index(index: number) {
-        return this.keys.get(index);
+    index(index: number, batch?: number) {
+        return this.keys.get(index, batch);
     }
     value(index: number) {
         return this.data.get(index);
     }
-    get(index: number) {
-        return this.value(this.index(index));
+    get(index: number, batch?: number) {
+        return this.value(this.index(index, batch));
+    }
+    *batches() {
+        return this.keys.batches();
     }
     concat(vector: DictionaryVector<T>) {
         return DictionaryVector.from(this,

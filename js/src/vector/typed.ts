@@ -39,14 +39,24 @@ export class VirtualVector<T, TArrayType = VArray<T>> extends Vector<T> {
         super();
         this.lists = lists.filter(Boolean);
     }
-    get(index: number): T {
+    get(index: number, batch?: number): T {
         /* inlined `findVirtual` impl */
         let rows, length, lists = this.lists;
-        for (let batch = -1;
-            (rows = lists[++batch]) &&
-            (length = rows.length) <= index &&
-            0 <= (index -= length);) {}
+        if (batch == undefined) {
+            for (batch = -1;
+                (rows = lists[++batch]) &&
+                (length = rows.length) <= index &&
+                0 <= (index -= length);) {}
+        } else {
+            rows = lists[batch];
+        }
         return rows && -1 < index ? rows[index] : null;
+    }
+    *batches() {
+        let rows, lists = this.lists;
+        for (rows of lists) {
+            yield rows.length;
+        }
     }
     protected range(from: number, total: number, batch?: number) {
         /* inlined `findVirtual` impl */
@@ -122,13 +132,17 @@ export class BitVector extends VirtualVector<boolean, Uint8Array> {
         super(...lists);
         this.length = this.lists.reduce((l, xs) => l + xs['length'], 0);
     }
-    get(index: number) {
+    get(index: number, batch?: number) {
         /* inlined `findVirtual` impl */
         let rows, length, lists = this.lists;
-        for (let batch = -1;
-            (rows = lists[++batch]) &&
-            (length = rows.length) <= index &&
-            0 <= (index -= length);) {}
+        if (batch == undefined) {
+            for (batch = -1;
+                 (rows = lists[++batch]) &&
+                 (length = rows.length) <= index &&
+                 0 <= (index -= length);) {}
+        } else {
+            rows = lists[batch];
+        }
         return !(!rows || index < 0 || (rows[index >> 3 | 0] & 1 << index % 8) === 0);
     }
     set(index: number, value: boolean) {
@@ -171,11 +185,11 @@ export class TypedVector<T, TArrayType> extends VirtualVector<T, TArrayType> {
 }
 
 export class DateVector extends TypedVector<Date, Uint32Array> {
-    get(index: number) {
-        return !this.validity.get(index) ? null : new Date(
+    get(index: number, batch?: number) {
+        return !this.validity.get(index, batch) ? null : new Date(
             Math.pow(2, 32) *
-                <any> super.get(2 * index + 1) +
-                <any> super.get(2 * index)
+                <any> super.get(2 * index + 1, batch) +
+                <any> super.get(2 * index, batch)
         );
     }
     *[Symbol.iterator]() {
@@ -188,17 +202,21 @@ export class DateVector extends TypedVector<Date, Uint32Array> {
     }
 }
 
-export class IndexVector extends TypedVector<number | number[], Int32Array> {
-    get(index: number, returnWithBatchIndex = false) {
+export class IndexVector extends TypedVector<number, Int32Array> {
+    get(index: number, batch?: number) {
         /* inlined `findVirtual` impl */
-        let rows, length, batch = -1, lists = this.lists;
-        for (;
-            (rows = lists[++batch]) &&
-            (length = rows.length) <= index &&
-            0 <= (index -= length);) {}
-        return !returnWithBatchIndex
-            ? (rows && -1 < index ? rows[index + batch] : null) as number
-            : (rows && -1 < index ? [rows[index + batch], batch] : [0, -1]) as number[];
+        let rows, length, lists = this.lists;
+        if (batch == undefined) {
+            for (batch = -1;
+                 (rows = lists[++batch]) &&
+                 (length = rows.length) <= index &&
+                 // offset batch size is one higher than the actual element count,
+                 // decrement it
+                 0 <= (index -= (length - 1));) {}
+        } else {
+            rows = lists[batch];
+        }
+        return (rows && -1 < index ? rows[index] : null) as number;
     }
     *[Symbol.iterator]() {
         // Alternate between iterating a tuple of [from, batch], and to. The from
@@ -218,8 +236,8 @@ export class IndexVector extends TypedVector<number | number[], Int32Array> {
 }
 
 export class ByteVector<TList> extends TypedVector<number, TList> {
-    get(index: number) {
-        return this.validity.get(index) ? super.get(index) : null;
+    get(index: number, batch?: number) {
+        return this.validity.get(index, batch) ? super.get(index, batch) : null;
     }
     *[Symbol.iterator]() {
         let v, r, { validity } = this;
@@ -237,10 +255,10 @@ export class ByteVector<TList> extends TypedVector<number, TList> {
 }
 
 export class LongVector<TList> extends TypedVector<Long, TList> {
-    get(index: number) {
-        return !this.validity.get(index) ? null : new Long(
-            <any> super.get(index * 2),     /* low */
-            <any> super.get(index * 2 + 1) /* high */
+    get(index: number, batch?: number) {
+        return !this.validity.get(index, batch) ? null : new Long(
+            <any> super.get(index * 2, batch),     /* low */
+            <any> super.get(index * 2 + 1, batch) /* high */
         );
     }
     *[Symbol.iterator]() {
