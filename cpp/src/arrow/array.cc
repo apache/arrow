@@ -393,6 +393,32 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
+Status UnionArray::FromArrays(const std::vector<std::shared_ptr<Array>>& children,
+                              const Array& type_ids, const Array& value_offsets,
+                              std::shared_ptr<Array>* out) {
+  BufferVector buffers = {type_ids.null_bitmap(),
+                          static_cast<const UInt8Array&>(type_ids).values(),
+                          static_cast<const Int32Array&>(value_offsets).values()};
+  auto types = std::vector<std::shared_ptr<Field>>();
+  std::vector<uint8_t> type_codes;
+  uint8_t counter = 0;
+  for (const auto& child : children) {
+    types.push_back(field("", child->type()));
+    type_codes.push_back(counter);
+    counter++;
+  }
+  // TODO(pcm): Do not hardcode UnionMode::DENSE here
+  auto union_type = union_(types, type_codes, UnionMode::DENSE);
+  auto internal_data =
+      std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
+                                  type_ids.null_count(), type_ids.offset());
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+  }
+  *out = std::make_shared<UnionArray>(internal_data);
+  return Status::OK();
+}
+
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
     boxed_fields_[i] = MakeArray(data_->child_data[i]);
@@ -407,6 +433,10 @@ const Array* UnionArray::UnsafeChild(int i) const {
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i].get();
+}
+
+std::shared_ptr<DataType> UnionArray::value_type(int pos) const {
+  return child(pos)->type();
 }
 
 // ----------------------------------------------------------------------

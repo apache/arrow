@@ -631,6 +631,19 @@ cdef class ListArray(Array):
         return pyarrow_wrap_array(out)
 
 
+cdef class UnionArray(Array):
+
+    @staticmethod
+    def from_arrays(list children, Array types, Array value_offsets):
+        cdef shared_ptr[CArray] out
+        cdef vector[shared_ptr[CArray]] c
+        cdef Array child
+        for child in children:
+            c.push_back(child.sp_array)
+        with nogil:
+            check_status(CUnionArray.FromArrays(c, deref(types.ap), deref(value_offsets.ap), &out))
+        return pyarrow_wrap_array(out)
+
 cdef class StringArray(Array):
     pass
 
@@ -789,6 +802,7 @@ cdef dict _array_classes = {
     _Type_FLOAT: FloatArray,
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
+    _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,
     _Type_DICTIONARY: DictionaryArray,

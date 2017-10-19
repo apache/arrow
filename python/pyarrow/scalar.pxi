@@ -315,6 +315,21 @@ cdef class ListValue(ArrayValue):
         return result
 
 
+cdef class UnionValue(ArrayValue):
+
+    cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
+        self.sp_array = sp_array
+        self.ap = <CUnionArray*> sp_array.get()
+        self.value_types = [pyarrow_wrap_data_type(self.ap.value_type(i)) for i in range(self.ap.num_fields())]
+
+    cdef getitem(self, int64_t i):
+        cdef int8_t type_id = self.ap.raw_type_ids()[i]
+        cdef shared_ptr[CArray] child = self.ap.child(type_id)
+        return box_scalar(self.value_types[type_id], child, self.ap.value_offset(i))
+
+    def as_py(self):
+        return self.getitem(self.index).as_py()
+
 cdef class FixedSizeBinaryValue(ArrayValue):
 
     def as_py(self):
@@ -364,6 +379,7 @@ cdef dict _scalar_classes = {
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,
     _Type_LIST: ListValue,
+    _Type_UNION: UnionValue,
     _Type_BINARY: BinaryValue,
     _Type_STRING: StringValue,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryValue,

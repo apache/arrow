@@ -139,6 +139,13 @@ cdef class ListValue(ArrayValue):
     cdef getitem(self, int64_t i)
 
 
+cdef class UnionValue(ArrayValue):
+    cdef:
+        CUnionArray* ap
+        list value_types
+
+    cdef getitem(self, int64_t i)
+
 cdef class StringValue(ArrayValue):
     pass
 
@@ -239,6 +246,10 @@ cdef class DecimalArray(FixedSizeBinaryArray):
 
 
 cdef class ListArray(Array):
+    pass
+
+
+cdef class UnionArray(Array):
     pass
 
 

@@ -612,11 +612,17 @@ class ARROW_EXPORT UnionArray : public Array {
              const std::shared_ptr<Buffer>& null_bitmap = NULLPTR, int64_t null_count = 0,
              int64_t offset = 0);
 
+  static Status FromArrays(const std::vector<std::shared_ptr<Array>>& children,
+                           const Array& type_ids, const Array& value_offsets,
+                           std::shared_ptr<Array>* out);
+
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
 
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
+
+  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
 
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
@@ -627,6 +633,8 @@ class ARROW_EXPORT UnionArray : public Array {
 
   /// Only use this while the UnionArray is in scope
   const Array* UnsafeChild(int pos) const;
+
+  std::shared_ptr<DataType> value_type(int pos) const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

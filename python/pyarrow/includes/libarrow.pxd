@@ -317,6 +317,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
+    cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
+        @staticmethod
+        CStatus FromArrays(const vector[shared_ptr[CArray]]& children,
+                           const CArray& type_ids, const CArray& value_offsets,
+                           shared_ptr[CArray]* out)
+        uint8_t* raw_type_ids()
+        int32_t value_offset(int i)
+        shared_ptr[CArray] child(int pos)
+        const CArray* UnsafeChild(int pos)
+        shared_ptr[CDataType] value_type(int pos)
+
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
         const uint8_t* GetValue(int i, int32_t* length)
 

@@ -235,6 +235,23 @@ def test_list_from_arrays():
     assert result.equals(expected)
 
 
+def test_union_from_arrays():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_arrays([binary, int64], types, value_offsets)
+
+    assert result[0].as_py() == b'a'
+    assert result[1].as_py() == 1
+    assert result[2].as_py() == b'c'
+    assert result[3].as_py() == b'b'
+    assert result[4].as_py() == 2
+    assert result[5].as_py() == 3
+    assert result[6].as_py() == b'd'
+
+
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 
