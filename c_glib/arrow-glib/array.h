@@ -71,6 +71,8 @@ gboolean       garrow_array_equal_range (GArrowArray *array,
 
 gboolean       garrow_array_is_null     (GArrowArray *array,
                                          gint64 i);
+gboolean       garrow_array_is_valid    (GArrowArray *array,
+                                         gint64 i);
 gint64         garrow_array_get_length  (GArrowArray *array);
 gint64         garrow_array_get_offset  (GArrowArray *array);
 gint64         garrow_array_get_n_nulls (GArrowArray *array);
