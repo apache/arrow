@@ -368,6 +368,22 @@ garrow_array_is_null(GArrowArray *array, gint64 i)
 }
 
 /**
+ * garrow_array_is_valid:
+ * @array: A #GArrowArray.
+ * @i: The index of the target value.
+ *
+ * Returns: Whether the i-th value is valid (not null) or not.
+ *
+ * Since: 0.8.0
+ */
+gboolean
+garrow_array_is_valid(GArrowArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  return arrow_array->IsValid(i);
+}
+
+/**
  * garrow_array_get_length:
  * @array: A #GArrowArray.
  *
