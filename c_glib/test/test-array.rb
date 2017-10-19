@@ -48,6 +48,15 @@ class TestArray < Test::Unit::TestCase
                  array.length.times.collect {|i| array.null?(i)})
   end
 
+  def test_is_valid
+    builder = Arrow::BooleanArrayBuilder.new
+    builder.append_null
+    builder.append(true)
+    array = builder.finish
+    assert_equal([false, true],
+                 array.length.times.collect {|i| array.valid?(i)})
+  end
+
   def test_length
     builder = Arrow::BooleanArrayBuilder.new
     builder.append(true)
