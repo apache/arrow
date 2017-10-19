@@ -35,6 +35,271 @@ from pyarrow.lib import ArrowException, NativeFile
 
 import six
 
+try:
+    from textwrap import indent
+except ImportError:
+    def indent(text, prefix):
+        lines = [prefix+line for line in text.splitlines(True)]
+        return ''.join(lines)
+
+
+cdef class EncodedStatistics:
+    cdef:
+        CEncodedStatistics statistics
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const CEncodedStatistics& statistics):
+        self.statistics = statistics
+
+    def __repr__(self):
+        return """{0}
+  max: {1}
+  min: {2}
+  null_count: {3}
+  distinct_count: {4}
+  has_min: {5}
+  has_max: {6}
+  has_null_count: {7}
+  has_distinct_count: {8}""".format(object.__repr__(self),
+                                    self.max,
+                                    self.min,
+                                    self.null_count,
+                                    self.distinct_count,
+                                    self.has_min,
+                                    self.has_max,
+                                    self.has_null_count,
+                                    self.has_distinct_count)
+
+    property max:
+
+        def __get__(self):
+            return self.statistics.max()
+
+    property min:
+
+        def __get__(self):
+            return self.statistics.min()
+
+    property null_count:
+
+        def __get__(self):
+            return self.statistics.null_count
+
+    property distinct_count:
+
+        def __get__(self):
+            return self.statistics.distinct_count
+
+    property has_min:
+
+        def __get__(self):
+            return bool(self.statistics.has_min)
+
+    property has_max:
+
+        def __get__(self):
+            return bool(self.statistics.has_max)
+
+    property has_null_count:
+
+        def __get__(self):
+            return bool(self.statistics.has_null_count)
+
+    property has_distinct_count:
+
+        def __get__(self):
+            return bool(self.statistics.has_distinct_count)
+
+
+cdef class RowGroupStatistics:
+    cdef:
+        shared_ptr[CRowGroupStatistics] statistics
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[CRowGroupStatistics]& statistics):
+        self.statistics = statistics
+
+    def __repr__(self):
+        return """{0}
+  null_count: {1}
+  distinct_count: {2}
+  num_values: {3}
+  physical_type: {4}""".format(object.__repr__(self),
+                               self.null_count,
+                               self.distinct_count,
+                               self.num_values,
+                               self.physical_type)
+
+    def Reset(self):
+        self.statistics.get().Reset()
+
+    def SetComparator(self):
+        self.statistics.get().SetComparator()
+
+    def HasMinMax(self):
+        return bool(self.statistics.get().HasMinMax())
+
+    def EncodeMin(self):
+        return self.statistics.get().EncodeMin()
+
+    def EncodeMax(self):
+        return self.statistics.get().EncodeMax()
+
+    def Encode(self):
+        statistics = EncodedStatistics()
+        statistics.init(self.statistics.get().Encode())
+        return statistics
+
+    property null_count:
+
+        def __get__(self):
+            return self.statistics.get().null_count()
+
+    property distinct_count:
+
+        def __get__(self):
+            return self.statistics.get().distinct_count()
+
+    property num_values:
+
+        def __get__(self):
+            return self.statistics.get().num_values()
+
+    property physical_type:
+
+        def __get__(self):
+            physical_type = self.statistics.get().physical_type()
+            return physical_type_name_from_enum(physical_type)
+
+
+cdef class ColumnChunkMetaData:
+    cdef:
+        unique_ptr[CColumnChunkMetaData] up_metadata
+        CColumnChunkMetaData* metadata
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const CRowGroupMetaData& row_group_metadata, int i):
+        self.up_metadata = row_group_metadata.ColumnChunk(i)
+        self.metadata = self.up_metadata.get()
+
+    def __repr__(self):
+        statistics = indent(repr(self.statistics), 4 * ' ')
+        return """{0}
+  file_offset: {1}
+  file_path: {2}
+  type: {3}
+  num_values: {4}
+  path_in_schema: {5}
+  is_stats_set: {6}
+  statistics:
+{7}
+  compression: {8}
+  encodings: {9}
+  has_dictionary_page: {10}
+  dictionary_page_offset: {11}
+  data_page_offset: {12}
+  index_page_offset: {13}
+  total_compressed_size: {14}
+  total_uncompressed_size: {15}""".format(object.__repr__(self),
+                                          self.file_offset,
+                                          self.file_path,
+                                          self.type,
+                                          self.num_values,
+                                          self.path_in_schema,
+                                          self.is_stats_set,
+                                          statistics,
+                                          self.compression,
+                                          self.encodings,
+                                          self.has_dictionary_page,
+                                          self.dictionary_page_offset,
+                                          self.data_page_offset,
+                                          self.index_page_offset,
+                                          self.total_compressed_size,
+                                          self.total_uncompressed_size)
+
+    property file_offset:
+
+        def __get__(self):
+            return self.metadata.file_offset()
+
+    property file_path:
+
+        def __get__(self):
+            return self.metadata.file_path()
+
+    property type:
+
+        def __get__(self):
+            return physical_type_name_from_enum(self.metadata.type())
+
+    property num_values:
+
+        def __get__(self):
+            return self.metadata.num_values()
+
+    property path_in_schema:
+
+        def __get__(self):
+            return self.metadata.path_in_schema().get().ToDotString()
+
+    property is_stats_set:
+
+        def __get__(self):
+            return self.metadata.is_stats_set()
+
+    property statistics:
+
+        def __get__(self):
+            statistics = RowGroupStatistics()
+            statistics.init(self.metadata.statistics())
+            return statistics
+
+    property compression:
+
+        def __get__(self):
+            return self.metadata.compression()
+
+    property encodings:
+
+        def __get__(self):
+            return map(encoding_name_from_enum, self.metadata.encodings())
+
+    property has_dictionary_page:
+
+        def __get__(self):
+            return bool(self.metadata.has_dictionary_page())
+
+    property dictionary_page_offset:
+
+        def __get__(self):
+            return self.metadata.dictionary_page_offset()
+
+    property data_page_offset:
+
+        def __get__(self):
+            return self.metadata.data_page_offset()
+
+    property index_page_offset:
+
+        def __get__(self):
+            return self.metadata.index_page_offset()
+
+    property total_compressed_size:
+
+        def __get__(self):
+            return self.metadata.total_compressed_size()
+
+    property total_uncompressed_size:
+
+        def __get__(self):
+            return self.metadata.total_uncompressed_size()
+
 
 cdef class RowGroupMetaData:
     cdef:
@@ -51,6 +316,11 @@ cdef class RowGroupMetaData:
         self.up_metadata = parent._metadata.RowGroup(i)
         self.metadata = self.up_metadata.get()
         self.parent = parent
+
+    def ColumnChunk(self, int i):
+        chunk = ColumnChunkMetaData()
+        chunk.init(deref(self.metadata), i)
+        return chunk
 
     def __repr__(self):
         return """{0}
@@ -369,6 +639,19 @@ cdef logical_type_name_from_enum(ParquetLogicalType type_):
         ParquetLogicalType_BSON: 'BSON',
         ParquetLogicalType_INTERVAL: 'INTERVAL',
     }.get(type_, 'UNKNOWN')
+
+
+cdef encoding_name_from_enum (ParquetEncoding encoding_):
+    return {
+        ParquetEncoding_PLAIN: "PLAIN",
+        ParquetEncoding_PLAIN_DICTIONARY: "PLAIN_DICTIONARY",
+        ParquetEncoding_RLE: "RLE",
+        ParquetEncoding_BIT_PACKED: "BIT_PACKED",
+        ParquetEncoding_DELTA_BINARY_PACKED: "DELTA_BINARY_PACKED",
+        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY: "DELTA_LENGTH_BYTE_ARRAY",
+        ParquetEncoding_DELTA_BYTE_ARRAY: "DELTA_BYTE_ARRAY",
+        ParquetEncoding_RLE_DICTIONARY: "RLE_DICTIONARY",
+    }.get(encoding_, 'UNKNOWN')
 
 
 cdef class ParquetReader:
