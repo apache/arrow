@@ -22,4 +22,4 @@ import pyarrow as pa
 
 def test_get_include():
     include_dir = pa.get_include()
-    assert os.path.exists(os.path.join(include_dir, 'arrow', 'array.h'))
+    assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))
