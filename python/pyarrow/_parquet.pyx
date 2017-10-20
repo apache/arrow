@@ -64,10 +64,11 @@ cdef class RowGroupStatistics:
                                self.num_values,
                                self.physical_type)
 
+    property has_min_max:
 
+        def __get__(self):
+            return self.statistics.get().HasMinMax()
 
-    def HasMinMax(self):
-        return bool(self.statistics.get().HasMinMax())
 
     def EncodeMin(self):
         return self.statistics.get().EncodeMin()
