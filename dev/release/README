@@ -1,7 +1,7 @@
 requirements:
 - being a committer to be able to push to dist and maven repository
 - a gpg key to sign the artifacts
-- use java 7. check your JAVA_HOME environment variable (at least for now. See ARROW-930) 
+- use java 7. check your JAVA_HOME environment variable (at least for now. See ARROW-930)
 - have the build requirements for cpp and c_glibg installed (see their README)
 
 to release, run the following (replace 0.1.0 with version to release):
@@ -28,7 +28,7 @@ mvn versions:set -DnewVersion=0.1-SNAPSHOT
 git reset --hard
 - setup gpg agent
 eval $(gpg-agent --daemon --allow-preset-passphrase)
-gpg --use-agent -s LICENSE.txt 
+gpg --use-agent -s LICENSE.txt
 - delete tag localy
 git tag -d apache-arrow-0.1.0
 
