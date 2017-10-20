@@ -22,7 +22,7 @@ import numpy as np
 
 import pyarrow as pa
 from pyarrow import serialize_pandas, deserialize_pandas
-from pyarrow.lib import SerializationContext, _default_serialization_context
+from pyarrow.lib import _default_serialization_context
 
 def register_default_serialization_handlers(serialization_context):
 
