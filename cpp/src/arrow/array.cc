@@ -403,7 +403,7 @@ Status UnionArray::FromArrays(const std::vector<std::shared_ptr<Array>>& childre
   std::vector<uint8_t> type_codes;
   uint8_t counter = 0;
   for (const auto& child : children) {
-    types.push_back(field("", child->type()));
+    types.push_back(field(std::to_string(counter), child->type()));
     type_codes.push_back(counter);
     counter++;
   }
