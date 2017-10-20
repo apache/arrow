@@ -240,7 +240,7 @@ cdef class RowGroupMetaData:
         self.metadata = self.up_metadata.get()
         self.parent = parent
 
-    def ColumnChunk(self, int i):
+    def column(self, int i):
         chunk = ColumnChunkMetaData()
         chunk.init(deref(self.metadata), i)
         return chunk
