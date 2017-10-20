@@ -541,7 +541,8 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_DOUBLE: {
       RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(tensors_out->size())));
       std::shared_ptr<Tensor> tensor;
-      RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(), reinterpret_cast<PyObject*>(array), &tensor));
+      RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
+                                    reinterpret_cast<PyObject*>(array), &tensor));
       tensors_out->push_back(tensor);
     } break;
     default: {
