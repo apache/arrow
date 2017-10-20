@@ -55,10 +55,16 @@ cdef class RowGroupStatistics:
 
     def __repr__(self):
         return """{0}
-  null_count: {1}
-  distinct_count: {2}
-  num_values: {3}
-  physical_type: {4}""".format(object.__repr__(self),
+  has_min_max: {1}
+  min: {2}
+  max: {3}
+  null_count: {4}
+  distinct_count: {5}
+  num_values: {6}
+  physical_type: {7}""".format(object.__repr__(self),
+                               self.has_min_max,
+                               self.min,
+                               self.max,
                                self.null_count,
                                self.distinct_count,
                                self.num_values,
