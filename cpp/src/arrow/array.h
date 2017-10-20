@@ -400,10 +400,13 @@ class ARROW_EXPORT ListArray : public Array {
 
   /// \brief Construct ListArray from array of offsets and child value array
   ///
-  /// Note: does not validate input beyond sanity checks. Use
-  /// arrow::ValidateArray if you need stronger validation of inputs
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types, and will allocate a new offsets array if necessary (i.e. if
+  /// the offsets contain any nulls). If the offsets do not have nulls, they
+  /// are assumed to be well-formed
   ///
-  /// \param[in] offsets Array containing n + 1 offsets encoding length and size
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and
+  /// size. Must be of int32 type
   /// \param[in] values Array containing
   /// \param[in] pool MemoryPool in case new offsets array needs to be
   /// allocated because of null values
