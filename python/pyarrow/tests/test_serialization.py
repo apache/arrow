@@ -297,6 +297,27 @@ def test_numpy_immutable(large_memory_map):
             result[0] = 1.0
 
 
+# see https://issues.apache.org/jira/browse/ARROW-1695
+def test_serialization_callback_numpy():
+
+    class DummyClass(object):
+        pass
+
+    def serialize_dummy_class(obj):
+        x = np.zeros(4)
+        return x
+
+    def deserialize_dummy_class(serialized_obj):
+        return serialized_obj
+
+    pa._default_serialization_context.register_type(
+        DummyClass, "DummyClass", pickle=False,
+        custom_serializer=serialize_dummy_class,
+        custom_deserializer=deserialize_dummy_class)
+
+    pa.serialize(DummyClass())
+
+
 @pytest.mark.skip(reason="extensive memory requirements")
 def test_arrow_limits(self):
     def huge_memory_map(temp_dir):
