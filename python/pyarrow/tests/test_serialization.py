@@ -289,8 +289,12 @@ def test_torch_serialization(large_memory_map):
     pytest.importorskip("torch")
     import torch
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        obj = torch.from_numpy(np.zeros(1000))
-        serialization_roundtrip(obj, mmap)
+        # These are the only types that are supported for the
+        # PyTorch to NumPy conversion
+        for t in ["float32", "float64",
+                  "uint8", "int16", "int32", "int64"]:
+            obj = torch.from_numpy(np.random.randn(1000).astype(t))
+            serialization_roundtrip(obj, mmap)
 
 def test_numpy_immutable(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
