@@ -43,76 +43,6 @@ except ImportError:
         return ''.join(lines)
 
 
-cdef class EncodedStatistics:
-    cdef:
-        CEncodedStatistics statistics
-
-    def __cinit__(self):
-        pass
-
-    cdef init(self, const CEncodedStatistics& statistics):
-        self.statistics = statistics
-
-    def __repr__(self):
-        return """{0}
-  max: {1}
-  min: {2}
-  null_count: {3}
-  distinct_count: {4}
-  has_min: {5}
-  has_max: {6}
-  has_null_count: {7}
-  has_distinct_count: {8}""".format(object.__repr__(self),
-                                    self.max,
-                                    self.min,
-                                    self.null_count,
-                                    self.distinct_count,
-                                    self.has_min,
-                                    self.has_max,
-                                    self.has_null_count,
-                                    self.has_distinct_count)
-
-    property max:
-
-        def __get__(self):
-            return self.statistics.max()
-
-    property min:
-
-        def __get__(self):
-            return self.statistics.min()
-
-    property null_count:
-
-        def __get__(self):
-            return self.statistics.null_count
-
-    property distinct_count:
-
-        def __get__(self):
-            return self.statistics.distinct_count
-
-    property has_min:
-
-        def __get__(self):
-            return bool(self.statistics.has_min)
-
-    property has_max:
-
-        def __get__(self):
-            return bool(self.statistics.has_max)
-
-    property has_null_count:
-
-        def __get__(self):
-            return bool(self.statistics.has_null_count)
-
-    property has_distinct_count:
-
-        def __get__(self):
-            return bool(self.statistics.has_distinct_count)
-
-
 cdef class RowGroupStatistics:
     cdef:
         shared_ptr[CRowGroupStatistics] statistics
@@ -134,11 +64,7 @@ cdef class RowGroupStatistics:
                                self.num_values,
                                self.physical_type)
 
-    def Reset(self):
-        self.statistics.get().Reset()
 
-    def SetComparator(self):
-        self.statistics.get().SetComparator()
 
     def HasMinMax(self):
         return bool(self.statistics.get().HasMinMax())
@@ -149,10 +75,6 @@ cdef class RowGroupStatistics:
     def EncodeMax(self):
         return self.statistics.get().EncodeMax()
 
-    def Encode(self):
-        statistics = EncodedStatistics()
-        statistics.init(self.statistics.get().Encode())
-        return statistics
 
     property null_count:
 
