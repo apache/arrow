@@ -25,6 +25,7 @@ if [ $TRAVIS_OS_NAME = "osx" ]; then
   brew update && brew bundle --file=c_glib/Brewfile
 
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
+  export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
 fi
 
 if [ $BUILD_SYSTEM = "meson" ]; then
@@ -83,10 +84,7 @@ if [ $BUILD_SYSTEM = "autotools" ]; then
   ./autogen.sh
 
   CONFIGURE_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
-  if [ $TRAVIS_OS_NAME != "osx" ]; then
-    CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
-  fi
-
+  CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
   CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CFLAGS=-DARROW_NO_DEPRECATED_API"
   CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CXXFLAGS=-DARROW_NO_DEPRECATED_API"
 
