@@ -39,7 +39,7 @@ try:
     from textwrap import indent
 except ImportError:
     def indent(text, prefix):
-        lines = [prefix+line for line in text.splitlines(True)]
+        lines = [prefix + line for line in text.splitlines(True)]
         return ''.join(lines)
 
 
@@ -208,7 +208,8 @@ cdef class ColumnChunkMetaData:
     property encodings:
 
         def __get__(self):
-            return map(encoding_name_from_enum, self.metadata.encodings())
+            return map(encoding_name_from_enum,
+                       self.metadata.encodings())
 
     property has_dictionary_page:
 
