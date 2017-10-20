@@ -164,7 +164,7 @@ cdef class ColumnChunkMetaData:
     property file_path:
 
         def __get__(self):
-            return self.metadata.file_path()
+            return frombytes(self.metadata.file_path())
 
     property type:
 
@@ -179,7 +179,8 @@ cdef class ColumnChunkMetaData:
     property path_in_schema:
 
         def __get__(self):
-            return self.metadata.path_in_schema().get().ToDotString()
+            path = self.metadata.path_in_schema().get().ToDotString()
+            return frombytes(path)
 
     property is_stats_set:
 
