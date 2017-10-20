@@ -52,9 +52,12 @@ export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
         let index = -1, fieldsLength = schema.fieldsLength();
         if (batch.id) {
             while (++index < fieldsLength) {
+                let found: boolean = false;
                 for (let [id, vector] of readDictionaries(schema.fields(index), batch, state, dictionaries)) {
                     dictionaries[id] = dictionaries[id] && dictionaries[id].concat(vector) || vector;
+                    found = true;
                 }
+                if (found) break;
             }
         } else {
             while (++index < fieldsLength) {
