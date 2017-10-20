@@ -106,5 +106,5 @@ rm -rf target/site/apidocs/*
 mvn -Drat.skip=true install
 mvn -Drat.skip=true site
 mkdir -p ../site/asf-site/docs/java/
-rsync -r target/site/apidocs ../site/asf-site/docs/java/
+rsync -r target/site/apidocs/ ../site/asf-site/docs/java/
 popd
