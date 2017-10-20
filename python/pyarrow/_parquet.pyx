@@ -195,7 +195,7 @@ cdef class ColumnChunkMetaData:
     property has_dictionary_page:
 
         def __get__(self):
-            return bool(self.metadata.has_dictionary_page())
+            return self.metadata.has_dictionary_page()
 
     property dictionary_page_offset:
 

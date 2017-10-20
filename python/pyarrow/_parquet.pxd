@@ -167,16 +167,16 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         const c_string& min() const
         int64_t null_count
         int64_t distinct_count
-        c_bool has_min
-        c_bool has_max
-        c_bool has_null_count
-        c_bool has_distinct_count
+        bint has_min
+        bint has_max
+        bint has_null_count
+        bint has_distinct_count
 
     cdef cppclass CRowGroupStatistics" parquet::RowGroupStatistics":
         int64_t null_count() const
         int64_t distinct_count() const
         int64_t num_values() const
-        c_bool HasMinMax()
+        bint HasMinMax()
         void Reset()
         c_string EncodeMin()
         c_string EncodeMax()
@@ -191,12 +191,12 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ParquetType type() const
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
-        c_bool is_stats_set() const
+        bint is_stats_set() const
         shared_ptr[CRowGroupStatistics] statistics() const;
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
 
-        int64_t has_dictionary_page() const
+        bint has_dictionary_page() const
         int64_t dictionary_page_offset() const
         int64_t data_page_offset() const
         int64_t index_page_offset() const
