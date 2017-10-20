@@ -390,15 +390,15 @@ Status CallDeserializeCallback(PyObject* context, PyObject* value,
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
                      int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     std::vector<PyObject*>* tensors_out);
+                     std::vector<std::shared_ptr<Tensor>>* tensors_out);
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts,
-                      std::vector<PyObject*>* tensors_out);
+                      std::vector<std::shared_ptr<Tensor>>* tensors_out);
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
                           int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          std::vector<PyObject*>* tensors_out);
+                          std::vector<std::shared_ptr<Tensor>>* tensors_out);
 
 Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   if (PyArray_IsScalar(obj, Bool)) {
@@ -444,7 +444,7 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
 Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
               std::vector<PyObject*>* sublists, std::vector<PyObject*>* subtuples,
               std::vector<PyObject*>* subdicts, std::vector<PyObject*>* subsets,
-              std::vector<PyObject*>* tensors_out) {
+              std::vector<std::shared_ptr<Tensor>>* tensors_out) {
   // The bool case must precede the int case (PyInt_Check passes for bools)
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
@@ -525,7 +525,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts,
-                      std::vector<PyObject*>* tensors_out) {
+                      std::vector<std::shared_ptr<Tensor>>* tensors_out) {
   int dtype = PyArray_TYPE(array);
   switch (dtype) {
     case NPY_UINT8:
@@ -540,7 +540,10 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_FLOAT:
     case NPY_DOUBLE: {
       RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(tensors_out->size())));
-      tensors_out->push_back(reinterpret_cast<PyObject*>(array));
+      std::shared_ptr<Tensor> tensor;
+      RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
+                                    reinterpret_cast<PyObject*>(array), &tensor));
+      tensors_out->push_back(tensor);
     } break;
     default: {
       PyObject* serialized_object;
@@ -556,7 +559,7 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
                           int32_t recursion_depth, std::shared_ptr<Array>* out,
-                          std::vector<PyObject*>* tensors_out) {
+                          std::vector<std::shared_ptr<Tensor>>* tensors_out) {
   DCHECK(out);
   if (recursion_depth >= kMaxRecursionDepth) {
     return Status::NotImplemented(
@@ -603,7 +606,7 @@ Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
 
 Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
                      int32_t recursion_depth, std::shared_ptr<Array>* out,
-                     std::vector<PyObject*>* tensors_out) {
+                     std::vector<std::shared_ptr<Tensor>>* tensors_out) {
   DictBuilder result;
   if (recursion_depth >= kMaxRecursionDepth) {
     return Status::NotImplemented(
@@ -686,14 +689,8 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   PyDateTime_IMPORT;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
-  std::vector<PyObject*> py_tensors;
-  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, &py_tensors));
+  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, &out->tensors));
   out->batch = MakeBatch(array);
-  for (const auto& py_tensor : py_tensors) {
-    std::shared_ptr<Tensor> arrow_tensor;
-    RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(), py_tensor, &arrow_tensor));
-    out->tensors.push_back(arrow_tensor);
-  }
   return Status::OK();
 }
 
