@@ -69,13 +69,23 @@ cdef class RowGroupStatistics:
         def __get__(self):
             return self.statistics.get().HasMinMax()
 
+    property min:
 
-    def EncodeMin(self):
-        return self.statistics.get().EncodeMin()
+        def __get__(self):
+            raw_physical_type = self.statistics.get().physical_type()
+            encode_min = self.statistics.get().EncodeMin()
 
-    def EncodeMax(self):
-        return self.statistics.get().EncodeMax()
+            min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
+            return frombytes(min_value)
 
+    property max:
+
+        def __get__(self):
+            raw_physical_type = self.statistics.get().physical_type()
+            encode_max = self.statistics.get().EncodeMax()
+
+            max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
+            return frombytes(max_value)
 
     property null_count:
 
