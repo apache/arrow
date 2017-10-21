@@ -182,16 +182,22 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
     return Status::Invalid("List offsets must be signed int32");
   }
 
-  BufferVector buffers = {offsets.null_bitmap()};
+  BufferVector buffers = {};
 
   const auto& typed_offsets = static_cast<const Int32Array&>(offsets);
 
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
-    std::shared_ptr<Buffer> clean_offsets;
+    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
 
     RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
+
+    // Copy valid bits, zero out the bit for the final offset
+    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
+                                              &clean_valid_bits));
+    BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
+    buffers.emplace_back(std::move(clean_valid_bits));
 
     const int32_t* raw_offsets = typed_offsets.raw_values();
     auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
@@ -205,12 +211,12 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
       }
       clean_raw_offsets[i] = current_offset;
     }
+
     buffers.emplace_back(std::move(clean_offsets));
   } else {
+    buffers.emplace_back(offsets.null_bitmap());
     buffers.emplace_back(typed_offsets.values());
   }
-
-  // TODO(wesm): Do we need to zero-out the set bit for the last offset?
 
   auto list_type = list(values.type());
   auto internal_data =

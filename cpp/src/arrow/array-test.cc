@@ -2072,6 +2072,9 @@ TEST_F(TestListArray, TestFromArrays) {
                       offsets3->data()->buffers[0], 1);
   AssertArraysEqual(expected3, *list3);
 
+  // Check that the last offset bit is zero
+  ASSERT_TRUE(BitUtil::BitNotSet(list3->null_bitmap()->data(), length + 1));
+
   ListArray expected4(list_type, length, offsets2->data()->buffers[1], values,
                       offsets4->data()->buffers[0], 1);
   AssertArraysEqual(expected4, *list4);
