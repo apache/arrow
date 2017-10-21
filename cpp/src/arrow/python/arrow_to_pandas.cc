@@ -1040,6 +1040,8 @@ class CategoricalBlock : public PandasBlock {
     return Status::OK();
   }
 
+  PyObject* dictionary() const { return dictionary_.obj(); }
+
  protected:
   MemoryPool* pool_;
   OwnedRef dictionary_;
@@ -1571,23 +1573,12 @@ class ArrowDeserializer {
     auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 
-    auto dict_type = static_cast<const DictionaryType*>(col_->type().get());
-
     PyAcquireGIL lock;
     result_ = PyDict_New();
     RETURN_IF_PYERROR();
 
-    PyObject* dictionary;
-
-    // Release GIL before calling ConvertArrayToPandas, will be reacquired
-    // there if needed
-    lock.release();
-    RETURN_NOT_OK(
-        ConvertArrayToPandas(options_, dict_type->dictionary(), nullptr, &dictionary));
-    lock.acquire();
-
     PyDict_SetItemString(result_, "indices", block->block_arr());
-    PyDict_SetItemString(result_, "dictionary", dictionary);
+    PyDict_SetItemString(result_, "dictionary", block->dictionary());
 
     return Status::OK();
   }
