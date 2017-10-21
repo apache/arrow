@@ -218,6 +218,22 @@ def test_list_from_arrays():
 
     assert result.equals(expected)
 
+    # With nulls
+    offsets = [0, None, 2, 6]
+
+    values = ['a', 'b', 'c', 'd', 'e', 'f']
+
+    result = pa.ListArray.from_arrays(offsets, values)
+    expected = pa.array([values[:2], None, values[2:]])
+
+    assert result.equals(expected)
+
+    # Another edge case
+    offsets2 = [0, 2, None, 6]
+    result = pa.ListArray.from_arrays(offsets2, values)
+    expected = pa.array([values[:2], values[2:], None])
+    assert result.equals(expected)
+
 
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case

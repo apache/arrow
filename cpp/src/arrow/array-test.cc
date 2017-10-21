@@ -2035,33 +2035,46 @@ TEST_F(TestListArray, Equality) {
 TEST_F(TestListArray, TestResize) {}
 
 TEST_F(TestListArray, TestFromArrays) {
-  std::shared_ptr<Array> offsets, offsets2, values;
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, values;
 
-  std::vector<bool> offsets_is_valid = {true, true, false, true};
+  std::vector<bool> offsets_is_valid3 = {true, false, true, true};
+  std::vector<bool> offsets_is_valid4 = {true, true, false, true};
+
   std::vector<bool> values_is_valid = {true, false, true, true, true, true};
 
-  std::vector<int32_t> offset_values = {0, 2, 2, 6};
+  std::vector<int32_t> offset1_values = {0, 2, 2, 6};
+  std::vector<int32_t> offset2_values = {0, 2, 6, 6};
+
   std::vector<int8_t> values_values = {0, 1, 2, 3, 4, 5};
   const int length = 3;
 
-  ArrayFromVector<Int32Type, int32_t>(offset_values, &offsets);
-  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid, offset_values, &offsets2);
+  ArrayFromVector<Int32Type, int32_t>(offset1_values, &offsets1);
+  ArrayFromVector<Int32Type, int32_t>(offset2_values, &offsets2);
+
+  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid3, offset1_values, &offsets3);
+  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid4, offset2_values, &offsets4);
+
   ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
 
   auto list_type = list(int8());
 
-  std::shared_ptr<Array> list1, list2;
-  ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool_, &list1));
-  ASSERT_OK(ListArray::FromArrays(*offsets2, *values, pool_, &list2));
+  std::shared_ptr<Array> list1, list3, list4;
+  ASSERT_OK(ListArray::FromArrays(*offsets1, *values, pool_, &list1));
+  ASSERT_OK(ListArray::FromArrays(*offsets3, *values, pool_, &list3));
+  ASSERT_OK(ListArray::FromArrays(*offsets4, *values, pool_, &list4));
 
-  ListArray expected1(list_type, length, offsets->data()->buffers[1], values,
-                      offsets->data()->buffers[0], 0);
+  ListArray expected1(list_type, length, offsets1->data()->buffers[1], values,
+                      offsets1->data()->buffers[0], 0);
   AssertArraysEqual(expected1, *list1);
 
-  // Use null bitmap from offsets2, but clean offsets from non-null version
-  ListArray expected2(list_type, length, offsets->data()->buffers[1], values,
-                      offsets2->data()->buffers[0], 1);
-  AssertArraysEqual(expected2, *list2);
+  // Use null bitmap from offsets3, but clean offsets from non-null version
+  ListArray expected3(list_type, length, offsets1->data()->buffers[1], values,
+                      offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected3, *list3);
+
+  ListArray expected4(list_type, length, offsets2->data()->buffers[1], values,
+                      offsets4->data()->buffers[0], 1);
+  AssertArraysEqual(expected4, *list4);
 
   // Test failure modes
 
@@ -2069,10 +2082,10 @@ TEST_F(TestListArray, TestFromArrays) {
 
   // Zero-length offsets
   ASSERT_RAISES(Invalid,
-                ListArray::FromArrays(*offsets->Slice(0, 0), *values, pool_, &tmp));
+                ListArray::FromArrays(*offsets1->Slice(0, 0), *values, pool_, &tmp));
 
   // Offsets not int32
-  ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets, pool_, &tmp));
+  ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
 }
 
 TEST_F(TestListArray, TestAppendNull) {

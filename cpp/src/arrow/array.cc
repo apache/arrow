@@ -195,17 +195,16 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
 
     const int32_t* raw_offsets = typed_offsets.raw_values();
     auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
-    int32_t current_offset = raw_offsets[0];
-    for (int64_t i = 0; i < num_offsets; ++i) {
-      if (offsets.IsNull(i)) {
-        clean_raw_offsets[i] = current_offset;
-      } else {
-        DCHECK_LE(current_offset, raw_offsets[i]) << "Offsets were not monotonic";
-        clean_raw_offsets[i] = current_offset = raw_offsets[i];
-      }
-    }
+
+    // Must work backwards so we can tell how many values were in the last non-null value
     DCHECK(offsets.IsValid(num_offsets - 1));
-    clean_raw_offsets[num_offsets - 1] = raw_offsets[num_offsets - 1];
+    int32_t current_offset = raw_offsets[num_offsets - 1];
+    for (int64_t i = num_offsets - 1; i >= 0; --i) {
+      if (offsets.IsValid(i)) {
+        current_offset = raw_offsets[i];
+      }
+      clean_raw_offsets[i] = current_offset;
+    }
     buffers.emplace_back(std::move(clean_offsets));
   } else {
     buffers.emplace_back(typed_offsets.values());
