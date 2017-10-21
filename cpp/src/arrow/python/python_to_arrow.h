@@ -24,6 +24,8 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -42,6 +44,7 @@ namespace py {
 struct ARROW_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<Buffer>> buffers;
 };
 
 /// \brief Serialize Python sequence as a RecordBatch plus
