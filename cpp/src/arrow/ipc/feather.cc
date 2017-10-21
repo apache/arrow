@@ -371,7 +371,8 @@ class TableReader::TableReaderImpl {
 
     auto arr_data =
         std::make_shared<ArrayData>(type, meta->length(), buffers, meta->null_count());
-    return MakeArray(arr_data, out);
+    *out = MakeArray(arr_data);
+    return Status::OK();
   }
 
   bool HasDescription() const { return metadata_->HasDescription(); }
@@ -490,7 +491,8 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
                                          values.null_bitmap(), values.null_count());
     return Status::OK();
   } else {
-    return MakeArray(values.data(), out);
+    *out = MakeArray(values.data());
+    return Status::OK();
   }
 }
 
