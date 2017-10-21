@@ -1399,6 +1399,11 @@ class ArrowDeserializer {
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
       return ConvertValuesZeroCopy<TYPE>(options_, npy_type, data_.chunk(0));
+    } else if (options_.zero_copy_only) {
+      std::stringstream ss;
+      ss << "Needed to copy " << data_.num_chunks() << " chunks with "
+         << data_.null_count() << " nulls, but zero_copy_only was True";
+      return Status::Invalid(ss.str());
     }
 
     RETURN_NOT_OK(AllocateOutput(npy_type));
@@ -1413,6 +1418,10 @@ class ArrowDeserializer {
                               std::is_base_of<TimestampType, Type>::value,
                           Status>::type
   Visit(const Type& type) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
+
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
     using c_type = typename Type::c_type;
@@ -1453,6 +1462,11 @@ class ArrowDeserializer {
 
     if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
       return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_.chunk(0));
+    } else if (options_.zero_copy_only) {
+      std::stringstream ss;
+      ss << "Needed to copy " << data_.num_chunks() << " chunks with "
+         << data_.null_count() << " nulls, but zero_copy_only was True";
+      return Status::Invalid(ss.str());
     }
 
     if (data_.null_count() > 0) {
@@ -1470,6 +1484,9 @@ class ArrowDeserializer {
 
   template <typename FUNCTOR>
   inline Status VisitObjects(FUNCTOR func) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("Object types need copies, but zero_copy_only was True");
+    }
     RETURN_NOT_OK(AllocateOutput(NPY_OBJECT));
     auto out_values = reinterpret_cast<PyObject**>(PyArray_DATA(arr_));
     return func(options_, data_, out_values);
@@ -1499,7 +1516,9 @@ class ArrowDeserializer {
 
   // Boolean specialization
   Status Visit(const BooleanType& type) {
-    if (data_.null_count() > 0) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("BooleanType needs copies, but zero_copy_only was True");
+    } else if (data_.null_count() > 0) {
       return VisitObjects(ConvertBooleanWithNulls);
     } else {
       RETURN_NOT_OK(AllocateOutput(internal::arrow_traits<Type::BOOL>::npy_type));
@@ -1510,6 +1529,9 @@ class ArrowDeserializer {
   }
 
   Status Visit(const ListType& type) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("ListType needs copies, but zero_copy_only was True");
+    }
 #define CONVERTVALUES_LISTSLIKE_CASE(ArrowType, ArrowEnum) \
   case Type::ArrowEnum:                                    \
     return ConvertListsLike<ArrowType>(options_, col_, out_values);
@@ -1542,6 +1564,10 @@ class ArrowDeserializer {
   }
 
   Status Visit(const DictionaryType& type) {
+    if (options_.zero_copy_only) {
+      return Status::Invalid("DictionaryType needs copies, but zero_copy_only was True");
+    }
+
     auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 

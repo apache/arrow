@@ -373,7 +373,7 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self, c_bool strings_to_categorical=False):
+    def to_pandas(self, c_bool strings_to_categorical=False, zero_copy_only=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -381,6 +381,9 @@ cdef class Array:
         ----------
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
 
         See also
         --------
@@ -392,7 +395,9 @@ cdef class Array:
             PyObject* out
             PandasOptions options
 
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
