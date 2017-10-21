@@ -33,6 +33,7 @@
 #include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Tensor_generated.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
@@ -56,6 +57,26 @@ using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
 using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
+
+MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
+  switch (version) {
+    case flatbuf::MetadataVersion_V1:
+      // Arrow 0.1
+      return MetadataVersion::V1;
+    case flatbuf::MetadataVersion_V2:
+      // Arrow 0.2
+      return MetadataVersion::V2;
+    case flatbuf::MetadataVersion_V3:
+      // Arrow 0.3 to 0.7.1
+      return MetadataVersion::V4;
+    case flatbuf::MetadataVersion_V4:
+      // Arrow >= 0.8
+      return MetadataVersion::V4;
+      // Add cases as other versions become available
+    default:
+      return MetadataVersion::V4;
+  }
+}
 
 static Status IntFromFlatbuffer(const flatbuf::Int* int_data,
                                 std::shared_ptr<DataType>* out) {
@@ -700,7 +721,7 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
 
   for (size_t i = 0; i < buffers.size(); ++i) {
     const BufferMetadata& buffer = buffers[i];
-    fb_buffers.emplace_back(buffer.page, buffer.offset, buffer.length);
+    fb_buffers.emplace_back(buffer.offset, buffer.length);
   }
   *out = fbb.CreateVectorOfStructs(fb_buffers);
   return Status::OK();
@@ -751,7 +772,7 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
   auto fb_shape = fbb.CreateVector(dims);
   auto fb_strides = fbb.CreateVector(tensor.strides());
   int64_t body_length = tensor.data()->size();
-  flatbuf::Buffer buffer(-1, buffer_start_offset, body_length);
+  flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
   TensorOffset fb_tensor =
       flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
