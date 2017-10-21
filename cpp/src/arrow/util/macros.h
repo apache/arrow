@@ -58,6 +58,17 @@
 #define ARROW_MUST_USE_RESULT
 #endif
 
+// ----------------------------------------------------------------------
+// C++/CLI support macros (see ARROW-1134)
+
+#ifdef __cplusplus_cli
+#define NULLPTR __nullptr
+#else
+#define NULLPTR nullptr
+#endif
+
+// ----------------------------------------------------------------------
+
 // macros to disable padding
 // these macros are portable across different compilers and platforms
 //[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]

@@ -75,7 +75,7 @@ class StdinStream : public InputStream {
   }
 
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
-    auto buffer = std::make_shared<PoolBuffer>(nullptr);
+    auto buffer = std::make_shared<PoolBuffer>(NULLPTR);
     RETURN_NOT_OK(buffer->Resize(nbytes));
     int64_t bytes_read;
     RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));

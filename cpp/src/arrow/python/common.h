@@ -63,7 +63,7 @@ class ARROW_EXPORT PyAcquireGIL {
 
 class ARROW_EXPORT OwnedRef {
  public:
-  OwnedRef() : obj_(nullptr) {}
+  OwnedRef() : obj_(NULLPTR) {}
 
   explicit OwnedRef(PyObject* obj) : obj_(obj) {}
 
@@ -82,7 +82,7 @@ class ARROW_EXPORT OwnedRef {
 
   void release() {
     Py_XDECREF(obj_);
-    obj_ = nullptr;
+    obj_ = NULLPTR;
   }
 
   PyObject* obj() const { return obj_; }
@@ -96,7 +96,7 @@ class ARROW_EXPORT OwnedRef {
 // reference count when release is called.
 class ARROW_EXPORT ScopedRef {
  public:
-  ScopedRef() : obj_(nullptr) {}
+  ScopedRef() : obj_(NULLPTR) {}
 
   explicit ScopedRef(PyObject* obj) : obj_(obj) {}
 
@@ -109,7 +109,7 @@ class ARROW_EXPORT ScopedRef {
 
   PyObject* release() {
     PyObject* result = obj_;
-    obj_ = nullptr;
+    obj_ = NULLPTR;
     return result;
   }
 
@@ -137,7 +137,7 @@ struct ARROW_EXPORT PyObjectStringify {
       bytes = PyBytes_AsString(obj);
       size = PyBytes_GET_SIZE(obj);
     } else {
-      bytes = nullptr;
+      bytes = NULLPTR;
       size = -1;
     }
   }

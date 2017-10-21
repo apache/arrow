@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,8 +44,8 @@ Status ImportFromModule(const OwnedRef& module, const std::string& module_name,
 
 Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
 
-Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision = nullptr,
-                                     int* scale = nullptr);
+Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision = NULLPTR,
+                                     int* scale = NULLPTR);
 
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string);

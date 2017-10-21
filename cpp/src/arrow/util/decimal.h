@@ -24,6 +24,7 @@
 #include <type_traits>
 
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -114,7 +115,7 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Convert a decimal string to an Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
   static Status FromString(const std::string& s, Decimal128* out,
-                           int* precision = nullptr, int* scale = nullptr);
+                           int* precision = NULLPTR, int* scale = NULLPTR);
 
  private:
   int64_t high_bits_;

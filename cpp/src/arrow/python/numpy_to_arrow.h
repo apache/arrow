@@ -37,7 +37,7 @@ class Status;
 namespace py {
 
 /// Convert NumPy arrays to Arrow. If target data type is not known, pass a
-/// type with nullptr
+/// type with null
 ///
 /// \param[in] pool Memory pool for any memory allocations
 /// \param[in] ao an ndarray with the array data
