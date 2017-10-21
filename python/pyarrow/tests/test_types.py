@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pickle
 
 import pyarrow as pa
 import pyarrow.types as types
@@ -137,3 +138,23 @@ def test_is_temporal_date_time_timestamp():
 def test_timestamp_type():
     # See ARROW-1683
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
+
+
+def test_type_pickling():
+    cases = [
+        pa.int8(),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.string()),
+        pa.struct([
+            pa.field('a', 'int8'),
+            pa.field('b', 'string')
+        ]),
+        pa.timestamp('ns'),
+        pa.field('a', 'string')
+    ]
+
+    for val in cases:
+        roundtripped = pickle.loads(pickle.dumps(val))
+        assert val == roundtripped
