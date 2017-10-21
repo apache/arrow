@@ -336,6 +336,25 @@ def test_serialization_callback_numpy():
 
     pa.serialize(DummyClass())
 
+def test_buffer_serialization():
+
+    class BufferClass(object):
+        pass
+
+    def serialize_buffer_class(obj):
+        return pa.frombuffer(b"hello")
+
+    def deserialize_buffer_class(serialized_obj):
+        return serialized_obj
+
+    pa._default_serialization_context.register_type(
+        BufferClass, "BufferClass", pickle=False,
+        custom_serializer=serialize_buffer_class,
+        custom_deserializer=deserialize_buffer_class)
+
+    b = pa.serialize(BufferClass()).to_buffer()
+    assert pa.deserialize(b).to_pybytes() == b"hello"
+
 
 @pytest.mark.skip(reason="extensive memory requirements")
 def test_arrow_limits(self):
