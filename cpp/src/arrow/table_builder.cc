@@ -63,7 +63,9 @@ Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
   int64_t length = 0;
   for (int i = 0; i < this->num_fields(); ++i) {
     RETURN_NOT_OK(raw_field_builders_[i]->Finish(&fields[i]));
-    DCHECK(i > 0 && fields[i]->length() != length) << "All fields must be same length";
+    if (i > 0 && fields[i]->length() != length) {
+      return Status::Invalid("All fields must be same length when calling Flush");
+    }
     length = fields[i]->length();
   }
   *batch = std::make_shared<RecordBatch>(schema_, length, std::move(fields));

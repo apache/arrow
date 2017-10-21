@@ -84,12 +84,9 @@ TEST_F(TestRecordBatchBuilder, Basics) {
 
   // Make the expected record batch
   auto AppendData = [&](Int32Builder* b0, StringBuilder* b1, ListBuilder* b2) {
-    AppendValues<Int32Builder, int32_t>(builder->GetFieldAs<Int32Builder>(0), f0_values,
-                                        is_valid);
-    AppendValues<StringBuilder, std::string>(builder->GetFieldAs<StringBuilder>(1),
-                                             f1_values, is_valid);
-    AppendList<Int8Builder, int8_t>(builder->GetFieldAs<ListBuilder>(2), f2_values,
-                                    is_valid);
+    AppendValues<Int32Builder, int32_t>(b0, f0_values, is_valid);
+    AppendValues<StringBuilder, std::string>(b1, f1_values, is_valid);
+    AppendList<Int8Builder, int8_t>(b2, f2_values, is_valid);
   };
 
   Int32Builder ex_b0;
