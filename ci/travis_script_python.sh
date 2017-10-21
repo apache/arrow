@@ -46,8 +46,11 @@ conda install -y -q pip \
       sphinx \
       sphinx_bootstrap_theme
 
-# Install pytorch for torch tensor conversion tests
-conda install -y -q pytorch torchvision -c soumith
+if [ "$PYTHON_VERSION" != "2.7" ]; then
+  # Install pytorch for torch tensor conversion tests
+  # The installation seems to be broken on 2.7 on Travis so we skip it
+  conda install -y -q pytorch torchvision -c soumith
+fi
 
 # Build C++ libraries
 pushd $ARROW_CPP_BUILD_DIR
