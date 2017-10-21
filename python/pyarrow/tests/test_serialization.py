@@ -29,6 +29,13 @@ import numpy as np
 
 
 def assert_equal(obj1, obj2):
+    try:
+        import torch
+        if torch.is_tensor(obj1) and torch.is_tensor(obj2):
+            assert torch.equal(obj1, obj2)
+            return
+    except ImportError:
+        pass
     module_numpy = (type(obj1).__module__ == np.__name__ or
                     type(obj2).__module__ == np.__name__)
     if module_numpy:
@@ -57,6 +64,8 @@ def assert_equal(obj1, obj2):
                 return
         except:
             pass
+        if obj1.__dict__ == {}:
+            print("WARNING: Empty dict in ", obj1)
         for key in obj1.__dict__.keys():
             if key not in special_keys:
                 assert_equal(obj1.__dict__[key], obj2.__dict__[key])
@@ -285,6 +294,16 @@ def test_datetime_serialization(large_memory_map):
         for d in data:
             serialization_roundtrip(d, mmap)
 
+def test_torch_serialization(large_memory_map):
+    pytest.importorskip("torch")
+    import torch
+    with pa.memory_map(large_memory_map, mode="r+") as mmap:
+        # These are the only types that are supported for the
+        # PyTorch to NumPy conversion
+        for t in ["float32", "float64",
+                  "uint8", "int16", "int32", "int64"]:
+            obj = torch.from_numpy(np.random.randn(1000).astype(t))
+            serialization_roundtrip(obj, mmap)
 
 def test_numpy_immutable(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
