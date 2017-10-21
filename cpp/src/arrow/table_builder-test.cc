@@ -100,6 +100,10 @@ TEST_F(TestRecordBatchBuilder, Basics) {
 
   RecordBatch expected(schema, 4, {a0, a1, a2});
 
+  // Builder attributes
+  ASSERT_EQ(3, builder->num_fields());
+  ASSERT_EQ(schema.get(), builder->schema().get());
+
   const int kIter = 3;
   for (int i = 0; i < kIter; ++i) {
     AppendData(builder->GetFieldAs<Int32Builder>(0),
@@ -111,6 +115,26 @@ TEST_F(TestRecordBatchBuilder, Basics) {
 
     ASSERT_BATCHES_EQUAL(expected, *batch);
   }
+
+  // Test setting initial capacity
+  builder->SetInitialCapacity(4096);
+  ASSERT_EQ(4096, builder->initial_capacity());
+}
+
+TEST_F(TestRecordBatchBuilder, InvalidFieldLength) {
+  auto schema = ExampleSchema1();
+
+  std::unique_ptr<RecordBatchBuilder> builder;
+  ASSERT_OK(RecordBatchBuilder::Create(schema, pool_, &builder));
+
+  std::vector<bool> is_valid = {false, true, true, true};
+  std::vector<int32_t> f0_values = {0, 1, 2, 3};
+
+  AppendValues<Int32Builder, int32_t>(builder->GetFieldAs<Int32Builder>(0), f0_values,
+                                      is_valid);
+
+  std::shared_ptr<RecordBatch> dummy;
+  ASSERT_RAISES(Invalid, builder->Flush(&dummy));
 }
 
 }  // namespace arrow
