@@ -5,6 +5,7 @@
 *_generated.ts
 *.json
 *.snap
+.github/ISSUE_TEMPLATE.md
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
