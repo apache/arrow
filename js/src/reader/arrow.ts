@@ -23,7 +23,7 @@ import { readFile } from './file';
 import { readStream } from './stream';
 import { readVector } from './vector';
 import { Vector } from '../vector/vector';
-import { readDictionaries } from './dictionary';
+import { readDictionary } from './dictionary';
 
 import ByteBuffer = flatbuffers.ByteBuffer;
 export import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
@@ -51,9 +51,13 @@ export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
         let state = { nodeIndex: 0, bufferIndex: 0 };
         let index = -1, fieldsLength = schema.fieldsLength();
         if (batch.id) {
+            // A dictionary batch only contain a single vector. Traverse each
+            // field and its children until we find one that uses this dictionary
             while (++index < fieldsLength) {
-                for (let [id, vector] of readDictionaries(schema.fields(index), batch, state, dictionaries)) {
-                    dictionaries[id] = dictionaries[id] && dictionaries[id].concat(vector) || vector;
+                let vector = readDictionary(schema.fields(index), batch, state, dictionaries);
+                if (vector) {
+                    dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
+                    break;
                 }
             }
         } else {
