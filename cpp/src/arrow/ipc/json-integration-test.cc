@@ -182,10 +182,10 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
       ss << "Record batch " << i << " did not match";
 
       ss << "\nJSON:\n";
-      RETURN_NOT_OK(PrettyPrint(*json_batch.get(), 0, &ss));
+      RETURN_NOT_OK(PrettyPrint(*json_batch, 0, &ss));
 
       ss << "\nArrow:\n";
-      RETURN_NOT_OK(PrettyPrint(*arrow_batch.get(), 0, &ss));
+      RETURN_NOT_OK(PrettyPrint(*arrow_batch, 0, &ss));
       return Status::Invalid(ss.str());
     }
   }

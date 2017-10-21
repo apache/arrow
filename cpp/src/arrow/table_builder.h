@@ -40,10 +40,11 @@ class Schema;
 class RecordBatchBuilder {
  public:
   static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-      std::unique_ptr<RecordBatchBuilder>* builder);
+                       std::unique_ptr<RecordBatchBuilder>* builder);
 
   static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-      int64_t initial_capacity, std::unique_ptr<RecordBatchBuilder>* builder);
+                       int64_t initial_capacity,
+                       std::unique_ptr<RecordBatchBuilder>* builder);
 
   /// Get base pointer to field builder
   ArrayBuilder* GetField(int i) { return raw_field_builders_[i]; }
@@ -72,12 +73,14 @@ class RecordBatchBuilder {
   /// Set the initial capacity for new builders
   void SetInitialCapacity(int64_t capacity);
 
+  int64_t initial_capacity() const { return initial_capacity_; }
+
   int num_fields() const { return schema_->num_fields(); }
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:
-  RecordBatchBuilder(
-      const std::shared_ptr<Schema>& schema, MemoryPool* pool, int64_t initial_capacity);
+  RecordBatchBuilder(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+                     int64_t initial_capacity);
 
   Status CreateBuilders();
   Status InitBuilders();
