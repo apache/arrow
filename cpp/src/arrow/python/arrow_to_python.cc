@@ -168,40 +168,41 @@ Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
       }
     }
     default: {
-      if (parent.type()->child(type)->name() == "tensor") {
+      const std::string& child_name = parent.type()->child(type)->name();
+      if (child_name == "tensor") {
         return DeserializeArray(arr, index, base, blobs, result);
-      } else if (parent.type()->child(type)->name() == "buffer") {
+      } else if (child_name == "buffer") {
         int32_t ref = static_cast<const Int32Array&>(arr).Value(index);
         *result = wrap_buffer(blobs.buffers[ref]);
         return Status::OK();
       } else {
-        // TODO(pcm): More expressive status message
-        DCHECK(false) << "union tag " << type << " not recognized";
+        DCHECK(false) << "union tag " << type << " with child name '"
+                      << child_name << "' not recognized";
       }
     }
   }
   return Status::OK();
 }
 
-#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                               \
-  const auto& data = static_cast<const UnionArray&>(array);                        \
-  ScopedRef result(CREATE_FN(stop_idx - start_idx));                               \
-  const uint8_t* type_ids = data.raw_type_ids();                                   \
-  const int32_t* value_offsets = data.raw_value_offsets();                         \
-  for (int64_t i = start_idx; i < stop_idx; ++i) {                                 \
-    if (data.IsNull(i)) {                                                          \
-      Py_INCREF(Py_None);                                                          \
-      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                           \
-    } else {                                                                       \
-      int64_t offset = value_offsets[i];                                           \
-      uint8_t type = type_ids[i];                                                  \
-      PyObject* value;                                                             \
-      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base, \
-                             blobs, &value));                                      \
-      SET_ITEM_FN(result.get(), i - start_idx, value);                             \
-    }                                                                              \
-  }                                                                                \
-  *out = result.release();                                                         \
+#define DESERIALIZE_SEQUENCE(CREATE_FN, SET_ITEM_FN)                         \
+  const auto& data = static_cast<const UnionArray&>(array);                  \
+  ScopedRef result(CREATE_FN(stop_idx - start_idx));                         \
+  const uint8_t* type_ids = data.raw_type_ids();                             \
+  const int32_t* value_offsets = data.raw_value_offsets();                   \
+  for (int64_t i = start_idx; i < stop_idx; ++i) {                           \
+    if (data.IsNull(i)) {                                                    \
+      Py_INCREF(Py_None);                                                    \
+      SET_ITEM_FN(result.get(), i - start_idx, Py_None);                     \
+    } else {                                                                 \
+      int64_t offset = value_offsets[i];                                     \
+      uint8_t type = type_ids[i];                                            \
+      PyObject* value;                                                       \
+      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, \
+                             type, base, blobs, &value));                    \
+      SET_ITEM_FN(result.get(), i - start_idx, value);                       \
+    }                                                                        \
+  }                                                                          \
+  *out = result.release();                                                   \
   return Status::OK()
 
 Status DeserializeList(PyObject* context, const Array& array, int64_t start_idx,

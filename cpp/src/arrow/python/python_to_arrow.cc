@@ -63,7 +63,7 @@ class SequenceBuilder {
         doubles_(::arrow::float64(), pool),
         date64s_(::arrow::date64(), pool),
         tensor_indices_(::arrow::int32(), pool),
-        buffer_indices_(::arrow::uint32(), pool),
+        buffer_indices_(::arrow::int32(), pool),
         list_offsets_({0}),
         tuple_offsets_({0}),
         dict_offsets_({0}),
