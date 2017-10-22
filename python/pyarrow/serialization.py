@@ -102,15 +102,14 @@ def register_default_serialization_handlers(serialization_context):
         import pandas as pd
 
         def _serialize_pandas_series(obj):
-            # TODO: serializing Series without extra copy
-            return serialize_pandas(pd.DataFrame({obj.name: obj})).to_pybytes()
+            return serialize_pandas(pd.DataFrame({obj.name: obj}))
 
         def _deserialize_pandas_series(data):
             deserialized = deserialize_pandas(data)
             return deserialized[deserialized.columns[0]]
 
         def _serialize_pandas_dataframe(obj):
-            return serialize_pandas(obj).to_pybytes()
+            return serialize_pandas(obj)
 
         def _deserialize_pandas_dataframe(data):
             return deserialize_pandas(data)
