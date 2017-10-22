@@ -147,3 +147,15 @@ def _plasma_store_entry_point():
 # Deprecations
 
 from pyarrow.util import _deprecate_class  # noqa
+
+# ----------------------------------------------------------------------
+# Returning absolute path to the pyarrow include directory (if bundled, e.g. in
+# wheels)
+
+def get_include():
+    """
+    Return absolute path to directory containing Arrow C++ include
+    headers. Similar to numpy.get_include
+    """
+    import os
+    return os.path.join(os.path.dirname(__file__), 'include')
