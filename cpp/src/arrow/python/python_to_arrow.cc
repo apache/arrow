@@ -272,7 +272,6 @@ class SequenceBuilder {
   DoubleBuilder doubles_;
   Date64Builder date64s_;
 
-
   Int32Builder tensor_indices_;
   Int32Builder buffer_indices_;
 
@@ -402,8 +401,7 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
                      SerializedPyObject* blobs_out);
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
-                      std::vector<PyObject*>* subdicts,
-                      SerializedPyObject* blobs_out);
+                      std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out);
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
                           int32_t recursion_depth, std::shared_ptr<Array>* out,
@@ -458,7 +456,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   if (PyBool_Check(elem)) {
     RETURN_NOT_OK(builder->AppendBool(elem == Py_True));
   } else if (PyArray_DescrFromScalar(elem)->type_num == NPY_HALF) {
-    npy_half halffloat = reinterpret_cast<PyHalfScalarObject *>(elem)->obval;
+    npy_half halffloat = reinterpret_cast<PyHalfScalarObject*>(elem)->obval;
     RETURN_NOT_OK(builder->AppendHalfFloat(halffloat));
   } else if (PyFloat_Check(elem)) {
     RETURN_NOT_OK(builder->AppendDouble(PyFloat_AS_DOUBLE(elem)));
@@ -538,8 +536,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
 }
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
-                      std::vector<PyObject*>* subdicts,
-                      SerializedPyObject* blobs_out) {
+                      std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out) {
   int dtype = PyArray_TYPE(array);
   switch (dtype) {
     case NPY_UINT8:
@@ -553,8 +550,8 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_HALF:
     case NPY_FLOAT:
     case NPY_DOUBLE: {
-      RETURN_NOT_OK(builder->AppendTensor(
-            static_cast<int32_t>(blobs_out->tensors.size())));
+      RETURN_NOT_OK(
+          builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
                                     reinterpret_cast<PyObject*>(array), &tensor));
@@ -631,7 +628,8 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
   std::vector<PyObject*> key_tuples, key_dicts, val_lists, val_tuples, val_dicts,
       val_sets, dummy;
   for (const auto& dict : dicts) {
-    PyObject *key, *value;
+    PyObject* key;
+    PyObject* value;
     Py_ssize_t pos = 0;
     while (PyDict_Next(dict, &pos, &key, &value)) {
       RETURN_NOT_OK(Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts,
@@ -663,8 +661,8 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
   }
   std::shared_ptr<Array> val_dict_arr;
   if (val_dicts.size() > 0) {
-    RETURN_NOT_OK(SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr,
-                                blobs_out));
+    RETURN_NOT_OK(
+        SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr, blobs_out));
   }
   std::shared_ptr<Array> val_set_arr;
   if (val_sets.size() > 0) {
