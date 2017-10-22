@@ -957,23 +957,35 @@ class CategoricalBlock : public PandasBlock {
     using TRAITS = internal::arrow_traits<ARROW_INDEX_TYPE>;
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
-    RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
-    // No relative placement offset because a single column
-    T* out_values = reinterpret_cast<T*>(block_data_);
 
     const ChunkedArray& data = *col->data().get();
 
-    for (int c = 0; c < data.num_chunks(); c++) {
-      const std::shared_ptr<Array> arr = data.chunk(c);
-      const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
+    // Sniff the first chunk
+    const std::shared_ptr<Array> arr_first = data.chunk(0);
+    const auto& dict_arr_first = static_cast<const DictionaryArray&>(*arr_first);
+    const auto& indices_first = static_cast<const PrimitiveArray&>(*dict_arr_first.indices());
 
-      const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
-      auto in_values = reinterpret_cast<const T*>(indices.raw_values());
+    if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
+      RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
+    }
+    else {
+      RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
-      // Null is -1 in CategoricalBlock
-      for (int i = 0; i < arr->length(); ++i) {
-        *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
+      // No relative placement offset because a single column
+      T* out_values = reinterpret_cast<T*>(block_data_);
+
+      for (int c = 0; c < data.num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data.chunk(c);
+        const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
+
+        const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
+        auto in_values = reinterpret_cast<const T*>(indices.raw_values());
+
+        // Null is -1 in CategoricalBlock
+        for (int i = 0; i < arr->length(); ++i) {
+          *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
+        }
       }
     }
 
@@ -1043,6 +1055,44 @@ class CategoricalBlock : public PandasBlock {
   PyObject* dictionary() const { return dictionary_.obj(); }
 
  protected:
+  template <typename T>
+  Status AllocateNDArrayFromIndices(int npy_type, const PrimitiveArray& indices) {
+    npy_intp block_dims[1] = {num_rows_};
+
+    auto in_values = reinterpret_cast<const T*>(indices.raw_values());
+    void* data = const_cast<T*>(in_values);
+
+    PyAcquireGIL lock;
+
+    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+    if (descr == nullptr) {
+      // Error occurred, trust error state is set
+      return Status::OK();
+    }
+
+    PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims, nullptr, data,
+                                               NPY_ARRAY_CARRAY,
+                                               nullptr);
+
+    npy_intp placement_dims[1] = {num_columns_};
+    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
+    if (placement_arr == NULL) {
+      // TODO(wesm): propagating Python exception
+      return Status::OK();
+    }
+
+    block_arr_.reset(block_arr);
+    placement_arr_.reset(placement_arr);
+
+    block_data_ = reinterpret_cast<uint8_t*>(
+        PyArray_DATA(reinterpret_cast<PyArrayObject*>(block_arr)));
+
+    placement_data_ = reinterpret_cast<int64_t*>(
+        PyArray_DATA(reinterpret_cast<PyArrayObject*>(placement_arr)));
+
+    return Status::OK();
+  }
+
   MemoryPool* pool_;
   OwnedRef dictionary_;
   bool ordered_;
