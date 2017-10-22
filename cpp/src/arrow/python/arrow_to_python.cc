@@ -105,7 +105,7 @@ Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
   return Status::OK();
 }
 
-Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type,
+Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr, int64_t index, int32_t type,
                 PyObject* base, const SerializedPyObject& blobs,
                 PyObject** result) {
   switch (arr.type()->id()) {
@@ -166,21 +166,18 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
         DCHECK(false) << "unexpected StructArray type " << s.type()->child(0)->name();
       }
     }
-    // We use an Int32Builder here to distinguish the tensor indices from
-    // the Type::INT64 above (see tensor_indices_ in SequenceBuilder).
-    case Type::INT32: {
-      return DeserializeArray(arr, index, base, blobs, result);
+    default: {
+      if (parent.type()->child(type)->name() == "tensor") {
+        return DeserializeArray(arr, index, base, blobs, result);
+      } else if (parent.type()->child(type)->name() == "buffer") {
+        int32_t ref = static_cast<const Int32Array&>(arr).Value(index);
+        *result = wrap_buffer(blobs.buffers[ref]);
+        return Status::OK();
+      } else {
+        // TODO(pcm): More expressive status message
+        DCHECK(false) << "union tag " << type << " not recognized";
+      }
     }
-    // We use an UInt32Builder here to distinguish the buffer indices from
-    // tensor indices and the Type::INT64 above (see tensor_indices_ in
-    // SequenceBuilder).
-    case Type::UINT32: {
-      int32_t ref = static_cast<const UInt32Array&>(arr).Value(index);
-      *result = wrap_buffer(blobs.buffers[ref]);
-      return Status::OK();
-    }
-    default:
-      DCHECK(false) << "union tag " << type << " not recognized";
   }
   return Status::OK();
 }
@@ -198,7 +195,7 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int32_t type
       int64_t offset = value_offsets[i];                                           \
       uint8_t type = type_ids[i];                                                  \
       PyObject* value;                                                             \
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base, \
+      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base, \
                              blobs, &value));                                      \
       SET_ITEM_FN(result.get(), i - start_idx, value);                             \
     }                                                                              \
@@ -238,7 +235,7 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
       int32_t offset = value_offsets[i];
       int8_t type = type_ids[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.UnsafeChild(type), offset, type, base,
+      RETURN_NOT_OK(GetValue(context, data, *data.UnsafeChild(type), offset, type, base,
                              blobs, &value));
       if (PySet_Add(result.get(), value) < 0) {
         RETURN_IF_PYERROR();

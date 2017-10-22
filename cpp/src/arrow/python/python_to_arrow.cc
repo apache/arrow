@@ -150,7 +150,7 @@ class SequenceBuilder {
   /// Appending a buffer to the sequence
   ///
   /// \param buffer_index Indes of the buffer in the object.
-  Status AppendBuffer(const uint32_t buffer_index) {
+  Status AppendBuffer(const int32_t buffer_index) {
     RETURN_NOT_OK(Update(buffer_indices_.length(), &buffer_tag_));
     return buffer_indices_.Append(buffer_index);
   }
@@ -193,9 +193,9 @@ class SequenceBuilder {
   }
 
   template <typename BuilderType>
-  Status AddElement(const int8_t tag, BuilderType* out) {
+  Status AddElement(const int8_t tag, BuilderType* out, const std::string& name="") {
     if (tag != -1) {
-      fields_[tag] = ::arrow::field("", out->type());
+      fields_[tag] = ::arrow::field(name, out->type());
       RETURN_NOT_OK(out->Finish(&children_[tag]));
       RETURN_NOT_OK(nones_.AppendToBitmap(true));
       type_ids_.push_back(tag);
@@ -241,8 +241,8 @@ class SequenceBuilder {
     RETURN_NOT_OK(AddElement(float_tag_, &floats_));
     RETURN_NOT_OK(AddElement(double_tag_, &doubles_));
     RETURN_NOT_OK(AddElement(date64_tag_, &date64s_));
-    RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_));
-    RETURN_NOT_OK(AddElement(buffer_tag_, &buffer_indices_));
+    RETURN_NOT_OK(AddElement(tensor_tag_, &tensor_indices_, "tensor"));
+    RETURN_NOT_OK(AddElement(buffer_tag_, &buffer_indices_, "buffer"));
 
     RETURN_NOT_OK(AddSubsequence(list_tag_, list_data, list_offsets_, "list"));
     RETURN_NOT_OK(AddSubsequence(tuple_tag_, tuple_data, tuple_offsets_, "tuple"));
@@ -272,17 +272,9 @@ class SequenceBuilder {
   DoubleBuilder doubles_;
   Date64Builder date64s_;
 
-  // We use an Int32Builder here to distinguish the tensor indices from
-  // the ints_ above (see the case Type::INT32 in get_value in python.cc).
-  // TODO(pcm): Replace this by using the union tags to distinguish between
-  // these two cases.
-  Int32Builder tensor_indices_;
 
-  // We use an UInt32Builder here to distinguish the buffer indices from
-  // the tensor indices and ints_ above.
-  // TODO(pcm): Replace this by using the union tags to distinguish between
-  // these two cases.
-  UInt32Builder buffer_indices_;
+  Int32Builder tensor_indices_;
+  Int32Builder buffer_indices_;
 
   std::vector<int32_t> list_offsets_;
   std::vector<int32_t> tuple_offsets_;
@@ -530,7 +522,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
     RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
   } else if (is_buffer(elem)) {
-    RETURN_NOT_OK(builder->AppendBuffer(static_cast<uint32_t>(blobs_out->buffers.size())));
+    RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(unwrap_buffer(elem, &buffer));
     blobs_out->buffers.push_back(buffer);
