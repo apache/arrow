@@ -105,7 +105,8 @@ Status DeserializeArray(const Array& array, int64_t offset, PyObject* base,
   return Status::OK();
 }
 
-Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr, int64_t index, int32_t type,
+Status GetValue(PyObject* context, const UnionArray& parent, const Array& arr,
+                int64_t index, int32_t type,
                 PyObject* base, const SerializedPyObject& blobs,
                 PyObject** result) {
   switch (arr.type()->id()) {
@@ -272,7 +273,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
 
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
-    RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read, reinterpret_cast<uint8_t*>(&size)));
+    RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,
+                              reinterpret_cast<uint8_t*>(&size)));
     RETURN_NOT_OK(src->Tell(&offset));
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(src->ReadAt(offset, size, &buffer));

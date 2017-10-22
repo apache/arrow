@@ -193,7 +193,7 @@ class SequenceBuilder {
   }
 
   template <typename BuilderType>
-  Status AddElement(const int8_t tag, BuilderType* out, const std::string& name="") {
+  Status AddElement(const int8_t tag, BuilderType* out, const std::string& name = "") {
     if (tag != -1) {
       fields_[tag] = ::arrow::field(name, out->type());
       RETURN_NOT_OK(out->Finish(&children_[tag]));
@@ -553,7 +553,8 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
     case NPY_HALF:
     case NPY_FLOAT:
     case NPY_DOUBLE: {
-      RETURN_NOT_OK(builder->AppendTensor(static_cast<int32_t>(blobs_out->tensors.size())));
+      RETURN_NOT_OK(builder->AppendTensor(
+            static_cast<int32_t>(blobs_out->tensors.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
                                     reinterpret_cast<PyObject*>(array), &tensor));
