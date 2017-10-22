@@ -22,7 +22,10 @@
 This directory contains scripts useful to developers when packaging,
 testing, or committing to Arrow.
 
-Merging a pull request requires being a committer on the project.
+Merging a pull request requires being a committer on the project. In addition
+you need to have linked your GitHub and ASF accounts on
+https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
+remote.
 
 * How to merge a Pull request:
 have an apache and apache-github remote setup
