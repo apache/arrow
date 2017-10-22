@@ -28,7 +28,7 @@ Merging a pull request requires being a committer on the project.
 have an apache and apache-github remote setup
 ```
 git remote add apache-github https://github.com/apache/arrow.git
-git remote add apache https://git-wip-us.apache.org/repos/asf/arrow.git
+git remote add apache git@github.com:apache/arrow.git
 ```
 run the following command
 ```
