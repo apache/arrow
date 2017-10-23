@@ -266,30 +266,36 @@ def test_default_dict_serialization(large_memory_map):
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32", "uint32",
-                  "float16", "float32", "float64"]:
+        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
+                  "uint32", "float16", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)
 
 
 def test_datetime_serialization(large_memory_map):
-    data = [# Principia Mathematica published
-            datetime.datetime(year=1687, month=7, day=5),
-            # Some random date
-            datetime.datetime(year=1911, month=6, day=3, hour=4,
-                              minute=55, second=44),
-            # End of WWI
-            datetime.datetime(year=1918, month=11, day=11),
-            # Beginning of UNIX time
-            datetime.datetime(year=1970, month=1, day=1),
-            # The Berlin wall falls
-            datetime.datetime(year=1989, month=11, day=9),
-            # Another random date
-            datetime.datetime(year=2011, month=6, day=3, hour=4,
-                              minute=0, second=3),
-            # Another random date
-            datetime.datetime(year=1970, month=1, day=3, hour=4,
-                              minute=0, second=0)]
+    data = [
+        #  Principia Mathematica published
+        datetime.datetime(year=1687, month=7, day=5),
+
+        # Some random date
+        datetime.datetime(year=1911, month=6, day=3, hour=4,
+                          minute=55, second=44),
+        # End of WWI
+        datetime.datetime(year=1918, month=11, day=11),
+
+        # Beginning of UNIX time
+        datetime.datetime(year=1970, month=1, day=1),
+
+        # The Berlin wall falls
+        datetime.datetime(year=1989, month=11, day=9),
+
+        # Another random date
+        datetime.datetime(year=2011, month=6, day=3, hour=4,
+                          minute=0, second=3),
+        # Another random date
+        datetime.datetime(year=1970, month=1, day=3, hour=4,
+                          minute=0, second=0)
+    ]
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for d in data:
             serialization_roundtrip(d, mmap)

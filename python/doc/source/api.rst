@@ -312,6 +312,7 @@ Apache Parquet
 
    ParquetDataset
    ParquetFile
+   ParquetWriter
    read_table
    read_metadata
    read_pandas
