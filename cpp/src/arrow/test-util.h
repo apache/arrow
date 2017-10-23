@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -290,6 +291,19 @@ void AssertArraysEqual(const Array& expected, const Array& actual) {
     FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str();
   }
 }
+
+#define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
+  do {                                       \
+    if (!LEFT.ApproxEquals(RIGHT)) {         \
+      std::stringstream ss;                  \
+      ss << "Left:\n";                       \
+      ASSERT_OK(PrettyPrint(LEFT, 0, &ss));  \
+                                             \
+      ss << "\nRight:\n";                    \
+      ASSERT_OK(PrettyPrint(RIGHT, 0, &ss)); \
+      FAIL() << ss.str();                    \
+    }                                        \
+  } while (false)
 
 }  // namespace arrow
 
