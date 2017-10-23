@@ -43,5 +43,6 @@ structures.
    plasma
    pandas
    parquet
+   extending
    api
    getting_involved
