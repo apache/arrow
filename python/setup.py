@@ -220,17 +220,19 @@ class build_ext(_build_ext):
             build_prefix = self.build_type
 
         if self.bundle_arrow_cpp:
-            print(pjoin(build_prefix, 'include'), pjoin(build_lib, 'pyarrow'))
-            if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
-                shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(build_prefix, 'include'),
-                        pjoin(build_lib, 'pyarrow'))
+            print(pjoin(build_lib, 'pyarrow'))
             move_shared_libs(build_prefix, build_lib, "arrow")
             move_shared_libs(build_prefix, build_lib, "arrow_python")
             if self.with_plasma:
                 move_shared_libs(build_prefix, build_lib, "plasma")
             if self.with_parquet:
                 move_shared_libs(build_prefix, build_lib, "parquet")
+
+        print('Bundling includes: ' + pjoin(build_prefix, 'include'))
+        if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
+            shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+        shutil.move(pjoin(build_prefix, 'include'),
+                    pjoin(build_lib, 'pyarrow'))
 
         # Move the built C-extension to the place expected by the Python build
         self._found_names = []

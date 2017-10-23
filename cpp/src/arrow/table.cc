@@ -192,7 +192,7 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 std::shared_ptr<Array> RecordBatch::column(int i) const {
   if (!boxed_columns_[i]) {
-    DCHECK(MakeArray(columns_[i], &boxed_columns_[i]).ok());
+    boxed_columns_[i] = MakeArray(columns_[i]);
   }
   DCHECK(boxed_columns_[i]);
   return boxed_columns_[i];

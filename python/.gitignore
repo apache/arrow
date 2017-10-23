@@ -17,6 +17,10 @@ Testing/
 *.cpp
 pyarrow/version.py
 pyarrow/*_api.h
+
+# Bundled headers
+pyarrow/include
+
 # Python files
 
 # setup.py working directory

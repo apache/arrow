@@ -202,17 +202,47 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-class ParquetWriter(object):
-    """
+_parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
+    The Parquet format version, defaults to 1.0
+use_dictionary : bool or list
+    Specify if we should use dictionary encoding in general or only for
+    some columns.
+use_deprecated_int96_timestamps : boolean, default None
+    Write nanosecond resolution timestamps to INT96 Parquet
+    format. Defaults to False unless enabled by flavor argument
+coerce_timestamps : string, default None
+    Cast timestamps a particular resolution.
+    Valid values: {None, 'ms', 'us'}
+compression : str or dict
+    Specify the compression codec, either on a general basis or per-column.
+flavor : {'spark'}, default None
+    Sanitize schema or set other compatibility options for compatibility"""
 
-    Parameters
-    ----------
-    where
-    schema
-    flavor : {'spark', ...}
-        Set options for compatibility with a particular reader
-    """
-    def __init__(self, where, schema, flavor=None, **options):
+
+class ParquetWriter(object):
+
+    __doc__ = """
+Class for incrementally building a Parquet file for Arrow tables
+
+Parameters
+----------
+where : path or file-like object
+schema : arrow Schema
+{0}
+""".format(_parquet_writer_arg_docs)
+
+    def __init__(self, where, schema, flavor=None,
+                 version='1.0',
+                 use_dictionary=True,
+                 compression='snappy',
+                 use_deprecated_int96_timestamps=None, **options):
+        if use_deprecated_int96_timestamps is None:
+            # Use int96 timestamps for Spark
+            if flavor is not None and 'spark' in flavor:
+                use_deprecated_int96_timestamps = True
+            else:
+                use_deprecated_int96_timestamps = False
+
         self.flavor = flavor
         if flavor is not None:
             schema, self.schema_changed = _sanitize_schema(schema, flavor)
@@ -220,15 +250,29 @@ class ParquetWriter(object):
             self.schema_changed = False
 
         self.schema = schema
-        self.writer = _parquet.ParquetWriter(where, schema, **options)
+        self.writer = _parquet.ParquetWriter(
+            where, schema,
+            version=version,
+            compression=compression,
+            use_dictionary=use_dictionary,
+            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            **options)
+        self.is_open = True
+
+    def __del__(self):
+        if self.is_open:
+            self.close()
 
     def write_table(self, table, row_group_size=None):
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
+        assert self.is_open
         self.writer.write_table(table, row_group_size=row_group_size)
 
     def close(self):
-        self.writer.close()
+        if self.is_open:
+            self.writer.close()
+            self.is_open = False
 
 
 def _get_pandas_index_columns(keyvalues):
@@ -857,52 +901,19 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
                 flavor=None, **kwargs):
-    """
-    Write a Table to Parquet format
-
-    Parameters
-    ----------
-    table : pyarrow.Table
-    where: string or pyarrow.io.NativeFile
-    row_group_size : int, default None
-        The maximum number of rows in each Parquet RowGroup. As a default,
-        we will write a single RowGroup per file.
-    version : {"1.0", "2.0"}, default "1.0"
-        The Parquet format version, defaults to 1.0
-    use_dictionary : bool or list
-        Specify if we should use dictionary encoding in general or only for
-        some columns.
-    use_deprecated_int96_timestamps : boolean, default None
-        Write nanosecond resolution timestamps to INT96 Parquet
-        format. Defaults to False unless enabled by flavor argument
-    coerce_timestamps : string, default None
-        Cast timestamps a particular resolution.
-        Valid values: {None, 'ms', 'us'}
-    compression : str or dict
-        Specify the compression codec, either on a general basis or per-column.
-    flavor : {'spark'}, default None
-        Sanitize schema or set other compatibility options for compatibility
-    """
-    row_group_size = kwargs.get('chunk_size', row_group_size)
-
-    if use_deprecated_int96_timestamps is None:
-        # Use int96 timestamps for Spark
-        if flavor is not None and 'spark' in flavor:
-            use_deprecated_int96_timestamps = True
-        else:
-            use_deprecated_int96_timestamps = False
-
-    options = dict(
-        use_dictionary=use_dictionary,
-        compression=compression,
-        version=version,
-        use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-        coerce_timestamps=coerce_timestamps)
+    row_group_size = kwargs.pop('chunk_size', row_group_size)
 
     writer = None
     try:
-        writer = ParquetWriter(where, table.schema, flavor=flavor,
-                               **options)
+        writer = ParquetWriter(
+            where, table.schema,
+            version=version,
+            flavor=flavor,
+            use_dictionary=use_dictionary,
+            coerce_timestamps=coerce_timestamps,
+            compression=compression,
+            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            **kwargs)
         writer.write_table(table, row_group_size=row_group_size)
     except:
         if writer is not None:
@@ -915,6 +926,17 @@ def write_table(table, where, row_group_size=None, version='1.0',
         raise
     else:
         writer.close()
+
+
+write_table.__doc__ = """
+Write a Table to Parquet format
+
+Parameters
+----------
+table : pyarrow.Table
+where: string or pyarrow.io.NativeFile
+{0}
+""".format(_parquet_writer_arg_docs)
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
@@ -1013,12 +1035,10 @@ def write_metadata(schema, where, version='1.0',
         Cast timestamps a particular resolution.
         Valid values: {None, 'ms', 'us'}
     """
-    options = dict(
-        version=version,
+    writer = ParquetWriter(
+        where, schema, version=version,
         use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-        coerce_timestamps=coerce_timestamps
-    )
-    writer = ParquetWriter(where, schema, **options)
+        coerce_timestamps=coerce_timestamps)
     writer.close()
 
 

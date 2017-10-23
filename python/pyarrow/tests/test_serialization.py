@@ -29,6 +29,13 @@ import numpy as np
 
 
 def assert_equal(obj1, obj2):
+    try:
+        import torch
+        if torch.is_tensor(obj1) and torch.is_tensor(obj2):
+            assert torch.equal(obj1, obj2)
+            return
+    except ImportError:
+        pass
     module_numpy = (type(obj1).__module__ == np.__name__ or
                     type(obj2).__module__ == np.__name__)
     if module_numpy:
@@ -57,6 +64,8 @@ def assert_equal(obj1, obj2):
                 return
         except:
             pass
+        if obj1.__dict__ == {}:
+            print("WARNING: Empty dict in ", obj1)
         for key in obj1.__dict__.keys():
             if key not in special_keys:
                 assert_equal(obj1.__dict__[key], obj2.__dict__[key])
@@ -257,34 +266,50 @@ def test_default_dict_serialization(large_memory_map):
 
 def test_numpy_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
-        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32", "uint32",
-                  "float16", "float32", "float64"]:
+        for t in ["bool", "int8", "uint8", "int16", "uint16", "int32",
+                  "uint32", "float16", "float32", "float64"]:
             obj = np.random.randint(0, 10, size=(100, 100)).astype(t)
             serialization_roundtrip(obj, mmap)
 
 
 def test_datetime_serialization(large_memory_map):
-    data = [# Principia Mathematica published
-            datetime.datetime(year=1687, month=7, day=5),
-            # Some random date
-            datetime.datetime(year=1911, month=6, day=3, hour=4,
-                              minute=55, second=44),
-            # End of WWI
-            datetime.datetime(year=1918, month=11, day=11),
-            # Beginning of UNIX time
-            datetime.datetime(year=1970, month=1, day=1),
-            # The Berlin wall falls
-            datetime.datetime(year=1989, month=11, day=9),
-            # Another random date
-            datetime.datetime(year=2011, month=6, day=3, hour=4,
-                              minute=0, second=3),
-            # Another random date
-            datetime.datetime(year=1970, month=1, day=3, hour=4,
-                              minute=0, second=0)]
+    data = [
+        #  Principia Mathematica published
+        datetime.datetime(year=1687, month=7, day=5),
+
+        # Some random date
+        datetime.datetime(year=1911, month=6, day=3, hour=4,
+                          minute=55, second=44),
+        # End of WWI
+        datetime.datetime(year=1918, month=11, day=11),
+
+        # Beginning of UNIX time
+        datetime.datetime(year=1970, month=1, day=1),
+
+        # The Berlin wall falls
+        datetime.datetime(year=1989, month=11, day=9),
+
+        # Another random date
+        datetime.datetime(year=2011, month=6, day=3, hour=4,
+                          minute=0, second=3),
+        # Another random date
+        datetime.datetime(year=1970, month=1, day=3, hour=4,
+                          minute=0, second=0)
+    ]
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for d in data:
             serialization_roundtrip(d, mmap)
 
+def test_torch_serialization(large_memory_map):
+    pytest.importorskip("torch")
+    import torch
+    with pa.memory_map(large_memory_map, mode="r+") as mmap:
+        # These are the only types that are supported for the
+        # PyTorch to NumPy conversion
+        for t in ["float32", "float64",
+                  "uint8", "int16", "int32", "int64"]:
+            obj = torch.from_numpy(np.random.randn(1000).astype(t))
+            serialization_roundtrip(obj, mmap)
 
 def test_numpy_immutable(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
@@ -316,6 +341,25 @@ def test_serialization_callback_numpy():
         custom_deserializer=deserialize_dummy_class)
 
     pa.serialize(DummyClass())
+
+def test_buffer_serialization():
+
+    class BufferClass(object):
+        pass
+
+    def serialize_buffer_class(obj):
+        return pa.frombuffer(b"hello")
+
+    def deserialize_buffer_class(serialized_obj):
+        return serialized_obj
+
+    pa._default_serialization_context.register_type(
+        BufferClass, "BufferClass", pickle=False,
+        custom_serializer=serialize_buffer_class,
+        custom_deserializer=deserialize_buffer_class)
+
+    b = pa.serialize(BufferClass()).to_buffer()
+    assert pa.deserialize(b).to_pybytes() == b"hello"
 
 
 @pytest.mark.skip(reason="extensive memory requirements")

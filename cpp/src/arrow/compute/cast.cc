@@ -717,7 +717,8 @@ Status Cast(FunctionContext* ctx, const Array& array,
   auto out_data = std::make_shared<ArrayData>(out_type, array.length());
 
   RETURN_NOT_OK(func->Call(ctx, array, out_data.get()));
-  return MakeArray(out_data, out);
+  *out = MakeArray(out_data);
+  return Status::OK();
 }
 
 }  // namespace compute

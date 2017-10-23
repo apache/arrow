@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,16 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget https://github.com/jemalloc/jemalloc/archive/17c897976c60b0e6e4f4a365c751027244dada7a.tar.gz -O jemalloc.tar.gz
-tar xf jemalloc.tar.gz
-mv jemalloc-* jemalloc
-pushd /jemalloc
-./autogen.sh
-./configure "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
-# Skip doc generation
-touch doc/jemalloc.html
-touch doc/jemalloc.3
-make -j5
-make install
-popd
-rm -rf jemalloc.tar.gz jemalloc
+import os
+
+import pyarrow as pa
+
+
+def test_get_include():
+    include_dir = pa.get_include()
+    assert os.path.exists(os.path.join(include_dir, 'arrow', 'api.h'))

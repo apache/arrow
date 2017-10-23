@@ -369,8 +369,8 @@ TEST_F(TestCast, PreallocatedMemory) {
   // Buffer address unchanged
   ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
 
-  std::shared_ptr<Array> result, expected;
-  ASSERT_OK(MakeArray(out_data, &result));
+  std::shared_ptr<Array> result = MakeArray(out_data);
+  std::shared_ptr<Array> expected;
   ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
 
   AssertArraysEqual(*expected, *result);
