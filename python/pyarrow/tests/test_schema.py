@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pickle
+
 import pytest
 import numpy as np
 
@@ -304,3 +306,40 @@ one: dictionary<values=string, indices=int16, ordered=0>
 two: int32""")
 
     assert repr(sch) == expected
+
+
+def test_type_schema_pickling():
+    cases = [
+        pa.int8(),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.string()),
+        pa.struct([
+            pa.field('a', 'int8'),
+            pa.field('b', 'string')
+        ]),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.date64(),
+        pa.timestamp('ms'),
+        pa.timestamp('ns'),
+        pa.decimal(12, 2),
+        pa.field('a', 'string', metadata={b'foo': b'bar'})
+    ]
+
+    for val in cases:
+        roundtripped = pickle.loads(pickle.dumps(val))
+        assert val == roundtripped
+
+    fields = []
+    for i, f in enumerate(cases):
+        if isinstance(f, pa.Field):
+            fields.append(f)
+        else:
+            fields.append(pa.field('_f{}'.format(i), f))
+
+    schema = pa.schema(fields, metadata={b'foo': b'bar'})
+    roundtripped = pickle.loads(pickle.dumps(schema))
+    assert schema == roundtripped
