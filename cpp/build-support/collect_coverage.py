@@ -28,6 +28,10 @@ def is_coverage_file(path):
 
 def copy_files(path, outpath='.'):
     for root, dirs, files in os.walk(path):
+        if len(files) > 0:
+            print(root)
+            print(dirs)
+            print(files)
         for fname in files:
             if not is_coverage_file(fname):
                 continue
