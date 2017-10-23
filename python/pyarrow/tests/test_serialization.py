@@ -62,7 +62,7 @@ def assert_equal(obj1, obj2):
             # Workaround to make comparison of OrderedDicts work on Python 2.7
             if obj1 == obj2:
                 return
-        except:
+        except Exception:
             pass
         if obj1.__dict__ == {}:
             print("WARNING: Empty dict in ", obj1)
@@ -374,24 +374,24 @@ def test_arrow_limits(self):
         # Test that objects that are too large for Arrow throw a Python
         # exception. These tests give out of memory errors on Travis and need
         # to be run on a machine with lots of RAM.
-        l = 2 ** 29 * [1.0]
-        serialization_roundtrip(l, mmap)
-        del l
-        l = 2 ** 29 * ["s"]
-        serialization_roundtrip(l, mmap)
-        del l
-        l = 2 ** 29 * [["1"], 2, 3, [{"s": 4}]]
-        serialization_roundtrip(l, mmap)
-        del l
-        l = 2 ** 29 * [{"s": 1}] + 2 ** 29 * [1.0]
-        serialization_roundtrip(l, mmap)
-        del l
-        l = np.zeros(2 ** 25)
-        serialization_roundtrip(l, mmap)
-        del l
-        l = [np.zeros(2 ** 18) for _ in range(2 ** 7)]
-        serialization_roundtrip(l, mmap)
-        del l
+        x = 2 ** 29 * [1.0]
+        serialization_roundtrip(x, mmap)
+        del x
+        x = 2 ** 29 * ["s"]
+        serialization_roundtrip(x, mmap)
+        del x
+        x = 2 ** 29 * [["1"], 2, 3, [{"s": 4}]]
+        serialization_roundtrip(x, mmap)
+        del x
+        x = 2 ** 29 * [{"s": 1}] + 2 ** 29 * [1.0]
+        serialization_roundtrip(x, mmap)
+        del x
+        x = np.zeros(2 ** 25)
+        serialization_roundtrip(x, mmap)
+        del x
+        x = [np.zeros(2 ** 18) for _ in range(2 ** 7)]
+        serialization_roundtrip(x, mmap)
+        del x
 
 
 def test_serialization_callback_error():

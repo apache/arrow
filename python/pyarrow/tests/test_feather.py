@@ -289,7 +289,7 @@ class TestFeatherReader(unittest.TestCase):
         path = random_path()
         try:
             write_feather(df, path)
-        except:
+        except Exception:
             pass
 
         assert not os.path.exists(path)

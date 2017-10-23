@@ -116,7 +116,7 @@ def write_feather(df, dest):
     writer = FeatherWriter(dest)
     try:
         writer.write(df)
-    except:
+    except Exception:
         # Try to make sure the resource is closed
         import gc
         writer = None
