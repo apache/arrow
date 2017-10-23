@@ -221,6 +221,16 @@ flavor : {'spark'}, default None
 
 class ParquetWriter(object):
 
+    __doc__ = """
+Class for incrementally building a Parquet file for Arrow tables
+
+Parameters
+----------
+where : path or file-like object
+schema : arrow Schema
+{0}
+""".format(_parquet_writer_arg_docs)
+
     def __init__(self, where, schema, flavor=None,
                  version='1.0',
                  use_dictionary=True,
@@ -263,16 +273,6 @@ class ParquetWriter(object):
         if self.is_open:
             self.writer.close()
             self.is_open = False
-
-ParquetWriter.__doc__ = """
-Class for incrementally building a Parquet file for Arrow tables
-
-Parameters
-----------
-where : path or file-like object
-schema : arrow Schema
-{0}
-""".format(_parquet_writer_arg_docs)
 
 
 def _get_pandas_index_columns(keyvalues):
