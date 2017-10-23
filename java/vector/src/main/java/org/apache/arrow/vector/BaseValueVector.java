@@ -137,21 +137,31 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   @Override
-  public int getValueCount() { return 0; }
+  public int getValueCount() {
+    return getAccessor().getValueCount();
+  }
 
   @Override
-  public void setValueCount(int valueCount) { }
+  public void setValueCount(int valueCount) {
+    getMutator().setValueCount(valueCount);
+  }
 
   @Override
 
-  public Object getObject(int index) { return null; }
+  public Object getObject(int index) {
+    return getAccessor().getObject(index);
+  }
 
   @Override
 
-  public int getNullCount() { return 0; }
+  public int getNullCount() {
+    return getAccessor().getNullCount();
+  }
 
   @Override
-  public boolean isNull(int index) { return false; }
+  public boolean isNull(int index) {
+    return getAccessor().isNull(index);
+  }
 
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {

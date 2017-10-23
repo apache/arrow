@@ -265,7 +265,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   public void setValueCount(int valueCount) {
-    // TODO: populate offset end points
     this.valueCount = valueCount;
     while (valueCount > getOffsetBufferValueCapacity()) {
       reallocOffsetBuffer();
