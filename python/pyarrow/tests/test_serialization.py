@@ -300,6 +300,7 @@ def test_datetime_serialization(large_memory_map):
         for d in data:
             serialization_roundtrip(d, mmap)
 
+
 def test_torch_serialization(large_memory_map):
     pytest.importorskip("torch")
     import torch
@@ -310,6 +311,7 @@ def test_torch_serialization(large_memory_map):
                   "uint8", "int16", "int32", "int64"]:
             obj = torch.from_numpy(np.random.randn(1000).astype(t))
             serialization_roundtrip(obj, mmap)
+
 
 def test_numpy_immutable(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
@@ -341,6 +343,7 @@ def test_serialization_callback_numpy():
         custom_deserializer=deserialize_dummy_class)
 
     pa.serialize(DummyClass())
+
 
 def test_buffer_serialization():
 
