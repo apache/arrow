@@ -97,9 +97,7 @@ static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
-  std::shared_ptr<Array> result;
-  DCHECK(MakeArray(SliceData(*data_, offset, length), &result).ok());
-  return result;
+  return MakeArray(SliceData(*data_, offset, length));
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
@@ -210,7 +208,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
-  DCHECK(MakeArray(data_->child_data[0], &values_).ok());
+  values_ = MakeArray(data_->child_data[0]);
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
@@ -323,7 +321,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
@@ -369,7 +367,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
@@ -377,7 +375,7 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
 
 const Array* UnionArray::UnsafeChild(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i].get();
@@ -407,7 +405,7 @@ void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto indices_data = data_->ShallowCopy();
   indices_data->type = dict_type_->index_type();
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(indices_data, &indices_).ok());
+  indices_ = MakeArray(indices_data);
 }
 
 std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
@@ -589,11 +587,24 @@ class ArrayDataWrapper {
 
 }  // namespace internal
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
   internal::ArrayDataWrapper wrapper_visitor(data, out);
   RETURN_NOT_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return Status::OK();
+}
+
+#endif
+
+std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
+  std::shared_ptr<Array> out;
+  internal::ArrayDataWrapper wrapper_visitor(data, &out);
+  Status s = VisitTypeInline(*data->type, &wrapper_visitor);
+  DCHECK(s.ok());
+  DCHECK(out);
+  return out;
 }
 
 // ----------------------------------------------------------------------

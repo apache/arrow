@@ -102,7 +102,8 @@ Status ArrayBuilder::Advance(int64_t elements) {
 Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<ArrayData> internal_data;
   RETURN_NOT_OK(FinishInternal(&internal_data));
-  return MakeArray(internal_data, out);
+  *out = MakeArray(internal_data);
+  return Status::OK();
 }
 
 Status ArrayBuilder::Reserve(int64_t elements) {
