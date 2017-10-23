@@ -251,6 +251,10 @@ class DaskFileSystem(FileSystem):
     def delete(self, path, recursive=False):
         return self.fs.rm(path, recursive=recursive)
 
+    @implements(FileSystem.exists)
+    def exists(self, path):
+        return os.path.exists(path)
+
     @implements(FileSystem.mkdir)
     def mkdir(self, path):
         return self.fs.mkdir(path)
