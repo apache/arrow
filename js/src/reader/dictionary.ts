@@ -31,6 +31,8 @@ export function readDictionary(field: Field | null,
     }
     for (let i = -1, n = field && field.childrenLength() || 0; ++i < n;) {
         let vector = readDictionary(field.children(i), batch, iterator, dictionaries);
-        if (vector) return vector;
+        if (vector) {
+            return vector;
+        }
     }
 }
