@@ -73,7 +73,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
   auto schema = ExampleSchema1();
 
   std::unique_ptr<RecordBatchBuilder> builder;
-  ASSERT_OK(RecordBatchBuilder::Create(schema, pool_, &builder));
+  ASSERT_OK(RecordBatchBuilder::Make(schema, pool_, &builder));
 
   std::vector<bool> is_valid = {false, true, true, true};
   std::vector<int32_t> f0_values = {0, 1, 2, 3};
@@ -131,7 +131,7 @@ TEST_F(TestRecordBatchBuilder, InvalidFieldLength) {
   auto schema = ExampleSchema1();
 
   std::unique_ptr<RecordBatchBuilder> builder;
-  ASSERT_OK(RecordBatchBuilder::Create(schema, pool_, &builder));
+  ASSERT_OK(RecordBatchBuilder::Make(schema, pool_, &builder));
 
   std::vector<bool> is_valid = {false, true, true, true};
   std::vector<int32_t> f0_values = {0, 1, 2, 3};

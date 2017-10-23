@@ -43,27 +43,22 @@ class RecordBatchBuilder {
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] builder the created builder instance
-  static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                       std::unique_ptr<RecordBatchBuilder>* builder);
+  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+                     std::unique_ptr<RecordBatchBuilder>* builder);
 
   /// \brief Create an initialize a RecordBatchBuilder
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
   /// \param[in] initial_capacity The initial capacity for the builders
   /// \param[in] builder the created builder instance
-  static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                       int64_t initial_capacity,
-                       std::unique_ptr<RecordBatchBuilder>* builder);
+  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
+                     int64_t initial_capacity,
+                     std::unique_ptr<RecordBatchBuilder>* builder);
 
   /// \brief Get base pointer to field builder
   /// \param i the field index
   /// \return pointer to ArrayBuilder
   ArrayBuilder* GetField(int i) { return raw_field_builders_[i]; }
-
-  /// \brief Get base pointer to field builder
-  /// \param i the field index
-  /// \return pointer to ArrayBuilder
-  const ArrayBuilder* GetField(int i) const { return raw_field_builders_[i]; }
 
   /// \brief Return field builder casted to indicated specific builder type
   /// \param i the field index
@@ -71,14 +66,6 @@ class RecordBatchBuilder {
   template <typename T>
   T* GetFieldAs(int i) {
     return static_cast<T*>(raw_field_builders_[i]);
-  }
-
-  /// \brief Return field builder casted to indicated specific builder type
-  /// \param i the field index
-  /// \return pointer to template type
-  template <typename T>
-  const T* GetFieldAs(int i) const {
-    return static_cast<const T*>(raw_field_builders_[i]);
   }
 
   /// \brief Finish current batch and optionally reset
