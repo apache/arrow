@@ -135,6 +135,12 @@ class FileSystem(object):
         """
         raise NotImplementedError
 
+    def isfilestore(self):
+        """
+        Returns True if this FileSystem is a unix-style file store with directories.
+        """
+        raise NotImplementedError
+
     def read_parquet(self, path, columns=None, metadata=None, schema=None,
                      nthreads=1, use_pandas_metadata=False):
         """
@@ -209,6 +215,10 @@ class LocalFileSystem(FileSystem):
     def isfile(self, path):
         return os.path.isfile(path)
 
+    @implements(FileSystem.isfilestore)
+    def isfilestore(self):
+        return True
+
     @implements(FileSystem.exists)
     def exists(self, path):
         return os.path.exists(path)
@@ -246,6 +256,13 @@ class DaskFileSystem(FileSystem):
     @implements(FileSystem.isfile)
     def isfile(self, path):
         raise NotImplementedError("Unsupported file system API")
+
+    @implements(FileSystem.isfilestore)
+    def isfilestore(self):
+        """
+        Object Stores like S3 and GCSFS are based on key lookups, not true file-paths
+        """
+        return False
 
     @implements(FileSystem.delete)
     def delete(self, path, recursive=False):
