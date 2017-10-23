@@ -53,6 +53,7 @@ matrix:
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
+    - export ARROW_TRAVIS_COVERAGE=1
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
@@ -63,6 +64,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+    - $TRAVIS_BUILD_DIR/ci/upload_cpp_coverage.sh
   - compiler: clang
     language: cpp
     osx_image: xcode6.4
