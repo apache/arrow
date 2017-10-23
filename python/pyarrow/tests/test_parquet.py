@@ -301,6 +301,35 @@ def test_pandas_parquet_native_file_roundtrip(tmpdir):
 
 
 @parquet
+def test_parquet_incremental_file_build(tmpdir):
+    import pyarrow.parquet as pq
+
+    df = _test_dataframe(100)
+    df['unique_id'] = 0
+
+    arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+    out = pa.BufferOutputStream()
+
+    writer = pq.ParquetWriter(out, arrow_table.schema, version='2.0')
+
+    frames = []
+    for i in range(10):
+        df['unique_id'] = i
+        arrow_table = pa.Table.from_pandas(df, preserve_index=False)
+        writer.write_table(arrow_table)
+
+        frames.append(df.copy())
+
+    writer.close()
+
+    buf = out.get_result()
+    result = _read_table(pa.BufferReader(buf))
+
+    expected = pd.concat(frames, ignore_index=True)
+    tm.assert_frame_equal(result.to_pandas(), expected)
+
+
+@parquet
 def test_read_pandas_column_subset(tmpdir):
     import pyarrow.parquet as pq
 
