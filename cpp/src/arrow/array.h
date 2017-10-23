@@ -144,12 +144,24 @@ struct ARROW_EXPORT ArrayData {
   std::vector<std::shared_ptr<ArrayData>> child_data;
 };
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents
 /// \param[out] out the resulting Array instance
 /// \return Status
+///
+/// \note Deprecated since 0.8.0
 ARROW_EXPORT
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out);
+
+#endif
+
+/// \brief Create a strongly-typed Array instance from generic ArrayData
+/// \param[in] data the array contents
+/// \return the resulting Array instance
+ARROW_EXPORT
+std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 
 // ----------------------------------------------------------------------
 // User array accessor types

@@ -364,9 +364,7 @@ class NumPyConverter {
   }
 
   Status PushArray(const std::shared_ptr<ArrayData>& data) {
-    std::shared_ptr<Array> result;
-    RETURN_NOT_OK(MakeArray(data, &result));
-    out_arrays_.emplace_back(std::move(result));
+    out_arrays_.emplace_back(MakeArray(data));
     return Status::OK();
   }
 
@@ -495,8 +493,8 @@ static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t len
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
   auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
 
-  std::shared_ptr<Array> tmp_array, casted_array;
-  RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
+  std::shared_ptr<Array> tmp_array = MakeArray(tmp_data);
+  std::shared_ptr<Array> casted_array;
 
   compute::FunctionContext context(pool);
   compute::CastOptions cast_options;
