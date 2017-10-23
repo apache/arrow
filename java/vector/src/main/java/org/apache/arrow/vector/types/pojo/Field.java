@@ -125,16 +125,7 @@ public class Field {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
       Field childField = convertField(field.children(i));
-      if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
-        && childField.getName().equals(ZeroVector.NAME)) {
-        Field modifiedField = new Field(DATA_VECTOR_NAME, childField.isNullable(), childField.getType(),
-          childField.getDictionary(),
-          childField.getChildren(),
-          childField.getTypeLayout(),
-          childField.getMetadata());
-        childrenBuilder.add(modifiedField);
-        continue;
-      }
+      childField = mutateOriginalNameIfNeeded(field, childField);
       childrenBuilder.add(childField);
     }
     List<Field> children = childrenBuilder.build();
@@ -146,6 +137,27 @@ public class Field {
     }
     Map<String, String> metadata = metadataBuilder.build();
     return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()), metadata);
+  }
+
+  /**
+   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663
+   * @param field
+   * @param originalChildField original field which name might be mutated
+   * @return original or mutated field
+   */
+  private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
+        && originalChildField.getName().equals(ZeroVector.NAME)) {
+      return
+        new Field(DATA_VECTOR_NAME,
+          originalChildField.isNullable(),
+          originalChildField.getType(),
+          originalChildField.getDictionary(),
+          originalChildField.getChildren(),
+          originalChildField.getTypeLayout(),
+          originalChildField.getMetadata());
+    }
+    return originalChildField;
   }
 
   public void validate() {
