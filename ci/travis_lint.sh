@@ -31,10 +31,10 @@ popd
 # Fail fast on style checks
 sudo pip install flake8
 
-PYARROW_DIR=$TRAVIS_BUILD_DIR/python
+PYARROW_DIR=$TRAVIS_BUILD_DIR/python/pyarrow
 
-flake8 --count $PYTHON_DIR/pyarrow
+flake8 --count $PYARROW_DIR
 
 # Check Cython files with some checks turned off
 flake8 --count --config=$PYTHON_DIR/.flake8.cython \
-       $PYTHON_DIR/pyarrow
+       $PYARROW_DIR
