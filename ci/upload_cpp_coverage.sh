@@ -24,7 +24,9 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 pip install cpp_coveralls==0.3.12
 
 mkdir coverage_artifacts
-python $TRAVIS_BUILD_DIR/cpp/build-support/collect_coverage.py src/ coverage_artifacts
+python $TRAVIS_BUILD_DIR/cpp/build-support/collect_coverage.py \
+       $ARROW_CPP_BUILD_DIR/src/ \
+       coverage_artifacts
 
 cd coverage_artifacts
 
