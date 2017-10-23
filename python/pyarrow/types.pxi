@@ -69,11 +69,14 @@ cdef class DataType:
             )
         return frombytes(self.type.ToString())
 
+    def __reduce__(self):
+        return self.__class__, (), self.__getstate__()
+
     def __getstate__(self):
-        return str(self)
+        return str(self),
 
     def __setstate__(self, state):
-        cdef DataType reconstituted = type_for_alias(state)
+        cdef DataType reconstituted = type_for_alias(state[0])
         self.init(reconstituted.sp_type)
 
     def __repr__(self):
@@ -299,11 +302,14 @@ cdef class Field:
         else:
             raise TypeError('Invalid comparison')
 
+    def __reduce__(self):
+        return Field, (), self.__getstate__()
+
     def __getstate__(self):
-        return (self.name, self.type)
+        return (self.name, self.type, self.metadata)
 
     def __setstate__(self, state):
-        cdef Field reconstituted = field(state[0], state[1])
+        cdef Field reconstituted = field(state[0], state[1], metadata=state[2])
         self.init(reconstituted.sp_field)
 
     def __str__(self):
@@ -418,6 +424,16 @@ cdef class Schema:
         self.schema = schema.get()
         self.sp_schema = schema
 
+    def __reduce__(self):
+        return Schema, (), self.__getstate__()
+
+    def __getstate__(self):
+        return ([self[i] for i in range(len(self))], self.metadata)
+
+    def __setstate__(self, state):
+        cdef Schema reconstituted = schema(state[0], metadata=state[1])
+        self.init_schema(reconstituted.sp_schema)
+
     property names:
 
         def __get__(self):
@@ -435,6 +451,14 @@ cdef class Schema:
             cdef shared_ptr[const CKeyValueMetadata] metadata = (
                 self.schema.metadata())
             return box_metadata(metadata.get())
+
+    def __richcmp__(self, other, int op):
+        if op == cp.Py_EQ:
+            return self.equals(other)
+        elif op == cp.Py_NE:
+            return not self.equals(other)
+        else:
+            raise TypeError('Invalid comparison')
 
     def equals(self, other):
         """
@@ -1078,19 +1102,23 @@ def type_for_alias(name):
     return alias()
 
 
-def schema(fields):
+def schema(fields, dict metadata=None):
     """
     Construct pyarrow.Schema from collection of fields
 
     Parameters
     ----------
     field : list or iterable
+    metadata : dict, default None
+        Keys and values must be coercible to bytes
 
     Returns
     -------
     schema : pyarrow.Schema
     """
     cdef:
+        shared_ptr[CKeyValueMetadata] c_meta
+        shared_ptr[CSchema] c_schema
         Schema result
         Field field
         vector[shared_ptr[CField]] c_fields
@@ -1098,8 +1126,12 @@ def schema(fields):
     for i, field in enumerate(fields):
         c_fields.push_back(field.sp_field)
 
+    if metadata is not None:
+        convert_metadata(metadata, &c_meta)
+
+    c_schema.reset(new CSchema(c_fields, c_meta))
     result = Schema()
-    result.init(c_fields)
+    result.init_schema(c_schema)
     return result
 
 
