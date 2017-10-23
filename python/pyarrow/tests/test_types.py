@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 import pyarrow as pa
 import pyarrow.types as types
 
