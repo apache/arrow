@@ -73,7 +73,27 @@ cdef class DataType:
         return '{0.__class__.__name__}({0})'.format(self)
 
     def __richcmp__(DataType self, object other, int op):
+        if op == cp.Py_EQ:
+            return self.equals(other)
+        elif op == cp.Py_NE:
+            return not self.equals(other)
+        else:
+            raise TypeError('Invalid comparison')
+
+    def equals(self, other):
+        """
+        Return true if type is equivalent to passed value
+
+        Parameters
+        ----------
+        other : DataType or string convertible to DataType
+
+        Returns
+        -------
+        is_equal : boolean
+        """
         cdef DataType other_type
+
         if not isinstance(other, DataType):
             if not isinstance(other, six.string_types):
                 raise TypeError(other)
@@ -81,12 +101,7 @@ cdef class DataType:
         else:
             other_type = other
 
-        if op == cp.Py_EQ:
-            return self.type.Equals(deref(other_type.type))
-        elif op == cp.Py_NE:
-            return not self.type.Equals(deref(other_type.type))
-        else:
-            raise TypeError('Invalid comparison')
+        return self.type.Equals(deref(other_type.type))
 
     def to_pandas_dtype(self):
         """
