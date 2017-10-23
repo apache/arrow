@@ -100,7 +100,8 @@ try:
 
     def _serialize_pandas_series(obj):
         # TODO: serializing Series without extra copy
-        return serialize_pandas(pd.DataFrame({obj.name: obj})).to_pybytes()
+        return serialize_pandas(pd.DataFrame({obj.name: obj},
+                                             index=obj.index)).to_pybytes()
 
     def _deserialize_pandas_series(data):
         deserialized = deserialize_pandas(data)
