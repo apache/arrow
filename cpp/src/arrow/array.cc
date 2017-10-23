@@ -172,27 +172,55 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-Status ListArray::FromArrays(const Array& offsets, const Array& values,
-                             MemoryPool* ARROW_ARG_UNUSED(pool),
+Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                              std::shared_ptr<Array>* out) {
-  if (ARROW_PREDICT_FALSE(offsets.length() == 0)) {
+  if (offsets.length() == 0) {
     return Status::Invalid("List offsets must have non-zero length");
   }
 
-  if (ARROW_PREDICT_FALSE(offsets.null_count() > 0)) {
-    return Status::Invalid("Null offsets in ListArray::FromArrays not yet implemented");
-  }
-
-  if (ARROW_PREDICT_FALSE(offsets.type_id() != Type::INT32)) {
+  if (offsets.type_id() != Type::INT32) {
     return Status::Invalid("List offsets must be signed int32");
   }
 
-  BufferVector buffers = {offsets.null_bitmap(),
-                          static_cast<const Int32Array&>(offsets).values()};
+  BufferVector buffers = {};
+
+  const auto& typed_offsets = static_cast<const Int32Array&>(offsets);
+
+  const int64_t num_offsets = offsets.length();
+
+  if (offsets.null_count() > 0) {
+    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
+
+    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
+
+    // Copy valid bits, zero out the bit for the final offset
+    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
+                                              &clean_valid_bits));
+    BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
+    buffers.emplace_back(std::move(clean_valid_bits));
+
+    const int32_t* raw_offsets = typed_offsets.raw_values();
+    auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
+
+    // Must work backwards so we can tell how many values were in the last non-null value
+    DCHECK(offsets.IsValid(num_offsets - 1));
+    int32_t current_offset = raw_offsets[num_offsets - 1];
+    for (int64_t i = num_offsets - 1; i >= 0; --i) {
+      if (offsets.IsValid(i)) {
+        current_offset = raw_offsets[i];
+      }
+      clean_raw_offsets[i] = current_offset;
+    }
+
+    buffers.emplace_back(std::move(clean_offsets));
+  } else {
+    buffers.emplace_back(offsets.null_bitmap());
+    buffers.emplace_back(typed_offsets.values());
+  }
 
   auto list_type = list(values.type());
   auto internal_data =
-      std::make_shared<ArrayData>(list_type, offsets.length() - 1, std::move(buffers),
+      std::make_shared<ArrayData>(list_type, num_offsets - 1, std::move(buffers),
                                   offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 

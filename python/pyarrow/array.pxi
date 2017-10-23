@@ -173,6 +173,29 @@ def array(object obj, type=None, mask=None,
         return _sequence_to_array(obj, size, type, pool)
 
 
+def asarray(values, type=None):
+    """
+    Convert to pyarrow.Array, inferring type if not provided. Attempt to cast
+    if indicated type is different
+
+    Parameters
+    ----------
+    values : array-like (sequence, numpy.ndarray, pyarrow.Array)
+    type : string or DataType
+
+    Returns
+    -------
+    arr : Array
+    """
+    if isinstance(values, Array):
+        if type is not None and not values.type.equals(type):
+            values = values.cast(type)
+
+        return values
+    else:
+        return array(values, type=type)
+
+
 def _normalize_slice(object arrow_obj, slice key):
     cdef Py_ssize_t n = len(arrow_obj)
 
@@ -574,7 +597,7 @@ cdef class DecimalArray(FixedSizeBinaryArray):
 cdef class ListArray(Array):
 
     @staticmethod
-    def from_arrays(Array offsets, Array values, MemoryPool pool=None):
+    def from_arrays(offsets, values, MemoryPool pool=None):
         """
         Construct ListArray from arrays of int32 offsets and values
 
@@ -587,11 +610,17 @@ cdef class ListArray(Array):
         -------
         list_array : ListArray
         """
-        cdef shared_ptr[CArray] out
+        cdef:
+            Array _offsets, _values
+            shared_ptr[CArray] out
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _values = asarray(values)
+
         with nogil:
-            check_status(CListArray.FromArrays(
-                deref(offsets.ap), deref(values.ap), cpool, &out))
+            check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
+                                               cpool, &out))
         return pyarrow_wrap_array(out)
 
 
