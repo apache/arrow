@@ -323,6 +323,9 @@ def test_type_schema_pickling():
         pa.time64('us'),
         pa.date32(),
         pa.date64(),
+        pa.timestamp('ms'),
+        pa.timestamp('ns'),
+        pa.decimal(12, 2),
         pa.field('a', 'string', metadata={b'foo': b'bar'})
     ]
 
