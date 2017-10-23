@@ -24,6 +24,7 @@ set(ARROW_SRCS
   pretty_print.cc
   status.cc
   table.cc
+  table_builder.cc
   tensor.cc
   type.cc
   visitor.cc
@@ -143,6 +144,7 @@ install(FILES
   pretty_print.h
   status.h
   table.h
+  table_builder.h
   tensor.h
   type.h
   type_fwd.h
@@ -172,6 +174,7 @@ ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(status-test)
 ADD_ARROW_TEST(type-test)
 ADD_ARROW_TEST(table-test)
+ADD_ARROW_TEST(table_builder-test)
 ADD_ARROW_TEST(tensor-test)
 
 ADD_ARROW_BENCHMARK(builder-benchmark)
