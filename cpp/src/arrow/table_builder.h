@@ -39,43 +39,69 @@ class Schema;
 /// schema
 class RecordBatchBuilder {
  public:
+  /// \brief Create an initialize a RecordBatchBuilder
+  /// \param[in] schema The schema for the record batch
+  /// \param[in] pool A MemoryPool to use for allocations
+  /// \param[in] builder the created builder instance
   static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                        std::unique_ptr<RecordBatchBuilder>* builder);
 
+  /// \brief Create an initialize a RecordBatchBuilder
+  /// \param[in] schema The schema for the record batch
+  /// \param[in] pool A MemoryPool to use for allocations
+  /// \param[in] initial_capacity The initial capacity for the builders
+  /// \param[in] builder the created builder instance
   static Status Create(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                        int64_t initial_capacity,
                        std::unique_ptr<RecordBatchBuilder>* builder);
 
-  /// Get base pointer to field builder
+  /// \brief Get base pointer to field builder
+  /// \param i the field index
+  /// \return pointer to ArrayBuilder
   ArrayBuilder* GetField(int i) { return raw_field_builders_[i]; }
 
-  /// Get base pointer to field builder
+  /// \brief Get base pointer to field builder
+  /// \param i the field index
+  /// \return pointer to ArrayBuilder
   const ArrayBuilder* GetField(int i) const { return raw_field_builders_[i]; }
 
-  /// Return field builder casted to indicated specific builder type
+  /// \brief Return field builder casted to indicated specific builder type
+  /// \param i the field index
+  /// \return pointer to template type
   template <typename T>
   T* GetFieldAs(int i) {
     return static_cast<T*>(raw_field_builders_[i]);
   }
 
-  /// Return field builder casted to indicated specific builder type
+  /// \brief Return field builder casted to indicated specific builder type
+  /// \param i the field index
+  /// \return pointer to template type
   template <typename T>
   const T* GetFieldAs(int i) const {
     return static_cast<const T*>(raw_field_builders_[i]);
   }
 
-  /// Finish current batch and reset
-  Status FlushAndReset(std::shared_ptr<RecordBatch>* batch);
+  /// \brief Finish current batch and optionally reset
+  /// \param[in] reset_builders the resulting RecordBatch
+  /// \param[out] batch the resulting RecordBatch
+  /// \return Status
+  Status Flush(bool reset_builders, std::shared_ptr<RecordBatch>* batch);
 
-  /// Flush current batch without resetting
+  /// \brief Finish current batch and reset
+  /// \param[out] batch the resulting RecordBatch
+  /// \return Status
   Status Flush(std::shared_ptr<RecordBatch>* batch);
 
-  /// Set the initial capacity for new builders
+  /// \brief Set the initial capacity for new builders
   void SetInitialCapacity(int64_t capacity);
 
+  /// \brief The initial capacity for builders
   int64_t initial_capacity() const { return initial_capacity_; }
 
+  /// \brief The number of fields in the schema
   int num_fields() const { return schema_->num_fields(); }
+
+  /// \brief The number of fields in the schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
  private:

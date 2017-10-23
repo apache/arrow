@@ -51,12 +51,8 @@ Status RecordBatchBuilder::Create(const std::shared_ptr<Schema>& schema, MemoryP
   return (*builder)->InitBuilders();
 }
 
-Status RecordBatchBuilder::FlushAndReset(std::shared_ptr<RecordBatch>* batch) {
-  RETURN_NOT_OK(Flush(batch));
-  return InitBuilders();
-}
-
-Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
+Status RecordBatchBuilder::Flush(bool reset_builders,
+                                 std::shared_ptr<RecordBatch>* batch) {
   std::vector<std::shared_ptr<Array>> fields;
   fields.resize(this->num_fields());
 
@@ -69,7 +65,15 @@ Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
     length = fields[i]->length();
   }
   *batch = std::make_shared<RecordBatch>(schema_, length, std::move(fields));
-  return Status::OK();
+  if (reset_builders) {
+    return InitBuilders();
+  } else {
+    return Status::OK();
+  }
+}
+
+Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
+  return Flush(true, batch);
 }
 
 void RecordBatchBuilder::SetInitialCapacity(int64_t capacity) {

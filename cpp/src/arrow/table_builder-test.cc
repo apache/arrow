@@ -111,7 +111,13 @@ TEST_F(TestRecordBatchBuilder, Basics) {
                builder->GetFieldAs<ListBuilder>(2));
 
     std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(builder->FlushAndReset(&batch));
+
+    if (i == kIter - 1) {
+      // Do not flush in last iteration
+      ASSERT_OK(builder->Flush(false, &batch));
+    } else {
+      ASSERT_OK(builder->Flush(&batch));
+    }
 
     ASSERT_BATCHES_EQUAL(expected, *batch);
   }
