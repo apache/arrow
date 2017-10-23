@@ -30,23 +30,50 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import java.nio.ByteBuffer;
 
+/**
+ * NullableVarBinaryVector implements a variable width vector of binary
+ * values which could be NULL. A validity buffer (bit vector) is maintained
+ * to track which elements in the vector are null.
+ */
 public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableVarBinaryVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableVarBinaryVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.VARBINARY.getType()), allocator);
    }
 
+   /**
+    * Instantiate a NullableVarBinaryVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableVarBinaryVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType);
       reader = new VarBinaryReaderImpl(NullableVarBinaryVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.VARBINARY;
@@ -143,7 +170,13 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
     ******************************************************************/
 
 
-
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableVarBinaryVector from) {
       fillHoles(thisIndex);
       if (from.isSet(fromIndex) != 0) {
@@ -152,6 +185,14 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableVarBinaryVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableVarBinaryVector from) {
       fillEmpties(thisIndex);
       if (from.isSet(fromIndex) != 0) {
@@ -372,6 +413,16 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param start start position of data in buffer
+    * @param end end position of data in buffer
+    * @param buffer data buffer containing the variable width element to be stored
+    *               in the vector
+    */
    public void set(int index, int isSet, int start, int end, ArrowBuf buffer) {
       assert index >= 0;
       fillHoles(index);
@@ -383,6 +434,17 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
       lastSet = index;
    }
 
+   /**
+    * Same as {@link #set(int, int, int, int, ArrowBuf)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param start start position of data in buffer
+    * @param end end position of data in buffer
+    * @param buffer data buffer containing the variable width element to be stored
+    *               in the vector
+    */
    public void setSafe(int index, int isSet, int start, int end, ArrowBuf buffer) {
       assert index >= 0;
       handleSafe(index, end);
@@ -396,11 +458,23 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
     *                                                                *
     ******************************************************************/
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableVarBinaryVector)to);

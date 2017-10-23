@@ -43,12 +43,25 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
    private final int precision;
    private final int scale;
 
+   /**
+    * Instantiate a NullableDecimalVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableDecimalVector(String name, BufferAllocator allocator,
                                 int precision, int scale) {
       this(name, FieldType.nullable(new org.apache.arrow.vector.types.pojo.ArrowType.Decimal(precision, scale)),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableDecimalVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableDecimalVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       org.apache.arrow.vector.types.pojo.ArrowType.Decimal arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Decimal)fieldType.getType();
@@ -57,11 +70,20 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       this.scale = arrowType.getScale();
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.DECIMAL;
@@ -121,6 +143,13 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableDecimalVector from) {
       if (from.isSet(fromIndex) != 0) {
          from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
@@ -128,6 +157,14 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableDecimalVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableDecimalVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -287,6 +324,14 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param start start position of the value in the buffer
+    * @param buffer buffer containing the value to be stored in the vector
+    */
    public void set(int index, int isSet, int start, ArrowBuf buffer) {
       if (isSet > 0) {
          set(index, start, buffer);
@@ -295,6 +340,15 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #setSafe(int, int, int, ArrowBuf)} except that it handles
+    * the case when the position of new value is beyond the current value
+    * capacity of the vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param start start position of the value in the buffer
+    * @param buffer buffer containing the value to be stored in the vector
+    */
    public void setSafe(int index, int isSet, int start, ArrowBuf buffer) {
       handleSafe(index);
       set(index, isSet, start, buffer);
@@ -309,6 +363,19 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Given a data buffer, this method sets the element value at a particular
+    * position. Reallocates the buffer if needed.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param allocator allocator
+    * @param valueCount number of elements in the vector
+    * @param index position of the new element
+    * @param value element value as array of bytes
+    * @return data buffer
+    */
    public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                               int valueCount, int index, byte[] value) {
       if (buffer == null) {
@@ -330,11 +397,23 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableDecimalVector)to);

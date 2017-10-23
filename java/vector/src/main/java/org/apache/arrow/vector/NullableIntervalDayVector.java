@@ -31,29 +31,52 @@ import org.joda.time.Period;
 
 /**
  * NullableIntervalDayVector implements a fixed width vector (8 bytes) of
- * integer values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * interval (days and milliseconds) values which could be null.
+ * A validity buffer (bit vector) is maintained to track which elements in the
+ * vector are null.
  */
 public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
    private static final byte TYPE_WIDTH = 8;
    private static final byte MILLISECOND_OFFSET = 4;
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableIntervalDayVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.INTERVALDAY.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableIntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       reader = new IntervalDayReaderImpl(NullableIntervalDayVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.INTERVALDAY;
@@ -116,6 +139,12 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Get the Interval value at a given index as a {@link StringBuilder} object
+    * @param index position of the element
+    * @return String Builder object with Interval value as
+    *         [days, hours, minutes, seconds, millis]
+    */
    public StringBuilder getAsStringBuilder(int index) {
       if (isSet(index) == 0) {
          return null;
@@ -149,6 +178,13 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
               append(millis));
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
       if (from.isSet(fromIndex) != 0) {
          BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
@@ -157,6 +193,14 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableIntervalDayVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -291,6 +335,14 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param days days component of interval
+    * @param milliseconds millisecond component of interval
+    */
    public void set(int index, int isSet, int days, int milliseconds) {
       if (isSet > 0) {
          set(index, days, milliseconds);
@@ -299,6 +351,15 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, int, int)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param days days component of interval
+    * @param milliseconds millisecond component of interval
+    */
    public void setSafe(int index, int isSet, int days, int milliseconds) {
       handleSafe(index);
       set(index, isSet, days, milliseconds);
@@ -312,11 +373,23 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableIntervalDayVector)to);

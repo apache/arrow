@@ -31,6 +31,13 @@ import org.apache.arrow.vector.util.TransferPair;
 public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVector {
    protected static final byte TYPE_WIDTH = 8;
 
+   /**
+    * Instantiate a NullableTimeStampVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableTimeStampVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
    }
@@ -55,12 +62,27 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
       return valueBuffer.getLong(index * TYPE_WIDTH);
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableTimeStampVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
       }
    }
 
+   /**
+    * Same as {@link #copyFromSafe(int, int, NullableTimeStampVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeStampVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -115,6 +137,13 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void set(int index, int isSet, long value) {
       if (isSet > 0) {
          set(index, value);
@@ -123,6 +152,14 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, long)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void setSafe(int index, int isSet, long value) {
       handleSafe(index);
       set(index, isSet, value);
@@ -138,6 +175,19 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
     ******************************************************************/
 
 
+   /**
+    * Given a data buffer, this method sets the element value at a particular
+    * position. Reallocates the buffer if needed.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param allocator allocator
+    * @param valueCount number of elements in the vector
+    * @param index position of the new element
+    * @param value element value
+    * @return data buffer
+    */
    public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                               int valueCount, int index, long value) {
       if (buffer == null) {
@@ -151,6 +201,16 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
       return buffer;
    }
 
+   /**
+    * Given a data buffer, get the value stored at a particular position
+    * in the vector.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param index position of the element.
+    * @return value stored at the index.
+    */
    public static long get(final ArrowBuf buffer, final int index) {
       return buffer.getLong(index * TYPE_WIDTH);
    }

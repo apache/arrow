@@ -41,26 +41,53 @@ import java.util.List;
 public class NullableBitVector extends BaseNullableFixedWidthVector {
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableBitVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableBitVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.BIT.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableBitVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableBitVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, (byte)0);
       reader = new BitReaderImpl(NullableBitVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.BIT;
    }
 
+   /**
+    * Sets the desired value capacity for the vector. This function doesn't
+    * allocate any memory for the vector.
+    * @param valueCount desired number of elements in the vector
+    */
    @Override
    public void setInitialCapacity(int valueCount) {
       final int size = getValidityBufferSizeFromCount(valueCount);
@@ -71,22 +98,44 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
       validityAllocationSizeInBytes = size;
    }
 
+   /**
+    * Get the current value capacity for the vector
+    * @return number of elements that vector can hold.
+    */
    @Override
    public int getValueCapacity(){
       return (int)(validityBuffer.capacity() * 8L);
    }
 
+   /**
+    * Get the potential buffer size for a particular number of records.
+    * @param count desired number of elements in the vector
+    * @return estimated size of underlying buffers if the vector holds
+    *         a given number of elements
+    */
    @Override
    public int getBufferSizeFor(final int count) {
       if (count == 0) { return 0; }
       return 2 * getValidityBufferSizeFromCount(count);
    }
 
+   /**
+    * Get the size (number of bytes) of underlying buffers used by this
+    * vector
+    * @return size of underlying buffers.
+    */
    @Override
    public int getBufferSize() {
      return getBufferSizeFor(valueCount);
    }
 
+   /**
+    * Slice this vector at desired index and length and transfer the
+    * corresponding data to the target vector.
+    * @param startIndex start position of the split in source vector.
+    * @param length length of the split.
+    * @param target destination vector
+    */
    public void splitAndTransferTo(int startIndex, int length,
                                   BaseNullableFixedWidthVector target) {
       compareTypes(target, "splitAndTransferTo");
@@ -220,12 +269,27 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableBitVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableBitVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableBitVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -346,6 +410,13 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void set(int index, int isSet, int value) {
       if (isSet > 0) {
          set(index, value);
@@ -354,6 +425,14 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, int)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void setSafe(int index, int isSet, int value) {
       handleSafe(index);
       set(index, isSet, value);
@@ -367,11 +446,23 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableBitVector)to);

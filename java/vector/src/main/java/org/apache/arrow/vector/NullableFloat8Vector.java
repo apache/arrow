@@ -30,28 +30,50 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * NullableFloat8Vector implements a fixed width vector (8 bytes) of
- * float values which could be null. A validity buffer (bit vector) is
+ * double values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
 public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
    private static final byte TYPE_WIDTH = 8;
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableFloat8Vector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableFloat8Vector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.FLOAT8.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableFloat8Vector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableFloat8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       reader = new Float8ReaderImpl(NullableFloat8Vector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.FLOAT8;
@@ -108,12 +130,27 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableFloat8Vector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableFloat8Vector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableFloat8Vector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -226,6 +263,13 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void set(int index, int isSet, double value) {
       if (isSet > 0) {
          set(index, value);
@@ -234,6 +278,14 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, double)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void setSafe(int index, int isSet, double value) {
       handleSafe(index);
       set(index, isSet, value);
@@ -248,6 +300,19 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Given a data buffer, this method sets the element value at a particular
+    * position. Reallocates the buffer if needed.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param allocator allocator
+    * @param valueCount number of elements in the vector
+    * @param index position of the new element
+    * @param value element value
+    * @return data buffer
+    */
    public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                               int valueCount, int index, double value) {
       if (buffer == null) {
@@ -261,6 +326,16 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
       return buffer;
    }
 
+   /**
+    * Given a data buffer, get the value stored at a particular position
+    * in the vector.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param index position of the element.
+    * @return value stored at the index.
+    */
    public static double get(final ArrowBuf buffer, final int index) {
       return buffer.getDouble(index * TYPE_WIDTH);
    }
@@ -273,11 +348,23 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableFloat8Vector)to);

@@ -70,15 +70,6 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       cleared = false;
    }
 
-  /* TODO:
-    * Determine how writerIndex and readerIndex need to be used. Right now we
-    * are setting the writerIndex and readerIndex in the call to getFieldBuffers
-    * using the valueCount -- this assumes that the caller of getFieldBuffers
-    * on the vector has already invoked setValueCount.
-    *
-    * Do we need to set them during vector transfer and splitAndTransfer?
-    */
-
    /* TODO:
     *
     * see if getNullCount() can be made faster -- O(1)
@@ -111,36 +102,71 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
    }
 
+   /**
+    * Get buffer that manages the validity (NULL or NON-NULL nature) of
+    * elements in the vector. Consider it as a buffer for internal bit vector
+    * data structure.
+    * @return buffer
+    */
    @Override
    public ArrowBuf getValidityBuffer() {
       return validityBuffer;
    }
 
+   /**
+    * Get the buffer that stores the data for elements in the vector.
+    * @return buffer
+    */
    @Override
    public ArrowBuf getDataBuffer() {
       return valueBuffer;
    }
 
+   /**
+    * buffer that stores the offsets for elements
+    * in the vector. This operation is not supported for fixed-width vectors.
+    * @return buffer
+    */
    @Override
    public ArrowBuf getOffsetBuffer() {
       return offsetBuffer;
    }
 
+   /**
+    * Get the memory address of buffer that stores the offsets for elements
+    * in the vector.
+    * @return starting address of the buffer
+    */
    @Override
    public long getOffsetBufferAddress() {
       return offsetBuffer.memoryAddress();
    }
 
+   /**
+    * Get the memory address of buffer that manages the validity
+    * (NULL or NON-NULL nature) of elements in the vector.
+    * @return starting address of the buffer
+    */
    @Override
    public long getValidityBufferAddress() {
       return validityBuffer.memoryAddress();
    }
 
+   /**
+    * Get the memory address of buffer that stores the data for elements
+    * in the vector.
+    * @return starting address of the buffer
+    */
    @Override
    public long getDataBufferAddress() {
       return valueBuffer.memoryAddress();
    }
 
+   /**
+    * Sets the desired value capacity for the vector. This function doesn't
+    * allocate any memory for the vector.
+    * @param valueCount desired number of elements in the vector
+    */
    @Override
    public void setInitialCapacity(int valueCount) {
       final long size = (long)valueCount * DEFAULT_RECORD_BYTE_COUNT;
@@ -155,6 +181,10 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
    }
 
+   /**
+    * Get the current value capacity for the vector
+    * @return number of elements that vector can hold.
+    */
    @Override
    public int getValueCapacity(){
       final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity() - 1, 0);
@@ -169,29 +199,44 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return (int)((offsetBuffer.capacity() * 1.0)/OFFSET_WIDTH);
    }
 
+   /**
+    * zero out the vector and the data in associated buffers.
+    */
    public void zeroVector() {
       initValidityBuffer();
       initOffsetBuffer();
    }
 
+   /* zero out the validity buffer */
    private void initValidityBuffer() {
       validityBuffer.setZero(0, validityBuffer.capacity());
    }
 
+   /* zero out the offset buffer */
    private void initOffsetBuffer() {
       offsetBuffer.setZero(0, offsetBuffer.capacity());
    }
 
+   /**
+    * Reset the vector to initial state. Same as {@link #zeroVector()}.
+    * Note that this method doesn't release any memory.
+    */
    public void reset() {
       zeroVector();
       lastSet = -1;
    }
 
+   /**
+    * Close the vector and release the associated buffers.
+    */
    @Override
    public void close() {
       clear();
    }
 
+   /**
+    * Same as {@link #close()}
+    */
    @Override
    public void clear() {
       validityBuffer = releaseBuffer(validityBuffer);
@@ -208,6 +253,12 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
    }
 
+   /**
+    * Initialize the children in schema for this Field. This operation is a
+    * NO-OP for scalar types since they don't have any children.
+    * @param children the schema
+    * @throws IllegalArgumentException if children is a non-empty list for scalar types.
+    */
    @Override
    public void initializeChildrenFromFields(List<Field> children) {
       if (!children.isEmpty()) {
@@ -215,11 +266,24 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       }
    }
 
+   /**
+    * Get the inner child vectors.
+    * @return list of child vectors for complex types, empty list for scalar vector
+    * types
+    */
    @Override
    public List<FieldVector> getChildrenFromFields() {
       return Collections.emptyList();
    }
 
+
+   /**
+    * Load the buffers of this vector with provided source buffers.
+    * The caller manages the source buffers and populates them before invoking
+    * this method.
+    * @param fieldNode  the fieldNode indicating the value count
+    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
+    */
    @Override
    public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
       ArrowBuf bitBuffer = ownBuffers.get(0);
@@ -237,6 +301,10 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       valueCount = fieldNode.getLength();
    }
 
+   /**
+    * Get the buffers belonging to this vector
+    * @return the inner buffers.
+    */
    public List<ArrowBuf> getFieldBuffers() {
       List<ArrowBuf> result = new ArrayList<>(3);
       final int lastDataOffset = getstartOffset(valueCount);
@@ -254,6 +322,9 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return result;
    }
 
+   /**
+    * Same as {@link #allocateNewSafe()}.
+    */
    @Override
    public void allocateNew() {
       if(!allocateNewSafe()){
@@ -261,6 +332,14 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       }
    }
 
+   /**
+    * Allocate memory for the vector. We internally use a default value count
+    * of 4096 to allocate memory for at least these many elements in the
+    * vector. See {@link #allocateNew(int, int)} for allocating memory for specific
+    * number of elements in the vector.
+    *
+    * @return false if memory allocation fails, true otherwise.
+    */
    @Override
    public boolean allocateNewSafe() {
       long curAllocationSizeValue = valueAllocationSizeInBytes;
@@ -286,6 +365,14 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return true;
    }
 
+   /**
+    * Allocate memory for the vector to support storing at least the provided number of
+    * elements in the vector. This method must be called prior to using the ValueVector.
+    *
+    * @param totalBytes desired total memory capacity
+    * @param valueCount the desired number of elements in the vector
+    * @throws org.apache.arrow.memory.OutOfMemoryException
+    */
    @Override
    public void allocateNew(int totalBytes, int valueCount) {
       assert totalBytes >= 0;
@@ -308,6 +395,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       }
    }
 
+   /* allocate the inner buffers */
    private void allocateBytes(final long valueBufferSize, final long validityBufferSize,
                               final long offsetBufferSize) {
       /* allocate data buffer */
@@ -319,6 +407,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       allocateOffsetBuffer(offsetBufferSize);
    }
 
+   /* allocate offset buffer */
    private void allocateOffsetBuffer(final long size) {
       final int curSize = (int)size;
       offsetBuffer = allocator.buffer(curSize);
@@ -327,6 +416,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       initOffsetBuffer();
    }
 
+   /* allocate validity buffer */
    private void allocateValidityBuffer(final long size) {
       final int curSize = (int)size;
       validityBuffer = allocator.buffer(curSize);
@@ -335,6 +425,10 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       initValidityBuffer();
    }
 
+   /**
+    * Resize the vector to increase the capacity. The internal behavior is to
+    * double the current value capacity.
+    */
    public void reAlloc() {
       reallocValueBuffer();
       reallocValidityAndOffsetBuffers();
@@ -367,10 +461,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       validityBuffer = reallocBufferHelper(validityBuffer, false);
    }
 
-   /* need to refactor this to keep the logic in an single place and make callers
-    * more intelligent. see handleSafe() for more comments on realloc
-    */
-
+   /* helper method to realloc a particular buffer. returns the allocated buffer */
    private ArrowBuf reallocBufferHelper(ArrowBuf buffer, final boolean offsetBuffer) {
       final int currentBufferCapacity = buffer.capacity();
       long baseSize  = (offsetBuffer ? offsetAllocationSizeInBytes
@@ -403,6 +494,10 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return buffer;
    }
 
+   /**
+    * Get the size (number of bytes) of underlying data buffer.
+    * @return
+    */
    @Override
    public int getByteCapacity(){
       return valueBuffer.capacity();
@@ -414,12 +509,22 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return 0;
    }
 
+   /**
+    * Get the size (number of bytes) of underlying buffers used by this
+    * vector
+    * @return size of underlying buffers.
+    */
    @Override
    public int getBufferSize() {
-      /* TODO */
-      return 0;
+      return getBufferSizeFor(this.valueCount);
    }
 
+   /**
+    * Get the potential buffer size for a particular number of records.
+    * @param valueCount desired number of elements in the vector
+    * @return estimated size of underlying buffers if the vector holds
+    *         a given number of elements
+    */
    @Override
    public int getBufferSizeFor(final int valueCount) {
       if (valueCount == 0) {
@@ -433,11 +538,26 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return validityBufferSize + offsetBufferSize + dataBufferSize;
    }
 
+   /**
+    * Get information about how this field is materialized.
+    * @return the field corresponding to this vector
+    */
    @Override
    public Field getField() {
       return field;
    }
 
+   /**
+    * Return the underlying buffers associated with this vector. Note that this doesn't
+    * impact the reference counts for this buffer so it only should be used for in-context
+    * access. Also note that this buffer changes regularly thus
+    * external classes shouldn't hold a reference to it (unless they change it).
+    *
+    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+    *              but the returned array will be the only reference to them
+    * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+    *         vector instance.
+    */
    @Override
    public ArrowBuf[] getBuffers(boolean clear) {
       final ArrowBuf[] buffers = new ArrowBuf[3];
@@ -453,18 +573,42 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       return buffers;
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @param callBack
+    * @return TransferPair
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
       return getTransferPair(ref, allocator);
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param allocator allocator for the target vector
+    * @return TransferPair
+    */
    @Override
    public TransferPair getTransferPair(BufferAllocator allocator){
       return getTransferPair(name, allocator);
    }
 
+   /**
+    * Construct a transfer pair of this vector and another vector of same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return TransferPair
+    */
    public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+   /**
+    * Transfer this vector'data to another vector. The memory associated
+    * with this vector is transferred to the allocator of target vector
+    * for accounting and management purposes.
+    * @param target destination vector for transfer
+    */
    public void transferTo(BaseNullableVariableWidthVector target){
       compareTypes(target, "transferTo");
       target.clear();
@@ -476,6 +620,13 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       clear();
    }
 
+   /**
+    * Slice this vector at desired index and length and transfer the
+    * corresponding data to the target vector.
+    * @param startIndex start position of the split in source vector.
+    * @param length length of the split.
+    * @param target destination vector
+    */
    public void splitAndTransferTo(int startIndex, int length,
                                   BaseNullableVariableWidthVector target) {
       compareTypes(target, "splitAndTransferTo");
@@ -487,7 +638,12 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    }
 
    /*
-    * transfer the offsets along with data
+    * Transfer the offsets along with data. Unlike the data buffer, we cannot simply
+    * slice the offset buffer for split and transfer. The reason is that offsets
+    * in the target vector have to be adjusted and made relative to the staring
+    * offset in source vector from the start index of split. This is why, we
+    * need to explicitly allocate the offset buffer and set the adjusted offsets
+    * in the target vector.
     */
    private void splitAndTransferOffsetBuffer(int startIndex, int length, BaseNullableVariableWidthVector target) {
       final int start = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
@@ -502,7 +658,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    }
 
    /*
-    * transfer the validity.
+    * Transfer the validity.
     */
    private void splitAndTransferValidityBuffer(int startIndex, int length,
                                                BaseNullableVariableWidthVector target) {
@@ -768,7 +924,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     * width vector elements. The method takes care of allocating the memory
     * for the vector if caller hasn't done so.
     *
-    * External use of this method is not recommended.
+    * This method should not be used externally.
     *
     * @param data ArrowBuf for storing variable width elements in the vector
     * @param offset offset of the element
@@ -803,7 +959,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     * Method used by Json Writer to read a variable width element from
     * the variable width vector and write to Json.
     *
-    * External use of this method is not recommended.
+    * This method should not be used externally.
     *
     * @param data buffer storing the variable width vector elements
     * @param offset buffer storing the offsets of variable width vector elements
@@ -824,7 +980,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     * width vector data. The method takes care of allocating the memory for
     * offsets if the caller hasn't done so.
     *
-    * External use of this method is not recommended.
+    * This method should not be used externally.
     *
     * @param buffer ArrowBuf to store offsets for variable width elements
     * @param allocator memory allocator

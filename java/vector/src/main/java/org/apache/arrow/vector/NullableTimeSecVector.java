@@ -30,28 +30,50 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * NullableTimeSecVector implements a fixed width (4 bytes) vector of
- * values which could be null. A validity buffer (bit vector) is
+ * time (seconds resolution) values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
 public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
    private static final byte TYPE_WIDTH = 4;
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableTimeSecVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableTimeSecVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.TIMESEC.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableTimeSecVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableTimeSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       reader = new TimeSecReaderImpl(NullableTimeSecVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.TIMESEC;
@@ -108,12 +130,27 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableTimeSecVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableTimeSecVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeSecVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -226,6 +263,13 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void set(int index, int isSet, int value) {
       if (isSet > 0) {
          set(index, value);
@@ -234,6 +278,14 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, int)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void setSafe(int index, int isSet, int value) {
       handleSafe(index);
       set(index, isSet, value);
@@ -247,6 +299,19 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Given a data buffer, this method sets the element value at a particular
+    * position. Reallocates the buffer if needed.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param allocator allocator
+    * @param valueCount number of elements in the vector
+    * @param index position of the new element
+    * @param value element value
+    * @return data buffer
+    */
    public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                               int valueCount, int index, int value) {
       if (buffer == null) {
@@ -260,6 +325,16 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
       return buffer;
    }
 
+   /**
+    * Given a data buffer, get the value stored at a particular position
+    * in the vector.
+    *
+    * This method should not be used externally.
+    *
+    * @param buffer data buffer
+    * @param index position of the element.
+    * @return value stored at the index.
+    */
    public static int get(final ArrowBuf buffer, final int index) {
       return buffer.getInt(index * TYPE_WIDTH);
    }
@@ -272,11 +347,23 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableTimeSecVector)to);

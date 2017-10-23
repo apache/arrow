@@ -30,28 +30,50 @@ import org.joda.time.Period;
 
 /**
  * NullableIntervalYearVector implements a fixed width (4 bytes) vector of
- * integer values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * interval (years and months) values which could be null. A validity buffer
+ * (bit vector) is maintained to track which elements in the vector are null.
  */
 public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
    private static final byte TYPE_WIDTH = 4;
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableIntervalYearVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableIntervalYearVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.INTERVALYEAR.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableIntervalYearVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableIntervalYearVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, allocator, fieldType, TYPE_WIDTH);
       reader = new IntervalYearReaderImpl(NullableIntervalYearVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader(){
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.INTERVALYEAR;
@@ -112,6 +134,12 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Get the Interval value at a given index as a {@link StringBuilder} object
+    * @param index position of the element
+    * @return String Builder object with Interval value as
+    *         [years, months]
+    */
    public StringBuilder getAsStringBuilder(int index) {
       if (isSet(index) == 0) {
          return null;
@@ -134,12 +162,27 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
               append(months).append(monthString));
    }
 
+   /**
+    * Copy a cell value from a particular index in source vector to a particular
+    * position in this vector
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFrom(int fromIndex, int thisIndex, NullableIntervalYearVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
       }
    }
 
+   /**
+    * Same as {@link #copyFrom(int, int, NullableIntervalYearVector)} except that
+    * it handles the case when the capacity of the vector needs to be expanded
+    * before copy.
+    * @param fromIndex position to copy from in source vector
+    * @param thisIndex position to copy to in this vector
+    * @param from source vector
+    */
    public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalYearVector from) {
       handleSafe(thisIndex);
       copyFrom(fromIndex, thisIndex, from);
@@ -252,6 +295,13 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
    }
 
+   /**
+    * Store the given value at a particular position in the vector. isSet indicates
+    * whether the value is NULL or not.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void set(int index, int isSet, int value) {
       if (isSet > 0) {
          set(index, value);
@@ -260,6 +310,14 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
       }
    }
 
+   /**
+    * Same as {@link #set(int, int, int)} except that it handles the case
+    * when index is greater than or equal to current value capacity of the
+    * vector.
+    * @param index position of the new value
+    * @param isSet 0 for NULL value, 1 otherwise
+    * @param value element value
+    */
    public void setSafe(int index, int isSet, int value) {
       handleSafe(index);
       set(index, isSet, value);
@@ -273,11 +331,23 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator){
       return new TransferImpl(ref, allocator);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableIntervalYearVector)to);

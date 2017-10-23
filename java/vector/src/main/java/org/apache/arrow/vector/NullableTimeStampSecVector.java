@@ -30,27 +30,49 @@ import org.joda.time.LocalDateTime;
 
 /**
  * NullableTimeStampSecVector implements a fixed width vector (8 bytes) of
- * timestamp values which could be null. A validity buffer (bit vector) is
+ * timestamp (seconds resolution) values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
 public class NullableTimeStampSecVector extends NullableTimeStampVector {
    private final FieldReader reader;
 
+   /**
+    * Instantiate a NullableTimeStampSecVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param allocator allocator for memory management.
+    */
    public NullableTimeStampSecVector(String name, BufferAllocator allocator) {
       this(name, FieldType.nullable(Types.MinorType.TIMESTAMPSEC.getType()),
               allocator);
    }
 
+   /**
+    * Instantiate a NullableTimeStampSecVector. This doesn't allocate any memory for
+    * the data in vector.
+    * @param name name of the vector
+    * @param fieldType type of Field materialized by this vector
+    * @param allocator allocator for memory management.
+    */
    public NullableTimeStampSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
       super(name, fieldType, allocator);
       reader = new TimeStampSecReaderImpl(NullableTimeStampSecVector.this);
    }
 
+   /**
+    * Get a reader that supports reading values from this vector
+    * @return Field Reader for this vector
+    */
    @Override
    public FieldReader getReader() {
       return reader;
    }
 
+   /**
+    * Get minor type for this vector. The vector holds values belonging
+    * to a particular type.
+    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+    */
    @Override
    public Types.MinorType getMinorType() {
       return Types.MinorType.TIMESTAMPSEC;
@@ -171,6 +193,13 @@ public class NullableTimeStampSecVector extends NullableTimeStampVector {
     ******************************************************************/
 
 
+   /**
+    * Construct a TransferPair comprising of this and and a target vector of
+    * the same type.
+    * @param ref name of the target vector
+    * @param allocator allocator for the target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
       NullableTimeStampSecVector to = new NullableTimeStampSecVector(ref,
@@ -178,6 +207,11 @@ public class NullableTimeStampSecVector extends NullableTimeStampVector {
       return new TransferImpl(to);
    }
 
+   /**
+    * Construct a TransferPair with a desired target vector of the same type.
+    * @param to target vector
+    * @return {@link TransferPair}
+    */
    @Override
    public TransferPair makeTransferPair(ValueVector to) {
       return new TransferImpl((NullableTimeStampSecVector)to);

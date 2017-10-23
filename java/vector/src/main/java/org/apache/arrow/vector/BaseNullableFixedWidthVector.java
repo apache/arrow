@@ -74,15 +74,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
 
 
    /* TODO:
-    * Determine how writerIndex and readerIndex need to be used. Right now we
-    * are setting the writerIndex and readerIndex in the call to getFieldBuffers
-    * using the valueCount -- this assumes that the caller of getFieldBuffers
-    * on the vector has already invoked setValueCount.
-    *
-    * Do we need to set them during vector transfer and splitAndTransfer?
-    */
-
-   /* TODO:
     *
     * see if getNullCount() can be made faster -- O(1)
     */
@@ -217,10 +208,12 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       initValueBuffer();
    }
 
+   /* zero out the validity buffer */
    private void initValidityBuffer() {
       validityBuffer.setZero(0, validityBuffer.capacity());
    }
 
+   /* zero out the data buffer */
    private void initValueBuffer() {
       valueBuffer.setZero(0, valueBuffer.capacity());
    }
@@ -388,7 +381,8 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    /**
     * Get the potential buffer size for a particular number of records.
     * @param count desired number of elements in the vector
-    * @return estimated size of underlying buffers.
+    * @return estimated size of underlying buffers if the vector holds
+    *         a given number of elements
     */
    @Override
    public int getBufferSizeFor(final int count) {
@@ -408,14 +402,25 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    }
 
    /**
-    * Get the field associated with this vector
-    * @return
+    * Get information about how this field is materialized.
+    * @return the field corresponding to this vector
     */
    @Override
    public Field getField() {
       return field;
    }
 
+   /**
+    * Return the underlying buffers associated with this vector. Note that this doesn't
+    * impact the reference counts for this buffer so it only should be used for in-context
+    * access. Also note that this buffer changes regularly thus
+    * external classes shouldn't hold a reference to it (unless they change it).
+    *
+    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+    *              but the returned array will be the only reference to them
+    * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+    *         vector instance.
+    */
    @Override
    public ArrowBuf[] getBuffers(boolean clear) {
       final ArrowBuf[] buffers = new ArrowBuf[2];
@@ -482,6 +487,12 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
    }
 
+   /**
+    * Initialize the children in schema for this Field. This operation is a
+    * NO-OP for scalar types since they don't have any children.
+    * @param children the schema
+    * @throws IllegalArgumentException if children is a non-empty list for scalar types.
+    */
    @Override
    public void initializeChildrenFromFields(List<Field> children) {
       if (!children.isEmpty()) {
@@ -651,8 +662,10 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
             target.allocateValidityBuffer(byteSizeTarget);
 
             for (int i = 0; i < byteSizeTarget - 1; i++) {
-               byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer, firstByteSource + i, offset);
-               byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer, firstByteSource + i + 1, offset);
+               byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+                       firstByteSource + i, offset);
+               byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+                       firstByteSource + i + 1, offset);
 
                target.validityBuffer.setByte(i, (b1 + b2));
             }
