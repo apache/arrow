@@ -253,7 +253,7 @@ class DaskFileSystem(FileSystem):
 
     @implements(FileSystem.exists)
     def exists(self, path):
-        return os.path.exists(path)
+        return self.fs.exists(path)
 
     @implements(FileSystem.mkdir)
     def mkdir(self, path):
