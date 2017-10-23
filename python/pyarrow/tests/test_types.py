@@ -151,7 +151,10 @@ def test_type_pickling():
             pa.field('a', 'int8'),
             pa.field('b', 'string')
         ]),
-        pa.timestamp('ns'),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.date64(),
         pa.field('a', 'string')
     ]
 

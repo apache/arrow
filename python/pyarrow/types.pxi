@@ -124,6 +124,15 @@ cdef class ListType(DataType):
         DataType.init(self, type)
         self.list_type = <const CListType*> type.get()
 
+    def __getstate__(self):
+        cdef CField* field = self.list_type.value_field().get()
+        name = field.name()
+        return name, self.value_type
+
+    def __setstate__(self, state):
+        cdef DataType reconstituted = list_(field(state[0], state[1]))
+        self.init(reconstituted.sp_type)
+
     property value_type:
 
         def __get__(self):
@@ -134,6 +143,25 @@ cdef class StructType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+
+    def __getitem__(self, i):
+        if i < 0 or i >= self.num_children:
+            raise IndexError(i)
+
+        return pyarrow_wrap_field(self.type.child(i))
+
+    property num_children:
+
+        def __get__(self):
+            return self.type.num_children()
+
+    def __getstate__(self):
+        cdef CStructType* type = <CStructType*> self.sp_type.get()
+        return [self[i] for i in range(self.num_children)]
+
+    def __setstate__(self, state):
+        cdef DataType reconstituted = struct(state)
+        self.init(reconstituted.sp_type)
 
 
 cdef class UnionType(DataType):
@@ -262,6 +290,14 @@ cdef class Field:
         Test if this field is equal to the other
         """
         return self.field.Equals(deref(other.field))
+
+    def __richcmp__(Field self, Field other, int op):
+        if op == cp.Py_EQ:
+            return self.equals(other)
+        elif op == cp.Py_NE:
+            return not self.equals(other)
+        else:
+            raise TypeError('Invalid comparison')
 
     def __getstate__(self):
         return (self.name, self.type)
@@ -1010,6 +1046,8 @@ cdef dict _type_aliases = {
     'binary': binary,
     'date32': date32,
     'date64': date64,
+    'date32[day]': date32,
+    'date64[ms]': date64,
     'time32[s]': time32('s'),
     'time32[ms]': time32('ms'),
     'time64[us]': time64('us'),

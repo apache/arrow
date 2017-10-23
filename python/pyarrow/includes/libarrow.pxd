@@ -182,6 +182,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CListType(const shared_ptr[CDataType]& value_type)
         CListType(const shared_ptr[CField]& field)
         shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
 
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
