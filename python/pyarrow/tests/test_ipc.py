@@ -433,15 +433,22 @@ def test_serialize_pandas_no_preserve_index():
 def test_serialize_with_pandas_objects():
     df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
 
+    s = pd.Series([1, 2, 3, 4])
+    s.index = pd.RangeIndex(start=0, stop=8, step=2)
+    # FIXME: No named Series name will be serialized u'None'.
+    s.name = 'discrete'
+
     data = {
         'a_series': df['a'],
-        'a_frame': df
+        'a_frame': df,
+        'discrete_idx_series': s
     }
 
     serialized = pa.serialize(data).to_buffer()
     deserialized = pa.deserialize(serialized)
     assert_frame_equal(deserialized['a_frame'], df)
     assert_series_equal(deserialized['a_series'], df['a'])
+    assert_series_equal(deserialized['discrete_idx_series'], s)
 
 
 def test_schema_batch_serialize_methods():
