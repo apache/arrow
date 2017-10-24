@@ -102,6 +102,10 @@ cdef class ChunkedArray:
         pyarrow.Array
         """
         self._check_nullptr()
+
+        if i >= self.num_chunks or i < 0:
+            raise IndexError('Chunk index out of range.')
+
         return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
     def iterchunks(self):
