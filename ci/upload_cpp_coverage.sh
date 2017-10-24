@@ -38,6 +38,7 @@ ls -l
 coveralls --gcov $(which gcov-4.9) \
     --gcov-options '\-l' --root '' \
     --include $ARROW_CPP_DIR \
+    --exclude $CPP_TOOLCHAIN \
     --exclude $ARROW_CPP_BUILD_DIR/boost_ep \
     --exclude $ARROW_CPP_BUILD_DIR/boost_ep-prefix \
     --exclude $ARROW_CPP_BUILD_DIR/brotli_ep \
