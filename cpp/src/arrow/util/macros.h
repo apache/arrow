@@ -61,11 +61,15 @@
 // ----------------------------------------------------------------------
 // C++/CLI support macros (see ARROW-1134)
 
+#ifndef NULLPTR
+
 #ifdef __cplusplus_cli
 #define NULLPTR __nullptr
 #else
 #define NULLPTR nullptr
 #endif
+
+#endif  // ifndef NULLPTR
 
 // ----------------------------------------------------------------------
 
