@@ -43,12 +43,15 @@ Decimal128::Decimal128(const uint8_t* bytes)
 }
 
 std::array<uint8_t, 16> Decimal128::ToBytes() const {
-  const uint64_t raw[] = {BitUtil::ToLittleEndian(low_bits_),
-                          BitUtil::ToLittleEndian(static_cast<uint64_t>(high_bits_))};
-  const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
   std::array<uint8_t, 16> out{{0}};
-  std::copy(raw_data, raw_data + out.size(), out.begin());
+  ToBytes(out.data());
   return out;
+}
+
+void Decimal128::ToBytes(uint8_t* out) const {
+  DCHECK_NE(out, NULLPTR);
+  reinterpret_cast<uint64_t*>(out)[0] = BitUtil::ToLittleEndian(low_bits_);
+  reinterpret_cast<int64_t*>(out)[1] = BitUtil::ToLittleEndian(high_bits_);
 }
 
 static constexpr Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
