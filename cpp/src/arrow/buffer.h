@@ -112,7 +112,7 @@ class ARROW_EXPORT Buffer {
   int64_t size_;
   int64_t capacity_;
 
-  // nullptr by default, but may be set
+  // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
 
  private:
@@ -145,7 +145,7 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
                 const int64_t size);
 
  protected:
-  MutableBuffer() : Buffer(nullptr, 0) {}
+  MutableBuffer() : Buffer(NULLPTR, 0) {}
 };
 
 class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
@@ -180,7 +180,7 @@ class ARROW_EXPORT ResizableBuffer : public MutableBuffer {
 /// A Buffer whose lifetime is tied to a particular MemoryPool
 class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
  public:
-  explicit PoolBuffer(MemoryPool* pool = nullptr);
+  explicit PoolBuffer(MemoryPool* pool = NULLPTR);
   virtual ~PoolBuffer();
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override;
@@ -193,7 +193,7 @@ class ARROW_EXPORT PoolBuffer : public ResizableBuffer {
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool)
-      : pool_(pool), data_(nullptr), capacity_(0), size_(0) {}
+      : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
 
   /// Resizes the buffer to the nearest multiple of 64 bytes per Layout.md
   Status Resize(const int64_t elements) {
@@ -201,7 +201,7 @@ class ARROW_EXPORT BufferBuilder {
     if (elements == 0) {
       return Status::OK();
     }
-    if (buffer_ == nullptr) {
+    if (buffer_ == NULLPTR) {
       buffer_ = std::make_shared<PoolBuffer>(pool_);
     }
     int64_t old_capacity = capacity_;
@@ -264,7 +264,7 @@ class ARROW_EXPORT BufferBuilder {
   }
 
   void Reset() {
-    buffer_ = nullptr;
+    buffer_ = NULLPTR;
     capacity_ = size_ = 0;
   }
 

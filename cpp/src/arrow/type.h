@@ -241,7 +241,7 @@ class ARROW_EXPORT Field {
  public:
   Field(const std::string& name, const std::shared_ptr<DataType>& type,
         bool nullable = true,
-        const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr)
+        const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR)
       : name_(name), type_(type), nullable_(nullable), metadata_(metadata) {}
 
   std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
@@ -737,10 +737,10 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 class ARROW_EXPORT Schema {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
-                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
   explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
-                  const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+                  const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
   virtual ~Schema() = default;
 
@@ -750,7 +750,7 @@ class ARROW_EXPORT Schema {
   /// Return the ith schema element. Does not boundscheck
   std::shared_ptr<Field> field(int i) const { return fields_[i]; }
 
-  /// Returns nullptr if name not found
+  /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// Returns -1 if name not found
@@ -760,7 +760,7 @@ class ARROW_EXPORT Schema {
 
   /// \brief The custom key-value metadata, if any
   ///
-  /// \return metadata may be nullptr
+  /// \return metadata may be null
   std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   /// \brief Render a string representation of the schema suitable for debugging
@@ -850,30 +850,30 @@ dictionary(const std::shared_ptr<DataType>& index_type,
 /// \param name the field name
 /// \param type the field value type
 /// \param nullable whether the values are nullable, default true
-/// \param metadata any custom key-value metadata, default nullptr
+/// \param metadata any custom key-value metadata, default null
 std::shared_ptr<Field> ARROW_EXPORT field(
     const std::string& name, const std::shared_ptr<DataType>& type, bool nullable = true,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields
-/// \param metadata any custom key-value metadata, default nullptr
+/// \param metadata any custom key-value metadata, default null
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     const std::vector<std::shared_ptr<Field>>& fields,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields (rvalue reference)
-/// \param metadata any custom key-value metadata, default nullptr
+/// \param metadata any custom key-value metadata, default null
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>>&& fields,
-    const std::shared_ptr<const KeyValueMetadata>& metadata = nullptr);
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 }  // namespace arrow
 
