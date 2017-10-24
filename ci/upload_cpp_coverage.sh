@@ -36,33 +36,34 @@ cd coverage_artifacts
 ls -l
 
 coveralls --gcov $(which gcov-4.9) \
-    --gcov-options '\-l' --root '' \
-    --include $ARROW_CPP_DIR \
-    --exclude $CPP_TOOLCHAIN \
-    --exclude $ARROW_CPP_BUILD_DIR/boost_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/boost_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/brotli_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/brotli_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/flatbuffers_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/flatbuffers_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/gbenchmark_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/gbenchmark_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/gflags_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/gflags_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/googletest_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/googletest_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/grpc_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/grpc_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/jemalloc_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/jemalloc_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/lz4_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/lz4_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/rapidjson_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/rapidjson_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/snappy_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/snappy_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/zlib_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/zlib_ep-prefix \
-    --exclude $ARROW_CPP_BUILD_DIR/zstd_ep \
-    --exclude $ARROW_CPP_BUILD_DIR/zstd_ep-prefix \
-    --exclude /usr
+          --gcov-options '\-lp' \
+          --root '' \
+          --include $ARROW_CPP_DIR/src \
+          --exclude $CPP_TOOLCHAIN \
+          --exclude $ARROW_CPP_BUILD_DIR/boost_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/boost_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/brotli_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/brotli_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/flatbuffers_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/flatbuffers_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/gbenchmark_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/gbenchmark_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/gflags_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/gflags_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/googletest_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/googletest_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/grpc_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/grpc_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/jemalloc_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/jemalloc_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/lz4_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/lz4_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/rapidjson_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/rapidjson_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/snappy_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/snappy_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/zlib_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/zlib_ep-prefix \
+          --exclude $ARROW_CPP_BUILD_DIR/zstd_ep \
+          --exclude $ARROW_CPP_BUILD_DIR/zstd_ep-prefix \
+          --exclude /usr
