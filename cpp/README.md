@@ -69,6 +69,14 @@ Simple release build:
 
 Detailed unit test logs will be placed in the build directory under `build/test-logs`.
 
+### Statically linking to Arrow on Windows
+
+The Arrow headers on Windows static library builds (enabled by the CMake
+option `ARROW_BUILD_STATIC`) use the preprocessor macro `ARROW_STATIC` to
+suppress dllimport/dllexport marking of symbols. Projects that statically link
+against Arrow on Windows additionally need this definition. The Unix builds do
+not use the macro.
+
 ### Building/Running benchmarks
 
 Follow the directions for simple build except run cmake
