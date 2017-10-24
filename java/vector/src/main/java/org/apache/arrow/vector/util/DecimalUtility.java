@@ -142,8 +142,18 @@ public class DecimalUtility {
    */
   public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale) {
     byte[] value = new byte[DECIMAL_BYTE_LENGTH];
+    byte temp;
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
+
+    // Decimal stored as little endian, need to swap bytes to make BigDecimal
     bytebuf.getBytes(startIndex, value, 0, DECIMAL_BYTE_LENGTH);
+    int stop = DECIMAL_BYTE_LENGTH / 2;
+    for (int i = 0, j; i < stop; i++) {
+      temp = value[i];
+      j = (DECIMAL_BYTE_LENGTH - 1) - i;
+      value[i] = value[j];
+      value[j] = temp;
+    }
     BigInteger unscaledValue = new BigInteger(value);
     return new BigDecimal(unscaledValue, scale);
   }
@@ -212,10 +222,26 @@ public class DecimalUtility {
     if (bytes.length > DECIMAL_BYTE_LENGTH) {
       throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
     }
-    final int padLength = DECIMAL_BYTE_LENGTH - bytes.length;
-    for (int i = 0; i < padLength; i++) {
+
+    // Decimal stored as little endian, need to swap data bytes before writing to ArrowBuf
+    byte[] bytesLE = new byte[bytes.length];
+    int stop = bytes.length / 2;
+    for (int i = 0, j; i < stop; i++) {
+      j = (bytes.length - 1) - i;
+      bytesLE[i] = bytes[j];
+      bytesLE[j] = bytes[i];
+    }
+    if (bytes.length % 2 != 0) {
+      int i = (bytes.length / 2);
+      bytesLE[i] = bytes[i];
+    }
+
+    // Write LE data
+    bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
+
+    // Write padding after data
+    for (int i = bytes.length; i < DECIMAL_BYTE_LENGTH; i++) {
       bytebuf.setByte(startIndex + i, padValue);
     }
-    bytebuf.setBytes(startIndex + padLength, bytes, 0, bytes.length);
   }
 }

@@ -727,7 +727,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   int64_t size = 24;
 
   std::vector<int64_t> values;
-  test::randint<int64_t>(size, 0, 100, &values);
+  test::randint(size, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
 
@@ -748,7 +748,7 @@ TEST_F(TestTensorRoundTrip, NonContiguous) {
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
   std::vector<int64_t> values;
-  test::randint<int64_t>(24, 0, 100, &values);
+  test::randint(24, 0, 100, &values);
 
   auto data = test::GetBufferFromVector(values);
   Tensor tensor(int64(), data, {4, 3}, {48, 16});
