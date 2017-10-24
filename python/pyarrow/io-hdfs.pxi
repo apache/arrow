@@ -32,7 +32,7 @@ def have_libhdfs():
         with nogil:
             check_status(HaveLibHdfs())
         return True
-    except:
+    except Exception:
         return False
 
 
@@ -41,7 +41,7 @@ def have_libhdfs3():
         with nogil:
             check_status(HaveLibHdfs3())
         return True
-    except:
+    except Exception:
         return False
 
 

@@ -20,9 +20,9 @@ import sys
 
 import numpy as np
 
-import pyarrow as pa
 from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.lib import _default_serialization_context
+
 
 def register_default_serialization_handlers(serialization_context):
 
@@ -43,34 +43,27 @@ def register_default_serialization_handlers(serialization_context):
             custom_serializer=lambda obj: str(obj),
             custom_deserializer=lambda data: long(data))  # noqa: F821
 
-
     def _serialize_ordered_dict(obj):
         return list(obj.keys()), list(obj.values())
 
-
     def _deserialize_ordered_dict(data):
         return OrderedDict(zip(data[0], data[1]))
-
 
     serialization_context.register_type(
         OrderedDict, "OrderedDict",
         custom_serializer=_serialize_ordered_dict,
         custom_deserializer=_deserialize_ordered_dict)
 
-
     def _serialize_default_dict(obj):
         return list(obj.keys()), list(obj.values()), obj.default_factory
 
-
     def _deserialize_default_dict(data):
         return defaultdict(data[2], zip(data[0], data[1]))
-
 
     serialization_context.register_type(
         defaultdict, "defaultdict",
         custom_serializer=_serialize_default_dict,
         custom_deserializer=_deserialize_default_dict)
-
 
     serialization_context.register_type(
         type(lambda: 0), "function",
@@ -78,22 +71,19 @@ def register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
     # Set up serialization for numpy with dtype object (primitive types are
-    # handled efficiently with Arrow's Tensor facilities, see python_to_arrow.cc)
-
+    # handled efficiently with Arrow's Tensor facilities, see
+    # python_to_arrow.cc)
 
     def _serialize_numpy_array(obj):
         return obj.tolist(), obj.dtype.str
 
-
     def _deserialize_numpy_array(data):
         return np.array(data[0], dtype=np.dtype(data[1]))
-
 
     serialization_context.register_type(
         np.ndarray, 'np.array',
         custom_serializer=_serialize_numpy_array,
         custom_deserializer=_deserialize_numpy_array)
-
 
     # ----------------------------------------------------------------------
     # Set up serialization for pandas Series and DataFrame

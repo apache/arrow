@@ -915,7 +915,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             **kwargs)
         writer.write_table(table, row_group_size=row_group_size)
-    except:
+    except Exception:
         if writer is not None:
             writer.close()
         if isinstance(where, six.string_types):
