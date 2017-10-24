@@ -271,16 +271,15 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 }
 
 TEST_F(TestCast, TimestampChangeUnit) {
-  auto CheckTimestampCast = [this](TimeUnit::type from_unit,
-                                   TimeUnit::type to_unit,
+  auto CheckTimestampCast = [this](TimeUnit::type from_unit, TimeUnit::type to_unit,
                                    const std::vector<int64_t>& from_values,
                                    const std::vector<int64_t>& to_values,
                                    const std::vector<bool>& is_valid) {
     CastOptions options;
 
     CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
-        timestamp(from_unit), from_values, is_valid,
-        timestamp(to_unit), to_values, options);
+        timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
+        options);
   };
 
   vector<bool> is_valid = {true, false, true, true, true};

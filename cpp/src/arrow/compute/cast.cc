@@ -68,6 +68,19 @@
 namespace arrow {
 namespace compute {
 
+namespace {
+
+void CopyData(const ArrayData& input, ArrayData* output) {
+  auto in_data = input.data();
+  output->length = in_data->length;
+  output->null_count = input.null_count();
+  output->buffers = in_data->buffers;
+  output->offset = in_data->offset;
+  output->child_data = in_data->child_data;
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 // Zero copy casts
 
@@ -77,7 +90,9 @@ struct is_zero_copy_cast {
 };
 
 template <typename O, typename I>
-struct is_zero_copy_cast<O, I, typename std::enable_if<std::is_same<I, O>::value>::type> {
+struct is_zero_copy_cast<
+    O, I, typename std::enable_if<std::is_same<I, O>::value &&
+                                  !std::is_base_of<ParametricType, O>::value>::type> {
   static constexpr bool value = true;
 };
 
@@ -102,10 +117,7 @@ template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
-    auto in_data = input.data();
-    output->null_count = input.null_count();
-    output->buffers = in_data->buffers;
-    output->child_data = in_data->child_data;
+    CopyData(*input.data(), output);
   }
 };
 
@@ -256,6 +268,49 @@ struct CastFunctor<O, I,
     for (int64_t i = 0; i < input.length(); ++i) {
       *out_data++ = static_cast<out_type>(*in_data++);
     }
+  }
+};
+
+// ----------------------------------------------------------------------
+// From one timestamp to another
+
+template <>
+struct CastFunctor<TimestampType, TimestampType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    // If units are the same, zero copy, otherwise convert
+
+
+  }
+};
+
+// ----------------------------------------------------------------------
+// From one time32 or time64 to another
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   typename std::enable_if<std::is_same<I, O>::value &&
+                                           std::is_base_of<TimeType, O>::value>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    // If units are the same, zero copy, otherwise convert
+  }
+};
+
+// ----------------------------------------------------------------------
+// Between date32 and date64
+
+template <>
+struct CastFunctor<Date64Type, Date32Type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+  }
+};
+
+template <>
+struct CastFunctor<Date32Type, Date64Type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
   }
 };
 
