@@ -211,6 +211,12 @@ def test_table_basics():
         for chunk in col.data.iterchunks():
             assert chunk is not None
 
+        with pytest.raises(IndexError):
+            col.data.chunk(-1)
+
+        with pytest.raises(IndexError):
+            col.data.chunk(col.data.num_chunks)
+
 
 def test_table_from_arrays_invalid_names():
     data = [
