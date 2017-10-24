@@ -47,7 +47,7 @@ cdef _is_array_like(obj):
     try:
         import pandas
         return isinstance(obj, (np.ndarray, pd.Series, pd.Index, Categorical))
-    except:
+    except ImportError:
         return isinstance(obj, np.ndarray)
 
 
