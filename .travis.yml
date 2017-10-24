@@ -61,10 +61,10 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
+    - $TRAVIS_BUILD_DIR/ci/upload_cpp_coverage.sh
     - $TRAVIS_BUILD_DIR/ci/travis_build_parquet_cpp.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-    - $TRAVIS_BUILD_DIR/ci/upload_cpp_coverage.sh
   - compiler: clang
     language: cpp
     osx_image: xcode6.4
