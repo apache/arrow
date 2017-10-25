@@ -287,25 +287,25 @@ struct CastFunctor<O, I,
 // ----------------------------------------------------------------------
 // From one timestamp to another
 
-template <typename T>
+template <typename in_type, typename out_type>
 inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
-                      const bool is_multiply, const T factor,
+                      const bool is_multiply, const int64_t factor,
                       const Array& input, ArrayData* output) {
-  const int64_t* in_data = GetValuesAs<int64_t>(*input.data(), 1);
-  auto out_data = reinterpret_cast<int64_t*>(output->buffers[1]->mutable_data());
+  const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
+  auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
 
   if (is_multiply) {
     for (int64_t i = 0; i < input.length(); i++) {
-      out_data[i] = in_data[i] * factor;
+      out_data[i] = static_cast<out_type>(in_data[i] * factor);
     }
   } else {
     if (options.allow_time_truncate) {
       for (int64_t i = 0; i < input.length(); i++) {
-        out_data[i] = in_data[i] / factor;
+        out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
       for (int64_t i = 0; i < input.length(); i++) {
-        out_data[i] = in_data[i] / factor;
+        out_data[i] = static_cast<out_type>(in_data[i] / factor);
         if (input.IsValid(i) && (out_data[i] * factor != in_data[i])) {
           std::stringstream ss;
           ss << "Casting from " << input.type()->ToString()
@@ -348,8 +348,8 @@ struct CastFunctor<TimestampType, TimestampType> {
         kTimeConversionTable[static_cast<int>(in_type.unit())]
       [static_cast<int>(out_type.unit())];
 
-    ShiftTime<int64_t>(ctx, options, conversion.first, conversion.second,
-                       input, output);
+    ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second,
+                                input, output);
   }
 };
 
@@ -358,11 +358,12 @@ struct CastFunctor<TimestampType, TimestampType> {
 
 template <typename O, typename I>
 struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_same<I, O>::value &&
+                   typename std::enable_if<std::is_base_of<TimeType, I>::value &&
                                            std::is_base_of<TimeType, O>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
-    using T = typename O::c_type;
+    using in_t = typename I::c_type;
+    using out_t = typename O::c_type;
 
     // If units are the same, zero copy, otherwise convert
     const auto& in_type = static_cast<const O&>(*input.type());
@@ -377,8 +378,8 @@ struct CastFunctor<O, I,
         kTimeConversionTable[static_cast<int>(in_type.unit())]
       [static_cast<int>(out_type.unit())];
 
-    ShiftTime<T>(ctx, options, conversion.first, static_cast<T>(conversion.second),
-                 input, output);
+    ShiftTime<in_t, out_t>(ctx, options, conversion.first, conversion.second,
+                           input, output);
   }
 };
 
@@ -737,9 +738,13 @@ class CastKernel : public UnaryKernel {
 
 #define DATE64_CASES(FN, IN_TYPE) FN(Date64Type, Date64Type);
 
-#define TIME32_CASES(FN, IN_TYPE) FN(Time32Type, Time32Type);
+#define TIME32_CASES(FN, IN_TYPE)               \
+  FN(Time32Type, Time32Type);                   \
+  FN(Time32Type, Time64Type);
 
-#define TIME64_CASES(FN, IN_TYPE) FN(Time64Type, Time64Type);
+#define TIME64_CASES(FN, IN_TYPE)               \
+  FN(Time64Type, Time32Type);                   \
+  FN(Time64Type, Time64Type);
 
 #define TIMESTAMP_CASES(FN, IN_TYPE) FN(TimestampType, TimestampType);
 

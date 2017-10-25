@@ -346,14 +346,111 @@ TEST_F(TestCast, TimestampToTimestamp) {
                             timestamp(TimeUnit::SECOND), options);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v8, is_valid,
                             timestamp(TimeUnit::MILLI), options);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v8, is_valid,
-                            timestamp(TimeUnit::SECOND), options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v8, is_valid,
+                            timestamp(TimeUnit::MICRO), options);
   CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v9, is_valid,
                             timestamp(TimeUnit::SECOND), options);
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v9, is_valid,
                             timestamp(TimeUnit::MILLI), options);
   CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v10, is_valid,
                             timestamp(TimeUnit::SECOND), options);
+}
+
+
+TEST_F(TestCast, TimeToTime) {
+  CastOptions options;
+
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  // Multiply promotions
+  vector<int32_t> v1 = {0, 100, 200, 1, 2};
+  vector<int32_t> e1 = {0, 100000, 200000, 1000, 2000};
+  CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
+      time32(TimeUnit::SECOND), v1, is_valid,
+      time32(TimeUnit::MILLI), e1, options);
+
+  vector<int32_t> v2 = {0, 100, 200, 1, 2};
+  vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
+      time32(TimeUnit::SECOND), v2, is_valid,
+      time64(TimeUnit::MICRO), e2, options);
+
+  vector<int32_t> v3 = {0, 100, 200, 1, 2};
+  vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
+  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
+      time32(TimeUnit::SECOND), v3, is_valid,
+      time64(TimeUnit::NANO), e3, options);
+
+  vector<int32_t> v4 = {0, 100, 200, 1, 2};
+  vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
+  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
+      time32(TimeUnit::MILLI), v4, is_valid,
+      time64(TimeUnit::MICRO), e4, options);
+
+  vector<int32_t> v5 = {0, 100, 200, 1, 2};
+  vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
+      time32(TimeUnit::MILLI), v5, is_valid,
+      time64(TimeUnit::NANO), e5, options);
+
+  vector<int64_t> v6 = {0, 100, 200, 1, 2};
+  vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
+  CheckCase<Time64Type, int64_t, Time64Type, int64_t>(
+      time64(TimeUnit::MICRO), v6, is_valid,
+      time64(TimeUnit::NANO), e6, options);
+
+  // Zero copy
+  std::shared_ptr<Array> arr;
+  vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
+  CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
+
+  // Divide, truncate
+  vector<int32_t> v8 = {0, 100123, 200456, 1123, 2456};
+  vector<int32_t> e8 = {0, 100, 200, 1, 2};
+
+  options.allow_time_truncate = true;
+  CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
+      time32(TimeUnit::MILLI), v8, is_valid,
+      time32(TimeUnit::SECOND), e8, options);
+  CheckCase<Time64Type, int32_t, Time32Type, int32_t>(
+      time64(TimeUnit::MICRO), v8, is_valid,
+      time32(TimeUnit::MILLI), e8, options);
+  CheckCase<Time64Type, int32_t, Time64Type, int32_t>(
+      time64(TimeUnit::NANO), v8, is_valid,
+      time64(TimeUnit::MICRO), e8, options);
+
+  vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
+  vector<int32_t> e9 = {0, 100, 200, 1, 2};
+  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
+      time64(TimeUnit::MICRO), v9, is_valid,
+      time32(TimeUnit::SECOND), e9, options);
+  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
+      time64(TimeUnit::NANO), v9, is_valid,
+      time32(TimeUnit::MILLI), e9, options);
+
+  vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
+  vector<int32_t> e10 = {0, 100, 200, 1, 2};
+  CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
+      time64(TimeUnit::NANO), v10, is_valid,
+      time32(TimeUnit::SECOND), e10, options);
+
+  // Disallow truncate, failures
+
+  options.allow_time_truncate = false;
+  CheckFails<Time32Type>(time32(TimeUnit::MILLI), v8, is_valid,
+                         time32(TimeUnit::SECOND), options);
+  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v8, is_valid,
+                         time32(TimeUnit::MILLI), options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v8, is_valid,
+                         time64(TimeUnit::MICRO), options);
+  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v9, is_valid,
+                         time32(TimeUnit::SECOND), options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v9, is_valid,
+                         time32(TimeUnit::MILLI), options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid,
+                         time32(TimeUnit::SECOND), options);
 }
 
 
