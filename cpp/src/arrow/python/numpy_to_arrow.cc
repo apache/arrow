@@ -1034,12 +1034,9 @@ Status LoopPySequence(PyObject* sequence, T func) {
 }
 
 template <typename T>
-Status LoopPySequenceWithMasks(
-    PyObject* sequence,
-    const Ndarray1DIndexer<uint8_t>& mask_values,
-    bool have_mask,
-    T func
-) {
+Status LoopPySequenceWithMasks(PyObject* sequence,
+                               const Ndarray1DIndexer<uint8_t>& mask_values,
+                               bool have_mask, T func) {
   if (PySequence_Check(sequence)) {
     OwnedRef ref;
     Py_ssize_t size = PySequence_Size(sequence);
@@ -1213,7 +1210,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     }
   };
 
-  return LoopPySequenceWithMasks(list, mask_values, have_mask,foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 #define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
