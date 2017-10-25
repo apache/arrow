@@ -662,7 +662,6 @@ cdef _as_type(type):
     return type_for_alias(type)
 
 
-
 cdef set PRIMITIVE_TYPES = set([
     _Type_NA, _Type_BOOL,
     _Type_UINT8, _Type_INT8,
