@@ -260,8 +260,8 @@ cdef class Array:
 
         type = _ensure_type(target_type)
 
-        if not safe:
-            options.allow_int_overflow = 1
+        options.allow_int_overflow = not safe
+        options.allow_time_truncate = not safe
 
         with nogil:
             check_status(Cast(_context(), self.ap[0], type.sp_type,

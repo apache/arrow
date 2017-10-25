@@ -747,6 +747,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         c_bool allow_int_overflow
+        c_bool allow_time_truncate
 
     CStatus Cast(CFunctionContext* context, const CArray& array,
                  const shared_ptr[CDataType]& to_type,
