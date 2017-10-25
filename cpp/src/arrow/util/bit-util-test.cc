@@ -28,7 +28,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
-#include "arrow/status.h"
 #include "arrow/test-util.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
@@ -332,6 +331,38 @@ TEST(BitStreamUtil, ZigZag) {
   TestZigZag(-1);
   TestZigZag(std::numeric_limits<int32_t>::max());
   TestZigZag(-std::numeric_limits<int32_t>::max());
+}
+
+TEST(BitUtil, RoundTripLittleEndianTest) {
+  uint64_t value = 0xFF;
+
+#if ARROW_LITTLE_ENDIAN
+  uint64_t expected = value;
+#else
+  uint64_t expected = std::numeric_limits<uint64_t>::max() << 56;
+#endif
+
+  uint64_t little_endian_result = BitUtil::ToLittleEndian(value);
+  ASSERT_EQ(expected, little_endian_result);
+
+  uint64_t from_little_endian = BitUtil::FromLittleEndian(little_endian_result);
+  ASSERT_EQ(value, from_little_endian);
+}
+
+TEST(BitUtil, RoundTripBigEndianTest) {
+  uint64_t value = 0xFF;
+
+#if ARROW_LITTLE_ENDIAN
+  uint64_t expected = std::numeric_limits<uint64_t>::max() << 56;
+#else
+  uint64_t expected = value;
+#endif
+
+  uint64_t big_endian_result = BitUtil::ToBigEndian(value);
+  ASSERT_EQ(expected, big_endian_result);
+
+  uint64_t from_big_endian = BitUtil::FromBigEndian(big_endian_result);
+  ASSERT_EQ(value, from_big_endian);
 }
 
 }  // namespace arrow

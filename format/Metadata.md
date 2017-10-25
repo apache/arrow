@@ -391,7 +391,8 @@ logical type, which have no children) and 3 buffers:
 
 ### Decimal
 
-TBD
+Decimals are represented as a 2's complement 128-bit (16 byte) signed integer
+in little-endian byte order.
 
 ### Timestamp
 

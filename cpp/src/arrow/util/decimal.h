@@ -54,7 +54,8 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal128(const std::string& value);
 
-  /// \brief Create an Decimal128 from an array of bytes
+  /// \brief Create an Decimal128 from an array of bytes. Bytes are assumed to be in
+  /// little endian byte order.
   explicit Decimal128(const uint8_t* bytes);
 
   /// \brief Negate the current value
@@ -105,7 +106,7 @@ class ARROW_EXPORT Decimal128 {
   /// \brief Get the low bits of the two's complement representation of the number.
   uint64_t low_bits() const { return low_bits_; }
 
-  /// \brief Return the raw bytes of the value.
+  /// \brief Return the raw bytes of the value in little-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
