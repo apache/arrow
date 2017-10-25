@@ -84,11 +84,10 @@ struct is_zero_copy_cast<O, I, typename std::enable_if<std::is_same<I, O>::value
 // From integers to date/time types with zero copy
 template <typename O, typename I>
 struct is_zero_copy_cast<
-    O, I,
-    typename std::enable_if<std::is_base_of<Integer, I>::value &&
-                            (std::is_base_of<TimeType, O>::value ||
-                             std::is_base_of<DateType, O>::value ||
-                             std::is_base_of<TimestampType, O>::value)>::type> {
+    O, I, typename std::enable_if<std::is_base_of<Integer, I>::value &&
+                                  (std::is_base_of<TimeType, O>::value ||
+                                   std::is_base_of<DateType, O>::value ||
+                                   std::is_base_of<TimestampType, O>::value)>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -114,9 +113,8 @@ struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>
 // Null to other things
 
 template <typename T>
-struct CastFunctor<
-    T, NullType,
-    typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
+struct CastFunctor<T, NullType, typename std::enable_if<
+                                    std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
     // Simply initialize data to 0
@@ -168,9 +166,8 @@ struct is_integer_downcast {
 
 template <typename O, typename I>
 struct is_integer_downcast<
-    O, I,
-    typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                            std::is_base_of<Integer, I>::value>::type> {
+    O, I, typename std::enable_if<std::is_base_of<Integer, O>::value &&
+                                  std::is_base_of<Integer, I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -186,10 +183,9 @@ struct is_integer_downcast<
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_same<BooleanType, O>::value &&
-                                           std::is_base_of<Number, I>::value &&
-                                           !std::is_same<O, I>::value>::type> {
+struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::value &&
+                                                 std::is_base_of<Number, I>::value &&
+                                                 !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
     using in_type = typename I::c_type;

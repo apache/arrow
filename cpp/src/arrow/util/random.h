@@ -102,8 +102,9 @@ class Random {
   double Normal(double mean, double std_dev) {
     double uniform1 = (Next() + 1.0) / (internal::random::M + 1.0);
     double uniform2 = (Next() + 1.0) / (internal::random::M + 1.0);
-    return (mean + std_dev * sqrt(-2 * ::log(uniform1)) *
-                       cos(internal::random::kTwoPi * uniform2));
+    return (mean +
+            std_dev * sqrt(-2 * ::log(uniform1)) *
+                cos(internal::random::kTwoPi * uniform2));
   }
 
   // Return a random number between 0.0 and 1.0 inclusive.
