@@ -278,11 +278,10 @@ TEST_F(TestCast, ToIntDowncastUnsafe) {
 TEST_F(TestCast, TimestampToTimestamp) {
   CastOptions options;
 
-  auto CheckTimestampCast = [this](const CastOptions& options,
-                                   TimeUnit::type from_unit, TimeUnit::type to_unit,
-                                   const std::vector<int64_t>& from_values,
-                                   const std::vector<int64_t>& to_values,
-                                   const std::vector<bool>& is_valid) {
+  auto CheckTimestampCast = [this](
+      const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
+      const std::vector<int64_t>& from_values, const std::vector<int64_t>& to_values,
+      const std::vector<bool>& is_valid) {
     CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
         timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
         options);
@@ -318,8 +317,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
   // Zero copy
   std::shared_ptr<Array> arr;
   vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), is_valid,
-                                          v7, &arr);
+  ArrayFromVector<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), is_valid, v7,
+                                          &arr);
   CheckZeroCopy(*arr, timestamp(TimeUnit::SECOND));
 
   // Divide, truncate
@@ -356,10 +355,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
                             timestamp(TimeUnit::SECOND), options);
 }
 
-
 TEST_F(TestCast, TimeToTime) {
   CastOptions options;
-
 
   vector<bool> is_valid = {true, false, true, true, true};
 
@@ -367,38 +364,32 @@ TEST_F(TestCast, TimeToTime) {
   vector<int32_t> v1 = {0, 100, 200, 1, 2};
   vector<int32_t> e1 = {0, 100000, 200000, 1000, 2000};
   CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
-      time32(TimeUnit::SECOND), v1, is_valid,
-      time32(TimeUnit::MILLI), e1, options);
+      time32(TimeUnit::SECOND), v1, is_valid, time32(TimeUnit::MILLI), e1, options);
 
   vector<int32_t> v2 = {0, 100, 200, 1, 2};
   vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
   CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::SECOND), v2, is_valid,
-      time64(TimeUnit::MICRO), e2, options);
+      time32(TimeUnit::SECOND), v2, is_valid, time64(TimeUnit::MICRO), e2, options);
 
   vector<int32_t> v3 = {0, 100, 200, 1, 2};
   vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
   CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::SECOND), v3, is_valid,
-      time64(TimeUnit::NANO), e3, options);
+      time32(TimeUnit::SECOND), v3, is_valid, time64(TimeUnit::NANO), e3, options);
 
   vector<int32_t> v4 = {0, 100, 200, 1, 2};
   vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
   CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::MILLI), v4, is_valid,
-      time64(TimeUnit::MICRO), e4, options);
+      time32(TimeUnit::MILLI), v4, is_valid, time64(TimeUnit::MICRO), e4, options);
 
   vector<int32_t> v5 = {0, 100, 200, 1, 2};
   vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
   CheckCase<Time32Type, int32_t, Time64Type, int64_t>(
-      time32(TimeUnit::MILLI), v5, is_valid,
-      time64(TimeUnit::NANO), e5, options);
+      time32(TimeUnit::MILLI), v5, is_valid, time64(TimeUnit::NANO), e5, options);
 
   vector<int64_t> v6 = {0, 100, 200, 1, 2};
   vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
   CheckCase<Time64Type, int64_t, Time64Type, int64_t>(
-      time64(TimeUnit::MICRO), v6, is_valid,
-      time64(TimeUnit::NANO), e6, options);
+      time64(TimeUnit::MICRO), v6, is_valid, time64(TimeUnit::NANO), e6, options);
 
   // Zero copy
   std::shared_ptr<Array> arr;
@@ -412,47 +403,76 @@ TEST_F(TestCast, TimeToTime) {
 
   options.allow_time_truncate = true;
   CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
-      time32(TimeUnit::MILLI), v8, is_valid,
-      time32(TimeUnit::SECOND), e8, options);
+      time32(TimeUnit::MILLI), v8, is_valid, time32(TimeUnit::SECOND), e8, options);
   CheckCase<Time64Type, int32_t, Time32Type, int32_t>(
-      time64(TimeUnit::MICRO), v8, is_valid,
-      time32(TimeUnit::MILLI), e8, options);
+      time64(TimeUnit::MICRO), v8, is_valid, time32(TimeUnit::MILLI), e8, options);
   CheckCase<Time64Type, int32_t, Time64Type, int32_t>(
-      time64(TimeUnit::NANO), v8, is_valid,
-      time64(TimeUnit::MICRO), e8, options);
+      time64(TimeUnit::NANO), v8, is_valid, time64(TimeUnit::MICRO), e8, options);
 
   vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
   vector<int32_t> e9 = {0, 100, 200, 1, 2};
   CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::MICRO), v9, is_valid,
-      time32(TimeUnit::SECOND), e9, options);
+      time64(TimeUnit::MICRO), v9, is_valid, time32(TimeUnit::SECOND), e9, options);
   CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::NANO), v9, is_valid,
-      time32(TimeUnit::MILLI), e9, options);
+      time64(TimeUnit::NANO), v9, is_valid, time32(TimeUnit::MILLI), e9, options);
 
   vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
   vector<int32_t> e10 = {0, 100, 200, 1, 2};
   CheckCase<Time64Type, int64_t, Time32Type, int32_t>(
-      time64(TimeUnit::NANO), v10, is_valid,
-      time32(TimeUnit::SECOND), e10, options);
+      time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND), e10, options);
 
   // Disallow truncate, failures
 
   options.allow_time_truncate = false;
-  CheckFails<Time32Type>(time32(TimeUnit::MILLI), v8, is_valid,
-                         time32(TimeUnit::SECOND), options);
-  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v8, is_valid,
-                         time32(TimeUnit::MILLI), options);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v8, is_valid,
-                         time64(TimeUnit::MICRO), options);
-  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v9, is_valid,
-                         time32(TimeUnit::SECOND), options);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v9, is_valid,
-                         time32(TimeUnit::MILLI), options);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid,
-                         time32(TimeUnit::SECOND), options);
+  CheckFails<Time32Type>(time32(TimeUnit::MILLI), v8, is_valid, time32(TimeUnit::SECOND),
+                         options);
+  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v8, is_valid, time32(TimeUnit::MILLI),
+                         options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v8, is_valid, time64(TimeUnit::MICRO),
+                         options);
+  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v9, is_valid, time32(TimeUnit::SECOND),
+                         options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v9, is_valid, time32(TimeUnit::MILLI),
+                         options);
+  CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND),
+                         options);
 }
 
+TEST_F(TestCast, DateToDate) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, false, true, true, true};
+
+  constexpr int64_t F = 86400000;
+
+  // Multiply promotion
+  vector<int32_t> v1 = {0, 100, 200, 1, 2};
+  vector<int64_t> e1 = {0, 100 * F, 200 * F, F, 2 * F};
+  CheckCase<Date32Type, int32_t, Date64Type, int64_t>(date32(), v1, is_valid, date64(),
+                                                      e1, options);
+
+  // Zero copy
+  std::shared_ptr<Array> arr;
+  vector<int32_t> v2 = {0, 70000, 2000, 1000, 0};
+  vector<int64_t> v3 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Date32Type, int32_t>(date32(), is_valid, v2, &arr);
+  CheckZeroCopy(*arr, date32());
+
+  ArrayFromVector<Date64Type, int64_t>(date64(), is_valid, v3, &arr);
+  CheckZeroCopy(*arr, date64());
+
+  // Divide, truncate
+  vector<int64_t> v8 = {0, 100 * F + 123, 200 * F + 456, F + 123, 2 * F + 456};
+  vector<int32_t> e8 = {0, 100, 200, 1, 2};
+
+  options.allow_time_truncate = true;
+  CheckCase<Date64Type, int64_t, Date32Type, int32_t>(date64(), v8, is_valid, date32(),
+                                                      e8, options);
+
+  // Disallow truncate, failures
+  options.allow_time_truncate = false;
+  CheckFails<Date64Type>(date64(), v8, is_valid, date32(), options);
+}
 
 TEST_F(TestCast, ToDouble) {
   CastOptions options;

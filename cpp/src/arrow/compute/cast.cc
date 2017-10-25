@@ -289,8 +289,8 @@ struct CastFunctor<O, I,
 
 template <typename in_type, typename out_type>
 inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
-                      const bool is_multiply, const int64_t factor,
-                      const Array& input, ArrayData* output) {
+                      const bool is_multiply, const int64_t factor, const Array& input,
+                      ArrayData* output) {
   const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
   auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
 
@@ -308,9 +308,8 @@ inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
         if (input.IsValid(i) && (out_data[i] * factor != in_data[i])) {
           std::stringstream ss;
-          ss << "Casting from " << input.type()->ToString()
-             << " to " << output->type->ToString()
-             << " would lose data: " << in_data[i];
+          ss << "Casting from " << input.type()->ToString() << " to "
+             << output->type->ToString() << " would lose data: " << in_data[i];
           ctx->SetStatus(Status::Invalid(ss.str()));
           break;
         }
@@ -323,10 +322,10 @@ namespace {
 
 // {is_multiply, factor}
 const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
-  {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
-  {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
-  {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
-  {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
+    {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
+    {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
+    {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
+    {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
 };
 
 }  // namespace
@@ -346,10 +345,10 @@ struct CastFunctor<TimestampType, TimestampType> {
 
     std::pair<bool, int64_t> conversion =
         kTimeConversionTable[static_cast<int>(in_type.unit())]
-      [static_cast<int>(out_type.unit())];
+                            [static_cast<int>(out_type.unit())];
 
-    ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second,
-                                input, output);
+    ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
+                                output);
   }
 };
 
@@ -366,7 +365,7 @@ struct CastFunctor<O, I,
     using out_t = typename O::c_type;
 
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = static_cast<const O&>(*input.type());
+    const auto& in_type = static_cast<const I&>(*input.type());
     const auto& out_type = static_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
@@ -376,26 +375,32 @@ struct CastFunctor<O, I,
 
     std::pair<bool, int64_t> conversion =
         kTimeConversionTable[static_cast<int>(in_type.unit())]
-      [static_cast<int>(out_type.unit())];
+                            [static_cast<int>(out_type.unit())];
 
-    ShiftTime<in_t, out_t>(ctx, options, conversion.first, conversion.second,
-                           input, output);
+    ShiftTime<in_t, out_t>(ctx, options, conversion.first, conversion.second, input,
+                           output);
   }
 };
 
 // ----------------------------------------------------------------------
 // Between date32 and date64
 
+constexpr int64_t kMillisecondsInDay = 86400000;
+
 template <>
 struct CastFunctor<Date64Type, Date32Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {}
+                  ArrayData* output) {
+    ShiftTime<int32_t, int64_t>(ctx, options, true, kMillisecondsInDay, input, output);
+  }
 };
 
 template <>
 struct CastFunctor<Date32Type, Date64Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {}
+                  ArrayData* output) {
+    ShiftTime<int64_t, int32_t>(ctx, options, false, kMillisecondsInDay, input, output);
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -734,16 +739,20 @@ class CastKernel : public UnaryKernel {
   FN(Int64Type, Time64Type);     \
   FN(Int64Type, Date64Type);
 
-#define DATE32_CASES(FN, IN_TYPE) FN(Date32Type, Date32Type);
+#define DATE32_CASES(FN, IN_TYPE) \
+  FN(Date32Type, Date32Type);     \
+  FN(Date32Type, Date64Type);
 
-#define DATE64_CASES(FN, IN_TYPE) FN(Date64Type, Date64Type);
+#define DATE64_CASES(FN, IN_TYPE) \
+  FN(Date64Type, Date64Type);     \
+  FN(Date64Type, Date32Type);
 
-#define TIME32_CASES(FN, IN_TYPE)               \
-  FN(Time32Type, Time32Type);                   \
+#define TIME32_CASES(FN, IN_TYPE) \
+  FN(Time32Type, Time32Type);     \
   FN(Time32Type, Time64Type);
 
-#define TIME64_CASES(FN, IN_TYPE)               \
-  FN(Time64Type, Time32Type);                   \
+#define TIME64_CASES(FN, IN_TYPE) \
+  FN(Time64Type, Time32Type);     \
   FN(Time64Type, Time64Type);
 
 #define TIMESTAMP_CASES(FN, IN_TYPE) FN(TimestampType, TimestampType);
