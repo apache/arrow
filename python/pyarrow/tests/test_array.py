@@ -304,6 +304,17 @@ def test_cast_timestamp_unit():
     assert arr[0].as_py() == s_nyc[0]
     assert arr2[0].as_py() == s[0]
 
+    # Disallow truncation
+    arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
+    expected = pa.array([123], type='int64').cast(pa.timestamp('s'))
+
+    target = pa.timestamp('s')
+    with pytest.raises(ValueError):
+        arr.cast(target)
+
+    result = arr.cast(target, safe=False)
+    assert result.equals(expected)
+
 
 def test_cast_signed_to_unsigned():
     safe_cases = [
