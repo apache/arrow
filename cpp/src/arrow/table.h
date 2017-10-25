@@ -288,10 +288,10 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
 
-  /// Read the next record batch in the stream. Return nullptr for batch when
+  /// Read the next record batch in the stream. Return null for batch when
   /// reaching end of stream
   ///
-  /// \param[out] batch the next loaded batch, nullptr at end of stream
+  /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 };
