@@ -86,7 +86,8 @@ struct Decimal;
 struct ARROW_EXPORT ArrayData {
   ArrayData() : length(0) {}
 
-  ArrayData(const std::shared_ptr<DataType>& type, int64_t length,
+  ArrayData(
+      const std::shared_ptr<DataType>& type, int64_t length,
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : type(type), length(length), null_count(null_count), offset(offset) {}
 
