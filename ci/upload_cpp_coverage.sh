@@ -35,10 +35,9 @@ cd coverage_artifacts
 
 ls -l
 
-coveralls --gcov $(which gcov-4.9) \
-          --gcov-options '\-lp' \
-          --root '' \
-          --include $ARROW_CPP_DIR/src \
+coveralls --gcov-options '\-l' \
+          -r $ARROW_CPP_DIR \
+          --include $ARROW_CPP_DIR \
           --exclude $CPP_TOOLCHAIN \
           --exclude $ARROW_CPP_BUILD_DIR/boost_ep \
           --exclude $ARROW_CPP_BUILD_DIR/boost_ep-prefix \
