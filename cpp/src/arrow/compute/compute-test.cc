@@ -105,6 +105,11 @@ class TestCast : public ComputeFixture, public TestBase {
       ArrayFromVector<OutType, O_TYPE>(out_type, out_values, &expected);
     }
     CheckPass(*input, *expected, out_type, options);
+
+    // Check a sliced variant
+    if (input->length() > 1) {
+      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options);
+    }
   }
 };
 
