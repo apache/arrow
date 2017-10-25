@@ -19,7 +19,6 @@
 from collections import OrderedDict
 
 from datetime import date, time
-import unittest
 import decimal
 import json
 
@@ -1112,7 +1111,7 @@ class TestPandasConversion(object):
     @pytest.mark.parametrize('t,data,expected', [
         (
             pa.int64,
-            [[1,2], [3], None],
+            [[1, 2], [3], None],
             [None, [3], None]
         ),
         (
