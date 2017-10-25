@@ -68,7 +68,7 @@ class TestCast : public ComputeFixture, public TestBase {
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
     std::shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, options, &result));
-    AssertArraysEqual(expected, *result);
+    ASSERT_ARRAYS_EQUAL(expected, *result);
   }
 
   template <typename InType, typename I_TYPE>
@@ -360,7 +360,7 @@ TEST_F(TestCast, FromNull) {
   ASSERT_EQ(length, result->null_count());
 
   // OK to look at bitmaps
-  AssertArraysEqual(*result, *result);
+  ASSERT_ARRAYS_EQUAL(*result, *result);
 }
 
 TEST_F(TestCast, PreallocatedMemory) {
@@ -398,7 +398,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   std::shared_ptr<Array> expected;
   ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
 
-  AssertArraysEqual(*expected, *result);
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
 template <typename TestType>
