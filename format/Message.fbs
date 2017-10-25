@@ -61,16 +61,17 @@ table RecordBatch {
   buffers: [Buffer];
 }
 
-/// ----------------------------------------------------------------------
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
-/// There is one vector / column per dictionary
-///
+/// There is one vector / column per dictionary, but that vector / column
+/// may be spread across multiple dictionary batches by using the isDelta
+/// flag
 
 table DictionaryBatch {
   id: long;
   data: RecordBatch;
+  isDelta: bool = false;
 }
 
 /// ----------------------------------------------------------------------
