@@ -319,6 +319,18 @@ inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
   }
 }  // namespace
 
+namespace {
+
+// {is_multiply, factor}
+const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
+  {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
+  {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
+  {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
+  {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
+};
+
+}  // namespace
+
 template <>
 struct CastFunctor<TimestampType, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
@@ -332,17 +344,9 @@ struct CastFunctor<TimestampType, TimestampType> {
       return;
     }
 
-    // {is_multiply, factor}
-    static const std::pair<bool, int64_t> kConversionTable[4][4] = {
-        {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
-        {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
-        {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
-        {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
-    };
-
     std::pair<bool, int64_t> conversion =
-        kConversionTable[static_cast<int>(in_type.unit())]
-                        [static_cast<int>(out_type.unit())];
+        kTimeConversionTable[static_cast<int>(in_type.unit())]
+      [static_cast<int>(out_type.unit())];
 
     ShiftTime<int64_t>(ctx, options, conversion.first, conversion.second,
                        input, output);
@@ -358,7 +362,23 @@ struct CastFunctor<O, I,
                                            std::is_base_of<TimeType, O>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
+    using T = typename O::c_type;
+
     // If units are the same, zero copy, otherwise convert
+    const auto& in_type = static_cast<const O&>(*input.type());
+    const auto& out_type = static_cast<const O&>(*output->type);
+
+    if (in_type.unit() == out_type.unit()) {
+      CopyData(input, output);
+      return;
+    }
+
+    std::pair<bool, int64_t> conversion =
+        kTimeConversionTable[static_cast<int>(in_type.unit())]
+      [static_cast<int>(out_type.unit())];
+
+    ShiftTime<T>(ctx, options, conversion.first, static_cast<T>(conversion.second),
+                 input, output);
   }
 };
 
