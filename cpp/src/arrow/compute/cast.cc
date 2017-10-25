@@ -71,7 +71,7 @@ namespace compute {
 
 template <typename T>
 inline const T* GetValuesAs(const ArrayData& data, int i) {
-  return reinterpret_cast<const T*>(data.buffers[1]->data()) + data.offset;
+  return reinterpret_cast<const T*>(data.buffers[i]->data()) + data.offset;
 }
 
 namespace {
@@ -316,7 +316,7 @@ inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
       }
     }
   }
-}  // namespace
+}
 
 namespace {
 
