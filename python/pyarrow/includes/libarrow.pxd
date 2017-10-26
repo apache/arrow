@@ -814,6 +814,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef struct PandasOptions:
         c_bool strings_to_categorical
+        c_bool zero_copy_only
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 

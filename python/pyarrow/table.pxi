@@ -163,7 +163,7 @@ cdef class Column:
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
         return pyarrow_wrap_column(sp_column)
 
-    def to_pandas(self, strings_to_categorical=False):
+    def to_pandas(self, strings_to_categorical=False, zero_copy_only=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -175,7 +175,9 @@ cdef class Column:
             PyObject* out
             PandasOptions options
 
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
 
         with nogil:
             check_status(libarrow.ConvertColumnToPandas(options,
@@ -857,7 +859,7 @@ cdef class Table:
         return pyarrow_wrap_table(c_table)
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
-                  memory_pool=None):
+                  memory_pool=None, zero_copy_only=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -871,6 +873,9 @@ cdef class Table:
             Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
             Specific memory pool to use to allocate casted columns
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
 
         Returns
         -------
@@ -878,7 +883,9 @@ cdef class Table:
         """
         cdef:
             PandasOptions options
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()
