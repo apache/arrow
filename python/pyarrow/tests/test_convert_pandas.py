@@ -218,31 +218,31 @@ class TestPandasConversion(object):
         npt.assert_array_equal(result, [0, 1, 2])
 
     def test_zero_copy_failure_on_object_types(self):
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array(['A', 'B', 'C']).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_with_int_when_nulls(self):
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array([0, 1, None]).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_with_float_when_nulls(self):
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array([0.0, 1.0, None]).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_on_bool_types(self):
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array([True, False]).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_on_list_types(self):
         arr = np.array([[1, 2], [8, 9]], dtype=object)
 
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array(arr).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_failure_on_timestamp_types(self):
         arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
 
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.array(arr).to_pandas(zero_copy_only=True)
 
     def test_zero_copy_dictionaries(self):
@@ -250,7 +250,7 @@ class TestPandasConversion(object):
             np.array([0, 0]),
             np.array(['A']))
 
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             arr.to_pandas(zero_copy_only=True)
 
     def test_float_nulls(self):
