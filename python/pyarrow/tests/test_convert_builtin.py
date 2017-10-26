@@ -197,6 +197,75 @@ class TestConvertSequence(unittest.TestCase):
         assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5,
                                                    46, 57, 437699)
 
+    def test_timestamp_with_unit(self):
+        data = [
+            datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
+        ]
+
+        s = pa.timestamp('s')
+        ms = pa.timestamp('ms')
+        us = pa.timestamp('us')
+        ns = pa.timestamp('ns')
+
+        arr_s = pa.array(data, type=s)
+        assert len(arr_s) == 1
+        assert arr_s.type == s
+        assert arr_s[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                     23, 34, 0)
+
+        arr_ms = pa.array(data, type=ms)
+        assert len(arr_ms) == 1
+        assert arr_ms.type == ms
+        assert arr_ms[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                      23, 34, 123000)
+
+        arr_us = pa.array(data, type=us)
+        assert len(arr_us) == 1
+        assert arr_us.type == us
+        assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                      23, 34, 123456)
+
+        arr_ns = pa.array(data, type=ns)
+        assert len(arr_ns) == 1
+        assert arr_ns.type == ns
+        assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                      23, 34, 123456)
+
+    def test_timestamp_from_int_with_unit(self):
+        data = [1]
+
+        s = pa.timestamp('s')
+        ms = pa.timestamp('ms')
+        us = pa.timestamp('us')
+        ns = pa.timestamp('ns')
+
+        arr_s = pa.array(data, type=s)
+        assert len(arr_s) == 1
+        assert arr_s.type == s
+        assert str(arr_s[0]) == "Timestamp('1970-01-01 00:00:01')"
+
+        arr_ms = pa.array(data, type=ms)
+        assert len(arr_ms) == 1
+        assert arr_ms.type == ms
+        assert str(arr_ms[0]) == "Timestamp('1970-01-01 00:00:00.001000')"
+
+        arr_us = pa.array(data, type=us)
+        assert len(arr_us) == 1
+        assert arr_us.type == us
+        assert str(arr_us[0]) == "Timestamp('1970-01-01 00:00:00.000001')"
+
+        arr_ns = pa.array(data, type=ns)
+        assert len(arr_ns) == 1
+        assert arr_ns.type == ns
+        assert str(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
+
+        with pytest.raises(pa.ArrowException):
+            class CustomClass():
+                pass
+            pa.array([1, CustomClass()], type=ns)
+            pa.array([1, CustomClass()], type=pa.date32())
+            pa.array([1, CustomClass()], type=pa.date64())
+
     def test_mixed_nesting_levels(self):
         pa.array([1, 2, None])
         pa.array([[1], [2], None])
