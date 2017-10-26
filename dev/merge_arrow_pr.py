@@ -295,7 +295,7 @@ def _get_fix_version(asf_jira, merge_branches):
     fix_versions = fix_versions.replace(" ", "").split(",")
 
     def get_version_json(version_str):
-        return [x for x in versions if v.name == version_str][0].raw
+        return [x for x in versions if x.name == version_str][0].raw
 
     return [get_version_json(v) for v in fix_versions]
 
