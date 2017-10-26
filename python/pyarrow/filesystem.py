@@ -137,7 +137,8 @@ class FileSystem(object):
 
     def _isfilestore(self):
         """
-        Returns True if this FileSystem is a unix-style file store with directories.
+        Returns True if this FileSystem is a unix-style file store with
+        directories.
         """
         raise NotImplementedError
 
@@ -260,7 +261,8 @@ class DaskFileSystem(FileSystem):
     @implements(FileSystem._isfilestore)
     def _isfilestore(self):
         """
-        Object Stores like S3 and GCSFS are based on key lookups, not true file-paths
+        Object Stores like S3 and GCSFS are based on key lookups, not true
+        file-paths
         """
         return False
 
