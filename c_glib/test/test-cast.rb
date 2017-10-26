@@ -42,4 +42,27 @@ class TestCast < Test::Unit::TestCase
                                                  options))
     end
   end
+
+  sub_test_case("allow-time-truncate") do
+    def test_default
+      require_gi(1, 42, 0)
+      after_epoch = 1504953190854 # 2017-09-09T10:33:10.854Z
+      second_timestamp = Arrow::TimestampDataType.new(:second)
+      assert_raise(Arrow::Error::Invalid) do
+        build_timestamp_array(:milli, [after_epoch]).cast(second_timestamp)
+      end
+    end
+
+    def test_true
+      options = Arrow::CastOptions.new
+      options.allow_time_truncate = true
+      after_epoch_in_milli = 1504953190854 # 2017-09-09T10:33:10.854Z
+      second_array = build_timestamp_array(:second,
+                                           [after_epoch_in_milli / 1000])
+      milli_array  = build_timestamp_array(:milli, [after_epoch_in_milli])
+      second_timestamp = Arrow::TimestampDataType.new(:second)
+      assert_equal(second_array,
+                   milli_array.cast(second_timestamp, options))
+    end
+  end
 end
