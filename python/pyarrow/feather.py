@@ -23,7 +23,7 @@ import pandas as pd
 
 from pyarrow.compat import pdapi
 from pyarrow.lib import FeatherError  # noqa
-from pyarrow.lib import Table
+from pyarrow.lib import RecordBatch, Table
 import pyarrow.lib as ext
 
 try:
@@ -75,30 +75,12 @@ class FeatherWriter(object):
         if not df.columns.is_unique:
             raise ValueError("cannot serialize duplicate column names")
 
-        # TODO(wesm): pipeline conversion to Arrow memory layout
-        for i, name in enumerate(df.columns):
-            col = df.iloc[:, i]
-
-            if pdapi.is_object_dtype(col):
-                inferred_type = infer_dtype(col)
-                msg = ("cannot serialize column {n} "
-                       "named {name} with dtype {dtype}".format(
-                           n=i, name=name, dtype=inferred_type))
-
-                if inferred_type in ['mixed']:
-
-                    # allow columns with nulls + an inferable type
-                    inferred_type = infer_dtype(col[col.notnull()])
-                    if inferred_type in ['mixed']:
-                        raise ValueError(msg)
-
-                elif inferred_type not in ['unicode', 'string']:
-                    raise ValueError(msg)
-
-            if not isinstance(name, six.string_types):
-                name = str(name)
-
-            self.writer.write_array(name, col)
+        # TODO(wesm): Remove this length check, see ARROW-1732
+        if len(df.columns) > 0:
+            batch = RecordBatch.from_pandas(df, preserve_index=False)
+            for i, name in enumerate(batch.schema.names):
+                col = batch[i]
+                self.writer.write_array(name, col)
 
         self.writer.close()
 

@@ -279,11 +279,14 @@ class TestFeatherReader(unittest.TestCase):
         if sys.platform == 'win32':
             pytest.skip('Windows hangs on to file handle for some reason')
 
+        class CustomClass(object):
+            pass
+
         # strings will fail
         df = pd.DataFrame(
             {
                 'numbers': range(5),
-                'strings': [b'foo', None, u'bar', 'qux', np.nan]},
+                'strings': [b'foo', None, u'bar', CustomClass(), np.nan]},
             columns=['numbers', 'strings'])
 
         path = random_path()
@@ -297,10 +300,13 @@ class TestFeatherReader(unittest.TestCase):
     def test_strings(self):
         repeats = 1000
 
-        # we hvae mixed bytes, unicode, strings
+        # Mixed bytes, unicode, strings coerced to binary
         values = [b'foo', None, u'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
-        self._assert_error_on_write(df, ValueError)
+
+        ex_values = [b'foo', None, b'bar', b'qux', np.nan]
+        expected = pd.DataFrame({'strings': ex_values * repeats})
+        self._check_pandas_roundtrip(df, expected, null_counts=[2 * repeats])
 
         # embedded nulls are ok
         values = ['foo', None, 'bar', 'qux', None]
