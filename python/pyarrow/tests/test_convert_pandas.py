@@ -19,7 +19,6 @@
 from collections import OrderedDict
 
 from datetime import date, time
-import unittest
 import decimal
 import json
 
@@ -61,7 +60,7 @@ def _alltypes_example(size=100):
     })
 
 
-class TestPandasConversion(unittest.TestCase):
+class TestPandasConversion(object):
 
     def setUp(self):
         pass
@@ -420,7 +419,7 @@ class TestPandasConversion(unittest.TestCase):
         values = [b'foo', None, b'ba', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = pa.schema([pa.field('strings', pa.binary(3))])
-        with self.assertRaises(pa.ArrowInvalid):
+        with pytest.raises(pa.ArrowInvalid):
             pa.Table.from_pandas(df, schema=schema)
 
     def test_timestamps_notimezone_no_nulls(self):
@@ -697,11 +696,11 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.Table.from_pandas(data)
 
         data = pd.DataFrame({'a': [1, True]})
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.Table.from_pandas(data)
 
     def test_strided_data_import(self):
@@ -1095,6 +1094,45 @@ class TestPandasConversion(unittest.TestCase):
         result = table.to_pandas(strings_to_categorical=True)
         expected = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result, expected, check_dtype=True)
+
+    def test_array_from_pandas_date_with_mask(self):
+        m = np.array([True, False, True])
+        data = pd.Series([
+            date(1990, 1, 1),
+            date(1991, 1, 1),
+            date(1992, 1, 1)
+        ])
+
+        result = pa.Array.from_pandas(data, mask=m)
+
+        expected = pd.Series([None, date(1991, 1, 1), None])
+        assert pa.Array.from_pandas(expected).equals(result)
+
+    @pytest.mark.parametrize('t,data,expected', [
+        (
+            pa.int64,
+            [[1, 2], [3], None],
+            [None, [3], None]
+        ),
+        (
+            pa.string,
+            [[u'aaa', u'bb'], [u'c'], None],
+            [None, [u'c'], None]
+        ),
+        (
+            pa.null,
+            [[None, None], [None], None],
+            [None, [None], None]
+        )
+    ])
+    def test_array_from_pandas_typed_array_with_mask(self, t, data, expected):
+        m = np.array([True, False, True])
+
+        s = pd.Series(data)
+        result = pa.Array.from_pandas(s, mask=m, type=pa.list_(t()))
+
+        assert pa.Array.from_pandas(expected,
+                                    type=pa.list_(t())).equals(result)
 
 
 def _pytime_from_micros(val):
