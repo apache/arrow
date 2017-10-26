@@ -257,7 +257,7 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
-    jira_fix_versions = _get_fix_version(jira, merge_branches)
+    jira_fix_versions = _get_fix_version(asf_jira, merge_branches)
 
     resolve = [x for x in asf_jira.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
@@ -267,8 +267,8 @@ def resolve_jira(title, merge_branches, comment):
     print("Successfully resolved %s!" % (jira_id))
 
 
-def _get_fix_version(jira, merge_branches):
-    versions = jira.project_versions("ARROW")
+def _get_fix_version(asf_jira, merge_branches):
+    versions = asf_jira.project_versions("ARROW")
     versions = sorted(versions, key=lambda x: x.name, reverse=True)
     versions = [x for x in versions if not x.raw['released']]
 
