@@ -290,6 +290,32 @@ def test_cast_integers_unsafe():
         _check_cast_case(case, safe=False)
 
 
+def test_cast_timestamp_unit():
+    # ARROW-1680
+    val = datetime.datetime.now()
+    s = pd.Series([val])
+    s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
+
+    us_with_tz = pa.timestamp('us', tz='America/New_York')
+    arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
+
+    arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
+
+    assert arr[0].as_py() == s_nyc[0]
+    assert arr2[0].as_py() == s[0]
+
+    # Disallow truncation
+    arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
+    expected = pa.array([123], type='int64').cast(pa.timestamp('s'))
+
+    target = pa.timestamp('s')
+    with pytest.raises(ValueError):
+        arr.cast(target)
+
+    result = arr.cast(target, safe=False)
+    assert result.equals(expected)
+
+
 def test_cast_signed_to_unsigned():
     safe_cases = [
         (np.array([0, 1, 2, 3], dtype='i1'), pa.uint8(),

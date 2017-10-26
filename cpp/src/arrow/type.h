@@ -228,7 +228,11 @@ class ARROW_EXPORT FloatingPoint : public Number {
   virtual Precision precision() const = 0;
 };
 
-class ARROW_EXPORT NestedType : public DataType {
+/// \class ParametricType
+/// \brief A superclass for types having additional metadata
+class ParametricType {};
+
+class ARROW_EXPORT NestedType : public DataType, public ParametricType {
  public:
   using DataType::DataType;
 };
@@ -444,7 +448,7 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
 };
 
 // BinaryType type is represents lists of 1-byte values.
-class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType {
+class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
 
@@ -611,7 +615,7 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
   return os;
 }
 
-class ARROW_EXPORT TimeType : public FixedWidthType {
+class ARROW_EXPORT TimeType : public FixedWidthType, public ParametricType {
  public:
   TimeUnit::type unit() const { return unit_; }
 
@@ -650,7 +654,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
   std::string name() const override { return "time64"; }
 };
 
-class ARROW_EXPORT TimestampType : public FixedWidthType {
+class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType {
  public:
   using Unit = TimeUnit;
 

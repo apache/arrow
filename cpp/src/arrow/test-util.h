@@ -281,15 +281,20 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
   return builder->Finish(out);
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual) {
-  if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
+#define ASSERT_ARRAYS_EQUAL(LEFT, RIGHT)                                               \
+  do {                                                                                 \
+    if (!(LEFT).Equals((RIGHT))) {                                                     \
+      std::stringstream pp_result;                                                     \
+      std::stringstream pp_expected;                                                   \
+                                                                                       \
+      EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                                    \
+      EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                                   \
+      FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
+    }                                                                                  \
+  } while (false)
 
-    EXPECT_OK(PrettyPrint(actual, 0, &pp_result));
-    EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str();
-  }
+void AssertArraysEqual(const Array& expected, const Array& actual) {
+  ASSERT_ARRAYS_EQUAL(expected, actual);
 }
 
 #define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
