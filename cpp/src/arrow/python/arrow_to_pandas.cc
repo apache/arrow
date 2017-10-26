@@ -958,13 +958,13 @@ class CategoricalBlock : public PandasBlock {
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
 
-
     const ChunkedArray& data = *col->data().get();
 
     // Sniff the first chunk
     const std::shared_ptr<Array> arr_first = data.chunk(0);
     const auto& dict_arr_first = static_cast<const DictionaryArray&>(*arr_first);
-    const auto& indices_first = static_cast<const PrimitiveArray&>(*dict_arr_first.indices());
+    const auto& indices_first =
+        static_cast<const PrimitiveArray&>(*dict_arr_first.indices());
 
     if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
@@ -973,8 +973,7 @@ class CategoricalBlock : public PandasBlock {
       ss << "Needed to copy " << data.num_chunks() << " chunks with "
          << indices_first.null_count() << " indices nulls, but zero_copy_only was True";
       return Status::Invalid(ss.str());
-    }
-    else {
+    } else {
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
       // No relative placement offset because a single column
@@ -1075,9 +1074,8 @@ class CategoricalBlock : public PandasBlock {
       return Status::OK();
     }
 
-    PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims, nullptr, data,
-                                               NPY_ARRAY_CARRAY,
-                                               nullptr);
+    PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims,
+                                               nullptr, data, NPY_ARRAY_CARRAY, nullptr);
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
