@@ -71,11 +71,11 @@ class TestPandasConversion(object):
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 expected_schema=None,
                                 check_dtype=True, schema=None,
-                                check_index=False,
+                                preserve_index=False,
                                 as_batch=False):
         klass = pa.RecordBatch if as_batch else pa.Table
         table = klass.from_pandas(df, schema=schema,
-                                  preserve_index=check_index,
+                                  preserve_index=preserve_index,
                                   nthreads=nthreads)
 
         result = table.to_pandas(nthreads=nthreads)
@@ -83,7 +83,9 @@ class TestPandasConversion(object):
             assert table.schema.equals(expected_schema)
         if expected is None:
             expected = df
-        tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
+        tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                              check_index_type=('equiv' if preserve_index
+                                                else False))
 
     def _check_series_roundtrip(self, s, type_=None):
         arr = pa.array(s, from_pandas=True, type=type_)
@@ -131,14 +133,14 @@ class TestPandasConversion(object):
     def test_column_index_names_are_preserved(self):
         df = pd.DataFrame({'data': [1, 2, 3]})
         df.columns.names = ['a']
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
         ])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_with_dtypes(self):
         columns = pd.MultiIndex.from_arrays(
@@ -149,11 +151,11 @@ class TestPandasConversion(object):
             names=['level_1', 'level_2'],
         )
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_categorical_column_index(self):
         # I *really* hope no one uses category dtypes for single level column
@@ -1094,6 +1096,15 @@ class TestPandasConversion(object):
         result = table.to_pandas(strings_to_categorical=True)
         expected = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result, expected, check_dtype=True)
+
+    def test_table_batch_empty_dataframe(self):
+        df = pd.DataFrame({})
+        self._check_pandas_roundtrip(df)
+        self._check_pandas_roundtrip(df, as_batch=True)
+
+        df2 = pd.DataFrame({}, index=[0, 1, 2])
+        self._check_pandas_roundtrip(df2, preserve_index=True)
+        self._check_pandas_roundtrip(df2, as_batch=True, preserve_index=True)
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
