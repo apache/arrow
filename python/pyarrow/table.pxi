@@ -308,8 +308,8 @@ cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
             make_shared[CKeyValueMetadata](unordered_metadata))
 
 
-cdef int _schema_from_arrays(
-        arrays, names, dict metadata, shared_ptr[CSchema]* schema) except -1:
+cdef _schema_from_arrays(arrays, names, dict metadata,
+                         shared_ptr[CSchema]* schema):
     cdef:
         Column col
         c_string c_name
@@ -317,10 +317,11 @@ cdef int _schema_from_arrays(
         shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
 
-    fields.resize(K)
+    if K == 0:
+        schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+        return
 
-    if not K:
-        raise ValueError('Must pass at least one array')
+    fields.resize(K)
 
     if isinstance(arrays[0], Column):
         for i in range(K):
@@ -346,7 +347,6 @@ cdef int _schema_from_arrays(
             fields[i].reset(new CField(c_name, type_, True))
 
     schema.reset(new CSchema(fields, unbox_metadata(metadata)))
-    return 0
 
 
 cdef class RecordBatch:
@@ -613,10 +613,10 @@ cdef class RecordBatch:
             int64_t i
             int64_t number_of_arrays = len(arrays)
 
-        if not number_of_arrays:
-            raise ValueError('Record batch cannot contain no arrays (for now)')
-
-        num_rows = len(arrays[0])
+        if len(arrays) > 0:
+            num_rows = len(arrays[0])
+        else:
+            num_rows = 0
         _schema_from_arrays(arrays, names, metadata, &schema)
 
         c_arrays.reserve(len(arrays))
