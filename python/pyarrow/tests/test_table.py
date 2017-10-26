@@ -82,6 +82,14 @@ def test_recordbatch_basics():
         batch[2]
 
 
+def test_recordbatch_no_fields():
+    batch = pa.RecordBatch.from_arrays([], [])
+
+    assert len(batch) == 0
+    assert batch.num_rows == 0
+    assert batch.num_columns == 0
+
+
 def test_recordbatch_from_arrays_invalid_names():
     data = [
         pa.array(range(5)),
