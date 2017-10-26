@@ -622,8 +622,12 @@ Status NumPyConverter::ConvertDates() {
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
 
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   BuilderType builder(pool_);
@@ -636,10 +640,10 @@ Status NumPyConverter::ConvertDates() {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if (PyDate_CheckExact(obj)) {
-      RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
-    } else if (PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyDate_CheckExact(obj)) {
+      RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
     } else {
       std::stringstream ss;
       ss << "Error converting from Python objects to Date: ";
@@ -1029,6 +1033,41 @@ Status LoopPySequence(PyObject* sequence, T func) {
   return Status::OK();
 }
 
+template <typename T>
+Status LoopPySequenceWithMasks(PyObject* sequence,
+                               const Ndarray1DIndexer<uint8_t>& mask_values,
+                               bool have_mask, T func) {
+  if (PySequence_Check(sequence)) {
+    OwnedRef ref;
+    Py_ssize_t size = PySequence_Size(sequence);
+    if (PyArray_Check(sequence)) {
+      auto array = reinterpret_cast<PyArrayObject*>(sequence);
+      Ndarray1DIndexer<PyObject*> objects(array);
+      for (int64_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(func(objects[i], have_mask && mask_values[i]));
+      }
+    } else {
+      for (int64_t i = 0; i < size; ++i) {
+        ref.reset(PySequence_GetItem(sequence, i));
+        RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
+      }
+    }
+  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
+    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    PyObject* item;
+    int64_t i = 0;
+    while ((item = PyIter_Next(iter.obj()))) {
+      OwnedRef ref = OwnedRef(item);
+      RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
+      i++;
+    }
+  } else {
+    return Status::TypeError("Object is not a sequence or iterable");
+  }
+
+  return Status::OK();
+}
+
 template <int ITEM_TYPE, typename ArrowType>
 inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
                                                 ListBuilder* builder, PyObject* list) {
@@ -1037,15 +1076,18 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
 
   PyAcquireGIL lock;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1071,7 +1113,7 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 template <>
@@ -1079,15 +1121,18 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1112,7 +1157,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 template <>
@@ -1122,15 +1167,18 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1162,7 +1210,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 #define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
