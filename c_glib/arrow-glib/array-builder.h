@@ -25,11 +25,15 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_ARRAY_BUILDER (garrow_array_builder_get_type())
-GARROW_DECLARE_TYPE(GArrowArrayBuilder,
-                    garrow_array_builder,
-                    GARROW,
-                    ARRAY_BUILDER,
-                    GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowArrayBuilder,
+                         garrow_array_builder,
+                         GARROW,
+                         ARRAY_BUILDER,
+                         GObject)
+struct _GArrowArrayBuilderClass
+{
+  GObjectClass parent_class;
+};
 
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
@@ -156,11 +160,15 @@ gboolean garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
 
 
 #define GARROW_TYPE_UINT_ARRAY_BUILDER (garrow_uint_array_builder_get_type())
-GARROW_DECLARE_TYPE(GArrowUIntArrayBuilder,
-                    garrow_uint_array_builder,
-                    GARROW,
-                    UINT_ARRAY_BUILDER,
-                    GArrowArrayBuilder)
+G_DECLARE_DERIVABLE_TYPE(GArrowUIntArrayBuilder,
+                         garrow_uint_array_builder,
+                         GARROW,
+                         UINT_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowUIntArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
 
 GArrowUIntArrayBuilder *garrow_uint_array_builder_new(void);
 
