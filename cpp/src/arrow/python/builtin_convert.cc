@@ -536,8 +536,7 @@ class DateConverter : public TypedConverterVisitor<Date64Builder, DateConverter>
 class TimestampConverter
     : public TypedConverterVisitor<Date64Builder, TimestampConverter> {
  public:
-  TimestampConverter(TimeUnit::type unit)
-      : unit_(unit) {}
+  TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
 
   inline Status AppendItem(const OwnedRef& item) {
     int64_t t;
@@ -563,6 +562,7 @@ class TimestampConverter
     }
     return typed_builder_->Append(t);
   }
+
  private:
   TimeUnit::type unit_;
 };
@@ -718,7 +718,8 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
     case Type::DATE64:
       return std::make_shared<DateConverter>();
     case Type::TIMESTAMP:
-      return std::make_shared<TimestampConverter>(static_cast<TimestampType*>(&*type)->unit());
+      return std::make_shared<TimestampConverter>(
+          static_cast<TimestampType*>(&*type)->unit());
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:
