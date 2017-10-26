@@ -373,7 +373,8 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self, c_bool strings_to_categorical=False, zero_copy_only=False):
+    def to_pandas(self, c_bool strings_to_categorical=False,
+                  zero_copy_only=False):
         """
         Convert to an array object suitable for use in pandas
 
