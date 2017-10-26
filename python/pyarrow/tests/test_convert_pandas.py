@@ -225,10 +225,8 @@ class TestPandasConversion(object):
         result = arr.to_pandas(zero_copy_only=True)
         values = pd.Categorical(['A', 'A'])
 
-        tm.assert_series_equal(
-            pd.Series(result),
-            pd.Series(values),
-           check_names=False)
+        tm.assert_series_equal(pd.Series(result), pd.Series(values),
+                               check_names=False)
 
     def test_zero_copy_failure_on_object_types(self):
         with pytest.raises(pa.ArrowException):
@@ -257,14 +255,6 @@ class TestPandasConversion(object):
 
         with pytest.raises(pa.ArrowException):
             pa.array(arr).to_pandas(zero_copy_only=True)
-
-    def test_zero_copy_dictionaries(self):
-        arr = pa.DictionaryArray.from_arrays(
-            np.array([0, 0]),
-            np.array(['A']))
-
-        with pytest.raises(pa.ArrowException):
-            arr.to_pandas(zero_copy_only=True)
 
     def test_float_nulls(self):
         num_values = 100
