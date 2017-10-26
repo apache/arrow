@@ -528,6 +528,7 @@ class DateConverter : public TypedConverterVisitor<Date64Builder, DateConverter>
       t = PyDate_to_ms(pydate);
     } else {
       t = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
     }
     return typed_builder_->Append(t);
   }
@@ -536,7 +537,7 @@ class DateConverter : public TypedConverterVisitor<Date64Builder, DateConverter>
 class TimestampConverter
     : public TypedConverterVisitor<Date64Builder, TimestampConverter> {
  public:
-  TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
+  explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
 
   inline Status AppendItem(const OwnedRef& item) {
     int64_t t;
@@ -559,6 +560,7 @@ class TimestampConverter
       }
     } else {
       t = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
     }
     return typed_builder_->Append(t);
   }
@@ -719,7 +721,7 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<DateConverter>();
     case Type::TIMESTAMP:
       return std::make_shared<TimestampConverter>(
-          static_cast<TimestampType*>(&*type)->unit());
+          static_cast<const TimestampType&>(*type).unit());
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:
