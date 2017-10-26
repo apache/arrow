@@ -217,6 +217,19 @@ class TestPandasConversion(object):
         result = pa.array([0, 1, 2]).to_pandas(zero_copy_only=True)
         npt.assert_array_equal(result, [0, 1, 2])
 
+    def test_zero_copy_dictionaries(self):
+        arr = pa.DictionaryArray.from_arrays(
+            np.array([0, 0]),
+            np.array(['A']))
+
+        result = arr.to_pandas(zero_copy_only=True)
+        values = pd.Categorical(['A', 'A'])
+
+        tm.assert_series_equal(
+            pd.Series(result),
+            pd.Series(values),
+           check_names=False)
+
     def test_zero_copy_failure_on_object_types(self):
         with pytest.raises(pa.ArrowException):
             pa.array(['A', 'B', 'C']).to_pandas(zero_copy_only=True)
