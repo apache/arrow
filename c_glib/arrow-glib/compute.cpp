@@ -40,7 +40,8 @@ typedef struct GArrowCastOptionsPrivate_ {
 
 enum {
   PROP_0,
-  PROP_ALLOW_INT_OVERFLOW
+  PROP_ALLOW_INT_OVERFLOW,
+  PROP_ALLOW_TIME_TRUNCATE
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCastOptions,
@@ -64,6 +65,9 @@ garrow_cast_options_set_property(GObject *object,
   case PROP_ALLOW_INT_OVERFLOW:
     priv->options.allow_int_overflow = g_value_get_boolean(value);
     break;
+  case PROP_ALLOW_TIME_TRUNCATE:
+    priv->options.allow_time_truncate = g_value_get_boolean(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -81,6 +85,9 @@ garrow_cast_options_get_property(GObject *object,
   switch (prop_id) {
   case PROP_ALLOW_INT_OVERFLOW:
     g_value_set_boolean(value, priv->options.allow_int_overflow);
+    break;
+  case PROP_ALLOW_TIME_TRUNCATE:
+    g_value_set_boolean(value, priv->options.allow_time_truncate);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -103,12 +110,33 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
   gobject_class->set_property = garrow_cast_options_set_property;
   gobject_class->get_property = garrow_cast_options_get_property;
 
-  spec = g_param_spec_boolean("allow_int_overflow",
+  /**
+   * GArrowCastOptions:allow-int-overflow:
+   *
+   * Whether integer overflow is allowed or not.
+   *
+   * Since: 0.7.0
+   */
+  spec = g_param_spec_boolean("allow-int-overflow",
                               "Allow int overflow",
                               "Whether integer overflow is allowed or not",
                               FALSE,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_ALLOW_INT_OVERFLOW, spec);
+
+  /**
+   * GArrowCastOptions:allow-time-truncate:
+   *
+   * Whether truncating time value is allowed or not.
+   *
+   * Since: 0.8.0
+   */
+  spec = g_param_spec_boolean("allow-time-truncate",
+                              "Allow time truncate",
+                              "Whether truncating time value is allowed or not",
+                              FALSE,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_TIME_TRUNCATE, spec);
 }
 
 /**
