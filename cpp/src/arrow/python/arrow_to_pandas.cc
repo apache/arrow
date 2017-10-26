@@ -968,6 +968,11 @@ class CategoricalBlock : public PandasBlock {
 
     if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
+    } else if (options_.zero_copy_only) {
+      std::stringstream ss;
+      ss << "Needed to copy " << data.num_chunks() << " chunks with "
+         << indices_first.null_count() << " indices nulls, but zero_copy_only was True";
+      return Status::Invalid(ss.str());
     }
     else {
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
