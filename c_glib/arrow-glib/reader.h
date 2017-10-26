@@ -31,11 +31,15 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_RECORD_BATCH_READER (garrow_record_batch_reader_get_type())
-GARROW_DECLARE_TYPE(GArrowRecordBatchReader,
-                    garrow_record_batch_reader,
-                    GARROW,
-                    RECORD_BATCH_READER,
-                    GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchReader,
+                         garrow_record_batch_reader,
+                         GARROW,
+                         RECORD_BATCH_READER,
+                         GObject)
+struct _GArrowRecordBatchReaderClass
+{
+  GObjectClass parent_class;
+};
 
 GArrowSchema *garrow_record_batch_reader_get_schema(
   GArrowRecordBatchReader *reader);
@@ -57,11 +61,15 @@ GArrowRecordBatch *garrow_record_batch_reader_read_next(
 
 
 #define GARROW_TYPE_TABLE_BATCH_READER (garrow_table_batch_reader_get_type())
-GARROW_DECLARE_TYPE(GArrowTableBatchReader,
-                    garrow_table_batch_reader,
-                    GARROW,
-                    TABLE_BATCH_READER,
-                    GArrowRecordBatchReader)
+G_DECLARE_DERIVABLE_TYPE(GArrowTableBatchReader,
+                         garrow_table_batch_reader,
+                         GARROW,
+                         TABLE_BATCH_READER,
+                         GArrowRecordBatchReader)
+struct _GArrowTableBatchReaderClass
+{
+  GArrowRecordBatchReaderClass parent_class;
+};
 
 GArrowTableBatchReader *garrow_table_batch_reader_new(GArrowTable *table);
 
