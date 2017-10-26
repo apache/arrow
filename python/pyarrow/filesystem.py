@@ -135,7 +135,7 @@ class FileSystem(object):
         """
         raise NotImplementedError
 
-    def isfilestore(self):
+    def _isfilestore(self):
         """
         Returns True if this FileSystem is a unix-style file store with directories.
         """
@@ -215,8 +215,8 @@ class LocalFileSystem(FileSystem):
     def isfile(self, path):
         return os.path.isfile(path)
 
-    @implements(FileSystem.isfilestore)
-    def isfilestore(self):
+    @implements(FileSystem._isfilestore)
+    def _isfilestore(self):
         return True
 
     @implements(FileSystem.exists)
@@ -257,8 +257,8 @@ class DaskFileSystem(FileSystem):
     def isfile(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(FileSystem.isfilestore)
-    def isfilestore(self):
+    @implements(FileSystem._isfilestore)
+    def _isfilestore(self):
         """
         Object Stores like S3 and GCSFS are based on key lookups, not true file-paths
         """
