@@ -21,38 +21,18 @@
 
 #include <glib-object.h>
 
-#ifdef G_DECLARE_DERIVABLE_TYPE
-#  define GARROW_DECLARE_TYPE(ObjectName,       \
-                              object_name,      \
-                              MODULE_NAME,      \
-                              OBJECT_NAME,      \
-                              ParentName)       \
-  G_DECLARE_DERIVABLE_TYPE(ObjectName,          \
-                           object_name,         \
-                           MODULE_NAME,         \
-                           OBJECT_NAME,         \
-                           ParentName)          \
-  struct _ ## ObjectName ## Class               \
-  {                                             \
-    ParentName ## Class parent_class;           \
-  };
-#else
-#  define GARROW_DECLARE_TYPE(ObjectName,                               \
-                              object_name,                              \
-                              MODULE_NAME,                              \
-                              OBJECT_NAME,                              \
-                              ParentName)                               \
+#ifndef G_DECLARE_DERIVABLE_TYPE
+#  define G_DECLARE_DERIVABLE_TYPE(ObjectName,                          \
+                                   object_name,                         \
+                                   MODULE_NAME,                         \
+                                   OBJECT_NAME,                         \
+                                   ParentName)                          \
   typedef struct _ ## ObjectName ObjectName;                            \
   typedef struct _ ## ObjectName ## Class ObjectName ## Class;          \
                                                                         \
   struct _ ## ObjectName                                                \
   {                                                                     \
     ParentName parent_instance;                                         \
-  };                                                                    \
-                                                                        \
-  struct _ ## ObjectName ## Class                                       \
-  {                                                                     \
-    ParentName ## Class parent_class;                                   \
   };                                                                    \
                                                                         \
   GType object_name ## _get_type(void) G_GNUC_CONST;                    \
