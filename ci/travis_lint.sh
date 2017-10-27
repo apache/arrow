@@ -26,6 +26,10 @@ pushd $TRAVIS_BUILD_DIR/cpp/lint
 cmake ..
 make lint
 
+if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
+  make check-format
+fi
+
 popd
 
 # Fail fast on style checks
