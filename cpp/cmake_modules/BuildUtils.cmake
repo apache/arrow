@@ -98,21 +98,28 @@ function(ADD_ARROW_LIB LIB_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  add_library(${LIB_NAME}_objlib OBJECT
-    ${ARG_SOURCES}
-  )
-
-  if (ARG_DEPENDENCIES)
-    add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
+  if(MSVC)
+    set(LIB_DEPS ${ARG_SOURCES})
+    set(EXTRA_DEPS ${ARG_DEPENDENCIES})
+  else()
+    add_library(${LIB_NAME}_objlib OBJECT
+      ${ARG_SOURCES})
+    # Necessary to make static linking into other shared libraries work properly
+    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+    if (ARG_DEPENDENCIES)
+      add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
+    endif()
+    set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+    set(EXTRA_DEPS)
   endif()
-
-  # Necessary to make static linking into other shared libraries work properly
-  set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
 
   set(RUNTIME_INSTALL_DIR bin)
 
   if (ARROW_BUILD_SHARED)
-    add_library(${LIB_NAME}_shared SHARED $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+    add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
+    if (EXTRA_DEPS)
+      add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
 
     if(APPLE)
       # On OS X, you can avoid linking at library load time and instead
@@ -154,22 +161,28 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   if (ARROW_BUILD_STATIC)
-      if (MSVC)
-        set(LIB_NAME_STATIC ${LIB_NAME}_static)
-      else()
-        set(LIB_NAME_STATIC ${LIB_NAME})
-      endif()
-      add_library(${LIB_NAME}_static STATIC $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
+    add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
+    if(EXTRA_DEPS)
+      add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if (MSVC)
+      set(LIB_NAME_STATIC ${LIB_NAME}_static)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+    else()
+      set(LIB_NAME_STATIC ${LIB_NAME})
+    endif()
+
     set_target_properties(${LIB_NAME}_static
       PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}"
       OUTPUT_NAME ${LIB_NAME_STATIC})
 
-  target_link_libraries(${LIB_NAME}_static
+    target_link_libraries(${LIB_NAME}_static
       LINK_PUBLIC ${ARG_STATIC_LINK_LIBS}
       LINK_PRIVATE ${ARG_STATIC_PRIVATE_LINK_LIBS})
 
-  install(TARGETS ${LIB_NAME}_static
+    install(TARGETS ${LIB_NAME}_static
       RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
