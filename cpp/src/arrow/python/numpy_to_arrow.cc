@@ -576,8 +576,12 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     RETURN_NOT_OK(date32_buffer->Resize(sizeof(int32_t) * length_));
 
     auto datetime64_values = reinterpret_cast<const int64_t*>((*data)->data());
-    std::copy(datetime64_values, datetime64_values + length_,
-              reinterpret_cast<int32_t*>(date32_buffer->mutable_data()));
+    auto date32_values = reinterpret_cast<int32_t*>(date32_buffer->mutable_data());
+    for (int64_t i = 0; i < length_; ++i) {
+      // TODO(wesm): How pedantic do we really want to be about checking for int32
+      // overflow here?
+      *date32_values++ = static_cast<int32_t>(*datetime64_values++);
+    }
     *data = date32_buffer;
   } else {
     std::shared_ptr<DataType> input_type;
