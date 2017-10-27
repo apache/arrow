@@ -75,9 +75,12 @@ in a `RecordBatch` it should be defined in a `DictionaryBatch`.
 <SCHEMA>
 <DICTIONARY 0>
 ...
+<DICTIONARY k - 1>
 <RECORD BATCH 0>
 ...
-<DICTIONARY k - 1>
+<DICTIONARY x DELTA>
+...
+<DICTIONARY y DELTA>
 ...
 <RECORD BATCH n - 1>
 <EOS [optional]: int32>
@@ -197,9 +200,37 @@ in the schema, so that dictionaries can even be used for multiple fields. See
 the [Physical Layout][4] document for more about the semantics of
 dictionary-encoded data.
 
-The dictionary `isDelta` flag allows dictionary batches to be modified mid-stream.
-A dictionary batch with `isDelta` set indicates that its vector should be
-concatenated with those of any previous batches with the same `id`.
+The dictionary `isDelta` flag allows dictionary batches to be modified
+mid-stream.  A dictionary batch with `isDelta` set indicates that its vector
+should be concatenated with those of any previous batches with the same `id`. A
+stream which encodes one column, the list of strings
+`["A", "B", "C", "B", "D", "C", "E", "A"]`, with a delta dictionary batch could
+take the form:
+
+```
+<SCHEMA>
+<DICTIONARY 0>
+(0) "A"
+(1) "B"
+(2) "C"
+
+<RECORD BATCH 0>
+0
+1
+2
+1
+
+<DICTIONARY 0 DELTA>
+(3) "D"
+(4) "E"
+
+<RECORD BATCH 1>
+3
+2
+4
+0
+EOS
+```
 
 ### Tensor (Multi-dimensional Array) Message Format
 
