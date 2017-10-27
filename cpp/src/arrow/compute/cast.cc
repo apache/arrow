@@ -366,14 +366,13 @@ template <>
 struct CastFunctor<Date32Type, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
-    // If units are the same, zero copy, otherwise convert
     const auto& in_type = static_cast<const TimestampType&>(*input.type());
 
     static const int64_t kTimestampToDateFactors[4] = {
-        86400L,                          // SECOND
-        86400L * 1000L,                  // MILLI
-        86400L * 1000L * 1000L,          // MICRO
-        86400L * 1000L * 1000L * 1000L,  // NANO
+        86400LL,                             // SECOND
+        86400LL * 1000LL,                    // MILLI
+        86400LL * 1000LL * 1000LL,           // MICRO
+        86400LL * 1000LL * 1000LL * 1000LL,  // NANO
     };
 
     const int64_t factor = kTimestampToDateFactors[static_cast<int>(in_type.unit())];
@@ -385,7 +384,6 @@ template <>
 struct CastFunctor<Date64Type, TimestampType> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
                   ArrayData* output) {
-    // If units are the same, zero copy, otherwise convert
     const auto& in_type = static_cast<const TimestampType&>(*input.type());
 
     std::pair<bool, int64_t> conversion =
