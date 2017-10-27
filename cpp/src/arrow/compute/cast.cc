@@ -295,9 +295,8 @@ struct CastFunctor<O, I,
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
-void ShiftTime(FunctionContext* ctx, const CastOptions& options,
-               const bool is_multiply, const int64_t factor, const Array& input,
-               ArrayData* output) {
+void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
+               const int64_t factor, const Array& input, ArrayData* output) {
   const in_type* in_data = GetValues<in_type>(*input.data(), 1);
   auto out_data = GetMutableValues<out_type>(output, 1);
 
@@ -400,7 +399,8 @@ struct CastFunctor<Date64Type, TimestampType> {
     auto out_data = GetMutableValues<int64_t>(output, 1);
     for (int64_t i = 0; i < input.length(); ++i) {
       const int64_t remainder = out_data[i] % kMillisecondsInDay;
-      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && remainder > 0)) {
+      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && input.IsValid(i) &&
+                              remainder > 0)) {
         ctx->SetStatus(
             Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
         break;
