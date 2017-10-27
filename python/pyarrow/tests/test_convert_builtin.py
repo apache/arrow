@@ -178,14 +178,24 @@ class TestConvertSequence(unittest.TestCase):
         assert arr[2].as_py() == datetime.date(1970, 1, 1)
         assert arr[3].as_py() == datetime.date(2040, 2, 26)
 
-    def test_date32_from_datetime_date(self):
+    def test_date32(self):
         data = [datetime.date(2000, 1, 1), None]
         arr = pa.array(data, type=pa.date32())
-        assert len(arr) == 2
-        assert arr.type == pa.date32()
-        assert arr.null_count == 1
-        assert arr[0].as_py() == datetime.date(2000, 1, 1)
-        assert arr[1] is pa.NA
+
+        data2 = [10957, None]
+        arr2 = pa.array(data2, type=pa.date32())
+
+        for x in [arr, arr2]:
+            assert len(x) == 2
+            assert x.type == pa.date32()
+            assert x.null_count == 1
+            assert x[0].as_py() == datetime.date(2000, 1, 1)
+            assert x[1] is pa.NA
+
+        # Overflow
+        data3 = [2**32, None]
+        with pytest.raises(pa.ArrowException):
+            pa.array(data3, type=pa.date32())
 
     def test_timestamp(self):
         data = [
