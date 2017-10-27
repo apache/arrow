@@ -538,45 +538,6 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
 }
 
 template <>
-inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
-  // Handle LONGLONG->INT64 and other fun things
-  int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
-  int type_size = NumPyTypeSize(type_num_compat);
-
-  if (type_size == 4) {
-    // Source and target are INT32, so can refer to the main implementation.
-    return ConvertData<Int32Type>(data);
-  } else if (type_size == 8) {
-    // We need to scale down from int64 to int32
-    auto new_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(new_buffer->Resize(sizeof(int32_t) * length_));
-
-    auto input = reinterpret_cast<const int64_t*>(PyArray_DATA(arr_));
-    auto output = reinterpret_cast<int32_t*>(new_buffer->mutable_data());
-
-    if (is_strided()) {
-      // Strided, must copy into new contiguous memory
-      const int64_t stride = PyArray_STRIDES(arr_)[0];
-      const int64_t stride_elements = stride / sizeof(int64_t);
-      CopyStrided(input, length_, stride_elements, output);
-    } else {
-      // TODO(wesm): int32 overflow checks
-      for (int64_t i = 0; i < length_; ++i) {
-        *output++ = static_cast<int32_t>(*input++);
-      }
-    }
-    *data = new_buffer;
-  } else {
-    std::stringstream ss;
-    ss << "Cannot convert NumPy array of element size ";
-    ss << type_size << " to a Date32 array";
-    return Status::NotImplemented(ss.str());
-  }
-
-  return Status::OK();
-}
-
-template <>
 inline Status NumPyConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>* data) {
   int64_t nbytes = BitUtil::BytesForBits(length_);
   auto buffer = std::make_shared<PoolBuffer>(pool_);

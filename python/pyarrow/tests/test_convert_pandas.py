@@ -530,7 +530,7 @@ class TestPandasConversion(object):
 
         arr2 = pa.Array.from_pandas(s, type=pa.date32())
 
-        assert arr.equals(arr2)
+        assert arr2.equals(arr.cast('date32'))
 
     def test_date_infer(self):
         df = pd.DataFrame({
