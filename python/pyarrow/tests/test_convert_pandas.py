@@ -220,10 +220,10 @@ class TestPandasConversion(object):
     def test_zero_copy_dictionaries(self):
         arr = pa.DictionaryArray.from_arrays(
             np.array([0, 0]),
-            np.array(['A']))
+            np.array([5]))
 
         result = arr.to_pandas(zero_copy_only=True)
-        values = pd.Categorical(['A', 'A'])
+        values = pd.Categorical([5, 5])
 
         tm.assert_series_equal(pd.Series(result), pd.Series(values),
                                check_names=False)

@@ -109,6 +109,20 @@ static inline bool ListTypeSupported(const DataType& type) {
   }
   return false;
 }
+// ----------------------------------------------------------------------
+// PyCapsule code for setting ndarray base to reference C++ object
+
+struct ArrowCapsule {
+  std::shared_ptr<Array> array;
+};
+
+namespace {
+
+void ArrowCapsule_Destructor(PyObject* capsule) {
+  delete reinterpret_cast<ArrowCapsule*>(PyCapsule_GetPointer(capsule, "arrow"));
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // pandas 0.x DataFrame conversion internals
@@ -968,12 +982,13 @@ class CategoricalBlock : public PandasBlock {
 
     if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
-    } else if (options_.zero_copy_only) {
-      std::stringstream ss;
-      ss << "Needed to copy " << data.num_chunks() << " chunks with "
-         << indices_first.null_count() << " indices nulls, but zero_copy_only was True";
-      return Status::Invalid(ss.str());
     } else {
+      if (options_.zero_copy_only) {
+        std::stringstream ss;
+        ss << "Needed to copy " << data.num_chunks() << " chunks with "
+           << indices_first.null_count() << " indices nulls, but zero_copy_only was True";
+        return Status::Invalid(ss.str());
+      }
       RETURN_NOT_OK(AllocateNDArray(npy_type, 1));
 
       // No relative placement offset because a single column
@@ -1422,12 +1437,26 @@ class ArrowDeserializer {
       return Status::OK();
     }
 
-    if (PyArray_SetBaseObject(arr_, py_ref_) == -1) {
+    PyObject* base;
+    if (py_ref_ == nullptr) {
+      ArrowCapsule* capsule = new ArrowCapsule;
+      capsule->array = arr;
+      base = PyCapsule_New(reinterpret_cast<void*>(capsule), "arrow",
+                           &ArrowCapsule_Destructor);
+      if (base == nullptr) {
+        delete capsule;
+        RETURN_IF_PYERROR();
+      }
+    } else {
+      base = py_ref_;
+    }
+
+    if (PyArray_SetBaseObject(arr_, base) == -1) {
       // Error occurred, trust that SetBaseObject set the error state
       return Status::OK();
     } else {
-      // PyArray_SetBaseObject steals our reference to py_ref_
-      Py_INCREF(py_ref_);
+      // PyArray_SetBaseObject steals our reference to base
+      Py_INCREF(base);
     }
 
     // Arrow data is immutable.
@@ -1452,7 +1481,7 @@ class ArrowDeserializer {
     typedef typename traits::T T;
     int npy_type = traits::npy_type;
 
-    if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
+    if (data_.num_chunks() == 1 && data_.null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(options_, npy_type, data_.chunk(0));
     } else if (options_.zero_copy_only) {
       std::stringstream ss;
@@ -1515,7 +1544,7 @@ class ArrowDeserializer {
 
     typedef typename traits::T T;
 
-    if (data_.num_chunks() == 1 && data_.null_count() == 0 && py_ref_ != nullptr) {
+    if (data_.num_chunks() == 1 && data_.null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_.chunk(0));
     } else if (options_.zero_copy_only) {
       std::stringstream ss;
@@ -1619,10 +1648,6 @@ class ArrowDeserializer {
   }
 
   Status Visit(const DictionaryType& type) {
-    if (options_.zero_copy_only) {
-      return Status::Invalid("DictionaryType needs copies, but zero_copy_only was True");
-    }
-
     auto block = std::make_shared<CategoricalBlock>(options_, nullptr, col_->length());
     RETURN_NOT_OK(block->Write(col_, 0, 0));
 
