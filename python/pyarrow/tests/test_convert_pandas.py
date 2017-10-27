@@ -991,6 +991,7 @@ class TestPandasConversion(object):
                 dtype='datetime64[s]')
         self._check_array_from_pandas_roundtrip(datetime64_s)
 
+    def test_numpy_datetime64_day_unit(self):
         datetime64_d = np.array([
                 '2007-07-13',
                 None,
