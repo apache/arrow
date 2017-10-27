@@ -25,7 +25,9 @@
 #pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-#ifdef ARROW_EXPORTING
+#ifdef ARROW_STATIC
+#define ARROW_EXPORT
+#elif defined(ARROW_EXPORTING)
 #define ARROW_EXPORT __declspec(dllexport)
 #else
 #define ARROW_EXPORT __declspec(dllimport)
