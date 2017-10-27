@@ -978,6 +978,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                 part_table = pa.Table.from_pandas(filtered_df)
                 with fs.open(file_path, 'wb') as f:
                     _write_table(part_table, f)
+                assert fs.exists(file_path)
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
 
