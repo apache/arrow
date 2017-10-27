@@ -51,12 +51,12 @@ matrix:
     os: linux
     group: deprecated
     before_script:
-    - export CC="gcc-4.9"
-    - export CXX="g++-4.9"
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
     - export ARROW_TRAVIS_CLANG_FORMAT=1
+    - export CC="clang-4.0"
+    - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
