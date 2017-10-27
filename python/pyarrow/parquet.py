@@ -985,7 +985,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     else:
         fs = _ensure_filesystem(filesystem)
 
-    if not fs.exists(root_path):
+    if fs._isfilestore() and not fs.exists(root_path):
         fs.mkdir(root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
@@ -1004,7 +1004,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subtable = Table.from_pandas(subgroup,
                                          preserve_index=preserve_index)
             prefix = "/".join([root_path, subdir])
-            if not fs.exists(prefix):
+            if fs._isfilestore() and not fs.exists(prefix):
                 fs.mkdir(prefix)
             outfile = compat.guid() + ".parquet"
             full_path = "/".join([prefix, outfile])
