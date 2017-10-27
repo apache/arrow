@@ -31,6 +31,12 @@ CLANG_FORMAT = 'clang-format-{0}'.format(sys.argv[1])
 EXCLUDE_GLOBS_FILENAME = sys.argv[2]
 SOURCE_DIR = sys.argv[3]
 
+if len(sys.argv) > 4:
+    CHECK_FORMAT = int(sys.argv[4]) == 1
+else:
+    CHECK_FORMAT = False
+
+
 exclude_globs = [line.strip() for line in open(EXCLUDE_GLOBS_FILENAME, "r")]
 
 files_to_format = []
@@ -49,18 +55,24 @@ for directory, subdirs, files in os.walk(SOURCE_DIR):
         if not excluded:
             files_to_format.append(name)
 
-# TODO(wesm): Port this to work with Python, for check-format
-# NUM_CORRECTIONS=`$CLANG_FORMAT -output-replacements-xml  $@ |
-# grep offset | wc -l`
-# if [ "$NUM_CORRECTIONS" -gt "0" ]; then
-#   echo "clang-format suggested changes, please run 'make format'!!!!"
-#   exit 1
-# fi
+if CHECK_FORMAT:
+    output = subprocess.check_output([CLANG_FORMAT, '-output-replacements-xml']
+                                     + files_to_format,
+                                     stderr=subprocess.STDOUT).decode('utf8')
 
-try:
-    cmd = [CLANG_FORMAT, '-i'] + files_to_format
-    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-except Exception as e:
-    print(e)
-    print(' '.join(cmd))
-    raise
+    to_fix = []
+    for line in output.split('\n'):
+        if 'offset' in line:
+            to_fix.append(line)
+
+    if len(to_fix) > 0:
+        print("clang-format checks failed, run 'make format' to fix")
+        sys.exit(-1)
+else:
+    try:
+        cmd = [CLANG_FORMAT, '-i'] + files_to_format
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except Exception as e:
+        print(e)
+        print(' '.join(cmd))
+        raise

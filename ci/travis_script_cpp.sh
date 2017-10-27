@@ -27,14 +27,6 @@ git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar.gz
 
 pushd $CPP_BUILD_DIR
 
-# ARROW-209: checks depending on the LLVM toolchain are disabled temporarily
-# until we are able to install the full LLVM toolchain in Travis CI again
-
-# if [ $TRAVIS_OS_NAME == "linux" ]; then
-#   make check-format
-#   make check-clang-tidy
-# fi
-
 ctest -VV -L unittest
 
 popd
