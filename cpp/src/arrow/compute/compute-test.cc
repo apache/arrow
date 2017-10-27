@@ -360,10 +360,10 @@ TEST_F(TestCast, TimestampToDate32_Date64) {
 
   vector<bool> is_valid = {true, false, true, true, true};
 
-  // Multiply promotions
-  vector<int32_t> v1 = {0, 100, 200, 1, 2};
-  vector<int32_t> e1 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time32Type, int32_t, Time32Type, int32_t>(
+  // 2000-01-01, 2000-01-02
+  vector<int64_t> v1 = {946684800000000000, 946771200000000000};
+  vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
+  CheckCase<Timetim, int32_t, Time32Type, int32_t>(
       time32(TimeUnit::SECOND), v1, is_valid, time32(TimeUnit::MILLI), e1, options);
 
   vector<int32_t> v2 = {0, 100, 200, 1, 2};
