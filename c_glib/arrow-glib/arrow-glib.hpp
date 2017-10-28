@@ -32,6 +32,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/table-builder.hpp>
 #include <arrow-glib/tensor.hpp>
 #include <arrow-glib/type.hpp>
 

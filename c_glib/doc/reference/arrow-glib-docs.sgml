@@ -72,6 +72,10 @@
       <xi:include href="xml/column.xml"/>
       <xi:include href="xml/chunked-array.xml"/>
     </chapter>
+    <chapter id="table-builder">
+      <title>Table builder</title>
+      <xi:include href="xml/table-builder.xml"/>
+    </chapter>
     <chapter id="buffer">
       <title>Buffer</title>
       <xi:include href="xml/buffer.xml"/>
