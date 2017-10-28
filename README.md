@@ -27,6 +27,11 @@
     <img src="https://travis-ci.org/apache/arrow.svg?branch=master" alt="travis build status" />
     </a>
     </td>
+
+    <td>Code Coverage</td>
+    <td>
+    <a href='https://coveralls.io/github/apache/arrow?branch=master'><img src='https://coveralls.io/repos/github/apache/arrow/badge.svg?branch=master' alt='Coverage Status' /></a>
+    </td>
   </tr>
 </table>
 
