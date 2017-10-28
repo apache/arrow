@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,20 +15,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-FROM quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
 
-ADD arrow /arrow
-WORKDIR /arrow/cpp
-RUN mkdir build-plain
-WORKDIR /arrow/cpp/build-plain
-RUN cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DARROW_BUILD_TESTS=OFF -DARROW_BUILD_SHARED=ON -DARROW_BOOST_USE_SHARED=OFF -DARROW_JEMALLOC=ON -DARROW_RPATH_ORIGIN=ON -DARROW_JEMALLOC_USE_SHARED=OFF ..
-RUN ninja install
+nm -D -C /arrow-dist/lib64/libarrow.so > nm_arrow.log
 
-ADD scripts/check_arrow_visibility.sh /
-RUN /check_arrow_visibility.sh
+if [[ `grep ' T ' nm_arrow.log | grep -v arrow | wc -l` -eq 2 ]]
+then
+    exit 0
+fi
 
-WORKDIR /
-RUN git clone https://github.com/apache/parquet-cpp.git
-WORKDIR /parquet-cpp
-RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BOOST_USE_SHARED=OFF -GNinja .
-RUN ninja install
+exit 1
