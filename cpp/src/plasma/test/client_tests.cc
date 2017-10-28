@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gtest/gtest.h"
-
 #include <assert.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -28,6 +26,8 @@
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+
+#include "gtest/gtest.h"
 
 namespace plasma {
 
