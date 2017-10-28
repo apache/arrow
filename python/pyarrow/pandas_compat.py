@@ -263,6 +263,8 @@ def _column_name_to_strings(name):
         return tuple(map(_column_name_to_strings, name))
     elif isinstance(name, collections.Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
+    elif name is None:
+        return None
     return str(name)
 
 
@@ -280,7 +282,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     for name in df.columns:
         col = df[name]
         if not isinstance(name, six.string_types):
-            name = str(_column_name_to_strings(name))
+            name = _column_name_to_strings(name)
+            if name is not None:
+                name = str(name)
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -370,6 +374,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         table = _add_any_metadata(table, pandas_metadata)
+        columns_metadata = pandas_metadata.get('columns', None)
 
     block_table = table
 
@@ -428,6 +433,18 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         index = pd.RangeIndex(row_count)
 
     column_strings = [x.name for x in block_table.itercolumns()]
+    if 'columns_metadata' in locals() and columns_metadata is not None:
+        columns_name_dict = dict(
+            (str(x['name']), x['name'])
+            for x in columns_metadata
+        )
+        columns_values = [
+            columns_name_dict[y]
+            if y in columns_name_dict.keys() else y
+            for y in column_strings
+        ]
+    else:
+        columns_values = column_strings
 
     # If we're passed multiple column indexes then evaluate with
     # ast.literal_eval, since the column index values show up as a list of
@@ -437,11 +454,11 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     # Create the column index
 
     # Construct the base index
-    if not column_strings:
-        columns = pd.Index(column_strings)
+    if not columns_values:
+        columns = pd.Index(columns_values)
     else:
         columns = pd.MultiIndex.from_tuples(
-            list(map(to_pair, column_strings)),
+            list(map(to_pair, columns_values)),
             names=[col_index['name'] for col_index in column_indexes] or None,
         )
 
