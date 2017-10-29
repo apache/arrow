@@ -493,6 +493,16 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             labels=labels,
             names=columns.names
         )
+
+    # flatten a single level column MultiIndex for pandas 0.21.0 :(
+    if isinstance(columns, pd.MultiIndex) and columns.nlevels == 1:
+        levels, = columns.levels
+        labels, = columns.labels
+
+        # Cheaply check that we do not somehow have duplicate column names
+        assert len(levels) == len(labels), 'Found non-unique column index'
+        columns = levels[labels]
+
     axes = [columns, index]
     return _int.BlockManager(blocks, axes)
 
