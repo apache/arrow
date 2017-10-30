@@ -42,7 +42,19 @@ class RandomAccessFile;
 
 namespace ipc {
 
-enum class MetadataVersion : char { V1, V2, V3 };
+enum class MetadataVersion : char {
+  /// 0.1.0
+  V1,
+
+  /// 0.2.0
+  V2,
+
+  /// 0.3.0 to 0.7.1
+  V3,
+
+  /// >= 0.8.0
+  V4
+};
 
 // ARROW-109: We set this number arbitrarily to help catch user mistakes. For
 // deeply nested schemas, it is expected the user will indicate explicitly the

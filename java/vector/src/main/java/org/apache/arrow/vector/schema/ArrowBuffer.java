@@ -24,19 +24,13 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 public class ArrowBuffer implements FBSerializable {
 
-  private int page;
   private long offset;
   private long size;
 
-  public ArrowBuffer(int page, long offset, long size) {
+  public ArrowBuffer(long offset, long size) {
     super();
-    this.page = page;
     this.offset = offset;
     this.size = size;
-  }
-
-  public int getPage() {
-    return page;
   }
 
   public long getOffset() {
@@ -52,7 +46,6 @@ public class ArrowBuffer implements FBSerializable {
     final int prime = 31;
     int result = 1;
     result = prime * result + (int) (offset ^ (offset >>> 32));
-    result = prime * result + page;
     result = prime * result + (int) (size ^ (size >>> 32));
     return result;
   }
@@ -72,9 +65,6 @@ public class ArrowBuffer implements FBSerializable {
     if (offset != other.offset) {
       return false;
     }
-    if (page != other.page) {
-      return false;
-    }
     if (size != other.size) {
       return false;
     }
@@ -83,12 +73,12 @@ public class ArrowBuffer implements FBSerializable {
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return Buffer.createBuffer(builder, page, offset, size);
+    return Buffer.createBuffer(builder, offset, size);
   }
 
   @Override
   public String toString() {
-    return "ArrowBuffer [page=" + page + ", offset=" + offset + ", size=" + size + "]";
+    return "ArrowBuffer [offset=" + offset + ", size=" + size + "]";
   }
 
 }

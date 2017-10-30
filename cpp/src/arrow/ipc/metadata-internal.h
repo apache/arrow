@@ -27,6 +27,7 @@
 
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/message.h"
 
 namespace arrow {
 
@@ -48,10 +49,12 @@ namespace ipc {
 namespace internal {
 
 static constexpr flatbuf::MetadataVersion kCurrentMetadataVersion =
-    flatbuf::MetadataVersion_V3;
+    flatbuf::MetadataVersion_V4;
 
 static constexpr flatbuf::MetadataVersion kMinMetadataVersion =
-    flatbuf::MetadataVersion_V3;
+    flatbuf::MetadataVersion_V4;
+
+MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version);
 
 static constexpr const char* kArrowMagicBytes = "ARROW1";
 
@@ -62,9 +65,6 @@ struct FieldMetadata {
 };
 
 struct BufferMetadata {
-  /// The shared memory page id where to find this. Set to -1 if unused
-  int32_t page;
-
   /// The relative offset into the memory page to the starting byte of the buffer
   int64_t offset;
 

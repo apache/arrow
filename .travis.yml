@@ -112,13 +112,14 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-  - language: node_js
-    os: linux
-    node_js: node
-    before_script:
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
+  # TODO(wesm): Re-enable after issues in ARROW-1409 resolved
+  # - language: node_js
+  #   os: linux
+  #   node_js: node
+  #   before_script:
+  #   - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+  #   script:
+  #   - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
   - compiler: gcc
     language: cpp
     os: linux
