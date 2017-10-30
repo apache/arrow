@@ -30,6 +30,7 @@ sources = files(
   'record-batch.cpp',
   'schema.cpp',
   'table.cpp',
+  'table-builder.cpp',
   'tensor.cpp',
   'type.cpp',
 )
@@ -70,6 +71,7 @@ c_headers = files(
   'record-batch.h',
   'schema.h',
   'table.h',
+  'table-builder.h',
   'tensor.h',
   'type.h',
 )
@@ -110,6 +112,7 @@ cpp_headers = files(
   'record-batch.hpp',
   'schema.hpp',
   'table.hpp',
+  'table-builder.hpp',
   'tensor.hpp',
   'type.hpp',
 )
