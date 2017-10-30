@@ -243,7 +243,7 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   std::unique_ptr<Message> message;
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
-  ASSERT_EQ(MetadataVersion::V3, message->metadata_version());
+  ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {

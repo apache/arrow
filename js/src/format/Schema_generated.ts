@@ -2028,23 +2028,13 @@ export namespace org.apache.arrow.flatbuf {
     }
 
     /**
-     * The shared memory page id where this buffer is located. Currently this is
-     * not used
-     *
-     * @returns {number}
-     */
-    page(): number {
-      return this.bb.readInt32(this.bb_pos);
-    }
-
-    /**
      * The relative offset into the shared memory page where the bytes for this
      * buffer starts
      *
      * @returns {flatbuffers.Long}
      */
     offset(): flatbuffers.Long {
-      return this.bb.readInt64(this.bb_pos + 8);
+      return this.bb.readInt64(this.bb_pos);
     }
 
     /**
@@ -2054,7 +2044,7 @@ export namespace org.apache.arrow.flatbuf {
      * @returns {flatbuffers.Long}
      */
     length(): flatbuffers.Long {
-      return this.bb.readInt64(this.bb_pos + 16);
+      return this.bb.readInt64(this.bb_pos + 8);
     }
 
     /**
@@ -2064,12 +2054,10 @@ export namespace org.apache.arrow.flatbuf {
      * @param {flatbuffers.Long} length
      * @returns {flatbuffers.Offset}
      */
-    static createBuffer(builder: flatbuffers.Builder, page: number, offset: flatbuffers.Long, length: flatbuffers.Long): flatbuffers.Offset {
-      builder.prep(8, 24);
+    static createBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Long, length: flatbuffers.Long): flatbuffers.Offset {
+      builder.prep(8, 16);
       builder.writeInt64(length);
       builder.writeInt64(offset);
-      builder.pad(4);
-      builder.writeInt32(page);
       return builder.offset();
     }
 
