@@ -365,6 +365,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     schema = table.schema
     row_count = table.num_rows
     metadata = schema.metadata
+    columns_metadata = None
 
     has_pandas_metadata = metadata is not None and b'pandas' in metadata
 
@@ -433,7 +434,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         index = pd.RangeIndex(row_count)
 
     column_strings = [x.name for x in block_table.itercolumns()]
-    if 'columns_metadata' in locals() and columns_metadata is not None:
+    if columns_metadata is not None:
         columns_name_dict = dict(
             (str(x['name']), x['name'])
             for x in columns_metadata
