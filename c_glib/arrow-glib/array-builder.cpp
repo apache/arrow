@@ -202,6 +202,7 @@ G_BEGIN_DECLS
 
 typedef struct GArrowArrayBuilderPrivate_ {
   arrow::ArrayBuilder *array_builder;
+  gboolean have_ownership;
 } GArrowArrayBuilderPrivate;
 
 enum {
@@ -225,7 +226,9 @@ garrow_array_builder_finalize(GObject *object)
 
   priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(object);
 
-  delete priv->array_builder;
+  if (priv->have_ownership) {
+    delete priv->array_builder;
+  }
 
   G_OBJECT_CLASS(garrow_array_builder_parent_class)->finalize(object);
 }
@@ -267,6 +270,10 @@ garrow_array_builder_get_property(GObject *object,
 static void
 garrow_array_builder_init(GArrowArrayBuilder *builder)
 {
+  GArrowArrayBuilderPrivate *priv;
+
+  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
+  priv->have_ownership = TRUE;
 }
 
 static void
@@ -301,7 +308,24 @@ garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
     return NULL;
   }
   return garrow_array_builder_new_raw(arrow_builder.release());
-};
+}
+
+/**
+ * garrow_array_builder_release_ownership: (skip)
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Release ownership of `arrow::ArrayBuilder` in `builder`.
+ *
+ * Since: 0.8.8
+ */
+void
+garrow_array_builder_release_ownership(GArrowArrayBuilder *builder)
+{
+  GArrowArrayBuilderPrivate *priv;
+
+  priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
+  priv->have_ownership = FALSE;
+}
 
 /**
  * garrow_array_builder_finish:

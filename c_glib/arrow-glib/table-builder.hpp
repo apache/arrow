@@ -19,32 +19,9 @@
 
 #pragma once
 
-#include <arrow-glib/gobject-type.h>
+#include <arrow/api.h>
 
-#include <arrow-glib/array.h>
-#include <arrow-glib/array-builder.h>
-#include <arrow-glib/chunked-array.h>
-#include <arrow-glib/column.h>
-#include <arrow-glib/compute.h>
-#include <arrow-glib/data-type.h>
-#include <arrow-glib/enums.h>
-#include <arrow-glib/error.h>
-#include <arrow-glib/field.h>
-#include <arrow-glib/record-batch.h>
-#include <arrow-glib/schema.h>
-#include <arrow-glib/table.h>
 #include <arrow-glib/table-builder.h>
-#include <arrow-glib/tensor.h>
-#include <arrow-glib/type.h>
 
-#include <arrow-glib/file.h>
-#include <arrow-glib/file-mode.h>
-#include <arrow-glib/input-stream.h>
-#include <arrow-glib/output-stream.h>
-#include <arrow-glib/readable.h>
-#include <arrow-glib/writeable.h>
-#include <arrow-glib/writeable-file.h>
-
-#include <arrow-glib/metadata-version.h>
-#include <arrow-glib/reader.h>
-#include <arrow-glib/writer.h>
+GArrowRecordBatchBuilder *garrow_record_batch_builder_new_raw(arrow::RecordBatchBuilder *arrow_builder);
+arrow::RecordBatchBuilder *garrow_record_batch_builder_get_raw(GArrowRecordBatchBuilder *builder);

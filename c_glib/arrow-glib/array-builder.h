@@ -35,6 +35,8 @@ struct _GArrowArrayBuilderClass
   GObjectClass parent_class;
 };
 
+void garrow_array_builder_release_ownership(GArrowArrayBuilder *builder);
+
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
