@@ -525,6 +525,16 @@ class TestPandasConversion(object):
 
         self._check_pandas_roundtrip(df)
 
+    def test_datetime64_to_date32(self):
+        # ARROW-1718
+        arr = pa.array([date(2017, 10, 23), None])
+        c = pa.Column.from_array("d", arr)
+        s = c.to_pandas()
+
+        arr2 = pa.Array.from_pandas(s, type=pa.date32())
+
+        assert arr2.equals(arr.cast('date32'))
+
     def test_date_infer(self):
         df = pd.DataFrame({
             'date': [date(2000, 1, 1),
@@ -984,6 +994,7 @@ class TestPandasConversion(object):
                 dtype='datetime64[s]')
         self._check_array_from_pandas_roundtrip(datetime64_s)
 
+    def test_numpy_datetime64_day_unit(self):
         datetime64_d = np.array([
                 '2007-07-13',
                 None,

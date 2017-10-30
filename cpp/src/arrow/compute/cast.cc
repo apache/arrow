@@ -69,9 +69,16 @@
 namespace arrow {
 namespace compute {
 
+constexpr int64_t kMillisecondsInDay = 86400000;
+
 template <typename T>
-inline const T* GetValuesAs(const ArrayData& data, int i) {
+inline const T* GetValues(const ArrayData& data, int i) {
   return reinterpret_cast<const T*>(data.buffers[i]->data()) + data.offset;
+}
+
+template <typename T>
+inline T* GetMutableValues(const ArrayData* data, int i) {
+  return reinterpret_cast<T*>(data->buffers[i]->mutable_data()) + data->offset;
 }
 
 namespace {
@@ -164,7 +171,7 @@ struct CastFunctor<T, BooleanType,
     auto in_data = input.data();
     internal::BitmapReader bit_reader(in_data->buffers[1]->data(), in_data->offset,
                                       in_data->length);
-    auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    auto out = GetMutableValues<c_type>(output, 1);
     for (int64_t i = 0; i < input.length(); ++i) {
       *out++ = bit_reader.IsSet() ? kOne : kZero;
       bit_reader.Next();
@@ -214,8 +221,8 @@ struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::v
     using in_type = typename I::c_type;
     DCHECK_EQ(output->offset, 0);
 
-    const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
-    uint8_t* out_data = reinterpret_cast<uint8_t*>(output->buffers[1]->mutable_data());
+    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    uint8_t* out_data = GetMutableValues<uint8_t>(output, 1);
     for (int64_t i = 0; i < input.length(); ++i) {
       BitUtil::SetBitTo(out_data, i, (*in_data++) != 0);
     }
@@ -233,8 +240,8 @@ struct CastFunctor<O, I,
 
     auto in_offset = input.offset();
 
-    const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
-    auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
+    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    auto out_data = GetMutableValues<out_type>(output, 1);
 
     if (!options.allow_int_overflow) {
       constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
@@ -276,8 +283,8 @@ struct CastFunctor<O, I,
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
 
-    const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
-    auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
+    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    auto out_data = GetMutableValues<out_type>(output, 1);
     for (int64_t i = 0; i < input.length(); ++i) {
       *out_data++ = static_cast<out_type>(*in_data++);
     }
@@ -288,13 +295,16 @@ struct CastFunctor<O, I,
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
-inline void ShiftTime(FunctionContext* ctx, const CastOptions& options,
-                      const bool is_multiply, const int64_t factor, const Array& input,
-                      ArrayData* output) {
-  const in_type* in_data = GetValuesAs<in_type>(*input.data(), 1);
-  auto out_data = reinterpret_cast<out_type*>(output->buffers[1]->mutable_data());
+void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
+               const int64_t factor, const Array& input, ArrayData* output) {
+  const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+  auto out_data = GetMutableValues<out_type>(output, 1);
 
-  if (is_multiply) {
+  if (factor == 1) {
+    for (int64_t i = 0; i < input.length(); i++) {
+      out_data[i] = static_cast<out_type>(in_data[i]);
+    }
+  } else if (is_multiply) {
     for (int64_t i = 0; i < input.length(); i++) {
       out_data[i] = static_cast<out_type>(in_data[i] * factor);
     }
@@ -352,6 +362,52 @@ struct CastFunctor<TimestampType, TimestampType> {
   }
 };
 
+template <>
+struct CastFunctor<Date32Type, TimestampType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    const auto& in_type = static_cast<const TimestampType&>(*input.type());
+
+    static const int64_t kTimestampToDateFactors[4] = {
+        86400LL,                             // SECOND
+        86400LL * 1000LL,                    // MILLI
+        86400LL * 1000LL * 1000LL,           // MICRO
+        86400LL * 1000LL * 1000LL * 1000LL,  // NANO
+    };
+
+    const int64_t factor = kTimestampToDateFactors[static_cast<int>(in_type.unit())];
+    ShiftTime<int64_t, int32_t>(ctx, options, false, factor, input, output);
+  }
+};
+
+template <>
+struct CastFunctor<Date64Type, TimestampType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
+                  ArrayData* output) {
+    const auto& in_type = static_cast<const TimestampType&>(*input.type());
+
+    std::pair<bool, int64_t> conversion =
+        kTimeConversionTable[static_cast<int>(in_type.unit())]
+                            [static_cast<int>(TimeUnit::MILLI)];
+
+    ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
+                                output);
+
+    // Ensure that intraday milliseconds have been zeroed out
+    auto out_data = GetMutableValues<int64_t>(output, 1);
+    for (int64_t i = 0; i < input.length(); ++i) {
+      const int64_t remainder = out_data[i] % kMillisecondsInDay;
+      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && input.IsValid(i) &&
+                              remainder > 0)) {
+        ctx->SetStatus(
+            Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
+        break;
+      }
+      out_data[i] -= remainder;
+    }
+  }
+};
+
 // ----------------------------------------------------------------------
 // From one time32 or time64 to another
 
@@ -385,8 +441,6 @@ struct CastFunctor<O, I,
 // ----------------------------------------------------------------------
 // Between date32 and date64
 
-constexpr int64_t kMillisecondsInDay = 86400000;
-
 template <>
 struct CastFunctor<Date64Type, Date32Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
@@ -415,7 +469,7 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  const index_c_type* in = GetValuesAs<index_c_type>(*indices.data(), 1);
+  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
 
   uint8_t* out = output->buffers[1]->mutable_data();
   int32_t byte_width =
@@ -479,7 +533,7 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  const index_c_type* in = GetValuesAs<index_c_type>(*indices.data(), 1);
+  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       int32_t length;
@@ -550,7 +604,7 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  const index_c_type* in = GetValuesAs<index_c_type>(*indices.data(), 1);
+  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
@@ -575,7 +629,7 @@ struct CastFunctor<T, DictionaryType,
     DCHECK(values_type.Equals(*output->type))
         << "Dictionary type: " << values_type << " target type: " << (*output->type);
 
-    const c_type* dictionary = GetValuesAs<c_type>(*type.dictionary()->data(), 1);
+    const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
 
     auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
     const Array& indices = *dict_array.indices();
@@ -755,7 +809,10 @@ class CastKernel : public UnaryKernel {
   FN(Time64Type, Time32Type);     \
   FN(Time64Type, Time64Type);
 
-#define TIMESTAMP_CASES(FN, IN_TYPE) FN(TimestampType, TimestampType);
+#define TIMESTAMP_CASES(FN, IN_TYPE) \
+  FN(TimestampType, TimestampType);  \
+  FN(TimestampType, Date32Type);     \
+  FN(TimestampType, Date64Type);
 
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \

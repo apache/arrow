@@ -355,6 +355,70 @@ TEST_F(TestCast, TimestampToTimestamp) {
                             timestamp(TimeUnit::SECOND), options);
 }
 
+TEST_F(TestCast, TimestampToDate32_Date64) {
+  CastOptions options;
+
+  vector<bool> is_valid = {true, true, false};
+
+  // 2000-01-01, 2000-01-02, null
+  vector<int64_t> v_nano = {946684800000000000, 946771200000000000, 0};
+  vector<int64_t> v_micro = {946684800000000, 946771200000000, 0};
+  vector<int64_t> v_milli = {946684800000, 946771200000, 0};
+  vector<int64_t> v_second = {946684800, 946771200, 0};
+  vector<int32_t> v_day = {10957, 10958, 0};
+
+  // Simple conversions
+  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
+      timestamp(TimeUnit::NANO), v_nano, is_valid, date64(), v_milli, options);
+  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
+      timestamp(TimeUnit::MICRO), v_micro, is_valid, date64(), v_milli, options);
+  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
+      timestamp(TimeUnit::MILLI), v_milli, is_valid, date64(), v_milli, options);
+  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
+      timestamp(TimeUnit::SECOND), v_second, is_valid, date64(), v_milli, options);
+
+  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
+      timestamp(TimeUnit::NANO), v_nano, is_valid, date32(), v_day, options);
+  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
+      timestamp(TimeUnit::MICRO), v_micro, is_valid, date32(), v_day, options);
+  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
+      timestamp(TimeUnit::MILLI), v_milli, is_valid, date32(), v_day, options);
+  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
+      timestamp(TimeUnit::SECOND), v_second, is_valid, date32(), v_day, options);
+
+  // Disallow truncate, failures
+  vector<int64_t> v_nano_fail = {946684800000000001, 946771200000000001, 0};
+  vector<int64_t> v_micro_fail = {946684800000001, 946771200000001, 0};
+  vector<int64_t> v_milli_fail = {946684800001, 946771200001, 0};
+  vector<int64_t> v_second_fail = {946684801, 946771201, 0};
+
+  options.allow_time_truncate = false;
+  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date64(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date64(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date64(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
+                            date64(), options);
+
+  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date32(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date32(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date32(),
+                            options);
+  CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
+                            date32(), options);
+
+  // Make sure that nulls are excluded from the truncation checks
+  vector<int64_t> v_second_nofail = {946684800, 946771200, 1};
+  CheckCase<TimestampType, int64_t, Date64Type, int64_t>(
+      timestamp(TimeUnit::SECOND), v_second_nofail, is_valid, date64(), v_milli, options);
+  CheckCase<TimestampType, int64_t, Date32Type, int32_t>(
+      timestamp(TimeUnit::SECOND), v_second_nofail, is_valid, date32(), v_day, options);
+}
+
 TEST_F(TestCast, TimeToTime) {
   CastOptions options;
 
