@@ -42,7 +42,7 @@ export class VirtualVector<T> implements Column<T> {
         return (this.vectors as Column<T>[]).some((vec) => vec.nullable);
     }
     get nullCount() {
-        return (this.vectors as Column<T>[]).reduce((sum, v) => sum + v.nullCount | 0, 0)
+        return (this.vectors as Column<T>[]).reduce((sum, v) => sum + v.nullCount | 0, 0);
     }
     get metadata() {
         return new Map<string, string>(

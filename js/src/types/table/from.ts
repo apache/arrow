@@ -30,5 +30,5 @@ export function fromBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
 TableVector.from = fromBuffers;
 
 declare module './table' {
-    namespace TableVector { export let from: typeof fromBuffers }
+    namespace TableVector { export let from: typeof fromBuffers; }
 }

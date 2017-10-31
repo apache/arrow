@@ -144,7 +144,7 @@ function createIntVector(argv: VectorFactoryArgv<IntArray>) {
 function bindVectorReader<T extends TypedArray, V>(createBufferView: BufferViewFactory<T>, createVector: VectorFactory<T, V>) {
     return function readVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
         return readVectorLayout(createBufferView, createVector, field, batch, iterator, dictionaries, primitiveType);
-    }
+    };
 }
 
 const readFloatVector = bindVectorReader(createFloatDataViews, ({ field, fieldNode, data, validity }: VectorFactoryArgv<FloatArray>) => {
@@ -165,7 +165,7 @@ const readUtf8Vector = bindVectorReader(createUtf8DataViews, ({ field, fieldNode
             offsets: offsets as Int32Array,
             values: new Uint8Vector({ data: data! })
         }) as any as Vector<Uint8Array | null>
-    })
+    });
 });
 
 const readListVector = bindVectorReader(createNestedDataViews, ({ field, fieldNode, offsets, validity, iterator, messageBatch, dictionaries }: VectorFactoryArgv<TypedArray>) => {
@@ -201,7 +201,7 @@ const typedVectorReaders = {
     [Type.Struct_]: readStructVector,
     [Type.FloatingPoint]: readFloatVector,
     [Type.FixedSizeList]: readFixedSizeListVector,
-} as { [k: number]: (...args: any[]) => Vector | null }
+} as { [k: number]: (...args: any[]) => Vector | null };
 
 // and again as string-indexed keys for Uglify...
 typedVectorReaders[Type['Int']] = readIntVector;
@@ -218,7 +218,7 @@ type BufferViewFactory<T extends TypedArray> = (batch: MessageBatch, type: Vecto
 
 interface VectorFactoryArgv<T> {
     field: Field;
-    fieldNode: FieldNode,
+    fieldNode: FieldNode;
     iterator: IteratorState;
     dictionaries: Dictionaries;
     messageBatch: MessageBatch;

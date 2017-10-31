@@ -33,5 +33,3 @@ export class FixedSizeListVector<T, TArray extends List<T>> extends Vector<TArra
         return new VirtualVector(Array, this, ...vectors);
     }
 }
-
-

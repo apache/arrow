@@ -28,7 +28,7 @@ export class ListVector<T, TArray extends List<T>> extends Vector<TArray> {
     }
     get(index: number) {
         return this.values.slice<TArray>(this.offsets[index], this.offsets[index + 1]);
-    }    
+    }
     concat(...vectors: Vector<TArray>[]): Vector<TArray> {
         return new VirtualVector(Array, this, ...vectors);
     }

@@ -23,7 +23,7 @@ export class DateVector extends TypedVector<Date, Uint32Array> {
             (super.get(index * 2 + 1) as any) + /* high */
             (super.get(index * 2) as any)       /*  low */
         );
-    }    
+    }
 }
 
 (DateVector.prototype as any).stride = 2;

@@ -35,7 +35,7 @@ export const nullable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) 
         get(index: number) {
             return this.validity.get(index) ? super.get(index) : null;
         }
-    }
+    };
 
 export const readable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
     class extends (superclass as Ctor<TArgv>) implements Column {
@@ -53,7 +53,7 @@ export const readable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) 
             this.fieldNode = fieldNode;
             this.nullable = field.nullable();
             this.type = Type[field.typeType()];
-            this.nullCount = fieldNode.nullCount().low
+            this.nullCount = fieldNode.nullCount().low;
             this.length = (fieldNode.length().low / this.stride) | 0;
         }
         get name() { return this.field.name()!; }
@@ -66,4 +66,4 @@ export const readable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) 
             }
             return data;
         }
-    }
+    };

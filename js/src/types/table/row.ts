@@ -54,4 +54,3 @@ export class Row<TKey extends string | number> extends Vector {
         return map;
     }
 }
-

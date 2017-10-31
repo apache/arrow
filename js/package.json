@@ -24,8 +24,8 @@
     "prepublishOnly": "sh ./prepublish.sh",
     "doc": "shx rm -rf ./doc && esdoc",
     "lint": "npm-run-all -p lint:*",
-    "lint:src": "tslint --fix --type-check -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
-    "lint:test": "tslint --fix --type-check -p test/tsconfig.json -c tslint.json \"test/**/*.ts\""
+    "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
+    "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\""
   },
   "repository": {
     "type": "git",
