@@ -58,9 +58,12 @@ export function* readFile(...bbs: ByteBuffer[]) {
             throw new Error('Invalid file');
         }
         bb.setPosition(footerOffset - footerLength);
-        let footer = Footer.getRootAsFooter(bb), schema = footer.schema();
+        let schema, footer = Footer.getRootAsFooter(bb);
+        if (!(schema = footer.schema()!)) {
+            return;
+        }
         for (let i = -1, n = footer.dictionariesLength(); ++i < n;) {
-            let block = footer.dictionaries(i);
+            let block = footer.dictionaries(i)!;
             bb.setPosition(block.offset().low);
             for (let batch of readMessageBatches(bb)) {
                 yield { schema, batch };
@@ -68,7 +71,7 @@ export function* readFile(...bbs: ByteBuffer[]) {
             }
         }
         for (let i = -1, n = footer.recordBatchesLength(); ++i < n;) {
-            const block = footer.recordBatches(i);
+            const block = footer.recordBatches(i)!;
             bb.setPosition(block.offset().low);
             for (let batch of readMessageBatches(bb)) {
                 yield { schema, batch };

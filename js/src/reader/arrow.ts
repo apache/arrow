@@ -18,17 +18,18 @@
 import { flatbuffers } from 'flatbuffers';
 import * as Schema_ from '../format/Schema_generated';
 import * as Message_ from '../format/Message_generated';
+export import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
+export import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
 
 import { readFile } from './file';
 import { readStream } from './stream';
 import { readVector } from './vector';
-import { Vector } from '../vector/vector';
 import { readDictionary } from './dictionary';
+import { Vector, Column } from '../types/types';
 
 import ByteBuffer = flatbuffers.ByteBuffer;
-export import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
-export import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
-export type Dictionaries = { [k: string]: Vector<any> };
+import Field = Schema_.org.apache.arrow.flatbuf.Field;
+export type Dictionaries = { [k: string]: Vector<any> } | null;
 export type IteratorState = { nodeIndex: number; bufferIndex: number };
 
 export function* readRecords(...bytes: ByteBuffer[]) {
@@ -47,22 +48,27 @@ export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
     const dictionaries: Dictionaries = {};
     const byteBuffers = bytes.map(toByteBuffer);
     for (let { schema, batch } of readRecords(...byteBuffers)) {
-        let vectors: Vector<any>[] = [];
+        let vectors: Column<any>[] = [];
         let state = { nodeIndex: 0, bufferIndex: 0 };
-        let index = -1, fieldsLength = schema.fieldsLength();
+        let fieldsLength = schema.fieldsLength();
+        let index = -1, field: Field, vector: Vector<any>;
         if (batch.id) {
             // A dictionary batch only contain a single vector. Traverse each
             // field and its children until we find one that uses this dictionary
             while (++index < fieldsLength) {
-                let vector = readDictionary(schema.fields(index), batch, state, dictionaries);
-                if (vector) {
-                    dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
-                    break;
+                if (field = schema.fields(index)!) {
+                    if (vector = readDictionary<any>(field, batch, state, dictionaries)!) {
+                        dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
+                        break;
+                    }
                 }
             }
         } else {
             while (++index < fieldsLength) {
-                vectors[index] = readVector(schema.fields(index), batch, state, dictionaries);
+                if ((field = schema.fields(index)!) &&
+                    (vector = readVector<any>(field, batch, state, dictionaries)!)) {
+                    vectors[index] = vector as Column<any>;
+                }
             }
             yield vectors;
         }

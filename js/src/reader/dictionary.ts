@@ -17,22 +17,20 @@
 
 import { readVector } from './vector';
 import { MessageBatch } from './message';
+import { DictionaryVector } from '../types/dictionary';
 import * as Schema_ from '../format/Schema_generated';
 import { IteratorState, Dictionaries } from './arrow';
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 
-export function readDictionary(field: Field | null,
-                               batch: MessageBatch,
-                               iterator: IteratorState,
-                               dictionaries: Dictionaries) {
-    let id: string, encoding = field && field.dictionary();
+export function readDictionary<T>(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries): DictionaryVector<T> | null {
+    let vector: DictionaryVector<T> | null, id, encoding = field.dictionary();
     if (encoding && batch.id === (id = encoding.id().toFloat64().toString())) {
-        return readVector(field, batch, iterator, null);
+        return readVector<T>(field, batch, iterator, null) as DictionaryVector<T>;
     }
-    for (let i = -1, n = field && field.childrenLength() || 0; ++i < n;) {
-        let vector = readDictionary(field.children(i), batch, iterator, dictionaries);
-        if (vector) {
+    for (let i = -1, n = field.childrenLength() | 0; ++i < n;) {
+        if (vector = readDictionary<T>(field.children(i)!, batch, iterator, dictionaries)) {
             return vector;
         }
     }
+    return null;
 }
