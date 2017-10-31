@@ -32,7 +32,6 @@ import com.google.flatbuffers.FlatBufferBuilder;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -54,73 +53,6 @@ import org.junit.Test;
  * Test conversion between Flatbuf and Pojo field representations
  */
 public class TestConvert {
-
-  private static String badSchemaJson = "{\n" +
-    "  \"fields\" : [ {\n" +
-    "    \"nullable\" : true,\n" +
-    "    \"type\" : {\n" +
-    "      \"name\" : \"struct\"\n" +
-    "    },\n" +
-    "    \"children\" : [ {\n" +
-    "      \"nullable\" : true,\n" +
-    "      \"type\" : {\n" +
-    "        \"name\" : \"list\"\n" +
-    "      },\n" +
-    "      \"children\" : [ {\n" +
-    "        \"nullable\" : true,\n" +
-    "        \"type\" : {\n" +
-    "          \"name\" : \"null\"\n" +
-    "        },\n" +
-    "        \"children\" : [ ],\n" +
-    "        \"typeLayout\" : {\n" +
-    "          \"vectors\" : [ ]\n" +
-    "        },\n" +
-    "        \"name\" : \"[DEFAULT]\"\n" +
-    "      } ],\n" +
-    "      \"typeLayout\" : {\n" +
-    "        \"vectors\" : [ {\n" +
-    "          \"type\" : \"VALIDITY\",\n" +
-    "          \"typeBitWidth\" : 1\n" +
-    "        }, {\n" +
-    "          \"type\" : \"OFFSET\",\n" +
-    "          \"typeBitWidth\" : 32\n" +
-    "        } ]\n" +
-    "      },\n" +
-    "      \"name\" : \"list\"\n" +
-    "    }, {\n" +
-    "      \"nullable\" : true,\n" +
-    "      \"type\" : {\n" +
-    "        \"name\" : \"fixedsizelist\",\n" +
-    "        \"listSize\" : 5\n" +
-    "      },\n" +
-    "      \"children\" : [ {\n" +
-    "        \"nullable\" : true,\n" +
-    "        \"type\" : {\n" +
-    "          \"name\" : \"null\"\n" +
-    "        },\n" +
-    "        \"children\" : [ ],\n" +
-    "        \"typeLayout\" : {\n" +
-    "          \"vectors\" : [ ]\n" +
-    "        },\n" +
-    "        \"name\" : \"$data$\"\n" +
-    "      } ],\n" +
-    "      \"typeLayout\" : {\n" +
-    "        \"vectors\" : [ {\n" +
-    "          \"type\" : \"VALIDITY\",\n" +
-    "          \"typeBitWidth\" : 1\n" +
-    "        } ]\n" +
-    "      },\n" +
-    "      \"name\" : \"fixedlist\"\n" +
-    "    } ],\n" +
-    "    \"typeLayout\" : {\n" +
-    "      \"vectors\" : [ {\n" +
-    "        \"type\" : \"VALIDITY\",\n" +
-    "        \"typeBitWidth\" : 1\n" +
-    "      } ]\n" +
-    "    },\n" +
-    "    \"name\" : \"a\"\n" +
-    "  } ]\n" +
-    "}\n";
 
   @Test
   public void simple() {
@@ -160,16 +92,19 @@ public class TestConvert {
     org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
     Field finalField = Field.convertField(flatBufField);
     assertEquals(initialField, finalField);
-    assertTrue(!finalField.toString().contains(ZeroVector.NAME));
+    assertTrue(!finalField.toString().contains(Field.ZEROVECTOR_OLD_NAME));
 
 
     Schema initialSchema = new Schema(parentBuilder.build());
-    Schema tempSchema = Schema.fromJSON(badSchemaJson);
+    String jsonSchema = initialSchema.toJson();
+    String modifiedSchema = jsonSchema.replace("$data$", "[DEFAULT]");
+
+    Schema tempSchema = Schema.fromJSON(modifiedSchema);
     FlatBufferBuilder schemaBuilder = new FlatBufferBuilder();
     org.apache.arrow.vector.types.pojo.Schema schema = new org.apache.arrow.vector.types.pojo.Schema(tempSchema.getFields());
     schemaBuilder.finish(schema.getSchema(schemaBuilder));
     Schema finalSchema = Schema.deserialize(ByteBuffer.wrap(schemaBuilder.sizedByteArray()));
-    assertTrue(!finalSchema.toString().contains(ZeroVector.NAME));
+    assertTrue(!finalSchema.toString().contains(Field.ZEROVECTOR_OLD_NAME));
   }
 
   @Test

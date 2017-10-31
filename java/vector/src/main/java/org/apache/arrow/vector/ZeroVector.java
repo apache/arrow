@@ -41,8 +41,6 @@ import io.netty.buffer.ArrowBuf;
 public class ZeroVector implements FieldVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
 
-  public static final String NAME = "[DEFAULT]";
-
   private final TransferPair defaultPair = new TransferPair() {
     @Override
     public void transfer() {

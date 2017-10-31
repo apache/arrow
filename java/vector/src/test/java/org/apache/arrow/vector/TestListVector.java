@@ -26,12 +26,9 @@ import static org.junit.Assert.assertTrue;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
-import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.complex.writer.FieldWriter;
-import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.*;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
@@ -633,11 +630,11 @@ public class TestListVector {
   public void testConsistentChildName() throws Exception {
     try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
       String emptyListStr = listVector.getField().toString();
-      Assert.assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
+      assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
 
       listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       String emptyVectorStr = listVector.getField().toString();
-      Assert.assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+      assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
     }
   }
 }

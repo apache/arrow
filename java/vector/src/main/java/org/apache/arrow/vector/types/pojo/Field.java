@@ -43,12 +43,13 @@ import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.schema.TypeLayout;
 import org.apache.arrow.vector.schema.VectorLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
+
+  public static final String ZEROVECTOR_OLD_NAME = "[DEFAULT]";
 
   public static Field nullablePrimitive(String name, ArrowType.PrimitiveType type) {
     return nullable(name, type);
@@ -147,7 +148,7 @@ public class Field {
    */
   private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
     if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
-        && originalChildField.getName().equals(ZeroVector.NAME)) {
+        && originalChildField.getName().equals(ZEROVECTOR_OLD_NAME)) {
       return
         new Field(DATA_VECTOR_NAME,
           originalChildField.isNullable(),
