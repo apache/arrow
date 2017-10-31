@@ -89,7 +89,7 @@ cdef class SerializationContext:
 
     def _serialize_callback(self, obj):
         found = False
-        for type_ in type(obj).mro():
+        for type_ in type(obj).__mro__:
             if type_ in self.type_to_type_id:
                 found = True
                 break

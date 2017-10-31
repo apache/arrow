@@ -72,7 +72,7 @@ MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
     case flatbuf::MetadataVersion_V4:
       // Arrow >= 0.8
       return MetadataVersion::V4;
-      // Add cases as other versions become available
+    // Add cases as other versions become available
     default:
       return MetadataVersion::V4;
   }
