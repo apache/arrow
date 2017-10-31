@@ -11,7 +11,7 @@
 // Utilities
 //
 
-goog.module("module$text_encoding");
+goog.module("module$text_encoding_utf_8");
 goog.module.declareLegacyNamespace();
 /**
  * @param {number} a The number to test.
