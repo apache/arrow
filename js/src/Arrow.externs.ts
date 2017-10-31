@@ -24,23 +24,30 @@
 Symbol.iterator;
 /** @type {symbol} */
 Symbol.asyncIterator;
+
+let Row = function() {};
+/** @type {?} */
+Row.prototype.toJSON;
+/** @type {?} */
+Row.prototype.toArray;
+/** @type {?} */
+Row.prototype.toObject;
+/** @type {?} */
+Row.prototype.toString;
+
 let Table = function() {};
+/** @type {?} */
+(<any> Table).from;
+/** @type {?} */
+Table.prototype.columns;
 /** @type {?} */
 Table.prototype.length;
 /** @type {?} */
-Table.prototype.rows;
+Table.prototype.col;
 /** @type {?} */
-Table.prototype.cols;
+Table.prototype.key;
 /** @type {?} */
-Table.prototype.getRow;
-/** @type {?} */
-Table.prototype.getCell;
-/** @type {?} */
-Table.prototype.getCellAt;
-/** @type {?} */
-Table.prototype.getColumn;
-/** @type {?} */
-Table.prototype.getColumnAt;
+Table.prototype.select;
 /** @type {?} */
 Table.prototype.toString;
 
@@ -52,24 +59,26 @@ Vector.prototype.name;
 /** @type {?} */
 Vector.prototype.type;
 /** @type {?} */
-Vector.prototype.props;
-/** @type {?} */
 Vector.prototype.get;
 /** @type {?} */
 Vector.prototype.concat;
 /** @type {?} */
 Vector.prototype.slice;
-
-let TypedVector = function() {};
 /** @type {?} */
-TypedVector.prototype.arrayType;
-
-let ValidityVector = function() {};
+Vector.prototype.metadata;
 /** @type {?} */
-(<any> ValidityVector).pack;
+Vector.prototype.nullable;
+/** @type {?} */
+Vector.prototype.nullCount;
+
+let BoolVector = function() {};
+/** @type {?} */
+(<any> BoolVector).pack;
+/** @type {?} */
+BoolVector.prototype.set;
 
 let DictionaryVector = function() {};
 /** @type {?} */
-DictionaryVector.prototype.index;
+DictionaryVector.prototype.getKey;
 /** @type {?} */
-DictionaryVector.prototype.value;
+DictionaryVector.prototype.getValue;
