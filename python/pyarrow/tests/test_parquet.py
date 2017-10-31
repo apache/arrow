@@ -1171,7 +1171,8 @@ def test_dataset_read_pandas(tmpdir):
 
 
 @parquet
-def test_dataset_read_pandas_common_metadata(tmpdir):
+@pytest.mark.parametrize('preserve_index', [True, False])
+def test_dataset_read_pandas_common_metadata(tmpdir, preserve_index):
     # ARROW-1103
     import pyarrow.parquet as pq
 
@@ -1186,15 +1187,11 @@ def test_dataset_read_pandas_common_metadata(tmpdir):
     paths = []
     for i in range(nfiles):
         df = _test_dataframe(size, seed=i)
-        df.index = pd.Index(np.arange(i * size, (i + 1) * size))
-        df.index.name = 'index'
+        df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
 
-        path = pjoin(dirpath, '{0}.parquet'.format(i))
+        path = pjoin(dirpath, '{:d}.parquet'.format(i))
 
-        df_ex_index = df.reset_index(drop=True)
-        df_ex_index['index'] = df.index
-        table = pa.Table.from_pandas(df_ex_index,
-                                     preserve_index=False)
+        table = pa.Table.from_pandas(df, preserve_index=preserve_index)
 
         # Obliterate metadata
         table = table.replace_schema_metadata(None)
@@ -1206,7 +1203,9 @@ def test_dataset_read_pandas_common_metadata(tmpdir):
         paths.append(path)
 
     # Write _metadata common file
-    table_for_metadata = pa.Table.from_pandas(df)
+    table_for_metadata = pa.Table.from_pandas(
+        df, preserve_index=preserve_index
+    )
     pq.write_metadata(table_for_metadata.schema,
                       pjoin(dirpath, '_metadata'))
 
@@ -1214,7 +1213,7 @@ def test_dataset_read_pandas_common_metadata(tmpdir):
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
-
+    expected.index.name = df.index.name if preserve_index else None
     tm.assert_frame_equal(result, expected)
 
 
@@ -1387,3 +1386,27 @@ def test_large_table_int32_overflow():
     table = pa.Table.from_arrays([parr], names=['one'])
     f = io.BytesIO()
     _write_table(table, f)
+
+
+def test_index_column_name_duplicate(tmpdir):
+    data = {
+        'close': {
+            pd.Timestamp('2017-06-30 01:31:00'): 154.99958999999998,
+            pd.Timestamp('2017-06-30 01:32:00'): 154.99958999999998,
+        },
+        'time': {
+            pd.Timestamp('2017-06-30 01:31:00'): pd.Timestamp(
+                '2017-06-30 01:31:00'
+            ),
+            pd.Timestamp('2017-06-30 01:32:00'): pd.Timestamp(
+                '2017-06-30 01:32:00'
+            ),
+        }
+    }
+    path = str(tmpdir / 'data.parquet')
+    dfx = pd.DataFrame(data).set_index('time', drop=False)
+    tdfx = pa.Table.from_pandas(dfx)
+    _write_table(tdfx, path)
+    arrow_table = _read_table(path)
+    result_df = arrow_table.to_pandas()
+    tm.assert_frame_equal(result_df, dfx)
