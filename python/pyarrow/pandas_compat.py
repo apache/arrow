@@ -18,7 +18,6 @@
 import ast
 import collections
 import json
-import re
 
 import numpy as np
 import pandas as pd
@@ -27,13 +26,6 @@ import six
 
 import pyarrow as pa
 from pyarrow.compat import PY2, zip_longest  # noqa
-
-
-INDEX_LEVEL_NAME_REGEX = re.compile(r'^__index_level_\d+__$')
-
-
-def is_unnamed_index_level(name):
-    return INDEX_LEVEL_NAME_REGEX.match(name) is not None
 
 
 def infer_dtype(column):
@@ -143,7 +135,7 @@ def get_column_metadata(column, name, arrow_type):
 
     Parameters
     ----------
-    column : pandas.Series
+    column : pandas.Series or pandas.Index
     name : str
     arrow_type : pyarrow.DataType
 
@@ -161,7 +153,7 @@ def get_column_metadata(column, name, arrow_type):
         }
         string_dtype = 'object'
 
-    if not isinstance(name, six.string_types):
+    if name is not None and not isinstance(name, six.string_types):
         raise TypeError(
             'Column name must be a string. Got column {} of type {}'.format(
                 name, type(name).__name__
@@ -176,23 +168,7 @@ def get_column_metadata(column, name, arrow_type):
     }
 
 
-def index_level_name(index, i):
-    """Return the name of an index level or a default name if `index.name` is
-    None.
-
-    Parameters
-    ----------
-    index : pandas.Index
-    i : int
-
-    Returns
-    -------
-    name : str
-    """
-    if index.name is not None:
-        return index.name
-    else:
-        return '__index_level_{:d}__'.format(i)
+index_level_name = '__index_level_{:d}__'.format
 
 
 def construct_metadata(df, column_names, index_levels, preserve_index, types):
@@ -222,11 +198,11 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     ]
 
     if preserve_index:
-        index_column_names = [index_level_name(level, i)
-                              for i, level in enumerate(index_levels)]
+        index_column_names = list(map(
+            index_level_name, range(len(index_levels))
+        ))
         index_column_metadata = [
-            get_column_metadata(level, name=index_level_name(level, i),
-                                arrow_type=arrow_type)
+            get_column_metadata(level, name=level.name, arrow_type=arrow_type)
             for i, (level, arrow_type) in enumerate(
                 zip(index_levels, index_types)
             )
@@ -317,7 +293,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     for i, column in enumerate(index_columns):
         columns_to_convert.append(column)
         convert_types.append(None)
-        names.append(index_level_name(column, i))
+        names.append(index_level_name(i))
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -378,6 +354,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pyarrow.lib as lib
 
     index_columns = []
+    columns = []
     column_indexes = []
     index_arrays = []
     index_names = []
@@ -390,6 +367,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     if has_pandas_metadata:
         pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
         index_columns = pandas_metadata['index_columns']
+        columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         table = _add_any_metadata(table, pandas_metadata)
 
@@ -397,11 +375,11 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
 
     # Build up a list of index columns and names while removing those columns
     # from the original table
-    for name in index_columns:
-        i = schema.get_field_index(name)
+    logical_index_names = [c['name'] for c in columns[-len(index_columns):]]
+    for raw_name, logical_name in zip(index_columns, logical_index_names):
+        i = schema.get_field_index(raw_name)
         if i != -1:
             col = table.column(i)
-            index_name = None if is_unnamed_index_level(name) else name
             col_pandas = col.to_pandas()
             values = col_pandas.values
             if not values.flags.writeable:
@@ -410,9 +388,9 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
                 values = values.copy()
 
             index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
-            index_names.append(index_name)
+            index_names.append(logical_name)
             block_table = block_table.remove_column(
-                block_table.schema.get_field_index(name)
+                block_table.schema.get_field_index(raw_name)
             )
 
     # Convert an arrow table to Block from the internal pandas API
