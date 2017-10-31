@@ -416,3 +416,69 @@ def test_serialization_callback_error():
     with pytest.raises(pa.DeserializationCallbackError) as err:
         serialized_object.deserialize(deserialization_context)
     assert err.value.type_id == 20*b"\x00"
+
+
+def test_fallback_to_subclasses():
+
+    class SubFoo(Foo):
+        def __init__(self):
+            Foo.__init__(self)
+
+    # should be able to serialize/deserialize an instance
+    # if a base class has been registered
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(Foo, "Foo")
+
+    subfoo = SubFoo()
+    # should fallbact to Foo serializer
+    serialized_object = pa.serialize(subfoo, serialization_context)
+
+    reconstructed_object = serialized_object.deserialize(
+        serialization_context
+    )
+    assert type(reconstructed_object) == Foo
+
+
+class Serializable(object):
+    pass
+
+
+def serialize_serializable(obj):
+    return {"type": type(obj), "data": obj.__dict__}
+
+
+def deserialize_serializable(obj):
+    val = obj["type"].__new__(obj["type"])
+    val.__dict__.update(obj["data"])
+    return val
+
+
+class SerializableClass(Serializable):
+    def __init__(self):
+        self.value = 3
+
+
+def test_serialize_subclasses():
+
+    # This test shows how subclasses can be handled in an idiomatic way
+    # by having only a serializer for the base class
+
+    # This technique should however be used with care, since pickling
+    # type(obj) with couldpickle will include the full class definition
+    # in the serialized representation.
+    # This means the class definition is part of every instance of the
+    # object, which in general is not desirable; registering all subclasses
+    # with register_type will result in faster and more memory
+    # efficient serialization.
+
+    serialization_context.register_type(
+        Serializable, "Serializable",
+        custom_serializer=serialize_serializable,
+        custom_deserializer=deserialize_serializable)
+
+    a = SerializableClass()
+    serialized = pa.serialize(a)
+
+    deserialized = serialized.deserialize()
+    assert type(deserialized).__name__ == SerializableClass.__name__
+    assert deserialized.value == 3

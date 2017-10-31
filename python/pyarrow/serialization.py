@@ -69,6 +69,8 @@ def register_default_serialization_handlers(serialization_context):
         type(lambda: 0), "function",
         pickle=True)
 
+    serialization_context.register_type(type, "type", pickle=True)
+
     # ----------------------------------------------------------------------
     # Set up serialization for numpy with dtype object (primitive types are
     # handled efficiently with Arrow's Tensor facilities, see
