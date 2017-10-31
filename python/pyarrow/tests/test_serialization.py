@@ -416,3 +416,22 @@ def test_serialization_callback_error():
     with pytest.raises(pa.DeserializationCallbackError) as err:
         serialized_object.deserialize(deserialization_context)
     assert err.value.type_id == 20*b"\x00"
+
+
+def test_match_subclasses():
+    # should be able to serialize/deserialize an instance
+    # if a base class has been registered
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(Foo, "Foo")
+    serialization_context.register_type(Bar, "Bar")
+    serialization_context.register_type(Baz, "Baz")
+    serialization_context.register_type(Qux, "Quz")
+
+    subqux = SubQux()
+    # should fallbact to Qux serializer
+    serialized_object = pa.serialize(subqux, serialization_context)
+
+    reconstructed_object = serialized_object.deserialize(
+        serialization_context
+    )
+    assert type(reconstructed_object) == Qux
