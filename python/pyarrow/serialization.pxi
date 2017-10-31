@@ -88,17 +88,26 @@ cdef class SerializationContext:
             self.custom_deserializers[type_id] = custom_deserializer
 
     def _serialize_callback(self, obj):
-        if type(obj) not in self.type_to_type_id:
+        found = False
+        for type_ in type(obj).__mro__:
+            if type_ in self.type_to_type_id:
+                found = True
+                break
+
+        if not found:
             raise SerializationCallbackError(
                 "pyarrow does not know how to "
-                "serialize objects of type {}.".format(type(obj)), obj)
-        type_id = self.type_to_type_id[type(obj)]
+                "serialize objects of type {}.".format(type(obj)), obj
+            )
+
+        # use the closest match to type(obj)
+        type_id = self.type_to_type_id[type_]
         if type_id in self.types_to_pickle:
             serialized_obj = {"data": pickle.dumps(obj), "pickle": True}
         elif type_id in self.custom_serializers:
             serialized_obj = {"data": self.custom_serializers[type_id](obj)}
         else:
-            if is_named_tuple(type(obj)):
+            if is_named_tuple(type_):
                 serialized_obj = {}
                 serialized_obj["_pa_getnewargs_"] = obj.__getnewargs__()
             elif hasattr(obj, "__dict__"):
