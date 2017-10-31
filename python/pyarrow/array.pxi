@@ -162,6 +162,7 @@ def array(object obj, type=None, mask=None,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
+                from_pandas=from_pandas,
                 memory_pool=memory_pool)
         else:
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
@@ -671,7 +672,7 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    MemoryPool memory_pool=None):
+                    from_pandas=False, MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -682,15 +683,20 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        from_pandas : boolean, default False
+            If True, the indices should be treated as though they originated in
+            a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise uses default pool
 
         Returns
         -------
         dict_array : DictionaryArray
         """
         cdef:
-            Array arrow_indices, arrow_dictionary
+            Array _indices, _dictionary
             DictionaryArray result
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
@@ -699,29 +705,28 @@ cdef class DictionaryArray(Array):
             if mask is not None:
                 raise NotImplementedError(
                     "mask not implemented with Arrow array inputs yet")
-            arrow_indices = indices
+            _indices = indices
         else:
-            if mask is None:
-                mask = indices == -1
-            else:
-                mask = mask | (indices == -1)
-            arrow_indices = Array.from_pandas(indices, mask=mask,
-                                              memory_pool=memory_pool)
+            if from_pandas:
+                if mask is None:
+                    mask = indices == -1
+                else:
+                    mask = mask | (indices == -1)
+            _indices = array(indices, mask=mask, memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
-            arrow_dictionary = dictionary
+            _dictionary = dictionary
         else:
-            arrow_dictionary = Array.from_pandas(dictionary,
-                                                 memory_pool=memory_pool)
+            _dictionary = array(dictionary, memory_pool=memory_pool)
 
-        if not isinstance(arrow_indices, IntegerArray):
+        if not isinstance(_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
         cdef c_bool c_ordered = ordered
 
-        c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
+        c_type.reset(new CDictionaryType(_indices.type.sp_type,
+                                         _dictionary.sp_array, c_ordered))
+        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)
