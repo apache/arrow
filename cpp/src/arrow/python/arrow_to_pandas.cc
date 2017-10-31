@@ -966,9 +966,10 @@ class CategoricalBlock : public PandasBlock {
         "CategoricalBlock allocation happens when calling Write");
   }
 
-  template <int ARROW_INDEX_TYPE>
+  template <typename ArrowType>
   Status WriteIndices(const std::shared_ptr<Column>& col) {
-    using TRAITS = internal::arrow_traits<ARROW_INDEX_TYPE>;
+    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    using TRAITS = internal::arrow_traits<ArrowType::type_id>;
     using T = typename TRAITS::T;
     constexpr int npy_type = TRAITS::npy_type;
 
@@ -977,10 +978,22 @@ class CategoricalBlock : public PandasBlock {
     // Sniff the first chunk
     const std::shared_ptr<Array> arr_first = data.chunk(0);
     const auto& dict_arr_first = static_cast<const DictionaryArray&>(*arr_first);
-    const auto& indices_first =
-        static_cast<const PrimitiveArray&>(*dict_arr_first.indices());
+    const auto& indices_first = static_cast<const ArrayType&>(*dict_arr_first.indices());
+
+    auto CheckIndices = [](const ArrayType& arr, int64_t dict_length) {
+      const T* values = arr.raw_values();
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsValid(i) && (values[i] < 0 || values[i] >= dict_length)) {
+          std::stringstream ss;
+          ss << "Out of bounds dictionary index: " << static_cast<int64_t>(values[i]);
+          return Status::Invalid(ss.str());
+        }
+      }
+      return Status::OK();
+    };
 
     if (data.num_chunks() == 1 && indices_first.null_count() == 0) {
+      RETURN_NOT_OK(CheckIndices(indices_first, dict_arr_first.dictionary()->length()));
       RETURN_NOT_OK(AllocateNDArrayFromIndices<T>(npy_type, indices_first));
     } else {
       if (options_.zero_copy_only) {
@@ -998,9 +1011,10 @@ class CategoricalBlock : public PandasBlock {
         const std::shared_ptr<Array> arr = data.chunk(c);
         const auto& dict_arr = static_cast<const DictionaryArray&>(*arr);
 
-        const auto& indices = static_cast<const PrimitiveArray&>(*dict_arr.indices());
+        const auto& indices = static_cast<const ArrayType&>(*dict_arr.indices());
         auto in_values = reinterpret_cast<const T*>(indices.raw_values());
 
+        RETURN_NOT_OK(CheckIndices(indices, dict_arr.dictionary()->length()));
         // Null is -1 in CategoricalBlock
         for (int i = 0; i < arr->length(); ++i) {
           *out_values++ = indices.IsNull(i) ? -1 : in_values[i];
@@ -1026,16 +1040,16 @@ class CategoricalBlock : public PandasBlock {
 
     switch (dict_type.index_type()->id()) {
       case Type::INT8:
-        RETURN_NOT_OK(WriteIndices<Type::INT8>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int8Type>(converted_col));
         break;
       case Type::INT16:
-        RETURN_NOT_OK(WriteIndices<Type::INT16>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int16Type>(converted_col));
         break;
       case Type::INT32:
-        RETURN_NOT_OK(WriteIndices<Type::INT32>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int32Type>(converted_col));
         break;
       case Type::INT64:
-        RETURN_NOT_OK(WriteIndices<Type::INT64>(converted_col));
+        RETURN_NOT_OK(WriteIndices<Int64Type>(converted_col));
         break;
       default: {
         std::stringstream ss;
@@ -1091,13 +1105,11 @@ class CategoricalBlock : public PandasBlock {
 
     PyObject* block_arr = PyArray_NewFromDescr(&PyArray_Type, descr, 1, block_dims,
                                                nullptr, data, NPY_ARRAY_CARRAY, nullptr);
+    RETURN_IF_PYERROR();
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
-    if (placement_arr == NULL) {
-      // TODO(wesm): propagating Python exception
-      return Status::OK();
-    }
+    RETURN_IF_PYERROR();
 
     block_arr_.reset(block_arr);
     placement_arr_.reset(placement_arr);

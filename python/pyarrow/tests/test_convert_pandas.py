@@ -217,6 +217,21 @@ class TestPandasConversion(object):
         result = pa.array([0, 1, 2]).to_pandas(zero_copy_only=True)
         npt.assert_array_equal(result, [0, 1, 2])
 
+    def test_dictionary_indices_boundscheck(self):
+        # ARROW-1658. No validation of indices leads to segfaults in pandas
+        indices = [[0, 1], [0, -1]]
+
+        for inds in indices:
+            arr = pa.DictionaryArray.from_arrays(inds, ['a'])
+            batch = pa.RecordBatch.from_arrays([arr], ['foo'])
+            table = pa.Table.from_batches([batch, batch, batch])
+
+            with pytest.raises(pa.ArrowException):
+                arr.to_pandas()
+
+            with pytest.raises(pa.ArrowException):
+                table.to_pandas()
+
     def test_zero_copy_dictionaries(self):
         arr = pa.DictionaryArray.from_arrays(
             np.array([0, 0]),
