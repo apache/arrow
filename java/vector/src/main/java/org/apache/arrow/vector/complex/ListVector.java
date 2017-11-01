@@ -32,15 +32,7 @@ import com.google.common.collect.ObjectArrays;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.AddOrGetResult;
-import org.apache.arrow.vector.BaseDataValueVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -381,10 +373,18 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       final UInt4Vector.Accessor offsetsAccessor = offsets.getAccessor();
       final int start = offsetsAccessor.get(index);
       final int end = offsetsAccessor.get(index + 1);
-      final ValueVector.Accessor valuesAccessor = getDataVector().getAccessor();
-      for (int i = start; i < end; i++) {
-        vals.add(valuesAccessor.getObject(i));
+      final ValueVector vv = getDataVector();
+      if (vv instanceof  NullableIntVector || vv instanceof NullableVarCharVector) {
+        for (int i = start; i < end; i++) {
+          vals.add(vv.getObject(i));
+        }
+      } else {
+        final ValueVector.Accessor valuesAccessor = vv.getAccessor();
+        for (int i = start; i < end; i++) {
+          vals.add(valuesAccessor.getObject(i));
+        }
       }
+
       return vals;
     }
 
@@ -437,7 +437,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
         offsets.getMutator().setValueCount(valueCount + 1);
       }
       final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
-      vector.getMutator().setValueCount(childValueCount);
+      if (vector instanceof NullableIntVector || vector instanceof NullableVarCharVector) {
+        vector.setValueCount(childValueCount);
+      } else {
+        vector.getMutator().setValueCount(childValueCount);
+      }
+
       bits.getMutator().setValueCount(valueCount);
     }
 
