@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,22 +16,6 @@
 # limitations under the License.
 #
 
-version: '3'
-services:
-  gen_apidocs:
-    build: 
-      context: gen_apidocs
-    volumes:
-     - ../..:/apache-arrow
-  run_site:
-    build:
-      context: run_site
-    ports:
-    - "4000:4000"
-    volumes:
-     - ../..:/apache-arrow
-  dask_integration:
-    build: 
-      context: dask_integration
-    volumes:
-     - ../..:/apache-arrow
+# Pass the service name to run_docker_compose.sh
+# Which validates environment and runs the service
+exec "$(dirname ${BASH_SOURCE})"/run_docker_compose.sh dask_integration

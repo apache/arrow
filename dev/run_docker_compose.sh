@@ -37,4 +37,4 @@ fi
 
 GID=$(id -g ${USERNAME})
 docker-compose -f arrow/dev/docker-compose.yml run \
-               -u "${UID}:${GID}" "${1}"
+               --rm -u "${UID}:${GID}" "${1}"
