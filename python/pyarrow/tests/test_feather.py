@@ -50,7 +50,7 @@ class TestFeatherReader(unittest.TestCase):
                 pass
 
     def test_file_not_exist(self):
-        with self.assertRaises(pa.ArrowIOError):
+        with pytest.raises(pa.ArrowIOError):
             FeatherReader('test_invalid_file')
 
     def _get_null_counts(self, path, columns=None):
@@ -98,7 +98,7 @@ class TestFeatherReader(unittest.TestCase):
         def f():
             write_feather(df, path)
 
-        self.assertRaises(exc, f)
+        pytest.raises(exc, f)
 
     def test_num_rows_attr(self):
         df = pd.DataFrame({'foo': [1, 2, 3, 4, 5]})
@@ -466,3 +466,8 @@ class TestFeatherReader(unittest.TestCase):
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})
         self._assert_error_on_write(df, ValueError)
+
+    @pytest.mark.slow
+    def test_large_dataframe(self):
+        df = pd.DataFrame({'A': np.arange(400000000)})
+        self._check_pandas_roundtrip(df)
