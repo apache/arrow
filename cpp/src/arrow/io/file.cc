@@ -277,8 +277,8 @@ static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbyte
 #endif
 
   if (*bytes_read == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error reading bytes from file");
+    return Status::IOError(std::string("Error reading bytes from file: ") +
+                           std::string(strerror(errno)));
   }
 
   return Status::OK();
@@ -306,8 +306,8 @@ static inline Status FileWrite(const int fd, const uint8_t* buffer,
 #endif
 
   if (ret == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error writing bytes to file");
+    return Status::IOError(std::string("Error writing bytes from file: ") +
+                           std::string(strerror(errno)));
   }
   return Status::OK();
 }
