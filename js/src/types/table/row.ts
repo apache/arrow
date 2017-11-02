@@ -15,21 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector, Struct } from '../types';
+import { Row, Vector, Struct } from '../types';
 import { VirtualVector } from '../vector/virtual';
 
-export class Row<TKey extends string | number> extends Vector {
+export class RowVector<T = any> extends Vector<T> implements Row<T> {
     readonly row: number;
-    readonly table: Struct<TKey>;
+    readonly length: number;
+    readonly table: Struct<T>;
     [Symbol.toStringTag]() { return 'Row'; }
-    constructor(table: Struct<TKey>, row: number) {
+    constructor(table: Struct<T>, row: number) {
         super();
         this.row = row;
         this.table = table;
+        this.length = table.columns.length;
     }
-    get length() { return this.table.length; }
-    get<T = any>(key: TKey) {
-        const col = this.table.col(key as TKey);
+    get(index: number) {
+        const col = this.table.columns[index];
+        return col ? col.get(this.row) as T : null;
+    }
+    col(key: string) {
+        const col = this.table.col(key);
         return col ? col.get(this.row) as T : null;
     }
     *[Symbol.iterator]() {
@@ -38,12 +43,12 @@ export class Row<TKey extends string | number> extends Vector {
             yield col ? col.get(row) : null;
         }
     }
-    concat(...rows: Row<TKey>[]): Vector {
+    concat(...rows: Vector<T>[]): Vector<T> {
         return new VirtualVector(Array, this, ...rows as any[]);
     }
     toArray() { return [...this]; }
     toJSON() { return this.toArray(); }
-    toString() { return `Row [${this.length}]`; }
+    toString() { return `Row [${this.length})` }
     toObject(): Record<string, any> {
         const { row } = this, map = Object.create(null);
         for (const col of this.table.columns) {

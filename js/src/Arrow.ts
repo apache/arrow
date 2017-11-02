@@ -17,12 +17,12 @@
 
 import { readBuffers } from './reader/arrow';
 
-import { Row } from './types/table/row';
 import { Vector } from './types/types';
 import { ListVector } from './types/list';
 import { Utf8Vector } from './types/utf8';
 import { BoolVector } from './types/vector/bool';
 import { DateVector } from './types/vector/date';
+import { RowVector } from './types/table/row';
 import { TableVector } from './types/table/table';
 import { StructVector } from './types/table/struct';
 import { DictionaryVector } from './types/dictionary';
@@ -43,12 +43,12 @@ import {
 import './types/table/from';
 
 export {
-    Row,
     Vector,
     readBuffers,
     DictionaryVector,
+    RowVector as Row,
     TableVector as Table,
-    Utf8Vector, StructVector,
+    StructVector, Utf8Vector,
     ListVector, FixedSizeListVector,
     BoolVector, TypedVector, LongVector,
     DateVector, Float32Vector, Float64Vector,

@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Row } from './row';
+import { RowVector } from './row';
 import { toString } from './toString';
 import { VirtualVector } from '../vector/virtual';
-import { Vector, Column, Struct } from '../types';
+import { Row, Vector, Column, Struct } from '../types';
 
 export interface StructVector {
     toString(): string;
@@ -26,29 +26,29 @@ export interface StructVector {
     toString(options: { index: boolean }): string;
 }
 
-export class StructVector extends Vector<StructRow> implements Struct<number> {
+export class StructVector<T = any> extends Vector<Row<T>> implements Struct<T> {
     readonly length: number;
     readonly columns: Column[];
     constructor(argv: { columns: Column[] }) {
         super();
-        this.columns = argv.columns;
+        this.columns = argv.columns || [];
         if (!this.length) {
             this.length = Math.max(...this.columns.map((col) => col.length)) | 0;
         }
     }
-    get(index: number): StructRow {
+    get(index: number): StructRow<T> {
         return new StructRow(this, index);
     }
-    col(index: number) {
-        return this.columns[index] || null;
+    col(name: string) {
+        return this.columns.find((col) => col.name === name) || null;
     }
     key(index: number) {
-        return this.columns[index] ? index : null;
+        return this.columns[index] ? this.columns[index].name : null;
     }
-    select(...columns: number[]) {
+    select(...columns: string[]) {
         return new StructVector({ columns: columns.map((name) => this.col(name)!) });
     }
-    concat(...structs: Vector<Row<number>>[]): Vector<Row<number>> {
+    concat(...structs: Vector<Row<T>>[]): Vector<Row<T>> {
         return new VirtualVector(Array, this, ...structs as any[]);
     }
     toString(x?: any) {
@@ -56,7 +56,7 @@ export class StructVector extends Vector<StructRow> implements Struct<number> {
     }
 }
 
-export class StructRow extends Row<number> {
+export class StructRow<T> extends RowVector<T> {
     toString() {
         return JSON.stringify(this);
     }

@@ -48,13 +48,13 @@ export type List<T> = T[] | TypedArray;
 
 export interface Vector<T = any> extends Iterable<T | null> {
     readonly length: number;
-    get(key: number | string): T | null;
+    get(index: number): T | null;
     concat(...vectors: Vector<T>[]): Vector<T>;
     slice<R = T[]>(start?: number, end?: number): R;
 }
 
-export interface Row<TKey extends string | number> extends Vector {
-    get<T = any>(key: TKey): T | null;
+export interface Row<T = any> extends Vector<T> {
+    col(key: string): T | null;
 }
 
 export interface Column<T = any> extends Vector<T> {
@@ -65,12 +65,12 @@ export interface Column<T = any> extends Vector<T> {
     readonly metadata: Map<string, string>;
 }
 
-export interface Struct<TKey extends string | number> extends Vector<Row<TKey>> {
+export interface Struct<T = any> extends Vector<Row<T>> {
     readonly columns: Column[];
-    col(key: TKey): Column | null;
-    key(key: number): TKey | null;
-    select(...columns: TKey[]): Struct<TKey>;
-    concat(...structs: Vector<Row<TKey>>[]): Vector<Row<TKey>>;
+    key(key: number): string | null;
+    col(key: string): Column | null;
+    select(...columns: string[]): Struct<T>;
+    concat(...structs: Vector<Row<T>>[]): Vector<Row<T>>;
 }
 
 export class Vector<T = any> implements Vector<T> {

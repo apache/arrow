@@ -25,15 +25,15 @@ Symbol.iterator;
 /** @type {symbol} */
 Symbol.asyncIterator;
 
-let Row = function() {};
+let RowVector = function() {};
 /** @type {?} */
-Row.prototype.toJSON;
+RowVector.prototype.toJSON;
 /** @type {?} */
-Row.prototype.toArray;
+RowVector.prototype.toArray;
 /** @type {?} */
-Row.prototype.toObject;
+RowVector.prototype.toObject;
 /** @type {?} */
-Row.prototype.toString;
+RowVector.prototype.toString;
 
 let Table = function() {};
 /** @type {?} */

@@ -1,6 +1,6 @@
 import { Struct } from '../types';
 
-export function toString<TKey extends string | number>(source: Struct<TKey>, options?: any) {
+export function toString<T>(source: Struct<T>, options?: any) {
     const index = typeof options === 'object' ? options && !!options.index
                 : typeof options === 'boolean' ? !!options
                 : false;
