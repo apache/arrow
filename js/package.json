@@ -77,7 +77,7 @@
     "jest": "21.2.1",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
-    "lerna": "2.4.0",
+    "lerna": "2.5.0",
     "lint-staged": "4.3.0",
     "merge2": "1.2.0",
     "mkdirp": "0.5.1",
@@ -92,7 +92,7 @@
     "ts-jest": "21.1.4",
     "tslib": "1.8.0",
     "tslint": "5.8.0",
-    "typescript": "2.5.3",
+    "typescript": "2.6.1",
     "uglifyjs-webpack-plugin": "1.0.1",
     "webpack": "3.8.1"
   },
