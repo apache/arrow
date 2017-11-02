@@ -21,7 +21,7 @@ package org.apache.arrow.vector.pojo;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -74,14 +74,12 @@ public class TestConvert {
   public void list() throws Exception {
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         ListVector writeVector = ListVector.empty("list", allocator)) {
+         ListVector writeVector = ListVector.empty("list", allocator);
+         FixedSizeListVector writeFixedVector = FixedSizeListVector.empty("fixedlist", 5, allocator)) {
       Field listVectorField = writeVector.getField();
       childrenBuilder.add(listVectorField);
-    }
-    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         FixedSizeListVector writeVector = FixedSizeListVector.empty("fixedlist", 5, allocator)) {
-      Field listVectorField = writeVector.getField();
-      childrenBuilder.add(listVectorField);
+      Field listFixedVectorField = writeFixedVector.getField();
+      childrenBuilder.add(listFixedVectorField);
     }
 
     Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
@@ -92,8 +90,7 @@ public class TestConvert {
     org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
     Field finalField = Field.convertField(flatBufField);
     assertEquals(initialField, finalField);
-    assertTrue(!finalField.toString().contains(Field.ZEROVECTOR_OLD_NAME));
-
+    assertFalse(finalField.toString().contains("[DEFAULT]"));
 
     Schema initialSchema = new Schema(parentBuilder.build());
     String jsonSchema = initialSchema.toJson();
@@ -104,7 +101,7 @@ public class TestConvert {
     org.apache.arrow.vector.types.pojo.Schema schema = new org.apache.arrow.vector.types.pojo.Schema(tempSchema.getFields());
     schemaBuilder.finish(schema.getSchema(schemaBuilder));
     Schema finalSchema = Schema.deserialize(ByteBuffer.wrap(schemaBuilder.sizedByteArray()));
-    assertTrue(!finalSchema.toString().contains(Field.ZEROVECTOR_OLD_NAME));
+    assertFalse(finalSchema.toString().contains("[DEFAULT]"));
   }
 
   @Test

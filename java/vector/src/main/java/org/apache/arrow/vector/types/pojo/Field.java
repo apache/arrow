@@ -49,8 +49,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
 
-  public static final String ZEROVECTOR_OLD_NAME = "[DEFAULT]";
-
   public static Field nullablePrimitive(String name, ArrowType.PrimitiveType type) {
     return nullable(name, type);
   }
@@ -148,7 +146,7 @@ public class Field {
    */
   private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
     if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
-        && originalChildField.getName().equals(ZEROVECTOR_OLD_NAME)) {
+        && originalChildField.getName().equals("[DEFAULT]")) {
       return
         new Field(DATA_VECTOR_NAME,
           originalChildField.isNullable(),
