@@ -79,6 +79,15 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 namespace test {
 
+void randbool(int64_t N, std::vector<bool>* out) {
+  Random rng(random_seed());
+  bool val;
+  for (int64_t i = 0; i < N; ++i) {
+    val = rng.OneIn(2);
+    out->push_back(val);
+  }
+}
+
 template <typename T>
 void randint(int64_t N, T lower, T upper, std::vector<T>* out) {
   Random rng(random_seed());

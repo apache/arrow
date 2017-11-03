@@ -270,9 +270,15 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type_Utf8:
       *out = utf8();
       return Status::OK();
-    case flatbuf::Type_Bool:
-      *out = boolean();
+    case flatbuf::Type_Bool: {
+      auto bool_type = static_cast<const flatbuf::Bool*>(type_data);
+      if (bool_type->is_byte()) {
+        *out = boolean8();
+      } else {
+        *out = boolean();
+      }
       return Status::OK();
+    }
     case flatbuf::Type_Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
       *out = decimal(dec_type->precision(), dec_type->scale());
@@ -483,6 +489,14 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
 static Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type,
                                      flatbuf::Type* out_type, Offset* offset) {
   switch (type.id()) {
+    case Type::BOOL:
+      *out_type = flatbuf::Type_Bool;
+      *offset = flatbuf::CreateBool(fbb).Union();
+      break;
+    case Type::BOOL8:
+      *out_type = flatbuf::Type_Bool;
+      *offset = flatbuf::CreateBool(fbb, true).Union();
+      break;
     case Type::UINT8:
       INT_TO_FB_CASE(8, false);
     case Type::INT8:

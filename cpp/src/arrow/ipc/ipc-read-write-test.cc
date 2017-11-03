@@ -728,14 +728,25 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 
   std::vector<int64_t> values;
   test::randint<int64_t>(size, 0, 100, &values);
+  std::vector<bool> bool_values;
+  test::randbool(size, &bool_values);
+  std::vector<uint8_t> bool8_values;
+  test::randint<uint8_t>(size, 0, 1, &bool8_values);
 
   auto data = test::GetBufferFromVector(values);
+  std::shared_ptr<Buffer> bool_data;
+  ASSERT_OK(test::GetBitmapFromVector(bool_values, &bool_data));
+  auto bool8_data = test::GetBufferFromVector(bool8_values);
 
   Tensor t0(int64(), data, shape, strides, dim_names);
   Tensor tzero(int64(), data, {}, {}, {});
+  Tensor tbool(boolean(), bool_data, {}, {}, {});
+  Tensor tbool8(boolean8(), bool8_data, {}, {}, {});
 
   CheckTensorRoundTrip(t0);
   CheckTensorRoundTrip(tzero);
+  CheckTensorRoundTrip(tbool);
+  CheckTensorRoundTrip(tbool8);
 
   int64_t serialized_size;
   ASSERT_OK(GetTensorSize(t0, &serialized_size));

@@ -63,6 +63,7 @@ class ARROW_EXPORT TypeVisitor {
 
   virtual Status Visit(const NullType& type);
   virtual Status Visit(const BooleanType& type);
+  virtual Status Visit(const Boolean8Type& type);
   virtual Status Visit(const Int8Type& type);
   virtual Status Visit(const Int16Type& type);
   virtual Status Visit(const Int32Type& type);

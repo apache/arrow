@@ -45,6 +45,7 @@ class NullArray;
 class NullBuilder;
 
 class BooleanType;
+class Boolean8Type;
 class BooleanArray;
 class BooleanBuilder;
 
@@ -132,6 +133,7 @@ using IntervalArray = NumericArray<IntervalType>;
 
 std::shared_ptr<DataType> ARROW_EXPORT null();
 std::shared_ptr<DataType> ARROW_EXPORT boolean();
+std::shared_ptr<DataType> ARROW_EXPORT boolean8();
 std::shared_ptr<DataType> ARROW_EXPORT int8();
 std::shared_ptr<DataType> ARROW_EXPORT int16();
 std::shared_ptr<DataType> ARROW_EXPORT int32();

@@ -49,6 +49,9 @@ struct Type {
     /// Boolean as 1 bit, LSB bit-packed ordering
     BOOL,
 
+    /// Boolean as 1 byte (may only be used in Tensors)
+    BOOL8,
+
     /// Unsigned 8-bit little-endian integer
     UINT8,
 
@@ -334,6 +337,19 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
 
   int bit_width() const override { return 1; }
   std::string name() const override { return "bool"; }
+};
+
+class ARROW_EXPORT Boolean8Type : public FixedWidthType, public NoExtraMeta {
+ public:
+  static constexpr Type::type type_id = Type::BOOL8;
+
+  Boolean8Type() : FixedWidthType(Type::BOOL8) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+
+  int bit_width() const override { return 8; }
+  std::string name() const override { return "bool8"; }
 };
 
 class ARROW_EXPORT UInt8Type
