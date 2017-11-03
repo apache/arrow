@@ -15,37 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
+import { Vector } from './types';
+import { TextDecoder } from 'text-encoding-utf-8';
+import { VirtualVector } from './vector/virtual';
 
-export class DictionaryVector<T> extends Vector<T> {
-    protected data: Vector<T>;
-    protected keys: Vector<number>;
-    constructor(index: Vector<number>, dictionary: Vector<T>) {
+const decoder = new TextDecoder('utf-8');
+
+export class Utf8Vector extends Vector<string> {
+    readonly values: Vector<Uint8Array | null>;
+    constructor(argv: { values: Vector<Uint8Array | null> }) {
         super();
-        this.keys = index;
-        this.data = dictionary;
-        this.length = index && index.length || 0;
-    }
-    index(index: number) {
-        return this.keys.get(index);
-    }
-    value(index: number) {
-        return this.data.get(index);
+        this.values = argv.values;
     }
     get(index: number) {
-        return this.value(this.index(index));
+        const chars = this.getCodePoints(index);
+        return chars ? decoder.decode(chars) : null;
     }
-    concat(vector: DictionaryVector<T>) {
-        return DictionaryVector.from(this,
-            this.length + vector.length,
-            this.keys.concat(vector.keys),
-            this.data
-        );
+    getCodePoints(index: number) {
+        return this.values.get(index);
     }
-    *[Symbol.iterator]() {
-        let { data } = this;
-        for (const loc of this.keys) {
-            yield data.get(loc);
-        }
+    concat(...vectors: Vector<string>[]): Vector<string> {
+        return new VirtualVector(Array, this, ...vectors);
     }
 }

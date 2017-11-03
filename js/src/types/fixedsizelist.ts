@@ -15,25 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { BitVector, ValidityArgs } from './typed';
+import { List, Vector } from './types';
+import { VirtualVector } from './vector/virtual';
 
-export class StructVector extends Vector<any[]> {
-    protected vectors: Vector<any>[];
-    constructor(validity: ValidityArgs, ...vectors: Vector<any>[]) {
+export class FixedSizeListVector<T, TArray extends List<T>> extends Vector<TArray> {
+    readonly listSize: number;
+    readonly values: Vector<T>;
+    constructor(argv: { listSize: number, values: Vector<T> }) {
         super();
-        this.vectors = vectors;
-        this.length = Math.max(0, ...vectors.map((v) => v.length));
-        validity && (this.validity = BitVector.from(validity));
+        this.values = argv.values;
+        this.listSize = argv.listSize;
     }
     get(index: number) {
-        return this.validity.get(index) ? this.vectors.map((v) => v.get(index)) : null;
+        return this.values.slice<TArray>(this.listSize * index, this.listSize * (index + 1));
     }
-    concat(vector: StructVector) {
-        return StructVector.from(this,
-            this.length + vector.length,
-            this.validity.concat(vector.validity),
-            ...this.vectors.map((v, i) => v.concat(vector.vectors[i]))
-        );
+    concat(...vectors: Vector<TArray>[]): Vector<TArray> {
+        return new VirtualVector(Array, this, ...vectors);
     }
 }

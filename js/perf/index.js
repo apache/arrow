@@ -16,12 +16,10 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// ES6/7 iterators are faster in turbofan, but something about the
-// ES5 transpilation (rewriting let and const to var?) JITs better
-const { Table, readBuffers } = require('../dist/Arrow');
+// const { Table, readBuffers } = require('../targets/es5/umd');
 // const { Table, readBuffers } = require('../targets/es5/cjs');
+const { Table, readBuffers } = require('../targets/es2015/umd');
 // const { Table, readBuffers } = require('../targets/es2015/cjs');
-// const { Table, readBuffers } = require('../targets/esnext/cjs');
 
 const Benchmark = require('benchmark');
 const arrowTestConfigurations = require('./config');
@@ -35,12 +33,12 @@ for (let [name, ...buffers] of arrowTestConfigurations) {
     const getByIndexSuite = new Benchmark.Suite(`Get ${name} values by index`, { async: true });
     parseSuite.add(createFromTableTest(name, buffers));
     parseSuite.add(createReadBuffersTest(name, buffers));
-    for (const vector of Table.from(...buffers).cols()) {
+    for (const vector of Table.from(...buffers).columns) {
         sliceSuite.add(createSliceTest(vector));
         iterateSuite.add(createIterateTest(vector));
         getByIndexSuite.add(createGetByIndexTest(vector));
     }
-    suites.push(parseSuite, sliceSuite, getByIndexSuite, iterateSuite);
+    suites.push(getByIndexSuite, iterateSuite, sliceSuite, parseSuite);
 }
 
 console.log('Running apache-arrow performance tests...\n');

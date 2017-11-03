@@ -4,7 +4,8 @@
   "compilerOptions": {
     "target": "ESNEXT",
     "module": "es2015",
+    "declaration": false,
     "noEmitHelpers": true,
-    "importHelpers": false
+    "importHelpers": true
   }
 }

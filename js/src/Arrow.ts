@@ -15,44 +15,45 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table } from './table';
 import { readBuffers } from './reader/arrow';
-import { Vector } from './vector/vector';
-import { StructVector } from './vector/struct';
-import { DictionaryVector } from './vector/dictionary';
-import { ListVector, Utf8Vector, FixedSizeListVector } from './vector/list';
-import {
-    TypedVector, BitVector,
-    DateVector, IndexVector,
-    Int8Vector, Int16Vector,
-    Int32Vector, Int64Vector,
-    Uint8Vector, Uint16Vector,
-    Uint32Vector, Uint64Vector,
-    Float32Vector, Float64Vector,
-} from './vector/typed';
 
-export {
-    Table, readBuffers,
-    Vector,
-    BitVector,
-    ListVector,
-    Utf8Vector,
-    DateVector,
-    IndexVector,
+import { Vector } from './types/types';
+import { ListVector } from './types/list';
+import { Utf8Vector } from './types/utf8';
+import { BoolVector } from './types/vector/bool';
+import { DateVector } from './types/vector/date';
+import { RowVector } from './types/table/row';
+import { TableVector } from './types/table/table';
+import { StructVector } from './types/table/struct';
+import { DictionaryVector } from './types/dictionary';
+import { FixedSizeListVector } from './types/fixedsizelist';
+import { LongVector, Int64Vector, Uint64Vector, } from './types/vector/long';
+import {
     TypedVector,
     Int8Vector,
     Int16Vector,
     Int32Vector,
-    Int64Vector,
     Uint8Vector,
     Uint16Vector,
     Uint32Vector,
-    Uint64Vector,
     Float32Vector,
-    Float64Vector,
-    StructVector,
+    Float64Vector
+} from './types/vector/typed';
+
+import './types/table/from';
+
+export {
+    Vector,
+    readBuffers,
     DictionaryVector,
-    FixedSizeListVector,
+    RowVector as Row,
+    TableVector as Table,
+    StructVector, Utf8Vector,
+    ListVector, FixedSizeListVector,
+    BoolVector, TypedVector, LongVector,
+    DateVector, Float32Vector, Float64Vector,
+    Int8Vector, Int16Vector, Int32Vector, Int64Vector,
+    Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
 };
 
 /* These exports are needed for the closure umd targets */
@@ -60,15 +61,18 @@ try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
-        Arrow['Table'] = Table;
-        Arrow['readBuffers'] = readBuffers;
         Arrow['Vector'] = Vector;
-        Arrow['BitVector'] = BitVector;
-        Arrow['ListVector'] = ListVector;
+        Arrow['Table'] = TableVector;
+        Arrow['readBuffers'] = readBuffers;
+        Arrow['BoolVector'] = BoolVector;
         Arrow['Utf8Vector'] = Utf8Vector;
-        Arrow['DateVector'] = DateVector;
-        Arrow['IndexVector'] = IndexVector;
+        Arrow['ListVector'] = ListVector;
+        Arrow['StructVector'] = StructVector;
+        Arrow['DictionaryVector'] = DictionaryVector;
+        Arrow['FixedSizeListVector'] = FixedSizeListVector;
+        Arrow['LongVector'] = LongVector;
         Arrow['TypedVector'] = TypedVector;
+        Arrow['DateVector'] = DateVector;
         Arrow['Int8Vector'] = Int8Vector;
         Arrow['Int16Vector'] = Int16Vector;
         Arrow['Int32Vector'] = Int32Vector;
@@ -79,9 +83,6 @@ try {
         Arrow['Uint64Vector'] = Uint64Vector;
         Arrow['Float32Vector'] = Float32Vector;
         Arrow['Float64Vector'] = Float64Vector;
-        Arrow['StructVector'] = StructVector;
-        Arrow['DictionaryVector'] = DictionaryVector;
-        Arrow['FixedSizeListVector'] = FixedSizeListVector;
     }
 } catch (e) { /* not the UMD bundle */ }
 /* end closure exports */
