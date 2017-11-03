@@ -22,7 +22,7 @@ import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 
 import { BoolVector } from './vector/bool';
 import { DictionaryVector } from './dictionary';
-import { nullable, readable } from './vector/traits';
+import { nullableMixin, fieldMixin } from './vector/traits';
 import { ListVector as ListVectorBase } from './list';
 import { Utf8Vector as Utf8VectorBase } from './utf8';
 import { Vector, Column, TypedArray } from './types';
@@ -68,9 +68,9 @@ export class Float32Vector extends MixinArrowTraits(Float32VectorBase) {}
 export class Float64Vector extends MixinArrowTraits(Float64VectorBase) {}
 
 export function MixinArrowTraits<T extends Vector<any>, TArgv>(BaseVector: new (argv: TArgv) => T) {
-    const FieldVector = readable(BaseVector);
-    const NullableVector = nullable(BaseVector);
-    const NullableFieldVector = nullable(FieldVector);
+    const FieldVector = fieldMixin(BaseVector);
+    const NullableVector = nullableMixin(BaseVector);
+    const NullableFieldVector = nullableMixin(FieldVector);
     return function(this: any, argv: TArgv & (object | { validity: Uint8Array } | { field: Field, fieldNode: FieldNode })) {
         return new ((!isFieldArgv(argv) ? !isNullableArgv(argv) ?
             BaseVector : NullableVector : !isNullableArgv(argv) ?

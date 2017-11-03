@@ -25,7 +25,7 @@ import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 
 type Ctor<TArgv> = new (argv: TArgv) => Vector;
 
-export const nullable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
+export const nullableMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
     class extends (superclass as Ctor<TArgv>) {
         readonly validity: Vector<boolean>;
         constructor(argv: TArgv & { validity: Uint8Array }) {
@@ -37,7 +37,7 @@ export const nullable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) 
         }
     };
 
-export const readable = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
+export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
     class extends (superclass as Ctor<TArgv>) implements Column {
         readonly field: Field;
         readonly type: string;
