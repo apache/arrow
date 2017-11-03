@@ -100,7 +100,12 @@ if [ $BUILD_SYSTEM = "autotools" ]; then
 
   ./configure $CONFIGURE_OPTIONS
 
-  make -j4
+  if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+    ARCHFLAGS="-arch x86_64" make -j4
+  else
+    make -j4
+  fi
+
   make install
 else
   MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
