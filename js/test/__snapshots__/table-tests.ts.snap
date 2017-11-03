@@ -118,19 +118,19 @@ Array [
 `;
 
 exports[`dictionary file Arrow Table toString() prints a pretty Table 1`] = `
-"                                       example-csv
-Hermione,25,-53.235599517822266,40.231998443603516
-                   Severus,30,-62.22999954223633,3
-                   Harry,20,23,-100.23652648925781"
+"                                                     example-csv
+[\\"Hermione\\",25,{\\"0\\":-53.235599517822266,\\"1\\":40.231998443603516}]
+                   [\\"Severus\\",30,{\\"0\\":-62.22999954223633,\\"1\\":3}]
+                   [\\"Harry\\",20,{\\"0\\":23,\\"1\\":-100.23652648925781}]"
 `;
 
 exports[`dictionary file Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`dictionary file Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,                                        example-csv
-    0, Hermione,25,-53.235599517822266,40.231998443603516
-    1,                    Severus,30,-62.22999954223633,3
-    2,                    Harry,20,23,-100.23652648925781"
+"Index,                                                      example-csv
+    0, [\\"Hermione\\",25,{\\"0\\":-53.235599517822266,\\"1\\":40.231998443603516}]
+    1,                    [\\"Severus\\",30,{\\"0\\":-62.22999954223633,\\"1\\":3}]
+    2,                    [\\"Harry\\",20,{\\"0\\":23,\\"1\\":-100.23652648925781}]"
 `;
 
 exports[`dictionary stream Arrow Table creates a Table from Arrow buffers 1`] = `"example-csv"`;
@@ -251,19 +251,19 @@ Array [
 `;
 
 exports[`dictionary stream Arrow Table toString() prints a pretty Table 1`] = `
-"                                       example-csv
-Hermione,25,-53.235599517822266,40.231998443603516
-                   Severus,30,-62.22999954223633,3
-                   Harry,20,23,-100.23652648925781"
+"                                                     example-csv
+[\\"Hermione\\",25,{\\"0\\":-53.235599517822266,\\"1\\":40.231998443603516}]
+                   [\\"Severus\\",30,{\\"0\\":-62.22999954223633,\\"1\\":3}]
+                   [\\"Harry\\",20,{\\"0\\":23,\\"1\\":-100.23652648925781}]"
 `;
 
 exports[`dictionary stream Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`dictionary stream Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,                                        example-csv
-    0, Hermione,25,-53.235599517822266,40.231998443603516
-    1,                    Severus,30,-62.22999954223633,3
-    2,                    Harry,20,23,-100.23652648925781"
+"Index,                                                      example-csv
+    0, [\\"Hermione\\",25,{\\"0\\":-53.235599517822266,\\"1\\":40.231998443603516}]
+    1,                    [\\"Severus\\",30,{\\"0\\":-62.22999954223633,\\"1\\":3}]
+    2,                    [\\"Harry\\",20,{\\"0\\":23,\\"1\\":-100.23652648925781}]"
 `;
 
 exports[`dictionary2 file Arrow Table creates a Table from Arrow buffers 1`] = `"struct"`;
@@ -353,17 +353,17 @@ Array [
 `;
 
 exports[`dictionary2 file Arrow Table toString() prints a pretty Table 1`] = `
-"                                                                                      struct
- a0fb47f9-f8fb-4403-a64a-786d7611f8ef,Airbus,1502880750,32.45663833618164,1.8712350130081177
-50fb46f4-fefa-42c1-919c-0121974cdd00,Boeing,1502880750,38.766666412353516,-4.181231498718262"
+"                                                                                                      struct
+ [\\"a0fb47f9-f8fb-4403-a64a-786d7611f8ef\\",\\"Airbus\\",1502880750,{\\"0\\":32.45663833618164,\\"1\\":1.8712350130081177}]
+[\\"50fb46f4-fefa-42c1-919c-0121974cdd00\\",\\"Boeing\\",1502880750,{\\"0\\":38.766666412353516,\\"1\\":-4.181231498718262}]"
 `;
 
 exports[`dictionary2 file Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`dictionary2 file Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,                                                                                       struct
-    0,  a0fb47f9-f8fb-4403-a64a-786d7611f8ef,Airbus,1502880750,32.45663833618164,1.8712350130081177
-    1, 50fb46f4-fefa-42c1-919c-0121974cdd00,Boeing,1502880750,38.766666412353516,-4.181231498718262"
+"Index,                                                                                                       struct
+    0,  [\\"a0fb47f9-f8fb-4403-a64a-786d7611f8ef\\",\\"Airbus\\",1502880750,{\\"0\\":32.45663833618164,\\"1\\":1.8712350130081177}]
+    1, [\\"50fb46f4-fefa-42c1-919c-0121974cdd00\\",\\"Boeing\\",1502880750,{\\"0\\":38.766666412353516,\\"1\\":-4.181231498718262}]"
 `;
 
 exports[`multi_dictionary file Arrow Table creates a Table from Arrow buffers 1`] = `"struct"`;
@@ -459,17 +459,17 @@ Array [
 `;
 
 exports[`multi_dictionary file Arrow Table toString() prints a pretty Table 1`] = `
-"                                                                                            struct
- a0fb47f9-f8fb-4403-a64a-786d7611f8ef,12345,Airbus,1502880750,32.45663833618164,1.8712350130081177
-50fb46f4-fefa-42c1-919c-0121974cdd00,67890,Boeing,1502880750,38.766666412353516,-4.181231498718262"
+"                                                                                                              struct
+ [\\"a0fb47f9-f8fb-4403-a64a-786d7611f8ef\\",\\"12345\\",\\"Airbus\\",1502880750,{\\"0\\":32.45663833618164,\\"1\\":1.8712350130081177}]
+[\\"50fb46f4-fefa-42c1-919c-0121974cdd00\\",\\"67890\\",\\"Boeing\\",1502880750,{\\"0\\":38.766666412353516,\\"1\\":-4.181231498718262}]"
 `;
 
 exports[`multi_dictionary file Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`multi_dictionary file Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,                                                                                             struct
-    0,  a0fb47f9-f8fb-4403-a64a-786d7611f8ef,12345,Airbus,1502880750,32.45663833618164,1.8712350130081177
-    1, 50fb46f4-fefa-42c1-919c-0121974cdd00,67890,Boeing,1502880750,38.766666412353516,-4.181231498718262"
+"Index,                                                                                                               struct
+    0,  [\\"a0fb47f9-f8fb-4403-a64a-786d7611f8ef\\",\\"12345\\",\\"Airbus\\",1502880750,{\\"0\\":32.45663833618164,\\"1\\":1.8712350130081177}]
+    1, [\\"50fb46f4-fefa-42c1-919c-0121974cdd00\\",\\"67890\\",\\"Boeing\\",1502880750,{\\"0\\":38.766666412353516,\\"1\\":-4.181231498718262}]"
 `;
 
 exports[`multipart count Arrow Table creates a Table from Arrow buffers 1`] = `"row_count"`;
@@ -1373,47 +1373,47 @@ Array [
 `;
 
 exports[`struct file Arrow Table toString() prints a pretty Table 1`] = `
-"  struct_nullable
-             null
-         ,MhRNxD4
-137773603,3F9HBxK
-410361374,aVd88fp
-             null
-         ,3loZrRf
-             null
-             null
-                ,
-                ,
-             null
-         ,78SLiRw
-             null
-             null
-         ,0ilsf82
-         ,LjS9MbU
-                ,"
+"      struct_nullable
+                 null
+     [null,\\"MhRNxD4\\"]
+[137773603,\\"3F9HBxK\\"]
+[410361374,\\"aVd88fp\\"]
+                 null
+     [null,\\"3loZrRf\\"]
+                 null
+                 null
+          [null,null]
+          [null,null]
+                 null
+     [null,\\"78SLiRw\\"]
+                 null
+                 null
+     [null,\\"0ilsf82\\"]
+     [null,\\"LjS9MbU\\"]
+          [null,null]"
 `;
 
 exports[`struct file Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`struct file Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,   struct_nullable
-    0,              null
-    1,          ,MhRNxD4
-    2, 137773603,3F9HBxK
-    3, 410361374,aVd88fp
-    4,              null
-    5,          ,3loZrRf
-    6,              null
-    7,              null
-    8,                 ,
-    9,                 ,
-   10,              null
-   11,          ,78SLiRw
-   12,              null
-   13,              null
-   14,          ,0ilsf82
-   15,          ,LjS9MbU
-   16,                 ,"
+"Index,       struct_nullable
+    0,                  null
+    1,      [null,\\"MhRNxD4\\"]
+    2, [137773603,\\"3F9HBxK\\"]
+    3, [410361374,\\"aVd88fp\\"]
+    4,                  null
+    5,      [null,\\"3loZrRf\\"]
+    6,                  null
+    7,                  null
+    8,           [null,null]
+    9,           [null,null]
+   10,                  null
+   11,      [null,\\"78SLiRw\\"]
+   12,                  null
+   13,                  null
+   14,      [null,\\"0ilsf82\\"]
+   15,      [null,\\"LjS9MbU\\"]
+   16,           [null,null]"
 `;
 
 exports[`struct stream Arrow Table creates a Table from Arrow buffers 1`] = `"struct_nullable"`;
@@ -1771,45 +1771,45 @@ Array [
 `;
 
 exports[`struct stream Arrow Table toString() prints a pretty Table 1`] = `
-"  struct_nullable
-             null
-         ,MhRNxD4
-137773603,3F9HBxK
-410361374,aVd88fp
-             null
-         ,3loZrRf
-             null
-             null
-                ,
-                ,
-             null
-         ,78SLiRw
-             null
-             null
-         ,0ilsf82
-         ,LjS9MbU
-                ,"
+"      struct_nullable
+                 null
+     [null,\\"MhRNxD4\\"]
+[137773603,\\"3F9HBxK\\"]
+[410361374,\\"aVd88fp\\"]
+                 null
+     [null,\\"3loZrRf\\"]
+                 null
+                 null
+          [null,null]
+          [null,null]
+                 null
+     [null,\\"78SLiRw\\"]
+                 null
+                 null
+     [null,\\"0ilsf82\\"]
+     [null,\\"LjS9MbU\\"]
+          [null,null]"
 `;
 
 exports[`struct stream Arrow Table toString() prints an empty Table 1`] = `""`;
 
 exports[`struct stream Arrow Table toString({ index: true }) prints a pretty Table with an Index column 1`] = `
-"Index,   struct_nullable
-    0,              null
-    1,          ,MhRNxD4
-    2, 137773603,3F9HBxK
-    3, 410361374,aVd88fp
-    4,              null
-    5,          ,3loZrRf
-    6,              null
-    7,              null
-    8,                 ,
-    9,                 ,
-   10,              null
-   11,          ,78SLiRw
-   12,              null
-   13,              null
-   14,          ,0ilsf82
-   15,          ,LjS9MbU
-   16,                 ,"
+"Index,       struct_nullable
+    0,                  null
+    1,      [null,\\"MhRNxD4\\"]
+    2, [137773603,\\"3F9HBxK\\"]
+    3, [410361374,\\"aVd88fp\\"]
+    4,                  null
+    5,      [null,\\"3loZrRf\\"]
+    6,                  null
+    7,                  null
+    8,           [null,null]
+    9,           [null,null]
+   10,                  null
+   11,      [null,\\"78SLiRw\\"]
+   12,                  null
+   13,                  null
+   14,      [null,\\"0ilsf82\\"]
+   15,      [null,\\"LjS9MbU\\"]
+   16,           [null,null]"
 `;

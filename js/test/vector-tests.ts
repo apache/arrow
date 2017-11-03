@@ -18,7 +18,7 @@
 import { flatbuffers } from 'flatbuffers';
 import Long = flatbuffers.Long;
 import {
-    BitVector,
+    BoolVector,
     TypedVector,
     Int64Vector,
     Uint64Vector,
@@ -32,22 +32,34 @@ import {
     Float64Vector,
 } from './Arrow';
 
-const LongVectors = { Int64Vector, Uint64Vector };
-const ByteVectors = { Int8Vector, Int16Vector, Int32Vector, Uint8Vector, Uint16Vector, Uint32Vector, Float32Vector, Float64Vector };
+const LongVectors = {
+    Int64Vector: [Int64Vector, Int32Array],
+    Uint64Vector: [Uint64Vector, Uint32Array]
+};
 
-const longVectors = toMap<typeof TypedVector>(LongVectors, Object.keys(LongVectors));
-const byteVectors = toMap<typeof TypedVector>(ByteVectors, Object.keys(ByteVectors));
+const TypedVectors = {
+    Int8Vector: [Int8Vector, Int8Array],
+    Int16Vector: [Int16Vector, Int16Array],
+    Int32Vector: [Int32Vector, Int32Array],
+    Uint8Vector: [Uint8Vector, Uint8Array],
+    Uint16Vector: [Uint16Vector, Uint16Array],
+    Uint32Vector: [Uint32Vector, Uint32Array],
+    Float32Vector: [Float32Vector, Float32Array],
+    Float64Vector: [Float64Vector, Float64Array]
+};
+
+const longVectors = toMap<[typeof TypedVector, any]>(LongVectors, Object.keys(LongVectors));
+const byteVectors = toMap<[typeof TypedVector, any]>(TypedVectors, Object.keys(TypedVectors));
 const bytes = Array.from(
     { length: 5 },
     () => Uint8Array.from(
         { length: 64 },
         () => Math.random() * 255 | 0));
 
-describe(`BitVector`, () => {
-    const vector = new BitVector(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
+describe(`BoolVector`, () => {
+    const vector = new BoolVector({ data: new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]) });
     const values = [true, true, false, true, true, false, false, false];
     const n = values.length;
-    vector.length = 1;
     test(`gets expected values`, () => {
         let i = -1;
         while (++i < n) {
@@ -62,11 +74,11 @@ describe(`BitVector`, () => {
         }
     });
     test(`can set values to true and false`, () => {
-        const v = new BitVector(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
+        const v = new BoolVector({ data: new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]) });
         const expected1 = [true, true, false, true, true, false, false, false];
         const expected2 = [true, true,  true, true, true, false, false, false];
         const expected3 = [true, true, false, false, false, false, true, true];
-        function validate(expected) {
+        function validate(expected: boolean[]) {
             for (let i = -1; ++i < n;) {
                 expect(v.get(i)).toEqual(expected[i]);
             }
@@ -88,40 +100,42 @@ describe(`BitVector`, () => {
         validate(expected1);
     });
     test(`packs 0 values`, () => {
-        expect(BitVector.pack([])).toEqual(
+        expect(BoolVector.pack([])).toEqual(
             new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 3 values`, () => {
-        expect(BitVector.pack([
+        expect(BoolVector.pack([
             true, false, true
         ])).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 8 values`, () => {
-        expect(BitVector.pack([
+        expect(BoolVector.pack([
             true, true, false, true, true, false, false, false
         ])).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
     });
     test(`packs 25 values`, () => {
-        expect(BitVector.pack([
+        expect(BoolVector.pack([
             true, true, false, true, true, false, false, false,
             false, false, false, true, true, false, true, true,
             false
         ])).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
     });
     test(`from with boolean Array packs values`, () => {
-        expect(BitVector.from([
-            true, false, true
-        ]).slice()).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+        expect(new BoolVector({
+            data: BoolVector.pack([true, false, true])
+        }).slice()).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
     });
 });
 
-for (const [VectorName, VectorType] of longVectors) {
-    const ArrayType = VectorType.prototype.arrayType;
+for (const [VectorName, [VectorType, ArrayType]] of longVectors) {
     describe(`${VectorName}`, () => {
         const values = concatTyped(ArrayType, ...bytes);
-        const bLists = bytes.map((b) => new ArrayType(b.buffer));
-        const vector = new VectorType(null, ...bLists);
-        const n = vector.length = values.length * 0.5;
+        const vector = bytes
+            .map((b) => new VectorType<Long, any>({
+                data: new ArrayType(b.buffer)
+            }))
+            .reduce((v: any, v2) => v.concat(v2));
+        const n = values.length * 0.5;
         test(`gets expected values`, () => {
             let i = -1;
             while (++i < n) {
@@ -161,13 +175,16 @@ for (const [VectorName, VectorType] of longVectors) {
     });
 }
 
-for (const [VectorName, VectorType] of byteVectors) {
-    const ArrayType = VectorType.prototype.arrayType;
+for (const [VectorName, [VectorType, ArrayType]] of byteVectors) {
     describe(`${VectorName}`, () => {
         const values = concatTyped(ArrayType, ...bytes);
-        const bLists = bytes.map((b) => new ArrayType(b.buffer));
-        const vector = new VectorType(null, ...bLists);
-        const n = vector.length = values.length;
+        const vector = bytes
+            .map((b) => new VectorType<number, any>({
+                data: new ArrayType(b.buffer)
+            }))
+            .reduce((v: any, v2) => v.concat(v2));
+
+        const n = values.length;
         test(`gets expected values`, () => {
             let i = -1;
             while (++i < n) {
@@ -212,9 +229,9 @@ function toMap<T>(entries: any, keys: string[]) {
 }
 
 function concatTyped(ArrayType: any, ...bytes: any[]) {
-    const BPM = ArrayType.BYTES_PER_ELEMENT;
+    const BPE = ArrayType.BYTES_PER_ELEMENT;
     return bytes.reduce((v, bytes) => {
-        const l = bytes.byteLength / BPM;
+        const l = bytes.byteLength / BPE;
         const a = new ArrayType(v.length + l);
         const b = new ArrayType(bytes.buffer);
         a.set(v);

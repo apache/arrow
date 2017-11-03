@@ -23,7 +23,7 @@ for (let [name, ...buffers] of arrowTestConfigurations) {
         test(`creates a Table from Arrow buffers`, () => {
             expect.hasAssertions();
             const table = Table.from(...buffers);
-            for (const vector of table.cols()) {
+            for (const vector of table.columns) {
                 expect(vector.name).toMatchSnapshot();
                 expect(vector.type).toMatchSnapshot();
                 expect(vector.length).toMatchSnapshot();
@@ -35,7 +35,7 @@ for (let [name, ...buffers] of arrowTestConfigurations) {
         test(`vector iterators report the same values as get`, () => {
             expect.hasAssertions();
             const table = Table.from(...buffers);
-            for (const vector of table.cols()) {
+            for (const vector of table.columns) {
                 let i = -1, n = vector.length;
                 for (let v of vector) {
                     expect(++i).toBeLessThan(n);
@@ -46,12 +46,13 @@ for (let [name, ...buffers] of arrowTestConfigurations) {
         });
         test(`batch and Table Vectors report the same values`, () => {
             expect.hasAssertions();
-            let rowsTotal = 0, table = Table.from(...buffers);
+            let rowsTotal = 0;
+            let table = Table.from(...buffers);
             for (let vectors of readBuffers(...buffers)) {
                 let rowsNow = Math.max(...vectors.map((v) => v.length));
                 for (let vi = -1, vn = vectors.length; ++vi < vn;) {
                     let v1 = vectors[vi];
-                    let v2 = table.getColumnAt(vi);
+                    let v2 = table.columns[vi];
                     expect(v1.name).toEqual(v2.name);
                     expect(v1.type).toEqual(v2.type);
                     for (let i = -1, n = v1.length; ++i < n;) {
@@ -64,15 +65,15 @@ for (let [name, ...buffers] of arrowTestConfigurations) {
         test(`enumerates Table rows`, () => {
             expect.hasAssertions();
             const table = Table.from(...buffers);
-            for (const row of table.rows()) {
-                expect(row).toMatchSnapshot();
+            for (const row of table) {
+                expect(row!.toObject()).toMatchSnapshot();
             }
         });
         test(`enumerates Table rows compact`, () => {
             expect.hasAssertions();
             const table = Table.from(...buffers);
-            for (const row of table.rows(true)) {
-                expect(row).toMatchSnapshot();
+            for (const row of table) {
+                expect(row!.toArray()).toMatchSnapshot();
             }
         });
         test(`toString() prints an empty Table`, () => {

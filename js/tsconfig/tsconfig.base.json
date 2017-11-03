@@ -3,23 +3,33 @@
   "include": ["../src/**/*.ts"],
   "compileOnSave": false,
   "compilerOptions": {
-    "lib": ["dom", "esnext", "esnext.asynciterable"],
+
+    /* Basic stuff */
     "moduleResolution": "node",
+    "lib": ["dom", "esnext", "esnext.asynciterable"],
+
+    /* Control what is emitted */
+    "declaration": true,
+    "noEmitOnError": true,
+    "removeComments": false,
+    "downlevelIteration": true,
+
+    /* Create inline sourcemaps with sources */
     "sourceMap": false,
     "inlineSources": true,
     "inlineSourceMap": true,
-    "declaration": true,
-    "skipLibCheck": true,
+
+    /* The most restrictive settings possible */
+    "strict": true,
+    "skipLibCheck": false,
     "importHelpers": true,
     "noEmitHelpers": true,
-    "noImplicitAny": false,
-    "noEmitOnError": false,
-    "noImplicitThis": true,
+    "noImplicitAny": true,
     "noUnusedLocals": true,
-    "removeComments": false,
-    "downlevelIteration": true,
-    "noImplicitUseStrict": true,
-    "preserveConstEnums": false,
+    "noImplicitReturns": true,
+    "allowUnusedLabels": false,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true
   }

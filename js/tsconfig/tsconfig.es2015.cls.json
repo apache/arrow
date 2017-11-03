@@ -4,7 +4,8 @@
   "compilerOptions": {
     "target": "ES2015",
     "module": "es2015",
+    "declaration": false,
     "noEmitHelpers": true,
-    "importHelpers": false
+    "importHelpers": true
   }
 }

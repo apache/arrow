@@ -18,6 +18,7 @@
 # Logs
 logs
 *.log
+.esm-cache
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -57,10 +58,6 @@ build/Release
 node_modules/
 jspm_packages/
 
-# Typescript declaration files
-types/
-typings/
-
 # Optional npm cache directory
 .npm
 
@@ -85,6 +82,4 @@ package-lock.json
 
 # compilation targets
 dist
-targets/es5
-targets/es2015
-targets/esnext
+targets

@@ -46,13 +46,13 @@ export function* readMessageBatches(bb: ByteBuffer) {
     let bytes = bb.bytes();
     for (let message of readMessages(bb)) {
         let type = message.headerType();
-        let id: string, data: RecordBatch;
+        let id: string | void, data: RecordBatch;
         if (type === MessageHeader.RecordBatch) {
-            data = message.header(new RecordBatch());
+            data = message.header(new RecordBatch())!;
         } else if (type === MessageHeader.DictionaryBatch) {
-            let header = message.header(new DictionaryBatch());
+            let header = message.header(new DictionaryBatch())!;
             id = header.id().toFloat64().toString();
-            data = header.data();
+            data = header.data()!;
         } else {
             continue;
         }
