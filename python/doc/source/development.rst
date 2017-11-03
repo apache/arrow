@@ -257,7 +257,8 @@ First, starting from fresh clones of Apache Arrow and parquet-cpp:
 .. code-block:: shell
 
    conda create -n arrow-dev cmake git boost-cpp ^
-         flatbuffers snappy zlib brotli thrift-cpp rapidjson
+         flatbuffers snappy zlib brotli thrift-cpp rapidjson ^
+         -c conda-forge
    activate arrow-dev
 
 As one git housekeeping item, we must run this command in our Arrow clone:
