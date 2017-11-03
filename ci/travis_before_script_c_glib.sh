@@ -100,7 +100,7 @@ if [ $BUILD_SYSTEM = "autotools" ]; then
 
   ./configure $CONFIGURE_OPTIONS
 
-  make -j4
+  ARCHFLAGS="-arch x86_64" make -j4
   make install
 else
   MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
