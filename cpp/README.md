@@ -69,6 +69,14 @@ Simple release build:
 
 Detailed unit test logs will be placed in the build directory under `build/test-logs`.
 
+On some Linux distributions, running the test suite might require setting an
+explicit locale. If you see any locale-related errors, try setting the
+environment variable (which requires the `locales` package or equivalent):
+
+```
+export LC_ALL="en_US.UTF-8"
+```
+
 ### Statically linking to Arrow on Windows
 
 The Arrow headers on Windows static library builds (enabled by the CMake
