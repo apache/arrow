@@ -27,7 +27,7 @@ if len(sys.argv) < 4:
                      sys.argv[0])
     sys.exit(1)
 
-CLANG_FORMAT = 'clang-format-{0}'.format(sys.argv[1])
+CLANG_FORMAT = sys.argv[1]
 EXCLUDE_GLOBS_FILENAME = sys.argv[2]
 SOURCE_DIR = sys.argv[3]
 
