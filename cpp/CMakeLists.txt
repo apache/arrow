@@ -48,6 +48,7 @@ set(ARROW_ABI_VERSION "${ARROW_SO_VERSION}.0.0")
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
+set(CLANG_FORMAT_VERSION "4.0")
 find_package(ClangTools)
 if ("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -435,11 +436,9 @@ endif (UNIX)
 # "make format" and "make check-format" targets
 ############################################################
 
-set(CLANG_FORMAT_VERSION 4.0)
-
 # runs clang format and updates files in place.
 add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-  ${CLANG_FORMAT_VERSION}
+  ${CLANG_FORMAT_BIN}
   ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -447,7 +446,7 @@ add_custom_target(format ${BUILD_SUPPORT_DIR}/run_clang_format.py
 
 # TODO(wesm): Make this work in run_clang_format.py
 add_custom_target(check-format ${BUILD_SUPPORT_DIR}/run_clang_format.py
-   ${CLANG_FORMAT_VERSION}
+   ${CLANG_FORMAT_BIN}
    ${BUILD_SUPPORT_DIR}/clang_format_exclusions.txt
    ${CMAKE_CURRENT_SOURCE_DIR}/src 1)
 
