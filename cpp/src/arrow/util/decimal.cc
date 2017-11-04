@@ -582,18 +582,18 @@ static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
 int64_t CountLeadingZeros(uint32_t value) {
   DCHECK_NE(value, 0);
 #if defined(__clang__) || defined(__GNUC__)
-  return __builtin_clz(value);
+  return static_cast<int64_t>(__builtin_clz(value));
 #elif defined(_MSC_VER)
   unsigned long index;                                         // NOLINT
   _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
-  return static_cast<int64_t>(index);
+  return 32LL - (static_cast<int64_t>(index) + 1LL);
 #else
   int64_t bitpos = 0;
   while (value != 0) {
     value >>= 1;
     ++bitpos;
   }
-  return 32 - bitpos;
+  return 32LL - bitpos;
 #endif
 }
 
