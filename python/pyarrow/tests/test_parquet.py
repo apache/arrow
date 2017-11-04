@@ -22,7 +22,7 @@ import os
 import json
 import pytest
 
-from pyarrow.compat import guid, u, BytesIO, unichar
+from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -496,7 +496,7 @@ def test_parquet_metadata_api():
         ([-1.1, 2.2, 2.3, None, 4.4], np.float64, u'-1.1', u'4.4', 1, 4),
         (
             [u'', u'b', unichar(1000), None, u'aaa'],
-            str, u' ', unichar(1000).encode('utf-8') + ' ', 1, 4
+            str, u' ', frombytes((unichar(1000) + u' ').encode('utf-8')), 1, 4
         ),
         ([True, False, False, True, True], np.bool, u'0', u'1', 0, 5),
     ]
