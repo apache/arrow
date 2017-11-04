@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 FROM ubuntu:14.04
-ADD . /apache-arrow
-WORKDIR /apache-arrow
 # Prerequsites for apt-add-repository
 RUN apt-get update && apt-get install -y \
     software-properties-common python-software-properties
@@ -34,14 +32,6 @@ RUN wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     bash /tmp/miniconda.sh -b -p /home/ubuntu/miniconda && \
     rm /tmp/miniconda.sh
-# C++ dependencies
-RUN /home/ubuntu/miniconda/bin/conda install -c conda-forge \
-    boost-cpp \
-    doxygen \
-    maven \
-    cmake \
-    zlib \
-    thrift-cpp
 # C_Glib dependencies
 RUN apt-get install -y \
     libgtk2.0-dev \
@@ -69,6 +59,7 @@ RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         six \
         setuptools \
         # C++
+        boost-cpp \
         cmake \
         flatbuffers \
         rapidjson \
@@ -79,5 +70,9 @@ RUN /home/ubuntu/miniconda/bin/conda create -y -q -n pyarrow-dev \
         jemalloc \
         lz4-c \
         zstd \
+        doxygen \
+        maven \
         -c conda-forge
+ADD . /apache-arrow
+WORKDIR /apache-arrow
 CMD arrow/dev/gen_apidocs/create_documents.sh
