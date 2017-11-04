@@ -67,6 +67,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
         _Type_MAP" arrow::Type::MAP"
 
+    enum UnionMode" arrow::UnionMode":
+        UnionMode_SPARSE" arrow::UnionMode::SPARSE"
+        UnionMode_DENSE" arrow::UnionMode::DENSE"
+
     enum TimeUnit" arrow::TimeUnit::type":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
         TimeUnit_MILLI" arrow::TimeUnit::MILLI"
@@ -319,14 +323,19 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
-        CStatus FromArrays(const vector[shared_ptr[CArray]]& children,
-                           const CArray& type_ids, const CArray& value_offsets,
+        CStatus FromSparse(const CArray& type_ids,
+                           const vector[shared_ptr[CArray]]& children,
                            shared_ptr[CArray]* out)
+        @staticmethod
+        CStatus FromDense(const CArray& type_ids, const CArray& value_offsets,
+                          const vector[shared_ptr[CArray]]& children,
+                          shared_ptr[CArray]* out)
         uint8_t* raw_type_ids()
         int32_t value_offset(int i)
         shared_ptr[CArray] child(int pos)
         const CArray* UnsafeChild(int pos)
         shared_ptr[CDataType] value_type(int pos)
+        UnionMode mode()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
         const uint8_t* GetValue(int i, int32_t* length)

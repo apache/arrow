@@ -634,14 +634,25 @@ cdef class ListArray(Array):
 cdef class UnionArray(Array):
 
     @staticmethod
-    def from_arrays(list children, Array types, Array value_offsets):
+    def from_dense(Array types, Array value_offsets, list children):
         cdef shared_ptr[CArray] out
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
         for child in children:
             c.push_back(child.sp_array)
         with nogil:
-            check_status(CUnionArray.FromArrays(c, deref(types.ap), deref(value_offsets.ap), &out))
+            check_status(CUnionArray.FromDense(deref(types.ap), deref(value_offsets.ap), c, &out))
+        return pyarrow_wrap_array(out)
+
+    @staticmethod
+    def from_sparse(Array types, list children):
+        cdef shared_ptr[CArray] out
+        cdef vector[shared_ptr[CArray]] c
+        cdef Array child
+        for child in children:
+            c.push_back(child.sp_array)
+        with nogil:
+            check_status(CUnionArray.FromSparse(deref(types.ap), c, &out))
         return pyarrow_wrap_array(out)
 
 cdef class StringArray(Array):
