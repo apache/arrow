@@ -393,7 +393,8 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-std::shared_ptr<DataType> MakeUnionArrayType(UnionMode mode, const std::vector<std::shared_ptr<Array>>& children) {
+std::shared_ptr<DataType> MakeUnionArrayType(
+    UnionMode mode, const std::vector<std::shared_ptr<Array>>& children) {
   auto types = std::vector<std::shared_ptr<Field>>();
   std::vector<uint8_t> type_codes;
   uint8_t counter = 0;
@@ -441,8 +442,7 @@ Status UnionArray::FromSparse(const Array& type_ids,
     return Status::Invalid("UnionArray type_ids must be signed int8");
   }
   BufferVector buffers = {type_ids.null_bitmap(),
-                          static_cast<const UInt8Array&>(type_ids).values(),
-                          nullptr};
+                          static_cast<const UInt8Array&>(type_ids).values(), nullptr};
   auto union_type = MakeUnionArrayType(UnionMode::SPARSE, children);
   auto internal_data =
       std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
@@ -450,7 +450,8 @@ Status UnionArray::FromSparse(const Array& type_ids,
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
     if (child->length() != type_ids.length()) {
-      return Status::Invalid("Sparse UnionArray must have len(child) == len(type_ids) for all children");
+      return Status::Invalid(
+          "Sparse UnionArray must have len(child) == len(type_ids) for all children");
     }
   }
   *out = std::make_shared<UnionArray>(internal_data);

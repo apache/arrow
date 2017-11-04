@@ -247,7 +247,8 @@ def test_union_from_dense():
 
 
 def test_union_from_sparse():
-    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'], type='binary')
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
     int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
 
