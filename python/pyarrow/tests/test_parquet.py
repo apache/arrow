@@ -440,9 +440,13 @@ def test_parquet_metadata_api():
         schema[-1]
 
     # Row group
-    rg_meta = meta.row_group(0)
-    repr(rg_meta)
-    repr(rg_meta.column(0))
+    for rg in range(meta.num_row_groups):
+        rg_meta = meta.row_group(rg)
+        repr(rg_meta)
+
+        for col in range(rg_meta.num_columns):
+            col_meta = rg_meta.column(col)
+            repr(col_meta)
 
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
