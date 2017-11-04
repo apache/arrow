@@ -578,25 +578,6 @@ static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
   return Status::OK();
 }
 
-/// \brief Count the number of leading zeros in a 32 bit integer.
-int64_t CountLeadingZeros(uint32_t value) {
-  DCHECK_NE(value, 0);
-#if defined(__clang__) || defined(__GNUC__)
-  return static_cast<int64_t>(__builtin_clz(value));
-#elif defined(_MSC_VER)
-  unsigned long index;                                         // NOLINT
-  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
-  return 31LL - static_cast<int64_t>(index);
-#else
-  int64_t bitpos = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bitpos;
-  }
-  return 32LL - bitpos;
-#endif
-}
-
 Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
                           Decimal128* remainder) const {
   // Split the dividend and divisor into integer pieces so that we can
@@ -633,7 +614,7 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
   // divisor_array[0] is greater than 2**31.
-  int64_t normalize_bits = CountLeadingZeros(divisor_array[0]);
+  int64_t normalize_bits = BitUtil::CountLeadingZeros(divisor_array[0]);
   ShiftArrayLeft(divisor_array, divisor_length, normalize_bits);
   ShiftArrayLeft(dividend_array, dividend_length, normalize_bits);
 
