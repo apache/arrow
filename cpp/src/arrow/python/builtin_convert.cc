@@ -519,21 +519,73 @@ class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Conver
   }
 };
 
-class DateConverter : public TypedConverterVisitor<Date64Builder, DateConverter> {
+class Date32Converter : public TypedConverterVisitor<Date32Builder, Date32Converter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
-    auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
-    return typed_builder_->Append(PyDate_to_ms(pydate));
+    int32_t t;
+    if (PyDate_Check(item.obj())) {
+      auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
+      t = static_cast<int32_t>(PyDate_to_s(pydate));
+    } else {
+      int64_t casted_val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
+      if (casted_val > std::numeric_limits<int32_t>::max()) {
+        return Status::Invalid("Integer as date32 larger than INT32_MAX");
+      }
+      t = static_cast<int32_t>(casted_val);
+    }
+    return typed_builder_->Append(t);
+  }
+};
+
+class Date64Converter : public TypedConverterVisitor<Date64Builder, Date64Converter> {
+ public:
+  inline Status AppendItem(const OwnedRef& item) {
+    int64_t t;
+    if (PyDate_Check(item.obj())) {
+      auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
+      t = PyDate_to_ms(pydate);
+    } else {
+      t = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
+    }
+    return typed_builder_->Append(t);
   }
 };
 
 class TimestampConverter
-    : public TypedConverterVisitor<Date64Builder, TimestampConverter> {
+    : public TypedConverterVisitor<TimestampBuilder, TimestampConverter> {
  public:
+  explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
+
   inline Status AppendItem(const OwnedRef& item) {
-    auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
-    return typed_builder_->Append(PyDateTime_to_us(pydatetime));
+    int64_t t;
+    if (PyDateTime_Check(item.obj())) {
+      auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
+
+      switch (unit_) {
+        case TimeUnit::SECOND:
+          t = PyDateTime_to_s(pydatetime);
+          break;
+        case TimeUnit::MILLI:
+          t = PyDateTime_to_ms(pydatetime);
+          break;
+        case TimeUnit::MICRO:
+          t = PyDateTime_to_us(pydatetime);
+          break;
+        case TimeUnit::NANO:
+          t = PyDateTime_to_ns(pydatetime);
+          break;
+      }
+    } else {
+      t = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      RETURN_IF_PYERROR();
+    }
+    return typed_builder_->Append(t);
   }
+
+ private:
+  TimeUnit::type unit_;
 };
 
 class DoubleConverter : public TypedConverterVisitor<DoubleBuilder, DoubleConverter> {
@@ -684,10 +736,13 @@ std::shared_ptr<SeqConverter> GetConverter(const std::shared_ptr<DataType>& type
       return std::make_shared<UInt32Converter>();
     case Type::UINT64:
       return std::make_shared<UInt64Converter>();
+    case Type::DATE32:
+      return std::make_shared<Date32Converter>();
     case Type::DATE64:
-      return std::make_shared<DateConverter>();
+      return std::make_shared<Date64Converter>();
     case Type::TIMESTAMP:
-      return std::make_shared<TimestampConverter>();
+      return std::make_shared<TimestampConverter>(
+          static_cast<const TimestampType&>(*type).unit());
     case Type::DOUBLE:
       return std::make_shared<DoubleConverter>();
     case Type::BINARY:

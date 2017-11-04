@@ -42,7 +42,19 @@ class RandomAccessFile;
 
 namespace ipc {
 
-enum class MetadataVersion : char { V1, V2, V3 };
+enum class MetadataVersion : char {
+  /// 0.1.0
+  V1,
+
+  /// 0.2.0
+  V2,
+
+  /// 0.3.0 to 0.7.1
+  V3,
+
+  /// >= 0.8.0
+  V4
+};
 
 // ARROW-109: We set this number arbitrarily to help catch user mistakes. For
 // deeply nested schemas, it is expected the user will indicate explicitly the
@@ -69,7 +81,7 @@ class ARROW_EXPORT Message {
   /// \brief Create and validate a Message instance from two buffers
   ///
   /// \param[in] metadata a buffer containing the Flatbuffer metadata
-  /// \param[in] body a buffer containing the message body, which may be nullptr
+  /// \param[in] body a buffer containing the message body, which may be null
   /// \param[out] out the created message
   /// \return Status
   static Status Open(const std::shared_ptr<Buffer>& metadata,
@@ -98,7 +110,7 @@ class ARROW_EXPORT Message {
 
   /// \brief the Message body, if any
   ///
-  /// \return buffer is nullptr if no body
+  /// \return buffer is null if no body
   std::shared_ptr<Buffer> body() const;
 
   /// \brief The Message type
@@ -179,7 +191,7 @@ Status ReadMessage(const int64_t offset, const int32_t metadata_length,
 
 /// \brief Read encapulated RPC message (metadata and body) from InputStream
 ///
-/// Read length-prefixed message with as-yet unknown length. Returns nullptr if
+/// Read length-prefixed message with as-yet unknown length. Returns null if
 /// there are not enough bytes available or the message length is 0 (e.g. EOS
 /// in a stream)
 ARROW_EXPORT

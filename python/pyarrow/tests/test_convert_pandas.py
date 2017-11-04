@@ -19,7 +19,6 @@
 from collections import OrderedDict
 
 from datetime import date, time
-import unittest
 import decimal
 import json
 
@@ -61,7 +60,7 @@ def _alltypes_example(size=100):
     })
 
 
-class TestPandasConversion(unittest.TestCase):
+class TestPandasConversion(object):
 
     def setUp(self):
         pass
@@ -72,11 +71,11 @@ class TestPandasConversion(unittest.TestCase):
     def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
                                 expected_schema=None,
                                 check_dtype=True, schema=None,
-                                check_index=False,
+                                preserve_index=False,
                                 as_batch=False):
         klass = pa.RecordBatch if as_batch else pa.Table
         table = klass.from_pandas(df, schema=schema,
-                                  preserve_index=check_index,
+                                  preserve_index=preserve_index,
                                   nthreads=nthreads)
 
         result = table.to_pandas(nthreads=nthreads)
@@ -84,7 +83,9 @@ class TestPandasConversion(unittest.TestCase):
             assert table.schema.equals(expected_schema)
         if expected is None:
             expected = df
-        tm.assert_frame_equal(result, expected, check_dtype=check_dtype)
+        tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                              check_index_type=('equiv' if preserve_index
+                                                else False))
 
     def _check_series_roundtrip(self, s, type_=None):
         arr = pa.array(s, from_pandas=True, type=type_)
@@ -132,14 +133,14 @@ class TestPandasConversion(unittest.TestCase):
     def test_column_index_names_are_preserved(self):
         df = pd.DataFrame({'data': [1, 2, 3]})
         df.columns.names = ['a']
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
         ])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_with_dtypes(self):
         columns = pd.MultiIndex.from_arrays(
@@ -150,11 +151,11 @@ class TestPandasConversion(unittest.TestCase):
             names=['level_1', 'level_2'],
         )
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
-        self._check_pandas_roundtrip(df, check_index=True)
+        self._check_pandas_roundtrip(df, preserve_index=True)
 
     def test_categorical_column_index(self):
         # I *really* hope no one uses category dtypes for single level column
@@ -211,6 +212,64 @@ class TestPandasConversion(unittest.TestCase):
         df = pd.DataFrame(data)
         schema = pa.schema(fields)
         self._check_pandas_roundtrip(df, expected_schema=schema)
+
+    def test_zero_copy_success(self):
+        result = pa.array([0, 1, 2]).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, [0, 1, 2])
+
+    def test_dictionary_indices_boundscheck(self):
+        # ARROW-1658. No validation of indices leads to segfaults in pandas
+        indices = [[0, 1], [0, -1]]
+
+        for inds in indices:
+            arr = pa.DictionaryArray.from_arrays(inds, ['a'])
+            batch = pa.RecordBatch.from_arrays([arr], ['foo'])
+            table = pa.Table.from_batches([batch, batch, batch])
+
+            with pytest.raises(pa.ArrowException):
+                arr.to_pandas()
+
+            with pytest.raises(pa.ArrowException):
+                table.to_pandas()
+
+    def test_zero_copy_dictionaries(self):
+        arr = pa.DictionaryArray.from_arrays(
+            np.array([0, 0]),
+            np.array([5]))
+
+        result = arr.to_pandas(zero_copy_only=True)
+        values = pd.Categorical([5, 5])
+
+        tm.assert_series_equal(pd.Series(result), pd.Series(values),
+                               check_names=False)
+
+    def test_zero_copy_failure_on_object_types(self):
+        with pytest.raises(pa.ArrowException):
+            pa.array(['A', 'B', 'C']).to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_failure_with_int_when_nulls(self):
+        with pytest.raises(pa.ArrowException):
+            pa.array([0, 1, None]).to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_failure_with_float_when_nulls(self):
+        with pytest.raises(pa.ArrowException):
+            pa.array([0.0, 1.0, None]).to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_failure_on_bool_types(self):
+        with pytest.raises(pa.ArrowException):
+            pa.array([True, False]).to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_failure_on_list_types(self):
+        arr = np.array([[1, 2], [8, 9]], dtype=object)
+
+        with pytest.raises(pa.ArrowException):
+            pa.array(arr).to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_failure_on_timestamp_types(self):
+        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+
+        with pytest.raises(pa.ArrowException):
+            pa.array(arr).to_pandas(zero_copy_only=True)
 
     def test_float_nulls(self):
         num_values = 100
@@ -420,7 +479,7 @@ class TestPandasConversion(unittest.TestCase):
         values = [b'foo', None, b'ba', None, None, b'hey']
         df = pd.DataFrame({'strings': values})
         schema = pa.schema([pa.field('strings', pa.binary(3))])
-        with self.assertRaises(pa.ArrowInvalid):
+        with pytest.raises(pa.ArrowInvalid):
             pa.Table.from_pandas(df, schema=schema)
 
     def test_timestamps_notimezone_no_nulls(self):
@@ -480,6 +539,16 @@ class TestPandasConversion(unittest.TestCase):
                             .to_frame())
 
         self._check_pandas_roundtrip(df)
+
+    def test_datetime64_to_date32(self):
+        # ARROW-1718
+        arr = pa.array([date(2017, 10, 23), None])
+        c = pa.Column.from_array("d", arr)
+        s = c.to_pandas()
+
+        arr2 = pa.Array.from_pandas(s, type=pa.date32())
+
+        assert arr2.equals(arr.cast('date32'))
 
     def test_date_infer(self):
         df = pd.DataFrame({
@@ -697,11 +766,11 @@ class TestPandasConversion(unittest.TestCase):
 
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.Table.from_pandas(data)
 
         data = pd.DataFrame({'a': [1, True]})
-        with self.assertRaises(pa.ArrowException):
+        with pytest.raises(pa.ArrowException):
             pa.Table.from_pandas(data)
 
     def test_strided_data_import(self):
@@ -940,6 +1009,7 @@ class TestPandasConversion(unittest.TestCase):
                 dtype='datetime64[s]')
         self._check_array_from_pandas_roundtrip(datetime64_s)
 
+    def test_numpy_datetime64_day_unit(self):
         datetime64_d = np.array([
                 '2007-07-13',
                 None,
@@ -1095,6 +1165,54 @@ class TestPandasConversion(unittest.TestCase):
         result = table.to_pandas(strings_to_categorical=True)
         expected = pd.DataFrame({'strings': pd.Categorical(values)})
         tm.assert_frame_equal(result, expected, check_dtype=True)
+
+    def test_table_batch_empty_dataframe(self):
+        df = pd.DataFrame({})
+        self._check_pandas_roundtrip(df)
+        self._check_pandas_roundtrip(df, as_batch=True)
+
+        df2 = pd.DataFrame({}, index=[0, 1, 2])
+        self._check_pandas_roundtrip(df2, preserve_index=True)
+        self._check_pandas_roundtrip(df2, as_batch=True, preserve_index=True)
+
+    def test_array_from_pandas_date_with_mask(self):
+        m = np.array([True, False, True])
+        data = pd.Series([
+            date(1990, 1, 1),
+            date(1991, 1, 1),
+            date(1992, 1, 1)
+        ])
+
+        result = pa.Array.from_pandas(data, mask=m)
+
+        expected = pd.Series([None, date(1991, 1, 1), None])
+        assert pa.Array.from_pandas(expected).equals(result)
+
+    @pytest.mark.parametrize('t,data,expected', [
+        (
+            pa.int64,
+            [[1, 2], [3], None],
+            [None, [3], None]
+        ),
+        (
+            pa.string,
+            [[u'aaa', u'bb'], [u'c'], None],
+            [None, [u'c'], None]
+        ),
+        (
+            pa.null,
+            [[None, None], [None], None],
+            [None, [None], None]
+        )
+    ])
+    def test_array_from_pandas_typed_array_with_mask(self, t, data, expected):
+        m = np.array([True, False, True])
+
+        s = pd.Series(data)
+        result = pa.Array.from_pandas(s, mask=m, type=pa.list_(t()))
+
+        assert pa.Array.from_pandas(expected,
+                                    type=pa.list_(t())).equals(result)
 
 
 def _pytime_from_micros(val):

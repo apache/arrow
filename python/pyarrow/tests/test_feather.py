@@ -249,6 +249,26 @@ class TestFeatherReader(unittest.TestCase):
         result = read_feather(path)
         assert_frame_equal(result, ex_frame)
 
+    def test_buffer_bounds_error(self):
+        # ARROW-1676
+        path = random_path()
+        self.test_files.append(path)
+
+        for i in range(16, 256):
+            values = pa.array([None] + list(range(i)), type=pa.float64())
+
+            writer = FeatherWriter()
+            writer.open(path)
+
+            writer.write_array('arr', values)
+            writer.close()
+
+            result = read_feather(path)
+            expected = pd.DataFrame({'arr': values.to_pandas()})
+            assert_frame_equal(result, expected)
+
+            self._check_pandas_roundtrip(expected, null_counts=[1])
+
     def test_boolean_object_nulls(self):
         repeats = 100
         arr = np.array([False, None, True] * repeats, dtype=object)
@@ -259,17 +279,20 @@ class TestFeatherReader(unittest.TestCase):
         if sys.platform == 'win32':
             pytest.skip('Windows hangs on to file handle for some reason')
 
+        class CustomClass(object):
+            pass
+
         # strings will fail
         df = pd.DataFrame(
             {
                 'numbers': range(5),
-                'strings': [b'foo', None, u'bar', 'qux', np.nan]},
+                'strings': [b'foo', None, u'bar', CustomClass(), np.nan]},
             columns=['numbers', 'strings'])
 
         path = random_path()
         try:
             write_feather(df, path)
-        except:
+        except Exception:
             pass
 
         assert not os.path.exists(path)
@@ -277,10 +300,13 @@ class TestFeatherReader(unittest.TestCase):
     def test_strings(self):
         repeats = 1000
 
-        # we hvae mixed bytes, unicode, strings
+        # Mixed bytes, unicode, strings coerced to binary
         values = [b'foo', None, u'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values * repeats})
-        self._assert_error_on_write(df, ValueError)
+
+        ex_values = [b'foo', None, b'bar', b'qux', np.nan]
+        expected = pd.DataFrame({'strings': ex_values * repeats})
+        self._check_pandas_roundtrip(df, expected, null_counts=[2 * repeats])
 
         # embedded nulls are ok
         values = ['foo', None, 'bar', 'qux', None]

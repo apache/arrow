@@ -17,13 +17,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-base_dir="$(cd .; pwd)"
-lib_dir="${base_dir}/arrow-glib/.libs"
+test_dir="$(cd $(dirname $0); pwd)"
+build_dir="$(cd .; pwd)"
 
-LD_LIBRARY_PATH="${lib_dir}:${LD_LIBRARY_PATH}"
+arrow_glib_build_dir="${build_dir}/arrow-glib/"
+libtool_dir="${arrow_glib_build_dir}/.libs"
+if [ -d "${libtool_dir}" ]; then
+  LD_LIBRARY_PATH="${libtool_dir}:${LD_LIBRARY_PATH}"
+else
+  if [ -d "${arrow_glib_build_dir}" ]; then
+    LD_LIBRARY_PATH="${arrow_glib_build_dir}:${LD_LIBRARY_PATH}"
+  fi
+fi
 
 if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
   make -j8 > /dev/null || exit $?
 fi
 
-${GDB} ruby ${base_dir}/test/run-test.rb "$@"
+arrow_glib_typelib_dir="${ARROW_GLIB_TYPELIB_DIR}"
+if [ -z "${arrow_glib_typelib_dir}" ]; then
+  arrow_glib_typelib_dir="${build_dir}/arrow-glib"
+fi
+
+if [ -d "${arrow_glib_typelib_dir}" ]; then
+  GI_TYPELIB_PATH="${arrow_glib_typelib_dir}:${GI_TYPELIB_PATH}"
+fi
+
+${GDB} ruby ${test_dir}/run-test.rb "$@"

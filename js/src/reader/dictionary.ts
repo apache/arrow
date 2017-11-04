@@ -17,24 +17,20 @@
 
 import { readVector } from './vector';
 import { MessageBatch } from './message';
+import { DictionaryVector } from '../types/dictionary';
 import * as Schema_ from '../format/Schema_generated';
 import { IteratorState, Dictionaries } from './arrow';
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 
-export function* readDictionaries(field: Field | null,
-                                  batch: MessageBatch,
-                                  iterator: IteratorState,
-                                  dictionaries: Dictionaries) {
-    let id: string, encoding = field && field.dictionary();
+export function readDictionary<T>(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries): DictionaryVector<T> | null {
+    let vector: DictionaryVector<T> | null, id, encoding = field.dictionary();
     if (encoding && batch.id === (id = encoding.id().toFloat64().toString())) {
-        yield [id, readVector(field, batch, iterator, null)];
-        return;
+        return readVector<T>(field, batch, iterator, null) as DictionaryVector<T>;
     }
-    for (let i = -1, n = field && field.childrenLength() || 0; ++i < n;) {
-        // Since a dictionary batch can only contain a single vector, return early after we find it
-        for (let result of readDictionaries(field.children(i), batch, iterator, dictionaries)) {
-            yield result;
-            return;
+    for (let i = -1, n = field.childrenLength() | 0; ++i < n;) {
+        if (vector = readDictionary<T>(field.children(i)!, batch, iterator, dictionaries)) {
+            return vector;
         }
     }
+    return null;
 }

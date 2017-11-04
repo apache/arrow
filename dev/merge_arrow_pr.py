@@ -257,11 +257,47 @@ def resolve_jira(title, merge_branches, comment):
     print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
           % (cur_summary, cur_assignee, cur_status, JIRA_BASE, jira_id))
 
+    jira_fix_versions = _get_fix_version(asf_jira, merge_branches)
+
     resolve = [x for x in asf_jira.transitions(jira_id)
                if x['name'] == "Resolve Issue"][0]
-    asf_jira.transition_issue(jira_id, resolve["id"], comment=comment)
+    asf_jira.transition_issue(jira_id, resolve["id"], comment=comment,
+                              fixVersions=jira_fix_versions)
 
-    print("Succesfully resolved %s!" % (jira_id))
+    print("Successfully resolved %s!" % (jira_id))
+
+
+def _get_fix_version(asf_jira, merge_branches):
+    versions = asf_jira.project_versions("ARROW")
+    versions = sorted(versions, key=lambda x: x.name, reverse=True)
+    versions = [x for x in versions if not x.raw['released']]
+
+    default_fix_versions = [fix_version_from_branch(x, versions).name
+                            for x in merge_branches]
+    for v in default_fix_versions:
+        # Handles the case where we have forked a release branch but not yet
+        # made the release.  In this case, if the PR is committed to the master
+        # branch and the release branch, we only consider the release branch to
+        # be the fix version. E.g. it is not valid to have both 1.1.0 and 1.0.0
+        # as fix versions.
+        (major, minor, patch) = v.split(".")
+        if patch == "0":
+            previous = "%s.%s.%s" % (major, int(minor) - 1, 0)
+            if previous in default_fix_versions:
+                default_fix_versions = [x for x in default_fix_versions
+                                        if x != v]
+    default_fix_versions = ",".join(default_fix_versions)
+
+    fix_versions = input("Enter comma-separated fix version(s) [%s]: "
+                         % default_fix_versions)
+    if fix_versions == "":
+        fix_versions = default_fix_versions
+    fix_versions = fix_versions.replace(" ", "").split(",")
+
+    def get_version_json(version_str):
+        return [x for x in versions if x.name == version_str][0].raw
+
+    return [get_version_json(v) for v in fix_versions]
 
 
 if not JIRA_USERNAME:

@@ -550,20 +550,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   int num_record_batches() const { return footer_->recordBatches()->size(); }
 
   MetadataVersion version() const {
-    switch (footer_->version()) {
-      case flatbuf::MetadataVersion_V1:
-        // Arrow 0.1
-        return MetadataVersion::V1;
-      case flatbuf::MetadataVersion_V2:
-        // Arrow 0.2
-        return MetadataVersion::V2;
-      case flatbuf::MetadataVersion_V3:
-        // Arrow 0.3
-        return MetadataVersion::V3;
-      // Add cases as other versions become available
-      default:
-        return MetadataVersion::V3;
-    }
+    return internal::GetMetadataVersion(footer_->version());
   }
 
   FileBlock record_batch(int i) const {

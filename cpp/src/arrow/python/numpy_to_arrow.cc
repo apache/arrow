@@ -260,6 +260,7 @@ class NumPyConverter {
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(ao)),
+        dtype_(PyArray_DESCR(arr_)),
         mask_(nullptr),
         use_pandas_null_sentinels_(use_pandas_null_sentinels) {
     if (mo != nullptr && mo != Py_None) {
@@ -283,6 +284,8 @@ class NumPyConverter {
   Visit(const T& type) {
     return VisitNative<T>();
   }
+
+  Status Visit(const HalfFloatType& type) { return VisitNative<UInt16Type>(); }
 
   Status Visit(const Date32Type& type) { return VisitNative<Date32Type>(); }
   Status Visit(const Date64Type& type) { return VisitNative<Int64Type>(); }
@@ -362,9 +365,7 @@ class NumPyConverter {
   }
 
   Status PushArray(const std::shared_ptr<ArrayData>& data) {
-    std::shared_ptr<Array> result;
-    RETURN_NOT_OK(MakeArray(data, &result));
-    out_arrays_.emplace_back(std::move(result));
+    out_arrays_.emplace_back(MakeArray(data));
     return Status::OK();
   }
 
@@ -431,6 +432,7 @@ class NumPyConverter {
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
   PyArrayObject* arr_;
+  PyArray_Descr* dtype_;
   PyArrayObject* mask_;
   int64_t length_;
   int64_t stride_;
@@ -450,7 +452,7 @@ Status NumPyConverter::Convert() {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  if (PyArray_DESCR(arr_)->type_num == NPY_OBJECT) {
+  if (dtype_->type_num == NPY_OBJECT) {
     return ConvertObjects();
   }
 
@@ -460,6 +462,30 @@ Status NumPyConverter::Convert() {
 
   // Visit the type to perform conversion
   return VisitTypeInline(*type_, this);
+}
+
+namespace {
+
+Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
+                  const std::shared_ptr<DataType>& in_type,
+                  const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
+                  std::shared_ptr<Buffer>* out) {
+  // Must cast
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
+  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
+
+  std::shared_ptr<Array> tmp_array = MakeArray(tmp_data);
+  std::shared_ptr<Array> casted_array;
+
+  compute::FunctionContext context(pool);
+  compute::CastOptions cast_options;
+  cast_options.allow_int_overflow = false;
+  cast_options.allow_time_truncate = false;
+
+  RETURN_NOT_OK(
+      compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
+  *out = casted_array->data()->buffers[1];
+  return Status::OK();
 }
 
 template <typename T, typename T2>
@@ -472,105 +498,40 @@ void CopyStrided(T* input_data, int64_t length, int64_t stride, T2* output_data)
   }
 }
 
-template <>
-void CopyStrided<PyObject*, PyObject*>(PyObject** input_data, int64_t length,
-                                       int64_t stride, PyObject** output_data) {
-  int64_t j = 0;
-  for (int64_t i = 0; i < length; ++i) {
-    output_data[i] = input_data[j];
-    if (output_data[i] != nullptr) {
-      Py_INCREF(output_data[i]);
-    }
-    j += stride;
-  }
-}
-
-static Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
-                         const std::shared_ptr<DataType>& in_type,
-                         const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
-                         std::shared_ptr<Buffer>* out) {
-  // Must cast
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
-  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
-
-  std::shared_ptr<Array> tmp_array, casted_array;
-  RETURN_NOT_OK(MakeArray(tmp_data, &tmp_array));
-
-  compute::FunctionContext context(pool);
-  compute::CastOptions cast_options;
-  cast_options.allow_int_overflow = false;
-
-  RETURN_NOT_OK(
-      compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
-  *out = casted_array->data()->buffers[1];
-  return Status::OK();
-}
-
 template <typename ArrowType>
-inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
+Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* out) {
   using traits = internal::arrow_traits<ArrowType::type_id>;
   using T = typename traits::T;
 
-  if (is_strided()) {
-    // Strided, must copy into new contiguous memory
-    const int64_t stride = PyArray_STRIDES(arr_)[0];
-    const int64_t stride_elements = stride / sizeof(T);
+  // Strided, must copy into new contiguous memory
+  const int64_t stride = PyArray_STRIDES(arr)[0];
+  const int64_t stride_elements = stride / sizeof(T);
 
-    auto new_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(new_buffer->Resize(sizeof(T) * length_));
-    CopyStrided(reinterpret_cast<T*>(PyArray_DATA(arr_)), length_, stride_elements,
-                reinterpret_cast<T*>(new_buffer->mutable_data()));
-    *data = new_buffer;
+  auto new_buffer = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(new_buffer->Resize(sizeof(T) * length));
+  CopyStrided(reinterpret_cast<T*>(PyArray_DATA(arr)), length, stride_elements,
+              reinterpret_cast<T*>(new_buffer->mutable_data()));
+  *out = new_buffer;
+  return Status::OK();
+}
+
+}  // namespace
+
+template <typename ArrowType>
+inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
+  if (is_strided()) {
+    RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
   } else {
     // Can zero-copy
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
 
   std::shared_ptr<DataType> input_type;
-  RETURN_NOT_OK(
-      NumPyDtypeToArrow(reinterpret_cast<PyObject*>(PyArray_DESCR(arr_)), &input_type));
+  RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
     RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
-  }
-
-  return Status::OK();
-}
-
-template <>
-inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
-  // Handle LONGLONG->INT64 and other fun things
-  int type_num_compat = cast_npy_type_compat(PyArray_DESCR(arr_)->type_num);
-  int type_size = NumPyTypeSize(type_num_compat);
-
-  if (type_size == 4) {
-    // Source and target are INT32, so can refer to the main implementation.
-    return ConvertData<Int32Type>(data);
-  } else if (type_size == 8) {
-    // We need to scale down from int64 to int32
-    auto new_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(new_buffer->Resize(sizeof(int32_t) * length_));
-
-    auto input = reinterpret_cast<const int64_t*>(PyArray_DATA(arr_));
-    auto output = reinterpret_cast<int32_t*>(new_buffer->mutable_data());
-
-    if (is_strided()) {
-      // Strided, must copy into new contiguous memory
-      const int64_t stride = PyArray_STRIDES(arr_)[0];
-      const int64_t stride_elements = stride / sizeof(int64_t);
-      CopyStrided(input, length_, stride_elements, output);
-    } else {
-      // TODO(wesm): int32 overflow checks
-      for (int64_t i = 0; i < length_; ++i) {
-        *output++ = static_cast<int32_t>(*input++);
-      }
-    }
-    *data = new_buffer;
-  } else {
-    std::stringstream ss;
-    ss << "Cannot convert NumPy array of element size ";
-    ss << type_size << " to a Date32 array";
-    return Status::NotImplemented(ss.str());
   }
 
   return Status::OK();
@@ -594,6 +555,42 @@ inline Status NumPyConverter::ConvertData<BooleanType>(std::shared_ptr<Buffer>* 
   }
 
   *data = buffer;
+  return Status::OK();
+}
+
+template <>
+inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* data) {
+  if (is_strided()) {
+    RETURN_NOT_OK(CopyStridedArray<Date32Type>(arr_, length_, pool_, data));
+  } else {
+    // Can zero-copy
+    *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
+  }
+
+  // If we have inbound datetime64[D] data, this needs to be downcasted
+  // separately here from int64_t to int32_t, because this data is not
+  // supported in compute::Cast
+  auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
+  if (dtype_->type_num == NPY_DATETIME && date_dtype->meta.base == NPY_FR_D) {
+    auto date32_buffer = std::make_shared<PoolBuffer>(pool_);
+    RETURN_NOT_OK(date32_buffer->Resize(sizeof(int32_t) * length_));
+
+    auto datetime64_values = reinterpret_cast<const int64_t*>((*data)->data());
+    auto date32_values = reinterpret_cast<int32_t*>(date32_buffer->mutable_data());
+    for (int64_t i = 0; i < length_; ++i) {
+      // TODO(wesm): How pedantic do we really want to be about checking for int32
+      // overflow here?
+      *date32_values++ = static_cast<int32_t>(*datetime64_values++);
+    }
+    *data = date32_buffer;
+  } else {
+    std::shared_ptr<DataType> input_type;
+    RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+    if (!input_type->Equals(*type_)) {
+      RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
+    }
+  }
+
   return Status::OK();
 }
 
@@ -622,8 +619,12 @@ Status NumPyConverter::ConvertDates() {
 
   Ndarray1DIndexer<PyObject*> objects(arr_);
 
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   BuilderType builder(pool_);
@@ -636,10 +637,10 @@ Status NumPyConverter::ConvertDates() {
   PyObject* obj;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
-    if (PyDate_CheckExact(obj)) {
-      RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
-    } else if (PandasObjectIsNull(obj)) {
+    if ((have_mask && mask_values[i]) || PandasObjectIsNull(obj)) {
       RETURN_NOT_OK(builder.AppendNull());
+    } else if (PyDate_CheckExact(obj)) {
+      RETURN_NOT_OK(builder.Append(UnboxDate<ArrowType>::Unbox(obj)));
     } else {
       std::stringstream ss;
       ss << "Error converting from Python objects to Date: ";
@@ -1029,6 +1030,41 @@ Status LoopPySequence(PyObject* sequence, T func) {
   return Status::OK();
 }
 
+template <typename T>
+Status LoopPySequenceWithMasks(PyObject* sequence,
+                               const Ndarray1DIndexer<uint8_t>& mask_values,
+                               bool have_mask, T func) {
+  if (PySequence_Check(sequence)) {
+    OwnedRef ref;
+    Py_ssize_t size = PySequence_Size(sequence);
+    if (PyArray_Check(sequence)) {
+      auto array = reinterpret_cast<PyArrayObject*>(sequence);
+      Ndarray1DIndexer<PyObject*> objects(array);
+      for (int64_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(func(objects[i], have_mask && mask_values[i]));
+      }
+    } else {
+      for (int64_t i = 0; i < size; ++i) {
+        ref.reset(PySequence_GetItem(sequence, i));
+        RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
+      }
+    }
+  } else if (PyObject_HasAttrString(sequence, "__iter__")) {
+    OwnedRef iter = OwnedRef(PyObject_GetIter(sequence));
+    PyObject* item;
+    int64_t i = 0;
+    while ((item = PyIter_Next(iter.obj()))) {
+      OwnedRef ref = OwnedRef(item);
+      RETURN_NOT_OK(func(ref.obj(), have_mask && mask_values[i]));
+      i++;
+    }
+  } else {
+    return Status::TypeError("Object is not a sequence or iterable");
+  }
+
+  return Status::OK();
+}
+
 template <int ITEM_TYPE, typename ArrowType>
 inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>& type,
                                                 ListBuilder* builder, PyObject* list) {
@@ -1037,15 +1073,18 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
 
   PyAcquireGIL lock;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   BuilderT* value_builder = static_cast<BuilderT*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1071,7 +1110,7 @@ inline Status NumPyConverter::ConvertTypedLists(const std::shared_ptr<DataType>&
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 template <>
@@ -1079,15 +1118,18 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   auto value_builder = static_cast<NullBuilder*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1112,7 +1154,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 template <>
@@ -1122,15 +1164,18 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
   // TODO: If there are bytes involed, convert to Binary representation
   bool have_bytes = false;
 
-  // TODO: mask not supported here
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
   if (mask_ != nullptr) {
-    return Status::NotImplemented("mask not supported in object conversions yet");
+    mask_values.Init(mask_);
+    have_mask = true;
   }
 
   auto value_builder = static_cast<StringBuilder*>(builder->value_builder());
 
-  auto foreach_item = [&](PyObject* object) {
-    if (PandasObjectIsNull(object)) {
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
       return builder->AppendNull();
     } else if (PyArray_Check(object)) {
       auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
@@ -1162,7 +1207,7 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     }
   };
 
-  return LoopPySequence(list, foreach_item);
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
 }
 
 #define LIST_CASE(TYPE, NUMPY_TYPE, ArrowType)                            \
@@ -1183,6 +1228,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(UINT64, NPY_UINT64, UInt64Type)
     LIST_CASE(INT64, NPY_INT64, Int64Type)
     LIST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+    LIST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
     LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)

@@ -17,7 +17,8 @@
 
 CLEANFILES =
 
-EXTRA_DIST =
+EXTRA_DIST =					\
+	meson.build
 
 AM_CPPFLAGS =					\
 	-I$(top_builddir)			\
@@ -56,6 +57,7 @@ libarrow_glib_la_headers =			\
 	record-batch.h				\
 	schema.h				\
 	table.h					\
+	table-builder.h				\
 	tensor.h				\
 	type.h
 
@@ -96,6 +98,7 @@ libarrow_glib_la_sources =			\
 	record-batch.cpp			\
 	schema.cpp				\
 	table.cpp				\
+	table-builder.cpp			\
 	tensor.cpp				\
 	type.cpp				\
 	$(libarrow_glib_la_headers)		\
@@ -132,6 +135,7 @@ libarrow_glib_la_cpp_headers =			\
 	record-batch.hpp			\
 	schema.hpp				\
 	table.hpp				\
+	table-builder.hpp			\
 	tensor.hpp				\
 	type.hpp
 

@@ -1946,7 +1946,7 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 // ----------------------------------------------------------------------
 // List tests
 
-class TestListBuilder : public TestBuilder {
+class TestListArray : public TestBuilder {
  public:
   void SetUp() {
     TestBuilder::SetUp();
@@ -1973,7 +1973,7 @@ class TestListBuilder : public TestBuilder {
   std::shared_ptr<ListArray> result_;
 };
 
-TEST_F(TestListBuilder, Equality) {
+TEST_F(TestListArray, Equality) {
   Int32Builder* vb = static_cast<Int32Builder*>(builder_->value_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
@@ -2032,9 +2032,66 @@ TEST_F(TestListBuilder, Equality) {
   ASSERT_TRUE(array->RangeEquals(1, 5, 0, slice));
 }
 
-TEST_F(TestListBuilder, TestResize) {}
+TEST_F(TestListArray, TestResize) {}
 
-TEST_F(TestListBuilder, TestAppendNull) {
+TEST_F(TestListArray, TestFromArrays) {
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, values;
+
+  std::vector<bool> offsets_is_valid3 = {true, false, true, true};
+  std::vector<bool> offsets_is_valid4 = {true, true, false, true};
+
+  std::vector<bool> values_is_valid = {true, false, true, true, true, true};
+
+  std::vector<int32_t> offset1_values = {0, 2, 2, 6};
+  std::vector<int32_t> offset2_values = {0, 2, 6, 6};
+
+  std::vector<int8_t> values_values = {0, 1, 2, 3, 4, 5};
+  const int length = 3;
+
+  ArrayFromVector<Int32Type, int32_t>(offset1_values, &offsets1);
+  ArrayFromVector<Int32Type, int32_t>(offset2_values, &offsets2);
+
+  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid3, offset1_values, &offsets3);
+  ArrayFromVector<Int32Type, int32_t>(offsets_is_valid4, offset2_values, &offsets4);
+
+  ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
+
+  auto list_type = list(int8());
+
+  std::shared_ptr<Array> list1, list3, list4;
+  ASSERT_OK(ListArray::FromArrays(*offsets1, *values, pool_, &list1));
+  ASSERT_OK(ListArray::FromArrays(*offsets3, *values, pool_, &list3));
+  ASSERT_OK(ListArray::FromArrays(*offsets4, *values, pool_, &list4));
+
+  ListArray expected1(list_type, length, offsets1->data()->buffers[1], values,
+                      offsets1->data()->buffers[0], 0);
+  AssertArraysEqual(expected1, *list1);
+
+  // Use null bitmap from offsets3, but clean offsets from non-null version
+  ListArray expected3(list_type, length, offsets1->data()->buffers[1], values,
+                      offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected3, *list3);
+
+  // Check that the last offset bit is zero
+  ASSERT_TRUE(BitUtil::BitNotSet(list3->null_bitmap()->data(), length + 1));
+
+  ListArray expected4(list_type, length, offsets2->data()->buffers[1], values,
+                      offsets4->data()->buffers[0], 1);
+  AssertArraysEqual(expected4, *list4);
+
+  // Test failure modes
+
+  std::shared_ptr<Array> tmp;
+
+  // Zero-length offsets
+  ASSERT_RAISES(Invalid,
+                ListArray::FromArrays(*offsets1->Slice(0, 0), *values, pool_, &tmp));
+
+  // Offsets not int32
+  ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
+}
+
+TEST_F(TestListArray, TestAppendNull) {
   ASSERT_OK(builder_->AppendNull());
   ASSERT_OK(builder_->AppendNull());
 
@@ -2076,7 +2133,7 @@ void ValidateBasicListArray(const ListArray* result, const vector<int32_t>& valu
   }
 }
 
-TEST_F(TestListBuilder, TestBasics) {
+TEST_F(TestListArray, TestBasics) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_valid = {1, 0, 1};
@@ -2098,7 +2155,7 @@ TEST_F(TestListBuilder, TestBasics) {
   ValidateBasicListArray(result_.get(), values, is_valid);
 }
 
-TEST_F(TestListBuilder, BulkAppend) {
+TEST_F(TestListArray, BulkAppend) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_valid = {1, 0, 1};
@@ -2115,7 +2172,7 @@ TEST_F(TestListBuilder, BulkAppend) {
   ValidateBasicListArray(result_.get(), values, is_valid);
 }
 
-TEST_F(TestListBuilder, BulkAppendInvalid) {
+TEST_F(TestListArray, BulkAppendInvalid) {
   vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
   vector<int> lengths = {3, 0, 4};
   vector<uint8_t> is_null = {0, 1, 0};
@@ -2135,7 +2192,7 @@ TEST_F(TestListBuilder, BulkAppendInvalid) {
   ASSERT_RAISES(Invalid, ValidateArray(*result_));
 }
 
-TEST_F(TestListBuilder, TestZeroLength) {
+TEST_F(TestListArray, TestZeroLength) {
   // All buffers are null
   Done();
   ASSERT_OK(ValidateArray(*result_));

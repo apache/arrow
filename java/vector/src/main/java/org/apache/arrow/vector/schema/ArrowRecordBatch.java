@@ -72,7 +72,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     for (ArrowBuf arrowBuf : buffers) {
       arrowBuf.retain();
       long size = arrowBuf.readableBytes();
-      arrowBuffers.add(new ArrowBuffer(0, offset, size));
+      arrowBuffers.add(new ArrowBuffer(offset, size));
       LOGGER.debug(String.format("Buffer in RecordBatch at %d, length: %d", offset, size));
       offset += size;
       if (alignBuffers && offset % 8 != 0) { // align on 8 byte boundaries

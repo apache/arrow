@@ -30,8 +30,8 @@ export function* readStream(...bbs: ByteBuffer[]) {
         throw new Error('Invalid Arrow Stream');
     }
     for (const message of readMessages(bbs[0])) {
-        if (message.headerType() === MessageHeader.Schema) {
-            const schema = message.header(new Schema());
+        let schema: Schema;
+        if (message.headerType() === MessageHeader.Schema && (schema = message.header(new Schema())!)) {
             for (const bb of bbs) {
                 for (const batch of readMessageBatches(bb)) {
                     yield { schema, batch };

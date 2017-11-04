@@ -371,7 +371,8 @@ class TableReader::TableReaderImpl {
 
     auto arr_data =
         std::make_shared<ArrayData>(type, meta->length(), buffers, meta->null_count());
-    return MakeArray(arr_data, out);
+    *out = MakeArray(arr_data);
+    return Status::OK();
   }
 
   bool HasDescription() const { return metadata_->HasDescription(); }
@@ -490,7 +491,8 @@ static Status SanitizeUnsupportedTypes(const Array& values, std::shared_ptr<Arra
                                          values.null_bitmap(), values.null_count());
     return Status::OK();
   } else {
-    return MakeArray(values.data(), out);
+    *out = MakeArray(values.data());
+    return Status::OK();
   }
 }
 
@@ -554,12 +556,12 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     if (values.null_count() > 0) {
       // We assume there is one bit for each value in values.nulls, aligned on a
       // byte boundary, and we write this much data into the stream
+      int64_t null_bitmap_size = GetOutputLength(BitUtil::BytesForBits(values.length()));
       if (values.null_bitmap()) {
         RETURN_NOT_OK(WritePadded(stream_.get(), values.null_bitmap()->data(),
-                                  values.null_bitmap()->size(), &bytes_written));
+                                  null_bitmap_size, &bytes_written));
       } else {
-        RETURN_NOT_OK(WritePaddedBlank(
-            stream_.get(), BitUtil::BytesForBits(values.length()), &bytes_written));
+        RETURN_NOT_OK(WritePaddedBlank(stream_.get(), null_bitmap_size, &bytes_written));
       }
       meta->total_bytes += bytes_written;
     }

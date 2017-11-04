@@ -117,10 +117,9 @@ main(int argc, char **argv)
     while (TRUE) {
       GArrowRecordBatch *record_batch;
 
-      record_batch =
-        garrow_record_batch_reader_read_next_record_batch(reader, &error);
+      record_batch = garrow_record_batch_reader_read_next(reader, &error);
       if (error) {
-        g_print("failed to get record batch: %s\n", error->message);
+        g_print("failed to read the next record batch: %s\n", error->message);
         g_error_free(error);
         g_object_unref(reader);
         g_object_unref(input);

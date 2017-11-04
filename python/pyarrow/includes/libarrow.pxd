@@ -182,6 +182,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CListType(const shared_ptr[CDataType]& value_type)
         CListType(const shared_ptr[CField]& field)
         shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
 
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
@@ -746,6 +747,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         c_bool allow_int_overflow
+        c_bool allow_time_truncate
 
     CStatus Cast(CFunctionContext* context, const CArray& array,
                  const shared_ptr[CDataType]& to_type,
@@ -812,6 +814,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef struct PandasOptions:
         c_bool strings_to_categorical
+        c_bool zero_copy_only
 
 cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 

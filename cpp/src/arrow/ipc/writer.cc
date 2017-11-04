@@ -149,8 +149,6 @@ class RecordBatchSerializer : public ArrayVisitor {
 
     buffer_meta_.reserve(buffers_.size());
 
-    const int32_t kNoPageId = -1;
-
     // Construct the buffer metadata for the record batch header
     for (size_t i = 0; i < buffers_.size(); ++i) {
       const Buffer* buffer = buffers_[i].get();
@@ -163,15 +161,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         padding = BitUtil::RoundUpToMultipleOf8(size) - size;
       }
 
-      // TODO(wesm): We currently have no notion of shared memory page id's,
-      // but we've included it in the metadata IDL for when we have it in the
-      // future. Use page = -1 for now
-      //
-      // Note that page ids are a bespoke notion for Arrow and not a feature we
-      // are using from any OS-level shared memory. The thought is that systems
-      // may (in the future) associate integer page id's with physical memory
-      // pages (according to whatever is the desired shared memory mechanism)
-      buffer_meta_.push_back({kNoPageId, offset, size + padding});
+      buffer_meta_.push_back({offset, size + padding});
       offset += size + padding;
     }
 

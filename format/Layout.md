@@ -41,9 +41,8 @@ concepts, here is a small glossary to help disambiguate.
   or a fully-specified nested type. When we say slot we mean a relative type
   value, not necessarily any physical storage region.
 * Logical type: A data type that is implemented using some relative (physical)
-  type. For example, a Decimal value stored in 16 bytes could be stored in a
-  primitive array with slot size 16 bytes. Similarly, strings can be stored as
-  `List<1-byte>`.
+  type. For example, Decimal values are stored as 16 bytes in a fixed byte
+  size array. Similarly, strings can be stored as `List<1-byte>`.
 * Parent and child arrays: names to express relationships between physical
   value arrays in a nested type structure. For example, a `List<T>`-type parent
   array has a T-type array as its child (see more on lists below).
@@ -616,9 +615,9 @@ the the types array indicates that a slot contains a different type at the index
 ## Dictionary encoding
 
 When a field is dictionary encoded, the values are represented by an array of Int32 representing the index of the value in the dictionary.
-The Dictionary is received as a DictionaryBatch whose id is referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
-The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatch.
-When a Schema references a Dictionary id, it must send a DictionaryBatch for this id before any RecordBatch.
+The Dictionary is received as one or more DictionaryBatches with the id referenced by a dictionary attribute defined in the metadata ([Message.fbs][7]) in the Field table.
+The dictionary has the same layout as the type of the field would dictate. Each entry in the dictionary can be accessed by its index in the DictionaryBatches.
+When a Schema references a Dictionary id, it must send at least one DictionaryBatch for this id.
 
 As an example, you could have the following data:
 ```

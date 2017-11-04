@@ -20,7 +20,7 @@ import * as path from 'path';
 const arrowFormats = ['file', 'stream'];
 const arrowFileNames = ['simple', 'struct', 'dictionary', 'dictionary2', 'multi_dictionary'];
 const multipartArrows = ['count', 'latlong', 'origins'];
-export let arrowTestConfigurations = [];
+export let arrowTestConfigurations = [] as (string | Buffer)[][];
 
 arrowTestConfigurations = arrowFormats.reduce((configs, format) => {
     return arrowFileNames.reduce((configs, name) => {

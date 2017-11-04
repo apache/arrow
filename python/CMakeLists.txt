@@ -226,9 +226,11 @@ function(bundle_arrow_implib library_path)
       COPYONLY)
 endfunction(bundle_arrow_implib)
 
+# Always bundle includes
+file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+
 if (PYARROW_BUNDLE_ARROW_CPP)
   # arrow
-  file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   bundle_arrow_lib(ARROW_SHARED_LIB
     ABI_VERSION ${ARROW_ABI_VERSION}
     SO_VERSION ${ARROW_SO_VERSION})

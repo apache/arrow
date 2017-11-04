@@ -24,11 +24,15 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
-GARROW_DECLARE_TYPE(GArrowCastOptions,
-                    garrow_cast_options,
-                    GARROW,
-                    CAST_OPTIONS,
-                    GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
+                         garrow_cast_options,
+                         GARROW,
+                         CAST_OPTIONS,
+                         GObject)
+struct _GArrowCastOptionsClass
+{
+  GObjectClass parent_class;
+};
 
 GArrowCastOptions *garrow_cast_options_new(void);
 

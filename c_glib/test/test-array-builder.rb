@@ -17,6 +17,7 @@
 
 module ArrayBuilderAppendValuesTests
   def test_empty
+    require_gi(1, 42, 0)
     builder = create_builder
     builder.append_values([])
     assert_equal(build_array([]),
@@ -24,6 +25,7 @@ module ArrayBuilderAppendValuesTests
   end
 
   def test_values_only
+    require_gi(1, 42, 0)
     builder = create_builder
     builder.append_values(sample_values)
     assert_equal(build_array(sample_values),

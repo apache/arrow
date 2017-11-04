@@ -18,9 +18,9 @@
 /* tslint:disable */
 // Dynamically load an Ix target build based on command line arguments
 
-const target = process.env.TEST_TARGET;
-const format = process.env.TEST_MODULE;
-const resolve = require('path').resolve;
+const path = require('path');
+const target = process.env.TEST_TARGET!;
+const format = process.env.TEST_MODULE!;
 
 // these are duplicated in the gulpfile :<
 const targets = [`es5`, `es2015`, `esnext`];
@@ -30,21 +30,24 @@ function throwInvalidImportError(name: string, value: string, values: string[]) 
     throw new Error('Unrecognized ' + name + ' \'' + value + '\'. Please run tests with \'--' + name + ' <any of ' + values.join(', ') + '>\'');
 }
 
-if (!~targets.indexOf(target)) throwInvalidImportError('target', target, targets);
-if (!~formats.indexOf(format)) throwInvalidImportError('module', format, formats);
+let modulePath = ``;
 
-let Arrow: any = require(resolve(`./targets/${target}/${format}/Arrow.js`));
+if (target === `ts` || target === `apache-arrow`) modulePath = target;
+else if (!~targets.indexOf(target)) throwInvalidImportError('target', target, targets);
+else if (!~formats.indexOf(format)) throwInvalidImportError('module', format, formats);
+else modulePath = path.join(target, format);
+
+let Arrow: any = require(path.resolve(`./targets`, modulePath, `Arrow`));
 
 import {
     Table as Table_,
-    readBuffers as readBuffers_,
     Vector as Vector_,
-    BitVector as BitVector_,
+    readBuffers as readBuffers_,
+    BoolVector as BoolVector_,
+    TypedVector as TypedVector_,
     ListVector as ListVector_,
     Utf8Vector as Utf8Vector_,
     DateVector as DateVector_,
-    IndexVector as IndexVector_,
-    TypedVector as TypedVector_,
     Int8Vector as Int8Vector_,
     Int16Vector as Int16Vector_,
     Int32Vector as Int32Vector_,
@@ -61,14 +64,13 @@ import {
 } from '../src/Arrow';
 
 export let Table = Arrow.Table as typeof Table_;
-export let readBuffers = Arrow.readBuffers as typeof readBuffers_;
 export let Vector = Arrow.Vector as typeof Vector_;
-export let BitVector = Arrow.BitVector as typeof BitVector_;
+export let readBuffers = Arrow.readBuffers as typeof readBuffers_;
+export let BoolVector = Arrow.BoolVector as typeof BoolVector_;
+export let TypedVector = Arrow.TypedVector as typeof TypedVector_;
 export let ListVector = Arrow.ListVector as typeof ListVector_;
 export let Utf8Vector = Arrow.Utf8Vector as typeof Utf8Vector_;
 export let DateVector = Arrow.DateVector as typeof DateVector_;
-export let IndexVector = Arrow.IndexVector as typeof IndexVector_;
-export let TypedVector = Arrow.TypedVector as typeof TypedVector_;
 export let Int8Vector = Arrow.Int8Vector as typeof Int8Vector_;
 export let Int16Vector = Arrow.Int16Vector as typeof Int16Vector_;
 export let Int32Vector = Arrow.Int32Vector as typeof Int32Vector_;

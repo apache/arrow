@@ -102,6 +102,10 @@ cdef class ChunkedArray:
         pyarrow.Array
         """
         self._check_nullptr()
+
+        if i >= self.num_chunks or i < 0:
+            raise IndexError('Chunk index out of range.')
+
         return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
     def iterchunks(self):
@@ -159,7 +163,7 @@ cdef class Column:
         sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
         return pyarrow_wrap_column(sp_column)
 
-    def to_pandas(self, strings_to_categorical=False):
+    def to_pandas(self, strings_to_categorical=False, zero_copy_only=False):
         """
         Convert the arrow::Column to a pandas.Series
 
@@ -171,7 +175,9 @@ cdef class Column:
             PyObject* out
             PandasOptions options
 
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
 
         with nogil:
             check_status(libarrow.ConvertColumnToPandas(options,
@@ -304,8 +310,8 @@ cdef shared_ptr[const CKeyValueMetadata] unbox_metadata(dict metadata):
             make_shared[CKeyValueMetadata](unordered_metadata))
 
 
-cdef int _schema_from_arrays(
-        arrays, names, dict metadata, shared_ptr[CSchema]* schema) except -1:
+cdef _schema_from_arrays(arrays, names, dict metadata,
+                         shared_ptr[CSchema]* schema):
     cdef:
         Column col
         c_string c_name
@@ -313,10 +319,11 @@ cdef int _schema_from_arrays(
         shared_ptr[CDataType] type_
         Py_ssize_t K = len(arrays)
 
-    fields.resize(K)
+    if K == 0:
+        schema.reset(new CSchema(fields, unbox_metadata(metadata)))
+        return
 
-    if not K:
-        raise ValueError('Must pass at least one array')
+    fields.resize(K)
 
     if isinstance(arrays[0], Column):
         for i in range(K):
@@ -342,7 +349,6 @@ cdef int _schema_from_arrays(
             fields[i].reset(new CField(c_name, type_, True))
 
     schema.reset(new CSchema(fields, unbox_metadata(metadata)))
-    return 0
 
 
 cdef class RecordBatch:
@@ -609,10 +615,10 @@ cdef class RecordBatch:
             int64_t i
             int64_t number_of_arrays = len(arrays)
 
-        if not number_of_arrays:
-            raise ValueError('Record batch cannot contain no arrays (for now)')
-
-        num_rows = len(arrays[0])
+        if len(arrays) > 0:
+            num_rows = len(arrays[0])
+        else:
+            num_rows = 0
         _schema_from_arrays(arrays, names, metadata, &schema)
 
         c_arrays.reserve(len(arrays))
@@ -853,7 +859,7 @@ cdef class Table:
         return pyarrow_wrap_table(c_table)
 
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
-                  memory_pool=None):
+                  memory_pool=None, zero_copy_only=False):
         """
         Convert the arrow::Table to a pandas DataFrame
 
@@ -867,6 +873,9 @@ cdef class Table:
             Encode string (UTF8) and binary types to pandas.Categorical
         memory_pool: MemoryPool, optional
             Specific memory pool to use to allocate casted columns
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
 
         Returns
         -------
@@ -874,7 +883,9 @@ cdef class Table:
         """
         cdef:
             PandasOptions options
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
         self._check_nullptr()
         if nthreads is None:
             nthreads = cpu_count()

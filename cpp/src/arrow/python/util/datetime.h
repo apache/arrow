@@ -235,6 +235,11 @@ static inline Status PyDateTime_from_int(int64_t val, const TimeUnit::type unit,
   return Status::OK();
 }
 
+static inline int64_t PyDate_to_s(PyDateTime_Date* pydate) {
+  return get_days_from_date(PyDateTime_GET_YEAR(pydate), PyDateTime_GET_MONTH(pydate),
+                            PyDateTime_GET_DAY(pydate));
+}
+
 static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   int64_t total_seconds = 0;
   total_seconds += PyDateTime_DATE_GET_SECOND(pydate);
@@ -247,10 +252,24 @@ static inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
   return total_seconds * 1000;
 }
 
+static inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
+  return PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL;
+}
+
+static inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
+  int64_t date_ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
+  int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
+  return date_ms + ms;
+}
+
 static inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
   int64_t ms = PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime));
   int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
   return ms * 1000 + us;
+}
+
+static inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
+  return PyDateTime_to_us(pydatetime) * 1000;
 }
 
 static inline int32_t PyDate_to_days(PyDateTime_Date* pydate) {

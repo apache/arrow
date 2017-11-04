@@ -24,6 +24,7 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -49,13 +50,13 @@ class stl_allocator {
   template <class U>
   stl_allocator(const stl_allocator<U>& rhs) noexcept : pool_(rhs.pool_) {}
 
-  ~stl_allocator() { pool_ = nullptr; }
+  ~stl_allocator() { pool_ = NULLPTR; }
 
   pointer address(reference r) const noexcept { return std::addressof(r); }
 
   const_pointer address(const_reference r) const noexcept { return std::addressof(r); }
 
-  pointer allocate(size_type n, const void* /*hint*/ = nullptr) {
+  pointer allocate(size_type n, const void* /*hint*/ = NULLPTR) {
     uint8_t* data;
     Status s = pool_->Allocate(n * sizeof(T), &data);
     if (!s.ok()) throw std::bad_alloc();

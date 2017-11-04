@@ -59,9 +59,9 @@ class ARROW_EXPORT ArrayBuilder {
   explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type),
         pool_(pool),
-        null_bitmap_(nullptr),
+        null_bitmap_(NULLPTR),
         null_count_(0),
-        null_bitmap_data_(nullptr),
+        null_bitmap_data_(NULLPTR),
         length_(0),
         capacity_(0) {}
 
@@ -188,7 +188,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   using value_type = typename Type::c_type;
 
   explicit PrimitiveBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), data_(nullptr), raw_data_(nullptr) {}
+      : ArrayBuilder(type, pool), data_(NULLPTR), raw_data_(NULLPTR) {}
 
   using ArrayBuilder::Advance;
 
@@ -214,7 +214,7 @@ class ARROW_EXPORT PrimitiveBuilder : public ArrayBuilder {
   /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const value_type* values, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -430,7 +430,7 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const uint64_t* values, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -492,7 +492,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const int64_t* values, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -557,7 +557,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   /// indicates a valid (non-null) value
   /// \return Status
   Status Append(const uint8_t* values, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
@@ -624,7 +624,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   ListBuilder(MemoryPool* pool, std::unique_ptr<ArrayBuilder> value_builder,
-              const std::shared_ptr<DataType>& type = nullptr);
+              const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status Init(int64_t elements) override;
   Status Resize(int64_t capacity) override;
@@ -635,7 +635,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// If passed, valid_bytes is of equal length to values, and any zero byte
   /// will be considered as a null for that slot
   Status Append(const int32_t* offsets, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
 
   /// \brief Start a new variable-length list slot
   ///
@@ -732,7 +732,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   }
 
   Status Append(const uint8_t* data, int64_t length,
-                const uint8_t* valid_bytes = nullptr);
+                const uint8_t* valid_bytes = NULLPTR);
   Status Append(const std::string& value);
   Status AppendNull();
 

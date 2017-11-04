@@ -16,11 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget https://github.com/jemalloc/jemalloc/releases/download/4.4.0/jemalloc-4.4.0.tar.bz2 -O jemalloc-4.4.0.tar.bz2
-tar xf jemalloc-4.4.0.tar.bz2
-pushd /jemalloc-4.4.0
+wget https://github.com/jemalloc/jemalloc/archive/17c897976c60b0e6e4f4a365c751027244dada7a.tar.gz -O jemalloc.tar.gz
+tar xf jemalloc.tar.gz
+mv jemalloc-* jemalloc
+pushd /jemalloc
+./autogen.sh
 ./configure "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
+# Skip doc generation
+touch doc/jemalloc.html
+touch doc/jemalloc.3
 make -j5
 make install
 popd
-rm -rf jemalloc-4.4.0.tar.bz2 jemalloc-4.4.0
+rm -rf jemalloc.tar.gz jemalloc

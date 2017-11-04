@@ -121,8 +121,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   /// Change
   ///
   /// @param path file path to change
-  /// @param owner pass nullptr for no change
-  /// @param group pass nullptr for no change
+  /// @param owner pass null for no change
+  /// @param group pass null for no change
   Status Chown(const std::string& path, const char* owner, const char* group);
 
   /// Change path permissions
@@ -199,7 +199,7 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   void set_memory_pool(MemoryPool* pool);
 
  private:
-  explicit HdfsReadableFile(MemoryPool* pool = nullptr);
+  explicit HdfsReadableFile(MemoryPool* pool = NULLPTR);
 
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;

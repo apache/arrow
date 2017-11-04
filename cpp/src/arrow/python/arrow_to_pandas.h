@@ -41,6 +41,9 @@ namespace py {
 
 struct PandasOptions {
   bool strings_to_categorical;
+  bool zero_copy_only;
+
+  PandasOptions() : strings_to_categorical(false), zero_copy_only(false) {}
 };
 
 ARROW_EXPORT

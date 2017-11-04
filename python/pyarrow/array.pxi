@@ -47,7 +47,7 @@ cdef _is_array_like(obj):
     try:
         import pandas
         return isinstance(obj, (np.ndarray, pd.Series, pd.Index, Categorical))
-    except:
+    except ImportError:
         return isinstance(obj, np.ndarray)
 
 
@@ -162,6 +162,7 @@ def array(object obj, type=None, mask=None,
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
                 mask=mask, ordered=values.ordered,
+                from_pandas=from_pandas,
                 memory_pool=memory_pool)
         else:
             values, type = pdcompat.get_datetimetz_type(values, obj.dtype,
@@ -171,6 +172,29 @@ def array(object obj, type=None, mask=None,
         if mask is not None:
             raise ValueError("Masks only supported with ndarray-like inputs")
         return _sequence_to_array(obj, size, type, pool)
+
+
+def asarray(values, type=None):
+    """
+    Convert to pyarrow.Array, inferring type if not provided. Attempt to cast
+    if indicated type is different
+
+    Parameters
+    ----------
+    values : array-like (sequence, numpy.ndarray, pyarrow.Array)
+    type : string or DataType
+
+    Returns
+    -------
+    arr : Array
+    """
+    if isinstance(values, Array):
+        if type is not None and not values.type.equals(type):
+            values = values.cast(type)
+
+        return values
+    else:
+        return array(values, type=type)
 
 
 def _normalize_slice(object arrow_obj, slice key):
@@ -237,8 +261,8 @@ cdef class Array:
 
         type = _ensure_type(target_type)
 
-        if not safe:
-            options.allow_int_overflow = 1
+        options.allow_int_overflow = not safe
+        options.allow_time_truncate = not safe
 
         with nogil:
             check_status(Cast(_context(), self.ap[0], type.sp_type,
@@ -350,7 +374,8 @@ cdef class Array:
 
         return pyarrow_wrap_array(result)
 
-    def to_pandas(self, c_bool strings_to_categorical=False):
+    def to_pandas(self, c_bool strings_to_categorical=False,
+                  zero_copy_only=False):
         """
         Convert to an array object suitable for use in pandas
 
@@ -358,6 +383,9 @@ cdef class Array:
         ----------
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
+        zero_copy_only : boolean, default False
+            Raise an ArrowException if this function call would require copying
+            the underlying data
 
         See also
         --------
@@ -369,7 +397,9 @@ cdef class Array:
             PyObject* out
             PandasOptions options
 
-        options = PandasOptions(strings_to_categorical=strings_to_categorical)
+        options = PandasOptions(
+            strings_to_categorical=strings_to_categorical,
+            zero_copy_only=zero_copy_only)
         with nogil:
             check_status(ConvertArrayToPandas(options, self.sp_array,
                                               self, &out))
@@ -574,7 +604,7 @@ cdef class DecimalArray(FixedSizeBinaryArray):
 cdef class ListArray(Array):
 
     @staticmethod
-    def from_arrays(Array offsets, Array values, MemoryPool pool=None):
+    def from_arrays(offsets, values, MemoryPool pool=None):
         """
         Construct ListArray from arrays of int32 offsets and values
 
@@ -587,11 +617,17 @@ cdef class ListArray(Array):
         -------
         list_array : ListArray
         """
-        cdef shared_ptr[CArray] out
+        cdef:
+            Array _offsets, _values
+            shared_ptr[CArray] out
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _values = asarray(values)
+
         with nogil:
-            check_status(CListArray.FromArrays(
-                deref(offsets.ap), deref(values.ap), cpool, &out))
+            check_status(CListArray.FromArrays(_offsets.ap[0], _values.ap[0],
+                                               cpool, &out))
         return pyarrow_wrap_array(out)
 
 
@@ -636,7 +672,7 @@ cdef class DictionaryArray(Array):
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, ordered=False,
-                    MemoryPool memory_pool=None):
+                    from_pandas=False, MemoryPool memory_pool=None):
         """
         Construct Arrow DictionaryArray from array of indices (must be
         non-negative integers) and corresponding array of dictionary values
@@ -647,15 +683,20 @@ cdef class DictionaryArray(Array):
         dictionary : ndarray or pandas.Series
         mask : ndarray or pandas.Series, boolean type
             True values indicate that indices are actually null
+        from_pandas : boolean, default False
+            If True, the indices should be treated as though they originated in
+            a pandas.Categorical (null encoded as -1)
         ordered : boolean, default False
             Set to True if the category values are ordered
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise uses default pool
 
         Returns
         -------
         dict_array : DictionaryArray
         """
         cdef:
-            Array arrow_indices, arrow_dictionary
+            Array _indices, _dictionary
             DictionaryArray result
             shared_ptr[CDataType] c_type
             shared_ptr[CArray] c_result
@@ -664,29 +705,28 @@ cdef class DictionaryArray(Array):
             if mask is not None:
                 raise NotImplementedError(
                     "mask not implemented with Arrow array inputs yet")
-            arrow_indices = indices
+            _indices = indices
         else:
-            if mask is None:
-                mask = indices == -1
-            else:
-                mask = mask | (indices == -1)
-            arrow_indices = Array.from_pandas(indices, mask=mask,
-                                              memory_pool=memory_pool)
+            if from_pandas:
+                if mask is None:
+                    mask = indices == -1
+                else:
+                    mask = mask | (indices == -1)
+            _indices = array(indices, mask=mask, memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
-            arrow_dictionary = dictionary
+            _dictionary = dictionary
         else:
-            arrow_dictionary = Array.from_pandas(dictionary,
-                                                 memory_pool=memory_pool)
+            _dictionary = array(dictionary, memory_pool=memory_pool)
 
-        if not isinstance(arrow_indices, IntegerArray):
+        if not isinstance(_indices, IntegerArray):
             raise ValueError('Indices must be integer type')
 
         cdef c_bool c_ordered = ordered
 
-        c_type.reset(new CDictionaryType(arrow_indices.type.sp_type,
-                                         arrow_dictionary.sp_array, c_ordered))
-        c_result.reset(new CDictionaryArray(c_type, arrow_indices.sp_array))
+        c_type.reset(new CDictionaryType(_indices.type.sp_type,
+                                         _dictionary.sp_array, c_ordered))
+        c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
 
         result = DictionaryArray()
         result.init(c_result)

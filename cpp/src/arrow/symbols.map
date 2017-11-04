@@ -22,11 +22,49 @@
     # devtoolset / static-libstdc++ symbols
     __cxa_*;
 
+
+    # Static libraries that are linked in e.g. the manylinux1 build
+    # Brotli compression library
+    Brotli*;
+    # zlib
+    adler32;
+    adler32_combine;
+    adler32_combine64;
+    crc32;
+    crc32_combine;
+    crc32_combine64;
+    deflate*;
+    inflate*;
+    get_crc_table;
+    zcalloc;
+    zcfree;
+    zError;
+    zlibCompileFlags;
+    zlibVersion;
+    _tr_*;
+    # lz4
+    LZ4_*;
+    # zstandard
+    ZSTD_*;
+    ZSTDv*;
+    HUF_*;
+    HUFv*;
+    FSE_*;
+    FSEv*;
+    ZBUFFv*;
+    ERR_getErrorString;
+    # jemalloc
+    je_arrow_*;
+
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
       # links c++11 symbols into binaries so that the result may be executed on
       # a system with an older libstdc++ which doesn't include the necessary
       # c++11 symbols.
       std::*;
+
+      # Statically linked C++ dependencies
+      boost::*;
+      snappy::*;
     };
 };

@@ -51,11 +51,13 @@ matrix:
     os: linux
     group: deprecated
     before_script:
-    - export CC="gcc-4.9"
-    - export CXX="g++-4.9"
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_TRAVIS_CLANG_FORMAT=1
+    - export CC="clang-4.0"
+    - export CXX="clang++-4.0"
+    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
@@ -110,17 +112,30 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-  - language: node_js
-    os: linux
-    node_js: node
-    before_script:
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
+  # TODO(wesm): Re-enable after issues in ARROW-1409 resolved
+  # - language: node_js
+  #   os: linux
+  #   node_js: node
+  #   before_script:
+  #   - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
+  #   script:
+  #   - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
   - compiler: gcc
     language: cpp
     os: linux
-    group: deprecated
+    env: BUILD_SYSTEM=autotools BUILD_TORCH_EXAMPLE=no
+    before_script:
+    - export CC="gcc-4.9"
+    - export CXX="g++-4.9"
+    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
+    script:
+    - $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh
+  - compiler: gcc
+    language: cpp
+    os: linux
+    env: BUILD_SYSTEM=meson BUILD_TORCH_EXAMPLE=no
     before_script:
     - export CC="gcc-4.9"
     - export CXX="g++-4.9"
@@ -135,6 +150,7 @@ matrix:
     cache:
     addons:
     rvm: 2.2
+    env: BUILD_SYSTEM=autotools
     before_script:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh

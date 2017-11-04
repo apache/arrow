@@ -25,6 +25,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
+#include <arrow-glib/table.hpp>
 
 #include <arrow-glib/input-stream.hpp>
 
@@ -168,13 +169,13 @@ garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader)
  * Since: 0.4.0
  *
  * Deprecated: 0.5.0:
- *   Use garrow_record_batch_reader_read_next_record_batch() instead.
+ *   Use garrow_record_batch_reader_read_next() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader,
                                                  GError **error)
 {
-  return garrow_record_batch_reader_read_next_record_batch(reader, error);
+  return garrow_record_batch_reader_read_next(reader, error);
 }
 
 /**
@@ -186,10 +187,30 @@ garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader
  *   The next record batch in the stream or %NULL on end of stream.
  *
  * Since: 0.5.0
+ *
+ * Deprecated: 0.8.0:
+ *   Use garrow_record_batch_reader_read_next() instead.
  */
 GArrowRecordBatch *
 garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reader,
                                                   GError **error)
+{
+  return garrow_record_batch_reader_read_next(reader, error);
+}
+
+/**
+ * garrow_record_batch_reader_read_next:
+ * @reader: A #GArrowRecordBatchReader.
+ * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   The next record batch in the stream or %NULL on end of stream.
+ *
+ * Since: 0.8.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_reader_read_next(GArrowRecordBatchReader *reader,
+                                     GError **error)
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
@@ -197,7 +218,7 @@ garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reade
 
   if (garrow_error_check(error,
                          status,
-                         "[record-batch-reader][read-next-record-batch]")) {
+                         "[record-batch-reader][read-next]")) {
     if (arrow_record_batch == nullptr) {
       return NULL;
     } else {
@@ -206,6 +227,38 @@ garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reade
   } else {
     return NULL;
   }
+}
+
+
+G_DEFINE_TYPE(GArrowTableBatchReader,
+              garrow_table_batch_reader,
+              GARROW_TYPE_RECORD_BATCH_READER);
+
+static void
+garrow_table_batch_reader_init(GArrowTableBatchReader *object)
+{
+}
+
+static void
+garrow_table_batch_reader_class_init(GArrowTableBatchReaderClass *klass)
+{
+}
+
+/**
+ * garrow_table_batch_reader_new:
+ * @table: The table to be read.
+ *
+ * Returns: A newly created #GArrowTableBatchReader.
+ *
+ * Since: 0.8.0
+ */
+GArrowTableBatchReader *
+garrow_table_batch_reader_new(GArrowTable *table)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_table_batch_reader =
+    std::make_shared<arrow::TableBatchReader>(*arrow_table);
+  return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader);
 }
 
 
@@ -768,6 +821,16 @@ garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader)
 
   priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(reader);
   return priv->record_batch_reader;
+}
+
+GArrowTableBatchReader *
+garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader)
+{
+  auto reader =
+    GARROW_TABLE_BATCH_READER(g_object_new(GARROW_TYPE_TABLE_BATCH_READER,
+                                           "record-batch-reader", arrow_reader,
+                                           NULL));
+  return reader;
 }
 
 GArrowRecordBatchStreamReader *

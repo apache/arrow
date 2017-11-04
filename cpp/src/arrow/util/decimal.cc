@@ -27,6 +27,7 @@
 #pragma intrinsic(_BitScanReverse)
 #endif
 
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
@@ -41,11 +42,13 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
 }
 
 Decimal128::Decimal128(const uint8_t* bytes)
-    : Decimal128(reinterpret_cast<const int64_t*>(bytes)[0],
-                 reinterpret_cast<const uint64_t*>(bytes)[1]) {}
+    : Decimal128(BitUtil::FromLittleEndian(reinterpret_cast<const int64_t*>(bytes)[1]),
+                 BitUtil::FromLittleEndian(reinterpret_cast<const uint64_t*>(bytes)[0])) {
+}
 
 std::array<uint8_t, 16> Decimal128::ToBytes() const {
-  const uint64_t raw[] = {static_cast<uint64_t>(high_bits_), low_bits_};
+  const uint64_t raw[] = {BitUtil::ToLittleEndian(low_bits_),
+                          BitUtil::ToLittleEndian(static_cast<uint64_t>(high_bits_))};
   const auto* raw_data = reinterpret_cast<const uint8_t*>(raw);
   std::array<uint8_t, 16> out{{0}};
   std::copy(raw_data, raw_data + out.size(), out.begin());

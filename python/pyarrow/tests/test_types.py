@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 import pyarrow as pa
 import pyarrow.types as types
 
@@ -132,3 +131,8 @@ def test_is_temporal_date_time_timestamp():
         assert not types.is_time(case)
 
     assert not types.is_temporal(pa.int32())
+
+
+def test_timestamp_type():
+    # See ARROW-1683
+    assert isinstance(pa.timestamp('ns'), pa.TimestampType)

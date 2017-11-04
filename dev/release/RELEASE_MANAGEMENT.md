@@ -96,9 +96,33 @@ from your apache.org e-mail address to be accepted.
 
 ### Updating website with new API documentation
 
-Currently, this is manual, but is in the process of being automated (see
-ARROW-905). See instructions in
-https://github.com/apache/arrow/blob/master/site/README.md
+The API documentation for `C++`, `C Glib`, `Python` and `Java` can be generated
+via a Docker-based setup. To generate the API documentation run the following
+command:
+
+```shell
+bash dev/gen_apidocs.sh
+```
+
+This script assumes that the `parquet-cpp` Git repository
+https://github.com/apache/parquet-cpp has been cloned
+besides the Arrow repository and a `dist` directory can be created
+at the same level by the current user. Please note that most of the
+software must be built in order to create the documentation, so this
+step may take some time to run, especially the first time around as the
+Docker container will also have to be built.
+
+After successfully creating the API documentation the website can be
+run locally to browse the API documentation from the top level
+`Documentation` menu. To run the website issue the command:
+
+```shell
+bash dev/run_site.sh
+```
+
+The local URL for the website running inside the docker container
+will be shown as `Server address:` in the output of the command.
+To stop the server press `Ctrl-C` in that window.
 
 ### Updating C++ and Python packages
 

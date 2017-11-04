@@ -37,7 +37,8 @@ from pyarrow.lib import (null, bool_,
                          float16, float32, float64,
                          binary, string, decimal,
                          list_, struct, dictionary, field,
-                         type_for_alias, DataType, NAType,
+                         type_for_alias,
+                         DataType, NAType,
                          Field,
                          Schema,
                          schema,
@@ -66,6 +67,9 @@ from pyarrow.lib import (null, bool_,
                          BinaryValue, StringValue, FixedSizeBinaryValue,
                          DecimalValue,
                          Date32Value, Date64Value, TimestampValue)
+
+# ARROW-1683: Remove after 0.8.0?
+from pyarrow.lib import TimestampType
 
 from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          FixedSizeBufferWriter,
@@ -116,7 +120,8 @@ from pyarrow.ipc import (Message, MessageReader,
 
 localfs = LocalFileSystem.get_instance()
 
-from pyarrow.serialization import _default_serialization_context
+from pyarrow.serialization import (_default_serialization_context,
+                                   register_default_serialization_handlers)
 
 import pyarrow.types as types
 
@@ -142,3 +147,15 @@ def _plasma_store_entry_point():
 # Deprecations
 
 from pyarrow.util import _deprecate_class  # noqa
+
+# ----------------------------------------------------------------------
+# Returning absolute path to the pyarrow include directory (if bundled, e.g. in
+# wheels)
+
+def get_include():
+    """
+    Return absolute path to directory containing Arrow C++ include
+    headers. Similar to numpy.get_include
+    """
+    import os
+    return os.path.join(os.path.dirname(__file__), 'include')

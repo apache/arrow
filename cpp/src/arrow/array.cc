@@ -97,9 +97,7 @@ static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
-  std::shared_ptr<Array> result;
-  DCHECK(MakeArray(SliceData(*data_, offset, length), &result).ok());
-  return result;
+  return MakeArray(SliceData(*data_, offset, length));
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset) const {
@@ -174,27 +172,55 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-Status ListArray::FromArrays(const Array& offsets, const Array& values,
-                             MemoryPool* ARROW_ARG_UNUSED(pool),
+Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                              std::shared_ptr<Array>* out) {
-  if (ARROW_PREDICT_FALSE(offsets.length() == 0)) {
+  if (offsets.length() == 0) {
     return Status::Invalid("List offsets must have non-zero length");
   }
 
-  if (ARROW_PREDICT_FALSE(offsets.null_count() > 0)) {
-    return Status::Invalid("Null offsets in ListArray::FromArrays not yet implemented");
-  }
-
-  if (ARROW_PREDICT_FALSE(offsets.type_id() != Type::INT32)) {
+  if (offsets.type_id() != Type::INT32) {
     return Status::Invalid("List offsets must be signed int32");
   }
 
-  BufferVector buffers = {offsets.null_bitmap(),
-                          static_cast<const Int32Array&>(offsets).values()};
+  BufferVector buffers = {};
+
+  const auto& typed_offsets = static_cast<const Int32Array&>(offsets);
+
+  const int64_t num_offsets = offsets.length();
+
+  if (offsets.null_count() > 0) {
+    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
+
+    RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
+
+    // Copy valid bits, zero out the bit for the final offset
+    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
+                                              &clean_valid_bits));
+    BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
+    buffers.emplace_back(std::move(clean_valid_bits));
+
+    const int32_t* raw_offsets = typed_offsets.raw_values();
+    auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
+
+    // Must work backwards so we can tell how many values were in the last non-null value
+    DCHECK(offsets.IsValid(num_offsets - 1));
+    int32_t current_offset = raw_offsets[num_offsets - 1];
+    for (int64_t i = num_offsets - 1; i >= 0; --i) {
+      if (offsets.IsValid(i)) {
+        current_offset = raw_offsets[i];
+      }
+      clean_raw_offsets[i] = current_offset;
+    }
+
+    buffers.emplace_back(std::move(clean_offsets));
+  } else {
+    buffers.emplace_back(offsets.null_bitmap());
+    buffers.emplace_back(typed_offsets.values());
+  }
 
   auto list_type = list(values.type());
   auto internal_data =
-      std::make_shared<ArrayData>(list_type, offsets.length() - 1, std::move(buffers),
+      std::make_shared<ArrayData>(list_type, num_offsets - 1, std::move(buffers),
                                   offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
@@ -210,7 +236,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
-  DCHECK(MakeArray(data_->child_data[0], &values_).ok());
+  values_ = MakeArray(data_->child_data[0]);
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
@@ -323,7 +349,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> StructArray::field(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
@@ -369,7 +395,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
@@ -377,7 +403,7 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
 
 const Array* UnionArray::UnsafeChild(int i) const {
   if (!boxed_fields_[i]) {
-    DCHECK(MakeArray(data_->child_data[i], &boxed_fields_[i]).ok());
+    boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i].get();
@@ -407,7 +433,7 @@ void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto indices_data = data_->ShallowCopy();
   indices_data->type = dict_type_->index_type();
   std::shared_ptr<Array> result;
-  DCHECK(MakeArray(indices_data, &indices_).ok());
+  indices_ = MakeArray(indices_data);
 }
 
 std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
@@ -589,11 +615,24 @@ class ArrayDataWrapper {
 
 }  // namespace internal
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 Status MakeArray(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out) {
   internal::ArrayDataWrapper wrapper_visitor(data, out);
   RETURN_NOT_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return Status::OK();
+}
+
+#endif
+
+std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
+  std::shared_ptr<Array> out;
+  internal::ArrayDataWrapper wrapper_visitor(data, &out);
+  Status s = VisitTypeInline(*data->type, &wrapper_visitor);
+  DCHECK(s.ok());
+  DCHECK(out);
+  return out;
 }
 
 // ----------------------------------------------------------------------

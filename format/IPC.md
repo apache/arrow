@@ -67,7 +67,9 @@ We provide a streaming format for record batches. It is presented as a sequence
 of encapsulated messages, each of which follows the format above. The schema
 comes first in the stream, and it is the same for all of the record batches
 that follow. If any fields in the schema are dictionary-encoded, one or more
-`DictionaryBatch` messages will follow the schema.
+`DictionaryBatch` messages will be included. `DictionaryBatch` and
+`RecordBatch` messages may be interleaved, but before any dictionary key is used
+in a `RecordBatch` it should be defined in a `DictionaryBatch`.
 
 ```
 <SCHEMA>
@@ -75,6 +77,10 @@ that follow. If any fields in the schema are dictionary-encoded, one or more
 ...
 <DICTIONARY k - 1>
 <RECORD BATCH 0>
+...
+<DICTIONARY x DELTA>
+...
+<DICTIONARY y DELTA>
 ...
 <RECORD BATCH n - 1>
 <EOS [optional]: int32>
@@ -108,6 +114,10 @@ Schematically we have:
 <FOOTER SIZE: int32>
 <magic number "ARROW1">
 ```
+
+In the file format, there is no requirement that dictionary keys should be
+defined in a `DictionaryBatch` before they are used in a `RecordBatch`, as long
+as the keys are defined somewhere in the file.
 
 ### RecordBatch body structure
 
@@ -181,6 +191,7 @@ the dictionaries can be properly interpreted.
 table DictionaryBatch {
   id: long;
   data: RecordBatch;
+  isDelta: boolean = false;
 }
 ```
 
@@ -188,6 +199,38 @@ The dictionary `id` in the message metadata can be referenced one or more times
 in the schema, so that dictionaries can even be used for multiple fields. See
 the [Physical Layout][4] document for more about the semantics of
 dictionary-encoded data.
+
+The dictionary `isDelta` flag allows dictionary batches to be modified
+mid-stream.  A dictionary batch with `isDelta` set indicates that its vector
+should be concatenated with those of any previous batches with the same `id`. A
+stream which encodes one column, the list of strings
+`["A", "B", "C", "B", "D", "C", "E", "A"]`, with a delta dictionary batch could
+take the form:
+
+```
+<SCHEMA>
+<DICTIONARY 0>
+(0) "A"
+(1) "B"
+(2) "C"
+
+<RECORD BATCH 0>
+0
+1
+2
+1
+
+<DICTIONARY 0 DELTA>
+(3) "D"
+(4) "E"
+
+<RECORD BATCH 1>
+3
+2
+4
+0
+EOS
+```
 
 ### Tensor (Multi-dimensional Array) Message Format
 

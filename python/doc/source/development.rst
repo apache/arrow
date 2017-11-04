@@ -111,13 +111,19 @@ building Arrow C++:
    brew update && brew bundle --file=python/Brewfile
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
-dependencies will be automatically built by Arrow' thrid-party toolchain.
+dependencies will be automatically built by Arrow's third-party toolchain.
 
 .. code-block:: shell
 
    $ sudo apt-get install libjemalloc-dev libboost-dev \
                           libboost-filesystem-dev \
                           libboost-system-dev
+
+On Arch Linux, you can get these dependencies via pacman.
+
+.. code-block:: shell
+
+   $ sudo pacman -S jemalloc boost
 
 Now, let's create a Python virtualenv with all Python dependencies in the same
 folder as the repositories and a target installation folder:
@@ -251,7 +257,8 @@ First, starting from fresh clones of Apache Arrow and parquet-cpp:
 .. code-block:: shell
 
    conda create -n arrow-dev cmake git boost-cpp ^
-         flatbuffers snappy zlib brotli thrift-cpp rapidjson
+         flatbuffers snappy zlib brotli thrift-cpp rapidjson ^
+         -c conda-forge
    activate arrow-dev
 
 As one git housekeeping item, we must run this command in our Arrow clone:

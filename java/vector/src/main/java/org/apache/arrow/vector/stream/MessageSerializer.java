@@ -385,6 +385,10 @@ public class MessageSerializer {
       throw new IOException("Cannot currently deserialize record batches over 2GB");
     }
 
+    if (message.version() != MetadataVersion.V4) {
+      throw new IOException("Received metadata with an incompatible version number");
+    }
+
     switch (message.headerType()) {
       case MessageHeader.RecordBatch:
         return deserializeRecordBatch(in, message, alloc);
@@ -409,7 +413,7 @@ public class MessageSerializer {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
     Message.addHeader(builder, headerOffset);
-    Message.addVersion(builder, MetadataVersion.V3);
+    Message.addVersion(builder, MetadataVersion.V4);
     Message.addBodyLength(builder, bodyLength);
     builder.finish(Message.endMessage(builder));
     return builder.dataBuffer();

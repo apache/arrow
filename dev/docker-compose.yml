@@ -28,3 +28,8 @@ services:
     - "4000:4000"
     volumes:
      - ../..:/apache-arrow
+  dask_integration:
+    build: 
+      context: dask_integration
+    volumes:
+     - ../..:/apache-arrow
