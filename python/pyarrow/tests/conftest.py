@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pytest import skip
+from pytest import skip, mark
 
 
 groups = [
@@ -69,6 +69,18 @@ def pytest_addoption(parser):
         parser.addoption('--only-{0}'.format(group), action='store_true',
                          default=False,
                          help=('Run only the {0} test group'.format(group)))
+
+    parser.addoption('--runslow', action='store_true',
+                     default=False, help='run slow tests')
+
+
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption('--runslow'):
+        skip_slow = mark.skip(reason='need --runslow option to run')
+
+        for item in items:
+            if 'slow' in item.keywords:
+                item.add_marker(skip_slow)
 
 
 def pytest_runtest_setup(item):

@@ -22,6 +22,21 @@
 
 #define _FILE_OFFSET_BITS 64
 
+// define max read/write count
+#if defined(_MSC_VER)
+#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#else
+
+#ifdef __APPLE__
+// due to macOS bug, we need to set read/write max
+#define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
+#else
+// see notes on Linux read/write manpage
+#define ARROW_MAX_IO_CHUNKSIZE 0x7ffff000
+#endif
+
+#endif
+
 #include "arrow/io/file.h"
 
 #if _WIN32 || _WIN64
@@ -238,39 +253,68 @@ static inline Status FileSeek(int fd, int64_t pos) {
   return Status::OK();
 }
 
-static inline Status FileRead(int fd, uint8_t* buffer, int64_t nbytes,
+static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbytes,
                               int64_t* bytes_read) {
 #if defined(_MSC_VER)
-  if (nbytes > INT32_MAX) {
+  if (nbytes > ARROW_MAX_IO_CHUNKSIZE) {
     return Status::IOError("Unable to read > 2GB blocks yet");
   }
   *bytes_read = static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(nbytes)));
 #else
-  *bytes_read = static_cast<int64_t>(read(fd, buffer, static_cast<size_t>(nbytes)));
+  *bytes_read = 0;
+
+  while (*bytes_read != -1 && *bytes_read < nbytes) {
+    int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
+    int64_t ret = static_cast<int64_t>(
+        read(fd, buffer + *bytes_read, static_cast<size_t>(chunksize)));
+
+    if (ret != -1) {
+      *bytes_read += ret;
+      if (ret < chunksize) {
+        // EOF
+        break;
+      }
+    } else {
+      *bytes_read = ret;
+    }
+  }
 #endif
 
   if (*bytes_read == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error reading bytes from file");
+    return Status::IOError(std::string("Error reading bytes from file: ") +
+                           std::string(strerror(errno)));
   }
 
   return Status::OK();
 }
 
-static inline Status FileWrite(int fd, const uint8_t* buffer, int64_t nbytes) {
-  int ret;
+static inline Status FileWrite(const int fd, const uint8_t* buffer,
+                               const int64_t nbytes) {
+  int ret = 0;
 #if defined(_MSC_VER)
-  if (nbytes > INT32_MAX) {
+  if (nbytes > ARROW_MAX_IO_CHUNKSIZE) {
     return Status::IOError("Unable to write > 2GB blocks to file yet");
   }
   ret = static_cast<int>(_write(fd, buffer, static_cast<uint32_t>(nbytes)));
 #else
-  ret = static_cast<int>(write(fd, buffer, static_cast<size_t>(nbytes)));
+  int64_t bytes_written = 0;
+
+  while (ret != -1 && bytes_written < nbytes) {
+    int64_t chunksize =
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
+    ret = static_cast<int>(
+        write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
+
+    if (ret != -1) {
+      bytes_written += ret;
+    }
+  }
 #endif
 
   if (ret == -1) {
-    // TODO(wesm): errno to string
-    return Status::IOError("Error writing bytes to file");
+    return Status::IOError(std::string("Error writing bytes from file: ") +
+                           std::string(strerror(errno)));
   }
   return Status::OK();
 }

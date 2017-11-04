@@ -33,27 +33,27 @@ class Tensor;
 
 #ifndef ARROW_NO_DEPRECATED_API
 /// Returns true if the arrays are exactly equal
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 Status ARROW_EXPORT ArrayEquals(const Array& left, const Array& right, bool* are_equal);
 
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 Status ARROW_EXPORT TensorEquals(const Tensor& left, const Tensor& right,
                                  bool* are_equal);
 
 /// Returns true if the arrays are approximately equal. For non-floating point
 /// types, this is equivalent to ArrayEquals(left, right)
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 Status ARROW_EXPORT ArrayApproxEquals(const Array& left, const Array& right,
                                       bool* are_equal);
 
 /// Returns true if indicated equal-length segment of arrays is exactly equal
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 Status ARROW_EXPORT ArrayRangeEquals(const Array& left, const Array& right,
                                      int64_t start_idx, int64_t end_idx,
                                      int64_t other_start_idx, bool* are_equal);
 
 /// Returns true if the type metadata are exactly equal
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 Status ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
                                bool* are_equal);
 #endif

@@ -340,7 +340,7 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
 #ifndef ARROW_NO_DEPRECATED_API
 
 /// \brief Create Buffer referencing std::string memory
-/// \deprecated Since 0.8.0
+/// \note Deprecated since 0.8.0
 ///
 /// Warning: string instance must stay alive
 ///
