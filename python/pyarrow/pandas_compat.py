@@ -484,23 +484,33 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             _level if _level.dtype == _dtype else _level.astype(_dtype)
             for _level, _dtype in levels_dtypes
         ]
+
         columns = pd.MultiIndex(
             levels=new_levels,
             labels=labels,
             names=columns.names
         )
 
-    # flatten a single level column MultiIndex for pandas 0.21.0 :(
-    if isinstance(columns, pd.MultiIndex) and columns.nlevels == 1:
-        levels, = columns.levels
-        labels, = columns.labels
-
-        # Cheaply check that we do not somehow have duplicate column names
-        assert len(levels) == len(labels), 'Found non-unique column index'
-        columns = levels[labels]
+    # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
+    columns = _flatten_single_level_multiindex(columns)
 
     axes = [columns, index]
     return _int.BlockManager(blocks, axes)
+
+
+def _flatten_single_level_multiindex(index):
+    if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
+        levels, = index.levels
+        labels, = index.labels
+
+        # Cheaply check that we do not somehow have duplicate column names
+        if not index.is_unique:
+            raise ValueError('Found non-unique column index')
+
+        return pd.Index([levels[_label] if _label != -1 else None
+                         for _label in labels],
+                        name=index.names[0])
+    return index
 
 
 def _add_any_metadata(table, pandas_metadata):
