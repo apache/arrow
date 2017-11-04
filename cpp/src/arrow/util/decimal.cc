@@ -579,18 +579,18 @@ static Status SingleDivide(const uint32_t* dividend, int64_t dividend_length,
 }
 
 /// \brief Count the number of leading zeros in a 32 bit integer.
-int64_t CountLeadingZeros(uint32_t x) {
-  DCHECK_NE(x, 0);
+int64_t CountLeadingZeros(uint32_t value) {
+  DCHECK_NE(value, 0);
 #if defined(__clang__) || defined(__GNUC__)
-  return __builtin_clz(x);
+  return __builtin_clz(value);
 #elif defined(_MSC_VER)
   unsigned long index;                                         // NOLINT
   _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
   return static_cast<int64_t>(index);
 #else
   int64_t bitpos = 0;
-  while (x != 0) {
-    x >>= 1;
+  while (value != 0) {
+    value >>= 1;
     ++bitpos;
   }
   return 32 - bitpos;
