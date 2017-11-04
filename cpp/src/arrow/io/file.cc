@@ -271,6 +271,10 @@ static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbyte
 
     if (ret != -1) {
       *bytes_read += ret;
+      if (ret < chunksize) {
+        // EOF
+        break;
+      }
     } else {
       *bytes_read = ret;
     }
