@@ -586,7 +586,7 @@ int64_t CountLeadingZeros(uint32_t value) {
 #elif defined(_MSC_VER)
   unsigned long index;                                         // NOLINT
   _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
-  return 32LL - (static_cast<int64_t>(index) + 1LL);
+  return 31LL - static_cast<int64_t>(index);
 #else
   int64_t bitpos = 0;
   while (value != 0) {
