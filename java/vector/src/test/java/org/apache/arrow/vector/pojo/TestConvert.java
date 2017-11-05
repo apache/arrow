@@ -21,13 +21,19 @@ package org.apache.arrow.vector.pojo;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 import com.google.flatbuffers.FlatBufferBuilder;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.UnionMode;
@@ -62,6 +68,40 @@ public class TestConvert {
 
     Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
     run(initialField);
+  }
+
+  @Test
+  public void list() throws Exception {
+    ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         ListVector writeVector = ListVector.empty("list", allocator);
+         FixedSizeListVector writeFixedVector = FixedSizeListVector.empty("fixedlist", 5, allocator)) {
+      Field listVectorField = writeVector.getField();
+      childrenBuilder.add(listVectorField);
+      Field listFixedVectorField = writeFixedVector.getField();
+      childrenBuilder.add(listFixedVectorField);
+    }
+
+    Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), childrenBuilder.build());
+    ImmutableList.Builder<Field> parentBuilder = ImmutableList.builder();
+    parentBuilder.add(initialField);
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    builder.finish(initialField.getField(builder));
+    org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
+    Field finalField = Field.convertField(flatBufField);
+    assertEquals(initialField, finalField);
+    assertFalse(finalField.toString().contains("[DEFAULT]"));
+
+    Schema initialSchema = new Schema(parentBuilder.build());
+    String jsonSchema = initialSchema.toJson();
+    String modifiedSchema = jsonSchema.replace("$data$", "[DEFAULT]");
+
+    Schema tempSchema = Schema.fromJSON(modifiedSchema);
+    FlatBufferBuilder schemaBuilder = new FlatBufferBuilder();
+    org.apache.arrow.vector.types.pojo.Schema schema = new org.apache.arrow.vector.types.pojo.Schema(tempSchema.getFields());
+    schemaBuilder.finish(schema.getSchema(schemaBuilder));
+    Schema finalSchema = Schema.deserialize(ByteBuffer.wrap(schemaBuilder.sizedByteArray()));
+    assertFalse(finalSchema.toString().contains("[DEFAULT]"));
   }
 
   @Test

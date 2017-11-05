@@ -20,6 +20,7 @@ package org.apache.arrow.vector.types.pojo;
 
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 
 import java.util.Iterator;
@@ -39,6 +40,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.schema.TypeLayout;
@@ -121,7 +123,9 @@ public class Field {
     }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {
-      childrenBuilder.add(convertField(field.children(i)));
+      Field childField = convertField(field.children(i));
+      childField = mutateOriginalNameIfNeeded(field, childField);
+      childrenBuilder.add(childField);
     }
     List<Field> children = childrenBuilder.build();
     ImmutableMap.Builder<String, String> metadataBuilder = ImmutableMap.builder();
@@ -132,6 +136,27 @@ public class Field {
     }
     Map<String, String> metadata = metadataBuilder.build();
     return new Field(name, nullable, type, dictionary, children, new TypeLayout(layout.build()), metadata);
+  }
+
+  /**
+   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663
+   * @param field
+   * @param originalChildField original field which name might be mutated
+   * @return original or mutated field
+   */
+  private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
+        && originalChildField.getName().equals("[DEFAULT]")) {
+      return
+        new Field(DATA_VECTOR_NAME,
+          originalChildField.isNullable(),
+          originalChildField.getType(),
+          originalChildField.getDictionary(),
+          originalChildField.getChildren(),
+          originalChildField.getTypeLayout(),
+          originalChildField.getMetadata());
+    }
+    return originalChildField;
   }
 
   public void validate() {

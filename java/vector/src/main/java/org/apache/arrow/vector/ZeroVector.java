@@ -18,6 +18,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -38,8 +40,6 @@ import io.netty.buffer.ArrowBuf;
 
 public class ZeroVector implements FieldVector {
   public final static ZeroVector INSTANCE = new ZeroVector();
-
-  private final String name = "[DEFAULT]";
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -109,7 +109,7 @@ public class ZeroVector implements FieldVector {
 
   @Override
   public Field getField() {
-    return new Field(name, FieldType.nullable(new Null()), null);
+    return new Field(DATA_VECTOR_NAME, FieldType.nullable(new Null()), null);
   }
 
   @Override
