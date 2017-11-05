@@ -345,7 +345,10 @@ cdef _schema_from_arrays(arrays, names, dict metadata,
             else:
                 raise TypeError(type(val))
 
-            c_name = tobytes(names[i])
+            if names[i] is None:
+                c_name = tobytes(u'None')
+            else:
+                c_name = tobytes(names[i])
             fields[i].reset(new CField(c_name, type_, True))
 
     schema.reset(new CSchema(fields, unbox_metadata(metadata)))

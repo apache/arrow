@@ -263,6 +263,8 @@ def _column_name_to_strings(name):
         return tuple(map(_column_name_to_strings, name))
     elif isinstance(name, collections.Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
+    elif name is None:
+        return None
     return str(name)
 
 
@@ -280,7 +282,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
     for name in df.columns:
         col = df[name]
         if not isinstance(name, six.string_types):
-            name = str(_column_name_to_strings(name))
+            name = _column_name_to_strings(name)
+            if name is not None:
+                name = str(name)
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -361,6 +365,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     schema = table.schema
     row_count = table.num_rows
     metadata = schema.metadata
+    columns_metadata = None
 
     has_pandas_metadata = metadata is not None and b'pandas' in metadata
 
@@ -370,6 +375,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         table = _add_any_metadata(table, pandas_metadata)
+        columns_metadata = pandas_metadata.get('columns', None)
 
     block_table = table
 
@@ -428,6 +434,18 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
         index = pd.RangeIndex(row_count)
 
     column_strings = [x.name for x in block_table.itercolumns()]
+    if columns_metadata is not None:
+        columns_name_dict = dict(
+            (str(x['name']), x['name'])
+            for x in columns_metadata
+        )
+        columns_values = [
+            columns_name_dict[y]
+            if y in columns_name_dict.keys() else y
+            for y in column_strings
+        ]
+    else:
+        columns_values = column_strings
 
     # If we're passed multiple column indexes then evaluate with
     # ast.literal_eval, since the column index values show up as a list of
@@ -437,11 +455,11 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     # Create the column index
 
     # Construct the base index
-    if not column_strings:
-        columns = pd.Index(column_strings)
+    if not columns_values:
+        columns = pd.Index(columns_values)
     else:
         columns = pd.MultiIndex.from_tuples(
-            list(map(to_pair, column_strings)),
+            list(map(to_pair, columns_values)),
             names=[col_index['name'] for col_index in column_indexes] or None,
         )
 
@@ -466,23 +484,33 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             _level if _level.dtype == _dtype else _level.astype(_dtype)
             for _level, _dtype in levels_dtypes
         ]
+
         columns = pd.MultiIndex(
             levels=new_levels,
             labels=labels,
             names=columns.names
         )
 
-    # flatten a single level column MultiIndex for pandas 0.21.0 :(
-    if isinstance(columns, pd.MultiIndex) and columns.nlevels == 1:
-        levels, = columns.levels
-        labels, = columns.labels
-
-        # Cheaply check that we do not somehow have duplicate column names
-        assert len(levels) == len(labels), 'Found non-unique column index'
-        columns = levels[labels]
+    # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
+    columns = _flatten_single_level_multiindex(columns)
 
     axes = [columns, index]
     return _int.BlockManager(blocks, axes)
+
+
+def _flatten_single_level_multiindex(index):
+    if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
+        levels, = index.levels
+        labels, = index.labels
+
+        # Cheaply check that we do not somehow have duplicate column names
+        if not index.is_unique:
+            raise ValueError('Found non-unique column index')
+
+        return pd.Index([levels[_label] if _label != -1 else None
+                         for _label in labels],
+                        name=index.names[0])
+    return index
 
 
 def _add_any_metadata(table, pandas_metadata):
