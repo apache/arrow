@@ -23,11 +23,6 @@
 #include <limits>
 #include <sstream>
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#pragma intrinsic(_BitScanReverse)
-#endif
-
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
