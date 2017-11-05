@@ -321,8 +321,8 @@ DecimalArray::DecimalArray(const std::shared_ptr<ArrayData>& data)
 
 std::string DecimalArray::FormatValue(int64_t i) const {
   const auto& type_ = static_cast<const DecimalType&>(*type());
-  Decimal128 value(GetValue(i));
-  return value.ToString(type_.precision(), type_.scale());
+  const Decimal128 value(GetValue(i));
+  return value.ToString(type_.scale());
 }
 
 // ----------------------------------------------------------------------

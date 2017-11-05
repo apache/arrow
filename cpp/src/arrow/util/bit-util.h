@@ -43,6 +43,8 @@
 #endif
 
 #if defined(_MSC_VER)
+#include <intrin.h>
+#pragma intrinsic(_BitScanReverse)
 #define ARROW_BYTE_SWAP64 _byteswap_uint64
 #define ARROW_BYTE_SWAP32 _byteswap_ulong
 #else
@@ -55,6 +57,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
@@ -294,6 +297,25 @@ static inline int Log2(uint64_t x) {
   int result = 1;
   while (x >>= 1) ++result;
   return result;
+}
+
+/// \brief Count the number of leading zeros in a 32 bit integer.
+static inline int64_t CountLeadingZeros(uint32_t value) {
+  DCHECK_NE(value, 0);
+#if defined(__clang__) || defined(__GNUC__)
+  return static_cast<int64_t>(__builtin_clz(value));
+#elif defined(_MSC_VER)
+  unsigned long index;                                         // NOLINT
+  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
+  return 31LL - static_cast<int64_t>(index);
+#else
+  int64_t bitpos = 0;
+  while (value != 0) {
+    value >>= 1;
+    ++bitpos;
+  }
+  return 32LL - bitpos;
+#endif
 }
 
 /// Swaps the byte order (i.e. endianess)

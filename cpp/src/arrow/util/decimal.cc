@@ -19,13 +19,9 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <iomanip>
 #include <limits>
 #include <sstream>
-
-#ifdef _MSC_VER
-#include <intrin.h>
-#pragma intrinsic(_BitScanReverse)
-#endif
 
 #include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
@@ -55,61 +51,115 @@ std::array<uint8_t, 16> Decimal128::ToBytes() const {
   return out;
 }
 
-std::string Decimal128::ToString(int precision, int scale) const {
-  using std::size_t;
+static constexpr Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
+                                     0xB34B9F1000000000);
+static constexpr Decimal128 kTenTo18(0xDE0B6B3A7640000);
 
-  const bool is_negative = *this < 0;
+std::string Decimal128::ToIntegerString() const {
+  Decimal128 remainder;
+  std::stringstream buf;
+  bool need_fill = false;
 
-  // Decimal values are sent to clients as strings so in the interest of
-  // speed the string will be created without the using stringstream with the
-  // whole/fractional_part().
-  size_t last_char_idx = precision + (scale > 0)  // Add a space for decimal place
-                         + (scale == precision)   // Add a space for leading 0
-                         + is_negative;           // Add a space for negative sign
+  // get anything above 10 ** 36 and print it
+  Decimal128 top;
+  Status s = Divide(kTenTo36, &top, &remainder);
+  DCHECK(s.ok()) << s.message();
 
-  std::string str(last_char_idx, '0');
-
-  // Start filling in the values in reverse order by taking the last digit
-  // of the value. Use a positive value and worry about the sign later. At this
-  // point the last_char_idx points to the string terminator.
-  Decimal128 remaining_value(*this);
-
-  const auto first_digit_idx = static_cast<size_t>(is_negative);
-  if (is_negative) {
-    remaining_value.Negate();
+  if (top != 0) {
+    buf << static_cast<int64_t>(top);
+    remainder.Abs();
+    need_fill = true;
   }
 
-  if (scale > 0) {
-    int remaining_scale = scale;
-    do {
-      str[--last_char_idx] =
-          static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
-      remaining_value /= 10;
-    } while (--remaining_scale > 0);
-    str[--last_char_idx] = '.';
-    DCHECK_GT(last_char_idx, first_digit_idx) << "Not enough space remaining";
-  }
+  // now get anything above 10 ** 18 and print it
+  Decimal128 tail;
+  s = remainder.Divide(kTenTo18, &top, &tail);
 
-  do {
-    str[--last_char_idx] = static_cast<char>(remaining_value % 10 + '0');  // Ascii offset
-    remaining_value /= 10;
-    if (remaining_value == 0) {
-      // Trim any extra leading 0's.
-      if (last_char_idx > first_digit_idx) {
-        str.erase(0, last_char_idx - first_digit_idx);
-      }
-
-      break;
+  if (need_fill || top != 0) {
+    if (need_fill) {
+      buf << std::setw(18) << std::setfill('0');
+    } else {
+      need_fill = true;
+      tail.Abs();
     }
-    // For safety, enforce string length independent of remaining_value.
-  } while (last_char_idx > first_digit_idx);
 
-  if (is_negative) {
-    str[0] = '-';
+    buf << static_cast<int64_t>(top);
   }
 
-  return str;
+  // finally print the tail, which is less than 10**18
+  if (need_fill) {
+    buf << std::setw(18) << std::setfill('0');
+  }
+  buf << static_cast<int64_t>(tail);
+  return buf.str();
 }
+
+Decimal128::operator int64_t() const {
+  DCHECK(high_bits_ == 0 || high_bits_ == -1)
+      << "Trying to cast an Decimal128 greater than the value range of a "
+         "int64_t. high_bits_ must be equal to 0 or -1, got: "
+      << high_bits_;
+  return static_cast<int64_t>(low_bits_);
+}
+
+std::string Decimal128::ToString(int32_t scale) const {
+  const std::string str(ToIntegerString());
+
+  if (scale == 0) {
+    return str;
+  }
+
+  if (*this < 0) {
+    const auto len = static_cast<int32_t>(str.size());
+
+    if (len - 1 > scale) {
+      const auto n = static_cast<size_t>(len - scale);
+      return str.substr(0, n) + "." + str.substr(n, static_cast<size_t>(scale));
+    }
+
+    if (len - 1 == scale) {
+      return "-0." + str.substr(1, std::string::npos);
+    }
+
+    std::string result("-0." + std::string(static_cast<size_t>(scale - len + 1), '0'));
+    return result + str.substr(1, std::string::npos);
+  }
+
+  const auto len = static_cast<int32_t>(str.size());
+
+  if (len > scale) {
+    const auto n = static_cast<size_t>(len - scale);
+    return str.substr(0, n) + "." + str.substr(n, static_cast<size_t>(scale));
+  }
+
+  if (len == scale) {
+    return "0." + str;
+  }
+
+  return "0." + std::string(static_cast<size_t>(scale - len), '0') + str;
+}
+
+static constexpr auto kInt64DecimalDigits =
+    static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
+static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
+                                                                  10LL,
+                                                                  100LL,
+                                                                  1000LL,
+                                                                  10000LL,
+                                                                  100000LL,
+                                                                  1000000LL,
+                                                                  10000000LL,
+                                                                  100000000LL,
+                                                                  1000000000LL,
+                                                                  10000000000LL,
+                                                                  100000000000LL,
+                                                                  1000000000000LL,
+                                                                  10000000000000LL,
+                                                                  100000000000000LL,
+                                                                  1000000000000000LL,
+                                                                  10000000000000000LL,
+                                                                  100000000000000000LL,
+                                                                  1000000000000000000LL};
 
 static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
@@ -122,13 +172,10 @@ static void StringToInteger(const std::string& str, Decimal128* out) {
 
   DCHECK_GT(length, 0) << "length of parsed decimal string should be greater than 0";
 
-  size_t posn = 0;
-
-  while (posn < length) {
-    const size_t group = std::min(static_cast<size_t>(18), length - posn);
-    const auto chunk = static_cast<int64_t>(std::stoll(str.substr(posn, group)));
-    const auto multiple =
-        static_cast<int64_t>(std::pow(10.0, static_cast<double>(group)));
+  for (size_t posn = 0; posn < length;) {
+    const size_t group = std::min(kInt64DecimalDigits, length - posn);
+    const int64_t chunk = std::stoll(str.substr(posn, group));
+    const int64_t multiple = kPowersOfTen[group];
 
     *out *= multiple;
     *out += chunk;
@@ -266,6 +313,8 @@ Decimal128& Decimal128::Negate() {
   return *this;
 }
 
+Decimal128& Decimal128::Abs() { return *this < 0 ? Negate() : *this; }
+
 Decimal128& Decimal128::operator+=(const Decimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
   high_bits_ += right.high_bits_;
@@ -288,18 +337,9 @@ Decimal128& Decimal128::operator-=(const Decimal128& right) {
 
 Decimal128& Decimal128::operator/=(const Decimal128& right) {
   Decimal128 remainder;
-  DCHECK(Divide(right, this, &remainder).ok());
+  Status s = Divide(right, this, &remainder);
+  DCHECK(s.ok());
   return *this;
-}
-
-Decimal128::operator char() const {
-  DCHECK(high_bits_ == 0 || high_bits_ == -1)
-      << "Trying to cast an Decimal128 greater than the value range of a "
-         "char. high_bits_ must be equal to 0 or -1, got: "
-      << high_bits_;
-  DCHECK_LE(low_bits_, std::numeric_limits<char>::max())
-      << "low_bits_ too large for C type char, got: " << low_bits_;
-  return static_cast<char>(low_bits_);
 }
 
 Decimal128& Decimal128::operator|=(const Decimal128& right) {
@@ -440,18 +480,6 @@ static int64_t FillInArray(const Decimal128& value, uint32_t* array, bool& was_n
   return 1;
 }
 
-/// \brief Find last set bit in a 32 bit integer. Bit 1 is the LSB and bit 32 is the MSB.
-static int64_t FindLastSetBit(uint32_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  // Count leading zeros
-  return __builtin_clz(value) + 1;
-#elif defined(_MSC_VER)
-  unsigned long index;                                         // NOLINT
-  _BitScanReverse(&index, static_cast<unsigned long>(value));  // NOLINT
-  return static_cast<int64_t>(index + 1UL);
-#endif
-}
-
 /// Shift the number in the array left by bits positions.
 /// \param array the number to shift, must have length elements
 /// \param length the number of entries in the array
@@ -581,7 +609,7 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
   // divisor_array[0] is greater than 2**31.
-  int64_t normalize_bits = 32 - FindLastSetBit(divisor_array[0]);
+  int64_t normalize_bits = BitUtil::CountLeadingZeros(divisor_array[0]);
   ShiftArrayLeft(divisor_array, divisor_length, normalize_bits);
   ShiftArrayLeft(dividend_array, dividend_length, normalize_bits);
 
@@ -589,7 +617,7 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   for (int64_t j = 0; j < result_length; ++j) {
     // Guess the next digit. At worst it is two too large
     uint32_t guess = std::numeric_limits<uint32_t>::max();
-    auto high_dividend =
+    const auto high_dividend =
         static_cast<uint64_t>(dividend_array[j]) << 32 | dividend_array[j + 1];
     if (dividend_array[j] != divisor_array[0]) {
       guess = static_cast<uint32_t>(high_dividend / divisor_array[0]);
@@ -625,10 +653,9 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
     // if guess was too big, we add back divisor
     if (dividend_array[j] > prev) {
       --guess;
-
       uint32_t carry = 0;
       for (int64_t i = divisor_length - 1; i >= 0; --i) {
-        uint64_t sum =
+        const auto sum =
             static_cast<uint64_t>(divisor_array[i]) + dividend_array[j + i + 1] + carry;
         dividend_array[j + i + 1] = static_cast<uint32_t>(sum);
         carry = static_cast<uint32_t>(sum >> 32);
@@ -645,6 +672,7 @@ Status Decimal128::Divide(const Decimal128& divisor, Decimal128* result,
   // return result and remainder
   RETURN_NOT_OK(BuildFromArray(result, result_array, result_length));
   RETURN_NOT_OK(BuildFromArray(remainder, dividend_array, dividend_length));
+
   FixDivisionSigns(result, remainder, dividend_was_negative, divisor_was_negative);
   return Status::OK();
 }
@@ -679,6 +707,11 @@ Decimal128 operator-(const Decimal128& operand) {
   return result.Negate();
 }
 
+Decimal128 operator~(const Decimal128& operand) {
+  Decimal128 result(~operand.high_bits(), ~operand.low_bits());
+  return result;
+}
+
 Decimal128 operator+(const Decimal128& left, const Decimal128& right) {
   Decimal128 result(left.high_bits(), left.low_bits());
   result += right;
@@ -700,14 +733,16 @@ Decimal128 operator*(const Decimal128& left, const Decimal128& right) {
 Decimal128 operator/(const Decimal128& left, const Decimal128& right) {
   Decimal128 remainder;
   Decimal128 result;
-  DCHECK(left.Divide(right, &result, &remainder).ok());
+  Status s = left.Divide(right, &result, &remainder);
+  DCHECK(s.ok());
   return result;
 }
 
 Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   Decimal128 remainder;
   Decimal128 result;
-  DCHECK(left.Divide(right, &result, &remainder).ok());
+  Status s = left.Divide(right, &result, &remainder);
+  DCHECK(s.ok());
   return remainder;
 }
 
