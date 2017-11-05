@@ -54,6 +54,16 @@ short description of your use case.
    framework, data model or programming language. The C++ and Java
    implementation provide vectorized reads and write to/from Arrow data
    structures.
+ * **[Apache Spark][7]:** Apache Spark™ is a fast and general engine for
+   large-scale data processing. Spark uses Apache Arrow to
+    1. improve performance of conversion between Spark DataFrame and pandas DataFrame
+    2. enable a set of vectorized user-defined functions (`pandas_udf`) in PySpark.
+ * **[Ray][5]:** A flexible, high-performance distributed execution framework
+   with a focus on machine learning and AI applications. Uses Arrow to
+   efficiently store Python data structures containing large arrays of
+   numerical data. Data can be accessed with zero-copy by multiple processes
+   using the [Plasma shared memory object store][6] which originated from Ray and
+   is part of Arrow now.
  * **[Turbodbc][4]:** Python module to access relational databases via the Open
    Database Connectivity (ODBC) interface. It provides the ability to return Arrow
    Tables and RecordBatches in addition to the Python Database API Specification
@@ -70,3 +80,6 @@ short description of your use case.
 [2]: https://www.apache.org/foundation/marks/faq/
 [3]: https://parquet.apache.org/
 [4]: https://github.com/blue-yonder/turbodbc
+[5]: https://github.com/ray-project/ray
+[6]: https://ray-project.github.io/2017/08/08/plasma-in-memory-object-store.html
+[7]: https://spark.apache.org/
