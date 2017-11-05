@@ -231,6 +231,8 @@ schema : arrow Schema
 {0}
 """.format(_parquet_writer_arg_docs)
 
+    is_open = False
+
     def __init__(self, where, schema, flavor=None,
                  version='1.0',
                  use_dictionary=True,
