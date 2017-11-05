@@ -36,9 +36,8 @@ class DecimalTestFixture : public ::testing::Test {
 
 TEST_F(DecimalTestFixture, TestToString) {
   Decimal128 decimal(this->integer_value_);
-  int precision = 8;
   int scale = 5;
-  std::string result = decimal.ToString(precision, scale);
+  std::string result = decimal.ToString(scale);
   ASSERT_EQ(result, this->string_value_);
 }
 
@@ -254,6 +253,42 @@ TEST(Decimal128TestTrue, ConstructibleFromBool) {
 TEST(Decimal128TestFalse, ConstructibleFromBool) {
   Decimal128 value(false);
   ASSERT_EQ(0, value.low_bits());
+}
+
+TEST(Decimal128Test, Division) {
+  const std::string expected_string_value("-23923094039234029");
+  const Decimal128 value(expected_string_value);
+  const Decimal128 result(value / 3);
+  const Decimal128 expected_value("-7974364679744676");
+  ASSERT_EQ(expected_value, result);
+}
+
+TEST(Decimal128Test, PrintLargePositiveValue) {
+  const std::string string_value("99999999999999999999999999999999999999");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
+}
+
+TEST(Decimal128Test, PrintLargeNegativeValue) {
+  const std::string string_value("-99999999999999999999999999999999999999");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
+}
+
+TEST(Decimal128Test, PrintMaxValue) {
+  const std::string string_value("170141183460469231731687303715884105727");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
+}
+
+TEST(Decimal128Test, PrintMinValue) {
+  const std::string string_value("-170141183460469231731687303715884105728");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
 }
 
 }  // namespace arrow
