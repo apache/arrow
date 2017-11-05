@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -220,4 +221,17 @@ public class TestFixedSizeListVector {
       }
     }
   }
+
+  @Test
+  public void testConsistentChildName() throws Exception {
+    try (FixedSizeListVector listVector = FixedSizeListVector.empty("sourceVector", 2, allocator)) {
+      String emptyListStr = listVector.getField().toString();
+      Assert.assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
+
+      listVector.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
+      String emptyVectorStr = listVector.getField().toString();
+      Assert.assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+    }
+  }
+
 }
