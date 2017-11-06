@@ -231,8 +231,6 @@ schema : arrow Schema
 {0}
 """.format(_parquet_writer_arg_docs)
 
-    is_open = False
-
     def __init__(self, where, schema, flavor=None,
                  version='1.0',
                  use_dictionary=True,
@@ -262,7 +260,7 @@ schema : arrow Schema
         self.is_open = True
 
     def __del__(self):
-        if self.is_open:
+        if getattr(self, 'is_open', False):
             self.close()
 
     def write_table(self, table, row_group_size=None):
