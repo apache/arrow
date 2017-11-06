@@ -18,9 +18,7 @@
 #include "arrow/api.h"
 
 #ifdef DCHECK
-#error \
-    "DCHECK should not be visible from Arrow public headers. Check that \
-     arrow/util/logging.h is not transitively included."
+#error "DCHECK should not be visible from Arrow public headers."
 #endif
 
 #include <gtest/gtest.h>
