@@ -38,7 +38,6 @@ install(FILES
   logging.h
   macros.h
   parallel.h
-  random.h
   rle-encoding.h
   sse-util.h
   stl.h
