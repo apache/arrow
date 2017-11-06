@@ -103,6 +103,9 @@ if PY2:
 
     def frombytes(o):
         return o
+
+    def unichar(s):
+        return unichr(s)
 else:
     unicode_type = str
     def lzip(*x):
@@ -130,6 +133,9 @@ else:
 
     def frombytes(o):
         return o.decode('utf8')
+
+    def unichar(s):
+        return chr(s)
 
 try:
     import cloudpickle as pickle

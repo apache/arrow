@@ -105,6 +105,11 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetVersion_V1" parquet::ParquetVersion::PARQUET_1_0"
         ParquetVersion_V2" parquet::ParquetVersion::PARQUET_2_0"
 
+    enum ParquetSortOrder" parquet::SortOrder::type":
+        ParquetSortOrder_SIGNED" parquet::SortOrder::SIGNED"
+        ParquetSortOrder_UNSIGNED" parquet::SortOrder::UNSIGNED"
+        ParquetSortOrder_UNKNOWN" parquet::SortOrder::UNKNOWN"
+
     cdef cppclass ColumnDescriptor:
         c_bool Equals(const ColumnDescriptor& other)
 
@@ -125,6 +130,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         GroupNode* group()
         c_bool Equals(const SchemaDescriptor& other)
         int num_columns()
+
+    cdef c_string FormatStatValue(ParquetType parquet_type, const char* val)
 
 
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
@@ -155,10 +162,52 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass RowGroupReader:
         pass
 
+    cdef cppclass CEncodedStatistics" parquet::EncodedStatistics":
+        const c_string& max() const
+        const c_string& min() const
+        int64_t null_count
+        int64_t distinct_count
+        bint has_min
+        bint has_max
+        bint has_null_count
+        bint has_distinct_count
+
+    cdef cppclass CRowGroupStatistics" parquet::RowGroupStatistics":
+        int64_t null_count() const
+        int64_t distinct_count() const
+        int64_t num_values() const
+        bint HasMinMax()
+        void Reset()
+        c_string EncodeMin()
+        c_string EncodeMax()
+        CEncodedStatistics Encode()
+        void SetComparator()
+        ParquetType physical_type() const
+
+    cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
+        int64_t file_offset() const
+        const c_string& file_path() const
+
+        ParquetType type() const
+        int64_t num_values() const
+        shared_ptr[ColumnPath] path_in_schema() const
+        bint is_stats_set() const
+        shared_ptr[CRowGroupStatistics] statistics() const;
+        ParquetCompression compression() const
+        const vector[ParquetEncoding]& encodings() const
+
+        bint has_dictionary_page() const
+        int64_t dictionary_page_offset() const
+        int64_t data_page_offset() const
+        int64_t index_page_offset() const
+        int64_t total_compressed_size() const
+        int64_t total_uncompressed_size() const
+
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         int num_columns()
         int64_t num_rows()
         int64_t total_byte_size()
+        unique_ptr[CColumnChunkMetaData] ColumnChunk(int i) const
 
     cdef cppclass CFileMetaData" parquet::FileMetaData":
         uint32_t size()

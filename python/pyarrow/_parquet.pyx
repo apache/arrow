@@ -35,6 +35,212 @@ from pyarrow.lib import ArrowException, NativeFile
 
 import six
 
+try:
+    from textwrap import indent
+except ImportError:
+    def indent(text, prefix):
+        lines = [prefix + line for line in text.splitlines(True)]
+        return ''.join(lines)
+
+
+cdef class RowGroupStatistics:
+    cdef:
+        shared_ptr[CRowGroupStatistics] statistics
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[CRowGroupStatistics]& statistics):
+        self.statistics = statistics
+
+    def __repr__(self):
+        return """{0}
+  has_min_max: {1}
+  min: {2}
+  max: {3}
+  null_count: {4}
+  distinct_count: {5}
+  num_values: {6}
+  physical_type: {7}""".format(object.__repr__(self),
+                               self.has_min_max,
+                               self.min,
+                               self.max,
+                               self.null_count,
+                               self.distinct_count,
+                               self.num_values,
+                               self.physical_type)
+
+    property has_min_max:
+
+        def __get__(self):
+            return self.statistics.get().HasMinMax()
+
+    property min:
+
+        def __get__(self):
+            raw_physical_type = self.statistics.get().physical_type()
+            encode_min = self.statistics.get().EncodeMin()
+
+            min_value = FormatStatValue(raw_physical_type, encode_min.c_str())
+            return frombytes(min_value)
+
+    property max:
+
+        def __get__(self):
+            raw_physical_type = self.statistics.get().physical_type()
+            encode_max = self.statistics.get().EncodeMax()
+
+            max_value = FormatStatValue(raw_physical_type, encode_max.c_str())
+            return frombytes(max_value)
+
+    property null_count:
+
+        def __get__(self):
+            return self.statistics.get().null_count()
+
+    property distinct_count:
+
+        def __get__(self):
+            return self.statistics.get().distinct_count()
+
+    property num_values:
+
+        def __get__(self):
+            return self.statistics.get().num_values()
+
+    property physical_type:
+
+        def __get__(self):
+            physical_type = self.statistics.get().physical_type()
+            return physical_type_name_from_enum(physical_type)
+
+
+cdef class ColumnChunkMetaData:
+    cdef:
+        unique_ptr[CColumnChunkMetaData] up_metadata
+        CColumnChunkMetaData* metadata
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const CRowGroupMetaData& row_group_metadata, int i):
+        self.up_metadata = row_group_metadata.ColumnChunk(i)
+        self.metadata = self.up_metadata.get()
+
+    def __repr__(self):
+        statistics = indent(repr(self.statistics), 4 * ' ')
+        return """{0}
+  file_offset: {1}
+  file_path: {2}
+  type: {3}
+  num_values: {4}
+  path_in_schema: {5}
+  is_stats_set: {6}
+  statistics:
+{7}
+  compression: {8}
+  encodings: {9}
+  has_dictionary_page: {10}
+  dictionary_page_offset: {11}
+  data_page_offset: {12}
+  index_page_offset: {13}
+  total_compressed_size: {14}
+  total_uncompressed_size: {15}""".format(object.__repr__(self),
+                                          self.file_offset,
+                                          self.file_path,
+                                          self.type,
+                                          self.num_values,
+                                          self.path_in_schema,
+                                          self.is_stats_set,
+                                          statistics,
+                                          self.compression,
+                                          self.encodings,
+                                          self.has_dictionary_page,
+                                          self.dictionary_page_offset,
+                                          self.data_page_offset,
+                                          self.index_page_offset,
+                                          self.total_compressed_size,
+                                          self.total_uncompressed_size)
+
+    property file_offset:
+
+        def __get__(self):
+            return self.metadata.file_offset()
+
+    property file_path:
+
+        def __get__(self):
+            return frombytes(self.metadata.file_path())
+
+    property type:
+
+        def __get__(self):
+            return physical_type_name_from_enum(self.metadata.type())
+
+    property num_values:
+
+        def __get__(self):
+            return self.metadata.num_values()
+
+    property path_in_schema:
+
+        def __get__(self):
+            path = self.metadata.path_in_schema().get().ToDotString()
+            return frombytes(path)
+
+    property is_stats_set:
+
+        def __get__(self):
+            return self.metadata.is_stats_set()
+
+    property statistics:
+
+        def __get__(self):
+            statistics = RowGroupStatistics()
+            statistics.init(self.metadata.statistics())
+            return statistics
+
+    property compression:
+
+        def __get__(self):
+            return self.metadata.compression()
+
+    property encodings:
+
+        def __get__(self):
+            return map(encoding_name_from_enum,
+                       self.metadata.encodings())
+
+    property has_dictionary_page:
+
+        def __get__(self):
+            return self.metadata.has_dictionary_page()
+
+    property dictionary_page_offset:
+
+        def __get__(self):
+            return self.metadata.dictionary_page_offset()
+
+    property data_page_offset:
+
+        def __get__(self):
+            return self.metadata.data_page_offset()
+
+    property index_page_offset:
+
+        def __get__(self):
+            return self.metadata.index_page_offset()
+
+    property total_compressed_size:
+
+        def __get__(self):
+            return self.metadata.total_compressed_size()
+
+    property total_uncompressed_size:
+
+        def __get__(self):
+            return self.metadata.total_uncompressed_size()
+
 
 cdef class RowGroupMetaData:
     cdef:
@@ -51,6 +257,11 @@ cdef class RowGroupMetaData:
         self.up_metadata = parent._metadata.RowGroup(i)
         self.metadata = self.up_metadata.get()
         self.parent = parent
+
+    def column(self, int i):
+        chunk = ColumnChunkMetaData()
+        chunk.init(deref(self.metadata), i)
+        return chunk
 
     def __repr__(self):
         return """{0}
@@ -369,6 +580,19 @@ cdef logical_type_name_from_enum(ParquetLogicalType type_):
         ParquetLogicalType_BSON: 'BSON',
         ParquetLogicalType_INTERVAL: 'INTERVAL',
     }.get(type_, 'UNKNOWN')
+
+
+cdef encoding_name_from_enum (ParquetEncoding encoding_):
+    return {
+        ParquetEncoding_PLAIN: "PLAIN",
+        ParquetEncoding_PLAIN_DICTIONARY: "PLAIN_DICTIONARY",
+        ParquetEncoding_RLE: "RLE",
+        ParquetEncoding_BIT_PACKED: "BIT_PACKED",
+        ParquetEncoding_DELTA_BINARY_PACKED: "DELTA_BINARY_PACKED",
+        ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY: "DELTA_LENGTH_BYTE_ARRAY",
+        ParquetEncoding_DELTA_BYTE_ARRAY: "DELTA_BYTE_ARRAY",
+        ParquetEncoding_RLE_DICTIONARY: "RLE_DICTIONARY",
+    }.get(encoding_, 'UNKNOWN')
 
 
 cdef class ParquetReader:

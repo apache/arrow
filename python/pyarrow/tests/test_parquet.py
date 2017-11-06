@@ -22,7 +22,7 @@ import os
 import json
 import pytest
 
-from pyarrow.compat import guid, u, BytesIO
+from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -469,11 +469,59 @@ def test_parquet_metadata_api():
         schema[-1]
 
     # Row group
-    rg_meta = meta.row_group(0)
-    repr(rg_meta)
+    for rg in range(meta.num_row_groups):
+        rg_meta = meta.row_group(rg)
+        repr(rg_meta)
+
+        for col in range(rg_meta.num_columns):
+            col_meta = rg_meta.column(col)
+            repr(col_meta)
 
     assert rg_meta.num_rows == len(df)
     assert rg_meta.num_columns == ncols + 1  # +1 for index
+
+
+@parquet
+@pytest.mark.parametrize(
+    'data, dtype, min_value, max_value, null_count, num_values',
+    [
+        ([1, 2, 2, None, 4], np.uint8, u'1', u'4', 1, 4),
+        ([1, 2, 2, None, 4], np.uint16, u'1', u'4', 1, 4),
+        ([1, 2, 2, None, 4], np.uint32, u'1', u'4', 1, 4),
+        ([1, 2, 2, None, 4], np.uint64, u'1', u'4', 1, 4),
+        ([-1, 2, 2, None, 4], np.int16, u'-1', u'4', 1, 4),
+        ([-1, 2, 2, None, 4], np.int32, u'-1', u'4', 1, 4),
+        ([-1, 2, 2, None, 4], np.int64, u'-1', u'4', 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float32, u'-1.1', u'4.4', 1, 4),
+        ([-1.1, 2.2, 2.3, None, 4.4], np.float64, u'-1.1', u'4.4', 1, 4),
+        (
+            [u'', u'b', unichar(1000), None, u'aaa'],
+            str, u' ', frombytes((unichar(1000) + u' ').encode('utf-8')), 1, 4
+        ),
+        ([True, False, False, True, True], np.bool, u'0', u'1', 0, 5),
+    ]
+)
+def test_parquet_column_statistics_api(
+        data,
+        dtype,
+        min_value,
+        max_value,
+        null_count,
+        num_values):
+    df = pd.DataFrame({'data': data}, dtype=dtype)
+
+    fileh = make_sample_file(df)
+
+    meta = fileh.metadata
+
+    rg_meta = meta.row_group(0)
+    col_meta = rg_meta.column(0)
+
+    stat = col_meta.statistics
+    assert stat.min == min_value
+    assert stat.max == max_value
+    assert stat.null_count == null_count
+    assert stat.num_values == num_values
 
 
 @parquet
