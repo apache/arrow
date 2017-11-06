@@ -300,7 +300,7 @@ static inline int Log2(uint64_t x) {
 
 /// \brief Count the number of leading zeros in a 32 bit integer.
 static inline int64_t CountLeadingZeros(uint32_t value) {
-  // DCHECK_NE(value, 0);
+// DCHECK_NE(value, 0);
 #if defined(__clang__) || defined(__GNUC__)
   return static_cast<int64_t>(__builtin_clz(value));
 #elif defined(_MSC_VER)
