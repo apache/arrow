@@ -102,13 +102,14 @@ class ARROW_EXPORT Decimal128 {
   Decimal128& operator>>=(uint32_t bits);
 
   /// \brief Get the high bits of the two's complement representation of the number.
-  int64_t high_bits() const { return high_bits_; }
+  inline int64_t high_bits() const { return high_bits_; }
 
   /// \brief Get the low bits of the two's complement representation of the number.
-  uint64_t low_bits() const { return low_bits_; }
+  inline uint64_t low_bits() const { return low_bits_; }
 
   /// \brief Return the raw bytes of the value in little-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
+  void ToBytes(uint8_t* out) const;
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
   /// scale.

@@ -222,8 +222,8 @@ void MakeBatchArrays(const std::shared_ptr<Schema>& schema, const int num_rows,
   std::vector<int8_t> v1_values;
   std::vector<int32_t> v2_values;
 
-  test::randint<int8_t>(num_rows, 0, 100, &v1_values);
-  test::randint<int32_t>(num_rows, 0, 100, &v2_values);
+  test::randint(num_rows, 0, 100, &v1_values);
+  test::randint(num_rows, 0, 100, &v2_values);
 
   std::shared_ptr<Array> v1;
   ArrayFromVector<Int8Type, int8_t>(is_valid, v1_values, &v1);
