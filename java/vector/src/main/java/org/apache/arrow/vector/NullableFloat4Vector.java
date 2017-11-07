@@ -34,7 +34,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * maintained to track which elements in the vector are null.
  */
 public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
-   private static final byte TYPE_WIDTH = 4;
+   public static final byte TYPE_WIDTH = 4;
    private final FieldReader reader;
 
    /**
@@ -289,41 +289,6 @@ public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
    public void setSafe(int index, int isSet, float value) {
       handleSafe(index);
       set(index, isSet, value);
-   }
-
-
-   /******************************************************************
-    *                                                                *
-    *          helper routines currently                             *
-    *          used in JsonFileReader and JsonFileWriter             *
-    *                                                                *
-    ******************************************************************/
-
-
-   /**
-    * Given a data buffer, this method sets the element value at a particular
-    * position. Reallocates the buffer if needed.
-    *
-    * This method should not be used externally.
-    *
-    * @param buffer data buffer
-    * @param allocator allocator
-    * @param valueCount number of elements in the vector
-    * @param index position of the new element
-    * @param value element value
-    * @return data buffer
-    */
-   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
-                              int valueCount, int index, float value) {
-      if (buffer == null) {
-         buffer = allocator.buffer(valueCount * TYPE_WIDTH);
-      }
-      buffer.setFloat(index * TYPE_WIDTH, value);
-      if (index == (valueCount - 1)) {
-         buffer.writerIndex(valueCount * TYPE_WIDTH);
-      }
-
-      return buffer;
    }
 
    /**
