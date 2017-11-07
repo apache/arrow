@@ -252,5 +252,5 @@ shared memory region) to be a multiple of 8:
 
 [1]: https://github.com/apache/arrow/blob/master/format/File.fbs
 [2]: https://github.com/apache/arrow/blob/master/format/Message.fbs
-[3]: https://github.com/google]/flatbuffers
+[3]: https://github.com/google/flatbuffers
 [4]: https://github.com/apache/arrow/blob/master/format/Layout.md
