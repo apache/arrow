@@ -37,7 +37,7 @@ import java.math.BigDecimal;
  * maintained to track which elements in the vector are null.
  */
 public class NullableDecimalVector extends BaseNullableFixedWidthVector {
-   private static final byte TYPE_WIDTH = 16;
+   public static final byte TYPE_WIDTH = 16;
    private final FieldReader reader;
 
    private final int precision;
@@ -352,41 +352,6 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
    public void setSafe(int index, int isSet, int start, ArrowBuf buffer) {
       handleSafe(index);
       set(index, isSet, start, buffer);
-   }
-
-
-   /******************************************************************
-    *                                                                *
-    *          helper routines currently                             *
-    *          used in JsonFileReader                                *
-    *                                                                *
-    ******************************************************************/
-
-
-   /**
-    * Given a data buffer, this method sets the element value at a particular
-    * position. Reallocates the buffer if needed.
-    *
-    * This method should not be used externally.
-    *
-    * @param buffer data buffer
-    * @param allocator allocator
-    * @param valueCount number of elements in the vector
-    * @param index position of the new element
-    * @param value element value as array of bytes
-    * @return data buffer
-    */
-   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
-                              int valueCount, int index, byte[] value) {
-      if (buffer == null) {
-         buffer = allocator.buffer(valueCount * TYPE_WIDTH);
-      }
-      DecimalUtility.writeByteArrayToArrowBuf(value, buffer, index);
-      if (index == (valueCount - 1)) {
-         buffer.writerIndex(valueCount * TYPE_WIDTH);
-      }
-
-      return buffer;
    }
 
 
