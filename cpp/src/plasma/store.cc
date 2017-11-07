@@ -455,7 +455,11 @@ void PlasmaStore::disconnect_client(int client_fd) {
   // If this client was using any objects, remove it from the appropriate
   // lists.
   for (const auto& entry : store_info_.objects) {
-    remove_client_from_object_clients(entry.second.get(), it->second.get());
+    if (entry.second->state == PLASMA_SEALED) {
+      remove_client_from_object_clients(entry.second.get(), it->second.get());
+    } else {
+      abort_object(entry.first);
+    }
   }
 
   // Note, the store may still attempt to send a message to the disconnected
