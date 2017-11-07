@@ -19,7 +19,6 @@
 package org.apache.arrow.vector.file.json;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -29,7 +28,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.file.ArrowFileReader;
 import org.apache.arrow.vector.file.BaseFileTest;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
@@ -40,87 +38,6 @@ import org.slf4j.LoggerFactory;
 
 public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);
-
-  @Test
-  public void testJSON() throws IOException {
-    File file = new File("/var/folders/0p/1z45pgjs6tz1rq093ty327h80000gn/T/tmp7bpg2aef/generated_nested.json");
-
-    // read
-    try (
-            BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-    ) {
-      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
-      Schema schema = reader.start();
-      LOGGER.debug("reading schema: " + schema);
-
-      // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
-        NullableMapVector vector = (NullableMapVector) root.getVector("struct_nullable");
-        System.out.println(vector.isNull(0));
-        System.out.println(vector.isNull(1));
-        System.out.println(vector.isNull(2));
-        System.out.println(vector.isNull(3));
-        System.out.println(vector.isNull(4));
-
-        System.out.println(vector.getValidityBuffer());
-      }
-
-      try (VectorSchemaRoot root = reader.read();) {
-        NullableMapVector vector = (NullableMapVector) root.getVector("struct_nullable");
-        System.out.println(vector.isNull(0));
-        System.out.println(vector.isNull(1));
-        System.out.println(vector.isNull(2));
-        System.out.println(vector.isNull(3));
-        System.out.println(vector.isNull(4));
-
-        System.out.println(vector.getValidityBuffer());
-      }
-      reader.close();
-    }
-  }
-
-  @Test
-  public void testFile() throws IOException {
-    File file = new File("/var/folders/0p/1z45pgjs6tz1rq093ty327h80000gn/T/tmpdda8l04u/2540f848006040769495368df23a8859_generated_nested.json_to_arrow");
-
-    try (
-            BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-    ) {
-      FileInputStream stream = new FileInputStream(file);
-      ArrowFileReader reader = new ArrowFileReader(stream.getChannel(), readerAllocator);
-      VectorSchemaRoot root = reader.getVectorSchemaRoot();
-      LOGGER.debug("reading schema: " + root.getSchema());
-
-      // initialize vectors
-      reader.loadNextBatch();
-        NullableMapVector vector = (NullableMapVector) root.getVector("struct_nullable");
-        System.out.println(vector.isNull(0));
-        System.out.println(vector.isNull(1));
-        System.out.println(vector.isNull(2));
-        System.out.println(vector.isNull(3));
-        System.out.println(vector.isNull(4));
-
-        System.out.println(vector.getValidityBuffer());
-
-      reader.loadNextBatch();
-        vector = (NullableMapVector) root.getVector("struct_nullable");
-        System.out.println(vector.isNull(0));
-        System.out.println(vector.isNull(1));
-        System.out.println(vector.isNull(2));
-        System.out.println(vector.isNull(3));
-        System.out.println(vector.isNull(4));
-        System.out.println(vector.isNull(5));
-        System.out.println(vector.isNull(6));
-        System.out.println(vector.isNull(7));
-        System.out.println(vector.isNull(8));
-        System.out.println(vector.isNull(9));
-
-
-        reader.close();
-        root.close();
-      }
-
-    }
 
   @Test
   public void testWriteReadComplexJSON() throws IOException {

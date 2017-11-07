@@ -503,32 +503,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         vectorBuffers[v] = readBuffer(allocator, vectorType, vector.getMinorType(), innerBufferValueCount);
-
-
-        // ArrayList<Integer> values = Lists.newArrayList(parser.readValuesAs(Integer.class));
-        // System.out.println(values);
-
-        // writeBuf(vectorBuffers[v], vector.getMinorType(), innerBufferValueCount);
-
-//
-//        for (int i = 0; i < innerBufferValueCount; i++) {
-//          /* write data to the buffer */
-//          parser.nextToken();
-//
-//          /* for variable width vectors, value count doesn't help pre-determining the capacity of
-//           * the underlying data buffer. So we need to pass down the offset buffer (which was already
-//           * populated in the previous iteration of this loop).
-//           */
-//          if (vectorType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR
-//                  || vector.getMinorType() == Types.MinorType.VARBINARY)) {
-//            vectorBuffers[v] = setValueFromParser(vectorType, vector, vectorBuffers[v],
-//                    vectorBuffers[v-1], i, innerBufferValueCount);
-//          } else {
-//            vectorBuffers[v] = setValueFromParser(vectorType, vector, vectorBuffers[v],
-//                    null, i, innerBufferValueCount);
-//          }
-//        }
-
       }
 
       vector.loadFieldBuffers(new ArrowFieldNode(valueCount, 0), Arrays.asList(vectorBuffers));
@@ -538,7 +512,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       if (!fields.isEmpty()) {
         List<FieldVector> vectorChildren = vector.getChildrenFromFields();
         if (fields.size() != vectorChildren.size()) {
-          throw new IllegalArgumentException("fields and children are not the same size: " + fields.size() + " != " + vectorChildren.size());
+          throw new IllegalArgumentException(
+                  "fields and children are not the same size: " + fields.size() + " != " + vectorChildren.size());
         }
         nextFieldIs("children");
         readToken(START_ARRAY);
