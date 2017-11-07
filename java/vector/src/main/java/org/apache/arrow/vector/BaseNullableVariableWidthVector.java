@@ -909,52 +909,6 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       }
    }
 
-
-   /******************************************************************
-    *                                                                *
-    *                helper methods currently                        *
-    *                used by JsonFileReader and                      *
-    *                JsonFileWriter                                  *
-    *                                                                *
-    ******************************************************************/
-
-
-   /**
-    * Method used by Json Reader to explicitly set the data of the variable
-    * width vector elements. The method takes care of allocating the memory
-    * for the vector if caller hasn't done so.
-    *
-    * This method should not be used externally.
-    *
-    * @param data ArrowBuf for storing variable width elements in the vector
-    * @param offset offset of the element
-    * @param allocator memory allocator
-    * @param index position of the element in the vector
-    * @param value array of bytes for the element
-    * @param valueCount number of elements in the vector
-    * @return buffer holding the variable width data.
-    */
-   public static ArrowBuf set(ArrowBuf data, ArrowBuf offset,
-                              BufferAllocator allocator, int index, byte[] value,
-                              int valueCount) {
-      if (data == null) {
-         data = allocator.buffer(INITIAL_BYTE_COUNT);
-      }
-      final int currentBufferCapacity = data.capacity();
-      final int currentStartOffset = offset.getInt(index * OFFSET_WIDTH);
-      while (currentBufferCapacity < currentStartOffset + value.length) {
-         final ArrowBuf newBuf = allocator.buffer(currentBufferCapacity * 2);
-         newBuf.setBytes(0, data, 0, currentBufferCapacity);
-         data.release();
-         data = newBuf;
-      }
-      data.setBytes(currentStartOffset, value, 0, value.length);
-      if (index == (valueCount - 1)) {
-         data.writerIndex(offset.getInt(valueCount * OFFSET_WIDTH));
-      }
-      return data;
-   }
-
    /**
     * Method used by Json Writer to read a variable width element from
     * the variable width vector and write to Json.

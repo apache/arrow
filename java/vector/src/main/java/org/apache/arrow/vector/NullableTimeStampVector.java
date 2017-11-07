@@ -165,42 +165,6 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
       set(index, isSet, value);
    }
 
-
-   /******************************************************************
-    *                                                                *
-    *          helper routines currently                             *
-    *          used in JsonFileReader and                            *
-    *          JsonFileWriter                                        *
-    *                                                                *
-    ******************************************************************/
-
-
-   /**
-    * Given a data buffer, this method sets the element value at a particular
-    * position. Reallocates the buffer if needed.
-    *
-    * This method should not be used externally.
-    *
-    * @param buffer data buffer
-    * @param allocator allocator
-    * @param valueCount number of elements in the vector
-    * @param index position of the new element
-    * @param value element value
-    * @return data buffer
-    */
-   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
-                              int valueCount, int index, long value) {
-      if (buffer == null) {
-         buffer = allocator.buffer(valueCount * TYPE_WIDTH);
-      }
-      buffer.setLong(index * TYPE_WIDTH, value);
-      if (index == (valueCount - 1)) {
-         buffer.writerIndex(valueCount * TYPE_WIDTH);
-      }
-
-      return buffer;
-   }
-
    /**
     * Given a data buffer, get the value stored at a particular position
     * in the vector.
