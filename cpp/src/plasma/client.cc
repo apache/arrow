@@ -294,16 +294,18 @@ Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   auto entry = mmap_table_.find(fd);
   ARROW_CHECK(entry != mmap_table_.end());
   ARROW_CHECK(entry->second.count >= 1);
-  // If none are being used then unmap the file.
   if (entry->second.count == 1) {
+    // If no other objects are being used, then unmap the file.
     int err = munmap(entry->second.pointer, entry->second.length);
     if (err == -1) {
       return Status::IOError("Error during munmap");
     }
     // Remove the corresponding entry from the hash table.
     mmap_table_.erase(fd);
+  } else {
+    // If there are other objects being used, decrement the reference count.
+    entry->second.count -= 1;
   }
-  entry->second.count -= 1;
   // Update the in_use_object_bytes_.
   in_use_object_bytes_ -= (object_entry->second->object.data_size +
                            object_entry->second->object.metadata_size);
