@@ -671,8 +671,11 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 }
 
 Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
-  auto f0 = field("f0", decimal(19, 4));
-  auto schema = ::arrow::schema({f0, f0});
+  constexpr int kDecimalPrecision = 38;
+  auto type = decimal(kDecimalPrecision, 4);
+  auto f0 = field("f0", type);
+  auto f1 = field("f1", type);
+  auto schema = ::arrow::schema({f0, f1});
 
   constexpr int kDecimalSize = 16;
   constexpr int length = 10;
@@ -682,7 +685,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
 
   RETURN_NOT_OK(AllocateBuffer(default_memory_pool(), kDecimalSize * length, &data));
 
-  test::random_bytes(kDecimalSize * length, 0, data->mutable_data());
+  test::random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   test::random_null_bytes(length, 0.1, is_valid_bytes.data());
 
   RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, default_memory_pool(), &is_valid));
@@ -690,10 +693,10 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   auto a1 = std::make_shared<DecimalArray>(f0->type(), length, data, is_valid,
                                            kUnknownNullCount);
 
-  auto a2 = std::make_shared<DecimalArray>(f0->type(), length, data);
+  auto a2 = std::make_shared<DecimalArray>(f1->type(), length, data);
 
   ArrayVector arrays = {a1, a2};
-  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
+  *out = std::make_shared<RecordBatch>(schema, length, arrays);
   return Status::OK();
 }
 
