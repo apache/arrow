@@ -20,6 +20,7 @@ package org.apache.arrow.vector.file.json;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +49,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.schema.ArrowVectorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -242,9 +244,9 @@ public class JsonFileWriter implements AutoCloseable {
         }
         break;
       case DECIMAL: {
-          ArrowBuf bytebuf = valueVector.getDataBuffer();
-          String hexString = Hex.encodeHexString(DecimalUtility.getByteArrayFromArrowBuf(bytebuf, i));
-          generator.writeString(hexString);
+          BigDecimal decimalValue = ((DecimalVector) valueVector).getAccessor().getObject(i);
+          // We write the unscaled value, because the scale is stored in the type metadata.
+          generator.writeString(decimalValue.unscaledValue().toString());
         }
         break;
       default:
