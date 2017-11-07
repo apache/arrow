@@ -58,6 +58,10 @@ short description of your use case.
    large-scale data processing. Spark uses Apache Arrow to
     1. improve performance of conversion between Spark DataFrame and pandas DataFrame
     2. enable a set of vectorized user-defined functions (`pandas_udf`) in PySpark.
+ * **[GeoMesa][8]:** A suite of tools that enables large-scale geospatial query
+    and analytics on distributed computing systems. GeoMesa supports query
+    results in the Arrow IPC format, which can then be used for in-browser
+    visualizations and/or further analytics.
  * **[Ray][5]:** A flexible, high-performance distributed execution framework
    with a focus on machine learning and AI applications. Uses Arrow to
    efficiently store Python data structures containing large arrays of
@@ -75,6 +79,13 @@ To add yourself to the list, please email dev@arrow.apache.org with your
 organization name, URL, a list of which Arrow components you are using, and a
 short description of your use case.
 
+  * **[Dremio][9]:** A self-service data platform. Dremio makes it easy for
+    users to discover, curate, accelerate, and share data from any source.
+    It includes a distributed SQL execution engine based on Apache Arrow.
+    Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
+    buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
+    Python, R, and more (all backed by Apache Arrow).
+
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
@@ -83,3 +94,5 @@ short description of your use case.
 [5]: https://github.com/ray-project/ray
 [6]: https://ray-project.github.io/2017/08/08/plasma-in-memory-object-store.html
 [7]: https://spark.apache.org/
+[8]: https://github.com/locationtech/geomesa
+[9]: https://www.dremio.com/
