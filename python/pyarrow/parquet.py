@@ -260,7 +260,7 @@ schema : arrow Schema
         self.is_open = True
 
     def __del__(self):
-        if self.is_open:
+        if getattr(self, 'is_open', False):
             self.close()
 
     def write_table(self, table, row_group_size=None):
