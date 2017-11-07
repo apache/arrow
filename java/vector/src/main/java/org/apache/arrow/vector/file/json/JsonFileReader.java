@@ -201,7 +201,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        ArrowBuf buf = allocator.buffer(BitVectorHelper.getValidityBufferSize(count));
+        final int bufferSize = BitVectorHelper.getValidityBufferSize(count);
+        ArrowBuf buf = allocator.buffer(bufferSize);
+
+        // C++ integration test fails without this.
+        buf.setZero(0, bufferSize);
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
