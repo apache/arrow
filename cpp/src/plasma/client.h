@@ -316,7 +316,7 @@ class ARROW_EXPORT PlasmaClient {
   int get_manager_fd();
 
  private:
-  void UnmapObject(const ObjectID& object_id);
+  Status UnmapObject(const ObjectID& object_id);
 
   Status FlushReleaseHistory();
 

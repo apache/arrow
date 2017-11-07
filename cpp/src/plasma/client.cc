@@ -282,7 +282,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
 /// gone out of scope, either by calling Release or Abort.
 ///
 /// @param object_id The object ID whose data we should unmap.
-void PlasmaClient::UnmapObject(const ObjectID& object_id) {
+Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
   ARROW_CHECK(object_entry != objects_in_use_.end());
   ARROW_CHECK(object_entry->second->count == 0);
@@ -293,20 +293,24 @@ void PlasmaClient::UnmapObject(const ObjectID& object_id) {
   int fd = object_entry->second->object.handle.store_fd;
   auto entry = mmap_table_.find(fd);
   ARROW_CHECK(entry != mmap_table_.end());
-  entry->second.count -= 1;
-  ARROW_CHECK(entry->second.count >= 0);
+  ARROW_CHECK(entry->second.count >= 1);
   // If none are being used then unmap the file.
-  if (entry->second.count == 0) {
-    munmap(entry->second.pointer, entry->second.length);
+  if (entry->second.count == 1) {
+    int err = munmap(entry->second.pointer, entry->second.length);
+    if (err == -1) {
+      return Status::IOError("Error during munmap");
+    }
     // Remove the corresponding entry from the hash table.
     mmap_table_.erase(fd);
   }
+  entry->second.count -= 1;
   // Update the in_use_object_bytes_.
   in_use_object_bytes_ -= (object_entry->second->object.data_size +
                            object_entry->second->object.metadata_size);
   DCHECK_GE(in_use_object_bytes_, 0);
   // Remove the entry from the hash table of objects currently in use.
   objects_in_use_.erase(object_id);
+  return Status::OK();
 }
 
 /// This is a helper method for implementing plasma_release. We maintain a
@@ -329,8 +333,8 @@ Status PlasmaClient::PerformRelease(const ObjectID& object_id) {
   // Check if the client is no longer using this object.
   if (object_entry->second->count == 0) {
     // Tell the store that the client no longer needs the object.
+    RETURN_NOT_OK(UnmapObject(object_id));
     RETURN_NOT_OK(SendReleaseRequest(store_conn_, object_id));
-    UnmapObject(object_id);
   }
   return Status::OK();
 }
@@ -488,9 +492,9 @@ Status PlasmaClient::Abort(const ObjectID& object_id) {
 
   // Send the abort request.
   RETURN_NOT_OK(SendAbortRequest(store_conn_, object_id));
-  // Remove the object.
+  // Decrease the reference count to zero, then remove the object.
   object_entry->second->count--;
-  UnmapObject(object_id);
+  RETURN_NOT_OK(UnmapObject(object_id));
 
   std::vector<uint8_t> buffer;
   ObjectID id;
