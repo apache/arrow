@@ -346,11 +346,11 @@ def decimal_range_from_precision(precision):
 
 
 class DecimalType(PrimitiveType):
-    def __init__(self, name, bit_width, precision, scale, nullable=True):
+    def __init__(self, name, precision, scale, bit_width=128, nullable=True):
         super(DecimalType, self).__init__(name, nullable=True)
-        self.bit_width = bit_width
         self.precision = precision
         self.scale = scale
+        self.bit_width = bit_width
 
     @property
     def numpy_type(self):
@@ -383,7 +383,7 @@ class DecimalType(PrimitiveType):
 
 class DecimalColumn(PrimitiveColumn):
 
-    def __init__(self, name, count, is_valid, values, bit_width):
+    def __init__(self, name, count, is_valid, values, bit_width=128):
         super(DecimalColumn, self).__init__(name, count, is_valid, values)
         self.bit_width = bit_width
 
@@ -770,11 +770,12 @@ def generate_primitive_case(batch_sizes):
 
 def generate_decimal_case():
     fields = [
-        DecimalType(name='f1', bit_width=128, precision=24, scale=10),
-        DecimalType(name='f2', bit_width=128, precision=32, scale=-10),
+        DecimalType(name='f{}'.format(i), precision=precision, scale=2)
+        for i, precision in enumerate(range(3, 39))
     ]
 
-    batch_sizes = [7, 10]
+    possible_batch_sizes = 7, 10
+    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
 
     return _generate_file('decimal', fields, batch_sizes)
 
