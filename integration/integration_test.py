@@ -327,10 +327,22 @@ class FloatingPointType(PrimitiveType):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
+DECIMAL_PRECISION_TO_VALUE = {
+    key: (1 << (8 * i - 1)) - 1 for i, key in enumerate(
+        [1, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 32, 34, 36],
+        start=1,
+    )
+}
+
+
 def decimal_range_from_precision(precision):
-    assert 0 < precision <= 38
-    max_value = 10 ** precision - 1
-    return -max_value, max_value
+    assert 1 <= precision <= 38
+    try:
+        max_value = DECIMAL_PRECISION_TO_VALUE[precision]
+    except KeyError:
+        return decimal_range_from_precision(precision - 1)
+    else:
+        return ~max_value, max_value
 
 
 class DecimalType(PrimitiveType):
