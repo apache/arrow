@@ -599,8 +599,7 @@ Status PlasmaStore::process_message(Client* client) {
       }
     } break;
     case MessageType_PlasmaAbortRequest: {
-      RETURN_NOT_OK(
-          ReadAbortRequest(input, input_size, &object_id));
+      RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       abort_object(object_id);
       HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
     } break;
