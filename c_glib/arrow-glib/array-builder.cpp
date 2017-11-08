@@ -316,7 +316,7 @@ garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
  *
  * Release ownership of `arrow::ArrayBuilder` in `builder`.
  *
- * Since: 0.8.8
+ * Since: 0.8.0
  */
 void
 garrow_array_builder_release_ownership(GArrowArrayBuilder *builder)
