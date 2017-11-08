@@ -48,6 +48,7 @@ struct Client {
 
 class PlasmaStore {
  public:
+  // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
               bool hugetlbfs_enabled);
 
