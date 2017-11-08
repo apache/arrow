@@ -187,6 +187,8 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
                                                                   100000000000000000LL,
                                                                   1000000000000000000LL};
 
+static inline bool isdigit(char value) { return std::isdigit(value) != 0; }
+
 static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
 
@@ -238,7 +240,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
   DCHECK_LT(charp, end);
 
   // skip leading zeros
-  charp = std::find_if_not(charp, end, [](char c) { return c == '0'; });
+  charp = std::find_if_not(charp, end, [](char value) { return value == '0'; });
 
   // all zeros and no decimal point
   if (charp == end) {
@@ -261,7 +263,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
 
   std::string::const_iterator whole_part_start = charp;
 
-  charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
+  charp = std::find_if_not(charp, end, isdigit);
 
   std::string::const_iterator whole_part_end = charp;
   std::string whole_part(whole_part_start, whole_part_end);
@@ -294,7 +296,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
 
   // The rest must be digits or an exponent
   if (charp != end) {
-    charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
+    charp = std::find_if_not(charp, end, isdigit);
 
     // The while loop has ended before the end of the string which means we've hit a
     // character that isn't a base ten digit or "E" for exponent
@@ -321,24 +323,16 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
     ++charp;
 
     const char value = *charp;
-
-    if (value != '+' && value != '-' && std::isdigit(value) == 0) {
-      std::stringstream ss;
-      ss << "Found E|e followed by not +, -, or a number '" << value << "'";
-      return Status::Invalid(ss.str());
-    }
-
-    // skip forward a character if we have a plus
-    charp += value == '+';
+    const bool starts_with_plus_or_minus = value == '+' || value == '-';
 
     // we use this to construct the adjusted exponent integer later
     std::string::const_iterator digit_start = charp;
 
-    // skip minus
-    charp += value == '-';
+    // skip plus or minus
+    charp += starts_with_plus_or_minus;
 
     // confirm that the rest of the characters are digits
-    charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
+    charp = std::find_if_not(charp, end, isdigit);
 
     if (charp != end) {
       // we have something other than digits here
@@ -351,9 +345,8 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
       // compute the scale from the adjusted exponent
       std::string adjusted_exponent_string(digit_start, end);
       DCHECK(std::all_of(
-          adjusted_exponent_string.cbegin() + (adjusted_exponent_string[0] == '-'),
-          adjusted_exponent_string.cend(),
-          [](char value) { return std::isdigit(value) != 0; }))
+          adjusted_exponent_string.cbegin() + starts_with_plus_or_minus,
+          adjusted_exponent_string.cend(), isdigit))
           << "Non decimal digit character found in " << adjusted_exponent_string;
       const auto adjusted_exponent =
           static_cast<int32_t>(std::stol(adjusted_exponent_string));
