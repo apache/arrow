@@ -100,6 +100,34 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
   return plasma_error_status(message->error());
 }
 
+Status SendAbortRequest(int sock, ObjectID object_id) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = CreatePlasmaAbortRequest(fbb, fbb.CreateString(object_id.binary()));
+  return PlasmaSend(sock, MessageType_PlasmaAbortRequest, &fbb, message);
+}
+
+Status ReadAbortRequest(uint8_t* data, size_t size, ObjectID* object_id) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<PlasmaAbortRequest>(data);
+  DCHECK(verify_flatbuffer(message, data, size));
+  *object_id = ObjectID::from_binary(message->object_id()->str());
+  return Status::OK();
+}
+
+Status SendAbortReply(int sock, ObjectID object_id) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = CreatePlasmaAbortReply(fbb, fbb.CreateString(object_id.binary()));
+  return PlasmaSend(sock, MessageType_PlasmaAbortReply, &fbb, message);
+}
+
+Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<PlasmaAbortReply>(data);
+  DCHECK(verify_flatbuffer(message, data, size));
+  *object_id = ObjectID::from_binary(message->object_id()->str());
+  return Status::OK();
+}
+
 // Seal messages.
 
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
