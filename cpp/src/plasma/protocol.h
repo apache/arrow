@@ -51,6 +51,14 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int e
 Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
                        PlasmaObject* object);
 
+Status SendAbortRequest(int sock, ObjectID object_id);
+
+Status ReadAbortRequest(uint8_t* data, size_t size, ObjectID* object_id);
+
+Status SendAbortReply(int sock, ObjectID object_id);
+
+Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id);
+
 /* Plasma Seal message functions. */
 
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest);

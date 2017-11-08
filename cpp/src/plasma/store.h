@@ -48,6 +48,7 @@ struct Client {
 
 class PlasmaStore {
  public:
+  // TODO: PascalCase PlasmaStore methods.
   PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
               bool hugetlbfs_enabled);
 
@@ -72,6 +73,8 @@ class PlasmaStore {
   ///    plasma_release.
   int create_object(const ObjectID& object_id, int64_t data_size, int64_t metadata_size,
                     Client* client, PlasmaObject* result);
+
+  void abort_object(const ObjectID& object_id);
 
   /// Delete objects that have been created in the hash table. This should only
   /// be called on objects that are returned by the eviction policy to evict.

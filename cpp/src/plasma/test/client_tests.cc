@@ -127,6 +127,50 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ASSERT_EQ(object_buffer[1].data[0], 2);
 }
 
+TEST_F(TestPlasmaStore, AbortTest) {
+  ObjectID object_id = ObjectID::from_random();
+  ObjectBuffer object_buffer;
+
+  // Test for object non-existence.
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
+  ASSERT_EQ(object_buffer.data_size, -1);
+
+  // Test object abort.
+  // First create object.
+  int64_t data_size = 4;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  uint8_t* data;
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  // Write some data.
+  for (int64_t i = 0; i < data_size / 2; i++) {
+    data[i] = static_cast<uint8_t>(i % 4);
+  }
+  // Attempt to abort. Test that this fails before the first release.
+  Status status = client_.Abort(object_id);
+  ASSERT_TRUE(status.IsInvalid());
+  // Release, then abort.
+  ARROW_CHECK_OK(client_.Release(object_id));
+  ARROW_CHECK_OK(client_.Abort(object_id));
+
+  // Test for object non-existence after the abort.
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, 0, &object_buffer));
+  ASSERT_EQ(object_buffer.data_size, -1);
+
+  // Create the object successfully this time.
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  for (int64_t i = 0; i < data_size; i++) {
+    data[i] = static_cast<uint8_t>(i % 4);
+  }
+  ARROW_CHECK_OK(client_.Seal(object_id));
+
+  // Test that we can get the object.
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  for (int64_t i = 0; i < data_size; i++) {
+    ASSERT_EQ(data[i], object_buffer.data[i]);
+  }
+}
+
 }  // namespace plasma
 
 int main(int argc, char** argv) {
