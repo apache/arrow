@@ -55,6 +55,7 @@ TEST_F(TestCudaBuffer, Allocate) {
   std::shared_ptr<CudaBuffer> buffer;
   ASSERT_OK(context_->Allocate(kSize, &buffer));
   ASSERT_EQ(kSize, buffer->size());
+  ASSERT_EQ(kSize, context_->bytes_allocated());
 }
 
 void AssertCudaBufferEquals(const CudaBuffer& buffer, const uint8_t* host_data,
