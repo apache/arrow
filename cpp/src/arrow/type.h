@@ -844,6 +844,10 @@ std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
        const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
 
+/// \brief Create and instance of Union type
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children, UnionMode mode);
+
 /// \brief Create an instance of Dictionary type
 std::shared_ptr<DataType> ARROW_EXPORT
 dictionary(const std::shared_ptr<DataType>& index_type,

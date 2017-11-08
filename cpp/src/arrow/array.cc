@@ -393,20 +393,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
-std::shared_ptr<DataType> MakeUnionArrayType(
-    UnionMode mode, const std::vector<std::shared_ptr<Array>>& children) {
-  auto types = std::vector<std::shared_ptr<Field>>();
-  std::vector<uint8_t> type_codes;
-  uint8_t counter = 0;
-  for (const auto& child : children) {
-    types.push_back(field(std::to_string(counter), child->type()));
-    type_codes.push_back(counter);
-    counter++;
-  }
-  return union_(types, type_codes, mode);
-}
-
-Status UnionArray::FromDense(const Array& type_ids, const Array& value_offsets,
+Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                              const std::vector<std::shared_ptr<Array>>& children,
                              std::shared_ptr<Array>* out) {
   if (value_offsets.length() == 0) {
@@ -421,10 +408,14 @@ Status UnionArray::FromDense(const Array& type_ids, const Array& value_offsets,
     return Status::Invalid("UnionArray type_ids must be signed int8");
   }
 
+  if (value_offsets.null_count() != 0) {
+    return Status::Invalid("MakeDense does not allow NAs in value_offsets");
+  }
+
   BufferVector buffers = {type_ids.null_bitmap(),
                           static_cast<const UInt8Array&>(type_ids).values(),
                           static_cast<const Int32Array&>(value_offsets).values()};
-  auto union_type = MakeUnionArrayType(UnionMode::DENSE, children);
+  auto union_type = union_(children, UnionMode::DENSE);
   auto internal_data =
       std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
                                   type_ids.null_count(), type_ids.offset());
@@ -435,7 +426,7 @@ Status UnionArray::FromDense(const Array& type_ids, const Array& value_offsets,
   return Status::OK();
 }
 
-Status UnionArray::FromSparse(const Array& type_ids,
+Status UnionArray::MakeSparse(const Array& type_ids,
                               const std::vector<std::shared_ptr<Array>>& children,
                               std::shared_ptr<Array>* out) {
   if (type_ids.type_id() != Type::INT8) {
@@ -443,7 +434,7 @@ Status UnionArray::FromSparse(const Array& type_ids,
   }
   BufferVector buffers = {type_ids.null_bitmap(),
                           static_cast<const UInt8Array&>(type_ids).values(), nullptr};
-  auto union_type = MakeUnionArrayType(UnionMode::SPARSE, children);
+  auto union_type = union_(children, UnionMode::SPARSE);
   auto internal_data =
       std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
                                   type_ids.null_count(), type_ids.offset());
@@ -472,10 +463,6 @@ const Array* UnionArray::UnsafeChild(int i) const {
   }
   DCHECK(boxed_fields_[i]);
   return boxed_fields_[i].get();
-}
-
-std::shared_ptr<DataType> UnionArray::value_type(int pos) const {
-  return child(pos)->type();
 }
 
 // ----------------------------------------------------------------------

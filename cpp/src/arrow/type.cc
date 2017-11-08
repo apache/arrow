@@ -444,6 +444,18 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children, UnionMode mode) {
+  std::vector<std::shared_ptr<Field>> types;
+  std::vector<uint8_t> type_codes;
+  uint8_t counter = 0;
+  for (const auto& child : children) {
+    types.push_back(field(std::to_string(counter), child->type()));
+    type_codes.push_back(counter);
+    counter++;
+  }
+  return union_(types, type_codes, mode);
+}
+
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
                                      const std::shared_ptr<Array>& dict_values,
                                      bool ordered) {

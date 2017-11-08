@@ -655,7 +655,7 @@ cdef class UnionArray(Array):
         for child in children:
             c.push_back(child.sp_array)
         with nogil:
-            check_status(CUnionArray.FromDense(
+            check_status(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, &out))
         return pyarrow_wrap_array(out)
 
@@ -679,7 +679,7 @@ cdef class UnionArray(Array):
         for child in children:
             c.push_back(child.sp_array)
         with nogil:
-            check_status(CUnionArray.FromSparse(deref(types.ap), c, &out))
+            check_status(CUnionArray.MakeSparse(deref(types.ap), c, &out))
         return pyarrow_wrap_array(out)
 
 cdef class StringArray(Array):

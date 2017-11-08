@@ -624,7 +624,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// The respective offsets for each child value array must be in order / increasing.
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[out] out Will have length equal to value_offsets.length()
-  static Status FromDense(const Array& type_ids, const Array& value_offsets,
+  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
                           std::shared_ptr<Array>* out);
 
@@ -637,7 +637,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// 0 corresponding to each type.
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[out] out Will have length equal to type_ids.length()
-  static Status FromSparse(const Array& type_ids,
+  static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
                            std::shared_ptr<Array>* out);
 
@@ -658,8 +658,6 @@ class ARROW_EXPORT UnionArray : public Array {
 
   /// Only use this while the UnionArray is in scope
   const Array* UnsafeChild(int pos) const;
-
-  std::shared_ptr<DataType> value_type(int pos) const;
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

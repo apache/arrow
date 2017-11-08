@@ -323,18 +323,17 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
-        CStatus FromSparse(const CArray& type_ids,
+        CStatus MakeSparse(const CArray& type_ids,
                            const vector[shared_ptr[CArray]]& children,
                            shared_ptr[CArray]* out)
         @staticmethod
-        CStatus FromDense(const CArray& type_ids, const CArray& value_offsets,
+        CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
                           shared_ptr[CArray]* out)
         uint8_t* raw_type_ids()
         int32_t value_offset(int i)
         shared_ptr[CArray] child(int pos)
         const CArray* UnsafeChild(int pos)
-        shared_ptr[CDataType] value_type(int pos)
         UnionMode mode()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):

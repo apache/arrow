@@ -186,6 +186,16 @@ cdef class UnionType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+        self.child_types = [pyarrow_wrap_data_type(
+            type.get().child(i).get().type()) for i in range(self.num_children)]
+
+    property num_children:
+
+        def __get__(self):
+           return self.type.num_children()
+
+    def __getitem__(self, i):
+        return self.child_types[i]
 
 
 cdef class TimestampType(DataType):

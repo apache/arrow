@@ -56,6 +56,11 @@ cdef class DictionaryType(DataType):
         const CDictionaryType* dict_type
 
 
+cdef class UnionType(DataType):
+    cdef:
+        list child_types
+
+
 cdef class TimestampType(DataType):
     cdef:
         const CTimestampType* ts_type
