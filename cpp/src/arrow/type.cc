@@ -444,7 +444,8 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& chil
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
-std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children, UnionMode mode) {
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
+                                 UnionMode mode) {
   std::vector<std::shared_ptr<Field>> types;
   std::vector<uint8_t> type_codes;
   uint8_t counter = 0;
