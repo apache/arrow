@@ -278,10 +278,6 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
   return Status::OK();
 }
 
-/// This is a helper method for unmapping objects for which all references have
-/// gone out of scope, either by calling Release or Abort.
-///
-/// @param object_id The object ID whose data we should unmap.
 Status PlasmaClient::UnmapObject(const ObjectID& object_id) {
   auto object_entry = objects_in_use_.find(object_id);
   ARROW_CHECK(object_entry != objects_in_use_.end());
@@ -362,7 +358,6 @@ Status PlasmaClient::Release(const ObjectID& object_id) {
   return Status::OK();
 }
 
-/// This is a helper method that flushes all pending release calls.
 Status PlasmaClient::FlushReleaseHistory() {
   // If the client is already disconnected, ignore the flush.
   if (store_conn_ < 0) {

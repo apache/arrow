@@ -316,8 +316,14 @@ class ARROW_EXPORT PlasmaClient {
   int get_manager_fd();
 
  private:
+  /// This is a helper method for unmapping objects for which all references have
+  /// gone out of scope, either by calling Release or Abort.
+  ///
+  /// @param object_id The object ID whose data we should unmap.
   Status UnmapObject(const ObjectID& object_id);
 
+  /// This is a helper method that flushes all pending release calls to the
+  /// store.
   Status FlushReleaseHistory();
 
   Status PerformRelease(const ObjectID& object_id);
