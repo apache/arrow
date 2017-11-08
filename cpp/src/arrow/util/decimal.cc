@@ -350,9 +350,10 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
     if (scale != NULLPTR) {
       // compute the scale from the adjusted exponent
       std::string adjusted_exponent_string(digit_start, end);
-      DCHECK(std::all_of(adjusted_exponent_string.cbegin(),
-                         adjusted_exponent_string.cend(),
-                         [](char value) { return std::isdigit(value) != 0; }))
+      DCHECK(std::all_of(
+          adjusted_exponent_string.cbegin() + (adjusted_exponent_string[0] == '-'),
+          adjusted_exponent_string.cend(),
+          [](char value) { return std::isdigit(value) != 0; }))
           << "Non decimal digit character found in " << adjusted_exponent_string;
       const auto adjusted_exponent =
           static_cast<int32_t>(std::stol(adjusted_exponent_string));
