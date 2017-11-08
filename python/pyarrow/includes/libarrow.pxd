@@ -68,8 +68,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_MAP" arrow::Type::MAP"
 
     enum UnionMode" arrow::UnionMode":
-        UnionMode_SPARSE" arrow::UnionMode::SPARSE"
-        UnionMode_DENSE" arrow::UnionMode::DENSE"
+        _UnionMode_SPARSE" arrow::UnionMode::SPARSE"
+        _UnionMode_DENSE" arrow::UnionMode::DENSE"
 
     enum TimeUnit" arrow::TimeUnit::type":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
@@ -225,6 +225,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
+
+    cdef cppclass CUnionType" arrow::UnionType"(CDataType):
+        CUnionType(const vector[shared_ptr[CField]]& fields,
+                   const vector[uint8_t]& type_codes, UnionMode mode)
+        UnionMode mode()
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
