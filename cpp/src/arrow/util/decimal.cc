@@ -105,6 +105,22 @@ Decimal128::operator int64_t() const {
   return static_cast<int64_t>(low_bits_);
 }
 
+static std::string ToStringNegativeScale(const std::string& str,
+                                         int32_t adjusted_exponent, bool is_negative) {
+  std::stringstream buf;
+
+  size_t offset = 0;
+  buf << str[offset++];
+
+  if (is_negative) {
+    buf << str[offset++];
+  }
+
+  buf << '.' << str.substr(offset, std::string::npos) << 'E' << std::showpos
+      << adjusted_exponent;
+  return buf.str();
+}
+
 std::string Decimal128::ToString(int32_t scale) const {
   const std::string str(ToIntegerString());
 
@@ -112,9 +128,18 @@ std::string Decimal128::ToString(int32_t scale) const {
     return str;
   }
 
-  if (*this < 0) {
-    const auto len = static_cast<int32_t>(str.size());
+  const bool is_negative = *this < 0;
 
+  const auto len = static_cast<int32_t>(str.size());
+  const auto is_negative_offset = static_cast<int32_t>(is_negative);
+  const int32_t adjusted_exponent = -scale + (len - 1 - is_negative_offset);
+
+  /// Note that the -6 is taken from the Java BigDecimal documentation.
+  if (scale < 0 || adjusted_exponent < -6) {
+    return ToStringNegativeScale(str, adjusted_exponent, is_negative);
+  }
+
+  if (is_negative) {
     if (len - 1 > scale) {
       const auto n = static_cast<size_t>(len - scale);
       return str.substr(0, n) + "." + str.substr(n, static_cast<size_t>(scale));
@@ -127,8 +152,6 @@ std::string Decimal128::ToString(int32_t scale) const {
     std::string result("-0." + std::string(static_cast<size_t>(scale - len + 1), '0'));
     return result + str.substr(1, std::string::npos);
   }
-
-  const auto len = static_cast<int32_t>(str.size());
 
   if (len > scale) {
     const auto n = static_cast<size_t>(len - scale);
@@ -164,10 +187,12 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
                                                                   100000000000000000LL,
                                                                   1000000000000000000LL};
 
+static inline bool isdigit(char value) { return std::isdigit(value) != 0; }
+
 static void StringToInteger(const std::string& str, Decimal128* out) {
   using std::size_t;
 
-  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
+  DCHECK_NE(out, NULLPTR) << "Decimal128 output variable cannot be NULLPTR";
   DCHECK_EQ(*out, 0)
       << "When converting a string to Decimal128 the initial output must be 0";
 
@@ -189,7 +214,7 @@ static void StringToInteger(const std::string& str, Decimal128* out) {
 
 Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precision,
                               int* scale) {
-  // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?";
+  // Implements this regex: "(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?((E|e)(\\+|-)?\\d+)?";
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
@@ -215,21 +240,21 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
   DCHECK_LT(charp, end);
 
   // skip leading zeros
-  charp = std::find_if_not(charp, end, [](char c) { return c == '0'; });
+  charp = std::find_if_not(charp, end, [](char value) { return value == '0'; });
 
   // all zeros and no decimal point
   if (charp == end) {
-    if (out != nullptr) {
+    if (out != NULLPTR) {
       *out = 0;
     }
 
     // Not sure what other libraries assign precision to for this case (this case of
     // a string consisting only of one or more zeros)
-    if (precision != nullptr) {
+    if (precision != NULLPTR) {
       *precision = static_cast<int>(charp - numeric_string_start);
     }
 
-    if (scale != nullptr) {
+    if (scale != NULLPTR) {
       *scale = 0;
     }
 
@@ -238,7 +263,7 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
 
   std::string::const_iterator whole_part_start = charp;
 
-  charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
+  charp = std::find_if_not(charp, end, isdigit);
 
   std::string::const_iterator whole_part_end = charp;
   std::string whole_part(whole_part_start, whole_part_end);
@@ -269,14 +294,13 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
 
   std::string::const_iterator fractional_part_start = charp;
 
-  // The rest must be digits, because if we have a decimal point it must be followed by
-  // digits
+  // The rest must be digits or an exponent
   if (charp != end) {
-    charp = std::find_if_not(charp, end, [](char c) { return std::isdigit(c) != 0; });
+    charp = std::find_if_not(charp, end, isdigit);
 
     // The while loop has ended before the end of the string which means we've hit a
-    // character that isn't a base ten digit
-    if (charp != end) {
+    // character that isn't a base ten digit or "E" for exponent
+    if (charp != end && *charp != 'E' && *charp != 'e') {
       std::stringstream ss;
       ss << "Found non base ten digit character '" << *charp
          << "' before the end of the string";
@@ -287,15 +311,55 @@ Status Decimal128::FromString(const std::string& s, Decimal128* out, int* precis
   std::string::const_iterator fractional_part_end = charp;
   std::string fractional_part(fractional_part_start, fractional_part_end);
 
-  if (precision != nullptr) {
+  if (precision != NULLPTR) {
     *precision = static_cast<int>(whole_part.size() + fractional_part.size());
   }
 
-  if (scale != nullptr) {
-    *scale = static_cast<int>(fractional_part.size());
+  if (charp != end) {
+    // we must have an exponent, if this aborts then we have somehow not caught this and
+    // raised a proper error
+    DCHECK(*charp == 'E' || *charp == 'e');
+
+    ++charp;
+
+    const char value = *charp;
+    const bool starts_with_plus_or_minus = value == '+' || value == '-';
+
+    // we use this to construct the adjusted exponent integer later
+    std::string::const_iterator digit_start = charp;
+
+    // skip plus or minus
+    charp += starts_with_plus_or_minus;
+
+    // confirm that the rest of the characters are digits
+    charp = std::find_if_not(charp, end, isdigit);
+
+    if (charp != end) {
+      // we have something other than digits here
+      std::stringstream ss;
+      ss << "Found non decimal digit exponent value '" << *charp << "'";
+      return Status::Invalid(ss.str());
+    }
+
+    if (scale != NULLPTR) {
+      // compute the scale from the adjusted exponent
+      std::string adjusted_exponent_string(digit_start, end);
+      DCHECK(std::all_of(adjusted_exponent_string.cbegin() + starts_with_plus_or_minus,
+                         adjusted_exponent_string.cend(), isdigit))
+          << "Non decimal digit character found in " << adjusted_exponent_string;
+      const auto adjusted_exponent =
+          static_cast<int32_t>(std::stol(adjusted_exponent_string));
+      const auto len = static_cast<int32_t>(whole_part.size() + fractional_part.size());
+
+      *scale = -adjusted_exponent + len - 1;
+    }
+  } else {
+    if (scale != NULLPTR) {
+      *scale = static_cast<int>(fractional_part.size());
+    }
   }
 
-  if (out != nullptr) {
+  if (out != NULLPTR) {
     // zero out in case we've passed in a previously used value
     *out = 0;
     StringToInteger(whole_part + fractional_part, out);
