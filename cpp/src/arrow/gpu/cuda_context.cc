@@ -64,6 +64,7 @@ class CudaContext::CudaContextImpl {
 
     CUdeviceptr data;
     CU_RETURN_NOT_OK(cuMemAlloc(&data, static_cast<size_t>(nbytes)));
+    bytes_allocated_ += nbytes;
     *out = reinterpret_cast<uint8_t*>(data);
     return Status::OK();
   }
@@ -85,6 +86,7 @@ class CudaContext::CudaContextImpl {
 
   Status Free(uint8_t* device_ptr, int64_t nbytes) {
     CU_RETURN_NOT_OK(cuMemFree(reinterpret_cast<CUdeviceptr>(device_ptr)));
+    bytes_allocated_ -= nbytes;
     return Status::OK();
   }
 
@@ -272,6 +274,8 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                                       true, true);
   return Status::OK();
 }
+
+int64_t CudaContext::bytes_allocated() const { return impl_->bytes_allocated(); }
 
 }  // namespace gpu
 }  // namespace arrow
