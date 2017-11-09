@@ -200,7 +200,7 @@ org.apache.arrow.flatbuf.RecordBatch.prototype.nodesLength = function() {
  */
 org.apache.arrow.flatbuf.RecordBatch.prototype.buffers = function(index, obj) {
   var offset = this.bb.__offset(this.bb_pos, 8);
-  return offset ? (obj || new org.apache.arrow.flatbuf.Buffer).__init(this.bb.__vector(this.bb_pos + offset) + index * 24, this.bb) : null;
+  return offset ? (obj || new org.apache.arrow.flatbuf.Buffer).__init(this.bb.__vector(this.bb_pos + offset) + index * 16, this.bb) : null;
 };
 
 /**
@@ -255,7 +255,7 @@ org.apache.arrow.flatbuf.RecordBatch.addBuffers = function(builder, buffersOffse
  * @param {number} numElems
  */
 org.apache.arrow.flatbuf.RecordBatch.startBuffersVector = function(builder, numElems) {
-  builder.startVector(24, numElems, 8);
+  builder.startVector(16, numElems, 8);
 };
 
 /**
@@ -268,12 +268,12 @@ org.apache.arrow.flatbuf.RecordBatch.endRecordBatch = function(builder) {
 };
 
 /**
- * ----------------------------------------------------------------------
  * For sending dictionary encoding information. Any Field can be
  * dictionary-encoded, but in this case none of its children may be
  * dictionary-encoded.
- * There is one vector / column per dictionary
- *
+ * There is one vector / column per dictionary, but that vector / column
+ * may be spread across multiple dictionary batches by using the isDelta
+ * flag
  *
  * @constructor
  */
@@ -327,10 +327,21 @@ org.apache.arrow.flatbuf.DictionaryBatch.prototype.data = function(obj) {
 };
 
 /**
+ * If isDelta is true the values in the dictionary are to be appended to a
+ * dictionary with the indicated id
+ *
+ * @returns {boolean}
+ */
+org.apache.arrow.flatbuf.DictionaryBatch.prototype.isDelta = function() {
+  var offset = this.bb.__offset(this.bb_pos, 8);
+  return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+};
+
+/**
  * @param {flatbuffers.Builder} builder
  */
 org.apache.arrow.flatbuf.DictionaryBatch.startDictionaryBatch = function(builder) {
-  builder.startObject(2);
+  builder.startObject(3);
 };
 
 /**
@@ -347,6 +358,14 @@ org.apache.arrow.flatbuf.DictionaryBatch.addId = function(builder, id) {
  */
 org.apache.arrow.flatbuf.DictionaryBatch.addData = function(builder, dataOffset) {
   builder.addFieldOffset(1, dataOffset, 0);
+};
+
+/**
+ * @param {flatbuffers.Builder} builder
+ * @param {boolean} isDelta
+ */
+org.apache.arrow.flatbuf.DictionaryBatch.addIsDelta = function(builder, isDelta) {
+  builder.addFieldInt8(2, +isDelta, +false);
 };
 
 /**

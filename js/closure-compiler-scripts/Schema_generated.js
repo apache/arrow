@@ -30,9 +30,25 @@ org.apache.arrow.flatbuf = org.apache.arrow.flatbuf || {};
  * @enum
  */
 org.apache.arrow.flatbuf.MetadataVersion = {
+  /**
+   * 0.1.0
+   */
   V1: 0, 0: 'V1',
+
+  /**
+   * 0.2.0
+   */
   V2: 1, 1: 'V2',
+
+  /**
+   * 0.3.0 -> 0.7.1
+   */
   V3: 2, 2: 'V3',
+
+  /**
+   * >= 0.8.0
+   */
+  V4: 3, 3: 'V4'
 };
 
 /**
@@ -103,7 +119,7 @@ org.apache.arrow.flatbuf.Type = {
   Union: 14, 14: 'Union',
   FixedSizeBinary: 15, 15: 'FixedSizeBinary',
   FixedSizeList: 16, 16: 'FixedSizeList',
-  Map: 17, 17: 'Map',
+  Map: 17, 17: 'Map'
 };
 
 /**
@@ -131,7 +147,7 @@ org.apache.arrow.flatbuf.VectorType = {
   /**
    * Type vector used in Union type
    */
-  TYPE: 3, 3: 'TYPE',
+  TYPE: 3, 3: 'TYPE'
 };
 
 /**
@@ -2006,23 +2022,13 @@ org.apache.arrow.flatbuf.Buffer.prototype.__init = function(i, bb) {
 };
 
 /**
- * The shared memory page id where this buffer is located. Currently this is
- * not used
- *
- * @returns {number}
- */
-org.apache.arrow.flatbuf.Buffer.prototype.page = function() {
-  return this.bb.readInt32(this.bb_pos);
-};
-
-/**
  * The relative offset into the shared memory page where the bytes for this
  * buffer starts
  *
  * @returns {flatbuffers.Long}
  */
 org.apache.arrow.flatbuf.Buffer.prototype.offset = function() {
-  return this.bb.readInt64(this.bb_pos + 8);
+  return this.bb.readInt64(this.bb_pos);
 };
 
 /**
@@ -2032,22 +2038,19 @@ org.apache.arrow.flatbuf.Buffer.prototype.offset = function() {
  * @returns {flatbuffers.Long}
  */
 org.apache.arrow.flatbuf.Buffer.prototype.length = function() {
-  return this.bb.readInt64(this.bb_pos + 16);
+  return this.bb.readInt64(this.bb_pos + 8);
 };
 
 /**
  * @param {flatbuffers.Builder} builder
- * @param {number} page
  * @param {flatbuffers.Long} offset
  * @param {flatbuffers.Long} length
  * @returns {flatbuffers.Offset}
  */
-org.apache.arrow.flatbuf.Buffer.createBuffer = function(builder, page, offset, length) {
-  builder.prep(8, 24);
+org.apache.arrow.flatbuf.Buffer.createBuffer = function(builder, offset, length) {
+  builder.prep(8, 16);
   builder.writeInt64(length);
   builder.writeInt64(offset);
-  builder.pad(4);
-  builder.writeInt32(page);
   return builder.offset();
 };
 

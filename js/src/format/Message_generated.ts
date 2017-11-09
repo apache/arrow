@@ -181,7 +181,7 @@ export namespace org.apache.arrow.flatbuf {
      */
     buffers(index: number, obj?: NS16187549871986683199.org.apache.arrow.flatbuf.Buffer): NS16187549871986683199.org.apache.arrow.flatbuf.Buffer | null {
       let offset = this.bb.__offset(this.bb_pos, 8);
-      return offset ? (obj || new NS16187549871986683199.org.apache.arrow.flatbuf.Buffer).__init(this.bb.__vector(this.bb_pos + offset) + index * 24, this.bb) : null;
+      return offset ? (obj || new NS16187549871986683199.org.apache.arrow.flatbuf.Buffer).__init(this.bb.__vector(this.bb_pos + offset) + index * 16, this.bb) : null;
     }
 
     /**
@@ -236,7 +236,7 @@ export namespace org.apache.arrow.flatbuf {
      * @param {number} numElems
      */
     static startBuffersVector(builder: flatbuffers.Builder, numElems: number) {
-      builder.startVector(24, numElems, 8);
+      builder.startVector(16, numElems, 8);
     }
 
     /**
@@ -251,12 +251,12 @@ export namespace org.apache.arrow.flatbuf {
   }
 }
 /**
- * ----------------------------------------------------------------------
  * For sending dictionary encoding information. Any Field can be
  * dictionary-encoded, but in this case none of its children may be
  * dictionary-encoded.
- * There is one vector / column per dictionary
- *
+ * There is one vector / column per dictionary, but that vector / column
+ * may be spread across multiple dictionary batches by using the isDelta
+ * flag
  *
  * @constructor
  */
@@ -309,10 +309,21 @@ export namespace org.apache.arrow.flatbuf {
     }
 
     /**
+     * If isDelta is true the values in the dictionary are to be appended to a
+     * dictionary with the indicated id
+     *
+     * @returns {boolean}
+     */
+    isDelta(): boolean {
+      let offset = this.bb.__offset(this.bb_pos, 8);
+      return offset ? !!this.bb.readInt8(this.bb_pos + offset) : false;
+    }
+
+    /**
      * @param {flatbuffers.Builder} builder
      */
     static startDictionaryBatch(builder: flatbuffers.Builder) {
-      builder.startObject(2);
+      builder.startObject(3);
     }
 
     /**
@@ -329,6 +340,14 @@ export namespace org.apache.arrow.flatbuf {
      */
     static addData(builder: flatbuffers.Builder, dataOffset: flatbuffers.Offset) {
       builder.addFieldOffset(1, dataOffset, 0);
+    }
+
+    /**
+     * @param {flatbuffers.Builder} builder
+     * @param {boolean} isDelta
+     */
+    static addIsDelta(builder: flatbuffers.Builder, isDelta: boolean) {
+      builder.addFieldInt8(2, +isDelta, +false);
     }
 
     /**

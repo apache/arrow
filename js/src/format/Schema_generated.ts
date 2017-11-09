@@ -7,9 +7,25 @@ import { flatbuffers } from 'flatbuffers';
  */
 export namespace org.apache.arrow.flatbuf {
   export enum MetadataVersion {
+    /**
+     * 0.1.0
+     */
     V1 = 0,
+
+    /**
+     * 0.2.0
+     */
     V2 = 1,
-    V3 = 2
+
+    /**
+     * 0.3.0 -> 0.7.1
+     */
+    V3 = 2,
+
+    /**
+     * >= 0.8.0
+     */
+    V4 = 3
   }
 }
 
@@ -2049,7 +2065,6 @@ export namespace org.apache.arrow.flatbuf {
 
     /**
      * @param {flatbuffers.Builder} builder
-     * @param {number} page
      * @param {flatbuffers.Long} offset
      * @param {flatbuffers.Long} length
      * @returns {flatbuffers.Offset}
