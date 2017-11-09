@@ -133,20 +133,6 @@ struct Type {
   };
 };
 
-enum class BufferType : char { DATA, OFFSET, TYPE, VALIDITY };
-
-class BufferDescr {
- public:
-  BufferDescr(BufferType type, int bit_width) : type_(type), bit_width_(bit_width) {}
-
-  BufferType type() const { return type_; }
-  int bit_width() const { return bit_width_; }
-
- private:
-  BufferType type_;
-  int bit_width_;
-};
-
 class ARROW_EXPORT DataType {
  public:
   explicit DataType(Type::type id) : id_(id) {}
@@ -176,8 +162,6 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
-  virtual std::vector<BufferDescr> GetBufferLayout() const = 0;
-
   Type::type id() const { return id_; }
 
  protected:
@@ -201,8 +185,6 @@ class ARROW_EXPORT FixedWidthType : public DataType {
   using DataType::DataType;
 
   virtual int bit_width() const = 0;
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
@@ -319,8 +301,6 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
   std::string ToString() const override;
 
   std::string name() const override { return "null"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
@@ -425,8 +405,6 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 // BinaryType type is represents lists of 1-byte values.
@@ -439,8 +417,6 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 
  protected:
   // Allow subclasses to change the logical type.
@@ -460,8 +436,6 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -494,8 +468,6 @@ class ARROW_EXPORT StructType : public NestedType {
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
@@ -540,8 +512,6 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::string ToString() const override;
   std::string name() const override { return "union"; }
   Status Accept(TypeVisitor* visitor) const override;
-
-  std::vector<BufferDescr> GetBufferLayout() const override;
 
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
