@@ -174,7 +174,7 @@ TEST_F(TestPlasmaStore, AbortTest) {
   }
 }
 
-TEST_F(TestPlasmaStore, DisconnectTest) {
+TEST_F(TestPlasmaStore, MultipleClientTest) {
   ObjectID object_id = ObjectID::from_random();
 
   // Test for object non-existence on the first client.
