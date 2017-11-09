@@ -19,6 +19,7 @@
     "package": "gulp package",
     "perf": "node ./perf/index.js",
     "test:coverage": "gulp test -t esnext -m esm --coverage",
+    "test:generate": "node --harmony_async_iteration test/generate-arrows.js",
     "validate": "npm-run-all clean lint build test bundle",
     "lerna:publish": "lerna exec --bail=false npm publish",
     "prepublishOnly": "sh ./prepublish.sh",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@std/esm": "0.12.5",
     "@types/flatbuffers": "1.6.5",
+    "@types/glob": "5.0.33",
     "@types/jest": "21.1.5",
     "@types/node": "8.0.47",
     "@types/text-encoding": "0.0.32",
@@ -68,6 +70,7 @@
     "del": "3.0.0",
     "esdoc": "1.0.3",
     "esdoc-standard-plugin": "1.0.0",
+    "glob": "7.1.2",
     "google-closure-compiler": "20170910.0.0",
     "gulp": "github:gulpjs/gulp#4.0",
     "gulp-json-transform": "0.4.5",
