@@ -1,0 +1,237 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "struct_nullable",
+        "type": {
+          "name": "struct"
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "f1",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": [],
+            "typeLayout": {
+              "vectors": [
+                {
+                  "type": "VALIDITY",
+                  "typeBitWidth": 1
+                },
+                {
+                  "type": "DATA",
+                  "typeBitWidth": 32
+                }
+              ]
+            }
+          },
+          {
+            "name": "f2",
+            "type": {
+              "name": "utf8"
+            },
+            "nullable": true,
+            "children": [],
+            "typeLayout": {
+              "vectors": [
+                {
+                  "type": "VALIDITY",
+                  "typeBitWidth": 1
+                },
+                {
+                  "type": "OFFSET",
+                  "typeBitWidth": 32
+                },
+                {
+                  "type": "DATA",
+                  "typeBitWidth": 8
+                }
+              ]
+            }
+          }
+        ],
+        "typeLayout": {
+          "vectors": [
+            {
+              "type": "VALIDITY",
+              "typeBitWidth": 1
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 7,
+      "columns": [
+        {
+          "name": "struct_nullable",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "f1",
+              "count": 7,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0
+              ],
+              "DATA": [
+                1402032511,
+                290876774,
+                137773603,
+                410361374,
+                1959836418,
+                1995074679,
+                -163525262
+              ]
+            },
+            {
+              "name": "f2",
+              "count": 7,
+              "VALIDITY": [
+                0,
+                1,
+                1,
+                1,
+                0,
+                1,
+                0
+              ],
+              "OFFSET": [
+                0,
+                0,
+                7,
+                14,
+                21,
+                21,
+                28,
+                28
+              ],
+              "DATA": [
+                "",
+                "MhRNxD4",
+                "3F9HBxK",
+                "aVd88fp",
+                "",
+                "3loZrRf",
+                ""
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 10,
+      "columns": [
+        {
+          "name": "struct_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          "children": [
+            {
+              "name": "f1",
+              "count": 10,
+              "VALIDITY": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+              ],
+              "DATA": [
+                -2041500147,
+                1715692943,
+                -35444996,
+                1425496657,
+                112765084,
+                1760754983,
+                413888857,
+                2039738337,
+                -1924327700,
+                670528518
+              ]
+            },
+            {
+              "name": "f2",
+              "count": 10,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                0
+              ],
+              "OFFSET": [
+                0,
+                7,
+                7,
+                7,
+                14,
+                21,
+                28,
+                35,
+                42,
+                49,
+                49
+              ],
+              "DATA": [
+                "AS5oARE",
+                "",
+                "",
+                "JGdagcX",
+                "78SLiRw",
+                "vbGf7OY",
+                "5uh5fTs",
+                "0ilsf82",
+                "LjS9MbU",
+                ""
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

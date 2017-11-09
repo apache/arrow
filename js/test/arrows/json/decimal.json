@@ -1,0 +1,162 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "f1", 
+        "type": {
+          "name": "decimal", 
+          "precision": 24, 
+          "scale": 10
+        }, 
+        "nullable": true, 
+        "children": [], 
+        "typeLayout": {
+          "vectors": [
+            {
+              "type": "VALIDITY", 
+              "typeBitWidth": 1
+            }, 
+            {
+              "type": "DATA", 
+              "typeBitWidth": 128
+            }
+          ]
+        }
+      }, 
+      {
+        "name": "f2", 
+        "type": {
+          "name": "decimal", 
+          "precision": 32, 
+          "scale": -10
+        }, 
+        "nullable": true, 
+        "children": [], 
+        "typeLayout": {
+          "vectors": [
+            {
+              "type": "VALIDITY", 
+              "typeBitWidth": 1
+            }, 
+            {
+              "type": "DATA", 
+              "typeBitWidth": 128
+            }
+          ]
+        }
+      }
+    ]
+  }, 
+  "batches": [
+    {
+      "count": 7, 
+      "columns": [
+        {
+          "name": "f1", 
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            0, 
+            0, 
+            0, 
+            0, 
+            1
+          ], 
+          "DATA": [
+            "829025058ED41047EE79BE2B259AB7B8", 
+            "D609441CAEC80971422FD5ED85A0AD93", 
+            "9D9023D1A4A075BCC931756B32EE75CE", 
+            "969213F56C2EBC547611B89B6BF4006D", 
+            "7FF5E452BEAA09EC9928CA30D851976E", 
+            "03BA4EC74CAB4DD2CEC4BBB422B8D83B", 
+            "861054422F9EEED49080BE6ABB8C49A0"
+          ]
+        }, 
+        {
+          "name": "f2", 
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            "DE492EB761B914CA8A84453C23D5222E", 
+            "2033A3D1C6DB7F7BDD70B2CA0DC565B9", 
+            "CBAB73DA9D8D5D8139ED95BF8F8BCB92", 
+            "BF0F96F72FC35A7AB87F619A2F1F84F3", 
+            "30A016DA10C960A5C3A71FA3B9A35793", 
+            "3E8FA111D97FAB77863BAF3060FD4EEB", 
+            "61D0CE1B7C3DA034CD1FDD871F3B4A6D"
+          ]
+        }
+      ]
+    }, 
+    {
+      "count": 10, 
+      "columns": [
+        {
+          "name": "f1", 
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            1, 
+            0, 
+            1, 
+            0, 
+            0, 
+            1, 
+            1, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            "FB8E16EFB5E8BD2301603F574F916DC9", 
+            "E9156DCE06D2BB3C1184884E394D6C19", 
+            "BA81EBAB98960EBCCD7B66E84B5C5396", 
+            "1FA148885D840A918A99409FB20A95DA", 
+            "0426A0CF9910CA31BA7FAF353BF870F5", 
+            "3E039122DC0A5DE6F5FCB9FCEE831181", 
+            "EE96558AE7B7B693738F58BA66E125D2", 
+            "FBEB86A9334DDF7844609EFBF1BB0AC0", 
+            "6BF43E82E2F5213D027A992B2810D891", 
+            "8BD98350BA2C4C274C2A2556BB51D236"
+          ]
+        }, 
+        {
+          "name": "f2", 
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0, 
+            0, 
+            0
+          ], 
+          "DATA": [
+            "DB9A4ACAE6BCC2E2BCFF76953FD48B61", 
+            "FEE1B1EF8027F5FD01981965F752F29A", 
+            "564DC846B9DD59E0AB7506D1504C4789", 
+            "E2C760DC5D44F6F40141AAB596D2F4BE", 
+            "E221B527A35232C94142BCF3378451D0", 
+            "C314873F5AC689FAFEEF458DF55E5D9F", 
+            "F5E0774F71635969593B631ED518CDB2", 
+            "501F966677C7FD17CB5FB810CAFB0DBC", 
+            "D79196FF9EE874208CC4D6DEE2EA7692", 
+            "D06BD5D2BB70AD7C12B74AF216931044"
+          ]
+        }
+      ]
+    }
+  ]
+}

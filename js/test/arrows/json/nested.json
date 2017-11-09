@@ -1,0 +1,418 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "list_nullable", 
+        "type": {
+          "name": "list"
+        }, 
+        "nullable": true, 
+        "children": [
+          {
+            "name": "item", 
+            "type": {
+              "name": "int", 
+              "isSigned": true, 
+              "bitWidth": 32
+            }, 
+            "nullable": true, 
+            "children": [], 
+            "typeLayout": {
+              "vectors": [
+                {
+                  "type": "VALIDITY", 
+                  "typeBitWidth": 1
+                }, 
+                {
+                  "type": "DATA", 
+                  "typeBitWidth": 32
+                }
+              ]
+            }
+          }
+        ], 
+        "typeLayout": {
+          "vectors": [
+            {
+              "type": "VALIDITY", 
+              "typeBitWidth": 1
+            }, 
+            {
+              "type": "OFFSET", 
+              "typeBitWidth": 32
+            }
+          ]
+        }
+      }, 
+      {
+        "name": "struct_nullable", 
+        "type": {
+          "name": "struct"
+        }, 
+        "nullable": true, 
+        "children": [
+          {
+            "name": "f1", 
+            "type": {
+              "name": "int", 
+              "isSigned": true, 
+              "bitWidth": 32
+            }, 
+            "nullable": true, 
+            "children": [], 
+            "typeLayout": {
+              "vectors": [
+                {
+                  "type": "VALIDITY", 
+                  "typeBitWidth": 1
+                }, 
+                {
+                  "type": "DATA", 
+                  "typeBitWidth": 32
+                }
+              ]
+            }
+          }, 
+          {
+            "name": "f2", 
+            "type": {
+              "name": "utf8"
+            }, 
+            "nullable": true, 
+            "children": [], 
+            "typeLayout": {
+              "vectors": [
+                {
+                  "type": "VALIDITY", 
+                  "typeBitWidth": 1
+                }, 
+                {
+                  "type": "OFFSET", 
+                  "typeBitWidth": 32
+                }, 
+                {
+                  "type": "DATA", 
+                  "typeBitWidth": 8
+                }
+              ]
+            }
+          }
+        ], 
+        "typeLayout": {
+          "vectors": [
+            {
+              "type": "VALIDITY", 
+              "typeBitWidth": 1
+            }
+          ]
+        }
+      }
+    ]
+  }, 
+  "batches": [
+    {
+      "count": 7, 
+      "columns": [
+        {
+          "name": "list_nullable", 
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            0, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "OFFSET": [
+            0, 
+            4, 
+            4, 
+            7, 
+            11, 
+            15, 
+            19, 
+            19
+          ], 
+          "children": [
+            {
+              "name": "item", 
+              "count": 19, 
+              "VALIDITY": [
+                1, 
+                1, 
+                1, 
+                1, 
+                1, 
+                0, 
+                1, 
+                0, 
+                0, 
+                0, 
+                1, 
+                1, 
+                1, 
+                0, 
+                1, 
+                0, 
+                1, 
+                0, 
+                0
+              ], 
+              "DATA": [
+                -855087392, 
+                -1428803827, 
+                538297987, 
+                -1834772737, 
+                1201921150, 
+                -1053878681, 
+                -338858402, 
+                -25568549, 
+                674222761, 
+                -1932078214, 
+                -328049938, 
+                -1482260505, 
+                -636832564, 
+                2076926163, 
+                535274652, 
+                -1198112844, 
+                1337875186, 
+                543199787, 
+                -26980498
+              ]
+            }
+          ]
+        }, 
+        {
+          "name": "struct_nullable", 
+          "count": 7, 
+          "VALIDITY": [
+            0, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            0
+          ], 
+          "children": [
+            {
+              "name": "f1", 
+              "count": 7, 
+              "VALIDITY": [
+                0, 
+                1, 
+                0, 
+                0, 
+                1, 
+                1, 
+                1
+              ], 
+              "DATA": [
+                -159849667, 
+                -1121326610, 
+                -1104109033, 
+                -172773473, 
+                -861383428, 
+                698716318, 
+                1612434523
+              ]
+            }, 
+            {
+              "name": "f2", 
+              "count": 7, 
+              "VALIDITY": [
+                1, 
+                0, 
+                1, 
+                0, 
+                1, 
+                0, 
+                0
+              ], 
+              "OFFSET": [
+                0, 
+                7, 
+                7, 
+                14, 
+                14, 
+                21, 
+                21, 
+                21
+              ], 
+              "DATA": [
+                "NJha6WR", 
+                "", 
+                "oPXRHKP", 
+                "", 
+                "TeWfovy", 
+                "", 
+                ""
+              ]
+            }
+          ]
+        }
+      ]
+    }, 
+    {
+      "count": 10, 
+      "columns": [
+        {
+          "name": "list_nullable", 
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            1, 
+            0, 
+            0, 
+            0
+          ], 
+          "OFFSET": [
+            0, 
+            4, 
+            4, 
+            6, 
+            7, 
+            7, 
+            11, 
+            14, 
+            14, 
+            14, 
+            14
+          ], 
+          "children": [
+            {
+              "name": "item", 
+              "count": 14, 
+              "VALIDITY": [
+                0, 
+                1, 
+                1, 
+                1, 
+                0, 
+                1, 
+                1, 
+                1, 
+                1, 
+                1, 
+                1, 
+                0, 
+                0, 
+                1
+              ], 
+              "DATA": [
+                -1395042372, 
+                725113523, 
+                386656703, 
+                1852452386, 
+                -2125490777, 
+                -2011809915, 
+                -936205059, 
+                1741043053, 
+                1115823582, 
+                -134578211, 
+                1597491649, 
+                817302915, 
+                23284005, 
+                -1507602567
+              ]
+            }
+          ]
+        }, 
+        {
+          "name": "struct_nullable", 
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            1, 
+            1, 
+            1, 
+            0, 
+            0, 
+            1, 
+            1, 
+            1, 
+            0
+          ], 
+          "children": [
+            {
+              "name": "f1", 
+              "count": 10, 
+              "VALIDITY": [
+                1, 
+                0, 
+                0, 
+                0, 
+                1, 
+                1, 
+                0, 
+                0, 
+                1, 
+                0
+              ], 
+              "DATA": [
+                -1345581951, 
+                -909345730, 
+                1650199276, 
+                -330079365, 
+                -497925054, 
+                94270936, 
+                502108211, 
+                2146893578, 
+                416507125, 
+                -2114915636
+              ]
+            }, 
+            {
+              "name": "f2", 
+              "count": 10, 
+              "VALIDITY": [
+                0, 
+                1, 
+                0, 
+                0, 
+                1, 
+                1, 
+                0, 
+                0, 
+                0, 
+                0
+              ], 
+              "OFFSET": [
+                0, 
+                0, 
+                7, 
+                7, 
+                7, 
+                14, 
+                21, 
+                21, 
+                21, 
+                21, 
+                21
+              ], 
+              "DATA": [
+                "", 
+                "BSZRpGI", 
+                "", 
+                "", 
+                "E34Dqdr", 
+                "5aksGEG", 
+                "", 
+                "", 
+                "", 
+                ""
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
