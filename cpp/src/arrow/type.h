@@ -517,14 +517,17 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
-enum class UnionMode : char { SPARSE, DENSE };
+struct UnionMode {
+  enum type { SPARSE, DENSE };
+};
 
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+            const std::vector<uint8_t>& type_codes,
+            UnionMode::type mode = UnionMode::SPARSE);
 
   std::string ToString() const override;
   std::string name() const override { return "union"; }
@@ -534,10 +537,10 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
-  UnionMode mode() const { return mode_; }
+  UnionMode::type mode() const { return mode_; }
 
  private:
-  UnionMode mode_;
+  UnionMode::type mode_;
 
   // The type id used in the data to indicate each data type in the union. For
   // example, the first type in the union might be denoted by the id 5 (instead
@@ -842,7 +845,12 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create an instance of Union type
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode mode = UnionMode::SPARSE);
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create and instance of Union type
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Array>>& children,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create an instance of Dictionary type
 std::shared_ptr<DataType> ARROW_EXPORT

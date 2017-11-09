@@ -85,15 +85,16 @@ def test_is_nested_or_struct():
     assert not types.is_nested(pa.int32())
 
 
-# TODO(wesm): Union types not yet implemented in pyarrow
+def test_is_union():
+    assert types.is_union(pa.union([pa.field('a', pa.int32()),
+                                    pa.field('b', pa.int8()),
+                                    pa.field('c', pa.string())],
+                                   pa.lib.UnionMode_SPARSE))
+    assert not types.is_union(pa.list_(pa.int32()))
 
-# def test_is_union():
-#     assert types.is_union(pa.union([pa.field('a', pa.int32()),
-#                                     pa.field('b', pa.int8()),
-#                                     pa.field('c', pa.string())]))
-#     assert not types.is_union(pa.list_(pa.int32()))
 
 # TODO(wesm): is_map, once implemented
+
 
 def test_is_binary_string():
     assert types.is_binary(pa.binary())

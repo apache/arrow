@@ -393,6 +393,62 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(internal_data);
 }
 
+Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
+                             const std::vector<std::shared_ptr<Array>>& children,
+                             std::shared_ptr<Array>* out) {
+  if (value_offsets.length() == 0) {
+    return Status::Invalid("UnionArray offsets must have non-zero length");
+  }
+
+  if (value_offsets.type_id() != Type::INT32) {
+    return Status::Invalid("UnionArray offsets must be signed int32");
+  }
+
+  if (type_ids.type_id() != Type::INT8) {
+    return Status::Invalid("UnionArray type_ids must be signed int8");
+  }
+
+  if (value_offsets.null_count() != 0) {
+    return Status::Invalid("MakeDense does not allow NAs in value_offsets");
+  }
+
+  BufferVector buffers = {type_ids.null_bitmap(),
+                          static_cast<const UInt8Array&>(type_ids).values(),
+                          static_cast<const Int32Array&>(value_offsets).values()};
+  auto union_type = union_(children, UnionMode::DENSE);
+  auto internal_data =
+      std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
+                                  type_ids.null_count(), type_ids.offset());
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+  }
+  *out = std::make_shared<UnionArray>(internal_data);
+  return Status::OK();
+}
+
+Status UnionArray::MakeSparse(const Array& type_ids,
+                              const std::vector<std::shared_ptr<Array>>& children,
+                              std::shared_ptr<Array>* out) {
+  if (type_ids.type_id() != Type::INT8) {
+    return Status::Invalid("UnionArray type_ids must be signed int8");
+  }
+  BufferVector buffers = {type_ids.null_bitmap(),
+                          static_cast<const UInt8Array&>(type_ids).values(), nullptr};
+  auto union_type = union_(children, UnionMode::SPARSE);
+  auto internal_data =
+      std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
+                                  type_ids.null_count(), type_ids.offset());
+  for (const auto& child : children) {
+    internal_data->child_data.push_back(child->data());
+    if (child->length() != type_ids.length()) {
+      return Status::Invalid(
+          "Sparse UnionArray must have len(child) == len(type_ids) for all children");
+    }
+  }
+  *out = std::make_shared<UnionArray>(internal_data);
+  return Status::OK();
+}
+
 std::shared_ptr<Array> UnionArray::child(int i) const {
   if (!boxed_fields_[i]) {
     boxed_fields_[i] = MakeArray(data_->child_data[i]);

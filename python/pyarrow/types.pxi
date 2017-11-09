@@ -186,7 +186,32 @@ cdef class UnionType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
+        self.child_types = [
+            pyarrow_wrap_data_type(type.get().child(i).get().type())
+            for i in range(self.num_children)]
 
+    property num_children:
+
+        def __get__(self):
+            return self.type.num_children()
+
+    property mode:
+
+        def __get__(self):
+            cdef CUnionType* type = <CUnionType*> self.sp_type.get()
+            return type.mode()
+
+    def __getitem__(self, i):
+        return self.child_types[i]
+
+    def __getstate__(self):
+        children = [pyarrow_wrap_field(self.type.child(i))
+                    for i in range(self.num_children)]
+        return children, self.mode
+
+    def __setstate__(self, state):
+        cdef DataType reconstituted = union(*state)
+        self.init(reconstituted.sp_type)
 
 cdef class TimestampType(DataType):
 
@@ -1055,6 +1080,30 @@ def struct(fields):
     struct_type.reset(new CStructType(c_fields))
     return pyarrow_wrap_data_type(struct_type)
 
+
+def union(children_fields, mode):
+    """
+    Create UnionType from children fields.
+    """
+    cdef:
+        Field child_field
+        vector[shared_ptr[CField]] c_fields
+        vector[uint8_t] type_codes
+        shared_ptr[CDataType] union_type
+        int i
+
+    for i, child_field in enumerate(children_fields):
+        type_codes.push_back(i)
+        c_fields.push_back(child_field.sp_field)
+
+        if mode == UnionMode_SPARSE:
+            union_type.reset(new CUnionType(c_fields, type_codes,
+                                            _UnionMode_SPARSE))
+        else:
+            union_type.reset(new CUnionType(c_fields, type_codes,
+                                            _UnionMode_DENSE))
+
+    return pyarrow_wrap_data_type(union_type)
 
 cdef dict _type_aliases = {
     'null': null,

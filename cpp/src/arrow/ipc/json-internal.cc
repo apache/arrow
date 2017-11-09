@@ -774,7 +774,7 @@ static Status GetUnion(const RjObject& json_type,
   RETURN_NOT_STRING("mode", it_mode, json_type);
 
   std::string mode_str = it_mode->value.GetString();
-  UnionMode mode;
+  UnionMode::type mode;
 
   if (mode_str == "SPARSE") {
     mode = UnionMode::SPARSE;
