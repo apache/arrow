@@ -518,9 +518,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 };
 
 struct UnionMode {
-  enum type {
-    SPARSE, DENSE
-  };
+  enum type { SPARSE, DENSE };
 };
 
 class ARROW_EXPORT UnionType : public NestedType {
@@ -847,8 +845,7 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create an instance of Union type
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes,
-       UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create and instance of Union type
 std::shared_ptr<DataType> ARROW_EXPORT

@@ -190,7 +190,7 @@ std::string TimestampType::ToString() const {
 // Union type
 
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<uint8_t>& type_codes, UnionMode mode)
+                     const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   children_ = fields;
 }
@@ -440,12 +440,13 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<uint8_t>& type_codes, UnionMode mode) {
+                                 const std::vector<uint8_t>& type_codes,
+                                 UnionMode::type mode) {
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
-                                 UnionMode mode) {
+                                 UnionMode::type mode) {
   std::vector<std::shared_ptr<Field>> types;
   std::vector<uint8_t> type_codes;
   uint8_t counter = 0;

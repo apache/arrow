@@ -662,7 +662,8 @@ cdef class UnionArray(Array):
     @staticmethod
     def from_sparse(Array types, list children):
         """
-        Construct sparse UnionArray from arrays of int8 types and children arrays
+        Construct sparse UnionArray from arrays of int8 types and children
+        arrays
 
         Parameters
         ----------

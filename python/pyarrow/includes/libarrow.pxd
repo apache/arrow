@@ -67,7 +67,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
         _Type_MAP" arrow::Type::MAP"
 
-    enum UnionMode" arrow::UnionMode":
+    enum UnionMode" arrow::UnionMode::type":
         _UnionMode_SPARSE" arrow::UnionMode::SPARSE"
         _UnionMode_DENSE" arrow::UnionMode::DENSE"
 
@@ -331,6 +331,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus MakeSparse(const CArray& type_ids,
                            const vector[shared_ptr[CArray]]& children,
                            shared_ptr[CArray]* out)
+
         @staticmethod
         CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
