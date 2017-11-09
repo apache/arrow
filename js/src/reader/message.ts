@@ -29,6 +29,7 @@ export type MessageBatch = {
     offset: number;
     bytes: Uint8Array;
     data: RecordBatch;
+    isDelta?: boolean;
 };
 
 export function* readMessages(bb: ByteBuffer) {
@@ -45,6 +46,7 @@ export function* readMessages(bb: ByteBuffer) {
 export function* readMessageBatches(bb: ByteBuffer) {
     let bytes = bb.bytes();
     for (let message of readMessages(bb)) {
+        let isDelta = false;
         let type = message.headerType();
         let id: string | void, data: RecordBatch;
         if (type === MessageHeader.RecordBatch) {
@@ -52,11 +54,12 @@ export function* readMessageBatches(bb: ByteBuffer) {
         } else if (type === MessageHeader.DictionaryBatch) {
             let header = message.header(new DictionaryBatch())!;
             id = header.id().toFloat64().toString();
+            isDelta = header.isDelta();
             data = header.data()!;
         } else {
             continue;
         }
-        yield <MessageBatch> { id, data, bytes, offset: bytes.byteOffset + bb.position() };
+        yield <MessageBatch> { id, isDelta, data, bytes, offset: bytes.byteOffset + bb.position() };
         // position the buffer after the body to read the next message
         bb.setPosition(bb.position() + message.bodyLength().low);
     }

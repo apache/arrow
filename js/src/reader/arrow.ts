@@ -58,7 +58,9 @@ export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
             while (++index < fieldsLength) {
                 if (field = schema.fields(index)!) {
                     if (vector = readDictionary<any>(field, batch, state, dictionaries)!) {
-                        dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
+                        dictionaries[batch.id] = batch.isDelta && dictionaries[batch.id]
+                            ? dictionaries[batch.id].concat(vector)
+                            : vector;
                         break;
                     }
                 }
