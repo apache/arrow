@@ -23,7 +23,9 @@ const argv = require(`command-line-args`)([
     { name: `module`, type: String, defaultValue: `` },
     { name: `coverage`, type: Boolean, defaultValue: false },
     { name: `targets`, alias: `t`, type: String, multiple: true, defaultValue: [] },
-    { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] }
+    { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] },
+    { name: `sources`, alias: `s`, type: String, multiple: true, defaultValue: [`cpp`, `java`] },
+    { name: `formats`, alias: `f`, type: String, multiple: true, defaultValue: [`file`, `stream`] },
 ]);
 
 const { targets, modules } = argv;

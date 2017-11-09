@@ -31,7 +31,12 @@ const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
     const opts = Object.assign({}, testOptions);
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    opts.env = Object.assign({}, opts.env, { TEST_TARGET: target, TEST_MODULE: format });
+    opts.env = Object.assign({}, opts.env, {
+        TEST_TARGET: target,
+        TEST_MODULE: format,
+        TEST_SOURCES: JSON.stringify(Array.isArray(argv.sources) ? argv.sources : [argv.sources]),
+        TEST_FORMATS: JSON.stringify(Array.isArray(argv.formats) ? argv.formats : [argv.formats]),
+    });
     return !debug ?
         child_process.spawn(jest, args, opts) :
         child_process.exec(`node --inspect-brk ${jest} ${args.join(` `)}`, opts);
