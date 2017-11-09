@@ -18,6 +18,7 @@
 import ast
 import collections
 import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -353,6 +354,14 @@ def make_datetimetz(tz):
     return DatetimeTZDtype('ns', tz=tz)
 
 
+def backwards_compatible_index_name(raw_name, logical_name):
+    pattern = r'^__index_level_\d+__$'
+    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
+        return None
+    else:
+        return logical_name
+
+
 def table_to_blockmanager(options, table, memory_pool, nthreads=1):
     import pandas.core.internals as _int
     import pyarrow.lib as lib
@@ -394,7 +403,9 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
                 values = values.copy()
 
             index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
-            index_names.append(logical_name)
+            index_names.append(
+                backwards_compatible_index_name(raw_name, logical_name)
+            )
             block_table = block_table.remove_column(
                 block_table.schema.get_field_index(raw_name)
             )
