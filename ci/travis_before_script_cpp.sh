@@ -38,6 +38,7 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
         rapidjson \
         flatbuffers \
         gflags \
+        gtest \
         lz4-c \
         snappy \
         ccache \
