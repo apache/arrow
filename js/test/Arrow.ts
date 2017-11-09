@@ -40,6 +40,7 @@ else modulePath = path.join(target, format);
 let Arrow: any = require(path.resolve(`./targets`, modulePath, `Arrow`));
 
 import {
+    Row as Row_,
     Table as Table_,
     Vector as Vector_,
     readBuffers as readBuffers_,
@@ -64,6 +65,7 @@ import {
     FixedSizeListVector as FixedSizeListVector_,
 } from '../src/Arrow';
 
+export let Row = Arrow.Row as typeof Row_;
 export let Table = Arrow.Table as typeof Table_;
 export let Vector = Arrow.Vector as typeof Vector_;
 export let readBuffers = Arrow.readBuffers as typeof readBuffers_;

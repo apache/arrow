@@ -55,6 +55,8 @@ export interface Vector<T = any> extends Iterable<T | null> {
 
 export interface Row<T = any> extends Vector<T> {
     col(key: string): T | null;
+    toArray(): Array<T>;
+    toObject(): Record<string, T>;
 }
 
 export interface Column<T = any> extends Vector<T> {

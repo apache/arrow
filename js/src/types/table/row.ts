@@ -48,8 +48,8 @@ export class RowVector<T = any> extends Vector<T> implements Row<T> {
     }
     toArray() { return [...this]; }
     toJSON() { return this.toArray(); }
-    toString() { return `Row [${this.length})` }
-    toObject(): Record<string, any> {
+    toString() { return `Row [${this.length})`; }
+    toObject(): Record<string, T> {
         const { row } = this, map = Object.create(null);
         for (const col of this.table.columns) {
             if (col && col.name) {
