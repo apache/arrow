@@ -28,16 +28,20 @@ import {
 
 import {
     DictionaryVector,
+    BoolVector, LongVector,
     Utf8Vector, StructVector,
     ListVector, FixedSizeListVector,
-    DateVector, Float32Vector, Float64Vector,
     Int8Vector, Int16Vector, Int32Vector, Int64Vector,
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
+    Date32Vector, Date64Vector, Float32Vector, Float64Vector,
 } from '../types/arrow';
 
 import Int = Schema_.org.apache.arrow.flatbuf.Int;
+import Date = Schema_.org.apache.arrow.flatbuf.Date;
+import Time = Schema_.org.apache.arrow.flatbuf.Time;
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
+import DateUnit = Schema_.org.apache.arrow.flatbuf.DateUnit;
 import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 import Precision = Schema_.org.apache.arrow.flatbuf.Precision;
 import VectorType = Schema_.org.apache.arrow.flatbuf.VectorType;
@@ -75,6 +79,12 @@ function readDictionaryVector<T>(field: Field, batch: MessageBatch, iterator: It
     return null;
 }
 
+function bindVectorReader<T extends TypedArray, V>(createBufferView: BufferViewFactory<T>, createVector: VectorFactory<T, V>) {
+    return function readVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
+        return readVectorLayout(createBufferView, createVector, field, batch, iterator, dictionaries, primitiveType);
+    };
+}
+
 const IntViews    = [Int8Array,    Int16Array,   Int32Array,   Int32Array  ];
 const Int32Views  = [Int32Array,   Int32Array,   Int32Array,   Int32Array  ];
 const UintViews   = [Uint8Array,   Uint16Array,  Uint32Array,  Uint32Array ];
@@ -84,91 +94,124 @@ const FloatViews  = [Int8Array,    Int16Array,   Float32Array, Float64Array];
 
 const createIntDataViews = createTypedArray.bind(null, IntViews, null);
 const createUintDataViews = createTypedArray.bind(null, UintViews, null);
-const createDateDataViews = createTypedArray.bind(null, Uint32Views, null);
+const createDateDataViews = createTypedArray.bind(null, Int32Views, null);
 const createFloatDataViews = createTypedArray.bind(null, FloatViews, null);
 const createNestedDataViews = createTypedArray.bind(null, Uint32Views, null);
 const createValidityDataViews = createTypedArray.bind(null, Uint8Views, null);
-const createUtf8DataViews = createTypedArray.bind(null, Uint8Views, Int32Views);
-
-// Define as computed properties for closure-compiler
-const floatVectors = {
-    [Precision.HALF]: Float32Vector,
-    [Precision.SINGLE]: Float32Vector,
-    [Precision.DOUBLE]: Float64Vector,
-} as { [k: number]: any };
-
-// and again as string-indexed keys for Uglify...
-floatVectors[Precision['HALF']] = Float32Vector;
-floatVectors[Precision['SINGLE']] = Float32Vector;
-floatVectors[Precision['DOUBLE']] = Float64Vector;
+const createTimestampDataViews = createTypedArray.bind(null, Int32Views, null);
+const createBinaryDataViews = createTypedArray.bind(null, Uint8Views, Int32Views);
 
 const intVectors = [
-    [/* unsigned */ Uint8Vector,   /* signed */ Int8Vector ],
-    [/* unsigned */ Uint16Vector,  /* signed */ Int16Vector],
-    [/* unsigned */ Uint32Vector,  /* signed */ Int32Vector],
-    [/* unsigned */ Uint64Vector,  /* signed */ Int64Vector]
+    [/* unsigned */ [ Uint8Vector,  Uint8Array],  /* signed */ [ Int8Vector,  Int8Array]],
+    [/* unsigned */ [Uint16Vector, Uint16Array],  /* signed */ [Int16Vector, Int16Array]],
+    [/* unsigned */ [Uint32Vector, Uint32Array],  /* signed */ [Int32Vector, Int32Array]],
+    [/* unsigned */ [Uint64Vector, Uint32Array],  /* signed */ [Int64Vector, Int32Array]]
 ] as any[][];
 
-function readIntVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
-    let type = (primitiveType || field.type(new Int())!);
-    return type.isSigned() ?
-        read_IntVector(field, batch, iterator, dictionaries, type) :
-        readUintVector(field, batch, iterator, dictionaries, type);
-}
+// Define as computed properties for closure-compiler, and as string-indexed keys for Uglify...
+const floatVectors = {
+    [Precision.HALF]: [Float32Vector, Float32Array],
+    [Precision.SINGLE]: [Float32Vector, Float32Array],
+    [Precision.DOUBLE]: [Float64Vector, Float64Array],
+} as { [k: number]: [any, Float32ArrayConstructor | Float64ArrayConstructor] };
 
-function read_IntVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
-    return readVectorLayout(createIntDataViews, createIntVector, field, batch, iterator, dictionaries, primitiveType);
-}
+floatVectors[Precision['HALF']] = [Float32Vector, Float32Array];
+floatVectors[Precision['SINGLE']] = [Float32Vector, Float32Array];
+floatVectors[Precision['DOUBLE']] = [Float64Vector, Float64Array];
 
-function readUintVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
-    return readVectorLayout(createUintDataViews, createIntVector, field, batch, iterator, dictionaries, primitiveType);
-}
+const dateVectors = {
+    [DateUnit.DAY]: [Date32Vector, Int32Array],
+    [DateUnit.MILLISECOND]: [Date64Vector, Uint32Array],
+} as { [k: number]: [any, Int32ArrayConstructor | Uint32ArrayConstructor] };
 
-function createIntVector(argv: VectorFactoryArgv<IntArray>) {
-    let { field, fieldNode, data, validity, offsets, primitiveType } = argv;
-    let type = primitiveType || field.type(new Int())!, bitWidth = type.bitWidth();
-    let IntVector = valueForBitWidth(bitWidth, intVectors)[+type.isSigned()];
-    return new IntVector({ fieldNode, field, validity, data: data! || offsets! });
-    // ---------------------------------------------------- 👆:
-    // Workaround for https://issues.apache.org/jira/browse/ARROW-1363
-    // This bug causes dictionary encoded vector indicies' IntVector data
-    // buffers to be tagged as VectorType.OFFSET (0) in the field metadata
-    // instead of VectorType.DATA. The `readVectorLayout` routine strictly
-    // obeys the types in the field metadata, so if we're parsing an Arrow
-    // file written by a version of the library published before ARROW-1363
-    // was fixed, the IntVector's data buffer will be null, and the offset
-    // buffer will be the actual data. If data is null, it's safe to assume
-    // the offset buffer is the data, because IntVectors don't have offsets.
-}
+dateVectors[DateUnit['DAY']] = [Date32Vector, Int32Array];
+dateVectors[DateUnit['MILLISECOND']] = [Date64Vector, Uint32Array];
 
-function bindVectorReader<T extends TypedArray, V>(createBufferView: BufferViewFactory<T>, createVector: VectorFactory<T, V>) {
-    return function readVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
-        return readVectorLayout(createBufferView, createVector, field, batch, iterator, dictionaries, primitiveType);
+const readIntVector = (() => {
+    return function readIntVector(field: Field, batch: MessageBatch, iterator: IteratorState, dictionaries: Dictionaries, primitiveType?: PrimitiveType) {
+        let type = (primitiveType || field.type(new Int())!);
+        return type.isSigned() ?
+            readVectorLayout(createIntDataViews, createIntVector, field, batch, iterator, dictionaries, type) :
+            readVectorLayout(createUintDataViews, createIntVector, field, batch, iterator, dictionaries, type);
     };
-}
+    function createIntVector(argv: VectorFactoryArgv<IntArray>) {
+        let { field, fieldNode, data, validity, offsets, primitiveType } = argv;
+        let type = primitiveType || field.type(new Int())!, bitWidth = type.bitWidth();
+        let [IntVector, IntArray] = valueForBitWidth(bitWidth, intVectors)[+type.isSigned()];
+        return new IntVector({ fieldNode, field, validity, data: data || offsets || new IntArray(0) });
+        // ---------------------------------------------------------- 👆:
+        // Workaround for https://issues.apache.org/jira/browse/ARROW-1363
+        // This bug causes dictionary encoded vector indicies' IntVector data
+        // buffers to be tagged as VectorType.OFFSET (0) in the field metadata
+        // instead of VectorType.DATA. The `readVectorLayout` routine strictly
+        // obeys the types in the field metadata, so if we're parsing an Arrow
+        // file written by a version of the library published before ARROW-1363
+        // was fixed, the IntVector's data buffer will be null, and the offset
+        // buffer will be the actual data. If data is null, it's safe to assume
+        // the offset buffer is the data, because IntVectors don't have offsets.
+    }
+})();
 
-const readFloatVector = bindVectorReader(createFloatDataViews, ({ field, fieldNode, data, validity }: VectorFactoryArgv<FloatArray>) => {
-    const type = field.type(new FloatingPoint())!;
-    const FloatVector = floatVectors[type.precision()];
-    return new FloatVector({ field, fieldNode, validity, data: data! });
+const readFloatVector = bindVectorReader(createFloatDataViews, (argv: VectorFactoryArgv<FloatArray>) => {
+    let { field, fieldNode, validity, data } = argv;
+    let type = field.type(new FloatingPoint())!;
+    let [FloatVector, FloatArray] = floatVectors[type.precision()];
+    return new FloatVector({ field, fieldNode, validity, data: data || new FloatArray(0) });
 });
 
-const readDateVector = bindVectorReader(createDateDataViews, ({ field, fieldNode, data, validity }: VectorFactoryArgv<Uint32Array>) => {
-    return new DateVector({ field, fieldNode, validity, data: data! });
+const readBoolVector = bindVectorReader(createValidityDataViews, (argv: VectorFactoryArgv<Uint8Array>) => {
+    let { field, fieldNode, validity, data } = argv;
+    return new BoolVector({ field, fieldNode, validity, data: data || new Uint8Array(0) });
 });
 
-const readUtf8Vector = bindVectorReader(createUtf8DataViews, ({ field, fieldNode, data, offsets, validity }: VectorFactoryArgv<Uint8Array>) => {
+const readDateVector = bindVectorReader(createDateDataViews, (argv: VectorFactoryArgv<Int32Array>) => {
+    let { field, fieldNode, validity, data } = argv;
+    let type = field.type(new Date())!;
+    let [DateVector, DateArray] = dateVectors[type.unit()];
+    return new DateVector({ field, fieldNode, validity, data: data || new DateArray(0) });
+});
+
+const readTimeVector = bindVectorReader(createIntDataViews, (argv: VectorFactoryArgv<IntArray>) => {
+    let { field, fieldNode, data, validity } = argv;
+    let type = field.type(new Time())!, bitWidth = type.bitWidth();
+    let [IntVector, IntArray] = valueForBitWidth(bitWidth, intVectors)[1];
+    return new IntVector({ fieldNode, field, validity, data: data || new IntArray(0) });
+});
+
+const readTimestampVector = bindVectorReader(createTimestampDataViews, (argv: VectorFactoryArgv<IntArray>) => {
+    let { field, fieldNode, validity, data } = argv;
+    return new LongVector({ fieldNode, field, validity, data: data || new Int32Array(0) });
+});
+
+const readBinaryVector = bindVectorReader(createBinaryDataViews, (argv: VectorFactoryArgv<Uint8Array>) => {
+    let { field, fieldNode, data, offsets, validity } = argv;
+    return new ListVector({
+        field, fieldNode, validity,
+        offsets: offsets as Int32Array,
+        values: new Uint8Vector({ data: data || new Uint8Array(0) })
+    });
+});
+
+const readUtf8Vector = bindVectorReader(createBinaryDataViews, (argv: VectorFactoryArgv<Uint8Array>) => {
+    let { field, fieldNode, offsets, validity, data, messageBatch, iterator } = argv;
+    // workaround for https://issues.apache.org/jira/browse/ARROW-1693
+    if (!offsets && data) {
+        let buffer = messageBatch.data.buffers(iterator.bufferIndex++)!;
+        offsets = new Int32Array(data.buffer, data.byteOffset, data.byteLength / Int32Array.BYTES_PER_ELEMENT);
+        data = createBinaryDataViews(messageBatch, VectorType.DATA, 8, buffer.offset().low, buffer.length().low);
+    }
     return new Utf8Vector({
         field, fieldNode,
         values: new ListVector({
             validity,
             offsets: offsets as Int32Array,
-            values: new Uint8Vector({ data: data! })
+            values: new Uint8Vector({ data: data || new Uint8Array(0) })
         }) as any as Vector<Uint8Array | null>
     });
 });
 
-const readListVector = bindVectorReader(createNestedDataViews, ({ field, fieldNode, offsets, validity, iterator, messageBatch, dictionaries }: VectorFactoryArgv<TypedArray>) => {
+const readListVector = bindVectorReader(createNestedDataViews, (argv: VectorFactoryArgv<TypedArray>) => {
+    let { field, fieldNode, offsets, validity, iterator, messageBatch, dictionaries } = argv;
     return new ListVector({
         field, fieldNode, validity,
         offsets: offsets! as Int32Array,
@@ -176,7 +219,8 @@ const readListVector = bindVectorReader(createNestedDataViews, ({ field, fieldNo
     });
 });
 
-const readFixedSizeListVector = bindVectorReader(createNestedDataViews, ({ field, fieldNode, validity, iterator, messageBatch, dictionaries }: VectorFactoryArgv<Uint32Array>) => {
+const readFixedSizeListVector = bindVectorReader(createNestedDataViews, (argv: VectorFactoryArgv<Uint32Array>) => {
+    let { field, fieldNode, validity, iterator, messageBatch, dictionaries } = argv;
     return new FixedSizeListVector({
         field, fieldNode, validity,
         listSize: field.type(new FixedSizeList())!.listSize(),
@@ -184,7 +228,8 @@ const readFixedSizeListVector = bindVectorReader(createNestedDataViews, ({ field
     });
 });
 
-const readStructVector = bindVectorReader(createNestedDataViews, ({ field, fieldNode, validity, iterator, messageBatch, dictionaries }: VectorFactoryArgv<ArrayLike<any>>) => {
+const readStructVector = bindVectorReader(createNestedDataViews, (argv: VectorFactoryArgv<ArrayLike<any>>) => {
+    let { field, fieldNode, validity, iterator, messageBatch, dictionaries } = argv;
     let columns: Column<any>[] = [];
     for (let i = -1, n = field.childrenLength(); ++i < n;) {
         columns[i] = readVector<any>(field.children(i)!, messageBatch, iterator, dictionaries) as Column<any>;
@@ -192,22 +237,31 @@ const readStructVector = bindVectorReader(createNestedDataViews, ({ field, field
     return new StructVector({ field, fieldNode, validity, columns });
 });
 
-// Define as computed properties for closure-compiler
+// Define as computed properties for closure-compiler, and again as string-indexed keys for Uglify...
 const typedVectorReaders = {
     [Type.Int]: readIntVector,
+    [Type.Bool]: readBoolVector,
     [Type.Date]: readDateVector,
+    [Type.Time]: readTimeVector,
+    [Type.Timestamp]: readTimestampVector,
+    [Type.Interval]: readIntVector,
     [Type.List]: readListVector,
     [Type.Utf8]: readUtf8Vector,
+    [Type.Binary]: readBinaryVector,
     [Type.Struct_]: readStructVector,
     [Type.FloatingPoint]: readFloatVector,
     [Type.FixedSizeList]: readFixedSizeListVector,
 } as { [k: number]: (...args: any[]) => Vector | null };
 
-// and again as string-indexed keys for Uglify...
 typedVectorReaders[Type['Int']] = readIntVector;
+typedVectorReaders[Type['Bool']] = readBoolVector;
 typedVectorReaders[Type['Date']] = readDateVector;
+typedVectorReaders[Type['Time']] = readTimeVector;
+typedVectorReaders[Type['Timestamp']] = readTimestampVector;
+typedVectorReaders[Type['Interval']] = readIntVector;
 typedVectorReaders[Type['List']] = readListVector;
 typedVectorReaders[Type['Utf8']] = readUtf8Vector;
+typedVectorReaders[Type['Binary']] = readBinaryVector;
 typedVectorReaders[Type['Struct_']] = readStructVector;
 typedVectorReaders[Type['FloatingPoint']] = readFloatVector;
 typedVectorReaders[Type['FixedSizeList']] = readFixedSizeListVector;

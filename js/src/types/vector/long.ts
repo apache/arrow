@@ -30,6 +30,10 @@ export class LongVector<T extends TypedArray> extends TypedVector<Long, T> {
 }
 
 (LongVector.prototype as any).stride = 2;
+(Long.prototype as any).toJSON = function() {
+    return { high: this.high, low: this.low };
+};
 
 export class Int64Vector extends LongVector<Int32Array> {}
 export class Uint64Vector extends LongVector<Uint32Array> {}
+export class TimestampVector extends LongVector<Int32Array> {}

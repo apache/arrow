@@ -20,9 +20,9 @@ import * as Message_ from '../format/Message_generated';
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 
-import { BoolVector } from './vector/bool';
 import { DictionaryVector } from './dictionary';
 import { nullableMixin, fieldMixin } from './vector/traits';
+import { BoolVector as BoolVectorBase } from './vector/bool';
 import { ListVector as ListVectorBase } from './list';
 import { Utf8Vector as Utf8VectorBase } from './utf8';
 import { Vector, Column, TypedArray } from './types';
@@ -49,12 +49,13 @@ import {
 } from './vector/typed';
 
 export { TypedArray, TypedVector };
-export { Column, BoolVector, DictionaryVector };
+export { Column, DictionaryVector };
 export class ListVector extends MixinArrowTraits(ListVectorBase) {}
 export class Utf8Vector extends MixinArrowTraits(Utf8VectorBase) {}
 export class TableVector extends MixinArrowTraits(TableVectorBase) {}
 export class StructVector extends MixinArrowTraits(StructVectorBase) {}
 export class FixedSizeListVector extends MixinArrowTraits(FixedSizeListVectorBase) {}
+export class BoolVector extends MixinArrowTraits(BoolVectorBase) {}
 export class LongVector extends MixinArrowTraits(LongVectorBase) {}
 export class Date32Vector extends MixinArrowTraits(Date32VectorBase) {}
 export class Date64Vector extends MixinArrowTraits(Date64VectorBase) {}
