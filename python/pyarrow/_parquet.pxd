@@ -192,7 +192,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
-        shared_ptr[CRowGroupStatistics] statistics() const;
+        shared_ptr[CRowGroupStatistics] statistics() const
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
 

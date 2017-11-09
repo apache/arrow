@@ -190,7 +190,7 @@ std::string TimestampType::ToString() const {
 // Union type
 
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<uint8_t>& type_codes, UnionMode mode)
+                     const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   children_ = fields;
 }
@@ -440,8 +440,22 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<uint8_t>& type_codes, UnionMode mode) {
+                                 const std::vector<uint8_t>& type_codes,
+                                 UnionMode::type mode) {
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
+}
+
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
+                                 UnionMode::type mode) {
+  std::vector<std::shared_ptr<Field>> types;
+  std::vector<uint8_t> type_codes;
+  uint8_t counter = 0;
+  for (const auto& child : children) {
+    types.push_back(field(std::to_string(counter), child->type()));
+    type_codes.push_back(counter);
+    counter++;
+  }
+  return union_(types, type_codes, mode);
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,

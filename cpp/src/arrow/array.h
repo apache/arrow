@@ -612,16 +612,47 @@ class ARROW_EXPORT UnionArray : public Array {
              const std::shared_ptr<Buffer>& null_bitmap = NULLPTR, int64_t null_count = 0,
              int64_t offset = 0);
 
+  /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types. The value_offsets are assumed to be well-formed.
+  ///
+  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
+  /// 0 corresponding to each type.
+  /// \param[in] value_offsets An array of signed int32 values indicating the
+  /// relative offset into the respective child array for the type in a given slot.
+  /// The respective offsets for each child value array must be in order / increasing.
+  /// \param[in] children Vector of children Arrays containing the data for each type.
+  /// \param[out] out Will have length equal to value_offsets.length()
+  static Status MakeDense(const Array& type_ids, const Array& value_offsets,
+                          const std::vector<std::shared_ptr<Array>>& children,
+                          std::shared_ptr<Array>* out);
+
+  /// \brief Construct Sparse UnionArray from type_ids and children
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types.
+  ///
+  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
+  /// 0 corresponding to each type.
+  /// \param[in] children Vector of children Arrays containing the data for each type.
+  /// \param[out] out Will have length equal to type_ids.length()
+  static Status MakeSparse(const Array& type_ids,
+                           const std::vector<std::shared_ptr<Array>>& children,
+                           std::shared_ptr<Array>* out);
+
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
 
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
 
+  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
+
   const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
-  UnionMode mode() const { return static_cast<const UnionType&>(*type()).mode(); }
+  UnionMode::type mode() const { return static_cast<const UnionType&>(*type()).mode(); }
 
   std::shared_ptr<Array> child(int pos) const;
 

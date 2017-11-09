@@ -235,6 +235,28 @@ def test_list_from_arrays():
     assert result.equals(expected)
 
 
+def test_union_from_dense():
+    binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
+    int64 = pa.array([1, 2, 3], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+
+    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64])
+
+    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+
+
+def test_union_from_sparse():
+    binary = pa.array([b'a', b' ', b'b', b'c', b' ', b' ', b'd'],
+                      type='binary')
+    int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
+    types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+
+    result = pa.UnionArray.from_sparse(types, [binary, int64])
+
+    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+
+
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
 

@@ -67,6 +67,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
         _Type_MAP" arrow::Type::MAP"
 
+    enum UnionMode" arrow::UnionMode::type":
+        _UnionMode_SPARSE" arrow::UnionMode::SPARSE"
+        _UnionMode_DENSE" arrow::UnionMode::DENSE"
+
     enum TimeUnit" arrow::TimeUnit::type":
         TimeUnit_SECOND" arrow::TimeUnit::SECOND"
         TimeUnit_MILLI" arrow::TimeUnit::MILLI"
@@ -222,6 +226,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CStructType" arrow::StructType"(CDataType):
         CStructType(const vector[shared_ptr[CField]]& fields)
 
+    cdef cppclass CUnionType" arrow::UnionType"(CDataType):
+        CUnionType(const vector[shared_ptr[CField]]& fields,
+                   const vector[uint8_t]& type_codes, UnionMode mode)
+        UnionMode mode()
+
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
         CSchema(const vector[shared_ptr[CField]]& fields,
@@ -316,6 +325,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int32_t value_length(int i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
+
+    cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
+        @staticmethod
+        CStatus MakeSparse(const CArray& type_ids,
+                           const vector[shared_ptr[CArray]]& children,
+                           shared_ptr[CArray]* out)
+
+        @staticmethod
+        CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
+                          const vector[shared_ptr[CArray]]& children,
+                          shared_ptr[CArray]* out)
+        uint8_t* raw_type_ids()
+        int32_t value_offset(int i)
+        shared_ptr[CArray] child(int pos)
+        const CArray* UnsafeChild(int pos)
+        UnionMode mode()
 
     cdef cppclass CBinaryArray" arrow::BinaryArray"(CListArray):
         const uint8_t* GetValue(int i, int32_t* length)

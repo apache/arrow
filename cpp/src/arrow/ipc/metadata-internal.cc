@@ -163,8 +163,9 @@ static Status StructToFlatbuffer(FBB& fbb, const DataType& type,
 static Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
                                   const std::vector<std::shared_ptr<Field>>& children,
                                   std::shared_ptr<DataType>* out) {
-  UnionMode mode = union_data->mode() == flatbuf::UnionMode_Sparse ? UnionMode::SPARSE
-                                                                   : UnionMode::DENSE;
+  UnionMode::type mode =
+      (union_data->mode() == flatbuf::UnionMode_Sparse ? UnionMode::SPARSE
+                                                       : UnionMode::DENSE);
 
   std::vector<uint8_t> type_codes;
 
