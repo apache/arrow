@@ -53,8 +53,8 @@ export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv
             this.fieldNode = fieldNode;
             this.nullable = field.nullable();
             this.type = Type[field.typeType()];
+            this.length = fieldNode.length().low | 0;
             this.nullCount = fieldNode.nullCount().low;
-            this.length = (fieldNode.length().low / this.stride) | 0;
         }
         get name() { return this.field.name()!; }
         get metadata()  {
