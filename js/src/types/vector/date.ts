@@ -17,7 +17,13 @@
 
 import { TypedVector } from './typed';
 
-export class DateVector extends TypedVector<Date, Uint32Array> {
+export class Date32Vector extends TypedVector<Date, Int32Array> {
+    get(index: number): Date {
+        return new Date(1000 * (super.get(index) as any));
+    }
+}
+
+export class Date64Vector extends TypedVector<Date, Uint32Array> {
     get(index: number): Date {
         return new Date(4294967296   * /* 2^32 */
             (super.get(index * 2 + 1) as any) + /* high */
@@ -26,4 +32,4 @@ export class DateVector extends TypedVector<Date, Uint32Array> {
     }
 }
 
-(DateVector.prototype as any).stride = 2;
+(Date64Vector.prototype as any).stride = 2;

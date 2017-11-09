@@ -26,7 +26,8 @@ import { nullableMixin, fieldMixin } from './vector/traits';
 import { ListVector as ListVectorBase } from './list';
 import { Utf8Vector as Utf8VectorBase } from './utf8';
 import { Vector, Column, TypedArray } from './types';
-import { DateVector as DateVectorBase } from './vector/date';
+import { Date32Vector as Date32VectorBase } from './vector/date';
+import { Date64Vector as Date64VectorBase } from './vector/date';
 import { TableVector as TableVectorBase } from './table/table';
 import { StructVector as StructVectorBase } from './table/struct';
 import { FixedSizeListVector as FixedSizeListVectorBase } from './fixedsizelist';
@@ -54,8 +55,9 @@ export class Utf8Vector extends MixinArrowTraits(Utf8VectorBase) {}
 export class TableVector extends MixinArrowTraits(TableVectorBase) {}
 export class StructVector extends MixinArrowTraits(StructVectorBase) {}
 export class FixedSizeListVector extends MixinArrowTraits(FixedSizeListVectorBase) {}
-export class DateVector extends MixinArrowTraits(DateVectorBase) {}
 export class LongVector extends MixinArrowTraits(LongVectorBase) {}
+export class Date32Vector extends MixinArrowTraits(Date32VectorBase) {}
+export class Date64Vector extends MixinArrowTraits(Date64VectorBase) {}
 export class Int8Vector extends MixinArrowTraits(Int8VectorBase) {}
 export class Int16Vector extends MixinArrowTraits(Int16VectorBase) {}
 export class Int32Vector extends MixinArrowTraits(Int32VectorBase) {}

@@ -21,12 +21,12 @@ import { Vector } from './types/types';
 import { ListVector } from './types/list';
 import { Utf8Vector } from './types/utf8';
 import { BoolVector } from './types/vector/bool';
-import { DateVector } from './types/vector/date';
 import { RowVector } from './types/table/row';
 import { TableVector } from './types/table/table';
 import { StructVector } from './types/table/struct';
 import { DictionaryVector } from './types/dictionary';
 import { FixedSizeListVector } from './types/fixedsizelist';
+import { Date32Vector, Date64Vector } from './types/vector/date';
 import { LongVector, Int64Vector, Uint64Vector, } from './types/vector/long';
 import {
     TypedVector,
@@ -51,9 +51,9 @@ export {
     StructVector, Utf8Vector,
     ListVector, FixedSizeListVector,
     BoolVector, TypedVector, LongVector,
-    DateVector, Float32Vector, Float64Vector,
     Int8Vector, Int16Vector, Int32Vector, Int64Vector,
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
+    Date32Vector, Date64Vector, Float32Vector, Float64Vector,
 };
 
 /* These exports are needed for the closure umd targets */
@@ -72,7 +72,8 @@ try {
         Arrow['FixedSizeListVector'] = FixedSizeListVector;
         Arrow['LongVector'] = LongVector;
         Arrow['TypedVector'] = TypedVector;
-        Arrow['DateVector'] = DateVector;
+        Arrow['Date32Vector'] = Date32Vector;
+        Arrow['Date64Vector'] = Date64Vector;
         Arrow['Int8Vector'] = Int8Vector;
         Arrow['Int16Vector'] = Int16Vector;
         Arrow['Int32Vector'] = Int32Vector;

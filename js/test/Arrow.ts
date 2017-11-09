@@ -47,7 +47,8 @@ import {
     TypedVector as TypedVector_,
     ListVector as ListVector_,
     Utf8Vector as Utf8Vector_,
-    DateVector as DateVector_,
+    Date32Vector as Date32Vector_,
+    Date64Vector as Date64Vector_,
     Int8Vector as Int8Vector_,
     Int16Vector as Int16Vector_,
     Int32Vector as Int32Vector_,
@@ -70,7 +71,8 @@ export let BoolVector = Arrow.BoolVector as typeof BoolVector_;
 export let TypedVector = Arrow.TypedVector as typeof TypedVector_;
 export let ListVector = Arrow.ListVector as typeof ListVector_;
 export let Utf8Vector = Arrow.Utf8Vector as typeof Utf8Vector_;
-export let DateVector = Arrow.DateVector as typeof DateVector_;
+export let Date32Vector = Arrow.Date32Vector as typeof Date32Vector_;
+export let Date64Vector = Arrow.Date64Vector as typeof Date64Vector_;
 export let Int8Vector = Arrow.Int8Vector as typeof Int8Vector_;
 export let Int16Vector = Arrow.Int16Vector as typeof Int16Vector_;
 export let Int32Vector = Arrow.Int32Vector as typeof Int32Vector_;
