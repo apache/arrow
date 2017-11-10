@@ -393,16 +393,22 @@ void PlasmaStore::seal_object(const ObjectID& object_id, unsigned char digest[])
   update_object_get_requests(object_id);
 }
 
-void PlasmaStore::abort_object(const ObjectID& object_id) {
+int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
   auto entry = get_object_table_entry(&store_info_, object_id);
   ARROW_CHECK(entry != NULL) << "To abort an object it must be in the object table.";
   ARROW_CHECK(entry->state != PLASMA_SEALED)
       << "To abort an object it must not have been sealed.";
-  ARROW_CHECK(entry->clients.size() == 1)
-      << "To abort an object, the only client currently using it is the creator.";
-
-  dlfree(entry->pointer);
-  store_info_.objects.erase(object_id);
+  auto it = entry->clients.find(client);
+  if (it == entry->clients.end()) {
+    // If the client requesting the abort is not the creator, do not
+    // perform the abort.
+    return 0;
+  } else {
+    // The client requesting the abort is the creator. Free the object.
+    dlfree(entry->pointer);
+    store_info_.objects.erase(object_id);
+    return 1;
+  }
 }
 
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {
@@ -454,11 +460,12 @@ void PlasmaStore::disconnect_client(int client_fd) {
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // If this client was using any objects, remove it from the appropriate
   // lists.
+  auto client = it->second.get();
   for (const auto& entry : store_info_.objects) {
     if (entry.second->state == PLASMA_SEALED) {
-      remove_client_from_object_clients(entry.second.get(), it->second.get());
+      remove_client_from_object_clients(entry.second.get(), client);
     } else {
-      abort_object(entry.first);
+      abort_object(entry.first, client);
     }
   }
 
@@ -600,7 +607,9 @@ Status PlasmaStore::process_message(Client* client) {
     } break;
     case MessageType_PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
-      abort_object(object_id);
+      ARROW_CHECK(abort_object(object_id, client) == 1) << "To abort an object, the only "
+                                                           "client currently using it "
+                                                           "must be the creator.";
       HANDLE_SIGPIPE(SendAbortReply(client->fd, object_id), client->fd);
     } break;
     case MessageType_PlasmaGetRequest: {
