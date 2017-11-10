@@ -462,13 +462,10 @@ void PlasmaStore::disconnect_client(int client_fd) {
   // lists.
   auto client = it->second.get();
   for (const auto& entry : store_info_.objects) {
-    auto entry_it = entry.second->clients.find(client);
-    if (entry_it != entry.second->clients.end()) {
-      if (entry.second->state == PLASMA_SEALED) {
-        remove_client_from_object_clients(entry.second.get(), client);
-      } else {
-        abort_object(entry.first, client);
-      }
+    if (entry.second->state == PLASMA_SEALED) {
+      remove_client_from_object_clients(entry.second.get(), client);
+    } else {
+      abort_object(entry.first, client);
     }
   }
 
