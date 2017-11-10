@@ -1461,7 +1461,7 @@ def test_index_column_name_duplicate(tmpdir):
 
 
 def test_backwards_compatible_index_naming():
-    expected_string = """\
+    expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
  0.21    Premium      E      SI1   59.8   61.0    326  3.89  3.84  2.31
@@ -1474,8 +1474,7 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.22       Fair      E      VS2   65.1   61.0    337  3.87  3.78  2.49
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(
-        io.StringIO(expected_string), sep=r'\s{2,}', index_col=None,
-        header=0
+        io.BytesIO(expected_string), sep=r'\s{2,}', index_col=None, header=0
     )
     path = os.path.join(os.path.dirname(__file__), 'data', 'v0.7.1.parquet')
     t = _read_table(path)
