@@ -45,14 +45,17 @@ class TestPlasmaStore : public ::testing::Test {
         "/plasma_store -m 1000000000 -s /tmp/store 1> /dev/null 2> /dev/null &";
     system(plasma_command.c_str());
     ARROW_CHECK_OK(client_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
+    ARROW_CHECK_OK(client2_.Connect("/tmp/store", "", PLASMA_DEFAULT_RELEASE_DELAY));
   }
   virtual void Finish() {
     ARROW_CHECK_OK(client_.Disconnect());
+    ARROW_CHECK_OK(client2_.Disconnect());
     system("killall plasma_store &");
   }
 
  protected:
   PlasmaClient client_;
+  PlasmaClient client2_;
 };
 
 TEST_F(TestPlasmaStore, ContainsTest) {
@@ -169,6 +172,41 @@ TEST_F(TestPlasmaStore, AbortTest) {
   for (int64_t i = 0; i < data_size; i++) {
     ASSERT_EQ(data[i], object_buffer.data[i]);
   }
+}
+
+TEST_F(TestPlasmaStore, MultipleClientTest) {
+  ObjectID object_id = ObjectID::from_random();
+
+  // Test for object non-existence on the first client.
+  bool has_object;
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, false);
+
+  // Test for the object being in local Plasma store.
+  // First create and seal object on the second client.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  uint8_t* data;
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(client2_.Seal(object_id));
+  // Test that the first client can get the object.
+  ObjectBuffer object_buffer;
+  ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, true);
+
+  // Test that one client disconnecting does not interfere with the other.
+  // First create object on the second client.
+  object_id = ObjectID::from_random();
+  ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
+  // Disconnect the first client.
+  ARROW_CHECK_OK(client_.Disconnect());
+  // Test that the second client can seal and get the created object.
+  ARROW_CHECK_OK(client2_.Seal(object_id));
+  ARROW_CHECK_OK(client2_.Get(&object_id, 1, -1, &object_buffer));
+  ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+  ASSERT_EQ(has_object, true);
 }
 
 }  // namespace plasma
