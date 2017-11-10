@@ -77,7 +77,7 @@ export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
 
 Here `$ARROW_HOME` is the location of your Arrow git clone. The
 `$CPP_BUILD_DIR` may be different depending on how you built with CMake
-(in-source of out-of-source).
+(in-source or out-of-source).
 
 Once this is done, run the integration tests with (optionally adding `--debug`
 for additional output)
