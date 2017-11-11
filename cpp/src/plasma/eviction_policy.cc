@@ -77,7 +77,7 @@ bool EvictionPolicy::require_space(int64_t size,
   if (required_space > 0) {
     /* Try to free up at least as much space as we need right now but ideally
      * up to 20% of the total capacity. */
-    int64_t space_to_free = std::max(size, store_info_->memory_capacity / 5);
+    int64_t space_to_free = std::max(required_space, store_info_->memory_capacity / 5);
     ARROW_LOG(DEBUG) << "not enough space to create this object, so evicting objects";
     /* Choose some objects to evict, and update the return pointers. */
     num_bytes_evicted = choose_objects_to_evict(space_to_free, objects_to_evict);
