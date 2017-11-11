@@ -53,10 +53,6 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # HACK(wesm): We started experiencing OpenSSL failures when Miniconda was
   # updated sometime on October 2 or October 3
   conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
-else
-  if [ $TRAVIS_OS_NAME == "osx" ]; then
-    brew update && brew bundle -v --file=cpp/Brewfile
-  fi
 fi
 
 
