@@ -159,12 +159,11 @@ static inline void random_is_valid(int64_t n, double pct_null,
 
 static inline void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
   std::mt19937 gen(seed);
-  std::uniform_int_distribution<int> d(0, std::numeric_limits<uint8_t>::max());
-  std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen) & 0xFF); });
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
 }
 
-static void DecimalRange(int32_t precision, Decimal128* min_decimal,
-                         Decimal128* max_decimal) {
+static int32_t DecimalSize(int32_t precision) {
   DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
                           << precision;
   DCHECK_LE(precision, 38) << "decimal precision must be less than or equal to 38, got "
@@ -173,123 +172,82 @@ static void DecimalRange(int32_t precision, Decimal128* min_decimal,
   switch (precision) {
     case 1:
     case 2:
-      *max_decimal = std::numeric_limits<int8_t>::max();
-      break;
+      return 1;  // 127
     case 3:
     case 4:
-      *max_decimal = std::numeric_limits<int16_t>::max();
-      break;
+      return 2;  // 32,767
     case 5:
     case 6:
-      *max_decimal = 8388607;
-      break;
+      return 3;  // 8,388,607
     case 7:
     case 8:
     case 9:
-      *max_decimal = std::numeric_limits<int32_t>::max();
-      break;
+      return 4;  // 2,147,483,427
     case 10:
     case 11:
-      *max_decimal = 549755813887;
-      break;
+      return 5;  // 549,755,813,887
     case 12:
     case 13:
     case 14:
-      *max_decimal = 140737488355327;
-      break;
+      return 6;  // 140,737,488,355,327
     case 15:
     case 16:
-      *max_decimal = 36028797018963967;
-      break;
+      return 7;  // 36,028,797,018,963,967
     case 17:
     case 18:
-      *max_decimal = std::numeric_limits<int64_t>::max();
-      break;
+      return 8;  // 9,223,372,036,854,775,807
     case 19:
     case 20:
     case 21:
-      *max_decimal = Decimal128("2361183241434822606847");
-      break;
+      return 9;  // 2,361,183,241,434,822,606,847
     case 22:
     case 23:
-      *max_decimal = Decimal128("604462909807314587353087");
-      break;
+      return 10;  // 604,462,909,807,314,587,353,087
     case 24:
     case 25:
     case 26:
-      *max_decimal = Decimal128("154742504910672534362390527");
-      break;
+      return 11;  // 154,742,504,910,672,534,362,390,527
     case 27:
     case 28:
-      *max_decimal = Decimal128("39614081257132168796771975167");
-      break;
+      return 12;  // 39,614,081,257,132,168,796,771,975,167
     case 29:
     case 30:
     case 31:
-      *max_decimal = Decimal128("10141204801825835211973625643007");
-      break;
+      return 13;  // 10,141,204,801,825,835,211,973,625,643,007
     case 32:
     case 33:
-      *max_decimal = Decimal128("2596148429267413814265248164610047");
-      break;
+      return 14;  // 2,596,148,429,267,413,814,265,248,164,610,047
     case 34:
     case 35:
-      *max_decimal = Decimal128("664613997892457936451903530140172287");
-      break;
+      return 15;  // 664,613,997,892,457,936,451,903,530,140,172,287
     case 36:
     case 37:
     case 38:
-      *max_decimal = Decimal128("170141183460469231731687303715884105727");
-      break;
+      return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
     default:
       DCHECK(false);
       break;
   }
-
-  *min_decimal = ~(*max_decimal);
+  return -1;
 }
-
-class UniformDecimalDistribution {
- public:
-  explicit UniformDecimalDistribution(int32_t precision) {
-    Decimal128 max_decimal;
-    Decimal128 min_decimal;
-    DecimalRange(precision, &min_decimal, &max_decimal);
-
-    const auto min_low = static_cast<int64_t>(min_decimal.low_bits());
-    const auto max_low = static_cast<int64_t>(max_decimal.low_bits());
-
-    const int64_t min_high = min_decimal.high_bits();
-    const int64_t max_high = max_decimal.high_bits();
-
-    using param_type = std::uniform_int_distribution<int64_t>::param_type;
-
-    lower_dist_.param(param_type(min_low, max_low));
-    upper_dist_.param(param_type(min_high, max_high));
-  }
-
-  template <typename Generator>
-  Decimal128 operator()(Generator& gen) {
-    return Decimal128(upper_dist_(gen), static_cast<uint64_t>(lower_dist_(gen)));
-  }
-
- private:
-  // The lower bits distribution is intentionally int64_t.
-  // If it were uint64_t then the size of the interval [min_high, max_high] would be 0
-  // because min_high > max_high due to 2's complement.
-  // So, we generate the same range of bits using int64_t and then cast to uint64_t.
-  std::uniform_int_distribution<int64_t> lower_dist_;
-  std::uniform_int_distribution<int64_t> upper_dist_;
-};
 
 static inline void random_decimals(int64_t n, uint32_t seed, int32_t precision,
                                    uint8_t* out) {
   std::mt19937 gen(seed);
-  UniformDecimalDistribution dist(precision);
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  const int32_t required_bytes = DecimalSize(precision);
+  constexpr int32_t byte_width = 16;
+  std::fill(out, out + byte_width * n, '\0');
 
-  for (int64_t i = 0; i < n; ++i, out += 16) {
-    const Decimal128 value(dist(gen));
-    value.ToBytes(out);
+  for (int64_t i = 0; i < n; ++i, out += byte_width) {
+    std::generate(out, out + required_bytes,
+                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
+
+    // sign extend if the sign bit is set for the last byte generated
+    // 0b10000000 == 0x80 == 128
+    if ((out[required_bytes - 1] & '\x80') != 0) {
+      std::fill(out + required_bytes, out + byte_width, '\xFF');
+    }
   }
 }
 
