@@ -50,41 +50,41 @@ organization name, URL, a list of which Arrow components you are using, and a
 short description of your use case.
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
- in the Hadoop ecosystem, regardless of the choice of data processing
- framework, data model or programming language. The C++ and Java
- implementation provide vectorized reads and write to/from Arrow data
- structures.
+  in the Hadoop ecosystem, regardless of the choice of data processing
+  framework, data model or programming language. The C++ and Java
+  implementation provide vectorized reads and write to/from Arrow data
+  structures.
 * **[Apache Spark][7]:** Apache Spark™ is a fast and general engine for
- large-scale data processing. Spark uses Apache Arrow to
+  large-scale data processing. Spark uses Apache Arrow to
   1. improve performance of conversion between Spark DataFrame and pandas DataFrame
   2. enable a set of vectorized user-defined functions (`pandas_udf`) in PySpark.
 * **[Dask][15]:** Python library for parallel and distributed execution of
- dynamic task graphs. Dask supports using pyarrow for accessing Parquet
- files
+  dynamic task graphs. Dask supports using pyarrow for accessing Parquet
+  files
 * **[GeoMesa][8]:** A suite of tools that enables large-scale geospatial query
   and analytics on distributed computing systems. GeoMesa supports query
   results in the Arrow IPC format, which can then be used for in-browser
   visualizations and/or further analytics.
 * **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
- support for structured data. Uses the Arrow IPC format and targets the Arrow
- memory layout in its analytic functions. This work is part of the [GPU Open
- Analytics Initiative][11]
+  support for structured data. Uses the Arrow IPC format and targets the Arrow
+  memory layout in its analytic functions. This work is part of the [GPU Open
+  Analytics Initiative][11]
 * **[MapD][10]:** in-memory columnar SQL engine designed to run on GPUs. MapD
- supports Arrow for data ingest and data interchange via CUDA IPC
- handles. This work is part of the [GPU Open Analytics Initiative][11]
+  supports Arrow for data ingest and data interchange via CUDA IPC
+  handles. This work is part of the [GPU Open Analytics Initiative][11]
 * **[pandas][12]:** data analysis toolkit for Python programmers. pandas
- supports reading and writing Parquet files using pyarrow. Several pandas
- core developers are also contributors to Apache Arrow.
+  supports reading and writing Parquet files using pyarrow. Several pandas
+  core developers are also contributors to Apache Arrow.
 * **[Ray][5]:** A flexible, high-performance distributed execution framework
- with a focus on machine learning and AI applications. Uses Arrow to
- efficiently store Python data structures containing large arrays of
- numerical data. Data can be accessed with zero-copy by multiple processes
- using the [Plasma shared memory object store][6] which originated from Ray and
- is part of Arrow now.
+  with a focus on machine learning and AI applications. Uses Arrow to
+  efficiently store Python data structures containing large arrays of numerical
+  data. Data can be accessed with zero-copy by multiple processes using the
+  [Plasma shared memory object store][6] which originated from Ray and is part
+  of Arrow now.
 * **[Turbodbc][4]:** Python module to access relational databases via the Open
- Database Connectivity (ODBC) interface. It provides the ability to return Arrow
- Tables and RecordBatches in addition to the Python Database API Specification
- 2.0.
+  Database Connectivity (ODBC) interface. It provides the ability to return
+  Arrow Tables and RecordBatches in addition to the Python Database API
+  Specification 2.0.
 
 ### Companies and Organizations
 
