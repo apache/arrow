@@ -352,6 +352,35 @@ and run it with `./get`, all the assertions will pass if you run the `create`
 example from above on the same Plasma store.
 
 
+Working with high level objects
+-----------------
+
+Read a Tensor : a BufferReader can help you read a Tensor from the raw data:
+
+```cpp
+    arrow::io::BufferReader reader(object_buffer.data ,object_buffer.data_size);
+    int64_t offset;
+    reader.Tell(&offset);
+    std::shared_ptr<Tensor> tensor;
+    arrow::ipc::ReadTensor(offset, &src, &tensor);
+```
+
+Write a Tensor : 
+
+```cpp
+    int64_t tensor_size;
+    ipc::GetTensorSize( *tensor.get(), &tensor_size);
+    const int64_t c_tsize = tsize;
+    shared_ptr<Buffer> tbuf;
+    tbuf.reset(new MutableBuffer(tdata, c_tsize));
+    io::FixedSizeBufferWriter writer(tbuf);
+    writer.set_memcopy_threads(6);
+    int32_t metadata_length;
+    int64_t body_length;
+    ipc::WriteTensor(*tensor.get(), &writer, &metadata_length ,&body_length);
+    client.Seal(object_id);
+```
+
 Object Lifetime Management
 --------------------------
 
