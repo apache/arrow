@@ -21,7 +21,7 @@ import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
 import { readVectors, readVectorsAsync } from './reader/arrow';
-import { ListVector, FixedSizeListVector } from './vector/list';
+import { ListVector, BinaryVector, FixedSizeListVector } from './vector/list';
 
 import {
     BoolVector,
@@ -64,6 +64,7 @@ export {
     Date64Vector,
     Time32Vector,
     Time64Vector,
+    BinaryVector,
     StructVector,
     Float16Vector,
     Float32Vector,
@@ -84,7 +85,6 @@ try {
         Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
         Arrow['StructRow'] = StructRow;
-        Arrow['StructVector'] = StructVector;
         Arrow['BoolVector'] = BoolVector;
         Arrow['ListVector'] = ListVector;
         Arrow['Utf8Vector'] = Utf8Vector;
@@ -100,6 +100,8 @@ try {
         Arrow['Date64Vector'] = Date64Vector;
         Arrow['Time32Vector'] = Time32Vector;
         Arrow['Time64Vector'] = Time64Vector;
+        Arrow['BinaryVector'] = BinaryVector;
+        Arrow['StructVector'] = StructVector;
         Arrow['Float16Vector'] = Float16Vector;
         Arrow['Float32Vector'] = Float32Vector;
         Arrow['Float64Vector'] = Float64Vector;

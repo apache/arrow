@@ -20,7 +20,7 @@ import * as Schema_ from '../format/Schema_generated';
 import * as Message_ from '../format/Message_generated';
 import { TypedArray, TypedArrayConstructor } from '../vector/types';
 import {
-    Vector, BoolVector, DictionaryVector,
+    Vector, BoolVector, BinaryVector, DictionaryVector,
     Int8Vector, Int16Vector, Int32Vector, Int64Vector,
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
     Utf8Vector, ListVector, FixedSizeListVector, StructVector,
@@ -155,12 +155,7 @@ export function readStructVector(field: Field, state: VectorReaderContext) {
 }
 
 export function readBinaryVector(field: Field, state: VectorReaderContext) {
-    const { fieldNode, validity, offsets, data } = readBinaryBuffers(field, state);
-    return new ListVector({
-        field, fieldNode,
-        validity, offsets,
-        values: new Uint8Vector({ data })
-    });
+    return new BinaryVector(readBinaryBuffers(field, state));
 }
 
 export function readDecimalVector(field: Field, state: VectorReaderContext) {
@@ -177,9 +172,8 @@ export function readUtf8Vector(field: Field, state: VectorReaderContext) {
     const { fieldNode, validity, offsets, data } = readBinaryBuffers(field, state);
     return new Utf8Vector({
         field, fieldNode,
-        values: new ListVector({
-            validity, offsets,
-            values: new Uint8Vector({ data })
+        values: new BinaryVector({
+            validity, offsets, data
         })
     });
 }

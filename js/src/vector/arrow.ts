@@ -26,6 +26,7 @@ import { StructVector as StructVectorBase } from './struct';
 import { DictionaryVector as DictionaryVectorBase } from './dictionary';
 import {
     ListVector as ListVectorBase,
+    BinaryVector as BinaryVectorBase,
     FixedSizeListVector as FixedSizeListVectorBase
 } from './list';
 
@@ -80,6 +81,13 @@ export class ListVector extends MixinArrowTraits(
     class ListVector extends fieldMixin(ListVectorBase) {} as any,
     class ListVector extends nullableMixin(ListVectorBase) {} as any,
     class ListVector extends nullableMixin(fieldMixin(ListVectorBase)) {} as any
+) {}
+
+export class BinaryVector extends MixinArrowTraits(
+    BinaryVectorBase,
+    class BinaryVector extends fieldMixin(BinaryVectorBase) {} as any,
+    class BinaryVector extends nullableMixin(BinaryVectorBase) {} as any,
+    class BinaryVector extends nullableMixin(fieldMixin(BinaryVectorBase)) {} as any
 ) {}
 
 export class Utf8Vector extends MixinArrowTraits(

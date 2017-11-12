@@ -19,7 +19,23 @@ import { List } from './types';
 import { Vector } from './vector';
 import { VirtualVector } from './virtual';
 
-export class ListVector<T, TArray extends List<T>> extends Vector<TArray> {
+export class BinaryVector extends Vector<Uint8Array> {
+    readonly data: Uint8Array;
+    readonly offsets: Int32Array;
+    constructor(argv: { offsets: Int32Array, data: Uint8Array }) {
+        super();
+        this.data = argv.data;
+        this.offsets = argv.offsets;
+    }
+    get(index: number) {
+        return this.data.subarray(this.offsets[index], this.offsets[index + 1]);
+    }
+    concat(...vectors: Vector<Uint8Array>[]): Vector<Uint8Array> {
+        return new VirtualVector(Array, this, ...vectors);
+    }
+}
+
+export class ListVector<T> extends Vector<T[]> {
     readonly offsets: Int32Array;
     readonly values: Vector<T>;
     constructor(argv: { offsets: Int32Array, values: Vector<T> }) {
@@ -28,9 +44,15 @@ export class ListVector<T, TArray extends List<T>> extends Vector<TArray> {
         this.offsets = argv.offsets;
     }
     get(index: number) {
-        return this.values.slice<TArray>(this.offsets[index], this.offsets[index + 1]);
+        const { offsets, values } = this;
+        const from = offsets[index];
+        const xs = new Array(offsets[index + 1] - from);
+        for (let i = -1, n = xs.length; ++i < n;) {
+            xs[i] = values.get(i + from);
+        }
+        return xs;
     }
-    concat(...vectors: Vector<TArray>[]): Vector<TArray> {
+    concat(...vectors: Vector<T[]>[]): Vector<T[]> {
         return new VirtualVector(Array, this, ...vectors);
     }
 }
