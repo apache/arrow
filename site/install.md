@@ -75,23 +75,25 @@ with the wheel.
 We have provided APT and Yum repositories for Apache Arrow C++ and
 Apache Arrow GLib (C). Here are supported platforms:
 
-* Debian GNU/Linux Jessie
+* Debian GNU/Linux stretch
+* Ubuntu 14.04 LTS
 * Ubuntu 16.04 LTS
-* Ubuntu 16.10
 * Ubuntu 17.04
+* Ubuntu 17.10
+* CentOS 6
 * CentOS 7
 
-Debian GNU/Linux Jessie:
+Debian GNU/Linux:
 
 ```shell
-sudo apt update
 sudo apt install -y -V apt-transport-https
-cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/groonga.list
-deb https://packages.groonga.org/debian/ jessie main
-deb-src https://packages.groonga.org/debian/ jessie main
+sudo apt install -y -V lsb-release
+cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/red-data-tools.list
+deb https://packages.red-data-tools.org/debian/ $(lsb_release --codename --short) main
+deb-src https://packages.red-data-tools.org/debian/ $(lsb_release --codename --short) main
 APT_LINE
-sudo apt update
-sudo apt install -y -V --allow-unauthenticated groonga-keyring
+sudo apt update --allow-insecure-repositories
+sudo apt install -y -V --allow-unauthenticated red-data-tools-keyring
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
@@ -100,8 +102,14 @@ sudo apt install -y -V libarrow-glib-dev # For GLib (C)
 Ubuntu:
 
 ```shell
-sudo apt install -y software-properties-common
-sudo add-apt-repository -y ppa:groonga/ppa
+sudo apt install -y -V apt-transport-https
+sudo apt install -y -V lsb-release
+cat <<APT_LINE | sudo tee /etc/apt/sources.list.d/red-data-tools.list
+deb https://packages.red-data-tools.org/ubuntu/ $(lsb_release --codename --short) universe
+deb-src https://packages.red-data-tools.org/ubuntu/ $(lsb_release --codename --short) universe
+APT_LINE
+sudo apt update --allow-insecure-repositories || sudo apt update
+sudo apt install -y -V --allow-unauthenticated red-data-tools-keyring
 sudo apt update
 sudo apt install -y -V libarrow-dev # For C++
 sudo apt install -y -V libarrow-glib-dev # For GLib (C)
@@ -110,7 +118,7 @@ sudo apt install -y -V libarrow-glib-dev # For GLib (C)
 CentOS:
 
 ```shell
-sudo yum install -y https://packages.groonga.org/centos/groonga-release-1.3.0-1.noarch.rpm
+sudo yum install -y https://packages.red-data-tools.org/centos/red-data-tools-release-1.0.0-1.noarch.rpm
 sudo yum install -y --enablerepo=epel arrow-devel # For C++
 sudo yum install -y --enablerepo=epel arrow-glib-devel # For GLib (C)
 ```
