@@ -137,3 +137,27 @@ def test_is_temporal_date_time_timestamp():
 def test_timestamp_type():
     # See ARROW-1683
     assert isinstance(pa.timestamp('ns'), pa.TimestampType)
+
+
+def test_types_hashable():
+    types = [
+        pa.null(),
+        pa.int32(),
+        pa.time32('s'),
+        pa.time64('us'),
+        pa.date32(),
+        pa.timestamp('us'),
+        pa.string(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int32()),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.int8()),
+                   pa.field('c', pa.string())])
+    ]
+
+    in_dict = {}
+    for i, type_ in enumerate(types):
+        assert hash(type_) == hash(type_)
+        in_dict[type_] = i
+        assert in_dict[type_] == i

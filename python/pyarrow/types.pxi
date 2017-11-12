@@ -69,6 +69,9 @@ cdef class DataType:
             )
         return frombytes(self.type.ToString())
 
+    def __hash__(self):
+        return hash(str(self))
+
     def __reduce__(self):
         return self.__class__, (), self.__getstate__()
 
