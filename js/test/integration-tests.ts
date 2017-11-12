@@ -15,9 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Arrow from './Arrow';
 import { zip } from 'ix/iterable/zip';
-import { Table, readBuffers } from './Arrow';
 import { config, formats } from './test-config';
+
+const { Table, readVectors } = Arrow;
+
+expect.extend({
+    toEqualVector(v1: any, v2: any) {
+
+        const format = (x: any, y: any, msg= ' ') => `${
+            this.utils.printExpected(x)}${
+                msg}${
+            this.utils.printReceived(y)
+        }`;
+
+        let messages = [] as any[];
+        let props = ['name', 'type', 'length'];
+        for (let i = -1, n = props.length; ++i < n;) {
+            const prop = props[i];
+            if (this.utils.stringify(v1[prop]) !== this.utils.stringify(v2[prop])) {
+                messages.push(`${prop}: ${format(v1[prop], v2[prop], ' !== ')}`);
+            }
+        }
+        for (let i = -1, n = v1.length; ++i < n;) {
+            let x1 = v1.get(i), x2 = v2.get(i);
+            if (this.utils.stringify(x1) !== this.utils.stringify(x2)) {
+                messages.push(`${i}: ${format(x1, x2, ' !== ')}`);
+            }
+        }
+        return {
+            pass: messages.length === 0,
+            message: () => [`Vectors (${format(v1.name, v2.name)})`, ...messages ].join('\n')
+        };
+    }
+});
 
 describe.skip(`Integration`, () => {
     for (const format of formats) {
@@ -35,17 +67,10 @@ describe.skip(`Integration`, () => {
 function testReaderIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array[]) {
     test(`cpp and java vectors report the same values`, () => {
         expect.hasAssertions();
-        for (const [cppVectors, javaVectors] of zip(readBuffers(...cppBuffers), readBuffers(...javaBuffers))) {
+        for (const [cppVectors, javaVectors] of zip(readVectors(cppBuffers), readVectors(javaBuffers))) {
             expect(cppVectors.length).toEqual(javaVectors.length);
             for (let i = -1, n = cppVectors.length; ++i < n;) {
-                const cppVec = cppVectors[i];
-                const javaVec = javaVectors[i];
-                expect(cppVec.name).toEqual(javaVec.name);
-                expect(cppVec.type).toEqual(javaVec.type);
-                expect(cppVec.length).toEqual(javaVec.length);
-                for (let j = -1, k = cppVec.length; ++j < k;) {
-                    expect(cppVec.get(j)).toEqual(javaVec.get(i));
-                }
+                (expect(cppVectors[i]) as any).toEqualVector(javaVectors[i]);
             }
         }
     });
@@ -61,14 +86,7 @@ function testTableFromBuffersIntegration(cppBuffers: Uint8Array[], javaBuffers: 
         expect(cppTable.length).toEqual(javaTable.length);
         expect(cppVectors.length).toEqual(javaVectors.length);
         for (let i = -1, n = cppVectors.length; ++i < n;) {
-            const cppVec = cppVectors[i];
-            const javaVec = javaVectors[i];
-            expect(cppVec.name).toEqual(javaVec.name);
-            expect(cppVec.type).toEqual(javaVec.type);
-            expect(cppVec.length).toEqual(javaVec.length);
-            for (let j = -1, k = cppVec.length; ++j < k;) {
-                expect(cppVec.get(j)).toEqual(javaVec.get(i));
-            }
+            (expect(cppVectors[i]) as any).toEqualVector(javaVectors[i]);
         }
     });
 }
