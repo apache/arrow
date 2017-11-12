@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { readBuffers } from './reader/arrow';
 import { Table } from './vector/table';
 import { Vector } from './vector/vector';
 import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
+import { readVectors, readVectorsAsync } from './reader/arrow';
 import { ListVector, FixedSizeListVector } from './vector/list';
 
 import {
@@ -49,7 +49,6 @@ export { readVectors, readVectorsAsync };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {
-    readBuffers,
     BoolVector,
     ListVector,
     Utf8Vector,
@@ -80,9 +79,10 @@ try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
+        Arrow['readVectors'] = readVectors;
+        Arrow['readVectorsAsync'] = readVectorsAsync;
         Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
-        Arrow['readBuffers'] = readBuffers;
         Arrow['StructRow'] = StructRow;
         Arrow['StructVector'] = StructVector;
         Arrow['BoolVector'] = BoolVector;
