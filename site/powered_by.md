@@ -81,6 +81,11 @@ short description of your use case.
   data. Data can be accessed with zero-copy by multiple processes using the
   [Plasma shared memory object store][6] which originated from Ray and is part
   of Arrow now.
+* **[Red Data Tools][16]:** A project that provides data processing
+  tools for Ruby. It provides [Red Arrow][17] that is a Ruby bindings
+  of Apache Arrow based on Apache Arrow GLib. Red Arrow is a core
+  library for it. It also provides many Ruby libraries to integrate
+  existing Ruby libraries with Apache Arrow. They use Red Arrow.
 * **[Turbodbc][4]:** Python module to access relational databases via the Open
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
@@ -117,3 +122,5 @@ short description of your use case.
 [13]: https://quiltdata.com/
 [14]: https://github.com/gpuopenanalytics/libgdf
 [15]: https://github.com/dask/dask
+[16]: https://red-data-tools.github.io/
+[17]: https://github.com/red-data-tools/red-arrow/
