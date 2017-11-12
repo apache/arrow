@@ -41,7 +41,7 @@ export class NumericVector<T, TArray extends TypedArray> extends Vector<T> {
     }
 }
 
-export class FixedWidthListVector<T, TArray extends TypedArray> extends NumericVector<T, TArray> {
+export class FixedWidthNumericVector<T, TArray extends TypedArray> extends NumericVector<T, TArray> {
     get(index: number) {
         return this.data.slice(this.stride * index, this.stride * (index + 1)) as TArray;
     }
@@ -81,12 +81,12 @@ export class BoolVector extends NumericVector<boolean, Uint8Array> {
 export class Int8Vector extends NumericVector<number, Int8Array> {}
 export class Int16Vector extends NumericVector<number, Int16Array> {}
 export class Int32Vector extends NumericVector<number, Int32Array> {}
-export class Int64Vector extends FixedWidthListVector<number, Int32Array> {}
+export class Int64Vector extends FixedWidthNumericVector<number, Int32Array> {}
 
 export class Uint8Vector extends NumericVector<number, Uint8Array> {}
 export class Uint16Vector extends NumericVector<number, Uint16Array> {}
 export class Uint32Vector extends NumericVector<number, Uint32Array> {}
-export class Uint64Vector extends FixedWidthListVector<number, Uint32Array> {}
+export class Uint64Vector extends FixedWidthNumericVector<number, Uint32Array> {}
 
 export class Float16Vector extends NumericVector<number, Uint16Array> {
     get(index: number) {
@@ -130,7 +130,7 @@ export class Time32Vector extends NumericVector<number, Int32Array> {
     }
 }
 
-export class Time64Vector extends FixedWidthListVector<number, Uint32Array> {
+export class Time64Vector extends FixedWidthNumericVector<number, Uint32Array> {
     public readonly unit: string;
     constructor(argv: { unit: string, data: Uint32Array }) {
         super(argv);
@@ -138,7 +138,7 @@ export class Time64Vector extends FixedWidthListVector<number, Uint32Array> {
     }
 }
 
-export class DecimalVector extends FixedWidthListVector<number, Uint32Array> {
+export class DecimalVector extends FixedWidthNumericVector<number, Uint32Array> {
     readonly scale: number;
     readonly precision: number;
     constructor(argv: { precision: number, scale: number, data: Uint32Array }) {
@@ -148,7 +148,7 @@ export class DecimalVector extends FixedWidthListVector<number, Uint32Array> {
     }
 }
 
-export class TimestampVector extends FixedWidthListVector<number, Uint32Array> {
+export class TimestampVector extends FixedWidthNumericVector<number, Uint32Array> {
     readonly unit: string;
     readonly timezone: string;
     constructor(argv: { unit: string, timezone: string, data: Uint32Array }) {
@@ -165,4 +165,4 @@ export interface NumericVectorConstructor<T, TArray extends TypedArray> {
 
 (DecimalVector.prototype as any).stride = 4;
 (NumericVector.prototype as any).stride = 1;
-(FixedWidthListVector.prototype as any).stride = 2;
+(FixedWidthNumericVector.prototype as any).stride = 2;
