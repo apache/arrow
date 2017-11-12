@@ -478,54 +478,6 @@
         }
       }, 
       {
-        "name": "binary_nullable", 
-        "type": {
-          "name": "binary"
-        }, 
-        "nullable": true, 
-        "children": [], 
-        "typeLayout": {
-          "vectors": [
-            {
-              "type": "VALIDITY", 
-              "typeBitWidth": 1
-            }, 
-            {
-              "type": "OFFSET", 
-              "typeBitWidth": 32
-            }, 
-            {
-              "type": "DATA", 
-              "typeBitWidth": 8
-            }
-          ]
-        }
-      }, 
-      {
-        "name": "binary_nonnullable", 
-        "type": {
-          "name": "binary"
-        }, 
-        "nullable": false, 
-        "children": [], 
-        "typeLayout": {
-          "vectors": [
-            {
-              "type": "VALIDITY", 
-              "typeBitWidth": 1
-            }, 
-            {
-              "type": "OFFSET", 
-              "typeBitWidth": 32
-            }, 
-            {
-              "type": "DATA", 
-              "typeBitWidth": 8
-            }
-          ]
-        }
-      }, 
-      {
         "name": "utf8_nullable", 
         "type": {
           "name": "utf8"
@@ -577,521 +529,1258 @@
   }, 
   "batches": [
     {
-      "count": 0, 
+      "count": 7, 
       "columns": [
         {
           "name": "bool_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            false, 
+            true, 
+            false, 
+            false, 
+            true, 
+            true, 
+            false
+          ]
         }, 
         {
           "name": "bool_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            false, 
+            false, 
+            false, 
+            true, 
+            true, 
+            true, 
+            true
+          ]
         }, 
         {
           "name": "int8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            0, 
+            1, 
+            1, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            52, 
+            126, 
+            -122, 
+            -8, 
+            -106, 
+            39, 
+            58
+          ]
         }, 
         {
           "name": "int8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            -1, 
+            72, 
+            -57, 
+            121, 
+            -22, 
+            61, 
+            -39
+          ]
         }, 
         {
           "name": "int16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            0, 
+            0
+          ], 
+          "DATA": [
+            -6653, 
+            16139, 
+            -11323, 
+            19629, 
+            -23468, 
+            28524, 
+            -20901
+          ]
         }, 
         {
           "name": "int16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            18109, 
+            23994, 
+            -32536, 
+            9730, 
+            367, 
+            -14010, 
+            -19277
+          ]
         }, 
         {
           "name": "int32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            -916446956, 
+            648027224, 
+            -1984898695, 
+            -233696169, 
+            -497888872, 
+            -459449181, 
+            -136283974
+          ]
         }, 
         {
           "name": "int32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            1553803863, 
+            1758265789, 
+            176961264, 
+            583415454, 
+            1202663424, 
+            -1137723694, 
+            -14402788
+          ]
         }, 
         {
           "name": "int64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            0, 
+            1
+          ], 
+          "DATA": [
+            -1439295329, 
+            -487693456, 
+            -2111782581, 
+            -564692069, 
+            -570546225, 
+            -843556785, 
+            -1279408887
+          ]
         }, 
         {
           "name": "int64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            -1121679455, 
+            -1880376132, 
+            1595844062, 
+            -542944700, 
+            669665896, 
+            525154198, 
+            241050281
+          ]
         }, 
         {
           "name": "uint8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            0, 
+            1, 
+            0, 
+            1, 
+            1, 
+            0, 
+            0
+          ], 
+          "DATA": [
+            228, 
+            121, 
+            247, 
+            162, 
+            40, 
+            211, 
+            108
+          ]
         }, 
         {
           "name": "uint8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            69, 
+            114, 
+            79, 
+            142, 
+            184, 
+            226, 
+            192
+          ]
         }, 
         {
           "name": "uint16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            0, 
+            0, 
+            0, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            39463, 
+            28542, 
+            51243, 
+            56980, 
+            51970, 
+            53947, 
+            36334
+          ]
         }, 
         {
           "name": "uint16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            42642, 
+            64502, 
+            56332, 
+            56888, 
+            42943, 
+            29184, 
+            40529
+          ]
         }, 
         {
           "name": "uint32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            0, 
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            1
+          ], 
+          "DATA": [
+            1049260790, 
+            1763248295, 
+            1661600894, 
+            537135981, 
+            140737012, 
+            967890907, 
+            824057296
+          ]
         }, 
         {
           "name": "uint32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            337186950, 
+            1981375779, 
+            1460021901, 
+            1691689736, 
+            2138307236, 
+            644644429, 
+            1289078562
+          ]
         }, 
         {
           "name": "uint64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            0, 
+            0, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            1862008282, 
+            1592378433, 
+            408977525, 
+            12840890, 
+            1677085382, 
+            1537207447, 
+            632008611
+          ]
         }, 
         {
           "name": "uint64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            879196590, 
+            593740445, 
+            1757135759, 
+            1864633582, 
+            1371265528, 
+            592375328, 
+            1963233315
+          ]
         }, 
         {
           "name": "float32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            0, 
+            0, 
+            0, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            -329.548, 
+            2222.54, 
+            -746.589, 
+            -644.887, 
+            714.114, 
+            1154.609, 
+            1975.726
+          ]
         }, 
         {
           "name": "float32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            1071.653, 
+            -451.569, 
+            -565.897, 
+            642.159, 
+            588.066, 
+            -2157.023, 
+            -506.667
+          ]
         }, 
         {
           "name": "float64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            0, 
+            1, 
+            1, 
+            0, 
+            0, 
+            1
+          ], 
+          "DATA": [
+            -398.976, 
+            62.655, 
+            -1334.869, 
+            1051.35, 
+            -1442.326, 
+            -1230.509, 
+            -2223.683
+          ]
         }, 
         {
           "name": "float64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
           ], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
-          ], 
-          "DATA": []
+          "DATA": [
+            1659.322, 
+            822.936, 
+            -1013.99, 
+            168.802, 
+            197.724, 
+            -387.227, 
+            -491.716
+          ]
         }, 
         {
           "name": "utf8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0, 
+            1
           ], 
-          "DATA": []
+          "OFFSET": [
+            0, 
+            7, 
+            7, 
+            14, 
+            14, 
+            21, 
+            21, 
+            28
+          ], 
+          "DATA": [
+            "KTAB62n", 
+            "", 
+            "LLdIKYD", 
+            "", 
+            "kcAK3R3", 
+            "", 
+            "i3g8i5l"
+          ]
         }, 
         {
           "name": "utf8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 7, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
           ], 
-          "DATA": []
+          "OFFSET": [
+            0, 
+            7, 
+            14, 
+            21, 
+            28, 
+            35, 
+            42, 
+            49
+          ], 
+          "DATA": [
+            "dhBFF1i", 
+            "b1LC0JE", 
+            "eVjIVHg", 
+            "HvSEddj", 
+            "0j1qwWr", 
+            "lh1EiEr", 
+            "J1gJRzL"
+          ]
         }
       ]
     }, 
     {
-      "count": 0, 
+      "count": 10, 
       "columns": [
         {
           "name": "bool_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0, 
+            0, 
+            1, 
+            0, 
+            1
+          ], 
+          "DATA": [
+            true, 
+            true, 
+            true, 
+            false, 
+            true, 
+            true, 
+            true, 
+            true, 
+            true, 
+            false
+          ]
         }, 
         {
           "name": "bool_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            true, 
+            true, 
+            true, 
+            true, 
+            false, 
+            true, 
+            false, 
+            false, 
+            true, 
+            true
+          ]
         }, 
         {
           "name": "int8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            1, 
+            1, 
+            1, 
+            1, 
+            0, 
+            0, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            89, 
+            -60, 
+            88, 
+            -46, 
+            6, 
+            -58, 
+            47, 
+            42, 
+            26, 
+            -100
+          ]
         }, 
         {
           "name": "int8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            90, 
+            -22, 
+            44, 
+            61, 
+            -24, 
+            94, 
+            4, 
+            -74, 
+            -57, 
+            110
+          ]
         }, 
         {
           "name": "int16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            0, 
+            1, 
+            0, 
+            0, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            -32670, 
+            4779, 
+            71, 
+            21549, 
+            -11127, 
+            29377, 
+            21950, 
+            4186, 
+            -7207, 
+            -8090
+          ]
         }, 
         {
           "name": "int16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            2636, 
+            -24687, 
+            6816, 
+            6940, 
+            -15759, 
+            -14551, 
+            20407, 
+            -10657, 
+            -15986, 
+            227
+          ]
         }, 
         {
           "name": "int32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            0, 
+            0, 
+            0, 
+            1, 
+            0, 
+            1, 
+            1, 
+            0, 
+            0
+          ], 
+          "DATA": [
+            435890836, 
+            349643437, 
+            1852195098, 
+            -62067461, 
+            -467021236, 
+            948735966, 
+            -42337642, 
+            1835534115, 
+            -268718774, 
+            1487359021
+          ]
         }, 
         {
           "name": "int32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            -91356915, 
+            -2087778288, 
+            943052900, 
+            1591972454, 
+            -2113715046, 
+            1817440556, 
+            -135401882, 
+            1750811392, 
+            -1205483862, 
+            2005138911
+          ]
         }, 
         {
           "name": "int64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            0, 
+            1, 
+            0, 
+            0, 
+            1, 
+            0, 
+            0, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            1771690266, 
+            -609069043, 
+            129210854, 
+            -1336685785, 
+            -1501977687, 
+            -730517980, 
+            -1578993646, 
+            -2032456816, 
+            -397682634, 
+            1089312173
+          ]
         }, 
         {
           "name": "int64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            1920084501, 
+            -160513580, 
+            -754268905, 
+            -288136506, 
+            -1388030142, 
+            561133252, 
+            -274600115, 
+            883494701, 
+            -636834683, 
+            -1883585173
+          ]
         }, 
         {
           "name": "uint8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            0, 
+            1, 
+            1, 
+            0, 
+            0, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            175, 
+            245, 
+            77, 
+            161, 
+            135, 
+            85, 
+            105, 
+            140, 
+            125, 
+            130
+          ]
         }, 
         {
           "name": "uint8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            63, 
+            162, 
+            13, 
+            138, 
+            105, 
+            8, 
+            64, 
+            205, 
+            116, 
+            79
+          ]
         }, 
         {
           "name": "uint16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            0, 
+            0, 
+            1, 
+            0, 
+            0, 
+            0, 
+            0, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            41728, 
+            47216, 
+            25143, 
+            39298, 
+            41917, 
+            65227, 
+            11146, 
+            20541, 
+            50983, 
+            19075
+          ]
         }, 
         {
           "name": "uint16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            37997, 
+            3249, 
+            47203, 
+            29268, 
+            2725, 
+            38085, 
+            58062, 
+            57486, 
+            14637, 
+            27157
+          ]
         }, 
         {
           "name": "uint32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            0, 
+            1, 
+            0, 
+            0, 
+            1, 
+            1, 
+            0, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            260056070, 
+            22218697, 
+            427854549, 
+            604499606, 
+            1950694716, 
+            773091177, 
+            1298137854, 
+            1580095573, 
+            805908372, 
+            6520284
+          ]
         }, 
         {
           "name": "uint32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            2005785247, 
+            1855668357, 
+            888846141, 
+            1256920863, 
+            258179726, 
+            149586168, 
+            1148999245, 
+            1632240928, 
+            825098118, 
+            2086379346
+          ]
         }, 
         {
           "name": "uint64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            0, 
+            0, 
+            1, 
+            0, 
+            1, 
+            0, 
+            0, 
+            0, 
+            0
+          ], 
+          "DATA": [
+            1070399973, 
+            1871620391, 
+            54931565, 
+            743772804, 
+            682987386, 
+            678360943, 
+            1027210158, 
+            1762183815, 
+            1888246115, 
+            23053828
+          ]
         }, 
         {
           "name": "uint64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            521179687, 
+            1561607075, 
+            1950536184, 
+            1331174168, 
+            1203845200, 
+            91625922, 
+            209705127, 
+            707311139, 
+            2143150318, 
+            1360302471
+          ]
         }, 
         {
           "name": "float32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            0, 
+            1, 
+            0, 
+            1, 
+            1, 
+            1, 
+            0
+          ], 
+          "DATA": [
+            1567.574, 
+            958.199, 
+            -2169.333, 
+            -1099.029, 
+            702.346, 
+            -404.429, 
+            -11.788, 
+            264.735, 
+            98.568, 
+            1158.664
+          ]
         }, 
         {
           "name": "float32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            1261.218, 
+            -391.795, 
+            -161.593, 
+            2023.36, 
+            439.025, 
+            1440.213, 
+            -67.18, 
+            -354.78, 
+            253.26, 
+            250.084
+          ]
         }, 
         {
           "name": "float64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            0, 
+            0, 
+            0, 
+            1, 
+            1, 
+            1, 
+            1
+          ], 
+          "DATA": [
+            364.778, 
+            -856.979, 
+            -446.678, 
+            1229.042, 
+            -1558.031, 
+            -289.339, 
+            -232.531, 
+            409.304, 
+            -813.19, 
+            23.646
+          ]
         }, 
         {
           "name": "float64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
           ], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
-          ], 
-          "DATA": []
+          "DATA": [
+            1145.74, 
+            -1456.025, 
+            366.06, 
+            -137.453, 
+            -2465.428, 
+            932.059, 
+            -818.061, 
+            81.874, 
+            -1575.311, 
+            162.442
+          ]
         }, 
         {
           "name": "utf8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 10, 
+          "VALIDITY": [
+            0, 
+            1, 
+            1, 
+            0, 
+            1, 
+            1, 
+            1, 
+            0, 
+            0, 
+            1
           ], 
-          "DATA": []
+          "OFFSET": [
+            0, 
+            0, 
+            7, 
+            14, 
+            14, 
+            21, 
+            28, 
+            35, 
+            35, 
+            35, 
+            42
+          ], 
+          "DATA": [
+            "", 
+            "1oxGa64", 
+            "62BueVn", 
+            "", 
+            "hvr7wnE", 
+            "SJ0SlQj", 
+            "LrXQoKi", 
+            "", 
+            "", 
+            "zYKDytY"
+          ]
         }, 
         {
           "name": "utf8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
+          "count": 10, 
+          "VALIDITY": [
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1, 
+            1
           ], 
-          "DATA": []
-        }
-      ]
-    }, 
-    {
-      "count": 0, 
-      "columns": [
-        {
-          "name": "bool_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "bool_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "int64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint16_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint16_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "uint64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "float32_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "float32_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "float64_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "float64_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
           "OFFSET": [
-            0
+            0, 
+            7, 
+            14, 
+            21, 
+            28, 
+            35, 
+            42, 
+            49, 
+            56, 
+            63, 
+            70
           ], 
-          "DATA": []
-        }, 
-        {
-          "name": "binary_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
-          ], 
-          "DATA": []
-        }, 
-        {
-          "name": "utf8_nullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
-          ], 
-          "DATA": []
-        }, 
-        {
-          "name": "utf8_nonnullable", 
-          "count": 0, 
-          "VALIDITY": [], 
-          "OFFSET": [
-            0
-          ], 
-          "DATA": []
+          "DATA": [
+            "pYoPVi8", 
+            "jsZ0pf3", 
+            "VD1zogw", 
+            "JkdcJvu", 
+            "rnnpFmB", 
+            "Vx3HxhS", 
+            "SJ3Ao1v", 
+            "zpwGzU2", 
+            "ZN2LD1i", 
+            "qhd2UGO"
+          ]
         }
       ]
     }
