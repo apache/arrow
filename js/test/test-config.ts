@@ -48,6 +48,7 @@ function loadArrows(source: string, format: string) {
         decimal: true,
         datetime: false, // <-- known to fail
         primitive: true,
+        'primitive-empty': true,
         dictionary: true,
         struct_example: true
     };

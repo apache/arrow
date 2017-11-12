@@ -46,12 +46,12 @@ expect.extend({
         }
         return {
             pass: messages.length === 0,
-            message: () => [`Vectors (${format(v1.name, v2.name)})`, ...messages ].join('\n')
+            message: () => [`${v1.name}: (${format('cpp', 'java')})`, ...messages ].join('\n')
         };
     }
 });
 
-describe.skip(`Integration`, () => {
+describe(`Integration`, () => {
     for (const format of formats) {
         describe(format, () => {
             for (const [cppArrow, javaArrow] of zip(config.cpp[format], config.java[format])) {
@@ -79,8 +79,8 @@ function testReaderIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array
 function testTableFromBuffersIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array[]) {
     test(`cpp and java tables report the same values`, () => {
         expect.hasAssertions();
-        const cppTable = Table.from(...cppBuffers);
-        const javaTable = Table.from(...javaBuffers);
+        const cppTable = Table.from(cppBuffers);
+        const javaTable = Table.from(javaBuffers);
         const cppVectors = cppTable.columns;
         const javaVectors = javaTable.columns;
         expect(cppTable.length).toEqual(javaTable.length);
