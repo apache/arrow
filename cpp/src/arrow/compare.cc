@@ -255,7 +255,7 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalArray& left) {
+  Status Visit(const Decimal128Array& left) {
     return Visit(static_cast<const FixedSizeBinaryArray&>(left));
   }
 

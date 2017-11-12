@@ -458,7 +458,7 @@ class ArrayWriter {
     }
   }
 
-  void WriteDataValues(const DecimalArray& arr) {
+  void WriteDataValues(const Decimal128Array& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       const Decimal128 value(arr.GetValue(i));
       writer_->String(value.ToIntegerString());

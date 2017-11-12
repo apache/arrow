@@ -597,7 +597,7 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
-cdef class DecimalArray(FixedSizeBinaryArray):
+cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
 
@@ -846,7 +846,7 @@ cdef dict _array_classes = {
     _Type_STRING: StringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
-    _Type_DECIMAL: DecimalArray,
+    _Type_DECIMAL: Decimal128Array,
     _Type_STRUCT: StructArray,
 }
 
