@@ -389,6 +389,61 @@ def test_dictionary_encode_simple():
         assert result.equals(expected)
 
 
+def test_cast_time32():
+    arr = pa.array([0, 1, 2], type='i4')
+
+    result1 = arr.cast('time32[s]')
+    result2 = result1.cast('i4')
+
+    # TODO: there is no way to construct a time32[s] data.
+    # create the cast method from timestamp[s] to time32[s]
+    # and check result1.
+
+    assert result2.equals(arr)
+
+
+def test_cast_time64():
+    arr = pa.array([0, 1, 2], type='i8')
+
+    result1 = arr.cast('time64[us]')
+    result2 = result1.cast('i8')
+
+    # TODO: there is no way to construct a time64[us] data.
+    # create the cast method from timestamp[us] to time64[us]
+    # and check result1.
+
+    assert result2.equals(arr)
+
+
+def test_cast_date32():
+    arr = pa.array([0, 1, 2], type='i4')
+
+    result1 = arr.cast('date32')
+    result2 = result1.cast('i4')
+
+    expected1 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 2),
+        datetime.date(1970, 1, 3)
+    ]).cast('date32')
+
+    assert result1.equals(expected1)
+    assert result2.equals(arr)
+
+
+def test_cast_date64():
+    arr = pa.array([0, 1, 2], type='i8')
+
+    result1 = arr.cast('date64')
+    result2 = result1.cast('i8')
+
+    # TODO: there is no way to construct a date64[ms] data.
+    # create the cast method from timestamp[ms] to date64[ms]
+    # and check result1.
+
+    assert result2.equals(arr)
+
+
 def test_simple_type_construction():
     result = pa.lib.TimestampType()
     with pytest.raises(TypeError):
