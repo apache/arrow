@@ -83,3 +83,6 @@ package-lock.json
 # compilation targets
 dist
 targets
+
+# jest snapshots (too big)
+test/__snapshots__/
