@@ -152,6 +152,7 @@ matrix:
     rvm: 2.2
     env: BUILD_SYSTEM=autotools
     before_script:
+    - brew update && brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
     script:

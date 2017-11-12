@@ -38,8 +38,10 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
         rapidjson \
         flatbuffers \
         gflags \
+        gtest \
         lz4-c \
         snappy \
+        ccache \
         zstd \
         brotli \
         zlib \
@@ -53,9 +55,6 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   conda update -y -p $CPP_TOOLCHAIN ca-certificates -c defaults
 fi
 
-if [ $TRAVIS_OS_NAME == "osx" ]; then
-  brew update && brew bundle --file=cpp/Brewfile
-fi
 
 mkdir $ARROW_CPP_BUILD_DIR
 pushd $ARROW_CPP_BUILD_DIR

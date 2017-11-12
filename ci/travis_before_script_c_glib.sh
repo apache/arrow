@@ -22,8 +22,6 @@ set -ex
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 if [ $TRAVIS_OS_NAME = "osx" ]; then
-  brew update && brew bundle --file=c_glib/Brewfile
-
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
   export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
 fi

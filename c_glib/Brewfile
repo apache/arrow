@@ -15,11 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "gtk-doc"
 brew "autoconf-archive"
-brew "gobject-introspection"
-brew "git"
+brew "boost"
+brew "ccache"
 brew "cmake"
-brew "wget"
+brew "git"
+brew "gobject-introspection"
+brew "gtk-doc"
+brew "jemalloc"
 brew "libtool"
 brew "lua"
+brew "wget"
