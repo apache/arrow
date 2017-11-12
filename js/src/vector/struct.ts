@@ -123,5 +123,5 @@ function leftPad(str: string, fill: string, n: number) {
 }
 
 function stringify(x: any) {
-    return Array.isArray(x) || ArrayBuffer.isView(x) ? `[${x}]` : `${x}`;
+    return Array.isArray(x) ? JSON.stringify(x) : ArrayBuffer.isView(x) ? `[${x}]` : `${x}`;
 }
