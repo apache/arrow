@@ -30,23 +30,45 @@ expect.extend({
             this.utils.printReceived(y)
         }`;
 
-        let messages = [] as any[];
-        let props = ['name', 'type', 'length'];
+        let getFailures = new Array<string>();
+        let propsFailures = new Array<string>();
+        let iteratorFailures = new Array<string>();
+        let allFailures = [
+            { title: 'get', failures: getFailures },
+            { title: 'props', failures: propsFailures },
+            { title: 'iterator', failures: iteratorFailures }
+        ];
+
+        let props = ['name', 'type', 'length', 'nullable', 'nullCount', 'metadata'];
         for (let i = -1, n = props.length; ++i < n;) {
             const prop = props[i];
             if (this.utils.stringify(v1[prop]) !== this.utils.stringify(v2[prop])) {
-                messages.push(`${prop}: ${format(v1[prop], v2[prop], ' !== ')}`);
+                propsFailures.push(`${prop}: ${format(v1[prop], v2[prop], ' !== ')}`);
             }
         }
+
         for (let i = -1, n = v1.length; ++i < n;) {
             let x1 = v1.get(i), x2 = v2.get(i);
             if (this.utils.stringify(x1) !== this.utils.stringify(x2)) {
-                messages.push(`${i}: ${format(x1, x2, ' !== ')}`);
+                getFailures.push(`${i}: ${format(x1, x2, ' !== ')}`);
             }
         }
+
+        let i = -1;
+        for (let [x1, x2] of zip(v1, v2)) {
+            ++i;
+            if (this.utils.stringify(x1) !== this.utils.stringify(x2)) {
+                iteratorFailures.push(`${i}: ${format(x1, x2, ' !== ')}`);
+            }
+        }
+
         return {
-            pass: messages.length === 0,
-            message: () => [`${v1.name}: (${format('cpp', 'java')})`, ...messages ].join('\n')
+            pass: allFailures.every(({ failures }) => failures.length === 0),
+            message: () => [
+                `${v1.name}: (${format('cpp', 'java', ' !== ')})\n`,
+                ...allFailures.map(({ failures, title }) =>
+                    !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
+            ].join('\n')
         };
     }
 });
