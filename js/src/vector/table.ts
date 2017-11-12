@@ -20,21 +20,25 @@ import { StructVector, StructRow } from './struct';
 import { readVectors, readVectorsAsync } from '../reader/arrow';
 
 export class Table<T> extends StructVector<T> {
-    static from(buffers: Iterable<Uint8Array | Buffer | string>) {
+    static from(buffers?: Iterable<Uint8Array | Buffer | string>) {
         let columns: Vector<any>[] = [];
-        for (let vectors of readVectors(buffers)) {
-            columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                vec && col && col.concat(vec) || col || vec
-            ) as Vector<any>[];
+        if (buffers) {
+            for (let vectors of readVectors(buffers)) {
+                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
+                    vec && col && col.concat(vec) || col || vec
+                ) as Vector<any>[];
+            }
         }
         return new Table({ columns });
     }
-    static async fromAsync(buffers: AsyncIterable<Uint8Array | Buffer | string>) {
+    static async fromAsync(buffers?: AsyncIterable<Uint8Array | Buffer | string>) {
         let columns: Vector<any>[] = [];
-        for await (let vectors of readVectorsAsync(buffers)) {
-            columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                vec && col && col.concat(vec) || col || vec
-            ) as Vector<any>[];
+        if (buffers) {
+            for await (let vectors of readVectorsAsync(buffers)) {
+                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
+                    vec && col && col.concat(vec) || col || vec
+                ) as Vector<any>[];
+            }
         }
         return new Table({ columns });
     }

@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table, readBuffers } from './Arrow';
+import Arrow from './Arrow';
+const { Table, readVectors } = Arrow;
 import { config, sources, formats } from './test-config';
 
 describe(`Table`, () => {
@@ -44,7 +45,7 @@ describe(`Table`, () => {
 function testTableFromBuffers(buffers: Uint8Array[]) {
     test(`creates a Table from Arrow buffers`, () => {
         expect.hasAssertions();
-        const table = Table.from(...buffers);
+        const table = Table.from(buffers);
         for (const vector of table.columns) {
             expect(vector.name).toMatchSnapshot();
             expect(vector.type).toMatchSnapshot();
@@ -59,7 +60,7 @@ function testTableFromBuffers(buffers: Uint8Array[]) {
 function testColumnIterators(buffers: Uint8Array[]) {
     test(`vector iterators report the same values as get`, () => {
         expect.hasAssertions();
-        const table = Table.from(...buffers);
+        const table = Table.from(buffers);
         for (const vector of table.columns) {
             let i = -1, n = vector.length;
             for (let v of vector) {
@@ -75,8 +76,8 @@ function testReaderVectorsAndTableColumns(buffers: Uint8Array[]) {
     test(`batch and Table Vectors report the same values`, () => {
         expect.hasAssertions();
         let rowsTotal = 0;
-        let table = Table.from(...buffers);
-        for (let vectors of readBuffers(...buffers)) {
+        let table = Table.from(buffers);
+        for (let vectors of readVectors(buffers)) {
             let rowsNow = Math.max(...vectors.map((v) => v.length));
             for (let vi = -1, vn = vectors.length; ++vi < vn;) {
                 let v1 = vectors[vi];
@@ -95,7 +96,7 @@ function testReaderVectorsAndTableColumns(buffers: Uint8Array[]) {
 function testTableRowIterator(buffers: Uint8Array[]) {
     test(`enumerates Table rows`, () => {
         expect.hasAssertions();
-        const table = Table.from(...buffers);
+        const table = Table.from(buffers);
         expect(table.length).toMatchSnapshot();
         expect(table.columns.length).toMatchSnapshot();
         for (const row of table) {
@@ -107,7 +108,7 @@ function testTableRowIterator(buffers: Uint8Array[]) {
 function testTableRowIteratorCompact(buffers: Uint8Array[]) {
     test(`enumerates Table rows compact`, () => {
         expect.hasAssertions();
-        const table = Table.from(...buffers);
+        const table = Table.from(buffers);
         expect(table.length).toMatchSnapshot();
         expect(table.columns.length).toMatchSnapshot();
         for (const row of table) {
@@ -124,12 +125,12 @@ function testEmptyTableToString() {
 
 function testTableToStringPretty(buffers: Uint8Array[]) {
     test(`toString() prints a pretty Table`, () => {
-        expect(Table.from(...buffers).toString()).toMatchSnapshot();
+        expect(Table.from(buffers).toString()).toMatchSnapshot();
     });
 }
 
 function testTableToStringPrettyWithIndex(buffers: Uint8Array[]) {
     test(`toString({ index: true }) prints a pretty Table with an Index column`, () => {
-        expect(Table.from(...buffers).toString({ index: true })).toMatchSnapshot();
+        expect(Table.from(buffers).toString({ index: true })).toMatchSnapshot();
     });
 }

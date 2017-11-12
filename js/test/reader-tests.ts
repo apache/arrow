@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { readBuffers } from './Arrow';
+import Arrow from './Arrow';
+const { readVectors } = Arrow;
 import { config, sources, formats } from './test-config';
 
 describe(`readBuffers`, () => {
@@ -38,7 +39,7 @@ describe(`readBuffers`, () => {
 function testReaderIterator(buffers: Uint8Array[]) {
     test(`reads each batch as an Array of Vectors`, () => {
         expect.hasAssertions();
-        for (const vectors of readBuffers(...buffers)) {
+        for (const vectors of readVectors(buffers)) {
             for (const vector of vectors) {
                 expect(vector.name).toMatchSnapshot();
                 expect(vector.type).toMatchSnapshot();
@@ -54,7 +55,7 @@ function testReaderIterator(buffers: Uint8Array[]) {
 function testVectorIterator(buffers: Uint8Array[]) {
     test(`vector iterators report the same values as get`, () => {
         expect.hasAssertions();
-        for (const vectors of readBuffers(...buffers)) {
+        for (const vectors of readVectors(buffers)) {
             for (const vector of vectors) {
                 let i = -1, n = vector.length;
                 for (let v of vector) {
