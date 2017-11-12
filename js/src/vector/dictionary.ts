@@ -15,26 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './types';
-import { TextDecoder } from 'text-encoding-utf-8';
-import { VirtualVector } from './vector/virtual';
+import { Vector } from './vector';
+import { VirtualVector } from './virtual';
 
-const decoder = new TextDecoder('utf-8');
-
-export class Utf8Vector extends Vector<string> {
-    readonly values: Vector<Uint8Array | null>;
-    constructor(argv: { values: Vector<Uint8Array | null> }) {
+export class DictionaryVector<T> extends Vector<T> {
+    readonly length: number;
+    readonly data: Vector<T>;
+    readonly keys: Vector<number>;
+    constructor(argv: { data: Vector<T>, keys: Vector<number> }) {
         super();
-        this.values = argv.values;
+        this.data = argv.data;
+        this.keys = argv.keys;
+        this.length = this.keys.length;
     }
     get(index: number) {
-        const chars = this.getCodePoints(index);
-        return chars ? decoder.decode(chars) : null;
+        return this.getValue(this.getKey(index)!);
     }
-    getCodePoints(index: number) {
-        return this.values.get(index);
+    getKey(index: number) {
+        return this.keys.get(index);
     }
-    concat(...vectors: Vector<string>[]): Vector<string> {
+    getValue(key: number) {
+        return this.data.get(key);
+    }
+    concat(...vectors: Vector<T>[]): Vector<T> {
         return new VirtualVector(Array, this, ...vectors);
+    }
+    *[Symbol.iterator]() {
+        for (let i = -1, n = this.length; ++i < n;) {
+            yield this.get(i);
+        }
     }
 }

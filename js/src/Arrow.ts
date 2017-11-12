@@ -16,44 +16,63 @@
 // under the License.
 
 import { readBuffers } from './reader/arrow';
+import { Table } from './vector/table';
+import { Vector } from './vector/vector';
+import { Utf8Vector } from './vector/utf8';
+import { DictionaryVector } from './vector/dictionary';
+import { StructVector, StructRow } from './vector/struct';
+import { ListVector, FixedSizeListVector } from './vector/list';
 
-import { Vector } from './types/types';
-import { ListVector } from './types/list';
-import { Utf8Vector } from './types/utf8';
-import { BoolVector } from './types/vector/bool';
-import { RowVector } from './types/table/row';
-import { TableVector } from './types/table/table';
-import { StructVector } from './types/table/struct';
-import { DictionaryVector } from './types/dictionary';
-import { FixedSizeListVector } from './types/fixedsizelist';
-import { Date32Vector, Date64Vector } from './types/vector/date';
-import { LongVector, Int64Vector, Uint64Vector, } from './types/vector/long';
 import {
-    TypedVector,
+    BoolVector,
     Int8Vector,
     Int16Vector,
     Int32Vector,
+    Int64Vector,
     Uint8Vector,
     Uint16Vector,
     Uint32Vector,
+    Uint64Vector,
+    Float16Vector,
     Float32Vector,
-    Float64Vector
-} from './types/vector/typed';
+    Float64Vector,
+    Date32Vector,
+    Date64Vector,
+    Time32Vector,
+    Time64Vector,
+    DecimalVector,
+    TimestampVector,
+} from './vector/numeric';
 
-import './types/table/from';
-
+export { Table, Vector, StructRow };
+export { readVectors, readVectorsAsync };
+export { NumericVectorConstructor } from './vector/numeric';
+export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {
-    Vector,
     readBuffers,
+    BoolVector,
+    ListVector,
+    Utf8Vector,
+    Int8Vector,
+    Int16Vector,
+    Int32Vector,
+    Int64Vector,
+    Uint8Vector,
+    Uint16Vector,
+    Uint32Vector,
+    Uint64Vector,
+    Date32Vector,
+    Date64Vector,
+    Time32Vector,
+    Time64Vector,
+    StructVector,
+    Float16Vector,
+    Float32Vector,
+    Float64Vector,
+    DecimalVector,
+    TimestampVector,
     DictionaryVector,
-    RowVector as Row,
-    TableVector as Table,
-    StructVector, Utf8Vector,
-    ListVector, FixedSizeListVector,
-    BoolVector, TypedVector, LongVector,
-    Int8Vector, Int16Vector, Int32Vector, Int64Vector,
-    Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
-    Date32Vector, Date64Vector, Float32Vector, Float64Vector,
+    FixedSizeListVector,
 };
 
 /* These exports are needed for the closure umd targets */
@@ -61,19 +80,14 @@ try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
+        Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
-        Arrow['Table'] = TableVector;
         Arrow['readBuffers'] = readBuffers;
-        Arrow['BoolVector'] = BoolVector;
-        Arrow['Utf8Vector'] = Utf8Vector;
-        Arrow['ListVector'] = ListVector;
+        Arrow['StructRow'] = StructRow;
         Arrow['StructVector'] = StructVector;
-        Arrow['DictionaryVector'] = DictionaryVector;
-        Arrow['FixedSizeListVector'] = FixedSizeListVector;
-        Arrow['LongVector'] = LongVector;
-        Arrow['TypedVector'] = TypedVector;
-        Arrow['Date32Vector'] = Date32Vector;
-        Arrow['Date64Vector'] = Date64Vector;
+        Arrow['BoolVector'] = BoolVector;
+        Arrow['ListVector'] = ListVector;
+        Arrow['Utf8Vector'] = Utf8Vector;
         Arrow['Int8Vector'] = Int8Vector;
         Arrow['Int16Vector'] = Int16Vector;
         Arrow['Int32Vector'] = Int32Vector;
@@ -82,8 +96,17 @@ try {
         Arrow['Uint16Vector'] = Uint16Vector;
         Arrow['Uint32Vector'] = Uint32Vector;
         Arrow['Uint64Vector'] = Uint64Vector;
+        Arrow['Date32Vector'] = Date32Vector;
+        Arrow['Date64Vector'] = Date64Vector;
+        Arrow['Time32Vector'] = Time32Vector;
+        Arrow['Time64Vector'] = Time64Vector;
+        Arrow['Float16Vector'] = Float16Vector;
         Arrow['Float32Vector'] = Float32Vector;
         Arrow['Float64Vector'] = Float64Vector;
+        Arrow['DecimalVector'] = DecimalVector;
+        Arrow['TimestampVector'] = TimestampVector;
+        Arrow['DictionaryVector'] = DictionaryVector;
+        Arrow['FixedSizeListVector'] = FixedSizeListVector;
     }
 } catch (e) { /* not the UMD bundle */ }
 /* end closure exports */

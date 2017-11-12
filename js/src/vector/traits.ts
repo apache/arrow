@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { BoolVector } from './bool';
-import { Vector, Column } from '../types';
-import * as Schema_ from '../../format/Schema_generated';
-import * as Message_ from '../../format/Message_generated';
+import { Vector } from './vector';
+import { BoolVector } from './numeric';
+import * as Schema_ from '../format/Schema_generated';
+import * as Message_ from '../format/Message_generated';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
@@ -38,7 +38,7 @@ export const nullableMixin = <T extends Vector, TArgv>(superclass: new (argv: TA
     };
 
 export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>
-    class extends (superclass as Ctor<TArgv>) implements Column {
+    class extends (superclass as Ctor<TArgv>) implements Vector {
         readonly field: Field;
         readonly type: string;
         readonly length: number;

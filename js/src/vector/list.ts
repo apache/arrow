@@ -15,19 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { List, Vector } from './types';
-import { VirtualVector } from './vector/virtual';
+import { List } from './types';
+import { Vector } from './vector';
+import { VirtualVector } from './virtual';
 
-export class FixedSizeListVector<T, TArray extends List<T>> extends Vector<TArray> {
-    readonly listSize: number;
+export class ListVector<T, TArray extends List<T>> extends Vector<TArray> {
+    readonly offsets: Int32Array;
     readonly values: Vector<T>;
-    constructor(argv: { listSize: number, values: Vector<T> }) {
+    constructor(argv: { offsets: Int32Array, values: Vector<T> }) {
         super();
         this.values = argv.values;
-        this.listSize = argv.listSize;
+        this.offsets = argv.offsets;
     }
     get(index: number) {
-        return this.values.slice<TArray>(this.listSize * index, this.listSize * (index + 1));
+        return this.values.slice<TArray>(this.offsets[index], this.offsets[index + 1]);
+    }
+    concat(...vectors: Vector<TArray>[]): Vector<TArray> {
+        return new VirtualVector(Array, this, ...vectors);
+    }
+}
+
+export class FixedSizeListVector<T, TArray extends List<T>> extends Vector<TArray> {
+    readonly size: number;
+    readonly values: Vector<T>;
+    constructor(argv: { size: number, values: Vector<T> }) {
+        super();
+        this.size = argv.size;
+        this.values = argv.values;
+    }
+    get(index: number) {
+        return this.values.slice<TArray>(this.size * index, this.size * (index + 1));
     }
     concat(...vectors: Vector<TArray>[]): Vector<TArray> {
         return new VirtualVector(Array, this, ...vectors);
