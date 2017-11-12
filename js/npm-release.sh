@@ -17,10 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-npm run clean
-npm run lint
-npm run build
-npm run test
-npm --no-git-tag-version version patch &>/dev/null
-npm run bundle
-npm run lerna:publish
+bump=${1:-patch} && echo "semantic-version bump: $bump"
+
+run-s --silent lint build test
+lerna publish --yes --skip-git --cd-version $bump --force-publish=*
