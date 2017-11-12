@@ -1,21 +1,25 @@
 const path = require('path');
 const { promisify } = require('util');
-const mkdirp = require('mkdirp');
 const glob = promisify(require('glob'));
+const mkdirp = promisify(require('mkdirp'));
+const rimraf = promisify(require('rimraf'));
 const exec = promisify(require('child_process').exec);
 
 (async function() {
-    mkdirp.sync(path.resolve('./test/arrows/cpp/file'));
-    mkdirp.sync(path.resolve('./test/arrows/java/file'));
-    mkdirp.sync(path.resolve('./test/arrows/cpp/stream'));
-    mkdirp.sync(path.resolve('./test/arrows/java/stream'));
-    const names = await glob('./test/arrows/json/*.json');
+    const base = path.resolve('./test/arrows');
+    await rimraf(path.join(base, 'cpp'));
+    await rimraf(path.join(base, 'java'));
+    await mkdirp(path.join(base, 'cpp/file'));
+    await mkdirp(path.join(base, 'java/file'));
+    await mkdirp(path.join(base, 'cpp/stream'));
+    await mkdirp(path.join(base, 'java/stream'));
+    const names = await glob(path.join(base, 'json/*.json'));
     for (let jsonPath of names) {
         const name = path.parse(path.basename(jsonPath)).name;
-        const arrowCppFilePath = path.resolve('./test/arrows/cpp/file', `${name}.arrow`);
-        const arrowJavaFilePath = path.resolve('./test/arrows/java/file', `${name}.arrow`);
-        const arrowCppStreamPath = path.resolve('./test/arrows/cpp/stream', `${name}.arrow`);
-        const arrowJavaStreamPath = path.resolve('./test/arrows/java/stream', `${name}.arrow`);
+        const arrowCppFilePath = path.join(base, 'cpp/file', `${name}.arrow`);
+        const arrowJavaFilePath = path.join(base, 'java/file', `${name}.arrow`);
+        const arrowCppStreamPath = path.join(base, 'cpp/stream', `${name}.arrow`);
+        const arrowJavaStreamPath = path.join(base, 'java/stream', `${name}.arrow`);
 
         await generateCPPFile(jsonPath, arrowCppFilePath);
         await generateCPPStream(arrowCppFilePath, arrowCppStreamPath);
