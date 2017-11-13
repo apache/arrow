@@ -573,7 +573,7 @@ class ParquetManifest(object):
         filtered_files.sort()
         filtered_directories.sort()
 
-        if len(files) > 0 and len(filtered_directories) > 0:
+        if len(filtered_files) > 0 and len(filtered_directories) > 0:
             raise ValueError('Found files in an intermediate '
                              'directory: {0}'.format(base_path))
         elif len(filtered_directories) > 0:
