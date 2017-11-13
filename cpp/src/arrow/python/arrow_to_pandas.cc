@@ -633,7 +633,7 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
   PyObject* Decimal = Decimal_ref.obj();
 
   for (int c = 0; c < data.num_chunks(); c++) {
-    auto* arr(static_cast<arrow::DecimalArray*>(data.chunk(c).get()));
+    auto* arr(static_cast<arrow::Decimal128Array*>(data.chunk(c).get()));
     auto type(std::dynamic_pointer_cast<arrow::DecimalType>(arr->type()));
     const int scale = type->scale();
 

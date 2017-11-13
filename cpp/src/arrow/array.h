@@ -559,18 +559,21 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 };
 
 // ----------------------------------------------------------------------
-// DecimalArray
-class ARROW_EXPORT DecimalArray : public FixedSizeBinaryArray {
+// Decimal128Array
+class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
  public:
   using TypeClass = DecimalType;
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
-  /// \brief Construct DecimalArray from ArrayData instance
-  explicit DecimalArray(const std::shared_ptr<ArrayData>& data);
+  /// \brief Construct Decimal128Array from ArrayData instance
+  explicit Decimal128Array(const std::shared_ptr<ArrayData>& data);
 
   std::string FormatValue(int64_t i) const;
 };
+
+// Backward compatibility
+using DecimalArray = Decimal128Array;
 
 // ----------------------------------------------------------------------
 // Struct

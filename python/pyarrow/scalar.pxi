@@ -258,7 +258,7 @@ cdef class DecimalValue(ArrayValue):
 
     def as_py(self):
         cdef:
-            CDecimalArray* ap = <CDecimalArray*> self.sp_array.get()
+            CDecimal128Array* ap = <CDecimal128Array*> self.sp_array.get()
             c_string s = ap.FormatValue(self.index)
         return _pydecimal.Decimal(s.decode('utf8'))
 

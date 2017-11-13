@@ -314,12 +314,12 @@ const uint8_t* FixedSizeBinaryArray::GetValue(int64_t i) const {
 // ----------------------------------------------------------------------
 // Decimal
 
-DecimalArray::DecimalArray(const std::shared_ptr<ArrayData>& data)
+Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
   DCHECK_EQ(data->type->id(), Type::DECIMAL);
 }
 
-std::string DecimalArray::FormatValue(int64_t i) const {
+std::string Decimal128Array::FormatValue(int64_t i) const {
   const auto& type_ = static_cast<const DecimalType&>(*type());
   const Decimal128 value(GetValue(i));
   return value.ToString(type_.scale());
@@ -515,7 +515,7 @@ struct ValidateVisitor {
 
   Status Visit(const PrimitiveArray&) { return Status::OK(); }
 
-  Status Visit(const DecimalArray&) { return Status::OK(); }
+  Status Visit(const Decimal128Array&) { return Status::OK(); }
 
   Status Visit(const BinaryArray&) {
     // TODO(wesm): what to do here?
