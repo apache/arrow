@@ -572,6 +572,9 @@ class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
   std::string FormatValue(int64_t i) const;
 };
 
+// Backward compatibility
+using DecimalArray = Decimal128Array;
+
 // ----------------------------------------------------------------------
 // Struct
 
