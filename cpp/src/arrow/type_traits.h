@@ -231,7 +231,7 @@ struct TypeTraits<DoubleType> {
 
 template <>
 struct TypeTraits<DecimalType> {
-  using ArrayType = DecimalArray;
+  using ArrayType = Decimal128Array;
   using BuilderType = DecimalBuilder;
   constexpr static bool is_parameter_free = false;
 };

@@ -170,7 +170,7 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_same<DecimalArray, T>::value, void>::type
+  inline typename std::enable_if<std::is_same<Decimal128Array, T>::value, void>::type
   WriteDataValues(const T& array) {
     for (int i = 0; i < array.length(); ++i) {
       if (i > 0) {

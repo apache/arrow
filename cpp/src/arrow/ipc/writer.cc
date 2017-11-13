@@ -339,7 +339,7 @@ class RecordBatchSerializer : public ArrayVisitor {
   VISIT_FIXED_WIDTH(Time32Array)
   VISIT_FIXED_WIDTH(Time64Array)
   VISIT_FIXED_WIDTH(FixedSizeBinaryArray)
-  VISIT_FIXED_WIDTH(DecimalArray)
+  VISIT_FIXED_WIDTH(Decimal128Array)
 
 #undef VISIT_FIXED_WIDTH
 

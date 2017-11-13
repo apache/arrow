@@ -690,10 +690,10 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
 
   RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, default_memory_pool(), &is_valid));
 
-  auto a1 = std::make_shared<DecimalArray>(f0->type(), length, data, is_valid,
-                                           kUnknownNullCount);
+  auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
+                                              kUnknownNullCount);
 
-  auto a2 = std::make_shared<DecimalArray>(f1->type(), length, data);
+  auto a2 = std::make_shared<Decimal128Array>(f1->type(), length, data);
 
   ArrayVector arrays = {a1, a2};
   *out = std::make_shared<RecordBatch>(schema, length, arrays);

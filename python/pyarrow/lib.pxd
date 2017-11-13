@@ -246,7 +246,7 @@ cdef class FixedSizeBinaryArray(Array):
     pass
 
 
-cdef class DecimalArray(FixedSizeBinaryArray):
+cdef class Decimal128Array(FixedSizeBinaryArray):
     pass
 
 

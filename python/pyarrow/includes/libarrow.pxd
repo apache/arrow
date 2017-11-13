@@ -312,7 +312,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeBinaryArray" arrow::FixedSizeBinaryArray"(CArray):
         const uint8_t* GetValue(int i)
 
-    cdef cppclass CDecimalArray" arrow::DecimalArray"(CFixedSizeBinaryArray):
+    cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
+        CFixedSizeBinaryArray
+    ):
         c_string FormatValue(int i)
 
     cdef cppclass CListArray" arrow::ListArray"(CArray):

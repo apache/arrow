@@ -155,7 +155,7 @@ Array Types
    Date32Array
    Date64Array
    TimestampArray
-   DecimalArray
+   Decimal128Array
    ListArray
 
 .. _api.table:
