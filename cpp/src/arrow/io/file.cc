@@ -255,19 +255,18 @@ static inline Status FileSeek(int fd, int64_t pos) {
 
 static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbytes,
                               int64_t* bytes_read) {
-#if defined(_MSC_VER)
-  if (nbytes > ARROW_MAX_IO_CHUNKSIZE) {
-    return Status::IOError("Unable to read > 2GB blocks yet");
-  }
-  *bytes_read = static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(nbytes)));
-#else
   *bytes_read = 0;
 
   while (*bytes_read != -1 && *bytes_read < nbytes) {
     int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
+#if defined(_MSC_VER)
+    int64_t ret = static_cast<int64_t>(
+        _read(fd, buffer + *bytes_read, static_cast<uint32_t>(chunksize)));
+#else
     int64_t ret = static_cast<int64_t>(
         read(fd, buffer + *bytes_read, static_cast<size_t>(chunksize)));
+#endif
 
     if (ret != -1) {
       *bytes_read += ret;
@@ -279,7 +278,6 @@ static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbyte
       *bytes_read = ret;
     }
   }
-#endif
 
   if (*bytes_read == -1) {
     return Status::IOError(std::string("Error reading bytes from file: ") +
@@ -292,25 +290,23 @@ static inline Status FileRead(const int fd, uint8_t* buffer, const int64_t nbyte
 static inline Status FileWrite(const int fd, const uint8_t* buffer,
                                const int64_t nbytes) {
   int ret = 0;
-#if defined(_MSC_VER)
-  if (nbytes > ARROW_MAX_IO_CHUNKSIZE) {
-    return Status::IOError("Unable to write > 2GB blocks to file yet");
-  }
-  ret = static_cast<int>(_write(fd, buffer, static_cast<uint32_t>(nbytes)));
-#else
   int64_t bytes_written = 0;
 
   while (ret != -1 && bytes_written < nbytes) {
     int64_t chunksize =
         std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_written);
+#if defined(_MSC_VER)
+    ret = static_cast<int>(
+        _write(fd, buffer + bytes_written, static_cast<uint32_t>(chunksize)));
+#else
     ret = static_cast<int>(
         write(fd, buffer + bytes_written, static_cast<size_t>(chunksize)));
+#endif
 
     if (ret != -1) {
       bytes_written += ret;
     }
   }
-#endif
 
   if (ret == -1) {
     return Status::IOError(std::string("Error writing bytes from file: ") +
