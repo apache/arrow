@@ -26,51 +26,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_OUTPUT_STREAM               \
-  (garrow_output_stream_get_type())
-#define GARROW_OUTPUT_STREAM(obj)                               \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_OUTPUT_STREAM,        \
-                              GArrowOutputStream))
-#define GARROW_OUTPUT_STREAM_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_OUTPUT_STREAM,   \
-                           GArrowOutputStreamClass))
-#define GARROW_IS_OUTPUT_STREAM(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_OUTPUT_STREAM))
-#define GARROW_IS_OUTPUT_STREAM_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_OUTPUT_STREAM))
-#define GARROW_OUTPUT_STREAM_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_OUTPUT_STREAM, \
-                             GArrowOutputStreamClass))
-
-typedef struct _GArrowOutputStream          GArrowOutputStream;
-#ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowOutputStreamClass     GArrowOutputStreamClass;
-#endif
-
-/**
- * GArrowOutputStream:
- *
- * It wraps `arrow::io::OutputStream`.
- */
-struct _GArrowOutputStream
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
-#ifndef __GTK_DOC_IGNORE__
+#define GARROW_TYPE_OUTPUT_STREAM (garrow_output_stream_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowOutputStream,
+                         garrow_output_stream,
+                         GARROW,
+                         OUTPUT_STREAM,
+                         GObject)
 struct _GArrowOutputStreamClass
 {
   GObjectClass parent_class;
 };
-#endif
-
-GType garrow_output_stream_get_type(void) G_GNUC_CONST;
 
 gint64 garrow_output_stream_write_tensor(GArrowOutputStream *stream,
                                          GArrowTensor *tensor,

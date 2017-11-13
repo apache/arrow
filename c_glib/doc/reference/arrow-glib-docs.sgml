@@ -125,6 +125,16 @@
     </chapter>
   </part>
 
+  <!-- TODO
+  <part id="gpu">
+    <title>GPU</title>
+    <chapter id="cuda">
+      <title>CUDA</title>
+      <xi:include href="xml/cuda.xml"/>
+    </chapter>
+  </part>
+  -->
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>

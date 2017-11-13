@@ -15,5 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SUBDIRS =                                       \
-	reference
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Apache Arrow GPU GLib
+Description: C API for Apache Arrow GPU based on GLib
+Version: @VERSION@
+Libs: -L${libdir} -larrow-gpu-glib
+Cflags: -I${includedir}
+Requires: arrow-glib

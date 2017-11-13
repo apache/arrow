@@ -32,13 +32,26 @@ glib_prefix = dependency('glib-2.0').get_pkgconfig_variable('prefix')
 glib_doc_path = join_paths(glib_prefix, 'share', 'gtk-doc', 'html')
 doc_path = join_paths(data_dir, meson.project_name(), 'gtk-doc', 'html')
 
+source_directories = [
+  join_paths(meson.source_root(), 'arrow-glib'),
+  join_paths(meson.build_root(), 'arrow-glib'),
+]
+dependencies = [
+  libarrow_glib_dependency,
+]
+if arrow_gpu_dependency.found()
+  source_directories += [
+    join_paths(meson.source_root(), 'arrow-gpu-glib'),
+    join_paths(meson.build_root(), 'arrow-gpu-glib'),
+  ]
+  dependencies += [
+    libarrow_gpu_glib_dependency,
+  ]
+endif
 gnome.gtkdoc(meson.project_name(),
              main_xml: meson.project_name() + '-docs.sgml',
-             src_dir: [
-               join_paths(meson.source_root(), 'arrow-glib'),
-               join_paths(meson.build_root(), 'arrow-glib'),
-             ],
-             dependencies: libarrow_glib_dependency,
+             src_dir: source_directories,
+             dependencies: dependencies,
              gobject_typesfile: meson.project_name() + '.types',
              scan_args: [
                '--rebuild-types',

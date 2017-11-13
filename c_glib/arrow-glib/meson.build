@@ -179,22 +179,23 @@ pkgconfig.generate(filebase: meson.project_name(),
                    name: 'Apache Arrow GLib',
                    description: 'C API for Apache Arrow based on GLib',
                    version: version,
-                   requires: ['gobject-2.0', 'arrow'],
+                   requires: ['gio-2.0', 'arrow'],
                    libraries: [libarrow_glib],
                    subdirs: ['arrow-glib'])
 
-gnome.generate_gir(libarrow_glib,
-                   sources: sources + c_headers + enums,
-                   namespace: 'Arrow',
-                   nsversion: api_version,
-                   identifier_prefix: 'GArrow',
-                   symbol_prefix: 'garrow',
-                   export_packages: 'arrow-glib',
-                   includes: [
-                     'GObject-2.0',
-                     'Gio-2.0',
-                   ],
-                   install: true,
-                   extra_args: [
-                     '--warn-all',
-                   ])
+arrow_glib_gir = gnome.generate_gir(libarrow_glib,
+                                    sources: sources + c_headers + enums,
+                                    namespace: 'Arrow',
+                                    nsversion: api_version,
+                                    identifier_prefix: 'GArrow',
+                                    symbol_prefix: 'garrow',
+                                    export_packages: 'arrow-glib',
+                                    includes: [
+                                      'GObject-2.0',
+                                      'Gio-2.0',
+                                    ],
+                                    install: true,
+                                    extra_args: [
+                                      '--warn-all',
+                                    ])
+arrow_glib_gir_dependency = declare_dependency(sources: arrow_glib_gir)
