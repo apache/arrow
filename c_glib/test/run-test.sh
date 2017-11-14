@@ -20,27 +20,34 @@
 test_dir="$(cd $(dirname $0); pwd)"
 build_dir="$(cd .; pwd)"
 
-arrow_glib_build_dir="${build_dir}/arrow-glib/"
-libtool_dir="${arrow_glib_build_dir}/.libs"
-if [ -d "${libtool_dir}" ]; then
-  LD_LIBRARY_PATH="${libtool_dir}:${LD_LIBRARY_PATH}"
-else
-  if [ -d "${arrow_glib_build_dir}" ]; then
-    LD_LIBRARY_PATH="${arrow_glib_build_dir}:${LD_LIBRARY_PATH}"
+modules="arrow-glib arrow-gpu-glib"
+
+for module in ${modules}; do
+  module_build_dir="${build_dir}/${module}"
+  libtool_dir="${module_build_dir}/.libs"
+  if [ -d "${libtool_dir}" ]; then
+    LD_LIBRARY_PATH="${libtool_dir}:${LD_LIBRARY_PATH}"
+  else
+    if [ -d "${module_build_dir}" ]; then
+      LD_LIBRARY_PATH="${module_build_dir}:${LD_LIBRARY_PATH}"
+    fi
   fi
-fi
+done
 
 if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
   make -j8 > /dev/null || exit $?
 fi
 
-arrow_glib_typelib_dir="${ARROW_GLIB_TYPELIB_DIR}"
-if [ -z "${arrow_glib_typelib_dir}" ]; then
-  arrow_glib_typelib_dir="${build_dir}/arrow-glib"
-fi
+for module in ${modules}; do
+  MODULE_TYPELIB_DIR_VAR_NAME="$(echo ${module} | tr a-z- A-Z_)_TYPELIB_DIR"
+  module_typelib_dir=$(eval "echo \${${MODULE_TYPELIB_DIR_VAR_NAME}}")
+  if [ -z "${module_typelib_dir}" ]; then
+    module_typelib_dir="${build_dir}/${module}"
+  fi
 
-if [ -d "${arrow_glib_typelib_dir}" ]; then
-  GI_TYPELIB_PATH="${arrow_glib_typelib_dir}:${GI_TYPELIB_PATH}"
-fi
+  if [ -d "${module_typelib_dir}" ]; then
+    GI_TYPELIB_PATH="${module_typelib_dir}:${GI_TYPELIB_PATH}"
+  fi
+done
 
 ${GDB} ruby ${test_dir}/run-test.rb "$@"

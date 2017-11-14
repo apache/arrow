@@ -37,6 +37,12 @@ module Arrow
   end
 end
 
+begin
+  ArrowGPU = GI.load("ArrowGPU")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+require "rbconfig"
 require "tempfile"
 require_relative "helper/buildable"
 require_relative "helper/omittable"

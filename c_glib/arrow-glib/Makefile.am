@@ -203,20 +203,18 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\
 	arrow-glib.pc
 
-# GObject Introspection
+if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS =
 INTROSPECTION_COMPILER_ARGS =
 
-if HAVE_INTROSPECTION
 Arrow-1.0.gir: libarrow-glib.la
 Arrow_1_0_gir_PACKAGES =			\
-	gobject-2.0				\
 	gio-2.0
-Arrow_1_0_gir_EXPORT_PACKAGES = arrow
+Arrow_1_0_gir_EXPORT_PACKAGES =			\
+	arrow-glib
 Arrow_1_0_gir_INCLUDES =			\
-	GObject-2.0				\
 	Gio-2.0
 Arrow_1_0_gir_CFLAGS =				\
 	$(AM_CPPFLAGS)
