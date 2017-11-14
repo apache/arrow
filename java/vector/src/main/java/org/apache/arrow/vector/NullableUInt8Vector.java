@@ -104,13 +104,15 @@ public class NullableUInt8Vector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         return get(index);
+         return valueBuffer.getLong(index * TYPE_WIDTH);
       }
    }
 
    public void copyFrom(int fromIndex, int thisIndex, NullableUInt8Vector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

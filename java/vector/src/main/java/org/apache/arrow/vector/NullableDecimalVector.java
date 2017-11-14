@@ -154,6 +154,9 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       if (from.isSet(fromIndex) != 0) {
          from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
                  thisIndex * TYPE_WIDTH, TYPE_WIDTH);
+         BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

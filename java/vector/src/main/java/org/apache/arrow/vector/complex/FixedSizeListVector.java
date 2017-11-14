@@ -134,13 +134,15 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-
-    validityBuffer.readerIndex(0);
-    validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-
+    setReaderAndWriterIndex();
     result.add(validityBuffer);
 
     return result;
+  }
+
+  private void setReaderAndWriterIndex() {
+    validityBuffer.readerIndex(0);
+    validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
   }
 
   @Override
@@ -182,6 +184,8 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
      */
     boolean success = false;
     try {
+      /* we are doing a new allocation -- release the current buffers */
+      clear();
       /* allocate validity buffer */
       allocateValidityBuffer(validityAllocationSizeInBytes);
       success = vector.allocateNewSafe();
@@ -282,7 +286,13 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    final ArrowBuf[] buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, vector.getBuffers(false), ArrowBuf.class);
+    setReaderAndWriterIndex();
+    final ArrowBuf[] buffers;
+    if (getBufferSize() == 0) {
+      buffers = new ArrowBuf[0];
+    } else {
+      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, vector.getBuffers(false), ArrowBuf.class);
+    }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
         buffer.retain();
@@ -462,6 +472,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       dataPair.transfer();
       to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
       to.setValueCount(valueCount);
+      clear();
     }
 
     @Override

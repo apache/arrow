@@ -72,6 +72,8 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
    public void copyFrom(int fromIndex, int thisIndex, NullableTimeStampVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

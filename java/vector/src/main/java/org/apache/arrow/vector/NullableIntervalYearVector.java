@@ -126,7 +126,7 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         final int interval = get(index);
+         final int interval = valueBuffer.getInt(index * TYPE_WIDTH);
          final int years  = (interval / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
          final int months = (interval % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
          final Period p = new Period();
@@ -172,6 +172,8 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableIntervalYearVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

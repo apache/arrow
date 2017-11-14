@@ -127,7 +127,7 @@ public class NullableDateDayVector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         return get(index);
+         return valueBuffer.getInt(index * TYPE_WIDTH);
       }
    }
 
@@ -141,6 +141,8 @@ public class NullableDateDayVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableDateDayVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

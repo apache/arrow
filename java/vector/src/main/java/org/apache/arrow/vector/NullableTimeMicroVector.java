@@ -127,7 +127,7 @@ public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         return get(index);
+         return valueBuffer.getLong(index * TYPE_WIDTH);
       }
    }
 
@@ -141,6 +141,8 @@ public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableTimeMicroVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

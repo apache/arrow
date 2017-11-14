@@ -126,7 +126,7 @@ public class NullableTinyIntVector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         return get(index);
+         return valueBuffer.getByte(index * TYPE_WIDTH);
       }
    }
 
@@ -140,6 +140,8 @@ public class NullableTinyIntVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableTinyIntVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

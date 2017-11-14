@@ -41,7 +41,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * implying that zero or more elements in the vector could be NULL.
  */
 public abstract class BaseNullableFixedWidthVector extends BaseValueVector
-        implements FixedWidthVector, FieldVector {
+        implements FixedWidthVector, FieldVector, NullableVectorDefinitionSetter {
    private final byte typeWidth;
 
    protected int valueAllocationSizeInBytes;
@@ -314,20 +314,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
          valueBufferSize = validityBufferSize;
       }
 
-      if (allocationMonitor > 10) {
-         /* step down the default memory allocation since we have observed
-          * multiple times that provisioned value capacity was much larger than
-          * actually needed. see setValueCount for more details.
-          */
-         valueBufferSize = Math.max(8, valueBufferSize / 2);
-         validityBufferSize = Math.max(8, validityBufferSize / 2);
-         allocationMonitor = 0;
-      } else if (allocationMonitor < -2) {
-         valueBufferSize = valueBufferSize * 2L;
-         validityBufferSize = validityBufferSize * 2L;
-         allocationMonitor = 0;
-      }
-
       if (valueBufferSize > MAX_ALLOCATION_SIZE) {
          throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
       }
@@ -359,10 +345,9 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       valueBuffer = allocator.buffer(curSize);
       valueBuffer.readerIndex(0);
       valueAllocationSizeInBytes = curSize;
-
       /* allocate validity buffer */
       allocateValidityBuffer((int)validityBufferSize);
-      initValidityBuffer();
+      zeroVector();
    }
 
    /**
@@ -375,7 +360,6 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       validityBuffer = allocator.buffer(validityBufferSize);
       validityBuffer.readerIndex(0);
       validityAllocationSizeInBytes = validityBufferSize;
-      initValidityBuffer();
    }
 
    /**
@@ -423,9 +407,15 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     */
    @Override
    public ArrowBuf[] getBuffers(boolean clear) {
-      final ArrowBuf[] buffers = new ArrowBuf[2];
-      buffers[0] = validityBuffer;
-      buffers[1] = valueBuffer;
+      final ArrowBuf[] buffers;
+      setReaderAndWriterIndex();
+      if (getBufferSize() == 0) {
+         buffers = new ArrowBuf[0];
+      } else {
+         buffers = new ArrowBuf[2];
+         buffers[0] = validityBuffer;
+         buffers[1] = valueBuffer;
+      }
       if (clear) {
          for (final ArrowBuf buffer:buffers) {
             buffer.retain(1);
@@ -543,21 +533,28 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     */
    public List<ArrowBuf> getFieldBuffers() {
       List<ArrowBuf> result = new ArrayList<>(2);
-
-      validityBuffer.readerIndex(0);
-      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      valueBuffer.readerIndex(0);
-      if (typeWidth == 0) {
-         /* specialized handling for NullableBitVector */
-         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      } else {
-         valueBuffer.writerIndex(valueCount * typeWidth);
-      }
-
+      setReaderAndWriterIndex();
       result.add(validityBuffer);
       result.add(valueBuffer);
 
       return result;
+   }
+
+   private void setReaderAndWriterIndex() {
+      validityBuffer.readerIndex(0);
+      valueBuffer.readerIndex(0);
+      if (valueCount == 0) {
+         validityBuffer.writerIndex(0);
+         valueBuffer.writerIndex(0);
+      } else {
+         validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
+         if (typeWidth == 0) {
+         /* specialized handling for NullableBitVector */
+            valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
+         } else {
+            valueBuffer.writerIndex(valueCount * typeWidth);
+         }
+      }
    }
 
    /**
@@ -767,6 +764,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
             decrementAllocationMonitor();
          }
       }
+      setReaderAndWriterIndex();
    }
 
    /**
@@ -808,6 +806,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     *
     * @param index position of the element.
     */
+   @Override
    public void setIndexDefined(int index) {
       handleSafe(index);
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);

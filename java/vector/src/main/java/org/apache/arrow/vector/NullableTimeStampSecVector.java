@@ -112,7 +112,7 @@ public class NullableTimeStampSecVector extends NullableTimeStampVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         final long secs = get(index);
+         final long secs = valueBuffer.getLong(index * TYPE_WIDTH);
          final long millis = java.util.concurrent.TimeUnit.SECONDS.toMillis(secs);
          final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
          return localDateTime;

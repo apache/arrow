@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import java.util.List;
 
@@ -113,10 +114,23 @@ public class TestUnionVector {
         assertEquals(srcVector.getField(), destVector.getField());
 
         // now check the values are transferred
-        assertEquals(srcVector.getValueCount(), destVector.getValueCount());
-        for (int i = 0; i < srcVector.getValueCount(); i++) {
-          assertEquals("Different values at index " + i, srcVector.get(i), destVector.get(i));
-        }
+        assertEquals(6, destVector.getValueCount());
+
+        assertFalse(destVector.isNull(0));
+        assertEquals(5, destVector.getObject(0));
+
+        assertFalse(destVector.isNull(1));
+        assertEquals(false, destVector.getObject(1));
+
+        assertTrue(destVector.isNull(2));
+
+        assertFalse(destVector.isNull(3));
+        assertEquals(10, destVector.getObject(3));
+
+        assertTrue(destVector.isNull(4));
+
+        assertFalse(destVector.isNull(5));
+        assertEquals(false, destVector.getObject(5));
       }
     }
   }

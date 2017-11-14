@@ -54,7 +54,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
   private final NullableMapWriter writer = new NullableMapWriter(this);
 
-  private ArrowBuf validityBuffer;
+  protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
 
   // deprecated, use FieldType or static constructor instead
@@ -99,12 +99,15 @@ public class NullableMapVector extends MapVector implements FieldVector {
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-
-    validityBuffer.readerIndex(0);
-    validityBuffer.writerIndex(BitVectorHelper.getValidityBufferSize(valueCount));
+    setReaderAndWriterIndex();
     result.add(validityBuffer);
 
     return result;
+  }
+
+  private void setReaderAndWriterIndex() {
+    validityBuffer.readerIndex(0);
+    validityBuffer.writerIndex(BitVectorHelper.getValidityBufferSize(valueCount));
   }
 
   @Override
@@ -156,6 +159,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
       target.clear();
       target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
       super.transfer();
+      clear();
     }
 
     @Override
@@ -248,10 +252,21 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    if (clear) {
-      validityBuffer.retain(1);
+    setReaderAndWriterIndex();
+    final ArrowBuf[] buffers;
+    if (getBufferSize() == 0) {
+      buffers = new ArrowBuf[0];
+    } else {
+      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(false), ArrowBuf.class);
     }
-    return ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(clear), ArrowBuf.class);
+    if (clear) {
+      for (ArrowBuf buffer: buffers) {
+        buffer.retain();
+      }
+      clear();
+    }
+
+    return buffers;
   }
 
   @Override
@@ -302,7 +317,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
      */
     boolean success = false;
     try {
-      clearValidityBuffer();
+      clear();
       allocateValidityBuffer(validityAllocationSizeInBytes);
       success = super.allocateNewSafe();
     } finally {
@@ -431,7 +446,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
   @Override
   public void setValueCount(int valueCount) {
     assert valueCount >= 0;
-    while (valueCount > getValueCapacity()) {
+    while (valueCount > getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }

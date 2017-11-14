@@ -129,7 +129,7 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         final long millis = get(index);
+         final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
          final LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
          return localDateTime;
       }
@@ -145,6 +145,8 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableDateMilliVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

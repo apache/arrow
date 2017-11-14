@@ -60,7 +60,7 @@ public class UnionReader extends AbstractFieldReader {
   }
 
   public boolean isSet(){
-    return !data.getAccessor().isNull(idx());
+    return !data.isNull(idx());
   }
 
   public void read(UnionHolder holder) {

@@ -163,7 +163,7 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
             if (destBuffer != null) {
                destBuffer.release();
             }
-            destBuffer = destBuffer.slice(firstByteSource, byteSizeTarget);
+            destBuffer = sourceBuffer.slice(firstByteSource, byteSizeTarget);
             destBuffer.retain(1);
          }
          else {
@@ -279,6 +279,8 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    public void copyFrom(int fromIndex, int thisIndex, NullableBitVector from) {
       if (from.isSet(fromIndex) != 0) {
          set(thisIndex, from.get(fromIndex));
+      } else {
+         BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
       }
    }
 

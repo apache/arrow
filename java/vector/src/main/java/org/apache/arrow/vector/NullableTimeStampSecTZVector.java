@@ -114,7 +114,7 @@ public class NullableTimeStampSecTZVector extends NullableTimeStampVector {
       if (isSet(index) == 0) {
          return null;
       } else {
-         return get(index);
+         return valueBuffer.getLong(index * TYPE_WIDTH);
       }
    }
 
