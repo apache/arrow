@@ -27,7 +27,8 @@ import static org.apache.arrow.vector.schema.ArrowVectorType.*;
 
 import java.io.File;
 import java.io.IOException;
-
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -313,11 +314,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
         ArrowBuf buf = allocator.buffer(count * NullableDecimalVector.TYPE_WIDTH);
-
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          final byte[] value = decodeHexSafe(parser.getValueAsString());
-          DecimalUtility.writeByteArrayToArrowBuf(value, buf, i);
+          BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
+          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i);
         }
 
         return buf;

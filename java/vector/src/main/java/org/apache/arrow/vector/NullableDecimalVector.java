@@ -173,6 +173,11 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
       copyFrom(fromIndex, thisIndex, from);
    }
 
+   /**
+    * Return scale for the decimal value
+    */
+   public int getScale() { return scale; }
+
 
    /******************************************************************
     *                                                                *
