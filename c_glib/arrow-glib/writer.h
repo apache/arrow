@@ -77,6 +77,10 @@ gboolean garrow_record_batch_writer_write_record_batch(
   GArrowRecordBatchWriter *writer,
   GArrowRecordBatch *record_batch,
   GError **error);
+gboolean garrow_record_batch_writer_write_table(
+  GArrowRecordBatchWriter *writer,
+  GArrowTable *table,
+  GError **error);
 gboolean garrow_record_batch_writer_close(
   GArrowRecordBatchWriter *writer,
   GError **error);
