@@ -253,7 +253,7 @@ class SchemaWriter {
     writer_->Int(type.byte_width());
   }
 
-  void WriteTypeMetadata(const DecimalType& type) {
+  void WriteTypeMetadata(const Decimal128Type& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
     writer_->Key("scale");
@@ -347,7 +347,7 @@ class SchemaWriter {
     return WritePrimitive("fixedsizebinary", type);
   }
 
-  Status Visit(const DecimalType& type) { return WritePrimitive("decimal", type); }
+  Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
   Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
 
@@ -1063,7 +1063,7 @@ class ArrayReader {
 
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value &&
-                              !std::is_base_of<DecimalType, T>::value,
+                              !std::is_base_of<Decimal128Type, T>::value,
                           Status>::type
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
@@ -1105,7 +1105,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<DecimalType, T>::value, Status>::type Visit(
+  typename std::enable_if<std::is_base_of<Decimal128Type, T>::value, Status>::type Visit(
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 

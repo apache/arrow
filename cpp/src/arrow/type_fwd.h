@@ -68,9 +68,9 @@ class StructType;
 class StructArray;
 class StructBuilder;
 
-class DecimalType;
+class Decimal128Type;
 class Decimal128Array;
-class DecimalBuilder;
+class Decimal128Builder;
 
 class UnionType;
 class UnionArray;

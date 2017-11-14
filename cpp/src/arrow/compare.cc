@@ -615,8 +615,8 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalType& left) {
-    const auto& right = static_cast<const DecimalType&>(right_);
+  Status Visit(const Decimal128Type& left) {
+    const auto& right = static_cast<const Decimal128Type&>(right_);
     result_ = left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }

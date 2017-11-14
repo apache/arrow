@@ -634,7 +634,7 @@ static Status ConvertDecimals(PandasOptions options, const ChunkedArray& data,
 
   for (int c = 0; c < data.num_chunks(); c++) {
     auto* arr(static_cast<arrow::Decimal128Array*>(data.chunk(c).get()));
-    auto type(std::dynamic_pointer_cast<arrow::DecimalType>(arr->type()));
+    auto type(std::dynamic_pointer_cast<arrow::Decimal128Type>(arr->type()));
     const int scale = type->scale();
 
     for (int64_t i = 0; i < arr->length(); ++i) {
@@ -1600,7 +1600,7 @@ class ArrowDeserializer {
     return VisitObjects(ConvertFixedSizeBinary);
   }
 
-  Status Visit(const DecimalType& type) { return VisitObjects(ConvertDecimals); }
+  Status Visit(const Decimal128Type& type) { return VisitObjects(ConvertDecimals); }
 
   Status Visit(const Time32Type& type) { return VisitObjects(ConvertTimes<Time32Type>); }
 

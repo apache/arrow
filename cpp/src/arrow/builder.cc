@@ -1147,17 +1147,18 @@ template class DictionaryBuilder<BinaryType>;
 template class DictionaryBuilder<StringType>;
 
 // ----------------------------------------------------------------------
-// DecimalBuilder
+// Decimal128Builder
 
-DecimalBuilder::DecimalBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
+                                     MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool) {}
 
-Status DecimalBuilder::Append(const Decimal128& value) {
+Status Decimal128Builder::Append(const Decimal128& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   return FixedSizeBinaryBuilder::Append(value.ToBytes());
 }
 
-Status DecimalBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
