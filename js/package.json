@@ -17,6 +17,7 @@
     "debug": "gulp debug",
     "perf": "node ./perf/index.js",
     "release": "./npm-release.sh",
+    "validate": "run-s --silent lint build clean",
     "test:coverage": "gulp test -t ts --coverage",
     "doc": "shx rm -rf ./doc && esdoc",
     "lint": "npm-run-all -p lint:*",
