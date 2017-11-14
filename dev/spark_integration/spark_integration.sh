@@ -47,18 +47,20 @@ git clone https://github.com/apache/spark.git
 pushd spark
 sed -i -e "s/\(.*<arrow.version>\).*\(<\/arrow.version>\)/\1$ARROW_VERSION\2/g" ./pom.xml
 echo "Building Spark with Arrow $ARROW_VERSION"
-mvn -DskipTests clean package
+build/mvn -DskipTests clean package
 
 # Run Arrow related Scala tests only, NOTE: -Dtest=_NonExist_ is to enable surefire test discovery without running any tests so that Scalatest can run
 SPARK_SCALA_TESTS="org.apache.spark.sql.execution.arrow,org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite,org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite"
 echo "Testing Spark $SPARK_SCALA_TESTS"
-mvn -Dtest=_NonExist_ -DwildcardSuites="'$SPARK_SCALA_TESTS'" test -pl sql/core
+# TODO: should be able to only build spark-sql tests with adding "-pl sql/core" but not currently working
+build/mvn -Dtest=none -DwildcardSuites="$SPARK_SCALA_TESTS" test
 
 # Run pyarrow related Python tests only
 #SPARK_TESTING=1 bin/pyspark pyspark.sql.tests ArrowTests GroupbyApplyTests VectorizedUDFTests
 popd
 
 # Clean up
+echo "Cleaning up.."
 #rm -rf spark .local
 rm -rf spark
 

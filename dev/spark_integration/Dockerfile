@@ -20,9 +20,7 @@ WORKDIR /apache-arrow
 # Basic OS utilities
 RUN apt-get update && apt-get install -y \
         wget \
-        git \
-        software-properties-common
-
+        git
 # This will install conda in /home/ubuntu/miniconda
 #RUN wget -O /tmp/miniconda.sh \
 #    https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
