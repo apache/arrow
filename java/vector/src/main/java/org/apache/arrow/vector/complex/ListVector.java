@@ -457,7 +457,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       buffers = new ArrowBuf[0];
     } else {
       buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer},
-              ObjectArrays.concat(new ArrowBuf[] {validityBuffer},
+              ObjectArrays.concat(new ArrowBuf[]{validityBuffer},
                       vector.getBuffers(false), ArrowBuf.class), ArrowBuf.class);
     }
     if (clear) {

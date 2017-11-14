@@ -292,7 +292,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       buffers = new ArrowBuf[0];
     } else {
       buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, vector.getBuffers(false),
-              ArrowBuf.class);
+                ArrowBuf.class);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

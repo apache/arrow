@@ -445,6 +445,14 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       reallocValidityAndOffsetBuffers();
    }
 
+   /**
+    * Reallocate the data buffer. Data Buffer stores the actual data for
+    * VARCHAR or VARBINARY elements in the vector. The behavior is to double
+    * the size of buffer.
+    * @throws OversizedAllocationException if the desired new size is more than
+    *                                      max allowed
+    * @throws OutOfMemoryException if the internal memory allocation fails
+    */
    public void reallocDataBuffer() {
       long baseSize = valueAllocationSizeInBytes;
       final int currentBufferCapacity = valueBuffer.capacity();
@@ -467,6 +475,29 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       valueAllocationSizeInBytes = (int)newAllocationSize;
    }
 
+   /**
+    * Reallocate the validity and offset buffers for this vector. Validity
+    * buffer is used to track the NULL or NON-NULL nature of elements in
+    * the vector and offset buffer is used to store the lengths of variable
+    * width elements in the vector.
+    *
+    * Note that data buffer for variable length vectors moves independent
+    * of the companion validity and offset buffers. This is in
+    * contrast to what we have for fixed width vectors.
+    *
+    * So even though we may have setup an initial capacity of 1024
+    * elements in the vector, it is quite possible
+    * that we need to reAlloc() the data buffer when we are setting
+    * the 5th element in the vector simply because previous
+    * variable length elements have exhausted the buffer capacity.
+    * However, we really don't need to reAlloc() validity and
+    * offset buffers until we try to set the 1025th element
+    * This is why we do a separate check for safe methods to
+    * determine which buffer needs reallocation.
+    * @throws OversizedAllocationException if the desired new size is more than
+    *                                      max allowed
+    * @throws OutOfMemoryException if the internal memory allocation fails
+    */
    public void reallocValidityAndOffsetBuffers() {
       offsetBuffer = reallocBufferHelper(offsetBuffer, true);
       validityBuffer = reallocBufferHelper(validityBuffer, false);
