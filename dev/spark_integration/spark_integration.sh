@@ -24,30 +24,42 @@ export ARROW_HOME=$(pwd)/dist
 export PARQUET_HOME=$(pwd)/dist
 CONDA_BASE=/home/ubuntu/miniconda
 export LD_LIBRARY_PATH=$(pwd)/dist/lib:${CONDA_BASE}/lib:${LD_LIBRARY_PATH}
+export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 
 # Allow for --user Python installation inside Docker
-export HOME=$(pwd)
+#export HOME=$(pwd)
 
-# Clean up and get the Spark master branch from github
-#rm -rf spark .local
-#rm -rf spark
+# Install Arrow to local maven repo and get the version
+pushd arrow/java
+echo "Building and installing Arrow Java"
+mvn -DskipTests -Drat.skip=true clean install
+ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
+echo "Using Arrow version $ARROW_VERSION"
+popd
+
+# Get the Spark master branch from github
 export GIT_COMMITTER_NAME="Nobody"
 export GIT_COMMITTER_EMAIL="nobody@nowhere.com"
+rm -rf spark
 git clone https://github.com/apache/spark.git
 
-# Install Arrow to local maven repo (in container?) and get the version
-pushd arrow/java
-mvn clean install -DskipTests -Drat.skip=true -Dmaven.repo.local=/apache-arrow/.m2/repository
-ARROW_VERSION=`mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | sed -n -e '/^\[.*\]/ !{ /^[0-9]/ { p; q } }'`
-popd
-
-# Update Spark pom with the Arrow version just installed and build Spark
+# Update Spark pom with the Arrow version just installed and build Spark, need package phase for pyspark
 pushd spark
 sed -i -e "s/\(.*<arrow.version>\).*\(<\/arrow.version>\)/\1$ARROW_VERSION\2/g" ./pom.xml
-build/mvn clean package -DskipTests -Dmaven.repo.local=/apache-arrow/.m2/repository
+echo "Building Spark with Arrow $ARROW_VERSION"
+mvn -DskipTests clean package
 
-# Run Arrow related Scala tests
-build/mvn test -Dtest=ArrowConvertersSuite,ArrowUtilsSuite -Dmaven.repo.local=/apache-arrow/.m2/repository
+# Run Arrow related Scala tests only, NOTE: -Dtest=_NonExist_ is to enable surefire test discovery without running any tests so that Scalatest can run
+SPARK_SCALA_TESTS="org.apache.spark.sql.execution.arrow,org.apache.spark.sql.execution.vectorized.ColumnarBatchSuite,org.apache.spark.sql.execution.vectorized.ArrowColumnVectorSuite"
+echo "Testing Spark $SPARK_SCALA_TESTS"
+mvn -Dtest=_NonExist_ -DwildcardSuites="'$SPARK_SCALA_TESTS'" test -pl sql/core
+
+# Run pyarrow related Python tests only
+#SPARK_TESTING=1 bin/pyspark pyspark.sql.tests ArrowTests GroupbyApplyTests VectorizedUDFTests
 popd
+
+# Clean up
+#rm -rf spark .local
+rm -rf spark
 
 
