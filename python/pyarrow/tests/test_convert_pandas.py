@@ -198,6 +198,13 @@ class TestPandasConversion(object):
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
 
+    def test_categorical_row_index(self):
+        df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
+        df['a'] = df.a.astype('category')
+        df = df.set_index('a')
+
+        self._check_pandas_roundtrip(df, preserve_index=True)
+
     def test_float_no_nulls(self):
         data = {}
         fields = []

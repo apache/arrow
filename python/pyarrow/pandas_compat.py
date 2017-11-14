@@ -397,7 +397,7 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1):
             col = table.column(i)
             col_pandas = col.to_pandas()
             values = col_pandas.values
-            if not values.flags.writeable:
+            if hasattr(values, 'flags') and not values.flags.writeable:
                 # ARROW-1054: in pandas 0.19.2, factorize will reject
                 # non-writeable arrays when calling MultiIndex.from_arrays
                 values = values.copy()
