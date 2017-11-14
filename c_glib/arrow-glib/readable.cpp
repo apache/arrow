@@ -45,6 +45,7 @@ G_DEFINE_INTERFACE(GArrowReadable,
 static void
 garrow_readable_default_init (GArrowReadableInterface *iface)
 {
+  iface->new_raw = garrow_buffer_new_raw;
 }
 
 /**
@@ -66,7 +67,8 @@ garrow_readable_read(GArrowReadable *readable,
   std::shared_ptr<arrow::Buffer> arrow_buffer;
   auto status = arrow_readable->Read(n_bytes, &arrow_buffer);
   if (garrow_error_check(error, status, "[io][readable][read]")) {
-    return garrow_buffer_new_raw(&arrow_buffer);
+    auto *iface = GARROW_READABLE_GET_IFACE(readable);
+    return iface->new_raw(&arrow_buffer);
   } else {
     return NULL;
   }
