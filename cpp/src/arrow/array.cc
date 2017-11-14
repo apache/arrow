@@ -320,7 +320,7 @@ Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
 }
 
 std::string Decimal128Array::FormatValue(int64_t i) const {
-  const auto& type_ = static_cast<const DecimalType&>(*type());
+  const auto& type_ = static_cast<const Decimal128Type&>(*type());
   const Decimal128 value(GetValue(i));
   return value.ToString(type_.scale());
 }

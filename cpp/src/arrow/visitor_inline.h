@@ -55,7 +55,7 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
     TYPE_VISIT_INLINE(TimestampType);
     TYPE_VISIT_INLINE(Time32Type);
     TYPE_VISIT_INLINE(Time64Type);
-    TYPE_VISIT_INLINE(DecimalType);
+    TYPE_VISIT_INLINE(Decimal128Type);
     TYPE_VISIT_INLINE(ListType);
     TYPE_VISIT_INLINE(StructType);
     TYPE_VISIT_INLINE(UnionType);

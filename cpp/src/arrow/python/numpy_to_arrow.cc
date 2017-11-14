@@ -305,7 +305,7 @@ class NumPyConverter {
     return TypeNotImplemented(type.ToString());
   }
 
-  Status Visit(const DecimalType& type) { return TypeNotImplemented(type.ToString()); }
+  Status Visit(const Decimal128Type& type) { return TypeNotImplemented(type.ToString()); }
 
   Status Visit(const DictionaryType& type) { return TypeNotImplemented(type.ToString()); }
 
@@ -669,9 +669,9 @@ Status NumPyConverter::ConvertDecimals() {
 
   RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &precision, &scale));
 
-  type_ = std::make_shared<DecimalType>(precision, scale);
+  type_ = std::make_shared<Decimal128Type>(precision, scale);
 
-  DecimalBuilder builder(type_, pool_);
+  Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
   for (int64_t i = 0; i < length_; ++i) {

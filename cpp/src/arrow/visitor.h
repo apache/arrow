@@ -83,7 +83,7 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const Time64Type& type);
   virtual Status Visit(const TimestampType& type);
   virtual Status Visit(const IntervalType& type);
-  virtual Status Visit(const DecimalType& type);
+  virtual Status Visit(const Decimal128Type& type);
   virtual Status Visit(const ListType& type);
   virtual Status Visit(const StructType& type);
   virtual Status Visit(const UnionType& type);
