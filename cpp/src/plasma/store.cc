@@ -460,13 +460,21 @@ void PlasmaStore::disconnect_client(int client_fd) {
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // If this client was using any objects, remove it from the appropriate
   // lists.
+  // TODO(swang): Avoid iteration through the object table.
   auto client = it->second.get();
+  std::vector<ObjectID> unsealed_objects;
   for (const auto& entry : store_info_.objects) {
     if (entry.second->state == PLASMA_SEALED) {
       remove_client_from_object_clients(entry.second.get(), client);
     } else {
-      abort_object(entry.first, client);
+      // Add unsealed objects to a temporary list of object IDs. Do not perform
+      // the abort here, since it potentially modifies the object table.
+      unsealed_objects.push_back(entry.first);
     }
+  }
+  // If the client was creating any objects, abort them.
+  for (const auto& entry : unsealed_objects) {
+    abort_object(entry, client);
   }
 
   // Note, the store may still attempt to send a message to the disconnected
