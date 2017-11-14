@@ -73,8 +73,7 @@ class EvictionPolicy {
   void object_created(const ObjectID& object_id);
 
   /// This method will be called when the Plasma store needs more space, perhaps
-  /// to create a new object. If the required amount of space cannot be freed up,
-  /// then a fatal error will be thrown. When this method is called, the eviction
+  /// to create a new object. When this method is called, the eviction
   /// policy will assume that the objects chosen to be evicted will in fact be
   /// evicted from the Plasma store by the caller.
   ///
