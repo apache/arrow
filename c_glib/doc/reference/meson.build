@@ -49,7 +49,7 @@ if arrow_gpu_dependency.found()
   ]
 endif
 gnome.gtkdoc(meson.project_name(),
-             main_xml: meson.project_name() + '-docs.sgml',
+             main_xml: meson.project_name() + '-docs.xml',
              src_dir: source_directories,
              dependencies: dependencies,
              gobject_typesfile: meson.project_name() + '.types',
