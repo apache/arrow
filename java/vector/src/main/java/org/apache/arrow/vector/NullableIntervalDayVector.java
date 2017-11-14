@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,394 +36,394 @@ import org.joda.time.Period;
  * vector are null.
  */
 public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
-   private static final byte TYPE_WIDTH = 8;
-   private static final byte MILLISECOND_OFFSET = 4;
-   private final FieldReader reader;
+  private static final byte TYPE_WIDTH = 8;
+  private static final byte MILLISECOND_OFFSET = 4;
+  private final FieldReader reader;
 
-   /**
-    * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
-    * the data in vector.
-    * @param name name of the vector
-    * @param allocator allocator for memory management.
-    */
-   public NullableIntervalDayVector(String name, BufferAllocator allocator) {
-      this(name, FieldType.nullable(Types.MinorType.INTERVALDAY.getType()),
-              allocator);
-   }
+  /**
+   * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+   * the data in vector.
+   * @param name name of the vector
+   * @param allocator allocator for memory management.
+   */
+  public NullableIntervalDayVector(String name, BufferAllocator allocator) {
+    this(name, FieldType.nullable(Types.MinorType.INTERVALDAY.getType()),
+            allocator);
+  }
 
-   /**
-    * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
-    * the data in vector.
-    * @param name name of the vector
-    * @param fieldType type of Field materialized by this vector
-    * @param allocator allocator for memory management.
-    */
-   public NullableIntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
-      super(name, allocator, fieldType, TYPE_WIDTH);
-      reader = new IntervalDayReaderImpl(NullableIntervalDayVector.this);
-   }
+  /**
+   * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+   * the data in vector.
+   * @param name name of the vector
+   * @param fieldType type of Field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public NullableIntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
+    super(name, allocator, fieldType, TYPE_WIDTH);
+    reader = new IntervalDayReaderImpl(NullableIntervalDayVector.this);
+  }
 
-   /**
-    * Get a reader that supports reading values from this vector
-    * @return Field Reader for this vector
-    */
-   @Override
-   public FieldReader getReader(){
-      return reader;
-   }
+  /**
+   * Get a reader that supports reading values from this vector
+   * @return Field Reader for this vector
+   */
+  @Override
+  public FieldReader getReader() {
+    return reader;
+  }
 
-   /**
-    * Get minor type for this vector. The vector holds values belonging
-    * to a particular type.
-    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
-    */
-   @Override
-   public Types.MinorType getMinorType() {
-      return Types.MinorType.INTERVALDAY;
-   }
-
-
-   /******************************************************************
-    *                                                                *
-    *          vector value retrieval methods                        *
-    *                                                                *
-    ******************************************************************/
+  /**
+   * Get minor type for this vector. The vector holds values belonging
+   * to a particular type.
+   * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+   */
+  @Override
+  public Types.MinorType getMinorType() {
+    return Types.MinorType.INTERVALDAY;
+  }
 
 
-   /**
-    * Get the element at the given index from the vector.
-    *
-    * @param index   position of element
-    * @return element at given index
-    */
-   public ArrowBuf get(int index) throws IllegalStateException {
-      if(isSet(index) == 0) {
-         return null;
-      }
-      return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
-   }
+  /******************************************************************
+   *                                                                *
+   *          vector value retrieval methods                        *
+   *                                                                *
+   ******************************************************************/
 
-   /**
-    * Get the element at the given index from the vector and
-    * sets the state in holder. If element at given index
-    * is null, holder.isSet will be zero.
-    *
-    * @param index   position of element
-    */
-   public void get(int index, NullableIntervalDayHolder holder){
-      if(isSet(index) == 0) {
-         holder.isSet = 0;
-         return;
-      }
+
+  /**
+   * Get the element at the given index from the vector.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public ArrowBuf get(int index) throws IllegalStateException {
+    if (isSet(index) == 0) {
+      return null;
+    }
+    return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
+  }
+
+  /**
+   * Get the element at the given index from the vector and
+   * sets the state in holder. If element at given index
+   * is null, holder.isSet will be zero.
+   *
+   * @param index   position of element
+   */
+  public void get(int index, NullableIntervalDayHolder holder) {
+    if (isSet(index) == 0) {
+      holder.isSet = 0;
+      return;
+    }
+    final int startIndex = index * TYPE_WIDTH;
+    holder.isSet = 1;
+    holder.days = valueBuffer.getInt(startIndex);
+    holder.milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+  }
+
+  /**
+   * Same as {@link #get(int)}.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Period getObject(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
       final int startIndex = index * TYPE_WIDTH;
-      holder.isSet = 1;
-      holder.days = valueBuffer.getInt(startIndex);
-      holder.milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-   }
+      final int days = valueBuffer.getInt(startIndex);
+      final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+      final Period p = new Period();
+      return p.plusDays(days).plusMillis(milliseconds);
+    }
+  }
 
-   /**
-    * Same as {@link #get(int)}.
-    *
-    * @param index   position of element
-    * @return element at given index
-    */
-   public Period getObject(int index) {
-      if (isSet(index) == 0) {
-         return null;
-      } else {
-         final int startIndex = index * TYPE_WIDTH;
-         final int days = valueBuffer.getInt(startIndex);
-         final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-         final Period p = new Period();
-         return p.plusDays(days).plusMillis(milliseconds);
-      }
-   }
+  /**
+   * Get the Interval value at a given index as a {@link StringBuilder} object
+   * @param index position of the element
+   * @return String Builder object with Interval value as
+   *         [days, hours, minutes, seconds, millis]
+   */
+  public StringBuilder getAsStringBuilder(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return getAsStringBuilderHelper(index);
+    }
+  }
 
-   /**
-    * Get the Interval value at a given index as a {@link StringBuilder} object
-    * @param index position of the element
-    * @return String Builder object with Interval value as
-    *         [days, hours, minutes, seconds, millis]
-    */
-   public StringBuilder getAsStringBuilder(int index) {
-      if (isSet(index) == 0) {
-         return null;
-      }else{
-         return getAsStringBuilderHelper(index);
-      }
-   }
+  private StringBuilder getAsStringBuilderHelper(int index) {
+    final int startIndex = index * TYPE_WIDTH;
 
-   private StringBuilder getAsStringBuilderHelper(int index) {
-      final int startIndex = index * TYPE_WIDTH;
+    final int days = valueBuffer.getInt(startIndex);
+    int millis = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
 
-      final int  days = valueBuffer.getInt(startIndex);
-      int millis = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+    final int hours = millis / (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
+    millis = millis % (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
 
-      final int hours = millis / (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-      millis = millis % (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
+    final int minutes = millis / (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
+    millis = millis % (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
 
-      final int minutes = millis / (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-      millis = millis % (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
+    final int seconds = millis / (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
+    millis = millis % (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
 
-      final int seconds = millis / (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-      millis = millis % (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
+    final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
 
-      final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
+    return (new StringBuilder().
+            append(days).append(dayString).
+            append(hours).append(":").
+            append(minutes).append(":").
+            append(seconds).append(".").
+            append(millis));
+  }
 
-      return(new StringBuilder().
-              append(days).append(dayString).
-              append(hours).append(":").
-              append(minutes).append(":").
-              append(seconds).append(".").
-              append(millis));
-   }
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from source vector
+   */
+  public void copyFrom(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
+    if (from.isSet(fromIndex) != 0) {
+      BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
+      from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
+              thisIndex * TYPE_WIDTH, TYPE_WIDTH);
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
+    }
+  }
 
-   /**
-    * Copy a cell value from a particular index in source vector to a particular
-    * position in this vector
-    * @param fromIndex position to copy from in source vector
-    * @param thisIndex position to copy to in this vector
-    * @param from source vector
-    */
-   public void copyFrom(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
-      if (from.isSet(fromIndex) != 0) {
-         BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
-         from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
-                 thisIndex * TYPE_WIDTH, TYPE_WIDTH);
-      }
-   }
-
-   /**
-    * Same as {@link #copyFrom(int, int, NullableIntervalDayVector)} except that
-    * it handles the case when the capacity of the vector needs to be expanded
-    * before copy.
-    * @param fromIndex position to copy from in source vector
-    * @param thisIndex position to copy to in this vector
-    * @param from source vector
-    */
-   public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
-      handleSafe(thisIndex);
-      copyFrom(fromIndex, thisIndex, from);
-   }
+  /**
+   * Same as {@link #copyFrom(int, int, NullableIntervalDayVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from source vector
+   */
+  public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
+    handleSafe(thisIndex);
+    copyFrom(fromIndex, thisIndex, from);
+  }
 
 
-   /******************************************************************
-    *                                                                *
-    *          vector value setter methods                           *
-    *                                                                *
-    ******************************************************************/
+  /******************************************************************
+   *                                                                *
+   *          vector value setter methods                           *
+   *                                                                *
+   ******************************************************************/
 
 
-   /**
-    * Set the element at the given index to the given value.
-    *
-    * @param index   position of element
-    * @param value   value of element
-    */
-   public void set(int index, ArrowBuf value) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-      valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
-   }
+  /**
+   * Set the element at the given index to the given value.
+   *
+   * @param index   position of element
+   * @param value   value of element
+   */
+  public void set(int index, ArrowBuf value) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    valueBuffer.setBytes(index * TYPE_WIDTH, value, 0, TYPE_WIDTH);
+  }
 
-   /**
-    * Set the element at the given index to the given value.
-    *
-    * @param index          position of element
-    * @param days           days for the interval
-    * @param milliseconds   milliseconds for the interval
-    */
-   public void set(int index, int days, int milliseconds){
-      final int offsetIndex = index * TYPE_WIDTH;
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-      valueBuffer.setInt(offsetIndex, days);
-      valueBuffer.setInt((offsetIndex + MILLISECOND_OFFSET), milliseconds);
-   }
+  /**
+   * Set the element at the given index to the given value.
+   *
+   * @param index          position of element
+   * @param days           days for the interval
+   * @param milliseconds   milliseconds for the interval
+   */
+  public void set(int index, int days, int milliseconds) {
+    final int offsetIndex = index * TYPE_WIDTH;
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    valueBuffer.setInt(offsetIndex, days);
+    valueBuffer.setInt((offsetIndex + MILLISECOND_OFFSET), milliseconds);
+  }
 
-   /**
-    * Set the element at the given index to the value set in data holder.
-    * If the value in holder is not indicated as set, element in the
-    * at the given index will be null.
-    *
-    * @param index   position of element
-    * @param holder  nullable data holder for value of element
-    */
-   public void set(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
-      if(holder.isSet < 0) {
-         throw new IllegalArgumentException();
-      }
-      else if(holder.isSet > 0) {
-         set(index, holder.days, holder.milliseconds);
-      }
-      else {
-         BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-      }
-   }
-
-   /**
-    * Set the element at the given index to the value set in data holder.
-    *
-    * @param index   position of element
-    * @param holder  data holder for value of element
-    */
-   public void set(int index, IntervalDayHolder holder){
+  /**
+   * Set the element at the given index to the value set in data holder.
+   * If the value in holder is not indicated as set, element in the
+   * at the given index will be null.
+   *
+   * @param index   position of element
+   * @param holder  nullable data holder for value of element
+   */
+  public void set(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
+    if (holder.isSet < 0) {
+      throw new IllegalArgumentException();
+    } else if (holder.isSet > 0) {
       set(index, holder.days, holder.milliseconds);
-   }
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    }
+  }
 
-   /**
-    * Same as {@link #set(int, ArrowBuf)} except that it handles the
-    * case when index is greater than or equal to existing
-    * value capacity {@link #getValueCapacity()}.
-    *
-    * @param index   position of element
-    * @param value   value of element
-    */
-   public void setSafe(int index, ArrowBuf value) {
-      handleSafe(index);
-      set(index, value);
-   }
+  /**
+   * Set the element at the given index to the value set in data holder.
+   *
+   * @param index   position of element
+   * @param holder  data holder for value of element
+   */
+  public void set(int index, IntervalDayHolder holder) {
+    set(index, holder.days, holder.milliseconds);
+  }
 
-   /**
-    * Same as {@link #set(int, int, int)} except that it handles the
-    * case when index is greater than or equal to existing
-    * value capacity {@link #getValueCapacity()}.
-    *
-    * @param index          position of element
-    * @param days           days for the interval
-    * @param milliseconds   milliseconds for the interval
-    */
-   public void setSafe(int index, int days, int milliseconds) {
-      handleSafe(index);
-      set(index, days, milliseconds);
-   }
+  /**
+   * Same as {@link #set(int, ArrowBuf)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index   position of element
+   * @param value   value of element
+   */
+  public void setSafe(int index, ArrowBuf value) {
+    handleSafe(index);
+    set(index, value);
+  }
 
-   /**
-    * Same as {@link #set(int, NullableIntervalDayHolder)} except that it handles the
-    * case when index is greater than or equal to existing
-    * value capacity {@link #getValueCapacity()}.
-    *
-    * @param index   position of element
-    * @param holder  nullable data holder for value of element
-    */
-   public void setSafe(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
-      handleSafe(index);
-      set(index, holder);
-   }
+  /**
+   * Same as {@link #set(int, int, int)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index          position of element
+   * @param days           days for the interval
+   * @param milliseconds   milliseconds for the interval
+   */
+  public void setSafe(int index, int days, int milliseconds) {
+    handleSafe(index);
+    set(index, days, milliseconds);
+  }
 
-   /**
-    * Same as {@link #set(int, IntervalDayHolder)} except that it handles the
-    * case when index is greater than or equal to existing
-    * value capacity {@link #getValueCapacity()}.
-    *
-    * @param index   position of element
-    * @param holder  data holder for value of element
-    */
-   public void setSafe(int index, IntervalDayHolder holder){
-      handleSafe(index);
-      set(index, holder);
-   }
+  /**
+   * Same as {@link #set(int, NullableIntervalDayHolder)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index   position of element
+   * @param holder  nullable data holder for value of element
+   */
+  public void setSafe(int index, NullableIntervalDayHolder holder) throws IllegalArgumentException {
+    handleSafe(index);
+    set(index, holder);
+  }
 
-   /**
-    * Set the element at the given index to null.
-    *
-    * @param index   position of element
-    */
-   public void setNull(int index){
-      handleSafe(index);
+  /**
+   * Same as {@link #set(int, IntervalDayHolder)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index   position of element
+   * @param holder  data holder for value of element
+   */
+  public void setSafe(int index, IntervalDayHolder holder) {
+    handleSafe(index);
+    set(index, holder);
+  }
+
+  /**
+   * Set the element at the given index to null.
+   *
+   * @param index   position of element
+   */
+  public void setNull(int index) {
+    handleSafe(index);
       /* not really needed to set the bit to 0 as long as
        * the buffer always starts from 0.
        */
+    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+  }
+
+  /**
+   * Store the given value at a particular position in the vector. isSet indicates
+   * whether the value is NULL or not.
+   * @param index position of the new value
+   * @param isSet 0 for NULL value, 1 otherwise
+   * @param days days component of interval
+   * @param milliseconds millisecond component of interval
+   */
+  public void set(int index, int isSet, int days, int milliseconds) {
+    if (isSet > 0) {
+      set(index, days, milliseconds);
+    } else {
       BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-   }
+    }
+  }
 
-   /**
-    * Store the given value at a particular position in the vector. isSet indicates
-    * whether the value is NULL or not.
-    * @param index position of the new value
-    * @param isSet 0 for NULL value, 1 otherwise
-    * @param days days component of interval
-    * @param milliseconds millisecond component of interval
-    */
-   public void set(int index, int isSet, int days, int milliseconds) {
-      if (isSet > 0) {
-         set(index, days, milliseconds);
-      } else {
-         BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-      }
-   }
-
-   /**
-    * Same as {@link #set(int, int, int, int)} except that it handles the case
-    * when index is greater than or equal to current value capacity of the
-    * vector.
-    * @param index position of the new value
-    * @param isSet 0 for NULL value, 1 otherwise
-    * @param days days component of interval
-    * @param milliseconds millisecond component of interval
-    */
-   public void setSafe(int index, int isSet, int days, int milliseconds) {
-      handleSafe(index);
-      set(index, isSet, days, milliseconds);
-   }
+  /**
+   * Same as {@link #set(int, int, int, int)} except that it handles the case
+   * when index is greater than or equal to current value capacity of the
+   * vector.
+   * @param index position of the new value
+   * @param isSet 0 for NULL value, 1 otherwise
+   * @param days days component of interval
+   * @param milliseconds millisecond component of interval
+   */
+  public void setSafe(int index, int isSet, int days, int milliseconds) {
+    handleSafe(index);
+    set(index, isSet, days, milliseconds);
+  }
 
 
-   /******************************************************************
-    *                                                                *
-    *                      vector transfer                           *
-    *                                                                *
-    ******************************************************************/
+  /******************************************************************
+   *                                                                *
+   *                      vector transfer                           *
+   *                                                                *
+   ******************************************************************/
 
 
-   /**
-    * Construct a TransferPair comprising of this and and a target vector of
-    * the same type.
-    * @param ref name of the target vector
-    * @param allocator allocator for the target vector
-    * @return {@link TransferPair}
-    */
-   @Override
-   public TransferPair getTransferPair(String ref, BufferAllocator allocator){
-      return new TransferImpl(ref, allocator);
-   }
+  /**
+   * Construct a TransferPair comprising of this and and a target vector of
+   * the same type.
+   * @param ref name of the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    return new TransferImpl(ref, allocator);
+  }
 
-   /**
-    * Construct a TransferPair with a desired target vector of the same type.
-    * @param to target vector
-    * @return {@link TransferPair}
-    */
-   @Override
-   public TransferPair makeTransferPair(ValueVector to) {
-      return new TransferImpl((NullableIntervalDayVector)to);
-   }
+  /**
+   * Construct a TransferPair with a desired target vector of the same type.
+   * @param to target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair makeTransferPair(ValueVector to) {
+    return new TransferImpl((NullableIntervalDayVector) to);
+  }
 
-   private class TransferImpl implements TransferPair {
-      NullableIntervalDayVector to;
+  private class TransferImpl implements TransferPair {
+    NullableIntervalDayVector to;
 
-      public TransferImpl(String ref, BufferAllocator allocator){
-         to = new NullableIntervalDayVector(ref, field.getFieldType(), allocator);
-      }
+    public TransferImpl(String ref, BufferAllocator allocator) {
+      to = new NullableIntervalDayVector(ref, field.getFieldType(), allocator);
+    }
 
-      public TransferImpl(NullableIntervalDayVector to){
-         this.to = to;
-      }
+    public TransferImpl(NullableIntervalDayVector to) {
+      this.to = to;
+    }
 
-      @Override
-      public NullableIntervalDayVector getTo(){
-         return to;
-      }
+    @Override
+    public NullableIntervalDayVector getTo() {
+      return to;
+    }
 
-      @Override
-      public void transfer(){
-         transferTo(to);
-      }
+    @Override
+    public void transfer() {
+      transferTo(to);
+    }
 
-      @Override
-      public void splitAndTransfer(int startIndex, int length) {
-         splitAndTransferTo(startIndex, length, to);
-      }
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      splitAndTransferTo(startIndex, length, to);
+    }
 
-      @Override
-      public void copyValueSafe(int fromIndex, int toIndex) {
-         to.copyFromSafe(fromIndex, toIndex, NullableIntervalDayVector.this);
-      }
-   }
+    @Override
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      to.copyFromSafe(fromIndex, toIndex, NullableIntervalDayVector.this);
+    }
+  }
 }

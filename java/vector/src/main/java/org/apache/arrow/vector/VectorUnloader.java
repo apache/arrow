@@ -22,12 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 import org.apache.arrow.vector.schema.ArrowRecordBatch;
 import org.apache.arrow.vector.schema.ArrowVectorType;
-
-import javax.annotation.Nullable;
 
 public class VectorUnloader {
 

@@ -63,7 +63,7 @@ public class UnionVector implements FieldVector {
   int valueCount;
 
   MapVector internalMap;
-  ArrowBuf typeBuffer;
+  protected ArrowBuf typeBuffer;
 
   private NullableMapVector mapVector;
   private ListVector listVector;
@@ -121,13 +121,15 @@ public class UnionVector implements FieldVector {
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(1);
-
-    typeBuffer.readerIndex(0);
-    typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
-
+    setReaderAndWriterIndex();
     result.add(typeBuffer);
 
     return result;
+  }
+
+  private void setReaderAndWriterIndex() {
+    typeBuffer.readerIndex(0);
+    typeBuffer.writerIndex(valueCount * TYPE_WIDTH);
   }
 
   @Override
@@ -232,6 +234,8 @@ public class UnionVector implements FieldVector {
 
   @Override
   public void allocateNew() throws OutOfMemoryException {
+    /* new allocation -- clear the current buffers */
+    clear();
     internalMap.allocateNew();
     try {
       allocateTypeBuffer();
@@ -243,6 +247,8 @@ public class UnionVector implements FieldVector {
 
   @Override
   public boolean allocateNewSafe() {
+    /* new allocation -- clear the current buffers */
+    clear();
     boolean safe = internalMap.allocateNewSafe();
     if (!safe) { return false; }
     try {
@@ -386,6 +392,7 @@ public class UnionVector implements FieldVector {
       to.typeBuffer = typeBuffer.transferOwnership(to.allocator).buffer;
       internalMapVectorTransferPair.transfer();
       to.valueCount = valueCount;
+      clear();
     }
 
     @Override
@@ -460,8 +467,17 @@ public class UnionVector implements FieldVector {
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     ImmutableList.Builder<ArrowBuf> builder = ImmutableList.builder();
-    builder.add(typeBuffer);
-    builder.add(internalMap.getBuffers(clear));
+    setReaderAndWriterIndex();
+    if (getBufferSize() != 0) {
+      builder.add(typeBuffer);
+      builder.add(internalMap.getBuffers(clear));
+    }
+    if (clear) {
+      valueCount = 0;
+      typeBuffer.retain();
+      typeBuffer.release();
+      typeBuffer = allocator.getEmpty();
+    }
     List<ArrowBuf> list = builder.build();
     return list.toArray(new ArrowBuf[list.size()]);
   }

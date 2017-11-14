@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -74,8 +74,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       e.printStackTrace();
       clear();
       return false;
-    }
-    finally {
+    } finally {
       if (!dataAlloc) {
         clear();
       }
@@ -84,7 +83,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected void allocateOffsetBuffer(final long size) {
-    final int curSize = (int)size;
+    final int curSize = (int) size;
     offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
     offsetAllocationSizeInBytes = curSize;
@@ -101,8 +100,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     final int currentBufferCapacity = offsetBuffer.capacity();
     long baseSize = offsetAllocationSizeInBytes;
 
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    if (baseSize < (long) currentBufferCapacity) {
+      baseSize = (long) currentBufferCapacity;
     }
 
     long newAllocationSize = baseSize * 2L;
@@ -112,13 +111,13 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, offsetBuffer, 0, currentBufferCapacity);
     final int halfNewCapacity = newBuf.capacity() / 2;
     newBuf.setZero(halfNewCapacity, halfNewCapacity);
     offsetBuffer.release(1);
     offsetBuffer = newBuf;
-    offsetAllocationSizeInBytes = (int)newAllocationSize;
+    offsetAllocationSizeInBytes = (int) newAllocationSize;
   }
 
   @Override
@@ -147,8 +146,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return Math.min(vector.getValueCapacity(), offsetValueCapacity);
   }
 
-  private int getOffsetBufferValueCapacity() {
-    return (int)((offsetBuffer.capacity() * 1.0)/OFFSET_WIDTH);
+  protected int getOffsetBufferValueCapacity() {
+    return (int) ((offsetBuffer.capacity() * 1.0) / OFFSET_WIDTH);
   }
 
   @Override
@@ -183,8 +182,13 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    final ArrowBuf[] buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer},
-            vector.getBuffers(false), ArrowBuf.class);
+    final ArrowBuf[] buffers;
+    if (getBufferSize() == 0) {
+      buffers = new ArrowBuf[0];
+    } else {
+      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false),
+              ArrowBuf.class);
+    }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
         buffer.retain();
@@ -208,15 +212,15 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       // returned vector must have the same field
       created = true;
       if (callBack != null &&
-          // not a schema change if changing from ZeroVector to ZeroVector
-          (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+              // not a schema change if changing from ZeroVector to ZeroVector
+              (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         callBack.doWork();
       }
     }
 
     if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
       final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
+              fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
 
