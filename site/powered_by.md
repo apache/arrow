@@ -1,0 +1,126 @@
+---
+layout: default
+---
+<!--
+{% comment %}
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+{% endcomment %}
+-->
+
+## Powered By
+
+### Project and Product names using "Apache Arrow"
+
+Organizations creating products and projects for use with Apache Arrow, along
+with associated marketing materials, should take care to respect the trademark
+in "Apache Arrow" and its logo. Please refer to [ASF Trademarks Guidance][1]
+and associated [FAQ][2] for comprehensive and authoritative guidance on proper
+usage of ASF trademarks.
+
+Names that do not include "Apache Arrow" at all have no potential trademark
+issue with the Apache Arrow project. This is recommended.
+
+Names like "Apache Arrow BigCoProduct" are not OK, as are names including
+"Apache Arrow" in general. The above links, however, describe some exceptions,
+like for names such as "BigCoProduct, powered by Apache Arrow" or
+"BigCoProduct for Apache Arrow".
+
+It is common practice to create software identifiers (Maven coordinates, module
+names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
+in descriptions is also always allowed, as in "BigCoProduct is a widget for
+Apache Arrow".
+
+### Open Source Projects
+
+To add yourself to the list, please email dev@arrow.apache.org with your
+organization name, URL, a list of which Arrow components you are using, and a
+short description of your use case.
+
+* **[Apache Parquet][3]:** A columnar storage format available to any project
+  in the Hadoop ecosystem, regardless of the choice of data processing
+  framework, data model or programming language. The C++ and Java
+  implementation provide vectorized reads and write to/from Arrow data
+  structures.
+* **[Apache Spark][7]:** Apache Spark™ is a fast and general engine for
+  large-scale data processing. Spark uses Apache Arrow to
+  1. improve performance of conversion between Spark DataFrame and pandas DataFrame
+  2. enable a set of vectorized user-defined functions (`pandas_udf`) in PySpark.
+* **[Dask][15]:** Python library for parallel and distributed execution of
+  dynamic task graphs. Dask supports using pyarrow for accessing Parquet
+  files
+* **[GeoMesa][8]:** A suite of tools that enables large-scale geospatial query
+  and analytics on distributed computing systems. GeoMesa supports query
+  results in the Arrow IPC format, which can then be used for in-browser
+  visualizations and/or further analytics.
+* **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
+  support for structured data. Uses the Arrow IPC format and targets the Arrow
+  memory layout in its analytic functions. This work is part of the [GPU Open
+  Analytics Initiative][11]
+* **[MapD][10]:** in-memory columnar SQL engine designed to run on GPUs. MapD
+  supports Arrow for data ingest and data interchange via CUDA IPC
+  handles. This work is part of the [GPU Open Analytics Initiative][11]
+* **[pandas][12]:** data analysis toolkit for Python programmers. pandas
+  supports reading and writing Parquet files using pyarrow. Several pandas
+  core developers are also contributors to Apache Arrow.
+* **[Ray][5]:** A flexible, high-performance distributed execution framework
+  with a focus on machine learning and AI applications. Uses Arrow to
+  efficiently store Python data structures containing large arrays of numerical
+  data. Data can be accessed with zero-copy by multiple processes using the
+  [Plasma shared memory object store][6] which originated from Ray and is part
+  of Arrow now.
+* **[Red Data Tools][16]:** A project that provides data processing
+  tools for Ruby. It provides [Red Arrow][17] that is a Ruby bindings
+  of Apache Arrow based on Apache Arrow GLib. Red Arrow is a core
+  library for it. It also provides many Ruby libraries to integrate
+  existing Ruby libraries with Apache Arrow. They use Red Arrow.
+* **[Turbodbc][4]:** Python module to access relational databases via the Open
+  Database Connectivity (ODBC) interface. It provides the ability to return
+  Arrow Tables and RecordBatches in addition to the Python Database API
+  Specification 2.0.
+
+### Companies and Organizations
+
+To add yourself to the list, please email dev@arrow.apache.org with your
+organization name, URL, a list of which Arrow components you are using, and a
+short description of your use case.
+
+* **[Dremio][9]:** A self-service data platform. Dremio makes it easy for
+  users to discover, curate, accelerate, and share data from any source.
+  It includes a distributed SQL execution engine based on Apache Arrow.
+  Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
+  buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
+  Python, R, and more (all backed by Apache Arrow).
+* **[Quilt Data][13]:** Quilt is a data package manager, designed to make
+  managing data as easy as managing code. It supports Parquet format via
+  pyarrow for data access.
+
+[1]: https://www.apache.org/foundation/marks/
+[2]: https://www.apache.org/foundation/marks/faq/
+[3]: https://parquet.apache.org/
+[4]: https://github.com/blue-yonder/turbodbc
+[5]: https://github.com/ray-project/ray
+[6]: https://ray-project.github.io/2017/08/08/plasma-in-memory-object-store.html
+[7]: https://spark.apache.org/
+[8]: https://github.com/locationtech/geomesa
+[9]: https://www.dremio.com/
+[10]: https://github.com/mapd/mapd-core
+[11]: https://gpuopenanalytics.com/
+[12]: https://pandas.pydata.org
+[13]: https://quiltdata.com/
+[14]: https://github.com/gpuopenanalytics/libgdf
+[15]: https://github.com/dask/dask
+[16]: https://red-data-tools.github.io/
+[17]: https://github.com/red-data-tools/red-arrow/
