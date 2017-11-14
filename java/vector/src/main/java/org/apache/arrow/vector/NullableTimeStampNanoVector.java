@@ -114,7 +114,8 @@ public class NullableTimeStampNanoVector extends NullableTimeStampVector {
       } else {
          final long nanos = valueBuffer.getLong(index * TYPE_WIDTH);
          final long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanos);
-         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
+         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
+                 org.joda.time.DateTimeZone.UTC);
          return localDateTime;
       }
    }

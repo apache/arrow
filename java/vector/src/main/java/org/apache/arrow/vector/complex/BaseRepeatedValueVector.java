@@ -187,7 +187,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false), ArrowBuf.class);
+      buffers = ObjectArrays.concat(new ArrowBuf[]{offsetBuffer}, vector.getBuffers(false),
+              ArrowBuf.class);
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {

@@ -257,7 +257,8 @@ public class NullableMapVector extends MapVector implements FieldVector {
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(false), ArrowBuf.class);
+      buffers = ObjectArrays.concat(new ArrowBuf[]{validityBuffer}, super.getBuffers(false),
+              ArrowBuf.class);
     }
     if (clear) {
       for (ArrowBuf buffer: buffers) {

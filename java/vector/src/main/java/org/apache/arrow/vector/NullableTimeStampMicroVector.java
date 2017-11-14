@@ -115,7 +115,8 @@ public class NullableTimeStampMicroVector extends NullableTimeStampVector {
          /* value is truncated when converting microseconds to milliseconds in order to use DateTime type */
          final long micros = valueBuffer.getLong(index * TYPE_WIDTH);
          final long millis = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(micros);
-         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
+         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
+                 org.joda.time.DateTimeZone.UTC);
          return localDateTime;
       }
    }

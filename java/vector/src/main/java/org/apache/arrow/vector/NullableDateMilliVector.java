@@ -130,7 +130,8 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
          return null;
       } else {
          final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-         final LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
+         final LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
+                 org.joda.time.DateTimeZone.UTC);
          return localDateTime;
       }
    }

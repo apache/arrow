@@ -113,7 +113,8 @@ public class NullableTimeStampMilliVector extends NullableTimeStampVector {
          return null;
       } else {
          final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis, org.joda.time.DateTimeZone.UTC);
+         final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
+                 org.joda.time.DateTimeZone.UTC);
          return localDateTime;
       }
    }
