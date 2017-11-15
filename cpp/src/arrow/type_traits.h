@@ -230,9 +230,9 @@ struct TypeTraits<DoubleType> {
 };
 
 template <>
-struct TypeTraits<DecimalType> {
+struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
-  using BuilderType = DecimalBuilder;
+  using BuilderType = Decimal128Builder;
   constexpr static bool is_parameter_free = false;
 };
 

@@ -458,7 +458,7 @@ static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
       *offset = flatbuf::CreateTimestamp(fbb, fb_unit, fb_timezone).Union();
     } break;
     case Type::DECIMAL: {
-      const auto& dec_type = static_cast<const DecimalType&>(*value_type);
+      const auto& dec_type = static_cast<const Decimal128Type&>(*value_type);
       *out_type = flatbuf::Type_Decimal;
       *offset =
           flatbuf::CreateDecimal(fbb, dec_type.precision(), dec_type.scale()).Union();

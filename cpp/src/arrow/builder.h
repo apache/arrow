@@ -753,10 +753,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   BufferBuilder byte_builder_;
 };
 
-class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
+class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
  public:
-  explicit DecimalBuilder(const std::shared_ptr<DataType>& type,
-                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
+                             MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   using FixedSizeBinaryBuilder::Append;
 
@@ -764,6 +764,8 @@ class ARROW_EXPORT DecimalBuilder : public FixedSizeBinaryBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 };
+
+using DecimalBuilder = Decimal128Builder;
 
 // ----------------------------------------------------------------------
 // Struct

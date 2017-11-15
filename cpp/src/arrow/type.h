@@ -498,11 +498,11 @@ class ARROW_EXPORT StructType : public NestedType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
+class ARROW_EXPORT Decimal128Type : public FixedSizeBinaryType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
-  explicit DecimalType(int32_t precision, int32_t scale)
+  explicit Decimal128Type(int32_t precision, int32_t scale)
       : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
@@ -516,6 +516,8 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t precision_;
   int32_t scale_;
 };
+
+using DecimalType = Decimal128Type;
 
 struct UnionMode {
   enum type { SPARSE, DENSE };

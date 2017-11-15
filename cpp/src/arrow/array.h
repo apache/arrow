@@ -562,7 +562,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 // Decimal128Array
 class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
  public:
-  using TypeClass = DecimalType;
+  using TypeClass = Decimal128Type;
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 

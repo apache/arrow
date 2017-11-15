@@ -700,7 +700,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
 };
 
 class DecimalConverter
-    : public TypedConverterVisitor<arrow::DecimalBuilder, DecimalConverter> {
+    : public TypedConverterVisitor<arrow::Decimal128Builder, DecimalConverter> {
  public:
   inline Status AppendItem(const OwnedRef& item) {
     /// TODO(phillipc): Check for nan?
