@@ -278,8 +278,6 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
   const in_type* in_data = GetValues<in_type>(input, 1);
   auto out_data = GetMutableValues<out_type>(output, 1);
 
-  internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset, input.length);
-
   if (factor == 1) {
     for (int64_t i = 0; i < input.length; i++) {
       out_data[i] = static_cast<out_type>(in_data[i]);
@@ -294,17 +292,36 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
-      for (int64_t i = 0; i < input.length; i++) {
-        out_data[i] = static_cast<out_type>(in_data[i] / factor);
-        if (bit_reader.IsSet() && (out_data[i] * factor != in_data[i])) {
-          std::stringstream ss;
-          ss << "Casting from " << input.type->ToString() << " to "
-             << output->type->ToString() << " would lose data: " << in_data[i];
-          ctx->SetStatus(Status::Invalid(ss.str()));
-          break;
+
+#define RAISE_INVALID_CAST(VAL)                                         \
+      std::stringstream ss;                                             \
+      ss << "Casting from " << input.type->ToString() << " to "         \
+         << output->type->ToString() << " would lose data: " << VAL;    \
+      ctx->SetStatus(Status::Invalid(ss.str()));
+
+      if (input.null_count != 0) {
+        internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                          input.length);
+        for (int64_t i = 0; i < input.length; i++) {
+          out_data[i] = static_cast<out_type>(in_data[i] / factor);
+          if (bit_reader.IsSet() && (out_data[i] * factor != in_data[i])) {
+            RAISE_INVALID_CAST(in_data[i]);
+            break;
+          }
+          bit_reader.Next();
         }
-        bit_reader.Next();
+      } else {
+        for (int64_t i = 0; i < input.length; i++) {
+          out_data[i] = static_cast<out_type>(in_data[i] / factor);
+          if (out_data[i] * factor != in_data[i]) {
+            RAISE_INVALID_CAST(in_data[i]);
+            break;
+          }
+        }
       }
+
+#undef RAISE_INVALID_CAST
+
     }
   }
 }
