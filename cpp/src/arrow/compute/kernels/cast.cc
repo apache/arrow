@@ -292,12 +292,11 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
-
-#define RAISE_INVALID_CAST(VAL)                                         \
-      std::stringstream ss;                                             \
-      ss << "Casting from " << input.type->ToString() << " to "         \
-         << output->type->ToString() << " would lose data: " << VAL;    \
-      ctx->SetStatus(Status::Invalid(ss.str()));
+#define RAISE_INVALID_CAST(VAL)                                                         \
+  std::stringstream ss;                                                                 \
+  ss << "Casting from " << input.type->ToString() << " to " << output->type->ToString() \
+     << " would lose data: " << VAL;                                                    \
+  ctx->SetStatus(Status::Invalid(ss.str()));
 
       if (input.null_count != 0) {
         internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
@@ -321,7 +320,6 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
       }
 
 #undef RAISE_INVALID_CAST
-
     }
   }
 }
@@ -847,7 +845,7 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, FloatType);             \
   FN(IN_TYPE, DoubleType);            \
   FN(IN_TYPE, FixedSizeBinaryType);   \
-  FN(IN_TYPE, Decimal128Type);           \
+  FN(IN_TYPE, Decimal128Type);        \
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 

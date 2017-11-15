@@ -1108,6 +1108,7 @@ def union(children_fields, mode):
 
     return pyarrow_wrap_data_type(union_type)
 
+
 cdef dict _type_aliases = {
     'null': null,
     'i1': int8,

@@ -1037,7 +1037,8 @@ class CategoricalBlock : public PandasBlock {
       Datum out;
       RETURN_NOT_OK(compute::DictionaryEncode(&ctx, Datum(col->data()), &out));
       DCHECK_EQ(out.kind(), Datum::CHUNKED_ARRAY);
-      converted_col = std::make_shared<Column>(col->field(), out.chunked_array());
+      converted_col =
+          std::make_shared<Column>(field(col->name(), out.type()), out.chunked_array());
     } else {
       converted_col = col;
     }

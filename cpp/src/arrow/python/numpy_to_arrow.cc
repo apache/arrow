@@ -468,8 +468,7 @@ namespace {
 
 Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   const std::shared_ptr<Buffer>& input, const int64_t length,
-                  const std::shared_ptr<Buffer>& valid_bitmap,
-                  const int64_t null_count,
+                  const std::shared_ptr<Buffer>& valid_bitmap, const int64_t null_count,
                   const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
@@ -491,8 +490,8 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
 }
 
 template <typename FromType, typename ToType>
-Status StaticCastBuffer(const Buffer& input, const int64_t length,
-                        MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* out) {
   auto result = std::make_shared<PoolBuffer>(pool);
   RETURN_NOT_OK(result->Resize(sizeof(ToType) * length));
 
@@ -601,14 +600,15 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     } else {
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {
-        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_,
-                                 null_count, type_, pool_, data));
+        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count,
+                                 type_, pool_, data));
       }
     }
   } else {
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
+      RETURN_NOT_OK(
+          CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
     }
   }
 

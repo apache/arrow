@@ -233,40 +233,40 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
     }                                                                                    \
   }
 
-#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                     \
-  do {                                                                  \
-    int64_t new_size = hash_table_size_ * 2;                            \
-                                                                        \
-    std::shared_ptr<Buffer> new_hash_table;                             \
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));      \
-    int32_t* new_hash_slots =                                           \
-      reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());   \
-    int64_t new_mod_bitmask = new_size - 1;                             \
-                                                                        \
-    SETUP_CODE;                                                         \
-                                                                        \
-    for (int i = 0; i < hash_table_size_; ++i) {                        \
-      hash_slot_t index = hash_slots_[i];                               \
-                                                                        \
-      if (index == kHashSlotEmpty) {                                    \
-        continue;                                                       \
-      }                                                                 \
-                                                                        \
-      COMPUTE_HASH;                                                     \
-      while (kHashSlotEmpty != new_hash_slots[j]) {                     \
-        ++j;                                                            \
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {               \
-          j = 0;                                                        \
-        }                                                               \
-      }                                                                 \
-                                                                        \
-      new_hash_slots[j] = index;                                        \
-    }                                                                   \
-                                                                        \
-    hash_table_ = new_hash_table;                                       \
+#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                            \
+  do {                                                                         \
+    int64_t new_size = hash_table_size_ * 2;                                   \
+                                                                               \
+    std::shared_ptr<Buffer> new_hash_table;                                    \
+    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));             \
+    int32_t* new_hash_slots =                                                  \
+        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());        \
+    int64_t new_mod_bitmask = new_size - 1;                                    \
+                                                                               \
+    SETUP_CODE;                                                                \
+                                                                               \
+    for (int i = 0; i < hash_table_size_; ++i) {                               \
+      hash_slot_t index = hash_slots_[i];                                      \
+                                                                               \
+      if (index == kHashSlotEmpty) {                                           \
+        continue;                                                              \
+      }                                                                        \
+                                                                               \
+      COMPUTE_HASH;                                                            \
+      while (kHashSlotEmpty != new_hash_slots[j]) {                            \
+        ++j;                                                                   \
+        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                      \
+          j = 0;                                                               \
+        }                                                                      \
+      }                                                                        \
+                                                                               \
+      new_hash_slots[j] = index;                                               \
+    }                                                                          \
+                                                                               \
+    hash_table_ = new_hash_table;                                              \
     hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data()); \
-    hash_table_size_ = new_size;                                        \
-    mod_bitmask_ = new_size - 1;                                        \
+    hash_table_size_ = new_size;                                               \
+    mod_bitmask_ = new_size - 1;                                               \
   } while (false)
 
 template <typename Type, typename Action>
@@ -347,9 +347,9 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
   }
 
   Status DoubleTableSize() {
-#define PRIMITIVE_INNER_LOOP                            \
-    const T value = dict_.values[index];                \
-    int64_t j = HashValue(value) & new_mod_bitmask;     \
+#define PRIMITIVE_INNER_LOOP           \
+  const T value = dict_.values[index]; \
+  int64_t j = HashValue(value) & new_mod_bitmask;
 
     DOUBLE_TABLE_SIZE(, PRIMITIVE_INNER_LOOP);
 
@@ -458,14 +458,14 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
   }
 
   Status DoubleTableSize() {
-#define VARBYTES_SETUP                                  \
-    const int32_t* dict_offsets = dict_offsets_.data(); \
-    const uint8_t* dict_data = dict_data_.data()
+#define VARBYTES_SETUP                                \
+  const int32_t* dict_offsets = dict_offsets_.data(); \
+  const uint8_t* dict_data = dict_data_.data()
 
 #define VARBYTES_COMPUTE_HASH                                           \
-    const int32_t length = dict_offsets[index + 1] - dict_offsets[index]; \
-    const uint8_t* value = dict_data + dict_offsets[index];             \
-    int64_t j = HashValue(value, length) & new_mod_bitmask
+  const int32_t length = dict_offsets[index + 1] - dict_offsets[index]; \
+  const uint8_t* value = dict_data + dict_offsets[index];               \
+  int64_t j = HashValue(value, length) & new_mod_bitmask
 
     DOUBLE_TABLE_SIZE(VARBYTES_SETUP, VARBYTES_COMPUTE_HASH);
 
@@ -564,11 +564,10 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
   }
 
   Status DoubleTableSize() {
-#define FIXED_BYTES_SETUP                              \
-    const uint8_t* dict_data = dict_data_.data()
+#define FIXED_BYTES_SETUP const uint8_t* dict_data = dict_data_.data()
 
-#define FIXED_BYTES_COMPUTE_HASH                                        \
-    int64_t j = HashValue(dict_data + index * byte_width_) & new_mod_bitmask
+#define FIXED_BYTES_COMPUTE_HASH \
+  int64_t j = HashValue(dict_data + index * byte_width_) & new_mod_bitmask
 
     DOUBLE_TABLE_SIZE(FIXED_BYTES_SETUP, FIXED_BYTES_COMPUTE_HASH);
 

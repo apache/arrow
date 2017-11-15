@@ -518,7 +518,7 @@ class ARROW_EXPORT Decimal128Type : public _DecimalBaseType {
   static constexpr Type::type type_id = Type::DECIMAL;
 
   explicit Decimal128Type(int32_t precision, int32_t scale)
-    : _DecimalBaseType(16, precision, scale) {}
+      : _DecimalBaseType(16, precision, scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;
