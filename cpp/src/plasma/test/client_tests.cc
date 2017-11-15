@@ -209,6 +209,59 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   ASSERT_EQ(has_object, true);
 }
 
+TEST_F(TestPlasmaStore, ManyObjectTest) {
+  // Create many objects on the first client. Seal one third, abort one third,
+  // and leave the last third unsealed.
+  std::vector<ObjectID> object_ids;
+  for (int i = 0; i < 100; i++) {
+    ObjectID object_id = ObjectID::from_random();
+    object_ids.push_back(object_id);
+
+    // Test for object non-existence on the first client.
+    bool has_object;
+    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_EQ(has_object, false);
+
+    // Test for the object being in local Plasma store.
+    // First create and seal object on the first client.
+    int64_t data_size = 100;
+    uint8_t metadata[] = {5};
+    int64_t metadata_size = sizeof(metadata);
+    uint8_t* data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+
+    if (i % 3 == 0) {
+      // Seal one third of the objects.
+      ARROW_CHECK_OK(client_.Seal(object_id));
+      // Test that the first client can get the object.
+      ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+      ASSERT_EQ(has_object, true);
+    } else if (i % 3 == 1) {
+      // Abort one third of the objects.
+      ARROW_CHECK_OK(client_.Release(object_id));
+      ARROW_CHECK_OK(client_.Abort(object_id));
+    }
+  }
+  // Disconnect the first client. All unsealed objects should be aborted.
+  ARROW_CHECK_OK(client_.Disconnect());
+
+  // Check that the second client can query the object store for the first
+  // client's objects.
+  int i = 0;
+  for (auto const& object_id : object_ids) {
+    bool has_object;
+    ARROW_CHECK_OK(client2_.Contains(object_id, &has_object));
+    if (i % 3 == 0) {
+      // The first third should be sealed.
+      ASSERT_EQ(has_object, true);
+    } else {
+      // The rest were aborted, so the object is not in the store.
+      ASSERT_EQ(has_object, false);
+    }
+    i++;
+  }
+}
+
 }  // namespace plasma
 
 int main(int argc, char** argv) {
