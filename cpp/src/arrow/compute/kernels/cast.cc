@@ -830,7 +830,7 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, FloatType);             \
   FN(IN_TYPE, DoubleType);            \
   FN(IN_TYPE, FixedSizeBinaryType);   \
-  FN(IN_TYPE, DecimalType);           \
+  FN(IN_TYPE, Decimal128Type);           \
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 

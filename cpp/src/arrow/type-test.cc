@@ -400,7 +400,7 @@ TEST(TestStructType, Basics) {
 }
 
 TEST(TypesTest, TestDecimal128Small) {
-  DecimalType t1(8, 4);
+  Decimal128Type t1(8, 4);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);
   ASSERT_EQ(t1.precision(), 8);
@@ -414,7 +414,7 @@ TEST(TypesTest, TestDecimal128Small) {
 }
 
 TEST(TypesTest, TestDecimal128Medium) {
-  DecimalType t1(12, 5);
+  Decimal128Type t1(12, 5);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);
   ASSERT_EQ(t1.precision(), 12);
@@ -428,7 +428,7 @@ TEST(TypesTest, TestDecimal128Medium) {
 }
 
 TEST(TypesTest, TestDecimal128Large) {
-  DecimalType t1(27, 7);
+  Decimal128Type t1(27, 7);
 
   ASSERT_EQ(t1.id(), Type::DECIMAL);
   ASSERT_EQ(t1.precision(), 27);

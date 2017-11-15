@@ -755,7 +755,7 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
     UNIQUE_CASE(BinaryType);
     UNIQUE_CASE(StringType);
     UNIQUE_CASE(FixedSizeBinaryType);
-    UNIQUE_CASE(DecimalType);
+    UNIQUE_CASE(Decimal128Type);
     default:
       break;
   }
@@ -798,7 +798,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
     DICTIONARY_ENCODE_CASE(BinaryType);
     DICTIONARY_ENCODE_CASE(StringType);
     DICTIONARY_ENCODE_CASE(FixedSizeBinaryType);
-    DICTIONARY_ENCODE_CASE(DecimalType);
+    DICTIONARY_ENCODE_CASE(Decimal128Type);
     default:
       break;
   }

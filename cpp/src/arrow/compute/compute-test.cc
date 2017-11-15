@@ -885,7 +885,7 @@ TEST_F(TestHashKernel, UniqueDecimal) {
   vector<Decimal128> values{12, 12, 11, 12};
   vector<Decimal128> expected{12, 11};
 
-  CheckUnique<DecimalType, Decimal128>(&this->ctx_, decimal(2, 0), values,
+  CheckUnique<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
                                        {true, false, true, true}, expected, {});
 }
 
@@ -893,7 +893,7 @@ TEST_F(TestHashKernel, DictEncodeDecimal) {
   vector<Decimal128> values{12, 12, 11, 12, 13};
   vector<Decimal128> expected{12, 11, 13};
 
-  CheckDictEncode<DecimalType, Decimal128>(&this->ctx_, decimal(2, 0), values,
+  CheckDictEncode<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
                                            {true, false, true, true, true}, expected, {},
                                            {0, 0, 1, 0, 2});
 }
