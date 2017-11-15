@@ -107,6 +107,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return singletonList(getDataVector());
   }
 
+  /**
+   * Load the buffers of this vector with provided source buffers.
+   * The caller manages the source buffers and populates them before invoking
+   * this method.
+   * @param fieldNode  the fieldNode indicating the value count
+   * @param ownBuffers the buffers for this Field (own buffers only, children not included)
+   */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 2) {
@@ -128,6 +135,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     valueCount = fieldNode.getLength();
   }
 
+  /**
+   * Get the buffers belonging to this vector
+   * @return the inner buffers.
+   */
   @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
@@ -138,6 +149,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return result;
   }
 
+  /**
+   * Set the reader and writer indexes for the inner buffers.
+   */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     offsetBuffer.readerIndex(0);
@@ -160,6 +174,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return new UnionListWriter(this);
   }
 
+  /**
+   * Same as {@link #allocateNewSafe()}.
+   */
   @Override
   public void allocateNew() throws OutOfMemoryException {
     if (!allocateNewSafe()) {
@@ -167,6 +184,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
   }
 
+  /**
+   * Allocate memory for the vector. We internally use a default value count
+   * of 4096 to allocate memory for at least these many elements in the
+   * vector.
+   *
+   * @return false if memory allocation fails, true otherwise.
+   */
   public boolean allocateNewSafe() {
     boolean success = false;
     try {
@@ -193,6 +217,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     validityBuffer.setZero(0, validityBuffer.capacity());
   }
 
+  /**
+   * Resize the vector to increase the capacity. The internal behavior is to
+   * double the current value capacity.
+   */
   @Override
   public void reAlloc() {
     /* reallocate the validity buffer */
@@ -230,10 +258,25 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     validityAllocationSizeInBytes = (int) newAllocationSize;
   }
 
+  /**
+   * Same as {@link #copyFrom(int, int, ListVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   * @param inIndex position to copy from in source vector
+   * @param outIndex position to copy to in this vector
+   * @param from source vector
+   */
   public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector
+   * @param inIndex position to copy from in source vector
+   * @param outIndex position to copy to in this vector
+   * @param from source vector
+   */
   public void copyFrom(int inIndex, int outIndex, ListVector from) {
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
@@ -242,6 +285,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     ComplexCopier.copy(in, out);
   }
 
+  /**
+   * Get the inner data vector for this list vector
+   * @return data vector
+   */
   @Override
   public FieldVector getDataVector() {
     return vector;
@@ -310,6 +357,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       dataTransferPair = getDataVector().makeTransferPair(to.getDataVector());
     }
 
+    /**
+     * Transfer this vector'data to another vector. The memory associated
+     * with this vector is transferred to the allocator of target vector
+     * for accounting and management purposes.
+     */
     @Override
     public void transfer() {
       to.clear();
@@ -323,6 +375,12 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       clear();
     }
 
+    /**
+     * Slice this vector at desired index and length and transfer the
+     * corresponding data to the target vector.
+     * @param startIndex start position of the split in source vector.
+     * @param length length of the split.
+     */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
@@ -423,6 +481,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return result;
   }
 
+  /**
+   * Get the size (number of bytes) of underlying buffers used by this
+   * vector
+   * @return size of underlying buffers.
+   */
   @Override
   public int getBufferSize() {
     if (valueCount == 0) {
@@ -450,6 +513,17 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     lastSet = 0;
   }
 
+  /**
+   * Return the underlying buffers associated with this vector. Note that this doesn't
+   * impact the reference counts for this buffer so it only should be used for in-context
+   * access. Also note that this buffer changes regularly thus
+   * external classes shouldn't hold a reference to it (unless they change it).
+   *
+   * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+   *              but the returned array will be the only reference to them
+   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   *         vector instance.
+   */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     setReaderAndWriterIndex();
@@ -481,6 +555,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return vector;
   }
 
+  /**
+   * Get the element in the list vector at a particular index
+   * @param index position of the element
+   * @return Object at given position
+   */
   @Override
   public Object getObject(int index) {
     if (isSet(index) == 0) {
@@ -497,11 +576,23 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return vals;
   }
 
+  /**
+   * Check if element at given index is null.
+   *
+   * @param index  position of element
+   * @return true if element at given index is null, false otherwise
+   */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
 
+  /**
+   * Same as {@link #isNull(int)}.
+   *
+   * @param index  position of element
+   * @return 1 if element at given index is not null, 0 otherwise
+   */
   public int isSet(int index) {
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
@@ -509,11 +600,20 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return Long.bitCount(b & (1L << bitIndex));
   }
 
+  /**
+   * Get the number of elements that are null in the vector
+   *
+   * @return the number of null elements.
+   */
   @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
+  /**
+   * Get the current value capacity for the vector
+   * @return number of elements that vector can hold.
+   */
   @Override
   public int getValueCapacity() {
     return Math.min(getValidityBufferValueCapacity(), super.getValueCapacity());
@@ -536,6 +636,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     lastSet = index + 1;
   }
 
+  /**
+   * Start a new value in the list vector
+   *
+   * @param index index of the value to start
+   */
   @Override
   public int startNewValue(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
@@ -561,6 +666,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, currentOffset + size);
   }
 
+  /**
+   * Sets the value count for the vector
+   *
+   * @param valueCount   value count
+   */
   @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;

@@ -72,25 +72,23 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     cleared = false;
   }
 
-   /* TODO:
-    *
-    * see if getNullCount() can be made faster -- O(1)
-    */
+  /* TODO:
+   * see if getNullCount() can be made faster -- O(1)
+   */
 
   /* TODO:
-    * Once the entire hierarchy has been refactored, move common functions
-    * like getNullCount(), splitAndTransferValidityBuffer to top level
-    * base class BaseValueVector.
-    *
-    * Along with this, some class members (validityBuffer) can also be
-    * abstracted out to top level base class.
-    *
-    * Right now BaseValueVector is the top level base class for other
-    * vector types in ValueVector hierarchy (non-nullable) and those
-    * vectors have not yet been refactored/removed so moving things to
-    * the top class as of now is not a good idea.
-    */
-
+   * Once the entire hierarchy has been refactored, move common functions
+   * like getNullCount(), splitAndTransferValidityBuffer to top level
+   * base class BaseValueVector.
+   *
+   * Along with this, some class members (validityBuffer) can also be
+   * abstracted out to top level base class.
+   *
+   * Right now BaseValueVector is the top level base class for other
+   * vector types in ValueVector hierarchy (non-nullable) and those
+   * vectors have not yet been refactored/removed so moving things to
+   * the top class as of now is not a good idea.
+   */
 
   @Override
   @Deprecated
@@ -177,9 +175,9 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     }
     valueAllocationSizeInBytes = (int) size;
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(valueCount);
-      /* to track the end offset of last data element in vector, we need
-       * an additional slot in offset buffer.
-       */
+    /* to track the end offset of last data element in vector, we need
+     * an additional slot in offset buffer.
+     */
     offsetAllocationSizeInBytes = (valueCount + 1) * OFFSET_WIDTH;
   }
 
@@ -317,6 +315,9 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
     return result;
   }
 
+  /**
+   * Set the reader and writer indexes for the inner buffers.
+   */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     offsetBuffer.readerIndex(0);
@@ -362,7 +363,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
-      /* we are doing a new allocation -- release the current buffers */
+    /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {
@@ -395,7 +396,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory exceeds limit");
     }
 
-      /* we are doing a new allocation -- release the current buffers */
+    /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {
@@ -409,7 +410,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
   /* allocate the inner buffers */
   private void allocateBytes(final long valueBufferSize, final long validityBufferSize,
                              final long offsetBufferSize) {
-      /* allocate data buffer */
+    /* allocate data buffer */
     int curSize = (int) valueBufferSize;
     valueBuffer = allocator.buffer(curSize);
     valueBuffer.readerIndex(0);
@@ -728,12 +729,12 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
         target.validityBuffer.retain(1);
       } else {
-            /* Copy data
-             * When the first bit starts from the middle of a byte (offset != 0),
-             * copy data from src BitVector.
-             * Each byte in the target is composed by a part in i-th byte,
-             * another part in (i+1)-th byte.
-             */
+        /* Copy data
+         * When the first bit starts from the middle of a byte (offset != 0),
+         * copy data from src BitVector.
+         * Each byte in the target is composed by a part in i-th byte,
+         * another part in (i+1)-th byte.
+         */
         target.allocateValidityBuffer(byteSizeTarget);
 
         for (int i = 0; i < byteSizeTarget - 1; i++) {
@@ -742,16 +743,15 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
 
           target.validityBuffer.setByte(i, (b1 + b2));
         }
-
-            /* Copying the last piece is done in the following manner:
-             * if the source vector has 1 or more bytes remaining, we copy
-             * the last piece as a byte formed by shifting data
-             * from the current byte and the next byte.
-             *
-             * if the source vector has no more bytes remaining
-             * (we are at the last byte), we copy the last piece as a byte
-             * by shifting data from the current byte.
-             */
+        /* Copying the last piece is done in the following manner:
+         * if the source vector has 1 or more bytes remaining, we copy
+         * the last piece as a byte formed by shifting data
+         * from the current byte and the next byte.
+         *
+         * if the source vector has no more bytes remaining
+         * (we are at the last byte), we copy the last piece as a byte
+         * by shifting data from the current byte.
+         */
         if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
           byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
                   firstByteSource + byteSizeTarget - 1, offset);
@@ -1157,13 +1157,13 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
   }
 
   protected final void setBytes(int index, byte[] value, int start, int length) {
-      /* end offset of current last element in the vector. this will
-       * be the start offset of new element we are trying to store.
-       */
+    /* end offset of current last element in the vector. this will
+     * be the start offset of new element we are trying to store.
+     */
     final int startOffset = getstartOffset(index);
-      /* set new end offset */
+    /* set new end offset */
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
-      /* store the var length data in value buffer */
+    /* store the var length data in value buffer */
     valueBuffer.setBytes(startOffset, value, start, length);
   }
 
@@ -1172,26 +1172,26 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
   }
 
   protected final void handleSafe(int index, int dataLength) {
-      /*
-       * IMPORTANT:
-       * value buffer for variable length vectors moves independent
-       * of the companion validity and offset buffers. This is in
-       * contrast to what we have for fixed width vectors.
-       *
-       * Here there is no concept of getValueCapacity() in the
-       * data stream. getValueCapacity() is applicable only to validity
-       * and offset buffers.
-       *
-       * So even though we may have setup an initial capacity of 1024
-       * elements in the vector, it is quite possible
-       * that we need to reAlloc() the data buffer when we are setting
-       * the 5th element in the vector simply because previous
-       * variable length elements have exhausted the buffer capacity.
-       * However, we really don't need to reAlloc() validity and
-       * offset buffers until we try to set the 1025th element
-       * This is why we do a separate check for safe methods to
-       * determine which buffer needs reallocation.
-       */
+    /*
+     * IMPORTANT:
+     * value buffer for variable length vectors moves independent
+     * of the companion validity and offset buffers. This is in
+     * contrast to what we have for fixed width vectors.
+     *
+     * Here there is no concept of getValueCapacity() in the
+     * data stream. getValueCapacity() is applicable only to validity
+     * and offset buffers.
+     *
+     * So even though we may have setup an initial capacity of 1024
+     * elements in the vector, it is quite possible
+     * that we need to reAlloc() the data buffer when we are setting
+     * the 5th element in the vector simply because previous
+     * variable length elements have exhausted the buffer capacity.
+     * However, we really don't need to reAlloc() validity and
+     * offset buffers until we try to set the 1025th element
+     * This is why we do a separate check for safe methods to
+     * determine which buffer needs reallocation.
+     */
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }

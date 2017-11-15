@@ -238,16 +238,35 @@ public class NullableMapVector extends MapVector implements FieldVector {
     }
   }
 
+  /**
+   * Get the value capacity of the internal validity buffer.
+   * @return number of elements that validity buffer can hold
+   */
   private int getValidityBufferValueCapacity() {
     return (int) (validityBuffer.capacity() * 8L);
   }
 
+  /**
+   * Get the current value capacity for the vector
+   * @return number of elements that vector can hold.
+   */
   @Override
   public int getValueCapacity() {
     return Math.min(getValidityBufferValueCapacity(),
             super.getValueCapacity());
   }
 
+  /**
+   * Return the underlying buffers associated with this vector. Note that this doesn't
+   * impact the reference counts for this buffer so it only should be used for in-context
+   * access. Also note that this buffer changes regularly thus
+   * external classes shouldn't hold a reference to it (unless they change it).
+   *
+   * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+   *              but the returned array will be the only reference to them
+   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   *         vector instance.
+   */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     setReaderAndWriterIndex();
@@ -268,23 +287,37 @@ public class NullableMapVector extends MapVector implements FieldVector {
     return buffers;
   }
 
+  /**
+   * Close the vector and release the associated buffers.
+   */
   @Override
   public void close() {
     clearValidityBuffer();
     super.close();
   }
 
+  /**
+   * Same as {@link #close()}
+   */
   @Override
   public void clear() {
     clearValidityBuffer();
     super.clear();
   }
 
+  /**
+   * Release the validity buffer
+   */
   private void clearValidityBuffer() {
     validityBuffer.release();
     validityBuffer = allocator.getEmpty();
   }
 
+  /**
+   * Get the size (number of bytes) of underlying buffers used by this
+   * vector
+   * @return size of underlying buffers.
+   */
   @Override
   public int getBufferSize() {
     if (valueCount == 0) {
@@ -294,6 +327,12 @@ public class NullableMapVector extends MapVector implements FieldVector {
             BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
+  /**
+   * Get the potential buffer size for a particular number of records.
+   * @param valueCount desired number of elements in the vector
+   * @return estimated size of underlying buffers if the vector holds
+   *         a given number of elements
+   */
   @Override
   public int getBufferSizeFor(final int valueCount) {
     if (valueCount == 0) {

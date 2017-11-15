@@ -66,31 +66,30 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       valueAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * typeWidth;
       validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     } else {
-         /* specialized handling for NullableBitVector */
+      /* specialized handling for NullableBitVector */
       valueAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
       validityAllocationSizeInBytes = valueAllocationSizeInBytes;
     }
   }
 
 
-   /* TODO:
-    *
-    * see if getNullCount() can be made faster -- O(1)
-    */
+  /* TODO:
+   * see if getNullCount() can be made faster -- O(1)
+   */
 
-   /* TODO:
-    * Once the entire hierarchy has been refactored, move common functions
-    * like getNullCount(), splitAndTransferValidityBuffer to top level
-    * base class BaseValueVector.
-    *
-    * Along with this, some class members (validityBuffer) can also be
-    * abstracted out to top level base class.
-    *
-    * Right now BaseValueVector is the top level base class for other
-    * vector types in ValueVector hierarchy (non-nullable) and those
-    * vectors have not yet been refactored/removed so moving things to
-    * the top class as of now is not a good idea.
-    */
+  /* TODO:
+   * Once the entire hierarchy has been refactored, move common functions
+   * like getNullCount(), splitAndTransferValidityBuffer to top level
+   * base class BaseValueVector.
+   *
+   * Along with this, some class members (validityBuffer) can also be
+   * abstracted out to top level base class.
+   *
+   * Right now BaseValueVector is the top level base class for other
+   * vector types in ValueVector hierarchy (non-nullable) and those
+   * vectors have not yet been refactored/removed so moving things to
+   * the top class as of now is not a good idea.
+   */
 
 
   @Override
@@ -312,7 +311,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     long valueBufferSize = valueCount * typeWidth;
     long validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     if (typeWidth == 0) {
-         /* specialized handling for NullableBitVector */
+      /* specialized handling for NullableBitVector */
       valueBufferSize = validityBufferSize;
     }
 
@@ -320,7 +319,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-      /* we are doing a new allocation -- release the current buffers */
+    /* we are doing a new allocation -- release the current buffers */
     clear();
 
     try {
@@ -342,12 +341,12 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    * conditions.
    */
   private void allocateBytes(final long valueBufferSize, final long validityBufferSize) {
-      /* allocate data buffer */
+    /* allocate data buffer */
     int curSize = (int) valueBufferSize;
     valueBuffer = allocator.buffer(curSize);
     valueBuffer.readerIndex(0);
     valueAllocationSizeInBytes = curSize;
-      /* allocate validity buffer */
+    /* allocate validity buffer */
     allocateValidityBuffer((int) validityBufferSize);
     zeroVector();
   }
@@ -545,6 +544,9 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     return result;
   }
 
+  /**
+   * Set the reader and writer indexes for the inner buffers.
+   */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     valueBuffer.readerIndex(0);
@@ -554,7 +556,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     } else {
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       if (typeWidth == 0) {
-         /* specialized handling for NullableBitVector */
+        /* specialized handling for NullableBitVector */
         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       } else {
         valueBuffer.writerIndex(valueCount * typeWidth);
@@ -647,19 +649,19 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
 
     if (length > 0) {
       if (offset == 0) {
-            /* slice */
+        /* slice */
         if (target.validityBuffer != null) {
           target.validityBuffer.release();
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
         target.validityBuffer.retain(1);
       } else {
-            /* Copy data
-             * When the first bit starts from the middle of a byte (offset != 0),
-             * copy data from src BitVector.
-             * Each byte in the target is composed by a part in i-th byte,
-             * another part in (i+1)-th byte.
-             */
+        /* Copy data
+         * When the first bit starts from the middle of a byte (offset != 0),
+         * copy data from src BitVector.
+         * Each byte in the target is composed by a part in i-th byte,
+         * another part in (i+1)-th byte.
+         */
         target.allocateValidityBuffer(byteSizeTarget);
 
         for (int i = 0; i < byteSizeTarget - 1; i++) {
@@ -671,15 +673,15 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
           target.validityBuffer.setByte(i, (b1 + b2));
         }
 
-            /* Copying the last piece is done in the following manner:
-             * if the source vector has 1 or more bytes remaining, we copy
-             * the last piece as a byte formed by shifting data
-             * from the current byte and the next byte.
-             *
-             * if the source vector has no more bytes remaining
-             * (we are at the last byte), we copy the last piece as a byte
-             * by shifting data from the current byte.
-             */
+        /* Copying the last piece is done in the following manner:
+         * if the source vector has 1 or more bytes remaining, we copy
+         * the last piece as a byte formed by shifting data
+         * from the current byte and the next byte.
+         *
+         * if the source vector has no more bytes remaining
+         * (we are at the last byte), we copy the last piece as a byte
+         * by shifting data from the current byte.
+         */
         if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
           byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
                   firstByteSource + byteSizeTarget - 1, offset);
@@ -734,32 +736,32 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     while (valueCount > getValueCapacity()) {
       reAlloc();
     }
-      /*
-       * We are trying to understand the pattern of memory allocation.
-       * If initially, the user did vector.allocateNew(), we would have
-       * allocated memory of default size (4096 * type width).
-       * Later on user invokes setValueCount(count).
-       *
-       * If the existing value capacity is twice as large as the
-       * valueCount, we know that we over-provisioned memory in the
-       * first place when default memory allocation was done because user
-       * really needs a much less value count in the vector.
-       *
-       * We record this by bumping up the allocationMonitor. If this pattern
-       * happens for certain number of times and allocationMonitor
-       * reaches the threshold (internal hardcoded) value, subsequent
-       * call to allocateNew() will take care of stepping down the
-       * default memory allocation size.
-       *
-       * Another case would be under-provisioning the initial memory and
-       * thus going through a lot of realloc(). Here the goal is to
-       * see if we can minimize the number of reallocations. Again the
-       * state is recorded in allocationMonitor by decrementing it
-       * (negative value). If a threshold is hit, realloc will try to
-       * allocate more memory in order to possibly avoid a future realloc.
-       * This case is also applicable to setSafe() methods which can trigger
-       * a realloc() and thus we record the state there as well.
-       */
+    /*
+     * We are trying to understand the pattern of memory allocation.
+     * If initially, the user did vector.allocateNew(), we would have
+     * allocated memory of default size (4096 * type width).
+     * Later on user invokes setValueCount(count).
+     *
+     * If the existing value capacity is twice as large as the
+     * valueCount, we know that we over-provisioned memory in the
+     * first place when default memory allocation was done because user
+     * really needs a much less value count in the vector.
+     *
+     * We record this by bumping up the allocationMonitor. If this pattern
+     * happens for certain number of times and allocationMonitor
+     * reaches the threshold (internal hardcoded) value, subsequent
+     * call to allocateNew() will take care of stepping down the
+     * default memory allocation size.
+     *
+     * Another case would be under-provisioning the initial memory and
+     * thus going through a lot of realloc(). Here the goal is to
+     * see if we can minimize the number of reallocations. Again the
+     * state is recorded in allocationMonitor by decrementing it
+     * (negative value). If a threshold is hit, realloc will try to
+     * allocate more memory in order to possibly avoid a future realloc.
+     * This case is also applicable to setSafe() methods which can trigger
+     * a realloc() and thus we record the state there as well.
+     */
     if (valueCount > 0) {
       if (currentValueCapacity >= (valueCount * 2)) {
         incrementAllocationMonitor();
