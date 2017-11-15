@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -91,7 +91,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
     ArrowBuf bitBuffer = ownBuffers.get(0);
 
     validityBuffer.release();
-    validityBuffer = bitBuffer.retain(allocator);
+    validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     valueCount = fieldNode.getLength();
     validityAllocationSizeInBytes = validityBuffer.capacity();
   }
@@ -197,8 +197,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
         target.validityBuffer.retain(1);
-      }
-      else {
+      } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),
          * copy data from src BitVector.
@@ -223,15 +222,14 @@ public class NullableMapVector extends MapVector implements FieldVector {
          * (we are at the last byte), we copy the last piece as a byte
          * by shifting data from the current byte.
          */
-        if((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+        if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
           byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
                   firstByteSource + byteSizeTarget - 1, offset);
           byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
                   firstByteSource + byteSizeTarget, offset);
 
           target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
-        }
-        else {
+        } else {
           byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
                   firstByteSource + byteSizeTarget - 1, offset);
           target.validityBuffer.setByte(byteSizeTarget - 1, b1);
@@ -241,7 +239,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int)(validityBuffer.capacity() * 8L);
+    return (int) (validityBuffer.capacity() * 8L);
   }
 
   @Override
@@ -261,7 +259,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
               ArrowBuf.class);
     }
     if (clear) {
-      for (ArrowBuf buffer: buffers) {
+      for (ArrowBuf buffer : buffers) {
         buffer.retain();
       }
       clear();
@@ -289,7 +287,9 @@ public class NullableMapVector extends MapVector implements FieldVector {
 
   @Override
   public int getBufferSize() {
-    if (valueCount == 0) { return 0; }
+    if (valueCount == 0) {
+      return 0;
+    }
     return super.getBufferSize() +
             BitVectorHelper.getValidityBufferSize(valueCount);
   }
@@ -300,7 +300,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
       return 0;
     }
     return super.getBufferSizeFor(valueCount)
-        + BitVectorHelper.getValidityBufferSize(valueCount);
+            + BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override
@@ -331,7 +331,7 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   private void allocateValidityBuffer(final long size) {
-    final int curSize = (int)size;
+    final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
     validityBuffer.readerIndex(0);
     validityAllocationSizeInBytes = curSize;
@@ -349,8 +349,8 @@ public class NullableMapVector extends MapVector implements FieldVector {
     final int currentBufferCapacity = validityBuffer.capacity();
     long baseSize = validityAllocationSizeInBytes;
 
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    if (baseSize < (long) currentBufferCapacity) {
+      baseSize = (long) currentBufferCapacity;
     }
 
     long newAllocationSize = baseSize * 2L;
@@ -360,12 +360,12 @@ public class NullableMapVector extends MapVector implements FieldVector {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setZero(0, newBuf.capacity());
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     validityBuffer.release(1);
     validityBuffer = newBuf;
-    validityAllocationSizeInBytes = (int)newAllocationSize;
+    validityAllocationSizeInBytes = (int) newAllocationSize;
   }
 
   @Override

@@ -1,5 +1,4 @@
-/*******************************************************************************
-
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -7,15 +6,15 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package org.apache.arrow.vector.complex;
 
@@ -163,9 +162,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public void allocateNew() throws OutOfMemoryException {
-   if (!allocateNewSafe()) {
-     throw new OutOfMemoryException("Failure while allocating memory");
-   }
+    if (!allocateNewSafe()) {
+      throw new OutOfMemoryException("Failure while allocating memory");
+    }
   }
 
   public boolean allocateNewSafe() {
@@ -187,7 +186,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   private void allocateValidityBuffer(final long size) {
-    final int curSize = (int)size;
+    final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
     validityBuffer.readerIndex(0);
     validityAllocationSizeInBytes = curSize;
@@ -211,8 +210,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int currentBufferCapacity = validityBuffer.capacity();
     long baseSize = validityAllocationSizeInBytes;
 
-    if (baseSize < (long)currentBufferCapacity) {
-      baseSize = (long)currentBufferCapacity;
+    if (baseSize < (long) currentBufferCapacity) {
+      baseSize = (long) currentBufferCapacity;
     }
 
     long newAllocationSize = baseSize * 2L;
@@ -222,13 +221,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int)newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     final int halfNewCapacity = newBuf.capacity() / 2;
     newBuf.setZero(halfNewCapacity, halfNewCapacity);
     validityBuffer.release(1);
     validityBuffer = newBuf;
-    validityAllocationSizeInBytes = (int)newAllocationSize;
+    validityAllocationSizeInBytes = (int) newAllocationSize;
   }
 
   public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
@@ -279,7 +278,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
-  public ArrowBuf getValidityBuffer() { return validityBuffer; }
+  public ArrowBuf getValidityBuffer() {
+    return validityBuffer;
+  }
 
   @Override
   public ArrowBuf getDataBuffer() {
@@ -287,7 +288,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
-  public ArrowBuf getOffsetBuffer() { return offsetBuffer; }
+  public ArrowBuf getOffsetBuffer() {
+    return offsetBuffer;
+  }
 
   private class TransferImpl implements TransferPair {
 
@@ -357,8 +360,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
           }
           target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
           target.validityBuffer.retain(1);
-        }
-        else {
+        } else {
           /* Copy data
            * When the first bit starts from the middle of a byte (offset != 0),
            * copy data from src BitVector.
@@ -383,15 +385,14 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
            * (we are at the last byte), we copy the last piece as a byte
            * by shifting data from the current byte.
            */
-          if((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+          if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
             byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
                     firstByteSource + byteSizeTarget - 1, offset);
             byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
                     firstByteSource + byteSizeTarget, offset);
 
             target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
-          }
-          else {
+          } else {
             byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
                     firstByteSource + byteSizeTarget - 1, offset);
             target.validityBuffer.setByte(byteSizeTarget - 1, b1);
@@ -524,7 +525,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int)(validityBuffer.capacity() * 8L);
+    return (int) (validityBuffer.capacity() * 8L);
   }
 
   public void setNotNull(int index) {
