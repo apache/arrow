@@ -340,12 +340,13 @@ Status AllocateResizableBuffer(MemoryPool* pool, const int64_t size,
 #ifndef ARROW_NO_DEPRECATED_API
 
 /// \brief Create Buffer referencing std::string memory
-/// \note Deprecated since 0.8.0
 ///
 /// Warning: string instance must stay alive
 ///
 /// \param str std::string instance
 /// \return std::shared_ptr<Buffer>
+///
+/// \note Deprecated Since 0.8.0
 static inline std::shared_ptr<Buffer> GetBufferFromString(const std::string& str) {
   return std::make_shared<Buffer>(str);
 }

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_CAST_H
-#define ARROW_COMPUTE_CAST_H
+#ifndef ARROW_COMPUTE_KERNELS_CAST_H
+#define ARROW_COMPUTE_KERNELS_CAST_H
 
 #include <memory>
 
@@ -26,7 +26,10 @@
 namespace arrow {
 
 class Array;
+class ChunkedArray;
+class Column;
 class DataType;
+class Datum;
 
 namespace compute {
 
@@ -60,7 +63,12 @@ Status Cast(FunctionContext* context, const Array& array,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,
             std::shared_ptr<Array>* out);
 
+ARROW_EXPORT
+Status Cast(FunctionContext* context, const Datum& value,
+            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
+            Datum* out);
+
 }  // namespace compute
 }  // namespace arrow
 
-#endif  // ARROW_COMPUTE_CAST_H
+#endif  // ARROW_COMPUTE_KERNELS_CAST_H

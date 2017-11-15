@@ -362,7 +362,8 @@ def backwards_compatible_index_name(raw_name, logical_name):
         return logical_name
 
 
-def table_to_blockmanager(options, table, memory_pool, nthreads=1):
+def table_to_blockmanager(options, table, memory_pool, nthreads=1,
+                          categoricals=None):
     import pandas.core.internals as _int
     import pyarrow.lib as lib
 

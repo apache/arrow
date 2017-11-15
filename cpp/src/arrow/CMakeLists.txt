@@ -50,8 +50,9 @@ endif()
 if (ARROW_COMPUTE)
   add_subdirectory(compute)
   set(ARROW_SRCS ${ARROW_SRCS}
-    compute/cast.cc
     compute/context.cc
+    compute/kernels/cast.cc
+    compute/kernels/hash.cc
   )
 endif()
 
