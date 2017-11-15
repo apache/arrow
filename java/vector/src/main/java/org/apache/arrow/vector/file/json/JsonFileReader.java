@@ -232,7 +232,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeByte(parser.getByteValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -248,7 +247,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeShort(parser.getShortValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -264,7 +262,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeInt(parser.getIntValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -280,7 +277,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeLong(parser.getLongValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -296,7 +292,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeFloat(parser.getFloatValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -312,7 +307,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           buf.writeDouble(parser.getDoubleValue());
         }
 
-        buf.writerIndex(size);
         return buf;
       }
     };
@@ -518,13 +512,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         vectorBuffers[v] = readIntoBuffer(allocator, vectorType, vector.getMinorType(), innerBufferValueCount);
-
-        if (vectorType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR ||
-                        vector.getMinorType() == Types.MinorType.VARBINARY)) {
-          final ArrowBuf offsetBuffer = vectorBuffers[v-1];
-          final int lastOffset = offsetBuffer.getInt(valueCount * 4);
-          vectorBuffers[v].writerIndex(lastOffset);
-        }
       }
 
       final int nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);

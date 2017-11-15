@@ -519,7 +519,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return Math.min(getValidityBufferValueCapacity(), super.getValueCapacity());
   }
 
-  public int getValidityAndOffsetValueCapacity() {
+  private int getValidityAndOffsetValueCapacity() {
     final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity() - 1, 0);
     return Math.min(offsetValueCapacity, getValidityBufferValueCapacity());
   }
