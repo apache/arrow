@@ -233,6 +233,42 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
     }                                                                                    \
   }
 
+#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                     \
+  do {                                                                  \
+    int64_t new_size = hash_table_size_ * 2;                            \
+                                                                        \
+    std::shared_ptr<Buffer> new_hash_table;                             \
+    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));      \
+    int32_t* new_hash_slots =                                           \
+      reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());   \
+    int64_t new_mod_bitmask = new_size - 1;                             \
+                                                                        \
+    SETUP_CODE;                                                         \
+                                                                        \
+    for (int i = 0; i < hash_table_size_; ++i) {                        \
+      hash_slot_t index = hash_slots_[i];                               \
+                                                                        \
+      if (index == kHashSlotEmpty) {                                    \
+        continue;                                                       \
+      }                                                                 \
+                                                                        \
+      COMPUTE_HASH;                                                     \
+      while (kHashSlotEmpty != new_hash_slots[j]) {                     \
+        ++j;                                                            \
+        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {               \
+          j = 0;                                                        \
+        }                                                               \
+      }                                                                 \
+                                                                        \
+      new_hash_slots[j] = index;                                        \
+    }                                                                   \
+                                                                        \
+    hash_table_ = new_hash_table;                                       \
+    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data()); \
+    hash_table_size_ = new_size;                                        \
+    mod_bitmask_ = new_size - 1;                                        \
+  } while (false)
+
 template <typename Type, typename Action>
 class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTable {
  public:
@@ -311,44 +347,15 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
   }
 
   Status DoubleTableSize() {
-    int64_t new_size = hash_table_size_ * 2;
+#define PRIMITIVE_INNER_LOOP                            \
+    const T value = dict_.values[index];                \
+    int64_t j = HashValue(value) & new_mod_bitmask;     \
 
-    std::shared_ptr<Buffer> new_hash_table;
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));
-    int32_t* new_hash_slots =
-        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());
-    int64_t new_mod_bitmask = new_size - 1;
+    DOUBLE_TABLE_SIZE(, PRIMITIVE_INNER_LOOP);
 
-    for (int i = 0; i < hash_table_size_; ++i) {
-      hash_slot_t index = hash_slots_[i];
+#undef PRIMITIVE_INNER_LOOP
 
-      if (index == kHashSlotEmpty) {
-        continue;
-      }
-
-      // Compute the hash value mod the new table size to start looking for an
-      // empty slot
-      const T value = dict_.values[index];
-
-      // Find empty slot in the new hash table
-      int64_t j = HashValue(value) & new_mod_bitmask;
-      while (kHashSlotEmpty != new_hash_slots[j]) {
-        ++j;
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {
-          j = 0;
-        }
-      }
-
-      // Copy the old slot index to the new hash table
-      new_hash_slots[j] = index;
-    }
-
-    hash_table_ = new_hash_table;
-    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
-    hash_table_size_ = new_size;
-    mod_bitmask_ = new_size - 1;
-
-    return dict_.Resize(new_size);
+    return dict_.Resize(hash_table_size_);
   }
 
   HashDictionary<Type> dict_;
@@ -451,46 +458,19 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
   }
 
   Status DoubleTableSize() {
-    int64_t new_size = hash_table_size_ * 2;
+#define VARBYTES_SETUP                                  \
+    const int32_t* dict_offsets = dict_offsets_.data(); \
+    const uint8_t* dict_data = dict_data_.data()
 
-    std::shared_ptr<Buffer> new_hash_table;
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));
-    int32_t* new_hash_slots =
-        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());
-    int64_t new_mod_bitmask = new_size - 1;
+#define VARBYTES_COMPUTE_HASH                                           \
+    const int32_t length = dict_offsets[index + 1] - dict_offsets[index]; \
+    const uint8_t* value = dict_data + dict_offsets[index];             \
+    int64_t j = HashValue(value, length) & new_mod_bitmask
 
-    const int32_t* dict_offsets = dict_offsets_.data();
-    const uint8_t* dict_data = dict_data_.data();
+    DOUBLE_TABLE_SIZE(VARBYTES_SETUP, VARBYTES_COMPUTE_HASH);
 
-    for (int i = 0; i < hash_table_size_; ++i) {
-      hash_slot_t index = hash_slots_[i];
-
-      if (index == kHashSlotEmpty) {
-        continue;
-      }
-
-      // Compute the hash value mod the new table size to start looking for an
-      // empty slot
-      const int32_t length = dict_offsets[index + 1] - dict_offsets[index];
-      const uint8_t* value = dict_data + dict_offsets[index];
-
-      // Find an empty slot in the new hash table
-      int64_t j = HashValue(value, length) & new_mod_bitmask;
-      while (kHashSlotEmpty != new_hash_slots[j]) {
-        ++j;
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {
-          j = 0;
-        }
-      }
-
-      // Copy the old slot index to the new hash table
-      new_hash_slots[j] = index;
-    }
-
-    hash_table_ = new_hash_table;
-    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
-    hash_table_size_ = new_size;
-    mod_bitmask_ = new_size - 1;
+#undef VARBYTES_SETUP
+#undef VARBYTES_COMPUTE_HASH
 
     return Status::OK();
   }
@@ -584,40 +564,16 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
   }
 
   Status DoubleTableSize() {
-    int64_t new_size = hash_table_size_ * 2;
+#define FIXED_BYTES_SETUP                              \
+    const uint8_t* dict_data = dict_data_.data()
 
-    std::shared_ptr<Buffer> new_hash_table;
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));
-    int32_t* new_hash_slots =
-        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());
-    int64_t new_mod_bitmask = new_size - 1;
+#define FIXED_BYTES_COMPUTE_HASH                                        \
+    int64_t j = HashValue(dict_data + index * byte_width_) & new_mod_bitmask
 
-    const uint8_t* dict_data = dict_data_.data();
+    DOUBLE_TABLE_SIZE(FIXED_BYTES_SETUP, FIXED_BYTES_COMPUTE_HASH);
 
-    for (int i = 0; i < hash_table_size_; ++i) {
-      hash_slot_t index = hash_slots_[i];
-
-      if (index == kHashSlotEmpty) {
-        continue;
-      }
-
-      // Find an empty slot in the new hash table
-      int64_t j = HashValue(dict_data + index * byte_width_) & new_mod_bitmask;
-      while (kHashSlotEmpty != new_hash_slots[j]) {
-        ++j;
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {
-          j = 0;
-        }
-      }
-
-      // Copy the old slot index to the new hash table
-      new_hash_slots[j] = index;
-    }
-
-    hash_table_ = new_hash_table;
-    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
-    hash_table_size_ = new_size;
-    mod_bitmask_ = new_size - 1;
+#undef FIXED_BYTES_SETUP
+#undef FIXED_BYTES_COMPUTE_HASH
 
     return Status::OK();
   }
