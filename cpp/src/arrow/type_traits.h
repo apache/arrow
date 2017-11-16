@@ -431,14 +431,7 @@ static inline bool is_binary_like(Type::type type_id) {
 }
 
 static inline bool is_dictionary(Type::type type_id) {
-  switch (type_id) {
-    case Type::DICTIONARY:
-      return true;
-    default:
-      break;
-  }
-
-  return false;
+  return type_id == Type::DICTIONARY;
 }
 
 }  // namespace arrow

@@ -498,9 +498,9 @@ class ARROW_EXPORT StructType : public NestedType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-class ARROW_EXPORT _DecimalBaseType : public FixedSizeBinaryType {
+class ARROW_EXPORT DecimalBaseType : public FixedSizeBinaryType {
  public:
-  explicit _DecimalBaseType(int32_t byte_width, int32_t precision, int32_t scale)
+  explicit DecimalBaseType(int32_t byte_width, int32_t precision, int32_t scale)
       : FixedSizeBinaryType(byte_width, Type::DECIMAL),
         precision_(precision),
         scale_(scale) {}
@@ -513,12 +513,12 @@ class ARROW_EXPORT _DecimalBaseType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
-class ARROW_EXPORT Decimal128Type : public _DecimalBaseType {
+class ARROW_EXPORT Decimal128Type : public DecimalBaseType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL;
 
   explicit Decimal128Type(int32_t precision, int32_t scale)
-      : _DecimalBaseType(16, precision, scale) {}
+      : DecimalBaseType(16, precision, scale) {}
 
   Status Accept(TypeVisitor* visitor) const override;
   std::string ToString() const override;

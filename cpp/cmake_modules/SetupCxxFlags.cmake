@@ -47,6 +47,9 @@ if (MSVC)
     # Set desired warning level (e.g. set /W4 for more warnings)
     set(CXX_COMMON_FLAGS "/W3")
   endif()
+
+  # MSVC version of -Wno-deprecated
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4996")
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
