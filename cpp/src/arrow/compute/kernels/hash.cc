@@ -119,6 +119,9 @@ class HashTable {
   /// Size of the table. Must be a power of 2.
   int64_t hash_table_size_;
 
+  /// Size at which we decide to resize
+  int64_t hash_table_load_threshold_;
+
   // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
   // hash_table_size_, but uses far fewer CPU cycles
   int64_t mod_bitmask_;
@@ -129,6 +132,8 @@ Status HashTable::Init(int64_t elements) {
   RETURN_NOT_OK(NewHashTable(elements, pool_, &hash_table_));
   hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
   hash_table_size_ = elements;
+  hash_table_load_threshold_ =
+      static_cast<int64_t>(static_cast<double>(elements) * kMaxHashTableLoad);
   mod_bitmask_ = elements - 1;
   initialized_ = true;
   return Status::OK();
@@ -233,40 +238,42 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
     }                                                                                    \
   }
 
-#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                            \
-  do {                                                                         \
-    int64_t new_size = hash_table_size_ * 2;                                   \
-                                                                               \
-    std::shared_ptr<Buffer> new_hash_table;                                    \
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));             \
-    int32_t* new_hash_slots =                                                  \
-        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());        \
-    int64_t new_mod_bitmask = new_size - 1;                                    \
-                                                                               \
-    SETUP_CODE;                                                                \
-                                                                               \
-    for (int i = 0; i < hash_table_size_; ++i) {                               \
-      hash_slot_t index = hash_slots_[i];                                      \
-                                                                               \
-      if (index == kHashSlotEmpty) {                                           \
-        continue;                                                              \
-      }                                                                        \
-                                                                               \
-      COMPUTE_HASH;                                                            \
-      while (kHashSlotEmpty != new_hash_slots[j]) {                            \
-        ++j;                                                                   \
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                      \
-          j = 0;                                                               \
-        }                                                                      \
-      }                                                                        \
-                                                                               \
-      new_hash_slots[j] = index;                                               \
-    }                                                                          \
-                                                                               \
-    hash_table_ = new_hash_table;                                              \
-    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data()); \
-    hash_table_size_ = new_size;                                               \
-    mod_bitmask_ = new_size - 1;                                               \
+#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                              \
+  do {                                                                           \
+    int64_t new_size = hash_table_size_ * 2;                                     \
+                                                                                 \
+    std::shared_ptr<Buffer> new_hash_table;                                      \
+    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));               \
+    int32_t* new_hash_slots =                                                    \
+        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());          \
+    int64_t new_mod_bitmask = new_size - 1;                                      \
+                                                                                 \
+    SETUP_CODE;                                                                  \
+                                                                                 \
+    for (int i = 0; i < hash_table_size_; ++i) {                                 \
+      hash_slot_t index = hash_slots_[i];                                        \
+                                                                                 \
+      if (index == kHashSlotEmpty) {                                             \
+        continue;                                                                \
+      }                                                                          \
+                                                                                 \
+      COMPUTE_HASH;                                                              \
+      while (kHashSlotEmpty != new_hash_slots[j]) {                              \
+        ++j;                                                                     \
+        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                        \
+          j = 0;                                                                 \
+        }                                                                        \
+      }                                                                          \
+                                                                                 \
+      new_hash_slots[j] = index;                                                 \
+    }                                                                            \
+                                                                                 \
+    hash_table_ = new_hash_table;                                                \
+    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());   \
+    hash_table_size_ = new_size;                                                 \
+    hash_table_load_threshold_ =                                                 \
+        static_cast<int64_t>(static_cast<double>(new_size) * kMaxHashTableLoad); \
+    mod_bitmask_ = new_size - 1;                                                 \
   } while (false)
 
 template <typename Type, typename Action>
@@ -292,36 +299,35 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
 
     RETURN_NOT_OK(action->Reserve(arr.length));
 
-#define HASH_INNER_LOOP()                                                               \
-  const T value = values[i];                                                            \
-  int64_t j = HashValue(value) & mod_bitmask_;                                          \
-  hash_slot_t slot = hash_slots_[j];                                                    \
-                                                                                        \
-  while (kHashSlotEmpty != slot && dict_.values[slot] != value) {                       \
-    ++j;                                                                                \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                                   \
-      j = 0;                                                                            \
-    }                                                                                   \
-    slot = hash_slots_[j];                                                              \
-  }                                                                                     \
-                                                                                        \
-  if (slot == kHashSlotEmpty) {                                                         \
-    if (!Action::allow_expand) {                                                        \
-      throw HashException("Encountered new dictionary value");                          \
-    }                                                                                   \
-                                                                                        \
-    slot = static_cast<hash_slot_t>(dict_.size);                                        \
-    hash_slots_[j] = slot;                                                              \
-    dict_.values[dict_.size++] = value;                                                 \
-                                                                                        \
-    action->ObserveNotFound(slot);                                                      \
-                                                                                        \
-    if (ARROW_PREDICT_FALSE(                                                            \
-            dict_.size > static_cast<int64_t>(hash_table_size_ * kMaxHashTableLoad))) { \
-      RETURN_NOT_OK(action->DoubleSize());                                              \
-    }                                                                                   \
-  } else {                                                                              \
-    action->ObserveFound(slot);                                                         \
+#define HASH_INNER_LOOP()                                               \
+  const T value = values[i];                                            \
+  int64_t j = HashValue(value) & mod_bitmask_;                          \
+  hash_slot_t slot = hash_slots_[j];                                    \
+                                                                        \
+  while (kHashSlotEmpty != slot && dict_.values[slot] != value) {       \
+    ++j;                                                                \
+    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                   \
+      j = 0;                                                            \
+    }                                                                   \
+    slot = hash_slots_[j];                                              \
+  }                                                                     \
+                                                                        \
+  if (slot == kHashSlotEmpty) {                                         \
+    if (!Action::allow_expand) {                                        \
+      throw HashException("Encountered new dictionary value");          \
+    }                                                                   \
+                                                                        \
+    slot = static_cast<hash_slot_t>(dict_.size);                        \
+    hash_slots_[j] = slot;                                              \
+    dict_.values[dict_.size++] = value;                                 \
+                                                                        \
+    action->ObserveNotFound(slot);                                      \
+                                                                        \
+    if (ARROW_PREDICT_FALSE(dict_.size > hash_table_load_threshold_)) { \
+      RETURN_NOT_OK(action->DoubleSize());                              \
+    }                                                                   \
+  } else {                                                              \
+    action->ObserveFound(slot);                                         \
   }
 
     GENERIC_HASH_PASS(HASH_INNER_LOOP);
@@ -395,45 +401,44 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
     auto action = static_cast<Action*>(this);
     RETURN_NOT_OK(action->Reserve(arr.length));
 
-#define HASH_INNER_LOOP()                                                               \
-  const int32_t position = offsets[i];                                                  \
-  const int32_t length = offsets[i + 1] - position;                                     \
-  const uint8_t* value = data + position;                                               \
-                                                                                        \
-  int64_t j = HashValue(value, length) & mod_bitmask_;                                  \
-  hash_slot_t slot = hash_slots_[j];                                                    \
-                                                                                        \
-  const int32_t* dict_offsets = dict_offsets_.data();                                   \
-  const uint8_t* dict_data = dict_data_.data();                                         \
-  while (kHashSlotEmpty != slot &&                                                      \
-         !((dict_offsets[slot + 1] - dict_offsets[slot]) == length &&                   \
-           0 == memcmp(value, dict_data + dict_offsets[slot], length))) {               \
-    ++j;                                                                                \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                                   \
-      j = 0;                                                                            \
-    }                                                                                   \
-    slot = hash_slots_[j];                                                              \
-  }                                                                                     \
-                                                                                        \
-  if (slot == kHashSlotEmpty) {                                                         \
-    if (!Action::allow_expand) {                                                        \
-      throw HashException("Encountered new dictionary value");                          \
-    }                                                                                   \
-                                                                                        \
-    slot = dict_size_++;                                                                \
-    hash_slots_[j] = slot;                                                              \
-                                                                                        \
-    RETURN_NOT_OK(dict_data_.Append(value, length));                                    \
-    RETURN_NOT_OK(dict_offsets_.Append(static_cast<int32_t>(dict_data_.length())));     \
-                                                                                        \
-    action->ObserveNotFound(slot);                                                      \
-                                                                                        \
-    if (ARROW_PREDICT_FALSE(                                                            \
-            dict_size_ > static_cast<int64_t>(hash_table_size_ * kMaxHashTableLoad))) { \
-      RETURN_NOT_OK(action->DoubleSize());                                              \
-    }                                                                                   \
-  } else {                                                                              \
-    action->ObserveFound(slot);                                                         \
+#define HASH_INNER_LOOP()                                                           \
+  const int32_t position = offsets[i];                                              \
+  const int32_t length = offsets[i + 1] - position;                                 \
+  const uint8_t* value = data + position;                                           \
+                                                                                    \
+  int64_t j = HashValue(value, length) & mod_bitmask_;                              \
+  hash_slot_t slot = hash_slots_[j];                                                \
+                                                                                    \
+  const int32_t* dict_offsets = dict_offsets_.data();                               \
+  const uint8_t* dict_data = dict_data_.data();                                     \
+  while (kHashSlotEmpty != slot &&                                                  \
+         !((dict_offsets[slot + 1] - dict_offsets[slot]) == length &&               \
+           0 == memcmp(value, dict_data + dict_offsets[slot], length))) {           \
+    ++j;                                                                            \
+    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                               \
+      j = 0;                                                                        \
+    }                                                                               \
+    slot = hash_slots_[j];                                                          \
+  }                                                                                 \
+                                                                                    \
+  if (slot == kHashSlotEmpty) {                                                     \
+    if (!Action::allow_expand) {                                                    \
+      throw HashException("Encountered new dictionary value");                      \
+    }                                                                               \
+                                                                                    \
+    slot = dict_size_++;                                                            \
+    hash_slots_[j] = slot;                                                          \
+                                                                                    \
+    RETURN_NOT_OK(dict_data_.Append(value, length));                                \
+    RETURN_NOT_OK(dict_offsets_.Append(static_cast<int32_t>(dict_data_.length()))); \
+                                                                                    \
+    action->ObserveNotFound(slot);                                                  \
+                                                                                    \
+    if (ARROW_PREDICT_FALSE(dict_size_ > hash_table_load_threshold_)) {             \
+      RETURN_NOT_OK(action->DoubleSize());                                          \
+    }                                                                               \
+  } else {                                                                          \
+    action->ObserveFound(slot);                                                     \
   }
 
     GENERIC_HASH_PASS(HASH_INNER_LOOP);
@@ -510,39 +515,38 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
     auto action = static_cast<Action*>(this);
     RETURN_NOT_OK(action->Reserve(arr.length));
 
-#define HASH_INNER_LOOP()                                                               \
-  const uint8_t* value = data + i * byte_width_;                                        \
-  int64_t j = HashValue(value) & mod_bitmask_;                                          \
-  hash_slot_t slot = hash_slots_[j];                                                    \
-                                                                                        \
-  const uint8_t* dict_data = dict_data_.data();                                         \
-  while (kHashSlotEmpty != slot &&                                                      \
-         !(0 == memcmp(value, dict_data + slot * byte_width_, byte_width_))) {          \
-    ++j;                                                                                \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                                   \
-      j = 0;                                                                            \
-    }                                                                                   \
-    slot = hash_slots_[j];                                                              \
-  }                                                                                     \
-                                                                                        \
-  if (slot == kHashSlotEmpty) {                                                         \
-    if (!Action::allow_expand) {                                                        \
-      throw HashException("Encountered new dictionary value");                          \
-    }                                                                                   \
-                                                                                        \
-    slot = dict_size_++;                                                                \
-    hash_slots_[j] = slot;                                                              \
-                                                                                        \
-    RETURN_NOT_OK(dict_data_.Append(value, byte_width_));                               \
-                                                                                        \
-    action->ObserveNotFound(slot);                                                      \
-                                                                                        \
-    if (ARROW_PREDICT_FALSE(                                                            \
-            dict_size_ > static_cast<int64_t>(hash_table_size_ * kMaxHashTableLoad))) { \
-      RETURN_NOT_OK(action->DoubleSize());                                              \
-    }                                                                                   \
-  } else {                                                                              \
-    action->ObserveFound(slot);                                                         \
+#define HASH_INNER_LOOP()                                                      \
+  const uint8_t* value = data + i * byte_width_;                               \
+  int64_t j = HashValue(value) & mod_bitmask_;                                 \
+  hash_slot_t slot = hash_slots_[j];                                           \
+                                                                               \
+  const uint8_t* dict_data = dict_data_.data();                                \
+  while (kHashSlotEmpty != slot &&                                             \
+         !(0 == memcmp(value, dict_data + slot * byte_width_, byte_width_))) { \
+    ++j;                                                                       \
+    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                          \
+      j = 0;                                                                   \
+    }                                                                          \
+    slot = hash_slots_[j];                                                     \
+  }                                                                            \
+                                                                               \
+  if (slot == kHashSlotEmpty) {                                                \
+    if (!Action::allow_expand) {                                               \
+      throw HashException("Encountered new dictionary value");                 \
+    }                                                                          \
+                                                                               \
+    slot = dict_size_++;                                                       \
+    hash_slots_[j] = slot;                                                     \
+                                                                               \
+    RETURN_NOT_OK(dict_data_.Append(value, byte_width_));                      \
+                                                                               \
+    action->ObserveNotFound(slot);                                             \
+                                                                               \
+    if (ARROW_PREDICT_FALSE(dict_size_ > hash_table_load_threshold_)) {        \
+      RETURN_NOT_OK(action->DoubleSize());                                     \
+    }                                                                          \
+  } else {                                                                     \
+    action->ObserveFound(slot);                                                \
   }
 
     GENERIC_HASH_PASS(HASH_INNER_LOOP);
