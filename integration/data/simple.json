@@ -61,6 +61,54 @@
           "DATA": ["aa", "", "", "bbb", "cccc"]
         }
       ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "VALIDITY": [1, 1, 1, 1, 1],
+          "DATA": [1, 2, 3, 4, 5]
+        },
+        {
+          "name": "bar",
+          "count": 5,
+          "VALIDITY": [1, 1, 1, 1, 1],
+          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0]
+        },
+        {
+          "name": "baz",
+          "count": 5,
+          "VALIDITY": [1, 1, 1, 1, 1],
+          "OFFSET": [0, 2, 3, 4, 7, 11],
+          "DATA": ["aa", "b", "c", "ddd", "eeee"]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "foo",
+          "count": 5,
+          "VALIDITY": [0, 0, 0, 0, 0],
+          "DATA": [1, 2, 3, 4, 5]
+        },
+        {
+          "name": "bar",
+          "count": 5,
+          "VALIDITY": [0, 0, 0, 0, 0],
+          "DATA": [1.0, 2.0, 3.0, 4.0, 5.0]
+        },
+        {
+          "name": "baz",
+          "count": 5,
+          "VALIDITY": [0, 0, 0, 0, 0],
+          "OFFSET": [0, 0, 0, 0, 0, 0],
+          "DATA": ["", "", "", "", ""]
+        }
+      ]
     }
   ]
 }
