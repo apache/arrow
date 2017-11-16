@@ -943,9 +943,8 @@ Status Cast(FunctionContext* ctx, const Datum& value,
 Status Cast(FunctionContext* ctx, const Array& array,
             const std::shared_ptr<DataType>& out_type, const CastOptions& options,
             std::shared_ptr<Array>* out) {
-  Datum array_as_datum(array.data());
   Datum datum_out;
-  RETURN_NOT_OK(Cast(ctx, array_as_datum, out_type, options, &datum_out));
+  RETURN_NOT_OK(Cast(ctx, Datum(array.data()), out_type, options, &datum_out));
   DCHECK_EQ(Datum::ARRAY, datum_out.kind());
   *out = MakeArray(datum_out.array());
   return Status::OK();
