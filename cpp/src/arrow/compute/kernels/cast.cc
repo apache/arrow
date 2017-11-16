@@ -736,20 +736,21 @@ class CastKernel : public UnaryKernel {
         can_pre_allocate_values_(can_pre_allocate_values),
         out_type_(out_type) {}
 
-  Status Call(FunctionContext* ctx, const ArrayData& input,
-              std::vector<Datum>* out) override {
+  Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) override {
     ArrayData* result;
-    if (out->size() == 0) {
-      out->emplace_back(std::make_shared<ArrayData>(out_type_, input.length));
+
+    if (out->kind() == Datum::NONE) {
+      out->value = std::make_shared<ArrayData>(out_type_, input.length);
     }
 
-    result = (*out)[0].array().get();
+    result = out->array().get();
 
     if (!is_zero_copy_) {
       RETURN_NOT_OK(
           AllocateIfNotPreallocated(ctx, input, can_pre_allocate_values_, result));
     }
     func_(ctx, options_, input, result);
+
     RETURN_IF_ERROR(ctx);
     return Status::OK();
   }
@@ -925,36 +926,28 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
   return Status::OK();
 }
 
+Status Cast(FunctionContext* ctx, const Datum& value,
+            const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+            Datum* out) {
+  // Dynamic dispatch to obtain right cast function
+  std::unique_ptr<UnaryKernel> func;
+  RETURN_NOT_OK(GetCastFunction(*value.type(), out_type, options, &func));
+
+  std::vector<Datum> result;
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func.get(), value, &result));
+
+  *out = detail::WrapDatumsLike(value, result);
+  return Status::OK();
+}
+
 Status Cast(FunctionContext* ctx, const Array& array,
             const std::shared_ptr<DataType>& out_type, const CastOptions& options,
             std::shared_ptr<Array>* out) {
-  // Dynamic dispatch to obtain right cast function
-  std::unique_ptr<UnaryKernel> func;
-  RETURN_NOT_OK(GetCastFunction(*array.type(), out_type, options, &func));
-
-  std::vector<Datum> result;
-  RETURN_NOT_OK(func->Call(ctx, *array.data(), &result));
-  *out = MakeArray(result[0].array());
-  return Status::OK();
-}
-
-Status Cast(FunctionContext* context, const ChunkedArray& array,
-            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
-            std::shared_ptr<ChunkedArray>* out) {
-  std::vector<std::shared_ptr<Array>> out_arrays(array.num_chunks());
-  return Status::OK();
-}
-
-Status Cast(FunctionContext* context, const Column& column,
-            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
-            std::shared_ptr<Column>* out) {
-  std::shared_ptr<ChunkedArray> chunked_array;
-  RETURN_NOT_OK(Cast(context, *column.data(), to_type, options, &chunked_array));
-
-  auto field = std::make_shared<Field>(column.field()->name(), to_type,
-                                       column.field()->nullable());
-  *out = std::make_shared<Column>(field, chunked_array);
-
+  Datum array_as_datum(array.data());
+  Datum datum_out;
+  RETURN_NOT_OK(Cast(ctx, array_as_datum, out_type, options, &datum_out));
+  DCHECK_EQ(Datum::ARRAY, datum_out.kind());
+  *out = MakeArray(datum_out.array());
   return Status::OK();
 }
 

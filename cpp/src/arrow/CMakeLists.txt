@@ -53,6 +53,7 @@ if (ARROW_COMPUTE)
     compute/context.cc
     compute/kernels/cast.cc
     compute/kernels/hash.cc
+    compute/kernels/util-internal.cc
   )
 endif()
 

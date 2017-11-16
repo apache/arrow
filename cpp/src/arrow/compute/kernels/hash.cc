@@ -101,7 +101,7 @@ class HashTable {
   virtual ~HashTable() {}
 
   virtual Status Append(const ArrayData& input) = 0;
-  virtual Status Flush(std::vector<Datum>* out) = 0;
+  virtual Status Flush(Datum* out) = 0;
   virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
 
  protected:
@@ -602,7 +602,7 @@ class UniqueImpl : public HashTableKernel<Type, UniqueImpl<Type>> {
 
   Status Append(const ArrayData& input) override { return Base::Append(input); }
 
-  Status Flush(std::vector<Datum>* out) override {
+  Status Flush(Datum* out) override {
     // No-op
     return Status::OK();
   }
@@ -630,10 +630,10 @@ class DictEncodeImpl : public HashTableKernel<Type, DictEncodeImpl<Type>> {
 
   Status DoubleSize() { return Base::DoubleTableSize(); }
 
-  Status Flush(std::vector<Datum>* out) override {
+  Status Flush(Datum* out) override {
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(indices_builder_.FinishInternal(&result));
-    out->push_back(Datum(result));
+    out->value = std::move(result);
     return Status::OK();
   }
 
@@ -651,8 +651,7 @@ class HashKernelImpl : public HashKernel {
   explicit HashKernelImpl(std::unique_ptr<HashTable> hasher)
       : hasher_(std::move(hasher)) {}
 
-  Status Call(FunctionContext* ctx, const ArrayData& input,
-              std::vector<Datum>* out) override {
+  Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) override {
     RETURN_NOT_OK(Append(ctx, input));
     return Flush(out);
   }
@@ -667,7 +666,7 @@ class HashKernelImpl : public HashKernel {
     return Status::OK();
   }
 
-  Status Flush(std::vector<Datum>* out) override { return hasher_->Flush(out); }
+  Status Flush(Datum* out) override { return hasher_->Flush(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
     return hasher_->GetDictionary(out);
@@ -770,14 +769,8 @@ namespace {
 Status InvokeHash(FunctionContext* ctx, HashKernel* func, const Datum& value,
                   std::vector<Datum>* kernel_outputs,
                   std::shared_ptr<Array>* dictionary) {
-  if (value.kind() == Datum::ARRAY) {
-    RETURN_NOT_OK(func->Call(ctx, *value.array(), kernel_outputs));
-  } else if (value.kind() == Datum::CHUNKED_ARRAY) {
-    const ChunkedArray& array = *value.chunked_array();
-    for (int i = 0; i < array.num_chunks(); i++) {
-      RETURN_NOT_OK(func->Call(ctx, *(array.chunk(i)->data()), kernel_outputs));
-    }
-  }
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func, value, kernel_outputs));
+
   std::shared_ptr<ArrayData> dict_data;
   RETURN_NOT_OK(func->GetDictionary(&dict_data));
   *dictionary = MakeArray(dict_data);
@@ -787,9 +780,6 @@ Status InvokeHash(FunctionContext* ctx, HashKernel* func, const Datum& value,
 }  // namespace
 
 Status Unique(FunctionContext* ctx, const Datum& value, std::shared_ptr<Array>* out) {
-  // TODO(wesm): Must we be more rigorous than DCHECK
-  DCHECK(value.is_arraylike());
-
   std::unique_ptr<HashKernel> func;
   RETURN_NOT_OK(GetUniqueKernel(ctx, value.type(), &func));
 
@@ -798,9 +788,6 @@ Status Unique(FunctionContext* ctx, const Datum& value, std::shared_ptr<Array>* 
 }
 
 Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
-  // TODO(wesm): Must we be more rigorous than DCHECK
-  DCHECK(value.is_arraylike());
-
   std::unique_ptr<HashKernel> func;
   RETURN_NOT_OK(GetDictionaryEncodeKernel(ctx, value.type(), &func));
 
@@ -820,14 +807,7 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
         std::make_shared<DictionaryArray>(dict_type, MakeArray(datum.array())));
   }
 
-  // Create right kind of datum
-  // TODO(wesm): Create some generalizable pattern for this
-  if (value.kind() == Datum::ARRAY) {
-    out->value = dict_chunks[0]->data();
-  } else if (value.kind() == Datum::CHUNKED_ARRAY) {
-    out->value = std::make_shared<ChunkedArray>(dict_chunks);
-  }
-
+  *out = detail::WrapArraysLike(value, dict_chunks);
   return Status::OK();
 }
 

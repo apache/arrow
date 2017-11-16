@@ -46,12 +46,15 @@ struct ARROW_EXPORT Scalar {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Scalar);
 };
 
+/// \class Datum
+/// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
-  enum type { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE };
+  enum type { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE, COLLECTION };
 
   util::variant<decltype(NULLPTR), std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                 std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
-                std::shared_ptr<Table>>
+                std::shared_ptr<Table>,
+                std::vector<Datum>>
       value;
 
   /// \brief Empty datum, to be populated elsewhere
@@ -68,6 +71,8 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const std::shared_ptr<RecordBatch>& value) : value(value) {}
 
   explicit Datum(const std::shared_ptr<Table>& value) : value(value) {}
+
+  explicit Datum(const std::vector<Datum>& value) : value(value) {}
 
   ~Datum() {}
 
@@ -87,6 +92,8 @@ struct ARROW_EXPORT Datum {
         return Datum::RECORD_BATCH;
       case 5:
         return Datum::TABLE;
+      case 6:
+        return Datum::COLLECTION;
       default:
         return Datum::NONE;
     }
@@ -100,10 +107,17 @@ struct ARROW_EXPORT Datum {
     return util::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
 
+  const std::vector<Datum> collection() const {
+    return util::get<std::vector<Datum>>(this->value);
+  }
+
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;
   }
 
+  /// \brief The value type of the variant, if any
+  ///
+  /// \return nullptr if no type
   std::shared_ptr<DataType> type() const {
     if (this->kind() == Datum::ARRAY) {
       return util::get<std::shared_ptr<ArrayData>>(this->value)->type;
@@ -118,8 +132,7 @@ struct ARROW_EXPORT Datum {
 /// \brief An array-valued function of a single input argument
 class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
-  virtual Status Call(FunctionContext* ctx, const ArrayData& input,
-                      std::vector<Datum>* out) = 0;
+  virtual Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) = 0;
 };
 
 }  // namespace compute

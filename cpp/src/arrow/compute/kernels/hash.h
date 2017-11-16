@@ -36,7 +36,7 @@ class FunctionContext;
 class ARROW_EXPORT HashKernel : public UnaryKernel {
  public:
   virtual Status Append(FunctionContext* ctx, const ArrayData& input) = 0;
-  virtual Status Flush(std::vector<Datum>* out) = 0;
+  virtual Status Flush(Datum* out) = 0;
   virtual Status GetDictionary(std::shared_ptr<ArrayData>* out) = 0;
 };
 

@@ -63,6 +63,15 @@ Status Cast(FunctionContext* context, const Array& array,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,
             std::shared_ptr<Array>* out);
 
+/// \brief Cast from one value to another
+/// \param[in] context the FunctionContext
+/// \param[in] array datum to cast
+/// \param[in] to_type type to cast to
+/// \param[in] options casting options
+/// \param[out] out resulting datum
+///
+/// \since 0.8.0
+/// \note API not yet finalized
 ARROW_EXPORT
 Status Cast(FunctionContext* context, const Datum& value,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,

@@ -18,10 +18,15 @@
 #ifndef ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
 #define ARROW_COMPUTE_KERNELS_UTIL_INTERNAL_H
 
+#include <vector>
+
+#include "arrow/compute/kernel.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
+
+class FunctionContext;
 
 template <typename T>
 using is_number = std::is_base_of<Number, T>;
@@ -81,6 +86,18 @@ static inline void CopyData(const ArrayData& input, ArrayData* output) {
   output->offset = input.offset;
   output->child_data = input.child_data;
 }
+
+namespace detail {
+
+Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
+                              const Datum& value, std::vector<Datum>* outputs);
+
+Datum WrapArraysLike(const Datum& value,
+                     const std::vector<std::shared_ptr<Array>>& arrays);
+
+Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums);
+
+}  // namespace detail
 
 }  // namespace compute
 }  // namespace arrow

@@ -56,6 +56,18 @@ class ComputeFixture {
   FunctionContext ctx_;
 };
 
+template <typename Type, typename T>
+shared_ptr<Array> _MakeArray(const shared_ptr<DataType>& type, const vector<T>& values,
+                             const vector<bool>& is_valid) {
+  shared_ptr<Array> result;
+  if (is_valid.size() > 0) {
+    ArrayFromVector<Type, T>(type, is_valid, values, &result);
+  } else {
+    ArrayFromVector<Type, T>(type, values, &result);
+  }
+  return result;
+}
+
 // ----------------------------------------------------------------------
 // Cast
 
@@ -562,6 +574,38 @@ TEST_F(TestCast, ToDouble) {
                                                    options);
 }
 
+TEST_F(TestCast, ChunkedArray) {
+  vector<int16_t> values1 = {0, 1, 2};
+  vector<int16_t> values2 = {3, 4, 5};
+
+  auto type = int16();
+  auto out_type = int64();
+
+  auto a1 = _MakeArray<Int16Type, int16_t>(type, values1, {});
+  auto a2 = _MakeArray<Int16Type, int16_t>(type, values2, {});
+
+  ArrayVector arrays = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(arrays);
+
+  CastOptions options;
+
+  Datum out;
+  ASSERT_OK(Cast(&this->ctx_, Datum(carr), out_type, options, &out));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, out.kind());
+
+  auto out_carr = out.chunked_array();
+
+  vector<int64_t> ex_values1 = {0, 1, 2};
+  vector<int64_t> ex_values2 = {3, 4, 5};
+  auto a3 = _MakeArray<Int64Type, int64_t>(out_type, ex_values1, {});
+  auto a4 = _MakeArray<Int64Type, int64_t>(out_type, ex_values2, {});
+
+  ArrayVector ex_arrays = {a3, a4};
+  auto ex_carr = std::make_shared<ChunkedArray>(ex_arrays);
+
+  ASSERT_TRUE(out.chunked_array()->Equals(*ex_carr));
+}
+
 TEST_F(TestCast, UnsupportedTarget) {
   vector<bool> is_valid = {true, false, true, true, true};
   vector<int32_t> v1 = {0, 1, 2, 3, 4};
@@ -633,7 +677,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   out_data->buffers.push_back(nullptr);
   out_data->buffers.push_back(out_values);
 
-  vector<Datum> out = {Datum(out_data)};
+  Datum out(out_data);
   ASSERT_OK(kernel->Call(&this->ctx_, *arr->data(), &out));
 
   // Buffer address unchanged
@@ -680,18 +724,6 @@ TYPED_TEST(TestDictionaryCast, Basic) {
 
 // ----------------------------------------------------------------------
 // Dictionary tests
-
-template <typename Type, typename T>
-shared_ptr<Array> _MakeArray(const shared_ptr<DataType>& type, const vector<T>& values,
-                             const vector<bool>& is_valid) {
-  shared_ptr<Array> result;
-  if (is_valid.size() > 0) {
-    ArrayFromVector<Type, T>(type, is_valid, values, &result);
-  } else {
-    ArrayFromVector<Type, T>(type, values, &result);
-  }
-  return result;
-}
 
 template <typename Type, typename T>
 void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
