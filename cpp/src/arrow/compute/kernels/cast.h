@@ -51,7 +51,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
 
 /// \brief Cast from one array type to another
 /// \param[in] context the FunctionContext
-/// \param[in] array array to cast
+/// \param[in] value array to cast
 /// \param[in] to_type type to cast to
 /// \param[in] options casting options
 /// \param[out] out resulting array
@@ -59,13 +59,13 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
 /// \since 0.7.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Cast(FunctionContext* context, const Array& array,
+Status Cast(FunctionContext* context, const Array& value,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,
             std::shared_ptr<Array>* out);
 
 /// \brief Cast from one value to another
 /// \param[in] context the FunctionContext
-/// \param[in] array datum to cast
+/// \param[in] value datum to cast
 /// \param[in] to_type type to cast to
 /// \param[in] options casting options
 /// \param[out] out resulting datum
