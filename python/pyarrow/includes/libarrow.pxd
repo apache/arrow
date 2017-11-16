@@ -776,6 +776,26 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_int_overflow
         c_bool allow_time_truncate
 
+    enum DatumType" arrow::compute::Datum::type":
+        DatumType_NONE" arrow::compute::Datum::NONE"
+        DatumType_SCALAR" arrow::compute::Datum::SCALAR"
+        DatumType_ARRAY" arrow::compute::Datum::ARRAY"
+        DatumType_CHUNKED_ARRAY" arrow::compute::Datum::CHUNKED_ARRAY"
+        DatumType_RECORD_BATCH" arrow::compute::Datum::RECORD_BATCH"
+        DatumType_TABLE" arrow::compute::Datum::TABLE"
+        DatumType_COLLECTION" arrow::compute::Datum::COLLECTION"
+
+    cdef cppclass CDatum" arrow::compute::Datum":
+        Datum(const shared_ptr[CArray]& value)
+        Datum(const shared_ptr[CChunkedArray]& value)
+        Datum(const shared_ptr[CRecordBatch]& value)
+        Datum(const shared_ptr[CTable]& value)
+
+        DatumType kind()
+
+        shared_ptr[CArrayData] array()
+        shared_ptr[CChunkedArray] chunked_array()
+
     CStatus Cast(CFunctionContext* context, const CArray& array,
                  const shared_ptr[CDataType]& to_type,
                  const CCastOptions& options,
