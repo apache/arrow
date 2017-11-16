@@ -295,6 +295,18 @@ def test_cast_integers_safe():
             in_arr.cast(out_type)
 
 
+def test_cast_column():
+    arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
+
+    col = pa.column('foo', arrays)
+
+    target = pa.float64()
+    casted = col.cast(target)
+
+    expected = pa.column('foo', [x.cast(target) for x in arrays])
+    assert casted.equals(expected)
+
+
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [

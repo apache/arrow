@@ -77,7 +77,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
-cdef DataType _ensure_type(object type):
+cdef inline DataType _ensure_type(object type):
     if type is None:
         return None
     elif not isinstance(type, DataType):

@@ -90,6 +90,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_string ToString()
 
+    cdef cppclass CArrayData" arrow::ArrayData":
+        shared_ptr[CDataType] type
+        int64_t length
+        int64_t null_count
+        int64_t offset
+        vector[shared_ptr[CBuffer]] buffers
+        vector[shared_ptr[CArrayData]] child_data
+
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
 
@@ -102,8 +110,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
+        shared_ptr[CArrayData] data()
+
         shared_ptr[CArray] Slice(int64_t offset)
         shared_ptr[CArray] Slice(int64_t offset, int64_t length)
+
+    shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
 
     CStatus DebugPrint(const CArray& arr, int indent)
 
@@ -363,6 +375,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CStatus ValidateArray(const CArray& array)
 
     cdef cppclass CChunkedArray" arrow::ChunkedArray":
+        CChunkedArray(const vector[shared_ptr[CArray]]& arrays)
         int64_t length()
         int64_t null_count()
         int num_chunks()
@@ -376,7 +389,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CColumn(const shared_ptr[CField]& field,
                 const vector[shared_ptr[CArray]]& chunks)
 
+        CColumn(const shared_ptr[CField]& field,
+                const shared_ptr[CChunkedArray]& data)
+
         c_bool Equals(const CColumn& other)
+
+        shared_ptr[CField] field()
 
         int64_t length()
         int64_t null_count()
@@ -786,10 +804,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         DatumType_COLLECTION" arrow::compute::Datum::COLLECTION"
 
     cdef cppclass CDatum" arrow::compute::Datum":
-        Datum(const shared_ptr[CArray]& value)
-        Datum(const shared_ptr[CChunkedArray]& value)
-        Datum(const shared_ptr[CRecordBatch]& value)
-        Datum(const shared_ptr[CTable]& value)
+        CDatum()
+        CDatum(const shared_ptr[CArray]& value)
+        CDatum(const shared_ptr[CChunkedArray]& value)
+        CDatum(const shared_ptr[CRecordBatch]& value)
+        CDatum(const shared_ptr[CTable]& value)
 
         DatumType kind()
 
@@ -800,6 +819,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                  const shared_ptr[CDataType]& to_type,
                  const CCastOptions& options,
                  shared_ptr[CArray]* out)
+
+    CStatus Cast(CFunctionContext* context, const CDatum& value,
+                 const shared_ptr[CDataType]& to_type,
+                 const CCastOptions& options, CDatum* out)
+
+    CStatus Unique(CFunctionContext* context, const CDatum& value,
+                   shared_ptr[CArray]* out)
+
+    CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
+                             CDatum* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

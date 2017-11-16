@@ -108,6 +108,15 @@ cdef class ChunkedArray:
 
         return pyarrow_wrap_array(self.chunked_array.chunk(i))
 
+    property chunks:
+
+        def __get__(self):
+            cdef int i
+            chunks = []
+            for i in range(self.num_chunks):
+                chunks.append(self.chunk(i))
+            return chunks
+
     def iterchunks(self):
         for i in range(self.num_chunks):
             yield self.chunk(i)
@@ -120,6 +129,74 @@ cdef class ChunkedArray:
         for i in range(self.num_chunks):
             result += self.chunk(i).to_pylist()
         return result
+
+
+def chunked_array(arrays, type=None):
+    """
+    Construct chunked array from list of array-like objects
+
+    Parameters
+    ----------
+    arrays : list of Array or values coercible to arrays
+    type : DataType or string coercible to DataType
+
+    Returns
+    -------
+    ChunkedArray
+    """
+    cdef:
+        Array arr
+        vector[shared_ptr[CArray]] c_arrays
+        shared_ptr[CChunkedArray] sp_chunked_array
+
+    for x in arrays:
+        if isinstance(x, Array):
+            arr = x
+            if type is not None:
+                assert x.type == type
+        else:
+            arr = array(x, type=type)
+
+        c_arrays.push_back(arr.sp_array)
+
+    sp_chunked_array.reset(new CChunkedArray(c_arrays))
+    return pyarrow_wrap_chunked_array(sp_chunked_array)
+
+
+def column(object field_or_name, arr):
+    """
+    Create Column object from field/string and array-like data
+    """
+    cdef:
+        Field boxed_field
+        Array _arr
+        ChunkedArray _carr
+        shared_ptr[CColumn] sp_column
+
+    if isinstance(arr, list):
+        arr = chunked_array(arr)
+    elif not isinstance(arr, (Array, ChunkedArray)):
+        arr = array(arr)
+
+    if isinstance(field_or_name, Field):
+        boxed_field = field_or_name
+        if arr.type != boxed_field.type:
+            raise ValueError('Passed field type does not match array')
+    else:
+        boxed_field = field(field_or_name, arr.type)
+
+    if isinstance(arr, Array):
+        _arr = arr
+        sp_column.reset(new CColumn(boxed_field.sp_field, _arr.sp_array))
+    elif isinstance(arr, ChunkedArray):
+        _carr = arr
+        sp_column.reset(new CColumn(boxed_field.sp_field,
+                                    _carr.sp_chunked_array))
+    else:
+        raise ValueError("Unsupported type for column(...): {}"
+                         .format(type(arr)))
+
+    return pyarrow_wrap_column(sp_column)
 
 
 cdef class Column:
@@ -143,25 +220,47 @@ cdef class Column:
         result = StringIO()
         result.write(object.__repr__(self))
         data = self.data
-        for i in range(len(data)):
-            result.write('\nchunk {0}: {1}'.format(i, repr(data.chunk(0))))
+        for i, chunk in enumerate(data.chunks):
+            result.write('\nchunk {0}: {1}'.format(i, repr(chunk)))
 
         return result.getvalue()
 
     @staticmethod
-    def from_array(object field_or_name, Array arr):
-        cdef Field boxed_field
+    def from_array(*args):
+        return column(*args)
 
-        if isinstance(field_or_name, Field):
-            boxed_field = field_or_name
-            if arr.type != boxed_field.type:
-                raise ValueError('Passed field type does not match array')
-        else:
-            boxed_field = field(field_or_name, arr.type)
+    def cast(self, object target_type, safe=True):
+        """
+        Cast column values to another data type
 
-        cdef shared_ptr[CColumn] sp_column
-        sp_column.reset(new CColumn(boxed_field.sp_field, arr.sp_array))
-        return pyarrow_wrap_column(sp_column)
+        Parameters
+        ----------
+        target_type : DataType
+            Type to cast to
+        safe : boolean, default True
+            Check for overflows or other unsafe conversions
+
+        Returns
+        -------
+        casted : Column
+        """
+        cdef:
+            CCastOptions options
+            shared_ptr[CArray] result
+            DataType type
+            CDatum out
+
+        type = _ensure_type(target_type)
+
+        options.allow_int_overflow = not safe
+        options.allow_time_truncate = not safe
+
+        with nogil:
+            check_status(Cast(_context(), CDatum(self.column.data()),
+                              type.sp_type, options, &out))
+
+        casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
+        return column(self.name, casted_data)
 
     def to_pandas(self, strings_to_categorical=False, zero_copy_only=False):
         """
@@ -240,6 +339,10 @@ cdef class Column:
     def length(self):
         self._check_nullptr()
         return self.column.length()
+
+    @property
+    def field(self):
+        return pyarrow_wrap_field(self.column.field())
 
     @property
     def shape(self):
