@@ -362,6 +362,33 @@ def test_cast_signed_to_unsigned():
         _check_cast_case(case)
 
 
+def test_unique_simple():
+    cases = [
+        (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.array(['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.unique()
+        assert result.equals(expected)
+
+
+def test_dictionary_encode_simple():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3]),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 2, None, 0, 1, 2], type='int32'),
+             [1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             ['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.dictionary_encode()
+        assert result.equals(expected)
+
+
 def test_simple_type_construction():
     result = pa.lib.TimestampType()
     with pytest.raises(TypeError):
