@@ -138,11 +138,9 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
    * @param from source vector
    */
   public void copyFrom(int fromIndex, int thisIndex, NullableFloat8Vector from) {
-    if (from.isSet(fromIndex) != 0) {
-      set(thisIndex, from.get(fromIndex));
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    final double value = from.valueBuffer.getDouble(fromIndex * TYPE_WIDTH);
+    valueBuffer.setDouble(thisIndex * TYPE_WIDTH, value);
   }
 
   /**

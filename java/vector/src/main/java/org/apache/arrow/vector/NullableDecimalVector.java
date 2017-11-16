@@ -151,13 +151,9 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
    * @param from source vector
    */
   public void copyFrom(int fromIndex, int thisIndex, NullableDecimalVector from) {
-    if (from.isSet(fromIndex) != 0) {
-      from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
-              thisIndex * TYPE_WIDTH, TYPE_WIDTH);
-      BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
+            thisIndex * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**

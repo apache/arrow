@@ -140,11 +140,9 @@ public class NullableTimeMilliVector extends BaseNullableFixedWidthVector {
    * @param from source vector
    */
   public void copyFrom(int fromIndex, int thisIndex, NullableTimeMilliVector from) {
-    if (from.isSet(fromIndex) != 0) {
-      set(thisIndex, from.get(fromIndex));
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
+    valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
   /**

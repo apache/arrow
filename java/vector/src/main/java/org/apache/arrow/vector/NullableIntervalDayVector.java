@@ -186,13 +186,9 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
    * @param from source vector
    */
   public void copyFrom(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
-    if (from.isSet(fromIndex) != 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
-      from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
               thisIndex * TYPE_WIDTH, TYPE_WIDTH);
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
   }
 
   /**
