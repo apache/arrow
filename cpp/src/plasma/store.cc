@@ -676,12 +676,22 @@ class PlasmaStoreRunner {
   PlasmaStoreRunner() {}
 
   void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled) {
+             bool hugepages_enabled, bool use_one_memory_mapped_file) {
     // Create the event loop.
     loop_.reset(new EventLoop);
     store_.reset(
         new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
     plasma_config = store_->get_plasma_store_info();
+
+    // If the store is configured to use a single memory-mapped file, then we
+    // achieve that by mallocing and freeing a single large amount of space.
+    // that maximum allowed size up front.
+    if (use_one_memory_mapped_file) {
+      void* pointer = plasma::dlmemalign(BLOCK_SIZE, system_memory);
+      ARROW_CHECK(pointer != NULL);
+      plasma::dlfree(pointer);
+    }
+
     int socket = bind_ipc_sock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
@@ -716,14 +726,15 @@ void HandleSignal(int signal) {
 }
 
 void start_server(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                  bool hugepages_enabled) {
+                  bool hugepages_enabled, bool use_one_memory_mapped_file) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
 
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled);
+  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
+                  use_one_memory_mapped_file);
 }
 
 }  // namespace plasma
@@ -733,9 +744,11 @@ int main(int argc, char* argv[]) {
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
   bool hugepages_enabled = false;
+  // True if a single large memory-mapped file should be created at startup.
+  bool use_one_memory_mapped_file = false;
   int64_t system_memory = -1;
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:h")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:hf")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -755,6 +768,9 @@ int main(int argc, char* argv[]) {
                         << "GB of memory.";
         break;
       }
+      case 'f':
+        use_one_memory_mapped_file = true;
+        break;
       default:
         exit(-1);
     }
@@ -808,5 +824,6 @@ int main(int argc, char* argv[]) {
   // available.
   plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::start_server(socket_name, system_memory, plasma_directory, hugepages_enabled);
+  plasma::start_server(socket_name, system_memory, plasma_directory, hugepages_enabled,
+                       use_one_memory_mapped_file);
 }
