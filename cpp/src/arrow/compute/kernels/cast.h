@@ -36,7 +36,7 @@ namespace compute {
 class FunctionContext;
 class UnaryKernel;
 
-struct CastOptions {
+struct ARROW_EXPORT CastOptions {
   CastOptions() : allow_int_overflow(false), allow_time_truncate(false) {}
 
   bool allow_int_overflow;
