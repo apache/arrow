@@ -92,7 +92,7 @@ static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_
   auto new_data = data.ShallowCopy();
   new_data->length = length;
   new_data->offset = offset;
-  new_data->null_count = kUnknownNullCount;
+  new_data->null_count = data.null_count != 0 ? kUnknownNullCount : 0;
   return new_data;
 }
 

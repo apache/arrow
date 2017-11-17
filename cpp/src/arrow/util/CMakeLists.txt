@@ -42,6 +42,7 @@ install(FILES
   sse-util.h
   stl.h
   type_traits.h
+  variant.h
   visibility.h
   DESTINATION include/arrow/util)
 
@@ -72,3 +73,5 @@ ADD_ARROW_TEST(decimal-test)
 ADD_ARROW_TEST(key-value-metadata-test)
 ADD_ARROW_TEST(rle-encoding-test)
 ADD_ARROW_TEST(stl-util-test)
+
+add_subdirectory(variant)

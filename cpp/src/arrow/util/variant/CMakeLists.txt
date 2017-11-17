@@ -15,26 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: top level
+#######################################
+# arrow_util_variant
+#######################################
+
 install(FILES
-  api.h
-  context.h
-  kernel.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/compute")
-
-# pkg-config support
-configure_file(arrow-compute.pc.in
-  "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  @ONLY)
-install(
-  FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-compute.pc"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-
-#######################################
-# Unit tests
-#######################################
-
-ADD_ARROW_TEST(compute-test)
-ADD_ARROW_BENCHMARK(compute-benchmark)
-
-add_subdirectory(kernels)
+  optional.h
+  recursive_wrapper.h
+  variant_cast.h
+  variant_io.h
+  variant_visitor.h
+  DESTINATION include/arrow/util/variant)

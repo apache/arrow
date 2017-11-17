@@ -107,14 +107,13 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   CheckArray(*array, 0, ex);
 }
 
-TEST_F(TestPrettyPrint, DecimalType) {
+TEST_F(TestPrettyPrint, Decimal128Type) {
   int32_t p = 19;
   int32_t s = 4;
 
   auto type = decimal(p, s);
 
-  DecimalBuilder builder(type);
-
+  Decimal128Builder builder(type);
   Decimal128 val;
 
   ASSERT_OK(Decimal128::FromString("123.4567", &val));

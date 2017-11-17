@@ -42,6 +42,8 @@
 #include "arrow/util/parallel.h"
 #include "arrow/visitor_inline.h"
 
+#include "arrow/compute/api.h"
+
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
@@ -56,6 +58,8 @@ namespace py {
 
 using internal::kPandasTimestampNull;
 using internal::kNanosecondsInDay;
+
+using compute::Datum;
 
 // ----------------------------------------------------------------------
 // Utility code
@@ -1028,8 +1032,13 @@ class CategoricalBlock : public PandasBlock {
     std::shared_ptr<Column> converted_col;
     if (options_.strings_to_categorical &&
         (col->type()->id() == Type::STRING || col->type()->id() == Type::BINARY)) {
-      RETURN_NOT_OK(EncodeColumnToDictionary(static_cast<const Column&>(*col), pool_,
-                                             &converted_col));
+      compute::FunctionContext ctx(pool_);
+
+      Datum out;
+      RETURN_NOT_OK(compute::DictionaryEncode(&ctx, Datum(col->data()), &out));
+      DCHECK_EQ(out.kind(), Datum::CHUNKED_ARRAY);
+      converted_col =
+          std::make_shared<Column>(field(col->name(), out.type()), out.chunked_array());
     } else {
       converted_col = col;
     }
@@ -1646,7 +1655,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
       CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
-      CONVERTVALUES_LISTSLIKE_CASE(DecimalType, DECIMAL)
+      CONVERTVALUES_LISTSLIKE_CASE(Decimal128Type, DECIMAL)
       CONVERTVALUES_LISTSLIKE_CASE(ListType, LIST)
       default: {
         std::stringstream ss;

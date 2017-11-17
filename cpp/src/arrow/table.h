@@ -63,6 +63,9 @@ class ARROW_EXPORT ChunkedArray {
   ArrayVector chunks_;
   int64_t length_;
   int64_t null_count_;
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 
 /// \brief An immutable column data structure consisting of a field (type

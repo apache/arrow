@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/cast.h"
 
 #include <cstdint>
 #include <cstring>
@@ -26,6 +26,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -39,6 +40,7 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/util-internal.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
@@ -70,29 +72,6 @@ namespace arrow {
 namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
-
-template <typename T>
-inline const T* GetValues(const ArrayData& data, int i) {
-  return reinterpret_cast<const T*>(data.buffers[i]->data()) + data.offset;
-}
-
-template <typename T>
-inline T* GetMutableValues(const ArrayData* data, int i) {
-  return reinterpret_cast<T*>(data->buffers[i]->mutable_data()) + data->offset;
-}
-
-namespace {
-
-void CopyData(const Array& input, ArrayData* output) {
-  auto in_data = input.data();
-  output->length = in_data->length;
-  output->null_count = input.null_count();
-  output->buffers = in_data->buffers;
-  output->offset = in_data->offset;
-  output->child_data = in_data->child_data;
-}
-
-}  // namespace
 
 // ----------------------------------------------------------------------
 // Zero copy casts
@@ -128,8 +107,8 @@ struct CastFunctor {};
 // Indicated no computation required
 template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     CopyData(input, output);
   }
 };
@@ -140,8 +119,8 @@ struct CastFunctor<O, I, typename std::enable_if<is_zero_copy_cast<O, I>::value>
 template <typename T>
 struct CastFunctor<T, NullType, typename std::enable_if<
                                     std::is_base_of<FixedWidthType, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     // Simply initialize data to 0
     auto buf = output->buffers[1];
     DCHECK_EQ(output->offset, 0);
@@ -151,8 +130,8 @@ struct CastFunctor<T, NullType, typename std::enable_if<
 
 template <>
 struct CastFunctor<NullType, DictionaryType> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {}
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {}
 };
 
 // ----------------------------------------------------------------------
@@ -160,19 +139,17 @@ struct CastFunctor<NullType, DictionaryType> {
 
 // Cast from Boolean to other numbers
 template <typename T>
-struct CastFunctor<T, BooleanType,
-                   typename std::enable_if<std::is_base_of<Number, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+struct CastFunctor<T, BooleanType, enable_if_number<T>> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using c_type = typename T::c_type;
     constexpr auto kOne = static_cast<c_type>(1);
     constexpr auto kZero = static_cast<c_type>(0);
 
-    auto in_data = input.data();
-    internal::BitmapReader bit_reader(in_data->buffers[1]->data(), in_data->offset,
-                                      in_data->length);
+    internal::BitmapReader bit_reader(input.buffers[1]->data(), input.offset,
+                                      input.length);
     auto out = GetMutableValues<c_type>(output, 1);
-    for (int64_t i = 0; i < input.length(); ++i) {
+    for (int64_t i = 0; i < input.length; ++i) {
       *out++ = bit_reader.IsSet() ? kOne : kZero;
       bit_reader.Next();
     }
@@ -216,14 +193,14 @@ template <typename O, typename I>
 struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::value &&
                                                  std::is_base_of<Number, I>::value &&
                                                  !std::is_same<O, I>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
     DCHECK_EQ(output->offset, 0);
 
-    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    const in_type* in_data = GetValues<in_type>(input, 1);
     uint8_t* out_data = GetMutableValues<uint8_t>(output, 1);
-    for (int64_t i = 0; i < input.length(); ++i) {
+    for (int64_t i = 0; i < input.length; ++i) {
       BitUtil::SetBitTo(out_data, i, (*in_data++) != 0);
     }
   }
@@ -232,25 +209,26 @@ struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::v
 template <typename O, typename I>
 struct CastFunctor<O, I,
                    typename std::enable_if<is_integer_downcast<O, I>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
     DCHECK_EQ(output->offset, 0);
 
-    auto in_offset = input.offset();
+    auto in_offset = input.offset;
 
-    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    const in_type* in_data = GetValues<in_type>(input, 1);
     auto out_data = GetMutableValues<out_type>(output, 1);
 
     if (!options.allow_int_overflow) {
       constexpr in_type kMax = static_cast<in_type>(std::numeric_limits<out_type>::max());
       constexpr in_type kMin = static_cast<in_type>(std::numeric_limits<out_type>::min());
 
-      if (input.null_count() > 0) {
-        internal::BitmapReader is_valid_reader(input.data()->buffers[0]->data(),
-                                               in_offset, input.length());
-        for (int64_t i = 0; i < input.length(); ++i) {
+      // Null count may be -1 if the input array had been sliced
+      if (input.null_count != 0) {
+        internal::BitmapReader is_valid_reader(input.buffers[0]->data(), in_offset,
+                                               input.length);
+        for (int64_t i = 0; i < input.length; ++i) {
           if (ARROW_PREDICT_FALSE(is_valid_reader.IsSet() &&
                                   (*in_data > kMax || *in_data < kMin))) {
             ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
@@ -259,7 +237,7 @@ struct CastFunctor<O, I,
           is_valid_reader.Next();
         }
       } else {
-        for (int64_t i = 0; i < input.length(); ++i) {
+        for (int64_t i = 0; i < input.length; ++i) {
           if (ARROW_PREDICT_FALSE(*in_data > kMax || *in_data < kMin)) {
             ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
           }
@@ -267,7 +245,7 @@ struct CastFunctor<O, I,
         }
       }
     } else {
-      for (int64_t i = 0; i < input.length(); ++i) {
+      for (int64_t i = 0; i < input.length; ++i) {
         *out_data++ = static_cast<out_type>(*in_data++);
       }
     }
@@ -278,14 +256,14 @@ template <typename O, typename I>
 struct CastFunctor<O, I,
                    typename std::enable_if<is_numeric_cast<O, I>::value &&
                                            !is_integer_downcast<O, I>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
 
-    const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+    const in_type* in_data = GetValues<in_type>(input, 1);
     auto out_data = GetMutableValues<out_type>(output, 1);
-    for (int64_t i = 0; i < input.length(); ++i) {
+    for (int64_t i = 0; i < input.length; ++i) {
       *out_data++ = static_cast<out_type>(*in_data++);
     }
   }
@@ -296,34 +274,52 @@ struct CastFunctor<O, I,
 
 template <typename in_type, typename out_type>
 void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
-               const int64_t factor, const Array& input, ArrayData* output) {
-  const in_type* in_data = GetValues<in_type>(*input.data(), 1);
+               const int64_t factor, const ArrayData& input, ArrayData* output) {
+  const in_type* in_data = GetValues<in_type>(input, 1);
   auto out_data = GetMutableValues<out_type>(output, 1);
 
   if (factor == 1) {
-    for (int64_t i = 0; i < input.length(); i++) {
+    for (int64_t i = 0; i < input.length; i++) {
       out_data[i] = static_cast<out_type>(in_data[i]);
     }
   } else if (is_multiply) {
-    for (int64_t i = 0; i < input.length(); i++) {
+    for (int64_t i = 0; i < input.length; i++) {
       out_data[i] = static_cast<out_type>(in_data[i] * factor);
     }
   } else {
     if (options.allow_time_truncate) {
-      for (int64_t i = 0; i < input.length(); i++) {
+      for (int64_t i = 0; i < input.length; i++) {
         out_data[i] = static_cast<out_type>(in_data[i] / factor);
       }
     } else {
-      for (int64_t i = 0; i < input.length(); i++) {
-        out_data[i] = static_cast<out_type>(in_data[i] / factor);
-        if (input.IsValid(i) && (out_data[i] * factor != in_data[i])) {
-          std::stringstream ss;
-          ss << "Casting from " << input.type()->ToString() << " to "
-             << output->type->ToString() << " would lose data: " << in_data[i];
-          ctx->SetStatus(Status::Invalid(ss.str()));
-          break;
+#define RAISE_INVALID_CAST(VAL)                                                         \
+  std::stringstream ss;                                                                 \
+  ss << "Casting from " << input.type->ToString() << " to " << output->type->ToString() \
+     << " would lose data: " << VAL;                                                    \
+  ctx->SetStatus(Status::Invalid(ss.str()));
+
+      if (input.null_count != 0) {
+        internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                          input.length);
+        for (int64_t i = 0; i < input.length; i++) {
+          out_data[i] = static_cast<out_type>(in_data[i] / factor);
+          if (bit_reader.IsSet() && (out_data[i] * factor != in_data[i])) {
+            RAISE_INVALID_CAST(in_data[i]);
+            break;
+          }
+          bit_reader.Next();
+        }
+      } else {
+        for (int64_t i = 0; i < input.length; i++) {
+          out_data[i] = static_cast<out_type>(in_data[i] / factor);
+          if (out_data[i] * factor != in_data[i]) {
+            RAISE_INVALID_CAST(in_data[i]);
+            break;
+          }
         }
       }
+
+#undef RAISE_INVALID_CAST
     }
   }
 }
@@ -342,10 +338,10 @@ const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
 
 template <>
 struct CastFunctor<TimestampType, TimestampType> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = static_cast<const TimestampType&>(*input.type());
+    const auto& in_type = static_cast<const TimestampType&>(*input.type);
     const auto& out_type = static_cast<const TimestampType&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
@@ -364,9 +360,9 @@ struct CastFunctor<TimestampType, TimestampType> {
 
 template <>
 struct CastFunctor<Date32Type, TimestampType> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
-    const auto& in_type = static_cast<const TimestampType&>(*input.type());
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    const auto& in_type = static_cast<const TimestampType&>(*input.type);
 
     static const int64_t kTimestampToDateFactors[4] = {
         86400LL,                             // SECOND
@@ -382,9 +378,9 @@ struct CastFunctor<Date32Type, TimestampType> {
 
 template <>
 struct CastFunctor<Date64Type, TimestampType> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
-    const auto& in_type = static_cast<const TimestampType&>(*input.type());
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    const auto& in_type = static_cast<const TimestampType&>(*input.type);
 
     std::pair<bool, int64_t> conversion =
         kTimeConversionTable[static_cast<int>(in_type.unit())]
@@ -393,17 +389,21 @@ struct CastFunctor<Date64Type, TimestampType> {
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
 
+    internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                      input.length);
+
     // Ensure that intraday milliseconds have been zeroed out
     auto out_data = GetMutableValues<int64_t>(output, 1);
-    for (int64_t i = 0; i < input.length(); ++i) {
+    for (int64_t i = 0; i < input.length; ++i) {
       const int64_t remainder = out_data[i] % kMillisecondsInDay;
-      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && input.IsValid(i) &&
+      if (ARROW_PREDICT_FALSE(!options.allow_time_truncate && bit_reader.IsSet() &&
                               remainder > 0)) {
         ctx->SetStatus(
             Status::Invalid("Timestamp value had non-zero intraday milliseconds"));
         break;
       }
       out_data[i] -= remainder;
+      bit_reader.Next();
     }
   }
 };
@@ -415,13 +415,13 @@ template <typename O, typename I>
 struct CastFunctor<O, I,
                    typename std::enable_if<std::is_base_of<TimeType, I>::value &&
                                            std::is_base_of<TimeType, O>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using in_t = typename I::c_type;
     using out_t = typename O::c_type;
 
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = static_cast<const I&>(*input.type());
+    const auto& in_type = static_cast<const I&>(*input.type);
     const auto& out_type = static_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
@@ -443,16 +443,16 @@ struct CastFunctor<O, I,
 
 template <>
 struct CastFunctor<Date64Type, Date32Type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     ShiftTime<int32_t, int64_t>(ctx, options, true, kMillisecondsInDay, input, output);
   }
 };
 
 template <>
 struct CastFunctor<Date32Type, Date64Type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     ShiftTime<int64_t, int32_t>(ctx, options, false, kMillisecondsInDay, input, output);
   }
 };
@@ -487,10 +487,11 @@ template <typename T>
 struct CastFunctor<
     T, DictionaryType,
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
-    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    DictionaryArray dict_array(input.ShallowCopy());
+
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
     const FixedSizeBinaryArray& dictionary =
         static_cast<const FixedSizeBinaryArray&>(*type.dictionary());
@@ -558,10 +559,11 @@ Status UnpackBinaryDictionary(FunctionContext* ctx, const Array& indices,
 template <typename T>
 struct CastFunctor<T, DictionaryType,
                    typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
-    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    DictionaryArray dict_array(input.ShallowCopy());
+
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
     const BinaryArray& dictionary = static_cast<const BinaryArray&>(*type.dictionary());
 
@@ -617,12 +619,13 @@ void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
 template <typename T>
 struct CastFunctor<T, DictionaryType,
                    typename std::enable_if<IsNumeric<T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options, const Array& input,
-                  ArrayData* output) {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
     using c_type = typename T::c_type;
 
-    const DictionaryArray& dict_array = static_cast<const DictionaryArray&>(input);
-    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type());
+    DictionaryArray dict_array(input.ShallowCopy());
+
+    const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
 
     // Check if values and output type match
@@ -657,24 +660,23 @@ struct CastFunctor<T, DictionaryType,
 
 // ----------------------------------------------------------------------
 
-typedef std::function<void(FunctionContext*, const CastOptions& options, const Array&,
+typedef std::function<void(FunctionContext*, const CastOptions& options, const ArrayData&,
                            ArrayData*)>
     CastFunction;
 
-static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input,
+static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& input,
                                         bool can_pre_allocate_values, ArrayData* out) {
-  const int64_t length = input.length();
-
-  out->null_count = input.null_count();
+  const int64_t length = input.length;
+  out->null_count = input.null_count;
 
   // Propagate bitmap unless we are null type
-  std::shared_ptr<Buffer> validity_bitmap = input.data()->buffers[0];
-  if (input.type_id() == Type::NA) {
+  std::shared_ptr<Buffer> validity_bitmap = input.buffers[0];
+  if (input.type->id() == Type::NA) {
     int64_t bitmap_size = BitUtil::BytesForBits(length);
     RETURN_NOT_OK(ctx->Allocate(bitmap_size, &validity_bitmap));
     memset(validity_bitmap->mutable_data(), 0, bitmap_size);
-  } else if (input.offset() != 0) {
-    RETURN_NOT_OK(CopyBitmap(ctx->memory_pool(), validity_bitmap->data(), input.offset(),
+  } else if (input.offset != 0) {
+    RETURN_NOT_OK(CopyBitmap(ctx->memory_pool(), validity_bitmap->data(), input.offset,
                              length, &validity_bitmap));
   }
 
@@ -727,17 +729,28 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const Array& input
 class CastKernel : public UnaryKernel {
  public:
   CastKernel(const CastOptions& options, const CastFunction& func, bool is_zero_copy,
-             bool can_pre_allocate_values)
+             bool can_pre_allocate_values, const std::shared_ptr<DataType>& out_type)
       : options_(options),
         func_(func),
         is_zero_copy_(is_zero_copy),
-        can_pre_allocate_values_(can_pre_allocate_values) {}
+        can_pre_allocate_values_(can_pre_allocate_values),
+        out_type_(out_type) {}
 
-  Status Call(FunctionContext* ctx, const Array& input, ArrayData* out) override {
-    if (!is_zero_copy_) {
-      RETURN_NOT_OK(AllocateIfNotPreallocated(ctx, input, can_pre_allocate_values_, out));
+  Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) override {
+    ArrayData* result;
+
+    if (out->kind() == Datum::NONE) {
+      out->value = std::make_shared<ArrayData>(out_type_, input.length);
     }
-    func_(ctx, options_, input, out);
+
+    result = out->array().get();
+
+    if (!is_zero_copy_) {
+      RETURN_NOT_OK(
+          AllocateIfNotPreallocated(ctx, input, can_pre_allocate_values_, result));
+    }
+    func_(ctx, options_, input, result);
+
     RETURN_IF_ERROR(ctx);
     return Status::OK();
   }
@@ -747,18 +760,19 @@ class CastKernel : public UnaryKernel {
   CastFunction func_;
   bool is_zero_copy_;
   bool can_pre_allocate_values_;
+  std::shared_ptr<DataType> out_type_;
 };
 
-#define CAST_CASE(InType, OutType)                                                  \
-  case OutType::type_id:                                                            \
-    is_zero_copy = is_zero_copy_cast<OutType, InType>::value;                       \
-    can_pre_allocate_values =                                                       \
-        !(!is_binary_like(InType::type_id) && is_binary_like(OutType::type_id));    \
-    func = [](FunctionContext* ctx, const CastOptions& options, const Array& input, \
-              ArrayData* out) {                                                     \
-      CastFunctor<OutType, InType> func;                                            \
-      func(ctx, options, input, out);                                               \
-    };                                                                              \
+#define CAST_CASE(InType, OutType)                                                      \
+  case OutType::type_id:                                                                \
+    is_zero_copy = is_zero_copy_cast<OutType, InType>::value;                           \
+    can_pre_allocate_values =                                                           \
+        !(!is_binary_like(InType::type_id) && is_binary_like(OutType::type_id));        \
+    func = [](FunctionContext* ctx, const CastOptions& options, const ArrayData& input, \
+              ArrayData* out) {                                                         \
+      CastFunctor<OutType, InType> func;                                                \
+      func(ctx, options, input, out);                                                   \
+    };                                                                                  \
     break;
 
 #define NUMERIC_CASES(FN, IN_TYPE) \
@@ -832,26 +846,26 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, FloatType);             \
   FN(IN_TYPE, DoubleType);            \
   FN(IN_TYPE, FixedSizeBinaryType);   \
-  FN(IN_TYPE, DecimalType);           \
+  FN(IN_TYPE, Decimal128Type);        \
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 
-#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                                \
-  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                     \
-      const std::shared_ptr<DataType>& out_type, const CastOptions& options) {   \
-    CastFunction func;                                                           \
-    bool is_zero_copy = false;                                                   \
-    bool can_pre_allocate_values = true;                                         \
-    switch (out_type->id()) {                                                    \
-      CASE_GENERATOR(CAST_CASE, InType);                                         \
-      default:                                                                   \
-        break;                                                                   \
-    }                                                                            \
-    if (func != nullptr) {                                                       \
-      return std::unique_ptr<UnaryKernel>(                                       \
-          new CastKernel(options, func, is_zero_copy, can_pre_allocate_values)); \
-    }                                                                            \
-    return nullptr;                                                              \
+#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                              \
+  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                   \
+      const std::shared_ptr<DataType>& out_type, const CastOptions& options) { \
+    CastFunction func;                                                         \
+    bool is_zero_copy = false;                                                 \
+    bool can_pre_allocate_values = true;                                       \
+    switch (out_type->id()) {                                                  \
+      CASE_GENERATOR(CAST_CASE, InType);                                       \
+      default:                                                                 \
+        break;                                                                 \
+    }                                                                          \
+    if (func != nullptr) {                                                     \
+      return std::unique_ptr<UnaryKernel>(new CastKernel(                      \
+          options, func, is_zero_copy, can_pre_allocate_values, out_type));    \
+    }                                                                          \
+    return nullptr;                                                            \
   }
 
 GET_CAST_FUNCTION(NULL_CASES, NullType);
@@ -912,18 +926,27 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
   return Status::OK();
 }
 
+Status Cast(FunctionContext* ctx, const Datum& value,
+            const std::shared_ptr<DataType>& out_type, const CastOptions& options,
+            Datum* out) {
+  // Dynamic dispatch to obtain right cast function
+  std::unique_ptr<UnaryKernel> func;
+  RETURN_NOT_OK(GetCastFunction(*value.type(), out_type, options, &func));
+
+  std::vector<Datum> result;
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, func.get(), value, &result));
+
+  *out = detail::WrapDatumsLike(value, result);
+  return Status::OK();
+}
+
 Status Cast(FunctionContext* ctx, const Array& array,
             const std::shared_ptr<DataType>& out_type, const CastOptions& options,
             std::shared_ptr<Array>* out) {
-  // Dynamic dispatch to obtain right cast function
-  std::unique_ptr<UnaryKernel> func;
-  RETURN_NOT_OK(GetCastFunction(*array.type(), out_type, options, &func));
-
-  // Data structure for output
-  auto out_data = std::make_shared<ArrayData>(out_type, array.length());
-
-  RETURN_NOT_OK(func->Call(ctx, array, out_data.get()));
-  *out = MakeArray(out_data);
+  Datum datum_out;
+  RETURN_NOT_OK(Cast(ctx, Datum(array.data()), out_type, options, &datum_out));
+  DCHECK_EQ(Datum::ARRAY, datum_out.kind());
+  *out = MakeArray(datum_out.array());
   return Status::OK();
 }
 

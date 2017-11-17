@@ -132,6 +132,7 @@ Array Types
 .. autosummary::
    :toctree: generated/
 
+   array
    Array
    BooleanArray
    DictionaryArray
@@ -168,6 +169,8 @@ Tables and Record Batches
 .. autosummary::
    :toctree: generated/
 
+   column
+   chunked_array
    ChunkedArray
    Column
    RecordBatch

@@ -365,6 +365,10 @@ Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& 
     }                                                                                  \
   } while (false)
 
+#define DECL_T() typedef typename TestFixture::T T;
+
+#define DECL_TYPE() typedef typename TestFixture::Type Type;
+
 void AssertArraysEqual(const Array& expected, const Array& actual) {
   ASSERT_ARRAYS_EQUAL(expected, actual);
 }

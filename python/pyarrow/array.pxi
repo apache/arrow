@@ -77,7 +77,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
-cdef DataType _ensure_type(object type):
+cdef inline DataType _ensure_type(object type):
     if type is None:
         return None
     elif not isinstance(type, DataType):
@@ -228,6 +228,15 @@ cdef CFunctionContext* _context() nogil:
     return _global_ctx.ctx.get()
 
 
+cdef wrap_datum(const CDatum& datum):
+    if datum.kind() == DatumType_ARRAY:
+        return pyarrow_wrap_array(MakeArray(datum.array()))
+    elif datum.kind() == DatumType_CHUNKED_ARRAY:
+        return pyarrow_wrap_chunked_array(datum.chunked_array())
+    else:
+        raise ValueError("Unable to wrap Datum in a Python object")
+
+
 cdef class Array:
 
     cdef void init(self, const shared_ptr[CArray]& sp_array):
@@ -269,6 +278,29 @@ cdef class Array:
                               options, &result))
 
         return pyarrow_wrap_array(result)
+
+    def unique(self):
+        """
+        Compute distinct elements in array
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(Unique(_context(), CDatum(self.sp_array), &result))
+
+        return pyarrow_wrap_array(result)
+
+    def dictionary_encode(self):
+        """
+        Compute dictionary-encoded representation of array
+        """
+        cdef CDatum out
+
+        with nogil:
+            check_status(DictionaryEncode(_context(), CDatum(self.sp_array),
+                                          &out))
+
+        return wrap_datum(out)
 
     @staticmethod
     def from_pandas(obj, mask=None, type=None, MemoryPool memory_pool=None):
@@ -701,6 +733,9 @@ cdef class DictionaryArray(Array):
         else:
             return box_scalar(dictionary.type, dictionary.sp_array,
                               index.as_py())
+
+    def dictionary_encode(self):
+        return self
 
     property dictionary:
 

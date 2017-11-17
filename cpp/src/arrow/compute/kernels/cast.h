@@ -15,25 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_CAST_H
-#define ARROW_COMPUTE_CAST_H
+#ifndef ARROW_COMPUTE_KERNELS_CAST_H
+#define ARROW_COMPUTE_KERNELS_CAST_H
 
 #include <memory>
 
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
+#include "arrow/compute/kernel.h"
+
 namespace arrow {
 
 class Array;
+class ChunkedArray;
+class Column;
 class DataType;
 
 namespace compute {
 
-class FunctionContext;
-class UnaryKernel;
-
-struct CastOptions {
+struct ARROW_EXPORT CastOptions {
   CastOptions() : allow_int_overflow(false), allow_time_truncate(false) {}
 
   bool allow_int_overflow;
@@ -48,7 +49,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
 
 /// \brief Cast from one array type to another
 /// \param[in] context the FunctionContext
-/// \param[in] array array to cast
+/// \param[in] value array to cast
 /// \param[in] to_type type to cast to
 /// \param[in] options casting options
 /// \param[out] out resulting array
@@ -56,11 +57,25 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
 /// \since 0.7.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status Cast(FunctionContext* context, const Array& array,
+Status Cast(FunctionContext* context, const Array& value,
             const std::shared_ptr<DataType>& to_type, const CastOptions& options,
             std::shared_ptr<Array>* out);
+
+/// \brief Cast from one value to another
+/// \param[in] context the FunctionContext
+/// \param[in] value datum to cast
+/// \param[in] to_type type to cast to
+/// \param[in] options casting options
+/// \param[out] out resulting datum
+///
+/// \since 0.8.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status Cast(FunctionContext* context, const Datum& value,
+            const std::shared_ptr<DataType>& to_type, const CastOptions& options,
+            Datum* out);
 
 }  // namespace compute
 }  // namespace arrow
 
-#endif  // ARROW_COMPUTE_CAST_H
+#endif  // ARROW_COMPUTE_KERNELS_CAST_H
