@@ -58,6 +58,7 @@ Datum WrapArraysLike(const Datum& value,
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
     DCHECK(false) << "unhandled datum kind";
+    return Datum();
   }
 }
 
@@ -75,6 +76,7 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
     DCHECK(false) << "unhandled datum kind";
+    return Datum();
   }
 }
 
