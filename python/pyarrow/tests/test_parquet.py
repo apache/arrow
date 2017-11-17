@@ -1436,6 +1436,7 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
+@parquet
 def test_index_column_name_duplicate(tmpdir):
     data = {
         'close': {
@@ -1460,6 +1461,7 @@ def test_index_column_name_duplicate(tmpdir):
     tm.assert_frame_equal(result_df, dfx)
 
 
+@parquet
 def test_backwards_compatible_index_naming():
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -1482,6 +1484,7 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
+@parquet
 def test_backwards_compatible_index_multi_level_named():
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -1507,6 +1510,7 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
+@parquet
 def test_backwards_compatible_index_multi_level_some_named():
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z

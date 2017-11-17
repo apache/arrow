@@ -28,9 +28,15 @@ class Status;
 
 class DataType;
 class Array;
+struct ArrayData;
 class ArrayBuilder;
 class Field;
 class Tensor;
+
+class ChunkedArray;
+class Column;
+class RecordBatch;
+class Table;
 
 class Buffer;
 class MemoryPool;

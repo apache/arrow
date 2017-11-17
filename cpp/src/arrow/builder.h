@@ -123,6 +123,18 @@ class ARROW_EXPORT ArrayBuilder {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
+  // Unsafe operations (don't check capacity/don't resize)
+
+  // Append to null bitmap.
+  void UnsafeAppendToBitmap(bool is_valid) {
+    if (is_valid) {
+      BitUtil::SetBit(null_bitmap_data_, length_);
+    } else {
+      ++null_count_;
+    }
+    ++length_;
+  }
+
  protected:
   ArrayBuilder() {}
 
@@ -142,18 +154,6 @@ class ARROW_EXPORT ArrayBuilder {
   std::vector<std::unique_ptr<ArrayBuilder>> children_;
 
   void Reset();
-
-  // Unsafe operations (don't check capacity/don't resize)
-
-  // Append to null bitmap.
-  void UnsafeAppendToBitmap(bool is_valid) {
-    if (is_valid) {
-      BitUtil::SetBit(null_bitmap_data_, length_);
-    } else {
-      ++null_count_;
-    }
-    ++length_;
-  }
 
   // Vector append. Treat each zero byte as a nullzero. If valid_bytes is null
   // assume all of length bits are valid.
@@ -811,190 +811,11 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 };
 
 // ----------------------------------------------------------------------
-// Dictionary builder
-
-// Based on Apache Parquet-cpp's DictEncoder
-
-// Initially 1024 elements
-static constexpr int kInitialHashTableSize = 1 << 10;
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.7;
-
-namespace internal {
-
-// TODO(ARROW-1176): Use Tensorflow's StringPiece instead of this here.
-struct WrappedBinary {
-  WrappedBinary(const uint8_t* ptr, int32_t length) : ptr_(ptr), length_(length) {}
-
-  const uint8_t* ptr_;
-  int32_t length_;
-};
-
-template <typename T>
-struct DictionaryScalar {
-  using type = typename T::c_type;
-};
-
-template <>
-struct DictionaryScalar<BinaryType> {
-  using type = WrappedBinary;
-};
-
-template <>
-struct DictionaryScalar<StringType> {
-  using type = WrappedBinary;
-};
-
-template <>
-struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = uint8_t const*;
-};
-
-}  // namespace internal
-
-/// \brief Array builder for created encoded DictionaryArray from dense array
-/// data
-template <typename T>
-class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
- public:
-  using Scalar = typename internal::DictionaryScalar<T>::type;
-
-  ~DictionaryBuilder() {}
-
-  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
-
-  template <typename T1 = T>
-  explicit DictionaryBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool)
-      : DictionaryBuilder<T1>(TypeTraits<T1>::type_singleton(), pool) {}
-
-  /// \brief Append a scalar value
-  Status Append(const Scalar& value);
-
-  /// \brief Append a scalar null value
-  Status AppendNull();
-
-  /// \brief Append a whole dense array to the builder
-  Status AppendArray(const Array& array);
-
-  Status Init(int64_t elements) override;
-  Status Resize(int64_t capacity) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-
- protected:
-  Status DoubleTableSize();
-  Scalar GetDictionaryValue(int64_t index);
-  int HashValue(const Scalar& value);
-  bool SlotDifferent(hash_slot_t slot, const Scalar& value);
-  Status AppendDictionary(const Scalar& value);
-
-  std::shared_ptr<PoolBuffer> hash_table_;
-  int32_t* hash_slots_;
-
-  /// Size of the table. Must be a power of 2.
-  int hash_table_size_;
-
-  // Store hash_table_size_ - 1, so that j & mod_bitmask_ is equivalent to j %
-  // hash_table_size_, but uses far fewer CPU cycles
-  int mod_bitmask_;
-
-  typename TypeTraits<T>::BuilderType dict_builder_;
-  AdaptiveIntBuilder values_builder_;
-  int32_t byte_width_;
-};
-
-template <>
-class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
- public:
-  ~DictionaryBuilder();
-
-  DictionaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
-  explicit DictionaryBuilder(MemoryPool* pool);
-
-  /// \brief Append a scalar null value
-  Status AppendNull();
-
-  /// \brief Append a whole dense array to the builder
-  Status AppendArray(const Array& array);
-
-  Status Init(int64_t elements) override;
-  Status Resize(int64_t capacity) override;
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-
- protected:
-  AdaptiveIntBuilder values_builder_;
-};
-
-class ARROW_EXPORT BinaryDictionaryBuilder : public DictionaryBuilder<BinaryType> {
- public:
-  using DictionaryBuilder::Append;
-  using DictionaryBuilder::DictionaryBuilder;
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
-  }
-};
-
-/// \brief Dictionary array builder with convenience methods for strings
-class ARROW_EXPORT StringDictionaryBuilder : public DictionaryBuilder<StringType> {
- public:
-  using DictionaryBuilder::Append;
-  using DictionaryBuilder::DictionaryBuilder;
-
-  Status Append(const uint8_t* value, int32_t length) {
-    return Append(internal::WrappedBinary(value, length));
-  }
-
-  Status Append(const char* value, int32_t length) {
-    return Append(
-        internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value), length));
-  }
-
-  Status Append(const std::string& value) {
-    return Append(internal::WrappedBinary(reinterpret_cast<const uint8_t*>(value.c_str()),
-                                          static_cast<int32_t>(value.size())));
-  }
-};
-
-// ----------------------------------------------------------------------
 // Helper functions
 
 Status ARROW_EXPORT MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                 std::unique_ptr<ArrayBuilder>* out);
 
-Status ARROW_EXPORT MakeDictionaryBuilder(MemoryPool* pool,
-                                          const std::shared_ptr<DataType>& type,
-                                          std::shared_ptr<ArrayBuilder>* out);
-
-/// \brief Convert Array to encoded DictionaryArray form
-///
-/// \param[in] input The Array to be encoded
-/// \param[in] pool MemoryPool to allocate memory for the hash table
-/// \param[out] out Array encoded to DictionaryArray
-Status ARROW_EXPORT EncodeArrayToDictionary(const Array& input, MemoryPool* pool,
-                                            std::shared_ptr<Array>* out);
-
-/// \brief Convert a Column's data internally to DictionaryArray
-///
-/// \param[in] input The ChunkedArray to be encoded
-/// \param[in] pool MemoryPool to allocate memory for the hash table
-/// \param[out] out Column with data converted to DictionaryArray
-Status ARROW_EXPORT EncodeColumnToDictionary(const Column& input, MemoryPool* pool,
-                                             std::shared_ptr<Column>* out);
 }  // namespace arrow
 
 #endif  // ARROW_BUILDER_H_

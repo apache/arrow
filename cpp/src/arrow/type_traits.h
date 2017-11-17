@@ -430,6 +430,10 @@ static inline bool is_binary_like(Type::type type_id) {
   return false;
 }
 
+static inline bool is_dictionary(Type::type type_id) {
+  return type_id == Type::DICTIONARY;
+}
+
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_TRAITS_H

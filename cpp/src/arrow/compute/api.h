@@ -18,8 +18,10 @@
 #ifndef ARROW_COMPUTE_API_H
 #define ARROW_COMPUTE_API_H
 
-#include "arrow/compute/cast.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+
+#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/kernels/hash.h"
 
 #endif  // ARROW_COMPUTE_API_H

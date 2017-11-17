@@ -115,47 +115,6 @@ static void BM_BuildAdaptiveUIntNoNulls(
   state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
 }
 
-static void BM_BuildDictionary(benchmark::State& state) {  // NOLINT non-const reference
-  const int64_t iterations = 1024;
-  while (state.KeepRunning()) {
-    DictionaryBuilder<Int64Type> builder(default_memory_pool());
-    for (int64_t i = 0; i < iterations; i++) {
-      for (int64_t j = 0; j < i; j++) {
-        ABORT_NOT_OK(builder.Append(j));
-      }
-    }
-    std::shared_ptr<Array> out;
-    ABORT_NOT_OK(builder.Finish(&out));
-  }
-  state.SetBytesProcessed(state.iterations() * iterations * (iterations + 1) / 2 *
-                          sizeof(int64_t));
-}
-
-static void BM_BuildStringDictionary(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const int64_t iterations = 1024;
-  // Pre-render strings
-  std::vector<std::string> data;
-  for (int64_t i = 0; i < iterations; i++) {
-    std::stringstream ss;
-    ss << i;
-    data.push_back(ss.str());
-  }
-  while (state.KeepRunning()) {
-    StringDictionaryBuilder builder(default_memory_pool());
-    for (int64_t i = 0; i < iterations; i++) {
-      for (int64_t j = 0; j < i; j++) {
-        ABORT_NOT_OK(builder.Append(data[j]));
-      }
-    }
-    std::shared_ptr<Array> out;
-    ABORT_NOT_OK(builder.Finish(&out));
-  }
-  // Assuming a string here needs on average 2 bytes
-  state.SetBytesProcessed(state.iterations() * iterations * (iterations + 1) / 2 *
-                          sizeof(int32_t));
-}
-
 static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1 << 20;
 
@@ -179,8 +138,6 @@ BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
     ->Repetitions(3)
     ->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildAdaptiveUIntNoNulls)->Repetitions(3)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildStringDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_BuildBinaryArray)->Repetitions(3)->Unit(benchmark::kMicrosecond);
 

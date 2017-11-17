@@ -295,6 +295,18 @@ def test_cast_integers_safe():
             in_arr.cast(out_type)
 
 
+def test_cast_column():
+    arrays = [pa.array([1, 2, 3]), pa.array([4, 5, 6])]
+
+    col = pa.column('foo', arrays)
+
+    target = pa.float64()
+    casted = col.cast(target)
+
+    expected = pa.column('foo', [x.cast(target) for x in arrays])
+    assert casted.equals(expected)
+
+
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting
     unsafe_cases = [
@@ -348,6 +360,33 @@ def test_cast_signed_to_unsigned():
 
     for case in safe_cases:
         _check_cast_case(case)
+
+
+def test_unique_simple():
+    cases = [
+        (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.array(['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.unique()
+        assert result.equals(expected)
+
+
+def test_dictionary_encode_simple():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3]),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 2, None, 0, 1, 2], type='int32'),
+             [1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             ['foo', 'bar']))
+    ]
+    for arr, expected in cases:
+        result = arr.dictionary_encode()
+        assert result.equals(expected)
 
 
 def test_simple_type_construction():

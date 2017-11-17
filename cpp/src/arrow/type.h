@@ -498,25 +498,34 @@ class ARROW_EXPORT StructType : public NestedType {
   std::vector<BufferDescr> GetBufferLayout() const override;
 };
 
-class ARROW_EXPORT Decimal128Type : public FixedSizeBinaryType {
+class ARROW_EXPORT DecimalBaseType : public FixedSizeBinaryType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL;
-
-  explicit Decimal128Type(int32_t precision, int32_t scale)
-      : FixedSizeBinaryType(16, Type::DECIMAL), precision_(precision), scale_(scale) {}
-
-  Status Accept(TypeVisitor* visitor) const override;
-  std::string ToString() const override;
-  std::string name() const override { return "decimal"; }
+  explicit DecimalBaseType(int32_t byte_width, int32_t precision, int32_t scale)
+      : FixedSizeBinaryType(byte_width, Type::DECIMAL),
+        precision_(precision),
+        scale_(scale) {}
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
- private:
+ protected:
   int32_t precision_;
   int32_t scale_;
 };
 
+class ARROW_EXPORT Decimal128Type : public DecimalBaseType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL;
+
+  explicit Decimal128Type(int32_t precision, int32_t scale)
+      : DecimalBaseType(16, precision, scale) {}
+
+  Status Accept(TypeVisitor* visitor) const override;
+  std::string ToString() const override;
+  std::string name() const override { return "decimal"; }
+};
+
+// TODO(wesm): Remove this
 using DecimalType = Decimal128Type;
 
 struct UnionMode {

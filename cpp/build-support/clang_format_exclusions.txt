@@ -3,6 +3,8 @@
 *pyarrow_api.h
 *python/config.h
 *python/platform.h
+*util/variant.h
+*util/variant/*
 *thirdparty/ae/*
 *xxhash.cc
 *xxhash.h

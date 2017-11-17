@@ -20,11 +20,16 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/util/cpu-info.h"
 
 namespace arrow {
 namespace compute {
 
-FunctionContext::FunctionContext(MemoryPool* pool) : pool_(pool) {}
+FunctionContext::FunctionContext(MemoryPool* pool) : pool_(pool) {
+  if (!::arrow::CpuInfo::initialized()) {
+    ::arrow::CpuInfo::Init();
+  }
+}
 
 MemoryPool* FunctionContext::memory_pool() const { return pool_; }
 

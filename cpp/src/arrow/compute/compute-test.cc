@@ -37,10 +37,12 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
-#include "arrow/compute/cast.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/cast.h"
+#include "arrow/compute/kernels/hash.h"
 
+using std::shared_ptr;
 using std::vector;
 
 namespace arrow {
@@ -54,6 +56,18 @@ class ComputeFixture {
   FunctionContext ctx_;
 };
 
+template <typename Type, typename T>
+shared_ptr<Array> _MakeArray(const shared_ptr<DataType>& type, const vector<T>& values,
+                             const vector<bool>& is_valid) {
+  shared_ptr<Array> result;
+  if (is_valid.size() > 0) {
+    ArrayFromVector<Type, T>(type, is_valid, values, &result);
+  } else {
+    ArrayFromVector<Type, T>(type, values, &result);
+  }
+  return result;
+}
+
 // ----------------------------------------------------------------------
 // Cast
 
@@ -65,17 +79,17 @@ static void AssertBufferSame(const Array& left, const Array& right, int buffer_i
 class TestCast : public ComputeFixture, public TestBase {
  public:
   void CheckPass(const Array& input, const Array& expected,
-                 const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
-    std::shared_ptr<Array> result;
+                 const shared_ptr<DataType>& out_type, const CastOptions& options) {
+    shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, options, &result));
     ASSERT_ARRAYS_EQUAL(expected, *result);
   }
 
   template <typename InType, typename I_TYPE>
-  void CheckFails(const std::shared_ptr<DataType>& in_type,
-                  const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
-    std::shared_ptr<Array> input, result;
+  void CheckFails(const shared_ptr<DataType>& in_type, const vector<I_TYPE>& in_values,
+                  const vector<bool>& is_valid, const shared_ptr<DataType>& out_type,
+                  const CastOptions& options) {
+    shared_ptr<Array> input, result;
     if (is_valid.size() > 0) {
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
     } else {
@@ -84,19 +98,18 @@ class TestCast : public ComputeFixture, public TestBase {
     ASSERT_RAISES(Invalid, Cast(&ctx_, *input, out_type, options, &result));
   }
 
-  void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
-    std::shared_ptr<Array> result;
+  void CheckZeroCopy(const Array& input, const shared_ptr<DataType>& out_type) {
+    shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
     AssertBufferSame(input, *result, 0);
     AssertBufferSame(input, *result, 1);
   }
 
   template <typename InType, typename I_TYPE, typename OutType, typename O_TYPE>
-  void CheckCase(const std::shared_ptr<DataType>& in_type,
-                 const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                 const std::shared_ptr<DataType>& out_type,
-                 const std::vector<O_TYPE>& out_values, const CastOptions& options) {
-    std::shared_ptr<Array> input, expected;
+  void CheckCase(const shared_ptr<DataType>& in_type, const vector<I_TYPE>& in_values,
+                 const vector<bool>& is_valid, const shared_ptr<DataType>& out_type,
+                 const vector<O_TYPE>& out_values, const CastOptions& options) {
+    shared_ptr<Array> input, expected;
     if (is_valid.size() > 0) {
       ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
       ArrayFromVector<OutType, O_TYPE>(out_type, is_valid, out_values, &expected);
@@ -117,10 +130,10 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   vector<bool> is_valid = {true, false, true, true, true};
   vector<int32_t> v1 = {0, 1, 2, 3, 4};
 
-  std::shared_ptr<Array> arr;
+  shared_ptr<Array> arr;
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
-  std::shared_ptr<Array> result;
+  shared_ptr<Array> result;
   ASSERT_OK(Cast(&this->ctx_, *arr, int32(), {}, &result));
 
   AssertBufferSame(*arr, *result, 0);
@@ -185,7 +198,7 @@ TEST_F(TestCast, OverflowInNullSlot) {
   vector<int32_t> v11 = {0, 70000, 2000, 1000, 0};
   vector<int16_t> e11 = {0, 0, 2000, 1000, 0};
 
-  std::shared_ptr<Array> expected;
+  shared_ptr<Array> expected;
   ArrayFromVector<Int16Type, int16_t>(int16(), is_valid, e11, &expected);
 
   auto buf = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(v11.data()),
@@ -280,8 +293,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
 
   auto CheckTimestampCast = [this](
       const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
-      const std::vector<int64_t>& from_values, const std::vector<int64_t>& to_values,
-      const std::vector<bool>& is_valid) {
+      const vector<int64_t>& from_values, const vector<int64_t>& to_values,
+      const vector<bool>& is_valid) {
     CheckCase<TimestampType, int64_t, TimestampType, int64_t>(
         timestamp(from_unit), from_values, is_valid, timestamp(to_unit), to_values,
         options);
@@ -315,8 +328,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
   CheckTimestampCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
 
   // Zero copy
-  std::shared_ptr<Array> arr;
   vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
+  shared_ptr<Array> arr;
   ArrayFromVector<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), is_valid, v7,
                                           &arr);
   CheckZeroCopy(*arr, timestamp(TimeUnit::SECOND));
@@ -456,8 +469,8 @@ TEST_F(TestCast, TimeToTime) {
       time64(TimeUnit::MICRO), v6, is_valid, time64(TimeUnit::NANO), e6, options);
 
   // Zero copy
-  std::shared_ptr<Array> arr;
   vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
+  shared_ptr<Array> arr;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
 
@@ -516,9 +529,9 @@ TEST_F(TestCast, DateToDate) {
                                                       e1, options);
 
   // Zero copy
-  std::shared_ptr<Array> arr;
   vector<int32_t> v2 = {0, 70000, 2000, 1000, 0};
   vector<int64_t> v3 = {0, 70000, 2000, 1000, 0};
+  shared_ptr<Array> arr;
   ArrayFromVector<Date32Type, int32_t>(date32(), is_valid, v2, &arr);
   CheckZeroCopy(*arr, date32());
 
@@ -561,22 +574,54 @@ TEST_F(TestCast, ToDouble) {
                                                    options);
 }
 
+TEST_F(TestCast, ChunkedArray) {
+  vector<int16_t> values1 = {0, 1, 2};
+  vector<int16_t> values2 = {3, 4, 5};
+
+  auto type = int16();
+  auto out_type = int64();
+
+  auto a1 = _MakeArray<Int16Type, int16_t>(type, values1, {});
+  auto a2 = _MakeArray<Int16Type, int16_t>(type, values2, {});
+
+  ArrayVector arrays = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(arrays);
+
+  CastOptions options;
+
+  Datum out;
+  ASSERT_OK(Cast(&this->ctx_, Datum(carr), out_type, options, &out));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, out.kind());
+
+  auto out_carr = out.chunked_array();
+
+  vector<int64_t> ex_values1 = {0, 1, 2};
+  vector<int64_t> ex_values2 = {3, 4, 5};
+  auto a3 = _MakeArray<Int64Type, int64_t>(out_type, ex_values1, {});
+  auto a4 = _MakeArray<Int64Type, int64_t>(out_type, ex_values2, {});
+
+  ArrayVector ex_arrays = {a3, a4};
+  auto ex_carr = std::make_shared<ChunkedArray>(ex_arrays);
+
+  ASSERT_TRUE(out.chunked_array()->Equals(*ex_carr));
+}
+
 TEST_F(TestCast, UnsupportedTarget) {
   vector<bool> is_valid = {true, false, true, true, true};
   vector<int32_t> v1 = {0, 1, 2, 3, 4};
 
-  std::shared_ptr<Array> arr;
+  shared_ptr<Array> arr;
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
-  std::shared_ptr<Array> result;
+  shared_ptr<Array> result;
   ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, utf8(), {}, &result));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
   vector<bool> is_valid = {true, false, true, true, true};
 
-  std::shared_ptr<Array> arr;
   vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
+  shared_ptr<Array> arr;
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
   CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
@@ -596,7 +641,7 @@ TEST_F(TestCast, FromNull) {
 
   NullArray arr(length);
 
-  std::shared_ptr<Array> result;
+  shared_ptr<Array> result;
   ASSERT_OK(Cast(&ctx_, arr, int32(), {}, &result));
 
   ASSERT_EQ(length, result->length());
@@ -614,7 +659,7 @@ TEST_F(TestCast, PreallocatedMemory) {
 
   const int64_t length = 5;
 
-  std::shared_ptr<Array> arr;
+  shared_ptr<Array> arr;
   vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
   vector<int64_t> e1 = {0, 70000, 2000, 1000, 0};
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
@@ -626,19 +671,20 @@ TEST_F(TestCast, PreallocatedMemory) {
 
   auto out_data = std::make_shared<ArrayData>(out_type, length);
 
-  std::shared_ptr<Buffer> out_values;
+  shared_ptr<Buffer> out_values;
   ASSERT_OK(this->ctx_.Allocate(length * sizeof(int64_t), &out_values));
 
   out_data->buffers.push_back(nullptr);
   out_data->buffers.push_back(out_values);
 
-  ASSERT_OK(kernel->Call(&this->ctx_, *arr, out_data.get()));
+  Datum out(out_data);
+  ASSERT_OK(kernel->Call(&this->ctx_, *arr->data(), &out));
 
   // Buffer address unchanged
   ASSERT_EQ(out_values.get(), out_data->buffers[1].get());
 
-  std::shared_ptr<Array> result = MakeArray(out_data);
-  std::shared_ptr<Array> expected;
+  shared_ptr<Array> result = MakeArray(out_data);
+  shared_ptr<Array> expected;
   ArrayFromVector<Int64Type, int64_t>(int64(), is_valid, e1, &expected);
 
   ASSERT_ARRAYS_EQUAL(*expected, *result);
@@ -656,13 +702,268 @@ TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
 
 TYPED_TEST(TestDictionaryCast, Basic) {
   CastOptions options;
-  std::shared_ptr<Array> plain_array =
+  shared_ptr<Array> plain_array =
       TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
 
-  std::shared_ptr<Array> dict_array;
+  Datum out;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(plain_array->data()), &out));
+
+  this->CheckPass(*MakeArray(out.array()), *plain_array, plain_array->type(), options);
+}
+
+/*TYPED_TEST(TestDictionaryCast, Reverse) {
+  CastOptions options;
+  shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+
+  shared_ptr<Array> dict_array;
   ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));
 
-  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
+  this->CheckPass(*plain_array, *dict_array, dict_array->type(), options);
+}*/
+
+// ----------------------------------------------------------------------
+// Dictionary tests
+
+template <typename Type, typename T>
+void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
+                 const vector<T>& in_values, const vector<bool>& in_is_valid,
+                 const vector<T>& out_values, const vector<bool>& out_is_valid) {
+  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
+
+  shared_ptr<Array> result;
+  ASSERT_OK(Unique(ctx, Datum(input), &result));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+template <typename Type, typename T>
+void CheckDictEncode(FunctionContext* ctx, const shared_ptr<DataType>& type,
+                     const vector<T>& in_values, const vector<bool>& in_is_valid,
+                     const vector<T>& out_values, const vector<bool>& out_is_valid,
+                     const vector<int32_t>& out_indices) {
+  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  shared_ptr<Array> ex_dict = _MakeArray<Type, T>(type, out_values, out_is_valid);
+  shared_ptr<Array> ex_indices =
+      _MakeArray<Int32Type, int32_t>(int32(), out_indices, in_is_valid);
+
+  DictionaryArray expected(dictionary(int32(), ex_dict), ex_indices);
+
+  Datum datum_out;
+  ASSERT_OK(DictionaryEncode(ctx, Datum(input), &datum_out));
+  shared_ptr<Array> result = MakeArray(datum_out.array());
+
+  ASSERT_ARRAYS_EQUAL(expected, *result);
+}
+
+class TestHashKernel : public ComputeFixture, public TestBase {};
+
+template <typename Type>
+class TestHashKernelPrimitive : public ComputeFixture, public TestBase {};
+
+typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type>
+    PrimitiveDictionaries;
+
+TYPED_TEST_CASE(TestHashKernelPrimitive, PrimitiveDictionaries);
+
+TYPED_TEST(TestHashKernelPrimitive, Unique) {
+  using T = typename TypeParam::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1}, {true, false, true, true},
+                            {2, 1}, {});
+}
+
+TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
+  using T = typename TypeParam::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckDictEncode<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
+                                {true, false, true, true, true, true}, {2, 1, 3}, {},
+                                {0, 0, 0, 1, 0, 2});
+}
+
+TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
+  using T = typename TypeParam::c_type;
+  // Skip this test for (u)int8
+  if (sizeof(Scalar) == 1) {
+    return;
+  }
+
+  const int64_t kTotalValues = 10000;
+  const int64_t kRepeats = 10;
+
+  vector<T> values;
+  vector<T> uniques;
+  vector<int32_t> indices;
+  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
+    const auto val = static_cast<T>(i % kTotalValues);
+    values.push_back(val);
+
+    if (i < kTotalValues) {
+      uniques.push_back(val);
+    }
+    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+  }
+
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckUnique<TypeParam, T>(&this->ctx_, type, values, {}, uniques, {});
+
+  CheckDictEncode<TypeParam, T>(&this->ctx_, type, values, {}, uniques, {}, indices);
+}
+
+TEST_F(TestHashKernel, UniqueTimeTimestamp) {
+  CheckUnique<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 2, 1},
+                                   {true, false, true, true}, {2, 1}, {});
+
+  CheckUnique<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
+                                   {true, false, true, true}, {2, 1}, {});
+
+  CheckUnique<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
+                                      {2, 1, 2, 1}, {true, false, true, true}, {2, 1},
+                                      {});
+}
+
+TEST_F(TestHashKernel, UniqueBinary) {
+  CheckUnique<BinaryType, std::string>(&this->ctx_, binary(),
+                                       {"test", "", "test2", "test"},
+                                       {true, false, true, true}, {"test", "test2"}, {});
+
+  CheckUnique<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
+                                       {true, false, true, true}, {"test", "test2"}, {});
+}
+
+TEST_F(TestHashKernel, DictEncodeBinary) {
+  CheckDictEncode<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test", "baz"},
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+
+  CheckDictEncode<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test", "baz"},
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
+}
+
+TEST_F(TestHashKernel, BinaryResizeTable) {
+  const int64_t kTotalValues = 10000;
+  const int64_t kRepeats = 10;
+
+  vector<std::string> values;
+  vector<std::string> uniques;
+  vector<int32_t> indices;
+  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int64_t index = i % kTotalValues;
+    std::stringstream ss;
+    ss << "test" << index;
+    std::string val = ss.str();
+
+    values.push_back(val);
+
+    if (i < kTotalValues) {
+      uniques.push_back(val);
+    }
+    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+  }
+
+  CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
+  CheckDictEncode<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {},
+                                           indices);
+
+  CheckUnique<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {});
+  CheckDictEncode<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
+                                           indices);
+}
+
+TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
+  CheckUnique<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"aaaaa", "", "bbbbb", "aaaaa"},
+      {true, false, true, true}, {"aaaaa", "bbbbb"}, {});
+}
+
+TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
+  CheckDictEncode<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {"bbbbb", "aaaaa", "ccccc"}, {}, {0, 0, 0, 1, 2});
+}
+
+TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
+  const int64_t kTotalValues = 10000;
+  const int64_t kRepeats = 10;
+
+  vector<std::string> values;
+  vector<std::string> uniques;
+  vector<int32_t> indices;
+  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int64_t index = i % kTotalValues;
+    std::stringstream ss;
+    ss << "test" << static_cast<char>(index / 128) << static_cast<char>(index % 128);
+    std::string val = ss.str();
+
+    values.push_back(val);
+
+    if (i < kTotalValues) {
+      uniques.push_back(val);
+    }
+    indices.push_back(static_cast<int32_t>(i % kTotalValues));
+  }
+
+  auto type = fixed_size_binary(6);
+  CheckUnique<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {}, uniques,
+                                                {});
+  CheckDictEncode<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {},
+                                                    uniques, {}, indices);
+}
+
+TEST_F(TestHashKernel, UniqueDecimal) {
+  vector<Decimal128> values{12, 12, 11, 12};
+  vector<Decimal128> expected{12, 11};
+
+  CheckUnique<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
+                                          {true, false, true, true}, expected, {});
+}
+
+TEST_F(TestHashKernel, DictEncodeDecimal) {
+  vector<Decimal128> values{12, 12, 11, 12, 13};
+  vector<Decimal128> expected{12, 11, 13};
+
+  CheckDictEncode<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
+                                              {true, false, true, true, true}, expected,
+                                              {}, {0, 0, 1, 0, 2});
+}
+
+TEST_F(TestHashKernel, ChunkedArrayInvoke) {
+  vector<std::string> values1 = {"foo", "bar", "foo"};
+  vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
+
+  auto type = utf8();
+  auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
+  auto a2 = _MakeArray<StringType, std::string>(type, values2, {});
+
+  vector<std::string> dict_values = {"foo", "bar", "baz", "quuux"};
+  auto ex_dict = _MakeArray<StringType, std::string>(type, dict_values, {});
+
+  ArrayVector arrays = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(arrays);
+
+  // Unique
+  shared_ptr<Array> result;
+  ASSERT_OK(Unique(&this->ctx_, Datum(carr), &result));
+  ASSERT_ARRAYS_EQUAL(*ex_dict, *result);
+
+  // Dictionary encode
+  auto dict_type = dictionary(int32(), ex_dict);
+
+  auto i1 = _MakeArray<Int32Type, int32_t>(int32(), {0, 1, 0}, {});
+  auto i2 = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 0}, {});
+
+  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, i1),
+                             std::make_shared<DictionaryArray>(dict_type, i2)};
+  auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
+
+  Datum encoded_out;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, Datum(carr), &encoded_out));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
+
+  ASSERT_TRUE(encoded_out.chunked_array()->Equals(*dict_carr));
 }
 
 }  // namespace compute

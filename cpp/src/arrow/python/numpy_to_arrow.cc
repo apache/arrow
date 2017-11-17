@@ -42,8 +42,8 @@
 #include "arrow/util/macros.h"
 #include "arrow/visitor_inline.h"
 
-#include "arrow/compute/cast.h"
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernels/cast.h"
 
 #include "arrow/python/builtin_convert.h"
 #include "arrow/python/common.h"
@@ -466,13 +466,14 @@ Status NumPyConverter::Convert() {
 
 namespace {
 
-Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
-                  const std::shared_ptr<DataType>& in_type,
+Status CastBuffer(const std::shared_ptr<DataType>& in_type,
+                  const std::shared_ptr<Buffer>& input, const int64_t length,
+                  const std::shared_ptr<Buffer>& valid_bitmap, const int64_t null_count,
                   const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, input};
-  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, 0);
+  std::vector<std::shared_ptr<Buffer>> buffers = {valid_bitmap, input};
+  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, null_count);
 
   std::shared_ptr<Array> tmp_array = MakeArray(tmp_data);
   std::shared_ptr<Array> casted_array;
@@ -485,6 +486,21 @@ Status CastBuffer(const std::shared_ptr<Buffer>& input, const int64_t length,
   RETURN_NOT_OK(
       compute::Cast(&context, *tmp_array, out_type, cast_options, &casted_array));
   *out = casted_array->data()->buffers[1];
+  return Status::OK();
+}
+
+template <typename FromType, typename ToType>
+Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* out) {
+  auto result = std::make_shared<PoolBuffer>(pool);
+  RETURN_NOT_OK(result->Resize(sizeof(ToType) * length));
+
+  auto in_values = reinterpret_cast<const FromType*>(input.data());
+  auto out_values = reinterpret_cast<ToType*>(result->mutable_data());
+  for (int64_t i = 0; i < length; ++i) {
+    *out_values++ = static_cast<ToType>(*in_values++);
+  }
+  *out = result;
   return Status::OK();
 }
 
@@ -531,7 +547,7 @@ inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
 
   if (!input_type->Equals(*type_)) {
-    RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
+    RETURN_NOT_OK(CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
   }
 
   return Status::OK();
@@ -567,27 +583,32 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     *data = std::make_shared<NumPyBuffer>(reinterpret_cast<PyObject*>(arr_));
   }
 
-  // If we have inbound datetime64[D] data, this needs to be downcasted
-  // separately here from int64_t to int32_t, because this data is not
-  // supported in compute::Cast
-  auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
-  if (dtype_->type_num == NPY_DATETIME && date_dtype->meta.base == NPY_FR_D) {
-    auto date32_buffer = std::make_shared<PoolBuffer>(pool_);
-    RETURN_NOT_OK(date32_buffer->Resize(sizeof(int32_t) * length_));
+  std::shared_ptr<DataType> input_type;
 
-    auto datetime64_values = reinterpret_cast<const int64_t*>((*data)->data());
-    auto date32_values = reinterpret_cast<int32_t*>(date32_buffer->mutable_data());
-    for (int64_t i = 0; i < length_; ++i) {
+  auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
+  if (dtype_->type_num == NPY_DATETIME) {
+    const int64_t null_count = ValuesToBitmap<NPY_DATETIME>(arr_, null_bitmap_data_);
+
+    // If we have inbound datetime64[D] data, this needs to be downcasted
+    // separately here from int64_t to int32_t, because this data is not
+    // supported in compute::Cast
+    if (date_dtype->meta.base == NPY_FR_D) {
       // TODO(wesm): How pedantic do we really want to be about checking for int32
       // overflow here?
-      *date32_values++ = static_cast<int32_t>(*datetime64_values++);
+      Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
+      RETURN_NOT_OK(s);
+    } else {
+      RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+      if (!input_type->Equals(*type_)) {
+        RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count,
+                                 type_, pool_, data));
+      }
     }
-    *data = date32_buffer;
   } else {
-    std::shared_ptr<DataType> input_type;
     RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
     if (!input_type->Equals(*type_)) {
-      RETURN_NOT_OK(CastBuffer(*data, length_, input_type, type_, pool_, data));
+      RETURN_NOT_OK(
+          CastBuffer(input_type, *data, length_, nullptr, 0, type_, pool_, data));
     }
   }
 
