@@ -84,7 +84,7 @@ from conda-forge:
    conda create -y -q -n pyarrow-dev \
          python=3.6 numpy six setuptools cython pandas pytest \
          cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
-         brotli jemalloc lz4-c zstd -c conda-forge
+         gflags brotli jemalloc lz4-c zstd -c conda-forge
    source activate pyarrow-dev
 
 
@@ -256,17 +256,11 @@ First, starting from fresh clones of Apache Arrow and parquet-cpp:
 
 .. code-block:: shell
 
-   conda create -n arrow-dev cmake git boost-cpp ^
-         flatbuffers snappy zlib brotli thrift-cpp rapidjson ^
-         -c conda-forge
-   activate arrow-dev
-
-As one git housekeeping item, we must run this command in our Arrow clone:
-
-.. code-block:: shell
-
-   cd arrow
-   git config core.symlinks true
+   conda create -y -q -n pyarrow-dev ^
+         python=3.6 numpy six setuptools cython pandas pytest ^
+         cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib ^
+         gflags brotli lz4-c zstd -c conda-forge
+   activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries
 
@@ -280,7 +274,7 @@ Now, we build and install Arrow C++ libraries
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_BUILD_TYPE=Release ^
          -DARROW_BUILD_TESTS=on ^
-         -DARROW_CXXFLAGS="/WX" ^
+         -DARROW_CXXFLAGS="/WX /MP" ^
          -DARROW_PYTHON=on ..
    cmake --build . --target INSTALL --config Release
    cd ..\..
