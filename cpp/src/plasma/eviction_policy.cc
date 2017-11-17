@@ -61,38 +61,32 @@ int64_t EvictionPolicy::choose_objects_to_evict(int64_t num_bytes_required,
   }
   /* Update the number of bytes used. */
   memory_used_ -= bytes_evicted;
+  ARROW_CHECK(memory_used_ >= 0);
   return bytes_evicted;
 }
 
 void EvictionPolicy::object_created(const ObjectID& object_id) {
   auto entry = store_info_->objects[object_id].get();
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);
+  int64_t size = entry->info.data_size + entry->info.metadata_size;
+  memory_used_ += size;
+  ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
 
 bool EvictionPolicy::require_space(int64_t size,
                                    std::vector<ObjectID>* objects_to_evict) {
   /* Check if there is enough space to create the object. */
   int64_t required_space = memory_used_ + size - store_info_->memory_capacity;
-  int64_t num_bytes_evicted;
-  if (required_space > 0) {
-    /* Try to free up at least as much space as we need right now but ideally
-     * up to 20% of the total capacity. */
-    int64_t space_to_free = std::max(size, store_info_->memory_capacity / 5);
-    ARROW_LOG(DEBUG) << "not enough space to create this object, so evicting objects";
-    /* Choose some objects to evict, and update the return pointers. */
-    num_bytes_evicted = choose_objects_to_evict(space_to_free, objects_to_evict);
-    ARROW_LOG(INFO) << "There is not enough space to create this object, so evicting "
-                    << objects_to_evict->size() << " objects to free up "
-                    << num_bytes_evicted << " bytes.";
-  } else {
-    num_bytes_evicted = 0;
-  }
-  if (num_bytes_evicted >= required_space) {
-    /* We only increment the space used if there is enough space to create the
-     * object. */
-    memory_used_ += size;
-  }
-  return num_bytes_evicted >= required_space;
+  /* Try to free up at least as much space as we need right now but ideally
+   * up to 20% of the total capacity. */
+  int64_t space_to_free = std::max(required_space, store_info_->memory_capacity / 5);
+  ARROW_LOG(DEBUG) << "not enough space to create this object, so evicting objects";
+  /* Choose some objects to evict, and update the return pointers. */
+  int64_t num_bytes_evicted = choose_objects_to_evict(space_to_free, objects_to_evict);
+  ARROW_LOG(INFO) << "There is not enough space to create this object, so evicting "
+                  << objects_to_evict->size() << " objects to free up "
+                  << num_bytes_evicted << " bytes.";
+  return num_bytes_evicted >= required_space && num_bytes_evicted > 0;
 }
 
 void EvictionPolicy::begin_object_access(const ObjectID& object_id,
