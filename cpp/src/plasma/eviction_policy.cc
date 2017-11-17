@@ -61,6 +61,7 @@ int64_t EvictionPolicy::choose_objects_to_evict(int64_t num_bytes_required,
   }
   /* Update the number of bytes used. */
   memory_used_ -= bytes_evicted;
+  ARROW_CHECK(memory_used_ >= 0);
   return bytes_evicted;
 }
 
@@ -69,6 +70,7 @@ void EvictionPolicy::object_created(const ObjectID& object_id) {
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);
   int64_t size = entry->info.data_size + entry->info.metadata_size;
   memory_used_ += size;
+  ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
 }
 
 bool EvictionPolicy::require_space(int64_t size,
