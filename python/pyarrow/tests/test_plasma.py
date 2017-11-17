@@ -737,11 +737,7 @@ class TestPlasmaClient(object):
             create_object(
                 self.plasma_client,
                 np.random.randint(1, DEFAULT_PLASMA_STORE_MEMORY // 20), 0)
-        # Create large objects that require nearly the full object store size,
-        # and verify that they fit. NOTE(rkn): Ideally, we would create objects
-        # of size DEFAULT_PLASMA_STORE_MEMORY. That seems to work when
-        # DEFAULT_PLASMA_STORE_MEMORY is smaller (e.g., 1e8), but not when it
-        # is 1e9.
-        for _ in range(10):
-            create_object(self.plasma_client,
-                          DEFAULT_PLASMA_STORE_MEMORY * 2 // 3, 0)
+        # Create large objects that require the full object store size, and
+        # verify that they fit.
+        for _ in range(2):
+            create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY, 0)
