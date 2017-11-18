@@ -166,6 +166,15 @@ def chunked_array(arrays, type=None):
 def column(object field_or_name, arr):
     """
     Create Column object from field/string and array-like data
+
+    Parameters
+    ----------
+    field_or_name : string or Field
+    arr : Array, list of Arrays, or ChunkedArray
+
+    Returns
+    -------
+    column : Column
     """
     cdef:
         Field boxed_field
