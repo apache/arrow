@@ -91,10 +91,14 @@ struct is_zero_copy_cast<
 // From integers to date/time types with zero copy
 template <typename O, typename I>
 struct is_zero_copy_cast<
-    O, I, typename std::enable_if<std::is_base_of<Integer, I>::value &&
-                                  (std::is_base_of<TimeType, O>::value ||
-                                   std::is_base_of<DateType, O>::value ||
-                                   std::is_base_of<TimestampType, O>::value)>::type> {
+    O, I,
+    typename std::enable_if<
+        (std::is_base_of<Integer, I>::value &&
+         (std::is_base_of<TimeType, O>::value || std::is_base_of<DateType, O>::value ||
+          std::is_base_of<TimestampType, O>::value)) ||
+        (std::is_base_of<Integer, O>::value &&
+         (std::is_base_of<TimeType, I>::value || std::is_base_of<DateType, I>::value ||
+          std::is_base_of<TimestampType, I>::value))>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -809,24 +813,29 @@ class CastKernel : public UnaryKernel {
 
 #define DATE32_CASES(FN, IN_TYPE) \
   FN(Date32Type, Date32Type);     \
-  FN(Date32Type, Date64Type);
+  FN(Date32Type, Date64Type);     \
+  FN(Date32Type, Int32Type);
 
 #define DATE64_CASES(FN, IN_TYPE) \
   FN(Date64Type, Date64Type);     \
-  FN(Date64Type, Date32Type);
+  FN(Date64Type, Date32Type);     \
+  FN(Date64Type, Int64Type);
 
 #define TIME32_CASES(FN, IN_TYPE) \
   FN(Time32Type, Time32Type);     \
-  FN(Time32Type, Time64Type);
+  FN(Time32Type, Time64Type);     \
+  FN(Time32Type, Int32Type);
 
 #define TIME64_CASES(FN, IN_TYPE) \
   FN(Time64Type, Time32Type);     \
-  FN(Time64Type, Time64Type);
+  FN(Time64Type, Time64Type);     \
+  FN(Time64Type, Int64Type);
 
 #define TIMESTAMP_CASES(FN, IN_TYPE) \
   FN(TimestampType, TimestampType);  \
   FN(TimestampType, Date32Type);     \
-  FN(TimestampType, Date64Type);
+  FN(TimestampType, Date64Type);     \
+  FN(TimestampType, Int64Type);
 
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \
