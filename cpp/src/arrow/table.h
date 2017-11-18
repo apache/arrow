@@ -116,20 +116,24 @@ class ARROW_EXPORT Column {
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema
 ///
-/// A record batch is table-like data structure consisting of an internal
-/// sequence of fields, each a contiguous Arrow array
+/// A record batch is table-like data structure that is semantically a sequence
+/// of fields, each a contiguous Arrow array
 class ARROW_EXPORT RecordBatch {
  public:
+  virtual ~RecordBatch() = default;
+
   /// \param[in] schema The record batch schema
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              const std::vector<std::shared_ptr<Array>>& columns);
+  static std::shared_ptr<RecordBatch> Make(
+      const std::shared_ptr<Schema>& schema,
+      int64_t num_rows, const std::vector<std::shared_ptr<Array>>& columns);
 
   /// \brief Move-based constructor for a vector of Array instances
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              std::vector<std::shared_ptr<Array>>&& columns);
+  static std::shared_ptr<RecordBatch> Make(
+      const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      std::vector<std::shared_ptr<Array>>&& columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
@@ -141,13 +145,15 @@ class ARROW_EXPORT RecordBatch {
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              std::vector<std::shared_ptr<ArrayData>>&& columns);
+  static std::shared_ptr<RecordBatch> Make(
+      const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      std::vector<std::shared_ptr<ArrayData>>&& columns);
 
   /// \brief Construct record batch by copying vector of array data
   /// \since 0.5.0
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              const std::vector<std::shared_ptr<ArrayData>>& columns);
+  static std::shared_ptr<RecordBatch> Make(
+      const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      const std::vector<std::shared_ptr<ArrayData>>& columns);
 
   /// \brief Determine if two record batches are exactly equal
   /// \return true if batches are equal
@@ -158,20 +164,22 @@ class ARROW_EXPORT RecordBatch {
 
   // \return the table's schema
   /// \return true if batches are equal
-  std::shared_ptr<Schema> schema() const { return schema_; }
+  std::shared_ptr<Schema> schema() const = 0;
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
   /// \return an Array object
-  std::shared_ptr<Array> column(int i) const;
+  virtual std::shared_ptr<Array> column(int i) const = 0;
 
-  std::shared_ptr<ArrayData> column_data(int i) const { return columns_[i]; }
+  std::shared_ptr<ArrayData> column_data(int i) const = 0;
 
   /// \brief Name in i-th column
   const std::string& column_name(int i) const;
 
   /// \return the number of columns in the table
-  int num_columns() const { return static_cast<int>(columns_.size()); }
+  int num_columns() const = 0;
+
+  // { return static_cast<int>(columns_.size()); }
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -187,13 +195,14 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice, through end of batch
   /// \return new record batch
-  std::shared_ptr<RecordBatch> Slice(int64_t offset) const;
+  virtual std::shared_ptr<RecordBatch> Slice(int64_t offset) const = 0;
 
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice
   /// \param[in] length the number of elements to slice from offset
   /// \return new record batch
-  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const;
+  virtual std::shared_ptr<RecordBatch> Slice(int64_t offset,
+                                             int64_t length) const = 0;
 
   /// \brief Check for schema or length inconsistencies
   /// \return Status
