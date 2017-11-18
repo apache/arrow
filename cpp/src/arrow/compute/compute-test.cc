@@ -334,6 +334,9 @@ TEST_F(TestCast, TimestampToTimestamp) {
                                           &arr);
   CheckZeroCopy(*arr, timestamp(TimeUnit::SECOND));
 
+  // ARROW-1773, cast to integer
+  CheckZeroCopy(*arr, int64());
+
   // Divide, truncate
   vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
   vector<int64_t> e8 = {0, 100, 200, 1, 2};
@@ -432,7 +435,7 @@ TEST_F(TestCast, TimestampToDate32_Date64) {
       timestamp(TimeUnit::SECOND), v_second_nofail, is_valid, date32(), v_day, options);
 }
 
-TEST_F(TestCast, TimeToTime) {
+TEST_F(TestCast, TimeToCompatible) {
   CastOptions options;
 
   vector<bool> is_valid = {true, false, true, true, true};
@@ -473,6 +476,16 @@ TEST_F(TestCast, TimeToTime) {
   shared_ptr<Array> arr;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
+
+  // ARROW-1773: cast to int64
+  CheckZeroCopy(*arr, int64());
+
+  vector<int32_t> v7_2 = {0, 70000, 2000, 1000, 0};
+  ArrayFromVector<Time32Type, int32_t>(time32(TimeUnit::SECOND), is_valid, v7_2, &arr);
+  CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
+
+  // ARROW-1773: cast to int64
+  CheckZeroCopy(*arr, int32());
 
   // Divide, truncate
   vector<int32_t> v8 = {0, 100123, 200456, 1123, 2456};

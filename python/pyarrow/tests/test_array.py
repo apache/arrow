@@ -389,7 +389,7 @@ def test_dictionary_encode_simple():
         assert result.equals(expected)
 
 
-def test_cast_time32():
+def test_cast_time32_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int32'),
                    type=pa.time32('s'))
     expected = pa.array([0, 1, 2], type='i4')
@@ -398,7 +398,7 @@ def test_cast_time32():
     assert result.equals(expected)
 
 
-def test_cast_time64():
+def test_cast_time64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.time64('us'))
     expected = pa.array([0, 1, 2], type='i8')
@@ -407,7 +407,16 @@ def test_cast_time64():
     assert result.equals(expected)
 
 
-def test_cast_date32():
+def test_cast_timestamp_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.timestamp('us'))
+    expected = pa.array([0, 1, 2], type='i8')
+
+    result = arr.cast('i8')
+    assert result.equals(expected)
+
+
+def test_cast_date32_to_int():
     arr = pa.array([0, 1, 2], type='i4')
 
     result1 = arr.cast('date32')
@@ -423,7 +432,7 @@ def test_cast_date32():
     assert result2.equals(arr)
 
 
-def test_cast_date64():
+def test_cast_date64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.date64())
     expected = pa.array([0, 1, 2], type='i8')

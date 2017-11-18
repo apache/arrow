@@ -834,7 +834,8 @@ class CastKernel : public UnaryKernel {
 #define TIMESTAMP_CASES(FN, IN_TYPE) \
   FN(TimestampType, TimestampType);  \
   FN(TimestampType, Date32Type);     \
-  FN(TimestampType, Date64Type);
+  FN(TimestampType, Date64Type);     \
+  FN(TimestampType, Int64Type);
 
 #define DICTIONARY_CASES(FN, IN_TYPE) \
   FN(IN_TYPE, NullType);              \
