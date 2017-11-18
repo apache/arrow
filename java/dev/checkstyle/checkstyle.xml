@@ -36,7 +36,10 @@
 
     <property name="severity" value="warning"/>
 
+    <property name="fileExtensions" value="java, properties, xml"/>
+
     <!-- Arrow specific modules -->
+
     <module name="Header">
       <property name="headerFile" value="${checkstyle.header.file}"/>
     </module>
@@ -61,8 +64,7 @@
     </module>
 
     <!-- Google style modules -->
-    
-    <property name="fileExtensions" value="java, properties, xml"/>
+
     <!-- Checks for whitespace                               -->
     <!-- See http://checkstyle.sf.net/config_whitespace.html -->
     <module name="FileTabCharacter">
