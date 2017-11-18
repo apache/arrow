@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-public interface NullableVectorDefinitionSetter {
+public interface VectorDefinitionSetter {
 
   public void setIndexDefined(int index);
 }

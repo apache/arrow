@@ -29,22 +29,22 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 
 /**
- * NullableUInt8Vector implements a fixed width vector (8 bytes) of
+ * UInt8Vector implements a fixed width vector (8 bytes) of
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableUInt8Vector extends BaseNullableFixedWidthVector {
+public class UInt8Vector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
-  public NullableUInt8Vector(String name, BufferAllocator allocator) {
+  public UInt8Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.UINT8.getType()),
             allocator);
   }
 
-  public NullableUInt8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public UInt8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new UInt8ReaderImpl(NullableUInt8Vector.this);
+    reader = new UInt8ReaderImpl(UInt8Vector.this);
   }
 
   @Override
@@ -108,13 +108,13 @@ public class NullableUInt8Vector extends BaseNullableFixedWidthVector {
     }
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, NullableUInt8Vector from) {
+  public void copyFrom(int fromIndex, int thisIndex, UInt8Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableUInt8Vector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, UInt8Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -252,22 +252,22 @@ public class NullableUInt8Vector extends BaseNullableFixedWidthVector {
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableUInt8Vector) to);
+    return new TransferImpl((UInt8Vector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableUInt8Vector to;
+    UInt8Vector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableUInt8Vector(ref, field.getFieldType(), allocator);
+      to = new UInt8Vector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableUInt8Vector to) {
+    public TransferImpl(UInt8Vector to) {
       this.to = to;
     }
 
     @Override
-    public NullableUInt8Vector getTo() {
+    public UInt8Vector getTo() {
       return to;
     }
 
@@ -283,7 +283,7 @@ public class NullableUInt8Vector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableUInt8Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, UInt8Vector.this);
     }
   }
 }

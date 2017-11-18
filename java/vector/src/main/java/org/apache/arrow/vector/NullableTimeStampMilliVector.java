@@ -29,34 +29,34 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
 
 /**
- * NullableTimeStampMilliVector implements a fixed width vector (8 bytes) of
+ * TimeStampMilliVector implements a fixed width vector (8 bytes) of
  * timestamp (millisecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableTimeStampMilliVector extends NullableTimeStampVector {
+public class TimeStampMilliVector extends TimeStampVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeStampMilliVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampMilliVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampMilliVector(String name, BufferAllocator allocator) {
+  public TimeStampMilliVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMESTAMPMILLI.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeStampMilliVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampMilliVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    reader = new TimeStampMilliReaderImpl(NullableTimeStampMilliVector.this);
+    reader = new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
   }
 
   /**
@@ -200,7 +200,7 @@ public class NullableTimeStampMilliVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    NullableTimeStampMilliVector to = new NullableTimeStampMilliVector(ref,
+    TimeStampMilliVector to = new TimeStampMilliVector(ref,
             field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
@@ -212,6 +212,6 @@ public class NullableTimeStampMilliVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeStampMilliVector) to);
+    return new TransferImpl((TimeStampMilliVector) to);
   }
 }

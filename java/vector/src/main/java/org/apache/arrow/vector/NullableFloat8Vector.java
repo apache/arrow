@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableFloat8Vector implements a fixed width vector (8 bytes) of
+ * Float8Vector implements a fixed width vector (8 bytes) of
  * double values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
+public class Float8Vector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableFloat8Vector. This doesn't allocate any memory for
+   * Instantiate a Float8Vector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableFloat8Vector(String name, BufferAllocator allocator) {
+  public Float8Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.FLOAT8.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableFloat8Vector. This doesn't allocate any memory for
+   * Instantiate a Float8Vector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableFloat8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public Float8Vector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new Float8ReaderImpl(NullableFloat8Vector.this);
+    reader = new Float8ReaderImpl(Float8Vector.this);
   }
 
   /**
@@ -137,21 +137,21 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableFloat8Vector from) {
+  public void copyFrom(int fromIndex, int thisIndex, Float8Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final double value = from.valueBuffer.getDouble(fromIndex * TYPE_WIDTH);
     valueBuffer.setDouble(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableFloat8Vector)} except that
+   * Same as {@link #copyFrom(int, int, Float8Vector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableFloat8Vector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, Float8Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -330,22 +330,22 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableFloat8Vector) to);
+    return new TransferImpl((Float8Vector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableFloat8Vector to;
+    Float8Vector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableFloat8Vector(ref, field.getFieldType(), allocator);
+      to = new Float8Vector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableFloat8Vector to) {
+    public TransferImpl(Float8Vector to) {
       this.to = to;
     }
 
     @Override
-    public NullableFloat8Vector getTo() {
+    public Float8Vector getTo() {
       return to;
     }
 
@@ -361,7 +361,7 @@ public class NullableFloat8Vector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableFloat8Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, Float8Vector.this);
     }
   }
 }

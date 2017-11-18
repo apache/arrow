@@ -24,7 +24,7 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -37,8 +37,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public abstract class BaseNullableVariableWidthVector extends BaseValueVector
-        implements VariableWidthVector, FieldVector, NullableVectorDefinitionSetter {
+public abstract class BaseVariableWidthVector extends BaseValueVector
+        implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
 
@@ -57,7 +57,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
   protected final Field field;
   private boolean cleared;
 
-  public BaseNullableVariableWidthVector(final String name, final BufferAllocator allocator,
+  public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
                                          FieldType fieldType) {
     super(name, allocator);
     valueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
@@ -657,7 +657,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    * for accounting and management purposes.
    * @param target destination vector for transfer
    */
-  public void transferTo(BaseNullableVariableWidthVector target) {
+  public void transferTo(BaseVariableWidthVector target) {
     compareTypes(target, "transferTo");
     target.clear();
     target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
@@ -678,7 +678,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    * @param target destination vector
    */
   public void splitAndTransferTo(int startIndex, int length,
-                                 BaseNullableVariableWidthVector target) {
+                                 BaseVariableWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);
@@ -697,7 +697,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    * need to explicitly allocate the offset buffer and set the adjusted offsets
    * in the target vector.
    */
-  private void splitAndTransferOffsetBuffer(int startIndex, int length, BaseNullableVariableWidthVector target) {
+  private void splitAndTransferOffsetBuffer(int startIndex, int length, BaseVariableWidthVector target) {
     final int start = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH);
     final int dataLength = end - start;
@@ -713,7 +713,7 @@ public abstract class BaseNullableVariableWidthVector extends BaseValueVector
    * Transfer the validity.
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length,
-                                              BaseNullableVariableWidthVector target) {
+                                              BaseVariableWidthVector target) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);

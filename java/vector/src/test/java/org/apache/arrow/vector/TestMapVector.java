@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
@@ -50,7 +50,7 @@ public class TestMapVector {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
-    try (NullableMapVector vector = new NullableMapVector("map", allocator, type, null)) {
+    try (MapVector vector = new MapVector("map", allocator, type, null)) {
       Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
     }
   }

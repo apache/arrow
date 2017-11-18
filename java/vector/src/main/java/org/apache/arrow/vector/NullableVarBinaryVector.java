@@ -31,33 +31,33 @@ import org.apache.arrow.vector.util.TransferPair;
 import java.nio.ByteBuffer;
 
 /**
- * NullableVarBinaryVector implements a variable width vector of binary
+ * VarBinaryVector implements a variable width vector of binary
  * values which could be NULL. A validity buffer (bit vector) is maintained
  * to track which elements in the vector are null.
  */
-public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
+public class VarBinaryVector extends BaseVariableWidthVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableVarBinaryVector. This doesn't allocate any memory for
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableVarBinaryVector(String name, BufferAllocator allocator) {
+  public VarBinaryVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.VARBINARY.getType()), allocator);
   }
 
   /**
-   * Instantiate a NullableVarBinaryVector. This doesn't allocate any memory for
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableVarBinaryVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public VarBinaryVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType);
-    reader = new VarBinaryReaderImpl(NullableVarBinaryVector.this);
+    reader = new VarBinaryReaderImpl(VarBinaryVector.this);
   }
 
   /**
@@ -156,7 +156,7 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableVarBinaryVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, VarBinaryVector from) {
     final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
     final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
     final int length = end - start;
@@ -169,14 +169,14 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableVarBinaryVector)} except that
+   * Same as {@link #copyFrom(int, int, VarBinaryVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableVarBinaryVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, VarBinaryVector from) {
     final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
     final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
     final int length = end - start;
@@ -291,22 +291,22 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableVarBinaryVector) to);
+    return new TransferImpl((VarBinaryVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableVarBinaryVector to;
+    VarBinaryVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableVarBinaryVector(ref, field.getFieldType(), allocator);
+      to = new VarBinaryVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableVarBinaryVector to) {
+    public TransferImpl(VarBinaryVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableVarBinaryVector getTo() {
+    public VarBinaryVector getTo() {
       return to;
     }
 
@@ -322,7 +322,7 @@ public class NullableVarBinaryVector extends BaseNullableVariableWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableVarBinaryVector.this);
+      to.copyFromSafe(fromIndex, toIndex, VarBinaryVector.this);
     }
   }
 }

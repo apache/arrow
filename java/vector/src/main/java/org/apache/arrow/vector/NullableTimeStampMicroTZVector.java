@@ -29,37 +29,37 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableTimeStampMicroTZVector implements a fixed width vector (8 bytes) of
+ * TimeStampMicroTZVector implements a fixed width vector (8 bytes) of
  * timestamp (microsecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableTimeStampMicroTZVector extends NullableTimeStampVector {
+public class TimeStampMicroTZVector extends TimeStampVector {
   private final FieldReader reader;
   private final String timeZone;
 
   /**
-   * Instantiate a NullableTimeStampMicroTZVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampMicroTZVector(String name, BufferAllocator allocator, String timeZone) {
+  public TimeStampMicroTZVector(String name, BufferAllocator allocator, String timeZone) {
     this(name, FieldType.nullable(new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZone)),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeStampMicroTZVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampMicroTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampMicroTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
     org.apache.arrow.vector.types.pojo.ArrowType.Timestamp arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampMicroTZReaderImpl(NullableTimeStampMicroTZVector.this);
+    reader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 
   /**
@@ -200,7 +200,7 @@ public class NullableTimeStampMicroTZVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    NullableTimeStampMicroTZVector to = new NullableTimeStampMicroTZVector(ref,
+    TimeStampMicroTZVector to = new TimeStampMicroTZVector(ref,
             field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
@@ -212,6 +212,6 @@ public class NullableTimeStampMicroTZVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeStampMicroTZVector) to);
+    return new TransferImpl((TimeStampMicroTZVector) to);
   }
 }

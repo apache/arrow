@@ -29,37 +29,37 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableTimeStampNanoTZVector implements a fixed width vector (8 bytes) of
+ * TimeStampNanoTZVector implements a fixed width vector (8 bytes) of
  * timestamp (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableTimeStampNanoTZVector extends NullableTimeStampVector {
+public class TimeStampNanoTZVector extends TimeStampVector {
   private final FieldReader reader;
   private final String timeZone;
 
   /**
-   * Instantiate a NullableTimeStampNanoTZVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampNanoTZVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampNanoTZVector(String name, BufferAllocator allocator, String timeZone) {
+  public TimeStampNanoTZVector(String name, BufferAllocator allocator, String timeZone) {
     this(name, FieldType.nullable(new org.apache.arrow.vector.types.pojo.ArrowType.Timestamp(TimeUnit.NANOSECOND, timeZone)),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeStampNanoTZVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampNanoTZVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampNanoTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampNanoTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
     org.apache.arrow.vector.types.pojo.ArrowType.Timestamp arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampNanoTZReaderImpl(NullableTimeStampNanoTZVector.this);
+    reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
   /**
@@ -200,7 +200,7 @@ public class NullableTimeStampNanoTZVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    NullableTimeStampNanoTZVector to = new NullableTimeStampNanoTZVector(ref,
+    TimeStampNanoTZVector to = new TimeStampNanoTZVector(ref,
             field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
@@ -212,6 +212,6 @@ public class NullableTimeStampNanoTZVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeStampNanoTZVector) to);
+    return new TransferImpl((TimeStampNanoTZVector) to);
   }
 }

@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableSmallIntVector implements a fixed width (2 bytes) vector of
+ * SmallIntVector implements a fixed width (2 bytes) vector of
  * short values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableSmallIntVector extends BaseNullableFixedWidthVector {
+public class SmallIntVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableSmallIntVector. This doesn't allocate any memory for
+   * Instantiate a SmallIntVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableSmallIntVector(String name, BufferAllocator allocator) {
+  public SmallIntVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.SMALLINT.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableSmallIntVector. This doesn't allocate any memory for
+   * Instantiate a SmallIntVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableSmallIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public SmallIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new SmallIntReaderImpl(NullableSmallIntVector.this);
+    reader = new SmallIntReaderImpl(SmallIntVector.this);
   }
 
   /**
@@ -137,21 +137,21 @@ public class NullableSmallIntVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableSmallIntVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, SmallIntVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final short value = from.valueBuffer.getShort(fromIndex * TYPE_WIDTH);
     valueBuffer.setShort(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableSmallIntVector)} except that
+   * Same as {@link #copyFrom(int, int, SmallIntVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableSmallIntVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, SmallIntVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -357,22 +357,22 @@ public class NullableSmallIntVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableSmallIntVector) to);
+    return new TransferImpl((SmallIntVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableSmallIntVector to;
+    SmallIntVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableSmallIntVector(ref, field.getFieldType(), allocator);
+      to = new SmallIntVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableSmallIntVector to) {
+    public TransferImpl(SmallIntVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableSmallIntVector getTo() {
+    public SmallIntVector getTo() {
       return to;
     }
 
@@ -388,7 +388,7 @@ public class NullableSmallIntVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableSmallIntVector.this);
+      to.copyFromSafe(fromIndex, toIndex, SmallIntVector.this);
     }
   }
 }

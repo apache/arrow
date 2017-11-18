@@ -36,12 +36,12 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * BaseNullableFixedWidthVector provides an abstract interface for
+ * BaseFixedWidthVector provides an abstract interface for
  * implementing vectors of fixed width values. The vectors are nullable
  * implying that zero or more elements in the vector could be NULL.
  */
-public abstract class BaseNullableFixedWidthVector extends BaseValueVector
-        implements FixedWidthVector, FieldVector, NullableVectorDefinitionSetter {
+public abstract class BaseFixedWidthVector extends BaseValueVector
+        implements FixedWidthVector, FieldVector, VectorDefinitionSetter {
   private final byte typeWidth;
 
   protected int valueAllocationSizeInBytes;
@@ -53,7 +53,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
   protected ArrowBuf valueBuffer;
   protected int valueCount;
 
-  public BaseNullableFixedWidthVector(final String name, final BufferAllocator allocator,
+  public BaseFixedWidthVector(final String name, final BufferAllocator allocator,
                                       FieldType fieldType, final byte typeWidth) {
     super(name, allocator);
     this.typeWidth = typeWidth;
@@ -66,7 +66,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
       valueAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * typeWidth;
       validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     } else {
-      /* specialized handling for NullableBitVector */
+      /* specialized handling for BitVector */
       valueAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
       validityAllocationSizeInBytes = valueAllocationSizeInBytes;
     }
@@ -311,7 +311,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     long valueBufferSize = valueCount * typeWidth;
     long validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     if (typeWidth == 0) {
-      /* specialized handling for NullableBitVector */
+      /* specialized handling for BitVector */
       valueBufferSize = validityBufferSize;
     }
 
@@ -556,7 +556,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
     } else {
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       if (typeWidth == 0) {
-        /* specialized handling for NullableBitVector */
+        /* specialized handling for BitVector */
         valueBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       } else {
         valueBuffer.writerIndex(valueCount * typeWidth);
@@ -600,7 +600,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    * for accounting and management purposes.
    * @param target destination vector for transfer
    */
-  public void transferTo(BaseNullableFixedWidthVector target) {
+  public void transferTo(BaseFixedWidthVector target) {
     compareTypes(target, "transferTo");
     target.clear();
     target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
@@ -617,7 +617,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    * @param target destination vector
    */
   public void splitAndTransferTo(int startIndex, int length,
-                                 BaseNullableFixedWidthVector target) {
+                                 BaseFixedWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);
@@ -629,7 +629,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    * Data buffer can always be split and transferred using slicing.
    */
   private void splitAndTransferValueBuffer(int startIndex, int length,
-                                           BaseNullableFixedWidthVector target) {
+                                           BaseFixedWidthVector target) {
     final int startPoint = startIndex * typeWidth;
     final int sliceLength = length * typeWidth;
     target.valueBuffer = valueBuffer.slice(startPoint, sliceLength).transferOwnership(target.allocator).buffer;
@@ -640,7 +640,7 @@ public abstract class BaseNullableFixedWidthVector extends BaseValueVector
    * the starting position of the source index.
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length,
-                                              BaseNullableFixedWidthVector target) {
+                                              BaseFixedWidthVector target) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);

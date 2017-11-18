@@ -29,34 +29,34 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
 
 /**
- * NullableTimeStampSecVector implements a fixed width vector (8 bytes) of
+ * TimeStampSecVector implements a fixed width vector (8 bytes) of
  * timestamp (seconds resolution) values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableTimeStampSecVector extends NullableTimeStampVector {
+public class TimeStampSecVector extends TimeStampVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeStampSecVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampSecVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampSecVector(String name, BufferAllocator allocator) {
+  public TimeStampSecVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMESTAMPSEC.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeStampSecVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampSecVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    reader = new TimeStampSecReaderImpl(NullableTimeStampSecVector.this);
+    reader = new TimeStampSecReaderImpl(TimeStampSecVector.this);
   }
 
   /**
@@ -201,7 +201,7 @@ public class NullableTimeStampSecVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    NullableTimeStampSecVector to = new NullableTimeStampSecVector(ref,
+    TimeStampSecVector to = new TimeStampSecVector(ref,
             field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
@@ -213,6 +213,6 @@ public class NullableTimeStampSecVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeStampSecVector) to);
+    return new TransferImpl((TimeStampSecVector) to);
   }
 }

@@ -19,8 +19,8 @@
 package org.apache.arrow.vector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 
-import static org.apache.arrow.vector.TestUtils.newNullableVarBinaryVector;
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -88,9 +88,9 @@ public class TestValueVector {
    *  -- Float4Vector
    *  -- Float8Vector
    *
-   *  -- NullableUInt4Vector
-   *  -- NullableIntVector
-   *  -- NullableFloat4Vector
+   *  -- UInt4Vector
+   *  -- IntVector
+   *  -- Float4Vector
    *
    * TODO:
    *
@@ -103,7 +103,7 @@ public class TestValueVector {
   public void testFixedType1() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableUInt4Vector vector = new NullableUInt4Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       boolean error = false;
       int initialCapacity = 0;
@@ -177,7 +177,7 @@ public class TestValueVector {
 
   @Test /* IntVector */
   public void testFixedType2() {
-    try (final NullableIntVector intVector = new NullableIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -269,7 +269,7 @@ public class TestValueVector {
 
   @Test /* Float4Vector */
   public void testFixedType3() {
-    try (final NullableFloat4Vector floatVector = new NullableFloat4Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -373,7 +373,7 @@ public class TestValueVector {
 
   @Test /* Float8Vector */
   public void testFixedType4() {
-    try (final NullableFloat8Vector floatVector = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float8Vector floatVector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -473,11 +473,11 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableUInt4Vector */
+  @Test /* UInt4Vector */
   public void testNullableFixedType1() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableUInt4Vector vector = newVector(NullableUInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
+    try (final UInt4Vector vector = newVector(UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator);) {
       boolean error = false;
       int initialCapacity = 1024;
 
@@ -575,10 +575,10 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableFloat4Vector */
+  @Test /* Float4Vector */
   public void testNullableFixedType2() {
     // Create a new value vector for 1024 integers
-    try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
+    try (final Float4Vector vector = newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -676,10 +676,10 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableIntVector */
+  @Test /* IntVector */
   public void testNullableFixedType3() {
     // Create a new value vector for 1024 integers
-    try (final NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+    try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
       boolean error = false;
       int initialCapacity = 1024;
 
@@ -770,9 +770,9 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableIntVector */
+  @Test /* IntVector */
   public void testNullableFixedType4() {
-    try (final NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+    try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
 
       /* no memory allocation has happened yet */
       assertEquals(0, vector.getValueCapacity());
@@ -863,8 +863,8 @@ public class TestValueVector {
    *
    * Covered types as of now
    *
-   *  -- NullableVarCharVector
-   *  -- NullableVarBinaryVector
+   *  -- VarCharVector
+   *  -- VarBinaryVector
    *
    * TODO:
    *
@@ -872,11 +872,11 @@ public class TestValueVector {
    *  -- VarBinaryVector
    */
 
-  @Test /* NullableVarCharVector */
+  @Test /* VarCharVector */
   public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableVarCharVector vector = newNullableVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
       vector.set(0, STR1);
@@ -909,11 +909,11 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableVarBinaryVector */
+  @Test /* VarBinaryVector */
   public void testNullableVarType2() {
 
     // Create a new value vector for 1024 integers.
-    try (final NullableVarBinaryVector vector = newNullableVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
       vector.set(0, STR1);
@@ -963,7 +963,7 @@ public class TestValueVector {
 
   @Test /* Float8Vector */
   public void testReallocAfterVectorTransfer1() {
-    try (final NullableFloat8Vector vector = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
       final int initialDefaultCapacity = 4096;
       boolean error = false;
 
@@ -1021,7 +1021,7 @@ public class TestValueVector {
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
 
-      NullableFloat8Vector toVector = (NullableFloat8Vector)transferPair.getTo();
+      Float8Vector toVector = (Float8Vector)transferPair.getTo();
 
       /* now let's realloc the toVector */
       toVector.reAlloc();
@@ -1044,9 +1044,9 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableFloat8Vector */
+  @Test /* Float8Vector */
   public void testReallocAfterVectorTransfer2() {
-    try (final NullableFloat8Vector vector = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
       final int initialDefaultCapacity = 4096;
       boolean error = false;
 
@@ -1103,7 +1103,7 @@ public class TestValueVector {
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
 
-      NullableFloat8Vector toVector = (NullableFloat8Vector)transferPair.getTo();
+      Float8Vector toVector = (Float8Vector)transferPair.getTo();
 
       /* check toVector contents before realloc */
       for (int i = 0; i < (initialDefaultCapacity * 4); i++) {
@@ -1131,9 +1131,9 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableVarCharVector */
+  @Test /* VarCharVector */
   public void testReallocAfterVectorTransfer3() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       /* 4096 values with 10 byte per record */
       vector.allocateNew(4096 * 10, 4096);
       int valueCapacity = vector.getValueCapacity();
@@ -1215,7 +1215,7 @@ public class TestValueVector {
 
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      NullableVarCharVector toVector = (NullableVarCharVector)transferPair.getTo();
+      VarCharVector toVector = (VarCharVector)transferPair.getTo();
       valueCapacity = toVector.getValueCapacity();
 
       for (int i = 0; i < valueCapacity; i++) {
@@ -1231,9 +1231,9 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableIntVector */
+  @Test /* IntVector */
   public void testReallocAfterVectorTransfer4() {
-    try (final NullableIntVector vector = new NullableIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       /* 4096 values  */
       vector.allocateNew(4096);
@@ -1308,7 +1308,7 @@ public class TestValueVector {
 
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      NullableIntVector toVector = (NullableIntVector)transferPair.getTo();
+      IntVector toVector = (IntVector)transferPair.getTo();
       /* value capacity of source and target vectors should be same after
        * the transfer.
        */
@@ -1328,9 +1328,9 @@ public class TestValueVector {
   }
 
   @Test
-  public void testReAllocNullableFixedWidthVector() {
+  public void testReAllocFixedWidthVector() {
     // Create a new value vector for 1024 integers
-    try (final NullableFloat4Vector vector = newVector(NullableFloat4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator)) {
+    try (final Float4Vector vector = newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator)) {
       vector.allocateNew(1024);
 
       assertEquals(1024, vector.getValueCapacity());
@@ -1351,7 +1351,7 @@ public class TestValueVector {
       assertEquals(104.5f, vector.get(1023), 0);
       assertEquals(105.5f, vector.get(2000), 0);
 
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for NullableValueVectors
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
       // as we don't call setSafe for null values, but we do call setValueCount when all values are inserted into the
       // vector
       vector.setValueCount(vector.getValueCapacity() + 200);
@@ -1359,8 +1359,8 @@ public class TestValueVector {
   }
 
   @Test
-  public void testReAllocNullableVariableWidthVector() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+  public void testReAllocVariableWidthVector() {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
 
       int initialCapacity = vector.getValueCapacity();
@@ -1384,7 +1384,7 @@ public class TestValueVector {
       assertArrayEquals(STR2, vector.get(initialCapacity - 1));
       assertArrayEquals(STR3, vector.get(initialCapacity + 200));
 
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for NullableValueVectors
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
       // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
       vector.setValueCount(vector.getValueCapacity() + 200);
     }
@@ -1392,7 +1392,7 @@ public class TestValueVector {
 
   @Test
   public void testFillEmptiesNotOverfill() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.allocateNew();
 
       int initialCapacity = vector.getValueCapacity();
@@ -1412,8 +1412,8 @@ public class TestValueVector {
 
   @Test
   public void testCopyFromWithNulls() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1472,8 +1472,8 @@ public class TestValueVector {
 
   @Test
   public void testCopyFromWithNulls1() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-         final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1536,7 +1536,7 @@ public class TestValueVector {
 
   @Test
   public void testSetLastSetUsage() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
       setBytes(0, STR1, vector);
@@ -1649,7 +1649,7 @@ public class TestValueVector {
   @Test
   public void testVectorLoadUnload() {
 
-    try (final NullableVarCharVector vector1 = new NullableVarCharVector("myvector", allocator)) {
+    try (final VarCharVector vector1 = new VarCharVector("myvector", allocator)) {
       vector1.allocateNew(1024 * 10, 1024);
 
       vector1.set(0, STR1);
@@ -1693,7 +1693,7 @@ public class TestValueVector {
         VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
         vectorLoader.load(recordBatch);
 
-        NullableVarCharVector vector2 = (NullableVarCharVector) schemaRoot2.getVector(fieldName);
+        VarCharVector vector2 = (VarCharVector) schemaRoot2.getVector(fieldName);
         /*
          * lastSet would have internally been set by VectorLoader.load() when it invokes
          * loadFieldBuffers.
@@ -1715,7 +1715,7 @@ public class TestValueVector {
 
   @Test
   public void testFillEmptiesUsage() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
 
       vector.allocateNew(1024 * 10, 1024);
 
@@ -1822,10 +1822,10 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableVarCharVector */
+  @Test /* VarCharVector */
   public void testGetBufferAddress1() {
 
-    try (final NullableVarCharVector vector = new NullableVarCharVector("myvector", allocator)) {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
       /* populate the vector */
@@ -1858,9 +1858,9 @@ public class TestValueVector {
     }
   }
 
-  @Test /* NullableIntVector */
+  @Test /* IntVector */
   public void testGetBufferAddress2() {
-    try (final NullableIntVector vector = new NullableIntVector("myvector", allocator)) {
+    try (final IntVector vector = new IntVector("myvector", allocator)) {
       boolean error = false;
       vector.allocateNew(16);
 
@@ -1897,7 +1897,7 @@ public class TestValueVector {
   @Test
   public void testMultipleClose() {
     BufferAllocator vectorAllocator = allocator.newChildAllocator("vector_allocator", 0, Long.MAX_VALUE);
-    NullableIntVector vector = newVector(NullableIntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, vectorAllocator);
+    IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, vectorAllocator);
     vector.close();
     vectorAllocator.close();
     vector.close();
@@ -1908,7 +1908,7 @@ public class TestValueVector {
    * lastSet. The method is to test the lastSet property and that's why we load the vector
    * in a way that lastSet is not set automatically.
    */
-  public static void setBytes(int index, byte[] bytes, NullableVarCharVector vector) {
+  public static void setBytes(int index, byte[] bytes, VarCharVector vector) {
     final int currentOffset = vector.offsetBuffer.getInt(index * vector.OFFSET_WIDTH);
 
     BitVectorHelper.setValidityBitToOne(vector.validityBuffer, index);

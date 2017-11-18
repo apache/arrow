@@ -29,35 +29,35 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.Period;
 
 /**
- * NullableIntervalYearVector implements a fixed width (4 bytes) vector of
+ * IntervalYearVector implements a fixed width (4 bytes) vector of
  * interval (years and months) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
+public class IntervalYearVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableIntervalYearVector. This doesn't allocate any memory for
+   * Instantiate a IntervalYearVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntervalYearVector(String name, BufferAllocator allocator) {
+  public IntervalYearVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.INTERVALYEAR.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableIntervalYearVector. This doesn't allocate any memory for
+   * Instantiate a IntervalYearVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntervalYearVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public IntervalYearVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new IntervalYearReaderImpl(NullableIntervalYearVector.this);
+    reader = new IntervalYearReaderImpl(IntervalYearVector.this);
   }
 
   /**
@@ -169,21 +169,21 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableIntervalYearVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, IntervalYearVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
     valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableIntervalYearVector)} except that
+   * Same as {@link #copyFrom(int, int, IntervalYearVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalYearVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, IntervalYearVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -348,22 +348,22 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableIntervalYearVector) to);
+    return new TransferImpl((IntervalYearVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableIntervalYearVector to;
+    IntervalYearVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableIntervalYearVector(ref, field.getFieldType(), allocator);
+      to = new IntervalYearVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableIntervalYearVector to) {
+    public TransferImpl(IntervalYearVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableIntervalYearVector getTo() {
+    public IntervalYearVector getTo() {
       return to;
     }
 
@@ -379,7 +379,7 @@ public class NullableIntervalYearVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableIntervalYearVector.this);
+      to.copyFromSafe(fromIndex, toIndex, IntervalYearVector.this);
     }
   }
 }

@@ -30,36 +30,36 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 
 /**
- * NullableTimeMicroVector implements a fixed width vector (8 bytes) of
+ * TimeMicroVector implements a fixed width vector (8 bytes) of
  * time (microsecond resolution) values which could be null.
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
+public class TimeMicroVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeMicroVector. This doesn't allocate any memory for
+   * Instantiate a TimeMicroVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeMicroVector(String name, BufferAllocator allocator) {
+  public TimeMicroVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMEMICRO.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeMicroVector. This doesn't allocate any memory for
+   * Instantiate a TimeMicroVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeMicroVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeMicroVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new TimeMicroReaderImpl(NullableTimeMicroVector.this);
+    reader = new TimeMicroReaderImpl(TimeMicroVector.this);
   }
 
   /**
@@ -138,21 +138,21 @@ public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableTimeMicroVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, TimeMicroVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableTimeMicroVector)} except that
+   * Same as {@link #copyFrom(int, int, TimeMicroVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeMicroVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, TimeMicroVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -331,22 +331,22 @@ public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeMicroVector) to);
+    return new TransferImpl((TimeMicroVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableTimeMicroVector to;
+    TimeMicroVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableTimeMicroVector(ref, field.getFieldType(), allocator);
+      to = new TimeMicroVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableTimeMicroVector to) {
+    public TransferImpl(TimeMicroVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableTimeMicroVector getTo() {
+    public TimeMicroVector getTo() {
       return to;
     }
 
@@ -362,7 +362,7 @@ public class NullableTimeMicroVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableTimeMicroVector.this);
+      to.copyFromSafe(fromIndex, toIndex, TimeMicroVector.this);
     }
   }
 }

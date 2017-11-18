@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableFloat4Vector implements a fixed width vector (4 bytes) of
+ * Float4Vector implements a fixed width vector (4 bytes) of
  * float values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
+public class Float4Vector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableFloat4Vector. This doesn't allocate any memory for
+   * Instantiate a Float4Vector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableFloat4Vector(String name, BufferAllocator allocator) {
+  public Float4Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.FLOAT4.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableFloat4Vector. This doesn't allocate any memory for
+   * Instantiate a Float4Vector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableFloat4Vector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public Float4Vector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new Float4ReaderImpl(NullableFloat4Vector.this);
+    reader = new Float4ReaderImpl(Float4Vector.this);
   }
 
   /**
@@ -137,21 +137,21 @@ public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableFloat4Vector from) {
+  public void copyFrom(int fromIndex, int thisIndex, Float4Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final float value = from.valueBuffer.getFloat(fromIndex * TYPE_WIDTH);
     valueBuffer.setFloat(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableFloat4Vector)} except that
+   * Same as {@link #copyFrom(int, int, Float4Vector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableFloat4Vector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, Float4Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -330,22 +330,22 @@ public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableFloat4Vector) to);
+    return new TransferImpl((Float4Vector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableFloat4Vector to;
+    Float4Vector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableFloat4Vector(ref, field.getFieldType(), allocator);
+      to = new Float4Vector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableFloat4Vector to) {
+    public TransferImpl(Float4Vector to) {
       this.to = to;
     }
 
     @Override
-    public NullableFloat4Vector getTo() {
+    public Float4Vector getTo() {
       return to;
     }
 
@@ -361,7 +361,7 @@ public class NullableFloat4Vector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableFloat4Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, Float4Vector.this);
     }
   }
 }

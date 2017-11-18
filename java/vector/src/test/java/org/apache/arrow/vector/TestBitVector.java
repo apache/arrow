@@ -335,7 +335,7 @@ public class TestBitVector {
 
   @Test
   public void testReallocAfterVectorTransfer2() {
-    try (final NullableBitVector vector = new NullableBitVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(4096);
       int valueCapacity = vector.getValueCapacity();
       assertEquals(4096, valueCapacity);
@@ -396,7 +396,7 @@ public class TestBitVector {
       /* now transfer the vector */
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      final NullableBitVector toVector = (NullableBitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector)transferPair.getTo();
 
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 

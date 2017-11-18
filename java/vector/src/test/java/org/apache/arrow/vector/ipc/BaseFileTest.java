@@ -28,17 +28,17 @@ import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableDateMilliVector;
-import org.apache.arrow.vector.NullableDecimalVector;
-import org.apache.arrow.vector.NullableIntVector;
-import org.apache.arrow.vector.NullableTimeMilliVector;
-import org.apache.arrow.vector.NullableVarBinaryVector;
-import org.apache.arrow.vector.NullableVarCharVector;
+import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ValueVector.Accessor;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -71,7 +71,7 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 
 /**
  * Helps testing the file formats
@@ -172,7 +172,7 @@ public class BaseFileTest {
     return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
-  protected void writeDateTimeData(int count, NullableMapVector parent) {
+  protected void writeDateTimeData(int count, MapVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
@@ -202,11 +202,11 @@ public class BaseFileTest {
     Assert.assertEquals(count, root.getRowCount());
     printVectors(root.getFieldVectors());
     for (int i = 0; i < count; i++) {
-      long dateVal = ((NullableDateMilliVector) root.getVector("date")).get(i);
+      long dateVal = ((DateMilliVector) root.getVector("date")).get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
       LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
       Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
-      long timeVal = ((NullableTimeMilliVector) root.getVector("time")).get(i);
+      long timeVal = ((TimeMilliVector) root.getVector("time")).get(i);
       Assert.assertEquals(dt.getMillisOfDay(), timeVal);
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
       Assert.assertEquals(dt, timestampMilliVal);
@@ -218,7 +218,7 @@ public class BaseFileTest {
   protected VectorSchemaRoot writeFlatDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define dictionaries and add to provider
-    NullableVarCharVector dictionary1Vector = newNullableVarCharVector("D1", bufferAllocator);
+    VarCharVector dictionary1Vector = newVarCharVector("D1", bufferAllocator);
     dictionary1Vector.allocateNewSafe();
     dictionary1Vector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
     dictionary1Vector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
@@ -228,7 +228,7 @@ public class BaseFileTest {
     Dictionary dictionary1 = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
     provider.put(dictionary1);
 
-    NullableVarCharVector dictionary2Vector = newNullableVarCharVector("D2", bufferAllocator);
+    VarCharVector dictionary2Vector = newVarCharVector("D2", bufferAllocator);
     dictionary2Vector.allocateNewSafe();
     dictionary2Vector.set(0, "micro".getBytes(StandardCharsets.UTF_8));
     dictionary2Vector.set(1, "small".getBytes(StandardCharsets.UTF_8));
@@ -239,7 +239,7 @@ public class BaseFileTest {
     provider.put(dictionary2);
 
     // Populate the vectors
-    NullableVarCharVector vector1A = newNullableVarCharVector("varcharA", bufferAllocator);
+    VarCharVector vector1A = newVarCharVector("varcharA", bufferAllocator);
     vector1A.allocateNewSafe();
     vector1A.set(0, "foo".getBytes(StandardCharsets.UTF_8));
     vector1A.set(1, "bar".getBytes(StandardCharsets.UTF_8));
@@ -252,7 +252,7 @@ public class BaseFileTest {
     vector1A.close();  // Done with this vector after encoding
 
     // Write this vector using indices instead of encoding
-    NullableIntVector encodedVector1B = new NullableIntVector("varcharB", bufferAllocator);
+    IntVector encodedVector1B = new IntVector("varcharB", bufferAllocator);
     encodedVector1B.allocateNewSafe();
     encodedVector1B.set(0, 2);  // "baz"
     encodedVector1B.set(1, 1);  // "bar"
@@ -261,7 +261,7 @@ public class BaseFileTest {
     encodedVector1B.set(5, 0);  // "foo"
     encodedVector1B.setValueCount(6);
 
-    NullableVarCharVector vector2 = newNullableVarCharVector("sizes", bufferAllocator);
+    VarCharVector vector2 = newVarCharVector("sizes", bufferAllocator);
     vector2.allocateNewSafe();
     vector2.set(1, "large".getBytes(StandardCharsets.UTF_8));
     vector2.set(2, "small".getBytes(StandardCharsets.UTF_8));
@@ -327,7 +327,7 @@ public class BaseFileTest {
 
     Dictionary dictionary1 = provider.lookup(1L);
     Assert.assertNotNull(dictionary1);
-    NullableVarCharVector dictionaryVector = ((NullableVarCharVector) dictionary1.getVector());
+    VarCharVector dictionaryVector = ((VarCharVector) dictionary1.getVector());
     Assert.assertEquals(3, dictionaryVector.getValueCount());
     Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
     Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
@@ -335,7 +335,7 @@ public class BaseFileTest {
 
     Dictionary dictionary2 = provider.lookup(2L);
     Assert.assertNotNull(dictionary2);
-    dictionaryVector = ((NullableVarCharVector) dictionary2.getVector());
+    dictionaryVector = ((VarCharVector) dictionary2.getVector());
     Assert.assertEquals(3, dictionaryVector.getValueCount());
     Assert.assertEquals(new Text("micro"), dictionaryVector.getObject(0));
     Assert.assertEquals(new Text("small"), dictionaryVector.getObject(1));
@@ -345,7 +345,7 @@ public class BaseFileTest {
   protected VectorSchemaRoot writeNestedDictionaryData(BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define the dictionary and add to the provider
-    NullableVarCharVector dictionaryVector = newNullableVarCharVector("D2", bufferAllocator);
+    VarCharVector dictionaryVector = newVarCharVector("D2", bufferAllocator);
     dictionaryVector.allocateNewSafe();
     dictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
@@ -395,16 +395,16 @@ public class BaseFileTest {
 
     Dictionary dictionary = provider.lookup(2L);
     Assert.assertNotNull(dictionary);
-    NullableVarCharVector dictionaryVector = ((NullableVarCharVector) dictionary.getVector());
+    VarCharVector dictionaryVector = ((VarCharVector) dictionary.getVector());
     Assert.assertEquals(2, dictionaryVector.getValueCount());
     Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
     Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
   }
 
   protected VectorSchemaRoot writeDecimalData(BufferAllocator bufferAllocator) {
-    NullableDecimalVector decimalVector1 = new NullableDecimalVector("decimal1", bufferAllocator, 10, 3);
-    NullableDecimalVector decimalVector2 = new NullableDecimalVector("decimal2", bufferAllocator, 4, 2);
-    NullableDecimalVector decimalVector3 = new NullableDecimalVector("decimal3", bufferAllocator, 16, 8);
+    DecimalVector decimalVector1 = new DecimalVector("decimal1", bufferAllocator, 10, 3);
+    DecimalVector decimalVector2 = new DecimalVector("decimal2", bufferAllocator, 4, 2);
+    DecimalVector decimalVector3 = new DecimalVector("decimal3", bufferAllocator, 16, 8);
 
     int count = 10;
     decimalVector1.allocateNew(count);
@@ -427,9 +427,9 @@ public class BaseFileTest {
   }
 
   protected void validateDecimalData(VectorSchemaRoot root) {
-    NullableDecimalVector decimalVector1 = (NullableDecimalVector) root.getVector("decimal1");
-    NullableDecimalVector decimalVector2 = (NullableDecimalVector) root.getVector("decimal2");
-    NullableDecimalVector decimalVector3 = (NullableDecimalVector) root.getVector("decimal3");
+    DecimalVector decimalVector1 = (DecimalVector) root.getVector("decimal1");
+    DecimalVector decimalVector2 = (DecimalVector) root.getVector("decimal2");
+    DecimalVector decimalVector3 = (DecimalVector) root.getVector("decimal3");
     int count = 10;
     Assert.assertEquals(count, root.getRowCount());
 
@@ -491,7 +491,7 @@ public class BaseFileTest {
     }
   }
 
-  public void writeUnionData(int count, NullableMapVector parent) {
+  public void writeUnionData(int count, MapVector parent) {
     ArrowBuf varchar = allocator.buffer(3);
     varchar.readerIndex(0);
     varchar.setByte(0, 'a');
@@ -534,7 +534,7 @@ public class BaseFileTest {
     varchar.release();
   }
 
-  protected void writeVarBinaryData(int count, NullableMapVector parent) {
+  protected void writeVarBinaryData(int count, MapVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
@@ -577,8 +577,8 @@ public class BaseFileTest {
     // ListVector lastSet should be the index of last value + 1
     Assert.assertEquals(listVector.getLastSet(), count);
 
-    // NullableVarBinaryVector lastSet should be the index of last value
-    NullableVarBinaryVector binaryVector = (NullableVarBinaryVector) listVector.getChildrenFromFields().get(0);
+    // VarBinaryVector lastSet should be the index of last value
+    VarBinaryVector binaryVector = (VarBinaryVector) listVector.getChildrenFromFields().get(0);
     Assert.assertEquals(binaryVector.getLastSet(), numVarBinaryValues - 1);
   }
 }

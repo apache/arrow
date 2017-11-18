@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableBigIntVector implements a fixed width vector (8 bytes) of
+ * BigIntVector implements a fixed width vector (8 bytes) of
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableBigIntVector extends BaseNullableFixedWidthVector {
+public class BigIntVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableBigIntVector. This doesn't allocate any memory for
+   * Instantiate a BigIntVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableBigIntVector(String name, BufferAllocator allocator) {
+  public BigIntVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.BIGINT.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableBigIntVector. This doesn't allocate any memory for
+   * Instantiate a BigIntVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableBigIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public BigIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new BigIntReaderImpl(NullableBigIntVector.this);
+    reader = new BigIntReaderImpl(BigIntVector.this);
   }
 
   /**
@@ -136,21 +136,21 @@ public class NullableBigIntVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableBigIntVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, BigIntVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableBigIntVector)} except that
+   * Same as {@link #copyFrom(int, int, BigIntVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableBigIntVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, BigIntVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -329,22 +329,22 @@ public class NullableBigIntVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableBigIntVector) to);
+    return new TransferImpl((BigIntVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableBigIntVector to;
+    BigIntVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableBigIntVector(ref, field.getFieldType(), allocator);
+      to = new BigIntVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableBigIntVector to) {
+    public TransferImpl(BigIntVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableBigIntVector getTo() {
+    public BigIntVector getTo() {
       return to;
     }
 
@@ -360,7 +360,7 @@ public class NullableBigIntVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableBigIntVector.this);
+      to.copyFromSafe(fromIndex, toIndex, BigIntVector.this);
     }
   }
 }

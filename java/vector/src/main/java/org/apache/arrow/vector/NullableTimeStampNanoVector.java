@@ -29,34 +29,34 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.LocalDateTime;
 
 /**
- * NullableTimeStampNanoVector implements a fixed width vector (8 bytes) of
+ * TimeStampNanoVector implements a fixed width vector (8 bytes) of
  * timestamp (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableTimeStampNanoVector extends NullableTimeStampVector {
+public class TimeStampNanoVector extends TimeStampVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeStampNanoVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampNanoVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampNanoVector(String name, BufferAllocator allocator) {
+  public TimeStampNanoVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMESTAMPNANO.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeStampNanoVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampNanoVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampNanoVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampNanoVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    reader = new TimeStampNanoReaderImpl(NullableTimeStampNanoVector.this);
+    reader = new TimeStampNanoReaderImpl(TimeStampNanoVector.this);
   }
 
   /**
@@ -201,7 +201,7 @@ public class NullableTimeStampNanoVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    NullableTimeStampNanoVector to = new NullableTimeStampNanoVector(ref,
+    TimeStampNanoVector to = new TimeStampNanoVector(ref,
             field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
@@ -213,6 +213,6 @@ public class NullableTimeStampNanoVector extends NullableTimeStampVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeStampNanoVector) to);
+    return new TransferImpl((TimeStampNanoVector) to);
   }
 }

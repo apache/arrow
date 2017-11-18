@@ -28,22 +28,22 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableUInt1Vector implements a fixed width (1 bytes) vector of
+ * UInt1Vector implements a fixed width (1 bytes) vector of
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableUInt1Vector extends BaseNullableFixedWidthVector {
+public class UInt1Vector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 1;
   private final FieldReader reader;
 
-  public NullableUInt1Vector(String name, BufferAllocator allocator) {
+  public UInt1Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.UINT1.getType()),
             allocator);
   }
 
-  public NullableUInt1Vector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public UInt1Vector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new UInt1ReaderImpl(NullableUInt1Vector.this);
+    reader = new UInt1ReaderImpl(UInt1Vector.this);
   }
 
   @Override
@@ -107,13 +107,13 @@ public class NullableUInt1Vector extends BaseNullableFixedWidthVector {
     }
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, NullableUInt1Vector from) {
+  public void copyFrom(int fromIndex, int thisIndex, UInt1Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final byte value = from.valueBuffer.getByte(fromIndex * TYPE_WIDTH);
     valueBuffer.setByte(thisIndex * TYPE_WIDTH, value);
   }
 
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableUInt1Vector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, UInt1Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -279,22 +279,22 @@ public class NullableUInt1Vector extends BaseNullableFixedWidthVector {
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableUInt1Vector) to);
+    return new TransferImpl((UInt1Vector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableUInt1Vector to;
+    UInt1Vector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableUInt1Vector(ref, field.getFieldType(), allocator);
+      to = new UInt1Vector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableUInt1Vector to) {
+    public TransferImpl(UInt1Vector to) {
       this.to = to;
     }
 
     @Override
-    public NullableUInt1Vector getTo() {
+    public UInt1Vector getTo() {
       return to;
     }
 
@@ -310,7 +310,7 @@ public class NullableUInt1Vector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableUInt1Vector.this);
+      to.copyFromSafe(fromIndex, toIndex, UInt1Vector.this);
     }
   }
 }

@@ -32,33 +32,33 @@ import org.apache.arrow.vector.util.TransferPair;
 import java.nio.ByteBuffer;
 
 /**
- * NullableVarCharVector implements a variable width vector of VARCHAR
+ * VarCharVector implements a variable width vector of VARCHAR
  * values which could be NULL. A validity buffer (bit vector) is maintained
  * to track which elements in the vector are null.
  */
-public class NullableVarCharVector extends BaseNullableVariableWidthVector {
+public class VarCharVector extends BaseVariableWidthVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableVarCharVector. This doesn't allocate any memory for
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableVarCharVector(String name, BufferAllocator allocator) {
+  public VarCharVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType()), allocator);
   }
 
   /**
-   * Instantiate a NullableVarCharVector. This doesn't allocate any memory for
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableVarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public VarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType);
-    reader = new VarCharReaderImpl(NullableVarCharVector.this);
+    reader = new VarCharReaderImpl(VarCharVector.this);
   }
 
   /**
@@ -159,7 +159,7 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableVarCharVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, VarCharVector from) {
     final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
     final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
     final int length = end - start;
@@ -172,14 +172,14 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableVarCharVector)} except that
+   * Same as {@link #copyFrom(int, int, VarCharVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableVarCharVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, VarCharVector from) {
     final int start = from.offsetBuffer.getInt(fromIndex * OFFSET_WIDTH);
     final int end = from.offsetBuffer.getInt((fromIndex + 1) * OFFSET_WIDTH);
     final int length = end - start;
@@ -294,22 +294,22 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableVarCharVector) to);
+    return new TransferImpl((VarCharVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableVarCharVector to;
+    VarCharVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableVarCharVector(ref, field.getFieldType(), allocator);
+      to = new VarCharVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableVarCharVector to) {
+    public TransferImpl(VarCharVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableVarCharVector getTo() {
+    public VarCharVector getTo() {
       return to;
     }
 
@@ -325,7 +325,7 @@ public class NullableVarCharVector extends BaseNullableVariableWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableVarCharVector.this);
+      to.copyFromSafe(fromIndex, toIndex, VarCharVector.this);
     }
   }
 }

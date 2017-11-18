@@ -33,36 +33,36 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * NullableBitVector implements a fixed width (1 bit) vector of
+ * BitVector implements a fixed width (1 bit) vector of
  * boolean values which could be null. Each value in the vector corresponds
  * to a single bit in the underlying data stream backing the vector.
  */
-public class NullableBitVector extends BaseNullableFixedWidthVector {
+public class BitVector extends BaseFixedWidthVector {
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableBitVector. This doesn't allocate any memory for
+   * Instantiate a BitVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param name      name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableBitVector(String name, BufferAllocator allocator) {
+  public BitVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.BIT.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableBitVector. This doesn't allocate any memory for
+   * Instantiate a BitVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param name      name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableBitVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public BitVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, (byte) 0);
-    reader = new BitReaderImpl(NullableBitVector.this);
+    reader = new BitReaderImpl(BitVector.this);
   }
 
   /**
@@ -147,7 +147,7 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    * @param target     destination vector
    */
   public void splitAndTransferTo(int startIndex, int length,
-                                 BaseNullableFixedWidthVector target) {
+                                 BaseFixedWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     target.validityBuffer = splitAndTransferBuffer(startIndex, length, target,
@@ -159,7 +159,7 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
   }
 
   private ArrowBuf splitAndTransferBuffer(int startIndex, int length,
-                                          BaseNullableFixedWidthVector target,
+                                          BaseFixedWidthVector target,
                                           ArrowBuf sourceBuffer, ArrowBuf destBuffer) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
@@ -285,13 +285,13 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableBitVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, BitVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     BitVectorHelper.setValidityBit(valueBuffer, thisIndex, from.getBit(fromIndex));
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableBitVector)} except that
+   * Same as {@link #copyFrom(int, int, BitVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    *
@@ -299,7 +299,7 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableBitVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, BitVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -476,22 +476,22 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableBitVector) to);
+    return new TransferImpl((BitVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableBitVector to;
+    BitVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableBitVector(ref, field.getFieldType(), allocator);
+      to = new BitVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableBitVector to) {
+    public TransferImpl(BitVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableBitVector getTo() {
+    public BitVector getTo() {
       return to;
     }
 
@@ -507,7 +507,7 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableBitVector.this);
+      to.copyFromSafe(fromIndex, toIndex, BitVector.this);
     }
   }
 }

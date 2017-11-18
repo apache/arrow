@@ -32,11 +32,11 @@ import org.apache.arrow.vector.util.TransferPair;
 import java.math.BigDecimal;
 
 /**
- * NullableDecimalVector implements a fixed width vector (16 bytes) of
+ * DecimalVector implements a fixed width vector (16 bytes) of
  * decimal values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableDecimalVector extends BaseNullableFixedWidthVector {
+public class DecimalVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
   private final FieldReader reader;
 
@@ -44,28 +44,28 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
   private final int scale;
 
   /**
-   * Instantiate a NullableDecimalVector. This doesn't allocate any memory for
+   * Instantiate a DecimalVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableDecimalVector(String name, BufferAllocator allocator,
+  public DecimalVector(String name, BufferAllocator allocator,
                                int precision, int scale) {
     this(name, FieldType.nullable(new org.apache.arrow.vector.types.pojo.ArrowType.Decimal(precision, scale)),
             allocator);
   }
 
   /**
-   * Instantiate a NullableDecimalVector. This doesn't allocate any memory for
+   * Instantiate a DecimalVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableDecimalVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public DecimalVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
     org.apache.arrow.vector.types.pojo.ArrowType.Decimal arrowType = (org.apache.arrow.vector.types.pojo.ArrowType.Decimal) fieldType.getType();
-    reader = new DecimalReaderImpl(NullableDecimalVector.this);
+    reader = new DecimalReaderImpl(DecimalVector.this);
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();
   }
@@ -150,21 +150,21 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableDecimalVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, DecimalVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, valueBuffer,
             thisIndex * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableDecimalVector)} except that
+   * Same as {@link #copyFrom(int, int, DecimalVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableDecimalVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, DecimalVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -385,23 +385,23 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableDecimalVector) to);
+    return new TransferImpl((DecimalVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableDecimalVector to;
+    DecimalVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableDecimalVector(ref, allocator, NullableDecimalVector.this.precision,
-              NullableDecimalVector.this.scale);
+      to = new DecimalVector(ref, allocator, DecimalVector.this.precision,
+              DecimalVector.this.scale);
     }
 
-    public TransferImpl(NullableDecimalVector to) {
+    public TransferImpl(DecimalVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableDecimalVector getTo() {
+    public DecimalVector getTo() {
       return to;
     }
 
@@ -417,7 +417,7 @@ public class NullableDecimalVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableDecimalVector.this);
+      to.copyFromSafe(fromIndex, toIndex, DecimalVector.this);
     }
   }
 }

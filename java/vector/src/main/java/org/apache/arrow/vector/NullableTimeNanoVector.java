@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableTimeNanoVector implements a fixed width vector (8 bytes) of
+ * TimeNanoVector implements a fixed width vector (8 bytes) of
  * time (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class NullableTimeNanoVector extends BaseNullableFixedWidthVector {
+public class TimeNanoVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeNanoVector. This doesn't allocate any memory for
+   * Instantiate a TimeNanoVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeNanoVector(String name, BufferAllocator allocator) {
+  public TimeNanoVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMENANO.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeNanoVector. This doesn't allocate any memory for
+   * Instantiate a TimeNanoVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeNanoVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeNanoVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new TimeNanoReaderImpl(NullableTimeNanoVector.this);
+    reader = new TimeNanoReaderImpl(TimeNanoVector.this);
   }
 
   /**
@@ -137,21 +137,21 @@ public class NullableTimeNanoVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableTimeNanoVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, TimeNanoVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableTimeNanoVector)} except that
+   * Same as {@link #copyFrom(int, int, TimeNanoVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeNanoVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, TimeNanoVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -329,22 +329,22 @@ public class NullableTimeNanoVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeNanoVector) to);
+    return new TransferImpl((TimeNanoVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableTimeNanoVector to;
+    TimeNanoVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableTimeNanoVector(ref, field.getFieldType(), allocator);
+      to = new TimeNanoVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableTimeNanoVector to) {
+    public TransferImpl(TimeNanoVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableTimeNanoVector getTo() {
+    public TimeNanoVector getTo() {
       return to;
     }
 
@@ -360,7 +360,7 @@ public class NullableTimeNanoVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableTimeNanoVector.this);
+      to.copyFromSafe(fromIndex, toIndex, TimeNanoVector.this);
     }
   }
 }

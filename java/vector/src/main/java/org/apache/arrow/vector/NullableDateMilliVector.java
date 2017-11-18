@@ -32,35 +32,35 @@ import org.joda.time.LocalDateTimes;
 import org.slf4j.Logger;
 
 /**
- * NullableDateMilliVector implements a fixed width vector (8 bytes) of
+ * DateMilliVector implements a fixed width vector (8 bytes) of
  * date values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
+public class DateMilliVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableDateMilliVector. This doesn't allocate any memory for
+   * Instantiate a DateMilliVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableDateMilliVector(String name, BufferAllocator allocator) {
+  public DateMilliVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.DATEMILLI.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableDateMilliVector. This doesn't allocate any memory for
+   * Instantiate a DateMilliVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableDateMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public DateMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new DateMilliReaderImpl(NullableDateMilliVector.this);
+    reader = new DateMilliReaderImpl(DateMilliVector.this);
   }
 
   /**
@@ -143,21 +143,21 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableDateMilliVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, DateMilliVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableDateMilliVector)} except that
+   * Same as {@link #copyFrom(int, int, DateMilliVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableDateMilliVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, DateMilliVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -336,22 +336,22 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableDateMilliVector) to);
+    return new TransferImpl((DateMilliVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableDateMilliVector to;
+    DateMilliVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableDateMilliVector(ref, field.getFieldType(), allocator);
+      to = new DateMilliVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableDateMilliVector to) {
+    public TransferImpl(DateMilliVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableDateMilliVector getTo() {
+    public DateMilliVector getTo() {
       return to;
     }
 
@@ -367,7 +367,7 @@ public class NullableDateMilliVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableDateMilliVector.this);
+      to.copyFromSafe(fromIndex, toIndex, DateMilliVector.this);
     }
   }
 }

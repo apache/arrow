@@ -29,35 +29,35 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableTimeSecVector implements a fixed width (4 bytes) vector of
+ * TimeSecVector implements a fixed width (4 bytes) vector of
  * time (seconds resolution) values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
+public class TimeSecVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableTimeSecVector. This doesn't allocate any memory for
+   * Instantiate a TimeSecVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeSecVector(String name, BufferAllocator allocator) {
+  public TimeSecVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.TIMESEC.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableTimeSecVector. This doesn't allocate any memory for
+   * Instantiate a TimeSecVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new TimeSecReaderImpl(NullableTimeSecVector.this);
+    reader = new TimeSecReaderImpl(TimeSecVector.this);
   }
 
   /**
@@ -137,21 +137,21 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableTimeSecVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, TimeSecVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
     valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableTimeSecVector)} except that
+   * Same as {@link #copyFrom(int, int, TimeSecVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeSecVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, TimeSecVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -330,22 +330,22 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableTimeSecVector) to);
+    return new TransferImpl((TimeSecVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableTimeSecVector to;
+    TimeSecVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableTimeSecVector(ref, field.getFieldType(), allocator);
+      to = new TimeSecVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableTimeSecVector to) {
+    public TransferImpl(TimeSecVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableTimeSecVector getTo() {
+    public TimeSecVector getTo() {
       return to;
     }
 
@@ -361,7 +361,7 @@ public class NullableTimeSecVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableTimeSecVector.this);
+      to.copyFromSafe(fromIndex, toIndex, TimeSecVector.this);
     }
   }
 }

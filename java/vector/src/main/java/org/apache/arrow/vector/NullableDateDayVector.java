@@ -30,35 +30,35 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
 
 /**
- * NullableDateDayVector implements a fixed width (4 bytes) vector of
+ * DateDayVector implements a fixed width (4 bytes) vector of
  * date values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableDateDayVector extends BaseNullableFixedWidthVector {
+public class DateDayVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableDateDayVector. This doesn't allocate any memory for
+   * Instantiate a DateDayVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableDateDayVector(String name, BufferAllocator allocator) {
+  public DateDayVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.DATEDAY.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableDateDayVector. This doesn't allocate any memory for
+   * Instantiate a DateDayVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableDateDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public DateDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new DateDayReaderImpl(NullableDateDayVector.this);
+    reader = new DateDayReaderImpl(DateDayVector.this);
   }
 
   /**
@@ -138,21 +138,21 @@ public class NullableDateDayVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableDateDayVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, DateDayVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
     valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableDateDayVector)} except that
+   * Same as {@link #copyFrom(int, int, DateDayVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableDateDayVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, DateDayVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -331,22 +331,22 @@ public class NullableDateDayVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableDateDayVector) to);
+    return new TransferImpl((DateDayVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableDateDayVector to;
+    DateDayVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableDateDayVector(ref, field.getFieldType(), allocator);
+      to = new DateDayVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableDateDayVector to) {
+    public TransferImpl(DateDayVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableDateDayVector getTo() {
+    public DateDayVector getTo() {
       return to;
     }
 
@@ -362,7 +362,7 @@ public class NullableDateDayVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableDateDayVector.this);
+      to.copyFromSafe(fromIndex, toIndex, DateDayVector.this);
     }
   }
 }

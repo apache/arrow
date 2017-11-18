@@ -42,7 +42,7 @@ public class TestVectorReset {
 
   @Test
   public void testFixedTypeReset() {
-    try (final NullableUInt4Vector vector = new NullableUInt4Vector("", allocator)) {
+    try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
       vector.allocateNew();
       final int sizeBefore = vector.getBufferSize();
       vector.reAlloc();

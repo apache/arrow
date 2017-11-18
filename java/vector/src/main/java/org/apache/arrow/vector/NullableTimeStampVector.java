@@ -24,21 +24,21 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableTimeStampVector is an abstract interface for fixed width vector (8 bytes)
+ * TimeStampVector is an abstract interface for fixed width vector (8 bytes)
  * of timestamp values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVector {
+public abstract class TimeStampVector extends BaseFixedWidthVector {
   protected static final byte TYPE_WIDTH = 8;
 
   /**
-   * Instantiate a NullableTimeStampVector. This doesn't allocate any memory for
+   * Instantiate a TimeStampVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableTimeStampVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimeStampVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
   }
 
@@ -69,21 +69,21 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableTimeStampVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, TimeStampVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFromSafe(int, int, NullableTimeStampVector)} except that
+   * Same as {@link #copyFromSafe(int, int, TimeStampVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableTimeStampVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, TimeStampVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -188,14 +188,14 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
 
 
   public class TransferImpl implements TransferPair {
-    NullableTimeStampVector to;
+    TimeStampVector to;
 
-    public TransferImpl(NullableTimeStampVector to) {
+    public TransferImpl(TimeStampVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableTimeStampVector getTo() {
+    public TimeStampVector getTo() {
       return to;
     }
 
@@ -211,7 +211,7 @@ public abstract class NullableTimeStampVector extends BaseNullableFixedWidthVect
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableTimeStampVector.this);
+      to.copyFromSafe(fromIndex, toIndex, TimeStampVector.this);
     }
   }
 }

@@ -51,7 +51,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testFixedVectorReallocation() {
-    final NullableUInt4Vector vector = new NullableUInt4Vector(EMPTY_SCHEMA_PATH, allocator);
+    final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: buffer size = max value capacity
     final int expectedValueCapacity = BaseValueVector.MAX_ALLOCATION_SIZE / 4;
     try {
@@ -105,7 +105,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testVariableVectorReallocation() {
-    final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator);
+    final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: value count = MAX_VALUE_ALLOCATION
     final int expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
     final int expectedOffsetSize = 10;

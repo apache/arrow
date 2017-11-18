@@ -30,37 +30,37 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.joda.time.Period;
 
 /**
- * NullableIntervalDayVector implements a fixed width vector (8 bytes) of
+ * IntervalDayVector implements a fixed width vector (8 bytes) of
  * interval (days and milliseconds) values which could be null.
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
+public class IntervalDayVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+   * Instantiate a IntervalDayVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntervalDayVector(String name, BufferAllocator allocator) {
+  public IntervalDayVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(Types.MinorType.INTERVALDAY.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableIntervalDayVector. This doesn't allocate any memory for
+   * Instantiate a IntervalDayVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public IntervalDayVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new IntervalDayReaderImpl(NullableIntervalDayVector.this);
+    reader = new IntervalDayReaderImpl(IntervalDayVector.this);
   }
 
   /**
@@ -185,21 +185,21 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, IntervalDayVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     from.valueBuffer.getBytes(fromIndex * TYPE_WIDTH, this.valueBuffer,
               thisIndex * TYPE_WIDTH, TYPE_WIDTH);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableIntervalDayVector)} except that
+   * Same as {@link #copyFrom(int, int, IntervalDayVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableIntervalDayVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, IntervalDayVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -388,22 +388,22 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableIntervalDayVector) to);
+    return new TransferImpl((IntervalDayVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableIntervalDayVector to;
+    IntervalDayVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableIntervalDayVector(ref, field.getFieldType(), allocator);
+      to = new IntervalDayVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableIntervalDayVector to) {
+    public TransferImpl(IntervalDayVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableIntervalDayVector getTo() {
+    public IntervalDayVector getTo() {
       return to;
     }
 
@@ -419,7 +419,7 @@ public class NullableIntervalDayVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableIntervalDayVector.this);
+      to.copyFromSafe(fromIndex, toIndex, IntervalDayVector.this);
     }
   }
 }

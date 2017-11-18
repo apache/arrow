@@ -29,37 +29,37 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * NullableIntVector implements a fixed width (4 bytes) vector of
+ * IntVector implements a fixed width (4 bytes) vector of
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class NullableIntVector extends BaseNullableFixedWidthVector {
+public class IntVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
-   * Instantiate a NullableIntVector. This doesn't allocate any memory for
+   * Instantiate a IntVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param name      name of the vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntVector(String name, BufferAllocator allocator) {
+  public IntVector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(org.apache.arrow.vector.types.Types.MinorType.INT.getType()),
             allocator);
   }
 
   /**
-   * Instantiate a NullableIntVector. This doesn't allocate any memory for
+   * Instantiate a IntVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param name      name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public NullableIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public IntVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
-    reader = new IntReaderImpl(NullableIntVector.this);
+    reader = new IntReaderImpl(IntVector.this);
   }
 
   /**
@@ -142,14 +142,14 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, NullableIntVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, IntVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
     valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, NullableIntVector)} except that
+   * Same as {@link #copyFrom(int, int, IntVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    *
@@ -157,7 +157,7 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from      source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, NullableIntVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, IntVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -340,22 +340,22 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((NullableIntVector) to);
+    return new TransferImpl((IntVector) to);
   }
 
   private class TransferImpl implements TransferPair {
-    NullableIntVector to;
+    IntVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new NullableIntVector(ref, field.getFieldType(), allocator);
+      to = new IntVector(ref, field.getFieldType(), allocator);
     }
 
-    public TransferImpl(NullableIntVector to) {
+    public TransferImpl(IntVector to) {
       this.to = to;
     }
 
     @Override
-    public NullableIntVector getTo() {
+    public IntVector getTo() {
       return to;
     }
 
@@ -371,7 +371,7 @@ public class NullableIntVector extends BaseNullableFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, NullableIntVector.this);
+      to.copyFromSafe(fromIndex, toIndex, IntVector.this);
     }
   }
 }

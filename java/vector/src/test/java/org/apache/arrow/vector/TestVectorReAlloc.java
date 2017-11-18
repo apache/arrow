@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -52,7 +52,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testFixedType() {
-    try (final NullableUInt4Vector vector = new NullableUInt4Vector("", allocator)) {
+    try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
@@ -75,7 +75,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testNullableType() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector("", allocator)) {
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
@@ -122,8 +122,8 @@ public class TestVectorReAlloc {
 
   @Test
   public void testMapType() {
-    try (final NullableMapVector vector = NullableMapVector.empty("", allocator)) {
-      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), NullableIntVector.class);
+    try (final MapVector vector = MapVector.empty("", allocator)) {
+      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       vector.setInitialCapacity(512);
       vector.allocateNew();

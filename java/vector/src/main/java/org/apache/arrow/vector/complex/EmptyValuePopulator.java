@@ -20,15 +20,15 @@ package org.apache.arrow.vector.complex;
 
 import com.google.common.base.Preconditions;
 
-import org.apache.arrow.vector.NullableUInt4Vector;
+import org.apache.arrow.vector.UInt4Vector;
 
 /**
  * A helper class that is used to track and populate empty values in repeated value vectors.
  */
 public class EmptyValuePopulator {
-  private final NullableUInt4Vector offsets;
+  private final UInt4Vector offsets;
 
-  public EmptyValuePopulator(NullableUInt4Vector offsets) {
+  public EmptyValuePopulator(UInt4Vector offsets) {
     this.offsets = Preconditions.checkNotNull(offsets, "offsets cannot be null");
   }
 

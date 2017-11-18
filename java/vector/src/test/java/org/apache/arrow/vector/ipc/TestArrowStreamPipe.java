@@ -28,7 +28,7 @@ import java.nio.channels.WritableByteChannel;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
@@ -61,7 +61,7 @@ public class TestArrowStreamPipe {
         writer.start();
         for (int j = 0; j < numBatches; j++) {
           root.getFieldVectors().get(0).allocateNew();
-          NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
+          TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
           // Send a changing batch id first
           vector.set(0, j);
           for (int i = 1; i < 16; i++) {
@@ -103,10 +103,9 @@ public class TestArrowStreamPipe {
             done = true;
             return false;
           }
-
           VectorSchemaRoot root = getVectorSchemaRoot();
           Assert.assertEquals(16, root.getRowCount());
-          NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
+          TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
           Assert.assertEquals((byte) (batchesRead - 1), vector.get(0));
           for (int i = 1; i < 16; i++) {
             if (i < 8) {
