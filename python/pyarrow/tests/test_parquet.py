@@ -1027,8 +1027,11 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                 with fs.open(file_path, 'wb') as f:
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
+
+                _touch(pjoin(level_dir, '_SUCCESS'))
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
+                _touch(pjoin(level_dir, '_SUCCESS'))
 
     _visit_level(base_dir, 0, [])
 
@@ -1101,6 +1104,11 @@ def _filter_partition(df, part_keys):
     return df[predicate].drop(to_drop, axis=1)
 
 
+def _touch(path):
+    with open(path, 'wb'):
+        pass
+
+
 @parquet
 def test_read_multiple_files(tmpdir):
     import pyarrow.parquet as pq
@@ -1128,8 +1136,7 @@ def test_read_multiple_files(tmpdir):
         paths.append(path)
 
     # Write a _SUCCESS.crc file
-    with open(pjoin(dirpath, '_SUCCESS.crc'), 'wb') as f:
-        f.write(b'0')
+    _touch(pjoin(dirpath, '_SUCCESS.crc'))
 
     def read_multiple_files(paths, columns=None, nthreads=None, **kwargs):
         dataset = pq.ParquetDataset(paths, **kwargs)
