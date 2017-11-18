@@ -304,7 +304,9 @@
           </execution>
         </executions>
         <configuration>
-          <configLocation>google_checks.xml</configLocation>
+          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
+          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
+          <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
           <encoding>UTF-8</encoding>
           <consoleOutput>true</consoleOutput>
           <failsOnError>${checkstyle.failOnViolation}</failsOnError>
