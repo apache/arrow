@@ -390,29 +390,21 @@ def test_dictionary_encode_simple():
 
 
 def test_cast_time32():
-    arr = pa.array([0, 1, 2], type='i4')
+    arr = pa.array(np.array([0, 1, 2], dtype='int32'),
+                   type=pa.time32('s'))
+    expected = pa.array([0, 1, 2], type='i4')
 
-    result1 = arr.cast('time32[s]')
-    result2 = result1.cast('i4')
-
-    # TODO: there is no way to construct a time32[s] data.
-    # create the cast method from timestamp[s] to time32[s]
-    # and check result1.
-
-    assert result2.equals(arr)
+    result = arr.cast('i4')
+    assert result.equals(expected)
 
 
 def test_cast_time64():
-    arr = pa.array([0, 1, 2], type='i8')
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.time64('us'))
+    expected = pa.array([0, 1, 2], type='i8')
 
-    result1 = arr.cast('time64[us]')
-    result2 = result1.cast('i8')
-
-    # TODO: there is no way to construct a time64[us] data.
-    # create the cast method from timestamp[us] to time64[us]
-    # and check result1.
-
-    assert result2.equals(arr)
+    result = arr.cast('i8')
+    assert result.equals(expected)
 
 
 def test_cast_date32():
@@ -432,16 +424,13 @@ def test_cast_date32():
 
 
 def test_cast_date64():
-    arr = pa.array([0, 1, 2], type='i8')
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.date64())
+    expected = pa.array([0, 1, 2], type='i8')
 
-    result1 = arr.cast('date64')
-    result2 = result1.cast('i8')
+    result = arr.cast('i8')
 
-    # TODO: there is no way to construct a date64[ms] data.
-    # create the cast method from timestamp[ms] to date64[ms]
-    # and check result1.
-
-    assert result2.equals(arr)
+    assert result.equals(expected)
 
 
 def test_simple_type_construction():

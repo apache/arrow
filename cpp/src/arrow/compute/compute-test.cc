@@ -515,7 +515,7 @@ TEST_F(TestCast, TimeToTime) {
                          options);
 }
 
-TEST_F(TestCast, DateToDate) {
+TEST_F(TestCast, DateToCompatible) {
   CastOptions options;
 
   vector<bool> is_valid = {true, false, true, true, true};
@@ -535,8 +535,14 @@ TEST_F(TestCast, DateToDate) {
   ArrayFromVector<Date32Type, int32_t>(date32(), is_valid, v2, &arr);
   CheckZeroCopy(*arr, date32());
 
+  // ARROW-1773: zero copy cast to integer
+  CheckZeroCopy(*arr, int32());
+
   ArrayFromVector<Date64Type, int64_t>(date64(), is_valid, v3, &arr);
   CheckZeroCopy(*arr, date64());
+
+  // ARROW-1773: zero copy cast to integer
+  CheckZeroCopy(*arr, int64());
 
   // Divide, truncate
   vector<int64_t> v8 = {0, 100 * F + 123, 200 * F + 456, F + 123, 2 * F + 456};
