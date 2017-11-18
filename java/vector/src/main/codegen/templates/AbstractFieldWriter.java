@@ -122,6 +122,13 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${capName}(" + <#list minor.typeParams as typeParam>"${typeParam.name}: " + ${typeParam.name} + ", " + </#list>")");
     return null;
   }
+
+  @Override
+  public ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>) {
+    fail("${capName}(" + <#list minor.typeParams as typeParam>"${typeParam.name}: " + ${typeParam.name} + ", " + </#list>")");
+    return null;
+  }
+
   </#if>
 
   @Override

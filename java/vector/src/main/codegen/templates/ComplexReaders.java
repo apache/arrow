@@ -96,10 +96,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
     return vector.getObject(idx());
   }
 
-  <#if minor.class == "TimeStampSec" ||
-       minor.class == "TimeStampMilli" ||
-       minor.class == "TimeStampMicro" ||
-       minor.class == "TimeStampNano">
+  <#if minor.class == "Timestamp">
   @Override
   public ${minor.boxedType} read${minor.boxedType}(){
     return vector.get(idx());

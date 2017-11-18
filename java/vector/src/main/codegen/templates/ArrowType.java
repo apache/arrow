@@ -159,7 +159,7 @@ public abstract class ArrowType {
 
     <#list fields as field>
     <#assign fieldType = field.valueType!field.type>
-    ${fieldType} ${field.name};
+    public ${fieldType} ${field.name};
     </#list>
 
     @JsonCreator

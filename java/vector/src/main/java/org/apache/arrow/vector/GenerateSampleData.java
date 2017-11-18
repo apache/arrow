@@ -18,6 +18,7 @@
 
 package org.apache.arrow.vector;
 
+import javax.annotation.Nullable;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 
@@ -66,26 +67,12 @@ public class GenerateSampleData {
       writeTimeNanoData((TimeNanoVector) vector, valueCount);
     } else if (vector instanceof TimeSecVector) {
       writeTimeSecData((TimeSecVector) vector, valueCount);
-    } else if (vector instanceof TimeStampSecVector) {
-      writeTimeStampData((TimeStampSecVector) vector, valueCount);
-    } else if (vector instanceof TimeStampMicroVector) {
-      writeTimeStampData((TimeStampMicroVector) vector, valueCount);
-    } else if (vector instanceof TimeStampMilliVector) {
-      writeTimeStampData((TimeStampMilliVector) vector, valueCount);
-    } else if (vector instanceof TimeStampNanoVector) {
-      writeTimeStampData((TimeStampNanoVector) vector, valueCount);
-    } else if (vector instanceof TimeStampSecTZVector) {
-      writeTimeStampData((TimeStampSecTZVector) vector, valueCount);
-    } else if (vector instanceof TimeStampMicroTZVector) {
-      writeTimeStampData((TimeStampMicroTZVector) vector, valueCount);
-    } else if (vector instanceof TimeStampMilliTZVector) {
-      writeTimeStampData((TimeStampMilliTZVector) vector, valueCount);
-    } else if (vector instanceof TimeStampNanoTZVector) {
-      writeTimeStampData((TimeStampNanoTZVector) vector, valueCount);
+    } else if (vector instanceof TimestampVector) {
+      writeTimeStampData((TimestampVector) vector, valueCount);
     }
   }
 
-  private static void writeTimeStampData(TimeStampVector vector, int valueCount) {
+  private static void writeTimeStampData(TimestampVector vector, int valueCount) {
     final long even = 100000;
     final long odd = 200000;
     for (int i = 0; i < valueCount; i++) {

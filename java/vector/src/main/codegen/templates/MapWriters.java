@@ -231,25 +231,25 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   public ${minor.class}Writer ${lowerName}(String name) {
   </#if>
     FieldWriter writer = fields.get(handleCase(name));
+    FieldType fieldType = FieldType.nullable(
+                           <#if minor.typeParams??>
+                             <#if minor.arrowTypeConstructorParams??>
+                               <#assign constructorParams = minor.arrowTypeConstructorParams />
+                             <#else>
+                               <#assign constructorParams = [] />
+                               <#list minor.typeParams as typeParam>
+                                 <#assign constructorParams = constructorParams + [ typeParam.name ] />
+                               </#list>
+                             </#if>
+                           new ${minor.arrowType}(${constructorParams?join(", ")})
+                           <#else>
+                           MinorType.${upperName}.getType()
+                           </#if>);
     if(writer == null) {
       ValueVector vector;
       ValueVector currentVector = container.getChild(name);
       ${vectName}Vector v = container.addOrGet(name, 
-          FieldType.nullable(
-          <#if minor.typeParams??>
-            <#if minor.arrowTypeConstructorParams??>
-              <#assign constructorParams = minor.arrowTypeConstructorParams />
-            <#else>
-              <#assign constructorParams = [] />
-              <#list minor.typeParams?reverse as typeParam>
-                <#assign constructorParams = constructorParams + [ typeParam.name ] />
-              </#list>
-            </#if>    
-            new ${minor.arrowType}(${constructorParams?join(", ")})
-          <#else>
-            MinorType.${upperName}.getType()
-          </#if>
-          ),
+          fieldType,
           ${vectName}Vector.class);
       writer = new PromotableWriter(v, container, getNullableMapWriterFactory());
       vector = v;
@@ -264,7 +264,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.${upperName});
+        ((PromotableWriter)writer).getWriter(fieldType.getType());
       }
     }
     return writer;

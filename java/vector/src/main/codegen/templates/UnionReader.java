@@ -89,10 +89,8 @@ public class UnionReader extends AbstractFieldReader {
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? >
     case ${name?upper_case}:
       return (FieldReader) get${name}();
-        </#if>
       </#list>
     </#list>
     default:
@@ -158,7 +156,6 @@ public class UnionReader extends AbstractFieldReader {
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
       <#assign safeType=friendlyType />
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-      <#if !minor.typeParams?? >
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 
@@ -178,7 +175,6 @@ public class UnionReader extends AbstractFieldReader {
   public void copyAsValue(${name}Writer writer){
     getReaderForIndex(idx()).copyAsValue(writer);
   }
-      </#if>
     </#list>
   </#list>
 

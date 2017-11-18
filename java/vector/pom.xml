@@ -135,6 +135,13 @@
         <groupId>org.apache.drill.tools</groupId>
         <artifactId>drill-fmpp-maven-plugin</artifactId>
         <version>1.5.0</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+            <version>2.3.23</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <id>generate-fmpp</id>

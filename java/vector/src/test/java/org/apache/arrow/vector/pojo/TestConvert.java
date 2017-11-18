@@ -137,7 +137,7 @@ public class TestConvert {
     childrenBuilder.add(new Field("child4", FieldType.nullable(new List()), ImmutableList.<Field>of(
         new Field("child4.1", FieldType.nullable(Utf8.INSTANCE), null)
     )));
-    childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] {MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal()})), ImmutableList.<Field>of(
+    childrenBuilder.add(new Field("child5", FieldType.nullable(new Union(UnionMode.Sparse, new int[] {MinorType.TIMESTAMP.ordinal(), MinorType.FLOAT8.ordinal()})), ImmutableList.<Field>of(
         new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
         new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), ImmutableList.<Field>of()),
         new Field("child5.3", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null)

@@ -242,29 +242,8 @@ public class JsonFileWriter implements AutoCloseable {
         case TIMENANO:
           generator.writeNumber(TimeNanoVector.get(buffer, index));
           break;
-        case TIMESTAMPSEC:
-          generator.writeNumber(TimeStampSecVector.get(buffer, index));
-          break;
-        case TIMESTAMPMILLI:
-          generator.writeNumber(TimeStampMilliVector.get(buffer, index));
-          break;
-        case TIMESTAMPMICRO:
-          generator.writeNumber(TimeStampMicroVector.get(buffer, index));
-          break;
-        case TIMESTAMPNANO:
-          generator.writeNumber(TimeStampNanoVector.get(buffer, index));
-          break;
-        case TIMESTAMPSECTZ:
-          generator.writeNumber(TimeStampSecTZVector.get(buffer, index));
-          break;
-        case TIMESTAMPMILLITZ:
-          generator.writeNumber(TimeStampMilliTZVector.get(buffer, index));
-          break;
-        case TIMESTAMPMICROTZ:
-          generator.writeNumber(TimeStampMicroTZVector.get(buffer, index));
-          break;
-        case TIMESTAMPNANOTZ:
-          generator.writeNumber(TimeStampNanoTZVector.get(buffer, index));
+        case TIMESTAMP:
+          generator.writeNumber(TimestampVector.get(buffer, index));
           break;
         case BIT:
           generator.writeNumber(BitVectorHelper.get(buffer, index));

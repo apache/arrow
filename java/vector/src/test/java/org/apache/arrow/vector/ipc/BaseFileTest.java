@@ -42,25 +42,23 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.*;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
-import org.apache.arrow.vector.complex.writer.BigIntWriter;
-import org.apache.arrow.vector.complex.writer.DateMilliWriter;
-import org.apache.arrow.vector.complex.writer.IntWriter;
-import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
-import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
-import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
+import org.apache.arrow.vector.holders.NullableTimestampHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.Text;
+import org.joda.time.Chronology;
+import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import org.junit.After;
@@ -130,7 +128,7 @@ public class BaseFileTest {
       listWriter.endList();
       mapWriter.setPosition(i);
       mapWriter.start();
-      mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+      mapWriter.timestamp("timestamp", TimeUnit.MILLISECOND, null).writeTimestamp(i);
       mapWriter.end();
     }
     writer.setValueCount(count);
@@ -160,7 +158,7 @@ public class BaseFileTest {
       }
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i % 3, ((List<?>) root.getVector("list").getObject(i)).size());
-      NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
+      NullableTimestampHolder h = new NullableTimestampHolder();
       FieldReader mapReader = root.getVector("map").getReader();
       mapReader.setPosition(i);
       mapReader.reader("timestamp").read(h);
@@ -172,16 +170,21 @@ public class BaseFileTest {
     return new LocalDateTime(2000 + i, 1 + i, 1 + i, i, i, i, i);
   }
 
+  private DateTime makeDateTimeFromCount(int i, String tz) {
+    return new DateTime(2000 + i, 1 + i, 1 + i, i, i, i, i, DateTimeZone.forID(tz));
+  }
+
   protected void writeDateTimeData(int count, MapVector parent) {
     Assert.assertTrue(count < 100);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     DateMilliWriter dateWriter = rootWriter.dateMilli("date");
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
-    TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
-    TimeStampMilliTZWriter timeStampMilliTZWriter = rootWriter.timeStampMilliTZ("timestamp-milliTZ", "Europe/Paris");
+    TimestampWriter timeStampMilliWriter = rootWriter.timestamp("timestamp-milli", TimeUnit.MILLISECOND, null);
+    TimestampWriter timeStampMilliTZWriter = rootWriter.timestamp("timestamp-milliTZ",TimeUnit.MILLISECOND, "Europe/Paris");
     for (int i = 0; i < count; i++) {
       LocalDateTime dt = makeDateTimeFromCount(i);
+      DateTime dt2 = makeDateTimeFromCount(i, "Europe/Paris");
       // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
       dateWriter.setPosition(i);
       long dateLong = DateUtility.toMillis(dt.minusMillis(dt.getMillisOfDay()));
@@ -191,9 +194,9 @@ public class BaseFileTest {
       timeWriter.writeTimeMilli(dt.getMillisOfDay());
       // Timestamp is milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
-      timeStampMilliWriter.writeTimeStampMilli(DateUtility.toMillis(dt));
+      timeStampMilliWriter.writeTimestamp(DateUtility.toMillis(dt));
       timeStampMilliTZWriter.setPosition(i);
-      timeStampMilliTZWriter.writeTimeStampMilliTZ(DateUtility.toMillis(dt));
+      timeStampMilliTZWriter.writeTimestamp(dt2.getMillis());
     }
     writer.setValueCount(count);
   }
@@ -204,6 +207,7 @@ public class BaseFileTest {
     for (int i = 0; i < count; i++) {
       long dateVal = ((DateMilliVector) root.getVector("date")).get(i);
       LocalDateTime dt = makeDateTimeFromCount(i);
+      LocalDateTime dt2 = makeDateTimeFromCount(i, "Europe/Paris").toLocalDateTime();
       LocalDateTime dateExpected = dt.minusMillis(dt.getMillisOfDay());
       Assert.assertEquals(DateUtility.toMillis(dateExpected), dateVal);
       long timeVal = ((TimeMilliVector) root.getVector("time")).get(i);
@@ -211,7 +215,7 @@ public class BaseFileTest {
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
       Assert.assertEquals(dt, timestampMilliVal);
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getObject(i);
-      Assert.assertEquals(DateUtility.toMillis(dt), timestampMilliTZVal);
+      Assert.assertEquals(dt2, timestampMilliTZVal);
     }
   }
 
@@ -483,7 +487,7 @@ public class BaseFileTest {
           Assert.assertEquals(i % 3, unionReader.size());
           break;
         case 3:
-          NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
+          NullableTimestampHolder h = new NullableTimestampHolder();
           unionReader.reader("timestamp").read(h);
           Assert.assertEquals(i, h.value);
           break;
@@ -525,7 +529,7 @@ public class BaseFileTest {
         case 3:
           mapWriter.setPosition(i);
           mapWriter.start();
-          mapWriter.timeStampMilli("timestamp").writeTimeStampMilli(i);
+          mapWriter.timestamp("timestamp", TimeUnit.MILLISECOND, null).writeTimestamp(i);
           mapWriter.end();
           break;
       }
