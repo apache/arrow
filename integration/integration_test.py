@@ -231,10 +231,19 @@ class DateType(IntegerType):
     DAY = 0
     MILLISECOND = 1
 
+    # 1/1/1 to 12/31/9999
+    _ranges = {
+        DAY: [-719162, 2932896],
+        MILLISECOND: [-62135596800000, 253402214400000]
+    }
+
     def __init__(self, name, unit, nullable=True):
         bit_width = 32 if unit == self.DAY else 64
+
+        min_value, max_value = self._ranges[unit]
         super(DateType, self).__init__(
-            name, True, bit_width, nullable=nullable
+            name, True, bit_width, nullable=nullable,
+            min_value=min_value, max_value=max_value
         )
         self.unit = unit
 
@@ -262,10 +271,19 @@ class TimeType(IntegerType):
         'ns': 64
     }
 
+    _ranges = {
+        's': [0, 86400],
+        'ms': [0, 86400000],
+        'us': [0, 86400000000],
+        'ns': [0, 86400000000000]
+    }
+
     def __init__(self, name, unit='s', nullable=True):
-        super(TimeType, self).__init__(
-            name, True, self.BIT_WIDTHS[unit], nullable=nullable
-        )
+        min_val, max_val = self._ranges[unit]
+        super(TimeType, self).__init__(name, True, self.BIT_WIDTHS[unit],
+                                       nullable=nullable,
+                                       min_value=min_val,
+                                       max_value=max_val)
         self.unit = unit
 
     def _get_type(self):
@@ -278,8 +296,21 @@ class TimeType(IntegerType):
 
 class TimestampType(IntegerType):
 
+    # 1/1/1 to 12/31/9999
+    _ranges = {
+        's': [-62135596800, 253402214400],
+        'ms': [-62135596800000, 253402214400000],
+        'us': [-62135596800000000, 253402214400000000],
+
+        # Physical range for int64, ~584 years and change
+        'ns': [np.iinfo('int64').min, np.iinfo('int64').max]
+    }
+
     def __init__(self, name, unit='s', tz=None, nullable=True):
-        super(TimestampType, self).__init__(name, True, 64, nullable=nullable)
+        min_val, max_val = self._ranges[unit]
+        super(TimestampType, self).__init__(name, True, 64, nullable=nullable,
+                                            min_value=min_val,
+                                            max_value=max_val)
         self.unit = unit
         self.tz = tz
 
