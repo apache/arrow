@@ -52,15 +52,14 @@ public class TestVectorReAlloc {
 
   @Test
   public void testFixedType() {
-    try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
-      final UInt4Vector.Mutator m = vector.getMutator();
+    try (final NullableUInt4Vector vector = new NullableUInt4Vector("", allocator)) {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        m.set(512, 0);
+        vector.set(512, 0);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -69,8 +68,8 @@ public class TestVectorReAlloc {
       vector.reAlloc();
       assertEquals(1024, vector.getValueCapacity());
 
-      m.set(512, 100);
-      assertEquals(100, vector.getAccessor().get(512));
+      vector.set(512, 100);
+      assertEquals(100, vector.get(512));
     }
   }
 
@@ -108,7 +107,8 @@ public class TestVectorReAlloc {
       assertEquals(1023, vector.getValueCapacity());
 
       try {
-        vector.getOffsetVector().getAccessor().get(2014);
+        // TODO: is this right?
+        vector.getInnerValueCountAt(2014);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok

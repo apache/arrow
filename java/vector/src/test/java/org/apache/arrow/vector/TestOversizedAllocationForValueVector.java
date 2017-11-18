@@ -51,7 +51,7 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testFixedVectorReallocation() {
-    final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator);
+    final NullableUInt4Vector vector = new NullableUInt4Vector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: buffer size = max value capacity
     final int expectedValueCapacity = BaseValueVector.MAX_ALLOCATION_SIZE / 4;
     try {
@@ -105,17 +105,17 @@ public class TestOversizedAllocationForValueVector {
 
   @Test(expected = OversizedAllocationException.class)
   public void testVariableVectorReallocation() {
-    final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
+    final NullableVarCharVector vector = new NullableVarCharVector(EMPTY_SCHEMA_PATH, allocator);
     // edge case 1: value count = MAX_VALUE_ALLOCATION
     final int expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
     final int expectedOffsetSize = 10;
     try {
       vector.allocateNew(expectedAllocationInBytes, 10);
       assertTrue(expectedOffsetSize <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes <= vector.getDataBuffer().capacity());
       vector.reAlloc();
       assertTrue(expectedOffsetSize * 2 <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes * 2 <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes * 2 <= vector.getOffsetBuffer().capacity());
     } finally {
       vector.close();
     }

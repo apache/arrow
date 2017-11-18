@@ -42,13 +42,12 @@ public class TestVectorReset {
 
   @Test
   public void testFixedTypeReset() {
-    try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
-      final UInt4Vector.Mutator m = vector.getMutator();
+    try (final NullableUInt4Vector vector = new NullableUInt4Vector("", allocator)) {
       vector.allocateNew();
-      final int sizeBefore = vector.getAllocationSize();
+      final int sizeBefore = vector.getBufferSize();
       vector.reAlloc();
       vector.reset();
-      final int sizeAfter = vector.getAllocationSize();
+      final int sizeAfter = vector.getBufferSize();
       assertEquals(sizeBefore, sizeAfter);
     }
   }
