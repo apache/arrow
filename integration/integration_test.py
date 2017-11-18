@@ -301,6 +301,8 @@ class TimestampType(IntegerType):
         's': [-62135596800, 253402214400],
         'ms': [-62135596800000, 253402214400000],
         'us': [-62135596800000000, 253402214400000000],
+
+        # Physical range for int64, ~584 years and change
         'ns': [np.iinfo('int64').min, np.iinfo('int64').max]
     }
 
