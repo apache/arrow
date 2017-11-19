@@ -197,7 +197,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    RecordBatch batch(schema, 0, {array});
+    SimpleRecordBatch batch(schema, 0, {array});
     CheckRoundtrip(batch, buffer_size);
   }
 
@@ -292,7 +292,7 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto CheckArray = [this](const std::shared_ptr<Array>& array) {
     auto f0 = field("f0", array->type());
     auto schema = ::arrow::schema({f0});
-    RecordBatch batch(schema, array->length(), {array});
+    SimpleRecordBatch batch(schema, array->length(), {array});
     auto sliced_batch = batch.Slice(0, 5);
 
     int64_t full_size;
@@ -411,8 +411,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
     *schema = ::arrow::schema({f0});
 
-    std::vector<std::shared_ptr<Array>> arrays = {array};
-    *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
+    *batch = RecordBatch::Make(*schema, batch_length, {array});
 
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
@@ -632,7 +631,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {f0};
   auto schema = std::make_shared<Schema>(fields);
 
-  RecordBatch batch(schema, length, {array});
+  SimpleRecordBatch batch(schema, length, {array});
 
   std::string path = "test-write-large-record_batch";
 

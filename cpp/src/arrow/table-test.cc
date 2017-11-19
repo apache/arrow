@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/test-common.h"
@@ -310,7 +311,7 @@ TEST_F(TestTable, FromRecordBatches) {
   const int64_t length = 10;
   MakeExample1(length);
 
-  auto batch1 = std::make_shared<RecordBatch>(schema_, length, arrays_);
+  auto batch1 = RecordBatch::Make(schema_, length, arrays_);
 
   std::shared_ptr<Table> result, expected;
   ASSERT_OK(Table::FromRecordBatches({batch1}, &result));
@@ -336,7 +337,7 @@ TEST_F(TestTable, FromRecordBatches) {
   auto other_schema = std::make_shared<Schema>(fields);
 
   std::vector<std::shared_ptr<Array>> other_arrays = {arrays_[0], arrays_[1]};
-  auto batch2 = std::make_shared<RecordBatch>(other_schema, length, other_arrays);
+  auto batch2 = RecordBatch::Make(other_schema, length, other_arrays);
   ASSERT_RAISES(Invalid, Table::FromRecordBatches({batch1, batch2}, &result));
 }
 
@@ -344,11 +345,11 @@ TEST_F(TestTable, ConcatenateTables) {
   const int64_t length = 10;
 
   MakeExample1(length);
-  auto batch1 = std::make_shared<RecordBatch>(schema_, length, arrays_);
+  auto batch1 = RecordBatch::Make(schema_, length, arrays_);
 
   // generate different data
   MakeExample1(length);
-  auto batch2 = std::make_shared<RecordBatch>(schema_, length, arrays_);
+  auto batch2 = RecordBatch::Make(schema_, length, arrays_);
 
   std::shared_ptr<Table> t1, t2, t3, result, expected;
   ASSERT_OK(Table::FromRecordBatches({batch1}, &t1));
@@ -366,7 +367,7 @@ TEST_F(TestTable, ConcatenateTables) {
   auto other_schema = std::make_shared<Schema>(fields);
 
   std::vector<std::shared_ptr<Array>> other_arrays = {arrays_[0], arrays_[1]};
-  auto batch3 = std::make_shared<RecordBatch>(other_schema, length, other_arrays);
+  auto batch3 = RecordBatch::Make(other_schema, length, other_arrays);
   ASSERT_OK(Table::FromRecordBatches({batch3}, &t3));
 
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
@@ -481,9 +482,9 @@ TEST_F(TestRecordBatch, Equals) {
   auto a1 = MakeRandomArray<UInt8Array>(length);
   auto a2 = MakeRandomArray<Int16Array>(length);
 
-  RecordBatch b1(schema, length, {a0, a1, a2});
-  RecordBatch b3(schema, length, {a0, a1});
-  RecordBatch b4(schema, length, {a0, a1, a1});
+  SimpleRecordBatch b1(schema, length, {a0, a1, a2});
+  SimpleRecordBatch b3(schema, length, {a0, a1});
+  SimpleRecordBatch b4(schema, length, {a0, a1, a1});
 
   ASSERT_TRUE(b1.Equals(b1));
   ASSERT_FALSE(b1.Equals(b3));
@@ -507,16 +508,16 @@ TEST_F(TestRecordBatch, Validate) {
   auto a2 = MakeRandomArray<Int16Array>(length);
   auto a3 = MakeRandomArray<Int16Array>(5);
 
-  RecordBatch b1(schema, length, {a0, a1, a2});
+  SimpleRecordBatch b1(schema, length, {a0, a1, a2});
 
   ASSERT_OK(b1.Validate());
 
   // Length mismatch
-  RecordBatch b2(schema, length, {a0, a1, a3});
+  SimpleRecordBatch b2(schema, length, {a0, a1, a3});
   ASSERT_RAISES(Invalid, b2.Validate());
 
   // Type mismatch
-  RecordBatch b3(schema, length, {a0, a1, a0});
+  SimpleRecordBatch b3(schema, length, {a0, a1, a0});
   ASSERT_RAISES(Invalid, b3.Validate());
 }
 
@@ -534,14 +535,14 @@ TEST_F(TestRecordBatch, Slice) {
   auto a0 = MakeRandomArray<Int32Array>(length);
   auto a1 = MakeRandomArray<UInt8Array>(length);
 
-  RecordBatch batch(schema, length, {a0, a1});
+  auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
-  auto batch_slice = batch.Slice(2);
-  auto batch_slice2 = batch.Slice(1, 5);
+  auto batch_slice = batch->Slice(2);
+  auto batch_slice2 = batch->Slice(1, 5);
 
-  ASSERT_EQ(batch_slice->num_rows(), batch.num_rows() - 2);
+  ASSERT_EQ(batch_slice->num_rows(), batch->num_rows() - 2);
 
-  for (int i = 0; i < batch.num_columns(); ++i) {
+  for (int i = 0; i < batch->num_columns(); ++i) {
     ASSERT_EQ(2, batch_slice->column(i)->offset());
     ASSERT_EQ(length - 2, batch_slice->column(i)->length());
 

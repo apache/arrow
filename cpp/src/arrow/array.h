@@ -279,6 +279,8 @@ class ARROW_EXPORT Array {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 };
 
+using ArrayVector = std::vector<std::shared_ptr<Array>>;
+
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
   os << x.ToString();
   return os;

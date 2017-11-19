@@ -32,6 +32,7 @@
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -511,7 +512,7 @@ class DictionaryWriter : public RecordBatchSerializer {
     std::vector<std::shared_ptr<Field>> fields = {
         arrow::field("dictionary", dictionary->type())};
     auto schema = std::make_shared<Schema>(fields);
-    RecordBatch batch(schema, dictionary->length(), {dictionary});
+    SimpleRecordBatch batch(schema, dictionary->length(), {dictionary});
 
     return RecordBatchSerializer::Write(batch, dst, metadata_length, body_length);
   }

@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/table_builder.h"
@@ -98,7 +99,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
   ASSERT_OK(ex_b1.Finish(&a1));
   ASSERT_OK(ex_b2.Finish(&a2));
 
-  RecordBatch expected(schema, 4, {a0, a1, a2});
+  SimpleRecordBatch expected(schema, 4, {a0, a1, a2});
 
   // Builder attributes
   ASSERT_EQ(3, builder->num_fields());

@@ -63,7 +63,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
   }
 
   auto schema = std::make_shared<Schema>(fields);
-  return std::make_shared<RecordBatch>(schema, length, arrays);
+  return RecordBatch::Make(schema, length, arrays);
 }
 
 static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
