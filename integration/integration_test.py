@@ -28,6 +28,7 @@ import string
 import subprocess
 import tempfile
 import uuid
+import errno
 
 import numpy as np
 
@@ -1078,12 +1079,30 @@ def run_all_tests(debug=False):
     runner.run()
     print('-- All tests passed!')
 
+def write_js_test_json(directory):
+    generate_nested_case().write(os.path.join(directory, 'nested.json'))
+    generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
+    generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
+    generate_dictionary_case().write(os.path.join(directory, 'dictionary.json'))
+    generate_primitive_case([7, 10]).write(os.path.join(directory, 'primitive.json'))
+    generate_primitive_case([0, 0, 0]).write(os.path.join(directory, 'primitive-empty.json'))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+    parser.add_argument('--write_generated_json', dest='generated_json_path', action='store',
+                        default=False,
+                        help='Generate test JSON')
     parser.add_argument('--debug', dest='debug', action='store_true',
                         default=False,
                         help='Run executables in debug mode as relevant')
-
     args = parser.parse_args()
-    run_all_tests(debug=args.debug)
+    if args.generated_json_path:
+        try:
+            os.makedirs(args.generated_json_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        write_js_test_json(args.generated_json_path)
+    else:
+        run_all_tests(debug=args.debug)
