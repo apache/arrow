@@ -53,7 +53,7 @@ function loadArrows(source: string, format: string) {
         struct_example: true
     };
     const arrows = [];
-    const filenames = glob.sync(path.resolve(__dirname, `arrows/${source}/${format}`, `*.arrow`));
+    const filenames = glob.sync(path.resolve(__dirname, `data/${source}/${format}`, `*.arrow`));
     for (const filename of filenames) {
         const { name } = path.parse(filename);
         if (files[name] !== true) { continue; }
