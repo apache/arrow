@@ -82,6 +82,7 @@ class build_ext(_build_ext):
     user_options = ([('extra-cmake-args=', None, 'extra arguments for CMake'),
                      ('build-type=', None, 'build type (debug or release)'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-static-parquet', None, 'link parquet statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
@@ -102,6 +103,8 @@ class build_ext(_build_ext):
 
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
+        self.with_static_parquet = strtobool(
+            os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -144,6 +147,8 @@ class build_ext(_build_ext):
 
         if self.with_parquet:
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
+        if self.with_static_parquet:
+            cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
@@ -225,7 +230,7 @@ class build_ext(_build_ext):
             move_shared_libs(build_prefix, build_lib, "arrow_python")
             if self.with_plasma:
                 move_shared_libs(build_prefix, build_lib, "plasma")
-            if self.with_parquet:
+            if self.with_parquet and not self.with_static_parquet:
                 move_shared_libs(build_prefix, build_lib, "parquet")
 
         print('Bundling includes: ' + pjoin(build_prefix, 'include'))

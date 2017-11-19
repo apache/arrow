@@ -61,6 +61,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PARQUET
     "Build the PyArrow Parquet integration"
     OFF)
+  option(PYARROW_PARQUET_USE_SHARED
+    "Rely on parquet shared libraries where relevant"
+    ON)
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
@@ -282,24 +285,41 @@ if (PYARROW_BUILD_PARQUET)
   endif()
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
 
-  if (PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(PARQUET_SHARED_LIB
-      ABI_VERSION ${PARQUET_ABI_VERSION}
-      SO_VERSION ${PARQUET_SO_VERSION})
-    if (MSVC)
-      bundle_arrow_implib(PARQUET_SHARED_IMP_LIB)
+  if (PYARROW_PARQUET_USE_SHARED)
+    if (PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(PARQUET_SHARED_LIB
+        ABI_VERSION ${PARQUET_ABI_VERSION}
+        SO_VERSION ${PARQUET_SO_VERSION})
+      if (MSVC)
+        bundle_arrow_implib(PARQUET_SHARED_IMP_LIB)
+      endif()
     endif()
-  endif()
-  if (MSVC)
-    ADD_THIRDPARTY_LIB(parquet
-      SHARED_LIB ${PARQUET_SHARED_IMP_LIB})
+    if (MSVC)
+      ADD_THIRDPARTY_LIB(parquet
+        SHARED_LIB ${PARQUET_SHARED_IMP_LIB})
+    else()
+      ADD_THIRDPARTY_LIB(parquet
+        SHARED_LIB ${PARQUET_SHARED_LIB})
+    endif()
+    set(LINK_LIBS
+      ${LINK_LIBS}
+      parquet_shared)
   else()
+    find_package(Thrift)
+    set(Boost_USE_STATIC_LIBS ON)
+    find_package(Boost COMPONENTS regex REQUIRED)
+    ADD_THIRDPARTY_LIB(boost_regex
+      STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
     ADD_THIRDPARTY_LIB(parquet
-      SHARED_LIB ${PARQUET_SHARED_LIB})
+      STATIC_LIB ${PARQUET_STATIC_LIB})
+    ADD_THIRDPARTY_LIB(thrift
+      STATIC_LIB ${THRIFT_STATIC_LIB})
+    set(LINK_LIBS
+      ${LINK_LIBS}
+      parquet_static
+      thrift_static
+      boost_regex_static)
   endif()
-  set(LINK_LIBS
-    ${LINK_LIBS}
-    parquet_shared)
   set(CYTHON_EXTENSIONS
     ${CYTHON_EXTENSIONS}
     _parquet)
