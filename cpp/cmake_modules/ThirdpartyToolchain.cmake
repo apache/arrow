@@ -24,7 +24,7 @@ set(GFLAGS_VERSION "2.2.0")
 set(GTEST_VERSION "1.8.0")
 set(GBENCHMARK_VERSION "1.1.0")
 set(FLATBUFFERS_VERSION "1.7.1")
-set(JEMALLOC_VERSION "4.4.0")
+set(JEMALLOC_VERSION "17c897976c60b0e6e4f4a365c751027244dada7a")
 set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
@@ -471,8 +471,8 @@ if (ARROW_JEMALLOC)
     set(JEMALLOC_STATIC_LIB "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
     set(JEMALLOC_VENDORED 1)
     ExternalProject_Add(jemalloc_ep
-      URL https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2
-      CONFIGURE_COMMAND ./configure "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_"
+      URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
+      CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" && touch doc/jemalloc.html && touch doc/jemalloc.3
       ${EP_LOG_OPTIONS}
       BUILD_IN_SOURCE 1
       BUILD_COMMAND ${MAKE}
