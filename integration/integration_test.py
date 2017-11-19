@@ -786,7 +786,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None):
     return JsonFile(name, schema, batches, dictionaries)
 
 
-def generate_primitive_case(batch_sizes):
+def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
              'float32', 'float64', 'binary', 'utf8']
@@ -797,7 +797,7 @@ def generate_primitive_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, True))
         fields.append(get_field(type_ + "_nonnullable", type_, False))
 
-    return _generate_file("primitive", fields, batch_sizes)
+    return _generate_file(name, fields, batch_sizes)
 
 
 def generate_decimal_case():
@@ -875,8 +875,8 @@ def get_generated_json_files():
         return
 
     file_objs = [
-        generate_primitive_case([7, 10]),
-        generate_primitive_case([0, 0, 0]),
+        generate_primitive_case([17, 20], name='primitive'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
         generate_datetime_case(),
         generate_nested_case(),
