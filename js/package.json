@@ -95,7 +95,8 @@
     "tslint": "5.8.0",
     "typescript": "2.6.1",
     "uglifyjs-webpack-plugin": "1.0.1",
-    "webpack": "3.8.1"
+    "webpack": "3.8.1",
+    "xml2js": "0.4.19"
   },
   "lint-staged": {
     "*.@(ts)": [

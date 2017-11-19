@@ -20,11 +20,14 @@ const path = require('path');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
+const stat = promisify(require('fs').stat);
 const mkdirp = promisify(require('mkdirp'));
 const rimraf = promisify(require('rimraf'));
 const child_process = require(`child_process`);
 const { memoizeTask } = require('./memoize-task');
+const readFile = promisify(require('fs').readFile);
 const exec = promisify(require('child_process').exec);
+const parseXML = promisify(require('xml2js').parseString);
 
 const jestArgv = [];
 argv.update && jestArgv.push(`-u`);
@@ -57,33 +60,67 @@ module.exports.testTask = testTask;
 module.exports.cleanTestData = cleanTestData;
 module.exports.createTestData = createTestData;
 
+const ARROW_HOME = path.resolve('../');
+const integrationDir = path.resolve(ARROW_HOME, 'integration');
+const testFilesDir = path.resolve(ARROW_HOME, 'js/test/data');
+const cppFilesDir = path.join(testFilesDir, 'cpp');
+const javaFilesDir = path.join(testFilesDir, 'java');
+const jsonFilesDir = path.join(testFilesDir, 'json');
+
 async function cleanTestData() {
-    return await del([
-        `${path.resolve('./test/arrows/cpp')}/**`,
-        `${path.resolve('./test/arrows/java')}/**`,
-    ]);
+    return await del(`${testFilesDir}/**`);
+}
+
+async function createTestJSON() {
+    await exec(`shx cp ${integrationDir}/data/*.json ${jsonFilesDir}`);
+    await exec(`python ${integrationDir}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
 
 async function createTestData() {
-    const base = path.resolve('./test/arrows');
-    await mkdirp(path.join(base, 'cpp/file'));
-    await mkdirp(path.join(base, 'java/file'));
-    await mkdirp(path.join(base, 'cpp/stream'));
-    await mkdirp(path.join(base, 'java/stream'));
+
+    // Only re-create test data if the test data folder doesn't exist
+    // This should be the case on first checkout, and on the CI server
+    try {
+        const testFilesExist = await stat(testFilesDir);
+        if (testFilesExist && testFilesExist.isDirectory()) {
+            return;
+        }
+    } catch (e) {
+        // continue
+    }
+
+    // Pull C++ and Java paths from environment vars first, otherwise sane defaults
+    const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.resolve(ARROW_HOME, 'cpp/build/debug');
+    const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'json-integration-test');
+    const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'stream-to-file');
+    const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'file-to-stream');
+
+    const pomString = await readFile(path.join(ARROW_HOME, 'java', 'pom.xml'));
+    const pomObject = await parseXML(pomString.toString());
+    const _arrow_version = pomObject.project.version[0];
+    const JAVA_TOOLS_JAR = process.env.ARROW_JAVA_INTEGRATION_JAR || path.resolve(ARROW_HOME, `java/tools/target/arrow-tools-${_arrow_version}-jar-with-dependencies.jar`);
+
+    await cleanTestData().then(createTestJSON);
+    await mkdirp(path.join(cppFilesDir, 'file'));
+    await mkdirp(path.join(javaFilesDir, 'file'));
+    await mkdirp(path.join(cppFilesDir, 'stream'));
+    await mkdirp(path.join(javaFilesDir, 'stream'));
+
     const errors = [];
-    const names = await glob(path.join(base, 'json/*.json'));
+    const names = await glob(path.join(jsonFilesDir, '*.json'));
+
     for (let jsonPath of names) {
         const name = path.parse(path.basename(jsonPath)).name;
-        const arrowCppFilePath = path.join(base, 'cpp/file', `${name}.arrow`);
-        const arrowJavaFilePath = path.join(base, 'java/file', `${name}.arrow`);
-        const arrowCppStreamPath = path.join(base, 'cpp/stream', `${name}.arrow`);
-        const arrowJavaStreamPath = path.join(base, 'java/stream', `${name}.arrow`);
+        const arrowCppFilePath = path.join(cppFilesDir, 'file', `${name}.arrow`);
+        const arrowJavaFilePath = path.join(javaFilesDir, 'file', `${name}.arrow`);
+        const arrowCppStreamPath = path.join(cppFilesDir, 'stream', `${name}.arrow`);
+        const arrowJavaStreamPath = path.join(javaFilesDir, 'stream', `${name}.arrow`);
         try {
-            await generateCPPFile(jsonPath, arrowCppFilePath);
+            await generateCPPFile(path.resolve(jsonPath), arrowCppFilePath);
             await generateCPPStream(arrowCppFilePath, arrowCppStreamPath);
         } catch (e) { errors.push(e.message); }
         try {
-            await generateJavaFile(jsonPath, arrowJavaFilePath);
+            await generateJavaFile(path.resolve(jsonPath), arrowJavaFilePath);
             await generateJavaStream(arrowJavaFilePath, arrowJavaStreamPath);
         } catch (e) { errors.push(e.message); }
     }
@@ -91,41 +128,41 @@ async function createTestData() {
         console.error(errors.join(`\n`));
         process.exit(1);
     }
-}
 
-async function generateCPPFile(jsonPath, filePath) {
-    await rimraf(filePath);
-    return await exec(
-        `../cpp/build/release/json-integration-test ${
-        `--integration --mode=JSON_TO_ARROW`} ${
-        `--json=${path.resolve(jsonPath)} --arrow=${filePath}`}`,
-        { maxBuffer: Math.pow(2, 53) - 1 }
-    );
-}
-
-async function generateCPPStream(filePath, streamPath) {
-    await rimraf(streamPath);
-    return await exec(
-        `../cpp/build/release/file-to-stream ${filePath} > ${streamPath}`,
-        { maxBuffer: Math.pow(2, 53) - 1 }
-    );
-}
-
-async function generateJavaFile(jsonPath, filePath) {
-    await rimraf(filePath);
-    return await exec(
-        `java -cp ../java/tools/target/arrow-tools-0.8.0-SNAPSHOT-jar-with-dependencies.jar ${
-        `org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${
-        `-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
-        { maxBuffer: Math.pow(2, 53) - 1 }
-    );
-}
-
-async function generateJavaStream(filePath, streamPath) {
-    await rimraf(streamPath);
-    return await exec(
-        `java -cp ../java/tools/target/arrow-tools-0.8.0-SNAPSHOT-jar-with-dependencies.jar ${
-        `org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
-        { maxBuffer: Math.pow(2, 53) - 1 }
-    );
+    async function generateCPPFile(jsonPath, filePath) {
+        await rimraf(filePath);
+        return await exec(
+            `${CPP_JSON_TO_ARROW} ${
+            `--integration --mode=JSON_TO_ARROW`} ${
+            `--json=${jsonPath} --arrow=${filePath}`}`,
+            { maxBuffer: Math.pow(2, 53) - 1 }
+        );
+    }
+    
+    async function generateCPPStream(filePath, streamPath) {
+        await rimraf(streamPath);
+        return await exec(
+            `${CPP_FILE_TO_STREAM} ${filePath} > ${streamPath}`,
+            { maxBuffer: Math.pow(2, 53) - 1 }
+        );
+    }
+    
+    async function generateJavaFile(jsonPath, filePath) {
+        await rimraf(filePath);
+        return await exec(
+            `java -cp ${JAVA_TOOLS_JAR} ${
+            `org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${
+            `-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
+            { maxBuffer: Math.pow(2, 53) - 1 }
+        );
+    }
+    
+    async function generateJavaStream(filePath, streamPath) {
+        await rimraf(streamPath);
+        return await exec(
+            `java -cp ${JAVA_TOOLS_JAR} ${
+            `org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
+            { maxBuffer: Math.pow(2, 53) - 1 }
+        );
+    }
 }
