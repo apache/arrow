@@ -199,9 +199,18 @@ class IntegerType(PrimitiveType):
         self.min_value = min_value
         self.max_value = max_value
 
-    @property
-    def numpy_type(self):
-        return ('int' if self.is_signed else 'uint') + str(self.bit_width)
+    def _get_generated_data_bounds(self):
+        signed_iinfo = np.iinfo('int' + str(self.bit_width))
+        if self.is_signed:
+            min_value, max_value = signed_iinfo.min, signed_iinfo.max
+        else:
+            # ARROW-1837 Remove this hack and restore full unsigned integer
+            # range
+            min_value, max_value = 0, signed_iinfo.max
+
+        lower_bound = max(min_value, self.min_value)
+        upper_bound = min(max_value, self.max_value)
+        return lower_bound, upper_bound
 
     def _get_type(self):
         return OrderedDict([
@@ -211,9 +220,7 @@ class IntegerType(PrimitiveType):
         ])
 
     def generate_column(self, size, name=None):
-        iinfo = np.iinfo(self.numpy_type)
-        lower_bound = max(iinfo.min, self.min_value)
-        upper_bound = min(iinfo.max, self.max_value)
+        lower_bound, upper_bound = self._get_generated_data_bounds()
         return self.generate_range(size, lower_bound, upper_bound, name=name)
 
     def generate_range(self, size, lower, upper, name=None):
@@ -1079,19 +1086,23 @@ def run_all_tests(debug=False):
     runner.run()
     print('-- All tests passed!')
 
+
 def write_js_test_json(directory):
     generate_nested_case().write(os.path.join(directory, 'nested.json'))
     generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
-    generate_dictionary_case().write(os.path.join(directory, 'dictionary.json'))
-    generate_primitive_case([7, 10]).write(os.path.join(directory, 'primitive.json'))
-    generate_primitive_case([0, 0, 0]).write(os.path.join(directory, 'primitive-empty.json'))
+    (generate_dictionary_case()
+     .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([7, 10])
+     .write(os.path.join(directory, 'primitive.json')))
+    (generate_primitive_case([0, 0, 0])
+     .write(os.path.join(directory, 'primitive-empty.json')))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
-    parser.add_argument('--write_generated_json', dest='generated_json_path', action='store',
-                        default=False,
+    parser.add_argument('--write_generated_json', dest='generated_json_path',
+                        action='store', default=False,
                         help='Generate test JSON')
     parser.add_argument('--debug', dest='debug', action='store_true',
                         default=False,
