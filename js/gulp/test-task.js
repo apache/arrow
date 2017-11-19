@@ -72,6 +72,7 @@ async function cleanTestData() {
 }
 
 async function createTestJSON() {
+    await mkdirp(jsonFilesDir);
     await exec(`shx cp ${integrationDir}/data/*.json ${jsonFilesDir}`);
     await exec(`python ${integrationDir}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
