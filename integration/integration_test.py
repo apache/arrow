@@ -522,7 +522,7 @@ class JsonSchema(object):
 class BinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return frombytes(binascii.hexlify(x))
+        return frombytes(binascii.hexlify(x).upper())
 
     def _get_buffers(self):
         offset = 0
