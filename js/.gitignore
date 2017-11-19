@@ -84,5 +84,7 @@ package-lock.json
 dist
 targets
 
+# test data files
+test/data/
 # jest snapshots (too big)
 test/__snapshots__/
