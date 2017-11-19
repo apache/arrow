@@ -108,7 +108,9 @@ matrix:
     - source $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
+    - nvm install node
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh

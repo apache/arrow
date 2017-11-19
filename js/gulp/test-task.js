@@ -38,20 +38,23 @@ const debugArgv = [`--runInBand`, `--env`, `jest-environment-node-debug`];
 const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
 
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
-    const opts = Object.assign({}, testOptions);
+    const opts = { ...testOptions };
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    opts.env = Object.assign({}, opts.env, {
+    if (!argv.integration) {
+        args.push('test/vector-tests.ts');
+    }
+    opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
         TEST_TS_SOURCE: !!argv.coverage,
         TEST_SOURCES: JSON.stringify(Array.isArray(argv.sources) ? argv.sources : [argv.sources]),
         TEST_FORMATS: JSON.stringify(Array.isArray(argv.formats) ? argv.formats : [argv.formats]),
-    });
+    };
     return !debug ?
         child_process.spawn(jest, args, opts) :
         child_process.exec(`node --inspect-brk ${jest} ${args.join(` `)}`, opts);
 }))({}, jestArgv, {
-    env: Object.assign({}, process.env),
+    env: { ...process.env },
     stdio: [`ignore`, `inherit`, `inherit`],
 });
 
@@ -60,9 +63,16 @@ module.exports.testTask = testTask;
 module.exports.cleanTestData = cleanTestData;
 module.exports.createTestData = createTestData;
 
-const ARROW_HOME = path.resolve('../');
-const integrationDir = path.resolve(ARROW_HOME, 'integration');
-const testFilesDir = path.resolve(ARROW_HOME, 'js/test/data');
+// Pull C++ and Java paths from environment vars first, otherwise sane defaults
+const ARROW_HOME = process.env.ARROW_HOME || path.resolve('../');
+const ARROW_JAVA_DIR = process.env.ARROW_JAVA_DIR || path.join(ARROW_HOME, 'java');
+const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.join(ARROW_HOME, 'cpp/build/debug');
+const ARROW_INTEGRATION_DIR = process.env.ARROW_INTEGRATION_DIR || path.join(ARROW_HOME, 'integration');
+const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'json-integration-test');
+const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'stream-to-file');
+const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'file-to-stream');
+
+const testFilesDir = path.join(ARROW_HOME, 'js/test/data');
 const cppFilesDir = path.join(testFilesDir, 'cpp');
 const javaFilesDir = path.join(testFilesDir, 'java');
 const jsonFilesDir = path.join(testFilesDir, 'json');
@@ -73,33 +83,20 @@ async function cleanTestData() {
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
-    await exec(`shx cp ${integrationDir}/data/*.json ${jsonFilesDir}`);
-    await exec(`python ${integrationDir}/integration_test.py --write_generated_json ${jsonFilesDir}`);
+    await exec(`shx cp ${ARROW_INTEGRATION_DIR}/data/*.json ${jsonFilesDir}`);
+    await exec(`python ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
 
 async function createTestData() {
 
-    // Only re-create test data if the test data folder doesn't exist
-    // This should be the case on first checkout, and on the CI server
-    try {
-        const testFilesExist = await stat(testFilesDir);
-        if (testFilesExist && testFilesExist.isDirectory()) {
-            return;
-        }
-    } catch (e) {
-        // continue
+    let JAVA_TOOLS_JAR = process.env.ARROW_JAVA_INTEGRATION_JAR;
+    if (!JAVA_TOOLS_JAR) {
+        const pom_version = await
+            readFile(path.join(ARROW_JAVA_DIR, 'pom.xml'))
+                .then((pom) => parseXML(pom.toString()))
+                .then((pomXML) => pomXML.project.version[0]);
+        JAVA_TOOLS_JAR = path.join(ARROW_JAVA_DIR, `/tools/target/arrow-tools-${pom_version}-jar-with-dependencies.jar`);
     }
-
-    // Pull C++ and Java paths from environment vars first, otherwise sane defaults
-    const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.resolve(ARROW_HOME, 'cpp/build/debug');
-    const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'json-integration-test');
-    const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'stream-to-file');
-    const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'file-to-stream');
-
-    const pomString = await readFile(path.join(ARROW_HOME, 'java', 'pom.xml'));
-    const pomObject = await parseXML(pomString.toString());
-    const _arrow_version = pomObject.project.version[0];
-    const JAVA_TOOLS_JAR = process.env.ARROW_JAVA_INTEGRATION_JAR || path.resolve(ARROW_HOME, `java/tools/target/arrow-tools-${_arrow_version}-jar-with-dependencies.jar`);
 
     await cleanTestData().then(createTestJSON);
     await mkdirp(path.join(cppFilesDir, 'file'));
@@ -119,11 +116,11 @@ async function createTestData() {
         try {
             await generateCPPFile(path.resolve(jsonPath), arrowCppFilePath);
             await generateCPPStream(arrowCppFilePath, arrowCppStreamPath);
-        } catch (e) { errors.push(e.message); }
+        } catch (e) { errors.push(`${e.stdout}\n${e.message}`); }
         try {
             await generateJavaFile(path.resolve(jsonPath), arrowJavaFilePath);
             await generateJavaStream(arrowJavaFilePath, arrowJavaStreamPath);
-        } catch (e) { errors.push(e.message); }
+        } catch (e) { errors.push(`${e.stdout}\n${e.message}`); }
     }
     if (errors.length) {
         console.error(errors.join(`\n`));

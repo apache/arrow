@@ -17,21 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
-JS_DIR=${TRAVIS_BUILD_DIR}/js
+source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-pushd $JS_DIR
+pushd $ARROW_JS_DIR
 
 npm run lint
 npm run build
-# run once to write the snapshots
-npm test -- -t ts -u
-# run again to test all builds against the snapshots
+# run the non-snapshot unit tests
 npm test
-# run tests against source to generate coverage data
-npm run test:coverage
-# Uncomment to upload to coveralls
-# cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js;
 
 popd

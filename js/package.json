@@ -19,6 +19,8 @@
     "release": "./npm-release.sh",
     "validate": "run-s --silent lint build clean",
     "test:coverage": "gulp test -t ts --coverage",
+    "test:cleanTestData": "gulp test:cleanTestData",
+    "test:createTestData": "gulp test:createTestData",
     "doc": "shx rm -rf ./doc && esdoc",
     "lint": "npm-run-all -p lint:*",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",

@@ -39,7 +39,7 @@ const uglifyTask = ((cache, commonConfig) => memoizeTask(cache, function uglifyJ
 
     const targetConfig = { ...commonConfig,
         output: { ...commonConfig.output,
-             path: path.resolve(`./${out}`) } };
+            path: path.resolve(`./${out}`) } };
 
     const webpackConfigs = [
         [mainExport, PublicNames]
