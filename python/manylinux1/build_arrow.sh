@@ -40,11 +40,11 @@ cd /arrow/python
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_WITH_PARQUET=1
+export PYARROW_WITH_STATIC_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
-# Need as otherwise arrow_io is sometimes not linked
-export LDFLAGS="-Wl,--no-as-needed"
 export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
+export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
@@ -65,7 +65,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     # Clear output directory
     rm -rf dist/
     echo "=== (${PYTHON}) Building wheel ==="
-    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --bundle-arrow-cpp
+    PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace --with-parquet --with-static-parquet --bundle-arrow-cpp
     PATH="$PATH:$(cpython_path $PYTHON)/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 
     echo "=== (${PYTHON}) Test the existence of optional modules ==="
