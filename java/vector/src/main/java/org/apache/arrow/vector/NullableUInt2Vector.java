@@ -109,11 +109,9 @@ public class NullableUInt2Vector extends BaseNullableFixedWidthVector {
   }
 
   public void copyFrom(int fromIndex, int thisIndex, NullableUInt2Vector from) {
-    if (from.isSet(fromIndex) != 0) {
-      set(thisIndex, from.get(fromIndex));
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    final char value = from.valueBuffer.getChar(fromIndex * TYPE_WIDTH);
+    valueBuffer.setChar(thisIndex * TYPE_WIDTH, value);
   }
 
   public void copyFromSafe(int fromIndex, int thisIndex, NullableUInt2Vector from) {
