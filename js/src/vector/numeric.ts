@@ -108,9 +108,9 @@ export class Date32Vector extends NumericVector<Date, Int32Array> {
     }
 }
 
-export class Date64Vector extends NumericVector<Date, Uint32Array> {
+export class Date64Vector extends NumericVector<Date, Int32Array> {
     public readonly unit: string;
-    constructor(argv: { unit: string, data: Uint32Array }) {
+    constructor(argv: { unit: string, data: Int32Array }) {
         super(argv);
         this.unit = argv.unit;
     }

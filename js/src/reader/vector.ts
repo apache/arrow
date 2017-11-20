@@ -109,7 +109,7 @@ export function readDateVector(field: Field, state: VectorReaderContext) {
     const type = field.type(new Date())!;
     switch (type.unit()) {
         case DateUnit[`DAY`]: return new Date32Vector({ ...readNumericBuffers(field, state, Int32Array), unit: DateUnit[type.unit()] });
-        case DateUnit[`MILLISECOND`]: return new Date64Vector({ ...readNumericBuffers(field, state, Uint32Array), unit: DateUnit[type.unit()] });
+        case DateUnit[`MILLISECOND`]: return new Date64Vector({ ...readNumericBuffers(field, state, Int32Array), unit: DateUnit[type.unit()] });
     }
     throw new Error(`Unrecognized Date { unit: ${type.unit} }`);
 }
