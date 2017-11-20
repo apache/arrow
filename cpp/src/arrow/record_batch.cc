@@ -36,7 +36,6 @@ class SimpleRecordBatch : public RecordBatch {
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                     const std::vector<std::shared_ptr<Array>>& columns)
       : RecordBatch(schema, num_rows) {
-    DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_.resize(columns.size());
     boxed_columns_.resize(schema->num_fields());
     for (size_t i = 0; i < columns.size(); ++i) {
@@ -47,7 +46,6 @@ class SimpleRecordBatch : public RecordBatch {
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                     std::vector<std::shared_ptr<Array>>&& columns)
       : RecordBatch(schema, num_rows) {
-    DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_.resize(columns.size());
     boxed_columns_.resize(schema->num_fields());
     for (size_t i = 0; i < columns.size(); ++i) {
@@ -58,7 +56,6 @@ class SimpleRecordBatch : public RecordBatch {
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                     std::vector<std::shared_ptr<ArrayData>>&& columns)
       : RecordBatch(schema, num_rows) {
-    DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_ = std::move(columns);
     boxed_columns_.resize(schema->num_fields());
   }
@@ -66,7 +63,6 @@ class SimpleRecordBatch : public RecordBatch {
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
                     const std::vector<std::shared_ptr<ArrayData>>& columns)
       : RecordBatch(schema, num_rows) {
-    DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_ = columns;
     boxed_columns_.resize(schema->num_fields());
   }
@@ -102,6 +98,13 @@ class SimpleRecordBatch : public RecordBatch {
     }
     int64_t num_rows = std::min(num_rows_ - offset, length);
     return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays));
+  }
+
+  Status Validate() const override {
+    if (static_cast<int>(columns_.size()) != schema_->num_fields()) {
+      return Status::Invalid("Number of columns did not match schema");
+    }
+    return RecordBatch::Validate();
   }
 
  private:

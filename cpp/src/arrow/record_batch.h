@@ -121,7 +121,7 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Check for schema or length inconsistencies
   /// \return Status
-  Status Validate() const;
+  virtual Status Validate() const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);

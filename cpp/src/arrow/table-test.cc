@@ -239,7 +239,7 @@ TEST_F(TestTable, Ctors) {
   ASSERT_OK(table_->Validate());
   ASSERT_EQ(length, table_->num_rows());
 
-  table_ = Take::Make(schema_, arrays_);
+  table_ = Table::Make(schema_, arrays_);
   ASSERT_OK(table_->Validate());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
