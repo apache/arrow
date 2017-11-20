@@ -136,34 +136,6 @@ class ARROW_EXPORT RecordBatch {
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };
 
-/// \class SimpleRecordBatch
-/// \brief A basic, non-lazy in-memory record batch
-class ARROW_EXPORT SimpleRecordBatch : public RecordBatch {
- public:
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    const std::vector<std::shared_ptr<Array>>& columns);
-
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<Array>>&& columns);
-
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<ArrayData>>&& columns);
-
-  SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    const std::vector<std::shared_ptr<ArrayData>>& columns);
-
-  std::shared_ptr<Array> column(int i) const override;
-  std::shared_ptr<ArrayData> column_data(int i) const override;
-
-  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const override;
-
-  std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const override;
-
- private:
-  std::vector<std::shared_ptr<ArrayData>> columns_;
-};
-
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:

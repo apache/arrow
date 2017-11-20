@@ -945,8 +945,7 @@ cdef class Table:
             else:
                 raise ValueError(type(arrays[i]))
 
-        table.reset(new CTable(c_schema, columns))
-        return pyarrow_wrap_table(table)
+        return pyarrow_wrap_table(CTable.Make(c_schema, columns))
 
     @staticmethod
     def from_batches(batches):

@@ -377,8 +377,8 @@ TEST_F(TestTableWriter, TimeTypes) {
         schema->field(i)->type(), values->length(), buffers, values->null_count(), 0));
   }
 
-  SimpleRecordBatch batch(schema, values->length(), std::move(arrays));
-  CheckBatch(batch);
+  auto batch = RecordBatch::Make(schema, values->length(), std::move(arrays));
+  CheckBatch(*batch);
 }
 
 TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {

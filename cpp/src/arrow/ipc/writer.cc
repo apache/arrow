@@ -509,12 +509,9 @@ class DictionaryWriter : public RecordBatchSerializer {
     dictionary_id_ = dictionary_id;
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
-    std::vector<std::shared_ptr<Field>> fields = {
-        arrow::field("dictionary", dictionary->type())};
-    auto schema = std::make_shared<Schema>(fields);
-    SimpleRecordBatch batch(schema, dictionary->length(), {dictionary});
-
-    return RecordBatchSerializer::Write(batch, dst, metadata_length, body_length);
+    auto schema = arrow::schema({arrow::field("dictionary", dictionary->type())});
+    auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
+    return RecordBatchSerializer::Write(*batch, dst, metadata_length, body_length);
   }
 
  private:

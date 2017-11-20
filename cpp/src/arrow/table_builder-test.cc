@@ -99,7 +99,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
   ASSERT_OK(ex_b1.Finish(&a1));
   ASSERT_OK(ex_b2.Finish(&a2));
 
-  SimpleRecordBatch expected(schema, 4, {a0, a1, a2});
+  auto expected = RecordBatch::Make(schema, 4, {a0, a1, a2});
 
   // Builder attributes
   ASSERT_EQ(3, builder->num_fields());
@@ -120,7 +120,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
       ASSERT_OK(builder->Flush(&batch));
     }
 
-    ASSERT_BATCHES_EQUAL(expected, *batch);
+    ASSERT_BATCHES_EQUAL(*expected, *batch);
   }
 
   // Test setting initial capacity

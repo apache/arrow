@@ -374,7 +374,7 @@ void AssertArraysEqual(const Array& expected, const Array& actual) {
 
 #define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
   do {                                       \
-    if (!LEFT.ApproxEquals(RIGHT)) {         \
+    if (!(LEFT).ApproxEquals(RIGHT)) {       \
       std::stringstream ss;                  \
       ss << "Left:\n";                       \
       ASSERT_OK(PrettyPrint(LEFT, 0, &ss));  \

@@ -430,6 +430,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                const vector[shared_ptr[CColumn]]& columns)
 
         @staticmethod
+        shared_ptr[CTable] Make(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CColumn]]& columns)
+
+        @staticmethod
         CStatus FromRecordBatches(
             const vector[shared_ptr[CRecordBatch]]& batches,
             shared_ptr[CTable]* table)

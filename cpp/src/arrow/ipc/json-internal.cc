@@ -125,8 +125,8 @@ class SchemaWriter {
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
     auto schema = ::arrow::schema({arrow::field("dictionary", dictionary->type())});
-    SimpleRecordBatch batch(schema, dictionary->length(), {dictionary});
-    RETURN_NOT_OK(WriteRecordBatch(batch, writer_));
+    auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
+    RETURN_NOT_OK(WriteRecordBatch(*batch, writer_));
     writer_->EndObject();
     return Status::OK();
   }
