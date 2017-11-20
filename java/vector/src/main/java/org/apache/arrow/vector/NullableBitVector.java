@@ -286,11 +286,8 @@ public class NullableBitVector extends BaseNullableFixedWidthVector {
    * @param from      source vector
    */
   public void copyFrom(int fromIndex, int thisIndex, NullableBitVector from) {
-    if (from.isSet(fromIndex) != 0) {
-      set(thisIndex, from.get(fromIndex));
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
-    }
+    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
+    BitVectorHelper.setValidityBit(valueBuffer, thisIndex, from.getBit(fromIndex));
   }
 
   /**
