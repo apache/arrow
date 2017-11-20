@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
+import * as Schema_ from '../format/Schema';
+import * as Message_ from '../format/Message';
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 

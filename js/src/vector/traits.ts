@@ -17,8 +17,8 @@
 
 import { Vector } from './vector';
 import { BoolVector } from './numeric';
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
+import * as Schema_ from '../format/Schema';
+import * as Message_ from '../format/Message';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;

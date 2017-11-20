@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema_generated';
+import * as Schema_ from '../format/Schema';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 
 export interface Vector<T = any> extends Iterable<T | null> {
@@ -51,4 +51,4 @@ export class Vector<T = any> implements Vector<T> {
 (Vector.prototype as any).nullable = !1;
 (Vector.prototype as any).nullCount = 0;
 (Vector.prototype as any).metadata = new Map();
-(Vector.prototype as any).type = Type[Type[`NONE`]];
+(Vector.prototype as any).type = Type[Type.NONE];

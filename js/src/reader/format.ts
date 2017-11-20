@@ -16,9 +16,9 @@
 // under the License.
 
 import { flatbuffers } from 'flatbuffers';
-import * as File_ from '../format/File_generated';
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
+import * as File_ from '../format/File';
+import * as Schema_ from '../format/Schema';
+import * as Message_ from '../format/Message';
 import ByteBuffer = flatbuffers.ByteBuffer;
 import Footer = File_.org.apache.arrow.flatbuf.Footer;
 import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
@@ -48,7 +48,7 @@ const magicX2AndPadding = magicLength * 2 + PADDING;
 export function readStreamSchema(bb: ByteBuffer) {
     if (!_checkMagic(bb.bytes(), 0)) {
         for (const message of readMessages(bb)) {
-            if (message.headerType() === MessageHeader[`Schema`]) {
+            if (message.headerType() === MessageHeader.Schema) {
                 return message.header(new Schema());
             }
         }
@@ -100,8 +100,8 @@ export function* readMessages(bb: ByteBuffer) {
 export function* readStreamMessages(bb: ByteBuffer) {
     for (const message of readMessages(bb)) {
         switch (message.headerType()) {
-            case MessageHeader[`RecordBatch`]:
-            case MessageHeader[`DictionaryBatch`]:
+            case MessageHeader.RecordBatch:
+            case MessageHeader.DictionaryBatch:
                 yield message;
                 break;
             default: continue;

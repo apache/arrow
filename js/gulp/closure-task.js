@@ -57,7 +57,7 @@ const closureTask = ((cache) => memoizeTask(cache, function closure(target, form
 const createClosureArgs = (entry, externs) => ({
     third_party: true,
     warning_level: `QUIET`,
-    dependency_mode: `LOOSE`,
+    dependency_mode: `STRICT`,
     rewrite_polyfills: false,
     externs: `${externs}.js`,
     entry_point: `${entry}.js`,

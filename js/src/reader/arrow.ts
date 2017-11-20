@@ -23,9 +23,9 @@ import {
     readStreamSchema, readStreamMessages
 } from './format';
 
-import * as File_ from '../format/File_generated';
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
+import * as File_ from '../format/File';
+import * as Schema_ from '../format/Schema';
+import * as Message_ from '../format/Message';
 
 import ByteBuffer = flatbuffers.ByteBuffer;
 import Footer = File_.org.apache.arrow.flatbuf.Footer;
@@ -95,7 +95,7 @@ function* readBuffer(bb: ByteBuffer, readerContext: ArrowReaderContext) {
 
         context.message = message;
 
-        if (message.headerType() === MessageHeader[`DictionaryBatch`]) {
+        if (message.headerType() === MessageHeader.DictionaryBatch) {
             let batch: DictionaryBatch;
             if (batch = message.header(new DictionaryBatch())!) {
                 context.batch = batch.data()!;
