@@ -121,15 +121,17 @@ class ARROW_EXPORT Table {
   /// \param schema The table schema (column types)
   /// \param columns The table's columns
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows = -1);
+  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::shared_ptr<Column>>& columns,
+                                     int64_t num_rows = -1);
 
   /// \brief Construct Table from schema and arrays
   /// \param schema The table schema (column types)
   /// \param arrays The table's columns as arrays
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Array>>& arrays, int64_t num_rows = -1);
+  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::shared_ptr<Array>>& arrays,
+                                     int64_t num_rows = -1);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
@@ -142,14 +144,14 @@ class ARROW_EXPORT Table {
 
   /// \param[in] i column index, does not boundscheck
   /// \return the i-th column
-  std::shared_ptr<Column> column(int i) const { return columns_[i]; }
+  virtual std::shared_ptr<Column> column(int i) const = 0;
 
   /// \brief Remove column from the table, producing a new Table
-  Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
+  virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Add column to the table, producing a new Table
-  Status AddColumn(int i, const std::shared_ptr<Column>& column,
-                   std::shared_ptr<Table>* out) const;
+  virtual Status AddColumn(int i, const std::shared_ptr<Column>& column,
+                           std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0
@@ -157,10 +159,10 @@ class ARROW_EXPORT Table {
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Table
   std::shared_ptr<Table> ReplaceSchemaMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
 
   /// \return the number of columns in the table
-  int num_columns() const { return static_cast<int>(columns_.size()); }
+  int num_columns() const { return schema_->num_fields(); }
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -174,14 +176,42 @@ class ARROW_EXPORT Table {
   /// \brief Return true if any column has multiple chunks
   bool IsChunked() const;
 
+ protected:
+  std::shared_ptr<Schema> schema_;
+  int64_t num_rows_;
+
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Table);
-
-  std::shared_ptr<Schema> schema_;
-  std::vector<std::shared_ptr<Column>> columns_;
-
-  int64_t num_rows_;
 };
+
+/// \class SimpleTable
+/// \brief A basic, non-lazy in-memory table, like SimpleRecordBatch
+class ARROW_EXPORT SimpleTable : public Table {
+ public:
+  /// \brief Construct Table from schema and columns
+  /// If columns is zero-length, the table's number of rows is zero
+  /// \param schema The table schema (column types)
+  /// \param columns The table's columns
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
+  SimpleTable(const std::shared_ptr<Schema>& schema,
+              const std::vector<std::shared_ptr<Column>>& columns,
+              int64_t num_rows = -1);
+
+  /// \brief Construct Table from schema and arrays
+  /// \param schema The table schema (column types)
+  /// \param arrays The table's columns as arrays
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
+  SimpleTable(const std::shared_ptr<Schema>& schema,
+              const std::vector<std::shared_ptr<Array>>& arrays,
+              int64_t num_rows = -1);
+
+  std::shared_ptr<Column> column(int i) const override;
+  // { return columns_[i]; }
+
+ private:
+  std::vector<std::shared_ptr<Column>> columns_;
+};
+
 
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
