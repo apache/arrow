@@ -53,7 +53,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.holders.IntHolder;
-import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.TimeStampNanoTZHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -800,7 +800,7 @@ public class TestComplexWriter {
       nanoReader.setPosition(0);
       long nanoLong = nanoReader.readLong();
       Assert.assertEquals(expectedNanos, nanoLong);
-      NullableTimeStampNanoTZHolder h = new NullableTimeStampNanoTZHolder();
+      TimeStampNanoTZHolder h = new TimeStampNanoTZHolder();
       nanoReader.read(h);
       Assert.assertEquals(expectedNanos, h.value);
     }

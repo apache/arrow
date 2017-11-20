@@ -195,12 +195,12 @@ public class UnionVector implements FieldVector {
       <#assign lowerCaseName = name?lower_case/>
       <#if !minor.typeParams?? >
 
-  private Nullable${name}Vector ${uncappedName}Vector;
+  private ${name}Vector ${uncappedName}Vector;
 
-  public Nullable${name}Vector get${name}Vector() {
+  public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, Nullable${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
