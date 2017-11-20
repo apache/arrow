@@ -682,12 +682,12 @@ Status NumPyConverter::ConvertDecimals() {
   Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
 
-  int precision;
-  int scale;
-
-  RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &precision, &scale));
-
-  type_ = std::make_shared<Decimal128Type>(precision, scale);
+  if (type_ == NULLPTR) {
+    int32_t precision;
+    int32_t scale;
+    RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &precision, &scale));
+    type_ = ::arrow::decimal(precision, scale);
+  }
 
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
@@ -724,7 +724,7 @@ Status NumPyConverter::ConvertTimes() {
   Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  PyObject* obj;
+  PyObject* obj = NULLPTR;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
     if (PyTime_Check(obj)) {
