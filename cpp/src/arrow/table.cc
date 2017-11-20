@@ -367,6 +367,8 @@ bool Table::Equals(const Table& other) const {
   return true;
 }
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 Status MakeTable(const std::shared_ptr<Schema>& schema,
                  const std::vector<std::shared_ptr<Array>>& arrays,
                  std::shared_ptr<Table>* table) {
@@ -388,6 +390,8 @@ Status MakeTable(const std::shared_ptr<Schema>& schema,
 
   return Status::OK();
 }
+
+#endif // ARROW_NO_DEPRECATED_API
 
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches
