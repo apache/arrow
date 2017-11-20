@@ -19,9 +19,11 @@ const {
     targetDir, tsconfigName, observableFromStreams
 } = require('./util');
 
+const del = require('del');
 const gulp = require('gulp');
 const path = require('path');
 const ts = require(`gulp-typescript`);
+const gulpRename = require(`gulp-rename`);
 const sourcemaps = require('gulp-sourcemaps');
 const { memoizeTask } = require('./memoize-task');
 const { Observable, ReplaySubject } = require('rxjs');
@@ -36,8 +38,26 @@ const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target
     );
     const writeDTypes = observableFromStreams(dts, gulp.dest(out));
     const writeJS = observableFromStreams(js, sourcemaps.write(), gulp.dest(out));
-    return Observable.forkJoin(writeDTypes, writeJS).publish(new ReplaySubject()).refCount();
+    return Observable
+        .forkJoin(writeDTypes, writeJS)
+        .concat(maybeCopyRawJSArrowFormatFiles(target, format))
+        .publish(new ReplaySubject()).refCount();
 }))({});
-  
+
 module.exports = typescriptTask;
 module.exports.typescriptTask = typescriptTask;
+
+function maybeCopyRawJSArrowFormatFiles(target, format) {
+    if (target !== `es5` || format !== `cls`) {
+        return Observable.empty();
+    }
+    return Observable.defer(async () => {
+        const outFormatDir = path.join(targetDir(target, format), `format`);
+        await del(path.join(outFormatDir, '*.js'));
+        await observableFromStreams(
+            gulp.src(path.join(`src`, `format`, `*_generated.js`)),
+            gulpRename((p) => { p.basename = p.basename.replace(`_generated`, ``); }),
+            gulp.dest(outFormatDir)
+        ).toPromise();
+    });
+}

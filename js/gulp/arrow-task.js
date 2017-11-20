@@ -27,7 +27,8 @@ const { memoizeTask } = require('./memoize-task');
 const { Observable, ReplaySubject } = require('rxjs');
 
 const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target, format) {
-    const out = targetDir(target), srcGlob = `src/**/*`;
+    const out = targetDir(target);
+    const srcGlob = `src/**/*.ts`;
     const es5Glob = `${targetDir(`es5`, `cjs`)}/**/*.js`;
     const esmGlob = `${targetDir(`es2015`, `esm`)}/**/*.js`;
     const es5UmdGlob = `${targetDir(`es5`, `umd`)}/**/*.js`;
@@ -48,7 +49,7 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target, forma
 }))({});
 
 const arrowTSTask = ((cache) => memoizeTask(cache, function copyTS(target, format) {
-    return observableFromStreams(gulp.src(`src/**/*`), gulp.dest(targetDir(target, format)));
+    return observableFromStreams(gulp.src(`src/**/*.ts`), gulp.dest(targetDir(target, format)));
 }))({});
   
   

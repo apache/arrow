@@ -28,6 +28,7 @@ import string
 import subprocess
 import tempfile
 import uuid
+import errno
 
 import numpy as np
 
@@ -198,9 +199,18 @@ class IntegerType(PrimitiveType):
         self.min_value = min_value
         self.max_value = max_value
 
-    @property
-    def numpy_type(self):
-        return ('int' if self.is_signed else 'uint') + str(self.bit_width)
+    def _get_generated_data_bounds(self):
+        signed_iinfo = np.iinfo('int' + str(self.bit_width))
+        if self.is_signed:
+            min_value, max_value = signed_iinfo.min, signed_iinfo.max
+        else:
+            # ARROW-1837 Remove this hack and restore full unsigned integer
+            # range
+            min_value, max_value = 0, signed_iinfo.max
+
+        lower_bound = max(min_value, self.min_value)
+        upper_bound = min(max_value, self.max_value)
+        return lower_bound, upper_bound
 
     def _get_type(self):
         return OrderedDict([
@@ -210,9 +220,7 @@ class IntegerType(PrimitiveType):
         ])
 
     def generate_column(self, size, name=None):
-        iinfo = np.iinfo(self.numpy_type)
-        lower_bound = max(iinfo.min, self.min_value)
-        upper_bound = min(iinfo.max, self.max_value)
+        lower_bound, upper_bound = self._get_generated_data_bounds()
         return self.generate_range(size, lower_bound, upper_bound, name=name)
 
     def generate_range(self, size, lower, upper, name=None):
@@ -521,7 +529,7 @@ class JsonSchema(object):
 class BinaryColumn(PrimitiveColumn):
 
     def _encode_value(self, x):
-        return frombytes(binascii.hexlify(x))
+        return frombytes(binascii.hexlify(x).upper())
 
     def _get_buffers(self):
         offset = 0
@@ -785,7 +793,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None):
     return JsonFile(name, schema, batches, dictionaries)
 
 
-def generate_primitive_case(batch_sizes):
+def generate_primitive_case(batch_sizes, name='primitive'):
     types = ['bool', 'int8', 'int16', 'int32', 'int64',
              'uint8', 'uint16', 'uint32', 'uint64',
              'float32', 'float64', 'binary', 'utf8']
@@ -796,7 +804,7 @@ def generate_primitive_case(batch_sizes):
         fields.append(get_field(type_ + "_nullable", type_, True))
         fields.append(get_field(type_ + "_nonnullable", type_, False))
 
-    return _generate_file("primitive", fields, batch_sizes)
+    return _generate_file(name, fields, batch_sizes)
 
 
 def generate_decimal_case():
@@ -874,8 +882,8 @@ def get_generated_json_files():
         return
 
     file_objs = [
-        generate_primitive_case([7, 10]),
-        generate_primitive_case([0, 0, 0]),
+        generate_primitive_case([17, 20], name='primitive'),
+        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
         generate_datetime_case(),
         generate_nested_case(),
@@ -1079,11 +1087,33 @@ def run_all_tests(debug=False):
     print('-- All tests passed!')
 
 
+def write_js_test_json(directory):
+    generate_nested_case().write(os.path.join(directory, 'nested.json'))
+    generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
+    generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
+    (generate_dictionary_case()
+     .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([7, 10])
+     .write(os.path.join(directory, 'primitive.json')))
+    (generate_primitive_case([0, 0, 0])
+     .write(os.path.join(directory, 'primitive-empty.json')))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+    parser.add_argument('--write_generated_json', dest='generated_json_path',
+                        action='store', default=False,
+                        help='Generate test JSON')
     parser.add_argument('--debug', dest='debug', action='store_true',
                         default=False,
                         help='Run executables in debug mode as relevant')
-
     args = parser.parse_args()
-    run_all_tests(debug=args.debug)
+    if args.generated_json_path:
+        try:
+            os.makedirs(args.generated_json_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        write_js_test_json(args.generated_json_path)
+    else:
+        run_all_tests(debug=args.debug)

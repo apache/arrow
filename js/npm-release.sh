@@ -17,15 +17,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
-
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-pushd $ARROW_JS_DIR
-
-npm run lint
-npm run build
-# run the non-snapshot unit tests
-npm test
-
-popd
+lerna publish --yes --skip-git --force-publish=*

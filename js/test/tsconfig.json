@@ -2,7 +2,7 @@
   "extends": "../tsconfig.json",
   "include": ["./**/*.ts"],
   "compilerOptions": {
-    "target": "ESNEXT",
+    "target": "es2015",
     "module": "commonjs",
     "allowJs": true,
     "importHelpers": false,

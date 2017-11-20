@@ -2,8 +2,10 @@
   "lerna": "2.0.0",
   "version": "0.1.1",
   "packages": [
+    "targets/ts",
     "targets/es5/*",
     "targets/es2015/*",
-    "targets/esnext/*"
+    "targets/esnext/*",
+    "targets/apache-arrow"
   ]
 }
