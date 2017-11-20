@@ -16,24 +16,24 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// const { Table, readBuffers } = require('../targets/es5/umd');
-// const { Table, readBuffers } = require('../targets/es5/cjs');
-const { Table, readBuffers } = require('../targets/es2015/umd');
-// const { Table, readBuffers } = require('../targets/es2015/cjs');
+// const { Table, readVectors } = require('../targets/es5/umd');
+// const { Table, readVectors } = require('../targets/es5/cjs');
+const { Table, readVectors } = require('../targets/es2015/umd');
+// const { Table, readVectors } = require('../targets/es2015/cjs');
 
+const config = require('./config');
 const Benchmark = require('benchmark');
-const arrowTestConfigurations = require('./config');
 
 const suites = [];
 
-for (let [name, ...buffers] of arrowTestConfigurations) {
+for (let { name, buffers} of config) {
     const parseSuite = new Benchmark.Suite(`Parse ${name}`, { async: true });
     const sliceSuite = new Benchmark.Suite(`Slice ${name} vectors`, { async: true });
     const iterateSuite = new Benchmark.Suite(`Iterate ${name} vectors`, { async: true });
     const getByIndexSuite = new Benchmark.Suite(`Get ${name} values by index`, { async: true });
     parseSuite.add(createFromTableTest(name, buffers));
-    parseSuite.add(createReadBuffersTest(name, buffers));
-    for (const vector of Table.from(...buffers).columns) {
+    parseSuite.add(createReadVectorsTest(name, buffers));
+    for (const vector of Table.from(buffers).columns) {
         sliceSuite.add(createSliceTest(vector));
         iterateSuite.add(createIterateTest(vector));
         getByIndexSuite.add(createGetByIndexTest(vector));
@@ -66,16 +66,16 @@ function createFromTableTest(name, buffers) {
     return {
         async: true,
         name: `Table.from`,
-        fn() { table = Table.from(...buffers); }
+        fn() { table = Table.from(buffers); }
     };
 }
 
-function createReadBuffersTest(name, buffers) {
+function createReadVectorsTest(name, buffers) {
     let vectors;
     return {
         async: true,
-        name: `readBuffers`,
-        fn() { for (vectors of readBuffers(...buffers)) {} }
+        name: `readVectors`,
+        fn() { for (vectors of readVectors(buffers)) {} }
     };
 }
 
