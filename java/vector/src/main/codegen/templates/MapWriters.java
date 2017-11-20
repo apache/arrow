@@ -21,7 +21,7 @@
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "NonNullableMapVector" />
 <#else>
 <#assign containerClass = "MapVector" />
 </#if>

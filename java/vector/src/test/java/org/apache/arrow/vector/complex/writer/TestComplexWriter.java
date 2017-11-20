@@ -34,7 +34,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NonNullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
@@ -53,7 +53,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.holders.IntHolder;
-import org.apache.arrow.vector.holders.TimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -800,7 +800,7 @@ public class TestComplexWriter {
       nanoReader.setPosition(0);
       long nanoLong = nanoReader.readLong();
       Assert.assertEquals(expectedNanos, nanoLong);
-      TimeStampNanoTZHolder h = new TimeStampNanoTZHolder();
+      NullableTimeStampNanoTZHolder h = new NullableTimeStampNanoTZHolder();
       nanoReader.read(h);
       Assert.assertEquals(expectedNanos, h.value);
     }
@@ -849,7 +849,7 @@ public class TestComplexWriter {
     /* initialize a SingleMapWriter with empty MapVector and then lazily
      * create all vectors with expected initialCapacity.
      */
-    MapVector parent = MapVector.empty("parent", allocator);
+    NonNullableMapVector parent = NonNullableMapVector.empty("parent", allocator);
     SingleMapWriter singleMapWriter = new SingleMapWriter(parent);
 
     int initialCapacity = 1024;
