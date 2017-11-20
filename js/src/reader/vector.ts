@@ -144,7 +144,7 @@ export function readListVector(field: Field, state: VectorReaderContext) {
 export function readStructVector(field: Field, state: VectorReaderContext) {
     const n = field.childrenLength();
     const columns = new Array<Vector>(n);
-    const fieldNode = state.batch.nodes(state.node++)!;
+    const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
     for (let i = -1, child: Field; ++i < n;) {
         if (child = field.children(i)!) {
@@ -180,7 +180,7 @@ export function readUtf8Vector(field: Field, state: VectorReaderContext) {
 
 export function readFixedSizeListVector(field: Field, state: VectorReaderContext) {
     const type = field.type(new FixedSizeList())!;
-    const fieldNode = state.batch.nodes(state.node++)!;
+    const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
     return new FixedSizeListVector({
         field, fieldNode, validity,
@@ -229,14 +229,14 @@ export function readIntVector(field: Field, state: VectorReaderContext) {
 }
 
 function readListBuffers(field: Field, state: VectorReaderContext) {
-    const fieldNode = state.batch.nodes(state.node++)!;
+    const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
     const offsets = readDataBuffer(Int32Array, state);
     return { field, fieldNode, validity, offsets };
 }
 
 function readBinaryBuffers(field: Field, state: VectorReaderContext) {
-    const fieldNode = state.batch.nodes(state.node++)!;
+    const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
     const offsets = readDataBuffer(Int32Array, state);
     const data = readDataBuffer(Uint8Array, state);
@@ -244,18 +244,18 @@ function readBinaryBuffers(field: Field, state: VectorReaderContext) {
 }
 
 function readNumericBuffers<T extends TypedArray>(field: Field, state: VectorReaderContext, ArrayConstructor: TypedArrayConstructor<T>) {
-    const fieldNode = state.batch.nodes(state.node++)!;
+    const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
     const data = readDataBuffer(ArrayConstructor, state);
     return { field, fieldNode, validity, data };
 }
 
 function readDataBuffer<T extends TypedArray>(ArrayConstructor: TypedArrayConstructor<T>, state: VectorReaderContext) {
-    return createTypedArray(ArrayConstructor, state.bytes, state.offset, state.batch.buffers(state.buffer++)!);
+    return createTypedArray(ArrayConstructor, state.bytes, state.offset, state.readNextBuffer());
 }
 
 function readValidityBuffer(field: Field, fieldNode: FieldNode, state: VectorReaderContext) {
-    return createValidityArray(field, fieldNode, state.bytes, state.offset, state.batch.buffers(state.buffer++)!);
+    return createValidityArray(field, fieldNode, state.bytes, state.offset, state.readNextBuffer());
 }
 
 function createValidityArray(field: Field, fieldNode: FieldNode, bytes: Uint8Array, offset: number, buffer: Buffer) {

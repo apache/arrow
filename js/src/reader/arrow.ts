@@ -32,8 +32,11 @@ import Footer = File_.org.apache.arrow.flatbuf.Footer;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
 import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
 import Message = Message_.org.apache.arrow.flatbuf.Message;
+import ArrowBuffer = Schema_.org.apache.arrow.flatbuf.Buffer;
+import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
 import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
+import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
 import DictionaryBatch = Message_.org.apache.arrow.flatbuf.DictionaryBatch;
 import DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
 
@@ -45,14 +48,14 @@ export type ArrowReaderContext = {
     readMessages: (bb: ByteBuffer, footer: Footer) => Iterable<Message>;
 };
 
-export type VectorReaderContext = {
-    node: number;
-    buffer: number;
+export interface VectorReaderContext {
     offset: number;
     bytes: Uint8Array;
     batch: RecordBatch;
     dictionaries: Map<string, Vector>;
-};
+    readNextNode(): FieldNode;
+    readNextBuffer(): ArrowBuffer;
+}
 
 export function* readVectors(buffers: Iterable<Uint8Array | Buffer | string>, context?: ArrowReaderContext) {
     const context_ = context || {} as ArrowReaderContext;
@@ -80,17 +83,20 @@ function* readBuffer(bb: ByteBuffer, readerContext: ArrowReaderContext) {
         readerContext.dictionaries = dictionaries = new Map<string, Vector>();
     }
 
-    const bytes = bb.bytes(), fieldsLength = schema.fieldsLength();
-    const context = { node: 0, buffer: 0, offset: 0, bytes, dictionaries } as VectorReaderContext;
-    let id: string, field: Field, vector: Vector, batch: DictionaryBatch, vectors: Array<Vector>;
+    const fieldsLength = schema.fieldsLength();
+    const context = new BufferReaderContext(bb.bytes(), dictionaries);
 
     for (const message of readMessages(bb, footer!)) {
 
-        context.node = 0;
-        context.buffer = 0;
-        context.offset = bb.position();
+        let id: string;
+        let field: Field;
+        let vector: Vector;
+        let vectors: Array<Vector>;
+
+        context.message = message;
 
         if (message.headerType() === MessageHeader.DictionaryBatch) {
+            let batch: DictionaryBatch;
             if (batch = message.header(new DictionaryBatch())!) {
                 context.batch = batch.data()!;
                 id = batch.id().toFloat64().toString();
@@ -156,4 +162,34 @@ function toByteBuffer(bytes?: Uint8Array | Buffer | string) {
         return new ByteBuffer(arr);
     }
     return new ByteBuffer(arr);
+}
+
+class BufferReaderContext implements VectorReaderContext {
+    public offset: number;
+    public batch: RecordBatch;
+    private nodeIndex: number;
+    private bufferIndex: number;
+    private metadataVersion: MetadataVersion;
+    constructor(public bytes: Uint8Array,
+                public dictionaries: Map<string, Vector>) {
+    }
+    set message(m: Message) {
+        this.nodeIndex = 0;
+        this.bufferIndex = 0;
+        this.offset = m.bb.position();
+        this.metadataVersion = m.version();
+    }
+    public readNextNode() {
+        return this.batch.nodes(this.nodeIndex++)!;
+    }
+    public readNextBuffer() {
+        const buffer = this.batch.buffers(this.bufferIndex++)!;
+        // If this Arrow buffer was written before version 4,
+        // advance the buffer's bb_pos 8 bytes to skip past
+        // the now-removed page id field.
+        if (this.metadataVersion < MetadataVersion[`V4`]) {
+            buffer.bb_pos += (8 * this.bufferIndex);
+        }
+        return buffer;
+    }
 }
