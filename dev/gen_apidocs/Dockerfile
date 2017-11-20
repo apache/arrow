@@ -26,7 +26,7 @@ RUN apt-add-repository -y ppa:ubuntu-toolchain-r/test && \
         git \
         gcc-4.9 \
         g++-4.9 \
-        build-essential 
+        build-essential
 # This will install conda in /home/ubuntu/miniconda
 RUN wget -O /tmp/miniconda.sh \
     https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
