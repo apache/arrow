@@ -15,16 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
+import { Vector } from './vector';
+import { VirtualVector } from './virtual';
+import { TextDecoder } from 'text-encoding-utf-8';
 
-const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/cpp/stream`, `*.arrow`));
+const decoder = new TextDecoder('utf-8');
 
-for (const filename of filenames) {
-    const { name } = path.parse(filename);
-    config.push({ name, buffers: [fs.readFileSync(filename)] });
+export class Utf8Vector extends Vector<string> {
+    readonly values: Vector<Uint8Array | null>;
+    constructor(argv: { values: Vector<Uint8Array | null> }) {
+        super();
+        this.values = argv.values;
+    }
+    get(index: number) {
+        const chars = this.getCodePoints(index);
+        return chars ? decoder.decode(chars) : null;
+    }
+    getCodePoints(index: number) {
+        return this.values.get(index);
+    }
+    concat(...vectors: Vector<string>[]): Vector<string> {
+        return new VirtualVector(Array, this, ...vectors);
+    }
 }
-
-module.exports = config;

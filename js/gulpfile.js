@@ -19,11 +19,11 @@ const del = require('del');
 const gulp = require('gulp');
 const path = require('path');
 const { Observable } = require('rxjs');
-const testsTask = require('./gulp/test-task');
 const buildTask = require('./gulp/build-task');
 const cleanTask = require('./gulp/clean-task');
 const packageTask = require('./gulp/package-task');
 const { targets, modules } = require('./gulp/argv');
+const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     targetDir,
     taskName, combinations,
@@ -35,8 +35,8 @@ const {
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
     gulp.task(`clean:${task}`, cleanTask(target, format));
-    gulp.task( `test:${task}`, testsTask(target, format));
-    gulp.task(`debug:${task}`, testsTask(target, format, true));
+    gulp.task( `test:${task}`,  testTask(target, format));
+    gulp.task(`debug:${task}`,  testTask(target, format, true));
     gulp.task(`build:${task}`, gulp.series(`clean:${task}`,
                                             buildTask(target, format),
                                             packageTask(target, format)));
@@ -50,7 +50,7 @@ knownTargets.forEach((target) =>
         gulp.series(
             gulp.parallel(
                 cleanTask(target, `umd`),
-                cleanTask(UMDSourceTargets[target], `cls`),
+                cleanTask(UMDSourceTargets[target], `cls`)
             ),
             buildTask(UMDSourceTargets[target], `cls`),
             buildTask(target, `umd`), packageTask(target, `umd`)
@@ -86,6 +86,8 @@ const buildConcurrent = (tasks) => () =>
             .merge(...knownTargets.map((target) =>
                 del(`${targetDir(target, `cls`)}/**`)))));
   
+gulp.task(`test:cleanTestData`, cleanTestData);
+gulp.task(`test:createTestData`, createTestData);
 gulp.task( `test`, gulp.series(getTasks(`test`)));
 gulp.task(`debug`, gulp.series(getTasks(`debug`)));
 gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));

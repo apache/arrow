@@ -27,7 +27,7 @@ const releasesRootDir = `targets`;
 const knownTargets = [`es5`, `es2015`, `esnext`];
 const knownModules = [`cjs`, `esm`, `cls`, `umd`];
 const moduleFormatsToSkipCombosOf = { cls: true };
-const metadataFiles = [`LICENSE`, `README.md`];
+const metadataFiles = [`../LICENSE.txt`, `../NOTICE.txt`, `README.md`];
 const packageJSONFields = [
   `version`, `license`, `description`,
   `author`, `homepage`, `repository`,

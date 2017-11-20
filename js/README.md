@@ -22,7 +22,7 @@
 [![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
 [![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
-Arrow is a set of technologies that enable big-data systems to process and move data fast.
+Arrow is a set of technologies that enable big-data systems to process and transfer data quickly.
 
 ## install [apache-arrow from npm](https://www.npmjs.com/package/apache-arrow)
 
@@ -50,7 +50,7 @@ import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
 const arrow = readFileSync('simple.arrow');
-const table = Table.from(arrow);
+const table = Table.from([arrow]);
 
 console.log(table.toString());
 
@@ -70,7 +70,7 @@ null, null, null
 import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
-const table = Table.from(...[
+const table = Table.from([
     'latlong/schema.arrow',
     'latlong/records.arrow'
 ].map((file) => readFileSync(file)));
@@ -93,12 +93,12 @@ console.log(table.toString());
 import { readFileSync } from 'fs';
 import { Table } from 'apache-arrow';
 
-const table = Table.from(...[
+const table = Table.from([
     'latlong/schema.arrow',
     'latlong/records.arrow'
 ].map(readFileSync));
 
-const column = table.getColumn('origin_lat');
+const column = table.col('origin_lat');
 const typed = column.slice();
 
 assert(typed instanceof Float32Array);
@@ -135,7 +135,7 @@ MapD.open(host, port)
     // Create Arrow Table from results
     Table.from(schema, records))
   .map((table) =>
-    // Stringify the table to CSV
+    // Stringify the table to CSV with row numbers
     table.toString({ index: true }))
   .subscribe((csvStr) =>
     console.log(csvStr));

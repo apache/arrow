@@ -44,3 +44,22 @@ conda install -y pip numpy six
 python integration_test.py --debug
 
 popd
+
+pushd $ARROW_JS_DIR
+
+# lint and compile JS source
+npm run lint
+npm run build
+# create initial test data
+npm run test:createTestData
+# run once to write the snapshots
+npm test -- -t ts -u --integration
+# run again to test all builds against the snapshots
+npm test -- --integration
+# run tests against source to generate coverage data
+npm run test:coverage -- --integration
+# Uncomment to upload to coveralls
+# cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js;
+
+
+popd

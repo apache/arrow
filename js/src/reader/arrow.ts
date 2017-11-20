@@ -15,64 +15,141 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Vector } from '../vector/vector';
 import { flatbuffers } from 'flatbuffers';
-import * as Schema_ from '../format/Schema_generated';
-import * as Message_ from '../format/Message_generated';
-export import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
-export import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
+import { readVector, readValueVector } from './vector';
+import {
+    readFileFooter, readFileMessages,
+    readStreamSchema, readStreamMessages
+} from './format';
 
-import { readFile } from './file';
-import { readStream } from './stream';
-import { readVector } from './vector';
-import { readDictionary } from './dictionary';
-import { Vector, Column } from '../types/types';
+import * as File_ from '../format/File';
+import * as Schema_ from '../format/Schema';
+import * as Message_ from '../format/Message';
 
 import ByteBuffer = flatbuffers.ByteBuffer;
+import Footer = File_.org.apache.arrow.flatbuf.Footer;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
-export type Dictionaries = { [k: string]: Vector<any> } | null;
-export type IteratorState = { nodeIndex: number; bufferIndex: number };
+import Schema = Schema_.org.apache.arrow.flatbuf.Schema;
+import Message = Message_.org.apache.arrow.flatbuf.Message;
+import ArrowBuffer = Schema_.org.apache.arrow.flatbuf.Buffer;
+import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
+import RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
+import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
+import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
+import DictionaryBatch = Message_.org.apache.arrow.flatbuf.DictionaryBatch;
+import DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
 
-export function* readRecords(...bytes: ByteBuffer[]) {
-    try {
-        yield* readFile(...bytes);
-    } catch (e) {
-        try {
-            yield* readStream(...bytes);
-        } catch (e) {
-            throw new Error('Invalid Arrow buffer');
-        }
+export type ArrowReaderContext = {
+    schema?: Schema;
+    footer?: Footer | null;
+    dictionaries: Map<string, Vector>;
+    dictionaryEncodedFields: Map<string, Field>;
+    readMessages: (bb: ByteBuffer, footer: Footer) => Iterable<Message>;
+};
+
+export interface VectorReaderContext {
+    offset: number;
+    bytes: Uint8Array;
+    batch: RecordBatch;
+    dictionaries: Map<string, Vector>;
+    readNextNode(): FieldNode;
+    readNextBuffer(): ArrowBuffer;
+}
+
+export function* readVectors(buffers: Iterable<Uint8Array | Buffer | string>, context?: ArrowReaderContext) {
+    const context_ = context || {} as ArrowReaderContext;
+    for (const buffer of buffers) {
+        yield* readBuffer(toByteBuffer(buffer), context_);
     }
 }
 
-export function* readBuffers(...bytes: Array<Uint8Array | Buffer | string>) {
-    const dictionaries: Dictionaries = {};
-    const byteBuffers = bytes.map(toByteBuffer);
-    for (let { schema, batch } of readRecords(...byteBuffers)) {
-        let vectors: Column<any>[] = [];
-        let state = { nodeIndex: 0, bufferIndex: 0 };
-        let fieldsLength = schema.fieldsLength();
-        let index = -1, field: Field, vector: Vector<any>;
-        if (batch.id) {
-            // A dictionary batch only contain a single vector. Traverse each
-            // field and its children until we find one that uses this dictionary
-            while (++index < fieldsLength) {
-                if (field = schema.fields(index)!) {
-                    if (vector = readDictionary<any>(field, batch, state, dictionaries)!) {
-                        dictionaries[batch.id] = dictionaries[batch.id] && dictionaries[batch.id].concat(vector) || vector;
-                        break;
-                    }
+export async function* readVectorsAsync(buffers: AsyncIterable<Uint8Array | Buffer | string>, context?: ArrowReaderContext) {
+    const context_ = context || {} as ArrowReaderContext;
+    for await (const buffer of buffers) {
+        yield* readBuffer(toByteBuffer(buffer), context_);
+    }
+}
+
+function* readBuffer(bb: ByteBuffer, readerContext: ArrowReaderContext) {
+
+    let { schema, footer, readMessages, dictionaryEncodedFields, dictionaries } = readerContext;
+
+    if (!schema) {
+        ({ schema, footer, readMessages, dictionaryEncodedFields } = readSchema(bb));
+        readerContext.schema = schema;
+        readerContext.readMessages = readMessages;
+        readerContext.dictionaryEncodedFields = dictionaryEncodedFields;
+        readerContext.dictionaries = dictionaries = new Map<string, Vector>();
+    }
+
+    const fieldsLength = schema.fieldsLength();
+    const context = new BufferReaderContext(bb.bytes(), dictionaries);
+
+    for (const message of readMessages(bb, footer!)) {
+
+        let id: string;
+        let field: Field;
+        let vector: Vector;
+        let vectors: Array<Vector>;
+
+        context.message = message;
+
+        if (message.headerType() === MessageHeader.DictionaryBatch) {
+            let batch: DictionaryBatch;
+            if (batch = message.header(new DictionaryBatch())!) {
+                context.batch = batch.data()!;
+                id = batch.id().toFloat64().toString();
+                field = dictionaryEncodedFields.get(id)!;
+                vector = readValueVector(field, context);
+                if (batch.isDelta() && dictionaries.has(id)) {
+                    vector = dictionaries.get(id)!.concat(vector);
                 }
+                dictionaries.set(id, vector);
             }
-        } else {
-            while (++index < fieldsLength) {
-                if ((field = schema.fields(index)!) &&
-                    (vector = readVector<any>(field, batch, state, dictionaries)!)) {
-                    vectors[index] = vector as Column<any>;
-                }
+            continue;
+        }
+
+        vectors = new Array<Vector>(fieldsLength);
+        context.batch = message.header(new RecordBatch())!;
+
+        for (let i = -1; ++i < fieldsLength;) {
+            if ((field = schema.fields(i)!) || (vectors[i] = null as any)) {
+                vectors[i] = readVector(field, context);
             }
-            yield vectors;
+        }
+
+        yield vectors;
+    }
+}
+
+function readSchema(bb: ByteBuffer) {
+    let schema: Schema, readMessages, footer = readFileFooter(bb);
+    if (footer) {
+        schema = footer.schema()!;
+        readMessages = readFileMessages;
+    } else if (schema = readStreamSchema(bb)!) {
+        readMessages = readStreamMessages;
+    } else {
+        throw new Error('Invalid Arrow buffer');
+    }
+    return { schema, footer, readMessages, dictionaryEncodedFields: readDictionaryEncodedFields(schema, new Map<string, Field>()) };
+}
+
+function readDictionaryEncodedFields(parent: Schema | Field, fields: Map<string, Field>) {
+    let field: Field, encoding: DictionaryEncoding, id: string;
+    let getField = parent instanceof Field ? parent.children : parent.fields;
+    let getFieldCount = parent instanceof Field ? parent.childrenLength : parent.fieldsLength;
+    for (let i = -1, n = getFieldCount.call(parent); ++i < n;) {
+        if (field = getField.call(parent, i)!) {
+            if ((encoding = field.dictionary()!) &&
+                (id = encoding.id().toFloat64().toString())) {
+                !fields.has(id) && fields.set(id, field);
+            }
+            readDictionaryEncodedFields(field, fields);
         }
     }
+    return fields;
 }
 
 function toByteBuffer(bytes?: Uint8Array | Buffer | string) {
@@ -85,4 +162,34 @@ function toByteBuffer(bytes?: Uint8Array | Buffer | string) {
         return new ByteBuffer(arr);
     }
     return new ByteBuffer(arr);
+}
+
+class BufferReaderContext implements VectorReaderContext {
+    public offset: number;
+    public batch: RecordBatch;
+    private nodeIndex: number;
+    private bufferIndex: number;
+    private metadataVersion: MetadataVersion;
+    constructor(public bytes: Uint8Array,
+                public dictionaries: Map<string, Vector>) {
+    }
+    set message(m: Message) {
+        this.nodeIndex = 0;
+        this.bufferIndex = 0;
+        this.offset = m.bb.position();
+        this.metadataVersion = m.version();
+    }
+    public readNextNode() {
+        return this.batch.nodes(this.nodeIndex++)!;
+    }
+    public readNextBuffer() {
+        const buffer = this.batch.buffers(this.bufferIndex++)!;
+        // If this Arrow buffer was written before version 4,
+        // advance the buffer's bb_pos 8 bytes to skip past
+        // the now-removed page id field.
+        if (this.metadataVersion < MetadataVersion[`V4`]) {
+            buffer.bb_pos += (8 * this.bufferIndex);
+        }
+        return buffer;
+    }
 }

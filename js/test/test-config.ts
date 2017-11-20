@@ -17,26 +17,36 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-const arrowFormats = ['file', 'stream'];
-const arrowFileNames = ['simple', 'struct', 'dictionary', 'dictionary2', 'multi_dictionary'];
-const multipartArrows = ['count', 'latlong', 'origins'];
-export let arrowTestConfigurations = [] as (string | Buffer)[][];
+import * as glob from 'glob';
 
-arrowTestConfigurations = arrowFormats.reduce((configs, format) => {
-    return arrowFileNames.reduce((configs, name) => {
-        const arrowPath = path.resolve(__dirname, `./arrows/${format}/${name}.arrow`);
-        try {
-            const arrowFile = fs.readFileSync(arrowPath);
-            return [...configs, [`${name} ${format} Arrow`, arrowFile]];
-        } catch (e) {}
-        return configs;
-    }, configs);
-}, arrowTestConfigurations);
+export const sources = (process.env.TEST_SOURCES
+    ? JSON.parse(process.env.TEST_SOURCES + '')
+    : [`cpp`, `java`]) as ['cpp' | 'java'];
 
-arrowTestConfigurations = multipartArrows.reduce((configs, folder) => {
-    const schemaPath = path.resolve(__dirname, `./arrows/multi/${folder}/schema.arrow`);
-    const recordsPath = path.resolve(__dirname, `./arrows/multi/${folder}/records.arrow`);
-    return [...configs, [`multipart ${folder} Arrow`, fs.readFileSync(schemaPath), fs.readFileSync(recordsPath)]];
-}, arrowTestConfigurations);
+export const formats = (process.env.TEST_FORMATS
+    ? JSON.parse(process.env.TEST_FORMATS + '')
+    : [`file`, `stream`]) as ['file' | 'stream'];
 
-export default arrowTestConfigurations;
+export const config = sources.reduce((sources, source) => ({
+    ...sources,
+    [source]: formats.reduce((formats, format) => ({
+        ...formats,
+        [format]: loadArrows(source, format)
+    }), {})
+}), {}) as {
+    [k in 'cpp' | 'java']: {
+        [k in 'file' | 'stream']: Arrows
+    }
+};
+
+export type Arrows = { name: string, buffers: Uint8Array[] }[];
+
+function loadArrows(source: string, format: string) {
+    const arrows = [];
+    const filenames = glob.sync(path.resolve(__dirname, `data/${source}/${format}`, `*.arrow`));
+    for (const filename of filenames) {
+        const { name } = path.parse(filename);
+        arrows.push({ name, buffers: [fs.readFileSync(filename)] });
+    }
+    return arrows as Arrows;
+}
