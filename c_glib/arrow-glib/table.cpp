@@ -143,8 +143,7 @@ garrow_table_new(GArrowSchema *schema,
   }
 
   auto arrow_table =
-    std::make_shared<arrow::Table>(garrow_schema_get_raw(schema),
-                                   arrow_columns);
+    arrow::Table::Make(garrow_schema_get_raw(schema), arrow_columns);
   return garrow_table_new_raw(&arrow_table);
 }
 
