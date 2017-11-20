@@ -29,5 +29,5 @@ RUN /check_arrow_visibility.sh
 WORKDIR /
 RUN git clone https://github.com/apache/parquet-cpp.git
 WORKDIR /parquet-cpp
-RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BOOST_USE_SHARED=OFF -GNinja .
+RUN ARROW_HOME=/arrow-dist cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/arrow-dist -DPARQUET_BUILD_TESTS=OFF -DPARQUET_BUILD_SHARED=OFF -DPARQUET_BUILD_STATIC=ON -DPARQUET_BOOST_USE_SHARED=OFF -GNinja .
 RUN ninja install
