@@ -17,6 +17,7 @@
 
 from os.path import join as pjoin
 import datetime
+import decimal
 import io
 import os
 import json
@@ -1563,4 +1564,20 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     )
     t = _read_table(path)
     result = t.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+def test_decimal_roundtrip(tmpdir):
+    expected = pd.DataFrame({'group1': list('aaabbbbccc'),
+                             'num': list(range(10)),
+                             'decimal_num': list(
+                                 map(lambda x: decimal.Decimal(str(x) + '.0'),
+                                     range(10, 20)))})[
+                                         ['group1', 'num', 'decimal_num']]
+    expected['decimal_num'] *= 30
+    expected['decimal_num'] /= 4
+    filename = tmpdir.join('decimals.parquet')
+    t = pa.Table.from_pandas(expected, preserve_index=False)
+    _write_table(t, str(filename))
+    result = _read_table(str(filename)).to_pandas()
     tm.assert_frame_equal(result, expected)
