@@ -118,34 +118,41 @@ Status RecordBatch::Validate() const {
 // ----------------------------------------------------------------------
 // In-memory simple record batch implementation
 
-
-SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema,
+                                     int64_t num_rows,
                                      const std::vector<std::shared_ptr<Array>>& columns)
     : RecordBatch(schema, num_rows) {
+  DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
   columns_.resize(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
     columns_[i] = columns[i]->data();
   }
 }
 
-SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema,
+                                     int64_t num_rows,
                                      std::vector<std::shared_ptr<Array>>&& columns)
     : RecordBatch(schema, num_rows) {
+  DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
   columns_.resize(columns.size());
   for (size_t i = 0; i < columns.size(); ++i) {
     columns_[i] = columns[i]->data();
   }
 }
 
-SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
+SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema,
+                                     int64_t num_rows,
                                      std::vector<std::shared_ptr<ArrayData>>&& columns)
     : RecordBatch(schema, num_rows) {
+  DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
   columns_ = std::move(columns);
 }
 
-SimpleRecordBatch::SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                                     const std::vector<std::shared_ptr<ArrayData>>& columns)
+SimpleRecordBatch::SimpleRecordBatch(
+    const std::shared_ptr<Schema>& schema, int64_t num_rows,
+    const std::vector<std::shared_ptr<ArrayData>>& columns)
     : RecordBatch(schema, num_rows) {
+  DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
   columns_ = columns;
 }
 
@@ -161,7 +168,14 @@ std::shared_ptr<ArrayData> SimpleRecordBatch::column_data(int i) const {
   return columns_[i];
 }
 
-std::shared_ptr<RecordBatch> SimpleRecordBatch::Slice(int64_t offset, int64_t length) const {
+std::shared_ptr<RecordBatch> SimpleRecordBatch::ReplaceSchemaMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  auto new_schema = schema_->AddMetadata(metadata);
+  return RecordBatch::Make(new_schema, num_rows_, columns_);
+}
+
+std::shared_ptr<RecordBatch> SimpleRecordBatch::Slice(int64_t offset,
+                                                      int64_t length) const {
   std::vector<std::shared_ptr<ArrayData>> arrays;
   arrays.reserve(num_columns());
   for (const auto& field : columns_) {

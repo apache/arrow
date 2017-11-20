@@ -476,14 +476,15 @@ TEST_F(TestRecordBatch, Equals) {
   auto f2 = field("f2", int16());
 
   vector<shared_ptr<Field>> fields = {f0, f1, f2};
-  auto schema = std::make_shared<Schema>(fields);
+  auto schema = ::arrow::schema({f0, f1, f2});
+  auto schema2 = ::arrow::schema({f0, f1});
 
   auto a0 = MakeRandomArray<Int32Array>(length);
   auto a1 = MakeRandomArray<UInt8Array>(length);
   auto a2 = MakeRandomArray<Int16Array>(length);
 
   SimpleRecordBatch b1(schema, length, {a0, a1, a2});
-  SimpleRecordBatch b3(schema, length, {a0, a1});
+  SimpleRecordBatch b3(schema2, length, {a0, a1});
   SimpleRecordBatch b4(schema, length, {a0, a1, a1});
 
   ASSERT_TRUE(b1.Equals(b1));

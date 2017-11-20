@@ -38,6 +38,8 @@ export ARROW_PYTHON_PARQUET_HOME=$TRAVIS_BUILD_DIR/parquet-env
 
 export CMAKE_EXPORT_COMPILE_COMMANDS=1
 
+export ARROW_BUILD_TYPE=${ARROW_BUILD_TYPE:=debug}
+
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain

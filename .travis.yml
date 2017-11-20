@@ -55,6 +55,7 @@ matrix:
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
     - export ARROW_TRAVIS_CLANG_FORMAT=1
+    - export ARROW_BUILD_TYPE=release
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh

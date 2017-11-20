@@ -47,13 +47,13 @@ class ARROW_EXPORT RecordBatch {
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
   static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema,
-      int64_t num_rows, const std::vector<std::shared_ptr<Array>>& columns);
+      const std::shared_ptr<Schema>& schema, int64_t num_rows,
+      const std::vector<std::shared_ptr<Array>>& columns);
 
   /// \brief Move-based constructor for a vector of Array instances
-  static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<Array>>&& columns);
+  static std::shared_ptr<RecordBatch> Make(const std::shared_ptr<Schema>& schema,
+                                           int64_t num_rows,
+                                           std::vector<std::shared_ptr<Array>>&& columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
@@ -84,9 +84,7 @@ class ARROW_EXPORT RecordBatch {
 
   // \return the table's schema
   /// \return true if batches are equal
-  std::shared_ptr<Schema> schema() const {
-    return schema_;
-  }
+  std::shared_ptr<Schema> schema() const { return schema_; }
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
@@ -98,13 +96,14 @@ class ARROW_EXPORT RecordBatch {
   /// \return an internal ArrayData object
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
 
+  virtual std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
+
   /// \brief Name in i-th column
   const std::string& column_name(int i) const;
 
   /// \return the number of columns in the table
-  int num_columns() const {
-    return schema_->num_fields();
-  }
+  int num_columns() const { return schema_->num_fields(); }
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -118,8 +117,7 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] offset the starting offset to slice
   /// \param[in] length the number of elements to slice from offset
   /// \return new record batch
-  virtual std::shared_ptr<RecordBatch> Slice(int64_t offset,
-                                             int64_t length) const = 0;
+  virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
 
   /// \brief Check for schema or length inconsistencies
   /// \return Status
@@ -158,6 +156,9 @@ class ARROW_EXPORT SimpleRecordBatch : public RecordBatch {
   std::shared_ptr<ArrayData> column_data(int i) const override;
 
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const override;
+
+  std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const override;
 
  private:
   std::vector<std::shared_ptr<ArrayData>> columns_;

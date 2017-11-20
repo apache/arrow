@@ -91,11 +91,13 @@ fi
 if [ $TRAVIS_OS_NAME == "linux" ]; then
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_LINUX_FLAGS \
+          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
           -DBUILD_WARNING_LEVEL=CHECKIN \
           $ARROW_CPP_DIR
 else
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
+          -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
           -DBUILD_WARNING_LEVEL=CHECKIN \
           $ARROW_CPP_DIR
 fi

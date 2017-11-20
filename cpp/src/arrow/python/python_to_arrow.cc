@@ -32,13 +32,15 @@
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/record_batch.h"
+#include "arrow/tensor.h"
+#include "arrow/util/logging.h"
+
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/util/datetime.h"
-#include "arrow/tensor.h"
-#include "arrow/util/logging.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 
@@ -694,7 +696,7 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
 std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   auto field = std::make_shared<Field>("list", data->type());
   auto schema = ::arrow::schema({field});
-  return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
+  return RecordBatch::Make(schema, data->length(), {data});
 }
 
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {

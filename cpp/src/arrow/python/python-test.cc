@@ -23,6 +23,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 
 #include "arrow/python/arrow_to_pandas.h"

@@ -584,8 +584,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
-  *out = RecordBatch::Make(schema, date32_array->length(),
-                           {date32_array, date64_array});
+  *out = RecordBatch::Make(schema, date32_array->length(), {date32_array, date64_array});
   return Status::OK();
 }
 

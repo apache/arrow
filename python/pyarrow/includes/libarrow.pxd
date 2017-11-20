@@ -403,8 +403,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CChunkedArray] data()
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":
-        CRecordBatch(const shared_ptr[CSchema]& schema, int64_t num_rows,
-                     const vector[shared_ptr[CArray]]& columns)
+        @staticmethod
+        shared_ptr[CRecordBatch] Make(
+            const shared_ptr[CSchema]& schema, int64_t num_rows,
+            const vector[shared_ptr[CArray]]& columns)
 
         c_bool Equals(const CRecordBatch& other)
 
