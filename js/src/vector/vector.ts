@@ -48,7 +48,7 @@ export class Vector<T = any> implements Vector<T> {
 
 (Vector.prototype as any).name = '';
 (Vector.prototype as any).stride = 1;
-(Vector.prototype as any).type = Type[0];
 (Vector.prototype as any).nullable = !1;
 (Vector.prototype as any).nullCount = 0;
 (Vector.prototype as any).metadata = new Map();
+(Vector.prototype as any).type = Type[Type[`NONE`]];

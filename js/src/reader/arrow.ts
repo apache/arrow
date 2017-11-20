@@ -95,7 +95,7 @@ function* readBuffer(bb: ByteBuffer, readerContext: ArrowReaderContext) {
 
         context.message = message;
 
-        if (message.headerType() === MessageHeader.DictionaryBatch) {
+        if (message.headerType() === MessageHeader[`DictionaryBatch`]) {
             let batch: DictionaryBatch;
             if (batch = message.header(new DictionaryBatch())!) {
                 context.batch = batch.data()!;

@@ -76,23 +76,23 @@ export function readDictionaryVector(field: Field, state: VectorReaderContext) {
 
 export function readValueVector(field: Field, state: VectorReaderContext): Vector {
     switch (field.typeType()) {
-        case Type.NONE: return readNullVector();
-        case Type.Null: return readNullVector();
-        // case Type.Map: return readMapVector(field, state);
-        case Type.Int: return readIntVector(field, state);
-        case Type.Bool: return readBoolVector(field, state);
-        case Type.Date: return readDateVector(field, state);
-        case Type.List: return readListVector(field, state);
-        case Type.Utf8: return readUtf8Vector(field, state);
-        case Type.Time: return readTimeVector(field, state);
-        // case Type.Union: return readUnionVector(field, state);
-        case Type.Binary: return readBinaryVector(field, state);
-        case Type.Decimal: return readDecimalVector(field, state);
-        case Type.Struct_: return readStructVector(field, state);
-        case Type.FloatingPoint: return readFloatVector(field, state);
-        case Type.Timestamp: return readTimestampVector(field, state);
-        case Type.FixedSizeList: return readFixedSizeListVector(field, state);
-        case Type.FixedSizeBinary: return readFixedSizeBinaryVector(field, state);
+        case Type[`NONE`]: return readNullVector();
+        case Type[`Null`]: return readNullVector();
+        // case Type[`Map`]: return readMapVector(field, state);
+        case Type[`Int`]: return readIntVector(field, state);
+        case Type[`Bool`]: return readBoolVector(field, state);
+        case Type[`Date`]: return readDateVector(field, state);
+        case Type[`List`]: return readListVector(field, state);
+        case Type[`Utf8`]: return readUtf8Vector(field, state);
+        case Type[`Time`]: return readTimeVector(field, state);
+        // case Type[`Union`]: return readUnionVector(field, state);
+        case Type[`Binary`]: return readBinaryVector(field, state);
+        case Type[`Decimal`]: return readDecimalVector(field, state);
+        case Type[`Struct_`]: return readStructVector(field, state);
+        case Type[`FloatingPoint`]: return readFloatVector(field, state);
+        case Type[`Timestamp`]: return readTimestampVector(field, state);
+        case Type[`FixedSizeList`]: return readFixedSizeListVector(field, state);
+        case Type[`FixedSizeBinary`]: return readFixedSizeBinaryVector(field, state);
     }
     throw new Error(`Unrecognized Vector { name: ${Type[field.typeType()]}, type: ${field.typeType()} }`);
 }
@@ -108,8 +108,8 @@ export function readBoolVector(field: Field, state: VectorReaderContext) {
 export function readDateVector(field: Field, state: VectorReaderContext) {
     const type = field.type(new Date())!;
     switch (type.unit()) {
-        case DateUnit.DAY: return new Date32Vector({ ...readNumericBuffers(field, state, Int32Array), unit: DateUnit[type.unit()] });
-        case DateUnit.MILLISECOND: return new Date64Vector({ ...readNumericBuffers(field, state, Uint32Array), unit: DateUnit[type.unit()] });
+        case DateUnit[`DAY`]: return new Date32Vector({ ...readNumericBuffers(field, state, Int32Array), unit: DateUnit[type.unit()] });
+        case DateUnit[`MILLISECOND`]: return new Date64Vector({ ...readNumericBuffers(field, state, Uint32Array), unit: DateUnit[type.unit()] });
     }
     throw new Error(`Unrecognized Date { unit: ${type.unit} }`);
 }
@@ -202,9 +202,9 @@ export function readFixedSizeBinaryVector(field: Field, state: VectorReaderConte
 export function readFloatVector(field: Field, state: VectorReaderContext) {
     const type = field.type(new FloatingPoint())!;
     switch (type.precision()) {
-        case Precision.HALF:   return new Float16Vector(readNumericBuffers(field, state, Uint16Array));
-        case Precision.SINGLE: return new Float32Vector(readNumericBuffers(field, state, Float32Array));
-        case Precision.DOUBLE: return new Float64Vector(readNumericBuffers(field, state, Float64Array));
+        case Precision[`HALF`]:   return new Float16Vector(readNumericBuffers(field, state, Uint16Array));
+        case Precision[`SINGLE`]: return new Float32Vector(readNumericBuffers(field, state, Float32Array));
+        case Precision[`DOUBLE`]: return new Float64Vector(readNumericBuffers(field, state, Float64Array));
     }
     throw new Error(`Unrecognized FloatingPoint { precision: ${type.precision()} }`);
 }

@@ -53,7 +53,7 @@
     "command-line-usage": "4.0.1"
   },
   "dependencies": {
-    "flatbuffers": "1.7.0",
+    "flatbuffers": "trxcllnt/flatbuffers-esm",
     "text-encoding": "0.6.4"
   },
   "devDependencies": {
@@ -70,7 +70,7 @@
     "esdoc": "1.0.3",
     "esdoc-standard-plugin": "1.0.0",
     "glob": "7.1.2",
-    "google-closure-compiler": "20170910.0.0",
+    "google-closure-compiler": "20171112.0.0",
     "gulp": "github:gulpjs/gulp#4.0",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
