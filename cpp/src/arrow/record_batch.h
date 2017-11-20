@@ -129,9 +129,6 @@ class ARROW_EXPORT RecordBatch {
   std::shared_ptr<Schema> schema_;
   int64_t num_rows_;
 
-  // Caching boxed array data
-  mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
-
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };

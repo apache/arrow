@@ -38,6 +38,7 @@ class SimpleRecordBatch : public RecordBatch {
       : RecordBatch(schema, num_rows) {
     DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_.resize(columns.size());
+    boxed_columns_.resize(schema->num_fields());
     for (size_t i = 0; i < columns.size(); ++i) {
       columns_[i] = columns[i]->data();
     }
@@ -48,6 +49,7 @@ class SimpleRecordBatch : public RecordBatch {
       : RecordBatch(schema, num_rows) {
     DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_.resize(columns.size());
+    boxed_columns_.resize(schema->num_fields());
     for (size_t i = 0; i < columns.size(); ++i) {
       columns_[i] = columns[i]->data();
     }
@@ -58,6 +60,7 @@ class SimpleRecordBatch : public RecordBatch {
       : RecordBatch(schema, num_rows) {
     DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_ = std::move(columns);
+    boxed_columns_.resize(schema->num_fields());
   }
 
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
@@ -65,6 +68,7 @@ class SimpleRecordBatch : public RecordBatch {
       : RecordBatch(schema, num_rows) {
     DCHECK_EQ(static_cast<int>(columns.size()), schema->num_fields());
     columns_ = columns;
+    boxed_columns_.resize(schema->num_fields());
   }
 
   std::shared_ptr<Array> column(int i) const override {
@@ -102,12 +106,13 @@ class SimpleRecordBatch : public RecordBatch {
 
  private:
   std::vector<std::shared_ptr<ArrayData>> columns_;
+
+  // Caching boxed array data
+  mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 };
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
-    : schema_(schema), num_rows_(num_rows) {
-  boxed_columns_.resize(schema->num_fields());
-}
+    : schema_(schema), num_rows_(num_rows) {}
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     const std::shared_ptr<Schema>& schema, int64_t num_rows,
