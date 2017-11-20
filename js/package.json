@@ -90,7 +90,7 @@
     "rxjs": "5.5.2",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
-    "text-encoding-utf-8": "1.0.1",
+    "text-encoding-utf-8": "1.0.2",
     "trash": "4.1.0",
     "ts-jest": "21.2.1",
     "tslib": "1.8.0",
