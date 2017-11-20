@@ -740,20 +740,23 @@ class CastKernel : public UnaryKernel {
         can_pre_allocate_values_(can_pre_allocate_values),
         out_type_(out_type) {}
 
-  Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) override {
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+
+    const ArrayData& in_data = *input.array();
     ArrayData* result;
 
     if (out->kind() == Datum::NONE) {
-      out->value = std::make_shared<ArrayData>(out_type_, input.length);
+      out->value = std::make_shared<ArrayData>(out_type_, in_data.length);
     }
 
     result = out->array().get();
 
     if (!is_zero_copy_) {
       RETURN_NOT_OK(
-          AllocateIfNotPreallocated(ctx, input, can_pre_allocate_values_, result));
+          AllocateIfNotPreallocated(ctx, in_data, can_pre_allocate_values_, result));
     }
-    func_(ctx, options_, input, result);
+    func_(ctx, options_, in_data, result);
 
     RETURN_IF_ERROR(ctx);
     return Status::OK();
