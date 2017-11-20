@@ -1020,7 +1020,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
 
             if level == DEPTH - 1:
                 # Generate example data
-                file_path = pjoin(level_dir, 'data.parq')
+                file_path = pjoin(level_dir, guid())
 
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
