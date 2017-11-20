@@ -55,7 +55,7 @@ matrix:
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
     - export ARROW_TRAVIS_CLANG_FORMAT=1
-    - export ARROW_BUILD_TYPE=release
+    - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
@@ -75,6 +75,7 @@ matrix:
     before_script:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh
@@ -110,6 +111,7 @@ matrix:
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
     - nvm install node
+    - export ARROW_BUILD_TYPE=release
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
