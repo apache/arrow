@@ -420,11 +420,9 @@ inline void DictionaryDecoder<FLBAType>::SetDict(Decoder<FLBAType>* dictionary) 
 
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size, false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
-  int offset = 0;
-  for (int i = 0; i < num_dictionary_values; ++i) {
+  for (int32_t i = 0, offset = 0; i < num_dictionary_values; ++i, offset += fixed_len) {
     memcpy(bytes_data + offset, dictionary_[i].ptr, fixed_len);
     dictionary_[i].ptr = bytes_data + offset;
-    offset += fixed_len;
   }
 }
 
@@ -597,7 +595,7 @@ inline int DictEncoder<DType>::Hash(const typename DType::c_type& value) const {
 template <>
 inline int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) const {
   if (value.len > 0) {
-    DCHECK(nullptr != value.ptr) << "Value ptr cannot be NULL";
+    DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
   }
   return HashUtil::Hash(value.ptr, value.len, 0);
 }
@@ -605,7 +603,7 @@ inline int DictEncoder<ByteArrayType>::Hash(const ByteArray& value) const {
 template <>
 inline int DictEncoder<FLBAType>::Hash(const FixedLenByteArray& value) const {
   if (type_length_ > 0) {
-    DCHECK(nullptr != value.ptr) << "Value ptr cannot be NULL";
+    DCHECK_NE(nullptr, value.ptr) << "Value ptr cannot be NULL";
   }
   return HashUtil::Hash(value.ptr, type_length_, 0);
 }
@@ -923,7 +921,8 @@ class DeltaByteArrayDecoder : public Decoder<ByteArrayType> {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Decoder<ByteArrayType>(descr, Encoding::DELTA_BYTE_ARRAY),
         prefix_len_decoder_(nullptr, pool),
-        suffix_decoder_(nullptr, pool) {}
+        suffix_decoder_(nullptr, pool),
+        last_value_(0, nullptr) {}
 
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;

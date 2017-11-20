@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <sstream>
 #include <string>
 
@@ -136,15 +137,15 @@ struct ByteArray {
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
   uint32_t len;
   const uint8_t* ptr;
-
-  bool operator==(const ByteArray& other) const {
-    return this->len == other.len && 0 == memcmp(this->ptr, other.ptr, this->len);
-  }
-
-  bool operator!=(const ByteArray& other) const {
-    return this->len != other.len || 0 != memcmp(this->ptr, other.ptr, this->len);
-  }
 };
+
+inline bool operator==(const ByteArray& left, const ByteArray& right) {
+  return left.len == right.len && std::equal(left.ptr, left.ptr + left.len, right.ptr);
+}
+
+inline bool operator!=(const ByteArray& left, const ByteArray& right) {
+  return !(left == right);
+}
 
 struct FixedLenByteArray {
   FixedLenByteArray() : ptr(nullptr) {}
@@ -152,63 +153,47 @@ struct FixedLenByteArray {
   const uint8_t* ptr;
 };
 
-typedef FixedLenByteArray FLBA;
+using FLBA = FixedLenByteArray;
 
-MANUALLY_ALIGNED_STRUCT(1) Int96 {
-  uint32_t value[3];
-
-  bool operator==(const Int96& other) const {
-    return 0 == memcmp(this->value, other.value, 3 * sizeof(uint32_t));
-  }
-
-  bool operator!=(const Int96& other) const { return !(*this == other); }
-};
+MANUALLY_ALIGNED_STRUCT(1) Int96 { uint32_t value[3]; };
 STRUCT_END(Int96, 12);
+
+inline bool operator==(const Int96& left, const Int96& right) {
+  return std::equal(left.value, left.value + 3, right.value);
+}
+
+inline bool operator!=(const Int96& left, const Int96& right) { return !(left == right); }
 
 static inline std::string ByteArrayToString(const ByteArray& a) {
   return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
 }
 
 static inline std::string Int96ToString(const Int96& a) {
-  std::stringstream result;
-  for (int i = 0; i < 3; i++) {
-    result << a.value[i] << " ";
-  }
+  std::ostringstream result;
+  std::copy(a.value, a.value + 3, std::ostream_iterator<uint32_t>(result, " "));
   return result.str();
 }
 
 static inline std::string FixedLenByteArrayToString(const FixedLenByteArray& a, int len) {
-  const uint8_t* bytes = reinterpret_cast<const uint8_t*>(a.ptr);
-  std::stringstream result;
-  for (int i = 0; i < len; i++) {
-    result << (uint32_t)bytes[i] << " ";
-  }
+  std::ostringstream result;
+  std::copy(a.ptr, a.ptr + len, std::ostream_iterator<uint32_t>(result, " "));
   return result.str();
 }
 
-static inline int ByteCompare(const ByteArray& x1, const ByteArray& x2) {
-  uint32_t len = std::min(x1.len, x2.len);
-  int cmp = memcmp(x1.ptr, x2.ptr, len);
-  if (cmp != 0) return cmp;
-  if (len < x1.len) return 1;
-  if (len < x2.len) return -1;
-  return 0;
-}
-
-template <int TYPE>
+template <Type::type TYPE>
 struct type_traits {};
 
 template <>
 struct type_traits<Type::BOOLEAN> {
-  typedef bool value_type;
-  static constexpr int value_byte_size = 1;
+  using value_type = bool;
 
+  static constexpr int value_byte_size = 1;
   static constexpr const char* printf_code = "d";
 };
 
 template <>
 struct type_traits<Type::INT32> {
-  typedef int32_t value_type;
+  using value_type = int32_t;
 
   static constexpr int value_byte_size = 4;
   static constexpr const char* printf_code = "d";
@@ -216,7 +201,7 @@ struct type_traits<Type::INT32> {
 
 template <>
 struct type_traits<Type::INT64> {
-  typedef int64_t value_type;
+  using value_type = int64_t;
 
   static constexpr int value_byte_size = 8;
   static constexpr const char* printf_code = "ld";
@@ -224,7 +209,7 @@ struct type_traits<Type::INT64> {
 
 template <>
 struct type_traits<Type::INT96> {
-  typedef Int96 value_type;
+  using value_type = Int96;
 
   static constexpr int value_byte_size = 12;
   static constexpr const char* printf_code = "s";
@@ -232,7 +217,7 @@ struct type_traits<Type::INT96> {
 
 template <>
 struct type_traits<Type::FLOAT> {
-  typedef float value_type;
+  using value_type = float;
 
   static constexpr int value_byte_size = 4;
   static constexpr const char* printf_code = "f";
@@ -240,7 +225,7 @@ struct type_traits<Type::FLOAT> {
 
 template <>
 struct type_traits<Type::DOUBLE> {
-  typedef double value_type;
+  using value_type = double;
 
   static constexpr int value_byte_size = 8;
   static constexpr const char* printf_code = "lf";
@@ -248,7 +233,7 @@ struct type_traits<Type::DOUBLE> {
 
 template <>
 struct type_traits<Type::BYTE_ARRAY> {
-  typedef ByteArray value_type;
+  using value_type = ByteArray;
 
   static constexpr int value_byte_size = sizeof(ByteArray);
   static constexpr const char* printf_code = "s";
@@ -256,7 +241,7 @@ struct type_traits<Type::BYTE_ARRAY> {
 
 template <>
 struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
-  typedef FixedLenByteArray value_type;
+  using value_type = FixedLenByteArray;
 
   static constexpr int value_byte_size = sizeof(FixedLenByteArray);
   static constexpr const char* printf_code = "s";
@@ -264,18 +249,18 @@ struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
 
 template <Type::type TYPE>
 struct DataType {
+  using c_type = typename type_traits<TYPE>::value_type;
   static constexpr Type::type type_num = TYPE;
-  typedef typename type_traits<TYPE>::value_type c_type;
 };
 
-typedef DataType<Type::BOOLEAN> BooleanType;
-typedef DataType<Type::INT32> Int32Type;
-typedef DataType<Type::INT64> Int64Type;
-typedef DataType<Type::INT96> Int96Type;
-typedef DataType<Type::FLOAT> FloatType;
-typedef DataType<Type::DOUBLE> DoubleType;
-typedef DataType<Type::BYTE_ARRAY> ByteArrayType;
-typedef DataType<Type::FIXED_LEN_BYTE_ARRAY> FLBAType;
+using BooleanType = DataType<Type::BOOLEAN>;
+using Int32Type = DataType<Type::INT32>;
+using Int64Type = DataType<Type::INT64>;
+using Int96Type = DataType<Type::INT96>;
+using FloatType = DataType<Type::FLOAT>;
+using DoubleType = DataType<Type::DOUBLE>;
+using ByteArrayType = DataType<Type::BYTE_ARRAY>;
+using FLBAType = DataType<Type::FIXED_LEN_BYTE_ARRAY>;
 
 template <typename Type>
 inline std::string format_fwf(int width) {

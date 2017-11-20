@@ -32,6 +32,7 @@
 using arrow::Array;
 using arrow::BinaryArray;
 using arrow::FixedSizeBinaryArray;
+using arrow::Decimal128Array;
 using arrow::BooleanArray;
 using arrow::Int16Array;
 using arrow::Int16Builder;
@@ -104,7 +105,6 @@ class LevelBuilder {
 
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
-  NOT_IMPLEMENTED_VISIT(Decimal)
   NOT_IMPLEMENTED_VISIT(Dictionary)
   NOT_IMPLEMENTED_VISIT(Interval)
 
@@ -743,8 +743,6 @@ Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
       buffer_ptr[i] =
           ByteArray(value_offset[i + 1] - value_offset[i], data_ptr + value_offset[i]);
     }
-    PARQUET_CATCH_NOT_OK(
-        writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   } else {
     int buffer_idx = 0;
     for (int64_t i = 0; i < data->length(); i++) {
@@ -753,9 +751,9 @@ Status FileWriter::Impl::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
             ByteArray(value_offset[i + 1] - value_offset[i], data_ptr + value_offset[i]);
       }
     }
-    PARQUET_CATCH_NOT_OK(
-        writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   }
+  PARQUET_CATCH_NOT_OK(
+      writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
 }
@@ -765,29 +763,82 @@ Status FileWriter::Impl::TypedWriteBatch<FLBAType, ::arrow::FixedSizeBinaryType>
     ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
     const int16_t* def_levels, const int16_t* rep_levels) {
   RETURN_NOT_OK(data_buffer_.Resize(array->length() * sizeof(FLBA), false));
-  auto data = static_cast<const FixedSizeBinaryArray*>(array.get());
+  const auto& data = static_cast<const FixedSizeBinaryArray&>(*array);
+  const int64_t length = data.length();
+
   auto buffer_ptr = reinterpret_cast<FLBA*>(data_buffer_.mutable_data());
 
   auto writer = reinterpret_cast<TypedColumnWriter<FLBAType>*>(column_writer);
 
-  if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
+  if (writer->descr()->schema_node()->is_required() || data.null_count() == 0) {
     // no nulls, just dump the data
     // todo(advancedxy): use a writeBatch to avoid this step
-    for (int64_t i = 0; i < data->length(); i++) {
-      buffer_ptr[i] = FixedLenByteArray(data->GetValue(i));
+    for (int64_t i = 0; i < length; i++) {
+      buffer_ptr[i] = FixedLenByteArray(data.GetValue(i));
     }
-    PARQUET_CATCH_NOT_OK(
-        writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   } else {
     int buffer_idx = 0;
-    for (int64_t i = 0; i < data->length(); i++) {
-      if (!data->IsNull(i)) {
-        buffer_ptr[buffer_idx++] = FixedLenByteArray(data->GetValue(i));
+    for (int64_t i = 0; i < length; i++) {
+      if (!data.IsNull(i)) {
+        buffer_ptr[buffer_idx++] = FixedLenByteArray(data.GetValue(i));
       }
     }
-    PARQUET_CATCH_NOT_OK(
-        writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   }
+  PARQUET_CATCH_NOT_OK(
+      writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
+  PARQUET_CATCH_NOT_OK(writer->Close());
+  return Status::OK();
+}
+
+template <>
+Status FileWriter::Impl::TypedWriteBatch<FLBAType, ::arrow::Decimal128Type>(
+    ColumnWriter* column_writer, const std::shared_ptr<Array>& array, int64_t num_levels,
+    const int16_t* def_levels, const int16_t* rep_levels) {
+  const auto& data = static_cast<const Decimal128Array&>(*array);
+  const int64_t length = data.length();
+
+  // TODO(phillipc): This is potentially very wasteful if we have a lot of nulls
+  std::vector<uint64_t> big_endian_values(static_cast<size_t>(length) * 2);
+
+  RETURN_NOT_OK(data_buffer_.Resize(length * sizeof(FLBA), false));
+  auto buffer_ptr = reinterpret_cast<FLBA*>(data_buffer_.mutable_data());
+
+  auto writer = reinterpret_cast<TypedColumnWriter<FLBAType>*>(column_writer);
+
+  const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(*data.type());
+  const int32_t offset =
+      decimal_type.byte_width() - DecimalSize(decimal_type.precision());
+
+  const bool does_not_have_nulls =
+      writer->descr()->schema_node()->is_required() || data.null_count() == 0;
+
+  // TODO(phillipc): Look into whether our compilers will perform loop unswitching so we
+  // don't have to keep writing two loops to handle the case where we know there are no
+  // nulls
+  if (does_not_have_nulls) {
+    // no nulls, just dump the data
+    // todo(advancedxy): use a writeBatch to avoid this step
+    for (int64_t i = 0, j = 0; i < length; ++i, j += 2) {
+      auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
+      big_endian_values[j] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
+      big_endian_values[j + 1] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
+      buffer_ptr[i] = FixedLenByteArray(
+          reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
+    }
+  } else {
+    for (int64_t i = 0, buffer_idx = 0, j = 0; i < length; ++i) {
+      if (!data.IsNull(i)) {
+        auto unsigned_64_bit = reinterpret_cast<const uint64_t*>(data.GetValue(i));
+        big_endian_values[j] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[1]);
+        big_endian_values[j + 1] = ::arrow::BitUtil::ToBigEndian(unsigned_64_bit[0]);
+        buffer_ptr[buffer_idx++] = FixedLenByteArray(
+            reinterpret_cast<const uint8_t*>(&big_endian_values[j]) + offset);
+        j += 2;
+      }
+    }
+  }
+  PARQUET_CATCH_NOT_OK(
+      writer->WriteBatch(num_levels, def_levels, rep_levels, buffer_ptr));
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
 }
@@ -896,6 +947,7 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
       WRITE_BATCH_CASE(BINARY, BinaryType, ByteArrayType)
       WRITE_BATCH_CASE(STRING, BinaryType, ByteArrayType)
       WRITE_BATCH_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
+      WRITE_BATCH_CASE(DECIMAL, Decimal128Type, FLBAType)
       WRITE_BATCH_CASE(DATE32, Date32Type, Int32Type)
       WRITE_BATCH_CASE(DATE64, Date64Type, Int32Type)
       WRITE_BATCH_CASE(TIME32, Time32Type, Int32Type)

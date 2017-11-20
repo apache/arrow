@@ -15,18 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <string>
 #include <vector>
 
 #include "arrow/api.h"
 #include "arrow/test-util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 
 namespace parquet {
 namespace arrow {
 
 using ::arrow::Array;
 using ::arrow::Status;
+
+template <int32_t PRECISION>
+struct DecimalWithPrecisionAndScale {
+  static_assert(PRECISION >= 1 && PRECISION <= 38, "Invalid precision value");
+
+  using type = ::arrow::Decimal128Type;
+  static constexpr ::arrow::Type::type type_id = ::arrow::Decimal128Type::type_id;
+  static constexpr int32_t precision = PRECISION;
+  static constexpr int32_t scale = PRECISION - 1;
+};
 
 template <typename ArrowType>
 using is_arrow_float = std::is_floating_point<typename ArrowType::c_type>;
@@ -52,8 +64,10 @@ using is_arrow_bool = std::is_same<ArrowType, ::arrow::BooleanType>;
 template <class ArrowType>
 typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
-  std::vector<typename ArrowType::c_type> values;
-  ::arrow::test::random_real<typename ArrowType::c_type>(size, 0, 0, 1, &values);
+  using c_type = typename ArrowType::c_type;
+  std::vector<c_type> values;
+  ::arrow::test::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1),
+                             &values);
   ::arrow::NumericBuilder<ArrowType> builder;
   RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
@@ -64,7 +78,7 @@ typename std::enable_if<
     is_arrow_int<ArrowType>::value && !is_arrow_date<ArrowType>::value, Status>::type
 NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
-  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  ::arrow::test::randint(size, 0, 64, &values);
 
   // Passing data type so this will work with TimestampType too
   ::arrow::NumericBuilder<ArrowType> builder(std::make_shared<ArrowType>(),
@@ -77,7 +91,7 @@ template <class ArrowType>
 typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
-  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  ::arrow::test::randint(size, 0, 64, &values);
   for (size_t i = 0; i < size; i++) {
     values[i] *= 86400000;
   }
@@ -114,11 +128,54 @@ NonNullArray(size_t size, std::shared_ptr<Array>* out) {
   return builder.Finish(out);
 }
 
+static inline void random_decimals(int64_t n, uint32_t seed, int32_t precision,
+                                   uint8_t* out) {
+  std::mt19937 gen(seed);
+  std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
+  const int32_t required_bytes = DecimalSize(precision);
+  constexpr int32_t byte_width = 16;
+  std::fill(out, out + byte_width * n, '\0');
+
+  for (int64_t i = 0; i < n; ++i, out += byte_width) {
+    std::generate(out, out + required_bytes,
+                  [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
+
+    // sign extend if the sign bit is set for the last byte generated
+    // 0b10000000 == 0x80 == 128
+    if ((out[required_bytes - 1] & '\x80') != 0) {
+      std::fill(out + required_bytes, out + byte_width, '\xFF');
+    }
+  }
+}
+
+template <typename ArrowType, int32_t precision = ArrowType::precision>
+typename std::enable_if<
+    std::is_same<ArrowType, DecimalWithPrecisionAndScale<precision>>::value, Status>::type
+NonNullArray(size_t size, std::shared_ptr<Array>* out) {
+  constexpr int32_t kDecimalPrecision = precision;
+  constexpr int32_t kDecimalScale = DecimalWithPrecisionAndScale<precision>::scale;
+
+  const auto type = ::arrow::decimal(kDecimalPrecision, kDecimalScale);
+  ::arrow::Decimal128Builder builder(type);
+  const int32_t byte_width =
+      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+
+  constexpr int32_t seed = 0;
+
+  std::shared_ptr<Buffer> out_buf;
+  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), size * byte_width,
+                                        &out_buf));
+  random_decimals(size, seed, kDecimalPrecision, out_buf->mutable_data());
+
+  RETURN_NOT_OK(builder.Append(out_buf->data(), size));
+  return builder.Finish(out);
+}
+
 template <class ArrowType>
 typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values;
-  ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
+  ::arrow::test::randint(size, 0, 1, &values);
   ::arrow::BooleanBuilder builder;
   RETURN_NOT_OK(builder.Append(values.data(), values.size()));
   return builder.Finish(out);
@@ -128,9 +185,10 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NonNullAr
 template <typename ArrowType>
 typename std::enable_if<is_arrow_float<ArrowType>::value, Status>::type NullableArray(
     size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
-  std::vector<typename ArrowType::c_type> values;
-  ::arrow::test::random_real<typename ArrowType::c_type>(size, seed, -1e10, 1e10,
-                                                         &values);
+  using c_type = typename ArrowType::c_type;
+  std::vector<c_type> values;
+  ::arrow::test::random_real(size, seed, static_cast<c_type>(-1e10),
+                             static_cast<c_type>(1e10), &values);
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
@@ -151,7 +209,7 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Arra
 
   // Seed is random in Arrow right now
   (void)seed;
-  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  ::arrow::test::randint(size, 0, 64, &values);
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {
@@ -172,7 +230,7 @@ typename std::enable_if<is_arrow_date<ArrowType>::value, Status>::type NullableA
 
   // Seed is random in Arrow right now
   (void)seed;
-  ::arrow::test::randint<typename ArrowType::c_type>(size, 0, 64, &values);
+  ::arrow::test::randint(size, 0, 64, &values);
   for (size_t i = 0; i < size; i++) {
     values[i] *= 86400000;
   }
@@ -246,6 +304,34 @@ NullableArray(size_t size, size_t num_nulls, uint32_t seed,
   return builder.Finish(out);
 }
 
+template <typename ArrowType, int32_t precision = ArrowType::precision>
+typename std::enable_if<
+    std::is_same<ArrowType, DecimalWithPrecisionAndScale<precision>>::value, Status>::type
+NullableArray(size_t size, size_t num_nulls, uint32_t seed,
+              std::shared_ptr<::arrow::Array>* out) {
+  std::vector<uint8_t> valid_bytes(size, '\1');
+
+  for (size_t i = 0; i < num_nulls; ++i) {
+    valid_bytes[i * 2] = '\0';
+  }
+
+  constexpr int32_t kDecimalPrecision = precision;
+  constexpr int32_t kDecimalScale = DecimalWithPrecisionAndScale<precision>::scale;
+  const auto type = ::arrow::decimal(kDecimalPrecision, kDecimalScale);
+  const int32_t byte_width =
+      static_cast<const ::arrow::Decimal128Type&>(*type).byte_width();
+
+  std::shared_ptr<::arrow::Buffer> out_buf;
+  RETURN_NOT_OK(::arrow::AllocateBuffer(::arrow::default_memory_pool(), size * byte_width,
+                                        &out_buf));
+
+  random_decimals(size, seed, precision, out_buf->mutable_data());
+
+  ::arrow::Decimal128Builder builder(type);
+  RETURN_NOT_OK(builder.Append(out_buf->data(), size, valid_bytes.data()));
+  return builder.Finish(out);
+}
+
 // This helper function only supports (size/2) nulls yet.
 template <class ArrowType>
 typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableArray(
@@ -255,7 +341,7 @@ typename std::enable_if<is_arrow_bool<ArrowType>::value, Status>::type NullableA
   // Seed is random in Arrow right now
   (void)seed;
 
-  ::arrow::test::randint<uint8_t>(size, 0, 1, &values);
+  ::arrow::test::randint(size, 0, 1, &values);
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {

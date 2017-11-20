@@ -83,7 +83,7 @@ class RecordReader::RecordReaderImpl {
     Reset();
   }
 
-  virtual ~RecordReaderImpl() {}
+  virtual ~RecordReaderImpl() = default;
 
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
