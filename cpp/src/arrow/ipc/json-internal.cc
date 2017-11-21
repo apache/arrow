@@ -28,8 +28,8 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -125,8 +125,8 @@ class SchemaWriter {
 
     // Make a dummy record batch. A bit tedious as we have to make a schema
     auto schema = ::arrow::schema({arrow::field("dictionary", dictionary->type())});
-    RecordBatch batch(schema, dictionary->length(), {dictionary});
-    RETURN_NOT_OK(WriteRecordBatch(batch, writer_));
+    auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
+    RETURN_NOT_OK(WriteRecordBatch(*batch, writer_));
     writer_->EndObject();
     return Status::OK();
   }
@@ -1435,7 +1435,7 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
     RETURN_NOT_OK(ReadArray(pool, json_columns[i], type, &columns[i]));
   }
 
-  *batch = std::make_shared<RecordBatch>(schema, num_rows, columns);
+  *batch = RecordBatch::Make(schema, num_rows, columns);
   return Status::OK();
 }
 

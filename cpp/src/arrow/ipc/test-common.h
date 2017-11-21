@@ -30,8 +30,8 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -184,7 +184,7 @@ Status MakeBooleanBatchSized(const int length, std::shared_ptr<RecordBatch>* out
   std::shared_ptr<Array> a0, a1;
   RETURN_NOT_OK(MakeRandomBooleanArray(length, true, &a0));
   RETURN_NOT_OK(MakeRandomBooleanArray(length, false, &a1));
-  out->reset(new RecordBatch(schema, length, {a0, a1}));
+  *out = RecordBatch::Make(schema, length, {a0, a1});
   return Status::OK();
 }
 
@@ -203,7 +203,7 @@ Status MakeIntBatchSized(int length, std::shared_ptr<RecordBatch>* out) {
   MemoryPool* pool = default_memory_pool();
   RETURN_NOT_OK(MakeRandomInt32Array(length, false, pool, &a0));
   RETURN_NOT_OK(MakeRandomInt32Array(length, true, pool, &a1));
-  out->reset(new RecordBatch(schema, length, {a0, a1}));
+  *out = RecordBatch::Make(schema, length, {a0, a1});
   return Status::OK();
 }
 
@@ -252,7 +252,7 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out) {
     auto s = MakeRandomBinaryArray<BinaryBuilder, uint8_t>(length, true, pool, &a1);
     RETURN_NOT_OK(s);
   }
-  out->reset(new RecordBatch(schema, length, {a0, a1}));
+  *out = RecordBatch::Make(schema, length, {a0, a1});
   return Status::OK();
 }
 
@@ -261,7 +261,7 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", null());
   auto schema = ::arrow::schema({f0});
   std::shared_ptr<Array> a0 = std::make_shared<NullArray>(length);
-  out->reset(new RecordBatch(schema, length, {a0}));
+  *out = RecordBatch::Make(schema, length, {a0});
   return Status::OK();
 }
 
@@ -284,7 +284,7 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(
       MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
-  out->reset(new RecordBatch(schema, length, {list_array, list_list_array, flat_array}));
+  *out = RecordBatch::Make(schema, length, {list_array, list_list_array, flat_array});
   return Status::OK();
 }
 
@@ -304,7 +304,7 @@ Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(
       MakeRandomListArray(list_array, 0, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(0, include_nulls, pool, &flat_array));
-  out->reset(new RecordBatch(schema, 0, {list_array, list_list_array, flat_array}));
+  *out = RecordBatch::Make(schema, 0, {list_array, list_list_array, flat_array});
   return Status::OK();
 }
 
@@ -327,7 +327,7 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(
       MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
-  out->reset(new RecordBatch(schema, length, {list_array, list_list_array, flat_array}));
+  *out = RecordBatch::Make(schema, length, {list_array, list_list_array, flat_array});
   return Status::OK();
 }
 
@@ -347,7 +347,7 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   auto f0 = field("f0", type);
   auto schema = ::arrow::schema({f0});
   std::vector<std::shared_ptr<Array>> arrays = {array};
-  out->reset(new RecordBatch(schema, batch_length, arrays));
+  *out = RecordBatch::Make(schema, batch_length, arrays);
   return Status::OK();
 }
 
@@ -377,7 +377,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {no_nulls, with_nulls};
-  out->reset(new RecordBatch(schema, list_batch->num_rows(), arrays));
+  *out = RecordBatch::Make(schema, list_batch->num_rows(), arrays);
   return Status::OK();
 }
 
@@ -445,7 +445,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
-  out->reset(new RecordBatch(schema, length, arrays));
+  *out = RecordBatch::Make(schema, length, arrays);
   return Status::OK();
 }
 
@@ -526,7 +526,7 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
 
-  out->reset(new RecordBatch(schema, length, arrays));
+  *out = RecordBatch::Make(schema, length, arrays);
   return Status::OK();
 }
 
@@ -564,7 +564,7 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
       {field("dict1", f0_type), field("sparse", f1_type), field("dense", f2_type)});
 
   std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2};
-  out->reset(new RecordBatch(schema, length, arrays));
+  *out = RecordBatch::Make(schema, length, arrays);
   return Status::OK();
 }
 
@@ -584,8 +584,7 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
-  std::vector<std::shared_ptr<Array>> arrays = {date32_array, date64_array};
-  *out = std::make_shared<RecordBatch>(schema, date32_array->length(), arrays);
+  *out = RecordBatch::Make(schema, date32_array->length(), {date32_array, date64_array});
   return Status::OK();
 }
 
@@ -604,8 +603,7 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<TimestampType, int64_t>(f1->type(), is_valid, ts_values, &a1);
   ArrayFromVector<TimestampType, int64_t>(f2->type(), is_valid, ts_values, &a2);
 
-  ArrayVector arrays = {a0, a1, a2};
-  *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
+  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2});
   return Status::OK();
 }
 
@@ -628,8 +626,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Time32Type, int32_t>(f2->type(), is_valid, t32_values, &a2);
   ArrayFromVector<Time64Type, int64_t>(f3->type(), is_valid, t64_values, &a3);
 
-  ArrayVector arrays = {a0, a1, a2, a3};
-  *out = std::make_shared<RecordBatch>(schema, a0->length(), arrays);
+  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3});
   return Status::OK();
 }
 
@@ -665,8 +662,7 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
   RETURN_NOT_OK(b1.Finish(&a1));
   RETURN_NOT_OK(b2.Finish(&a2));
 
-  ArrayVector arrays = {a1, a2};
-  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
+  *out = RecordBatch::Make(schema, a1->length(), {a1, a2});
   return Status::OK();
 }
 
@@ -695,8 +691,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
 
   auto a2 = std::make_shared<Decimal128Array>(f1->type(), length, data);
 
-  ArrayVector arrays = {a1, a2};
-  *out = std::make_shared<RecordBatch>(schema, length, arrays);
+  *out = RecordBatch::Make(schema, length, {a1, a2});
   return Status::OK();
 }
 
@@ -716,8 +711,7 @@ Status MakeNull(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> a2;
   ArrayFromVector<Int64Type, int64_t>(f1->type(), is_valid, int_values, &a2);
 
-  ArrayVector arrays = {a1, a2};
-  *out = std::make_shared<RecordBatch>(schema, a1->length(), arrays);
+  *out = RecordBatch::Make(schema, a1->length(), {a1, a2});
   return Status::OK();
 }
 

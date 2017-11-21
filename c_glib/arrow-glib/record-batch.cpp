@@ -150,9 +150,8 @@ garrow_record_batch_new(GArrowSchema *schema,
   }
 
   auto arrow_record_batch =
-    std::make_shared<arrow::RecordBatch>(garrow_schema_get_raw(schema),
-                                         n_rows,
-                                         arrow_columns);
+    arrow::RecordBatch::Make(garrow_schema_get_raw(schema),
+                             n_rows, arrow_columns);
   return garrow_record_batch_new_raw(&arrow_record_batch);
 }
 

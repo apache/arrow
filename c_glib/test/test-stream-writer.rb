@@ -19,17 +19,19 @@ class TestStreamWriter < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_write_record_batch
+    data = [true]
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    schema = Arrow::Schema.new([field])
+
     tempfile = Tempfile.open("arrow-ipc-stream-writer")
     output = Arrow::FileOutputStream.new(tempfile.path, false)
     begin
-      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-      schema = Arrow::Schema.new([field])
       stream_writer = Arrow::RecordBatchStreamWriter.new(output, schema)
       begin
         columns = [
-          build_boolean_array([true]),
+          build_boolean_array(data),
         ]
-        record_batch = Arrow::RecordBatch.new(schema, 1, columns)
+        record_batch = Arrow::RecordBatch.new(schema, data.size, columns)
         stream_writer.write_record_batch(record_batch)
       ensure
         stream_writer.close
@@ -41,10 +43,12 @@ class TestStreamWriter < Test::Unit::TestCase
     input = Arrow::MemoryMappedInputStream.new(tempfile.path)
     begin
       stream_reader = Arrow::RecordBatchStreamReader.new(input)
-      assert_equal(["enabled"],
+      assert_equal([field.name],
                    stream_reader.schema.fields.collect(&:name))
-      assert_equal(true,
-                   stream_reader.read_next.get_column(0).get_value(0))
+      assert_equal(Arrow::RecordBatch.new(schema,
+                                          data.size,
+                                          [build_boolean_array(data)]),
+                   stream_reader.read_next)
       assert_nil(stream_reader.read_next)
     ensure
       input.close

@@ -197,8 +197,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
     std::vector<std::shared_ptr<Field>> fields = {f0};
     auto schema = std::make_shared<Schema>(fields);
 
-    RecordBatch batch(schema, 0, {array});
-    CheckRoundtrip(batch, buffer_size);
+    auto batch = RecordBatch::Make(schema, 0, {array});
+    CheckRoundtrip(*batch, buffer_size);
   }
 
  protected:
@@ -292,13 +292,13 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
   auto CheckArray = [this](const std::shared_ptr<Array>& array) {
     auto f0 = field("f0", array->type());
     auto schema = ::arrow::schema({f0});
-    RecordBatch batch(schema, array->length(), {array});
-    auto sliced_batch = batch.Slice(0, 5);
+    auto batch = RecordBatch::Make(schema, array->length(), {array});
+    auto sliced_batch = batch->Slice(0, 5);
 
     int64_t full_size;
     int64_t sliced_size;
 
-    ASSERT_OK(GetRecordBatchSize(batch, &full_size));
+    ASSERT_OK(GetRecordBatchSize(*batch, &full_size));
     ASSERT_OK(GetRecordBatchSize(*sliced_batch, &sliced_size));
     ASSERT_TRUE(sliced_size < full_size) << sliced_size << " " << full_size;
 
@@ -411,8 +411,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
     *schema = ::arrow::schema({f0});
 
-    std::vector<std::shared_ptr<Array>> arrays = {array};
-    *batch = std::make_shared<RecordBatch>(*schema, batch_length, arrays);
+    *batch = RecordBatch::Make(*schema, batch_length, {array});
 
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
@@ -632,7 +631,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {f0};
   auto schema = std::make_shared<Schema>(fields);
 
-  RecordBatch batch(schema, length, {array});
+  auto batch = RecordBatch::Make(schema, length, {array});
 
   std::string path = "test-write-large-record_batch";
 
@@ -641,8 +640,8 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
   std::shared_ptr<RecordBatch> result;
-  ASSERT_OK(DoLargeRoundTrip(batch, false, &result));
-  CheckReadResult(*result, batch);
+  ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
+  CheckReadResult(*result, *batch);
 
   ASSERT_EQ(length, result->num_rows());
 }

@@ -22,6 +22,7 @@ set(ARROW_SRCS
   compare.cc
   memory_pool.cc
   pretty_print.cc
+  record_batch.cc
   status.cc
   table.cc
   table_builder.cc
@@ -144,6 +145,7 @@ install(FILES
   compare.h
   memory_pool.h
   pretty_print.h
+  record_batch.h
   status.h
   table.h
   table_builder.h

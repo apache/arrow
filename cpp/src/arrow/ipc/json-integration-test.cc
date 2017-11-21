@@ -34,8 +34,8 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 

@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"

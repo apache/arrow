@@ -35,7 +35,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -375,7 +374,7 @@ void AssertArraysEqual(const Array& expected, const Array& actual) {
 
 #define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
   do {                                       \
-    if (!LEFT.ApproxEquals(RIGHT)) {         \
+    if (!(LEFT).ApproxEquals(RIGHT)) {       \
       std::stringstream ss;                  \
       ss << "Left:\n";                       \
       ASSERT_OK(PrettyPrint(LEFT, 0, &ss));  \
