@@ -26,6 +26,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
@@ -121,7 +122,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   @Deprecated
-  public void getOffsetVector() {
+  public UInt4Vector getOffsetVector() {
     throw new UnsupportedOperationException("There is no inner offset vector");
   }
 

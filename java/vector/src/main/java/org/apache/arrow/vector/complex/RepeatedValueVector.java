@@ -18,6 +18,7 @@
 
 package org.apache.arrow.vector.complex;
 
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 
 /**
@@ -34,7 +35,7 @@ public interface RepeatedValueVector extends ValueVector {
   /**
    * @return the underlying offset vector or null if none exists.
    */
-  void getOffsetVector();
+  UInt4Vector getOffsetVector();
 
   /**
    * @return the underlying data vector or null if none exists.
