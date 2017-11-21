@@ -16,11 +16,14 @@
 # under the License.
 
 from os.path import join as pjoin
+
 import datetime
 import decimal
 import io
 import os
 import json
+import random
+
 import pytest
 
 from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
@@ -1567,12 +1570,19 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
-def test_decimal_roundtrip(tmpdir):
+@pytest.mark.parametrize('precision', range(2, 39))
+@pytest.mark.parametrize('scale', [1])
+def test_decimal_roundtrip(tmpdir, precision, scale):
+    n = 10
+    max_value = int('9' * (precision - scale) + '9' * scale)
+    min_value = -max_value
+    random_decimals = [
+        decimal.Decimal(random.randint(min_value, max_value)) / 10 ** scale
+        for _ in range(n)
+    ]
     expected = pd.DataFrame({'group1': list('aaabbbbccc'),
                              'num': list(range(10)),
-                             'decimal_num': list(
-                                 map(lambda x: decimal.Decimal(str(x) + '.0'),
-                                     range(10, 20)))})[
+                             'decimal_num': random_decimals})[
                                          ['group1', 'num', 'decimal_num']]
     expected['decimal_num'] *= 30
     expected['decimal_num'] /= 4
