@@ -482,9 +482,6 @@ TEST_F(TestRecordBatch, Equals) {
   ASSERT_FALSE(b1->Equals(*b4));
 }
 
-#ifdef NDEBUG
-// In debug builds, RecordBatch ctor aborts if you construct an invalid one
-
 TEST_F(TestRecordBatch, Validate) {
   const int length = 10;
 
@@ -501,18 +498,16 @@ TEST_F(TestRecordBatch, Validate) {
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
-  ASSERT_OK(b1.Validate());
+  ASSERT_OK(b1->Validate());
 
   // Length mismatch
   auto b2 = RecordBatch::Make(schema, length, {a0, a1, a3});
-  ASSERT_RAISES(Invalid, b2.Validate());
+  ASSERT_RAISES(Invalid, b2->Validate());
 
   // Type mismatch
   auto b3 = RecordBatch::Make(schema, length, {a0, a1, a0});
-  ASSERT_RAISES(Invalid, b3.Validate());
+  ASSERT_RAISES(Invalid, b3->Validate());
 }
-
-#endif
 
 TEST_F(TestRecordBatch, Slice) {
   const int length = 10;
