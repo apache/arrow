@@ -153,6 +153,7 @@ install(FILES
   pretty_print.h
   record_batch.h
   status.h
+  stl.h
   table.h
   table_builder.h
   tensor.h
@@ -183,6 +184,7 @@ ADD_ARROW_TEST(memory_pool-test)
 ADD_ARROW_TEST(pretty_print-test)
 ADD_ARROW_TEST(public-api-test)
 ADD_ARROW_TEST(status-test)
+ADD_ARROW_TEST(stl-test)
 ADD_ARROW_TEST(type-test)
 ADD_ARROW_TEST(table-test)
 ADD_ARROW_TEST(table_builder-test)
