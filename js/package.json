@@ -70,6 +70,7 @@
     "@types/text-encoding": "0.0.32",
     "benchmark": "2.1.4",
     "command-line-args": "4.0.7",
+    "command-line-usage": "4.0.1",
     "coveralls": "3.0.0",
     "del": "3.0.0",
     "esdoc": "1.0.3",
