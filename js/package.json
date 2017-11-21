@@ -25,7 +25,8 @@
     "lint": "npm-run-all -p lint:*",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
-    "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1"
+    "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1",
+    "postinstall": "shx cp node_modules/tslib/tslib.es6.js node_modules/tslib/tslib.mjs"
   },
   "repository": {
     "type": "git",
@@ -54,7 +55,8 @@
   },
   "dependencies": {
     "flatbuffers": "trxcllnt/flatbuffers-esm",
-    "text-encoding": "0.6.4"
+    "text-encoding-utf-8": "^1.0.2",
+    "tslib": "^1.8.0"
   },
   "devDependencies": {
     "@std/esm": "0.13.0",
@@ -90,10 +92,8 @@
     "rxjs": "5.5.2",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
-    "text-encoding-utf-8": "1.0.1",
     "trash": "4.1.0",
     "ts-jest": "21.2.1",
-    "tslib": "1.8.0",
     "tslint": "5.8.0",
     "typescript": "2.6.1",
     "uglifyjs-webpack-plugin": "1.0.1",
