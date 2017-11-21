@@ -34,13 +34,13 @@ Status InvokeUnaryArrayKernel(FunctionContext* ctx, UnaryKernel* kernel,
                               const Datum& value, std::vector<Datum>* outputs) {
   if (value.kind() == Datum::ARRAY) {
     Datum output;
-    RETURN_NOT_OK(kernel->Call(ctx, *value.array(), &output));
+    RETURN_NOT_OK(kernel->Call(ctx, value, &output));
     outputs->push_back(output);
   } else if (value.kind() == Datum::CHUNKED_ARRAY) {
     const ChunkedArray& array = *value.chunked_array();
     for (int i = 0; i < array.num_chunks(); i++) {
       Datum output;
-      RETURN_NOT_OK(kernel->Call(ctx, *(array.chunk(i)->data()), &output));
+      RETURN_NOT_OK(kernel->Call(ctx, Datum(array.chunk(i)), &output));
       outputs->push_back(output);
     }
   } else {

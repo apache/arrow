@@ -131,7 +131,7 @@ struct ARROW_EXPORT Datum {
 /// \brief An array-valued function of a single input argument
 class ARROW_EXPORT UnaryKernel : public OpKernel {
  public:
-  virtual Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) = 0;
+  virtual Status Call(FunctionContext* ctx, const Datum& input, Datum* out) = 0;
 };
 
 }  // namespace compute
