@@ -697,7 +697,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   out_data->buffers.push_back(out_values);
 
   Datum out(out_data);
-  ASSERT_OK(kernel->Call(&this->ctx_, *arr->data(), &out));
+  ASSERT_OK(kernel->Call(&this->ctx_, Datum(arr), &out));
 
   // Buffer address unchanged
   ASSERT_EQ(out_values.get(), out_data->buffers[1].get());

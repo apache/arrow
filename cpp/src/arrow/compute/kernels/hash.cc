@@ -658,8 +658,9 @@ class HashKernelImpl : public HashKernel {
   explicit HashKernelImpl(std::unique_ptr<HashTable> hasher)
       : hasher_(std::move(hasher)) {}
 
-  Status Call(FunctionContext* ctx, const ArrayData& input, Datum* out) override {
-    RETURN_NOT_OK(Append(ctx, input));
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+    RETURN_NOT_OK(Append(ctx, *input.array()));
     return Flush(out);
   }
 
