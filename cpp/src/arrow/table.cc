@@ -391,7 +391,7 @@ Status MakeTable(const std::shared_ptr<Schema>& schema,
   return Status::OK();
 }
 
-#endif // ARROW_NO_DEPRECATED_API
+#endif  // ARROW_NO_DEPRECATED_API
 
 // ----------------------------------------------------------------------
 // Convert a table to a sequence of record batches

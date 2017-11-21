@@ -208,7 +208,6 @@ ARROW_EXPORT
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table);
 
-
 #ifndef ARROW_NO_DEPRECATED_API
 
 /// \brief Construct table from multiple input tables.
