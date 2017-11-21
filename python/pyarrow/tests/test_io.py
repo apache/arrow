@@ -202,13 +202,20 @@ def test_compress_decompress():
         compressed_buf = pa.compress(test_buf, codec=codec)
         compressed_bytes = pa.compress(test_data, codec=codec, asbytes=True)
 
+        assert isinstance(compressed_bytes, bytes)
+
         decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
                                          codec=codec)
         decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
                                            codec=codec, asbytes=True)
 
+        assert isinstance(decompressed_bytes, bytes)
+
         assert decompressed_buf.equals(test_buf)
         assert decompressed_bytes == test_data
+
+        with pytest.raises(ValueError):
+            pa.decompress(compressed_bytes, codec=codec)
 
 
 def test_buffer_memoryview_is_immutable():

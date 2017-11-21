@@ -957,7 +957,8 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     c_buf = (<Buffer> buf).buffer.get()
 
     if decompressed_size is None:
-        raise ValueError("NYI")
+        raise ValueError("Must pass decompressed_size for {0} codec"
+                         .format(codec))
 
     cdef int64_t output_size = decompressed_size
     cdef uint8_t* output_buffer = NULL
