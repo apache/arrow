@@ -195,7 +195,11 @@ Input / Output and Shared Memory
    :toctree: generated/
 
    allocate_buffer
+   compress
+   decompress
+   frombuffer
    Buffer
+   ResizableBuffer
    BufferReader
    BufferOutputStream
    NativeFile

@@ -600,6 +600,23 @@ cdef class Buffer:
         # TODO(wesm): buffer slicing
         raise NotImplementedError
 
+    def equals(self, Buffer other):
+        """
+        Determine if two buffers contain exactly the same data
+
+        Parameters
+        ----------
+        other : Buffer
+
+        Returns
+        -------
+        are_equal : True if buffer contents and size are equal
+        """
+        cdef c_bool result = False
+        with nogil:
+            result = self.buffer.get().Equals(deref(other.buffer.get()))
+        return result
+
     def to_pybytes(self):
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
@@ -839,7 +856,7 @@ cdef CompressionType _get_compression_type(object name):
                          .format(str(name)))
 
 
-def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
+def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     """
     Compress pyarrow.Buffer or Python object supporting the buffer (memoryview)
     protocol
@@ -847,7 +864,7 @@ def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
     Parameters
     ----------
     buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
-    kind : string, default 'lz4'
+    codec : string, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
     asbytes : boolean, default False
@@ -860,21 +877,21 @@ def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
     compressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
     cdef:
-        CompressionType c_kind = _get_compression_type(kind)
-        unique_ptr[CCodec] codec
+        CompressionType c_codec = _get_compression_type(codec)
+        unique_ptr[CCodec] compressor
         cdef CBuffer* c_buf
         cdef PyObject* pyobj
         cdef ResizableBuffer out_buf
 
     with nogil:
-        check_status(CCodec.Create(c_kind, &codec))
+        check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
         buf = frombuffer(buf)
 
     c_buf = (<Buffer> buf).buffer.get()
 
-    cdef int64_t max_output_size = (codec.get()
+    cdef int64_t max_output_size = (compressor.get()
                                     .MaxCompressedLen(c_buf.size(),
                                                       c_buf.data()))
     cdef uint8_t* output_buffer = NULL
@@ -889,9 +906,10 @@ def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
 
     cdef int64_t output_length = 0
     with nogil:
-        check_status(codec.get().Compress(c_buf.size(), c_buf.data(),
-                                          max_output_size, output_buffer,
-                                          &output_length))
+        check_status(compressor.get()
+                     .Compress(c_buf.size(), c_buf.data(),
+                               max_output_size, output_buffer,
+                               &output_length))
 
     if asbytes:
         cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
@@ -901,7 +919,7 @@ def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
         return out_buf
 
 
-def decompress(object buf, decompressed_size=None, kind='lz4',
+def decompress(object buf, decompressed_size=None, codec='lz4',
                asbytes=False, memory_pool=None):
     """
     Decompress data from buffer-like object
@@ -912,7 +930,7 @@ def decompress(object buf, decompressed_size=None, kind='lz4',
     decompressed_size : int64_t, default None
         If not specified, will be computed if the codec is able to determine
         the uncompressed buffer size
-    kind : string, default 'lz4'
+    codec : string, default 'lz4'
         Compression codec.
         Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
     asbytes : boolean, default False
@@ -925,13 +943,13 @@ def decompress(object buf, decompressed_size=None, kind='lz4',
     uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
     cdef:
-        CompressionType c_kind = _get_compression_type(kind)
-        unique_ptr[CCodec] codec
+        CompressionType c_codec = _get_compression_type(codec)
+        unique_ptr[CCodec] compressor
         cdef CBuffer* c_buf
         cdef Buffer out_buf
 
     with nogil:
-        check_status(CCodec.Create(c_kind, &codec))
+        check_status(CCodec.Create(c_codec, &compressor))
 
     if not isinstance(buf, Buffer):
         buf = frombuffer(buf)
@@ -952,7 +970,8 @@ def decompress(object buf, decompressed_size=None, kind='lz4',
         output_buffer = out_buf.buffer.get().mutable_data()
 
     with nogil:
-        check_status(codec.get().Decompress(c_buf.size(), c_buf.data(),
-                                            output_size, output_buffer))
+        check_status(compressor.get()
+                     .Decompress(c_buf.size(), c_buf.data(),
+                                 output_size, output_buffer))
 
     return pybuf if asbytes else out_buf
