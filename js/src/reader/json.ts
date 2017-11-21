@@ -229,7 +229,7 @@ function fieldFromJSON(obj: any): FieldBuilder {
 }
 
 function fieldNodeFromJSON(obj: any): FieldNodeBuilder {
-    let nullCount = obj.VALIDITY ?
+    let nullCount = obj.VALIDITY && obj.VALIDITY.length ?
         obj.VALIDITY.reduce((sum: number, current: number) => sum + current) : 0;
     return new FieldNodeBuilder(
         flatbuffers.Long.create(obj.count, 0),
