@@ -169,26 +169,26 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
-        uint8_t* data()
+        const uint8_t* data()
+        uint8_t* mutable_data()
         int64_t size()
         shared_ptr[CBuffer] parent()
         c_bool is_mutable() const
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
-        uint8_t* mutable_data()
+
+    cdef cppclass CResizableBuffer" arrow::ResizableBuffer"(CMutableBuffer):
+        CStatus Resize(const int64_t new_size, c_bool shrink_to_fit)
+        CStatus Reserve(const int64_t new_size)
 
     CStatus AllocateBuffer(CMemoryPool* pool, const int64_t size,
                            shared_ptr[CBuffer]* out)
 
     CStatus AllocateResizableBuffer(CMemoryPool* pool, const int64_t size,
-                                    shared_ptr[ResizableBuffer]* out)
+                                    shared_ptr[CResizableBuffer]* out)
 
-    cdef cppclass ResizableBuffer(CBuffer):
-        CStatus Resize(int64_t nbytes)
-        CStatus Reserve(int64_t nbytes)
-
-    cdef cppclass PoolBuffer(ResizableBuffer):
+    cdef cppclass PoolBuffer(CResizableBuffer):
         PoolBuffer()
         PoolBuffer(CMemoryPool*)
 
@@ -635,7 +635,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CBufferOutputStream \
             " arrow::io::BufferOutputStream"(OutputStream):
-        CBufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
+        CBufferOutputStream(const shared_ptr[CResizableBuffer]& buffer)
 
     cdef cppclass CMockOutputStream \
             " arrow::io::MockOutputStream"(OutputStream):

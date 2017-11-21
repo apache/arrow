@@ -182,6 +182,14 @@ def test_allocate_buffer():
     assert buf.to_pybytes()[:5] == bit
 
 
+def test_allocate_buffer_resizable():
+    buf = pa.allocate_buffer(100, resizable=True)
+    assert isinstance(buf, pa.ResizableBuffer)
+
+    buf.resize(200)
+    assert buf.size == 200
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 
