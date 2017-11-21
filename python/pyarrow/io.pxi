@@ -673,7 +673,8 @@ cdef shared_ptr[PoolBuffer] _allocate_buffer(CMemoryPool* pool):
     return result
 
 
-def allocate_buffer(int64_t size, MemoryPool pool=None, resizable=False):
+def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
+                    resizable=False):
     """
     Allocate mutable fixed-size buffer
 
@@ -681,7 +682,7 @@ def allocate_buffer(int64_t size, MemoryPool pool=None, resizable=False):
     ----------
     size : int
         Number of bytes to allocate (plus internal padding)
-    pool : MemoryPool, optional
+    memory_pool : MemoryPool, optional
         Uses default memory pool if not provided
     resizable : boolean, default False
 
@@ -692,7 +693,7 @@ def allocate_buffer(int64_t size, MemoryPool pool=None, resizable=False):
     cdef:
         shared_ptr[CBuffer] buffer
         shared_ptr[CResizableBuffer] rz_buffer
-        CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
 
     if resizable:
         with nogil:
@@ -923,4 +924,35 @@ def decompress(object buf, decompressed_size=None, kind='lz4',
     -------
     uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
-    pass
+    cdef:
+        CompressionType c_kind = _get_compression_type(kind)
+        unique_ptr[CCodec] codec
+        cdef CBuffer* c_buf
+        cdef Buffer out_buf
+
+    with nogil:
+        check_status(CCodec.Create(c_kind, &codec))
+
+    if not isinstance(buf, Buffer):
+        buf = frombuffer(buf)
+
+    c_buf = (<Buffer> buf).buffer.get()
+
+    if decompressed_size is None:
+        raise ValueError("NYI")
+
+    cdef int64_t output_size = decompressed_size
+    cdef uint8_t* output_buffer = NULL
+
+    if asbytes:
+        pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
+        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+    else:
+        out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
+        output_buffer = out_buf.buffer.get().mutable_data()
+
+    with nogil:
+        check_status(codec.get().Decompress(c_buf.size(), c_buf.data(),
+                                            output_size, output_buffer))
+
+    return pybuf if asbytes else out_buf
