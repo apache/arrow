@@ -27,6 +27,7 @@ import random
 import pytest
 
 from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
+from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -1570,24 +1571,48 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize('precision', range(2, 39))
-@pytest.mark.parametrize('scale', [1])
-def test_decimal_roundtrip(tmpdir, precision, scale):
-    n = 10
-    max_value = int('9' * (precision - scale) + '9' * scale)
-    min_value = -max_value
-    random_decimals = [
-        decimal.Decimal(random.randint(min_value, max_value)) / 10 ** scale
-        for _ in range(n)
+@pytest.mark.parametrize('precision', range(3, 39))
+def test_decimal_roundtrip(tmpdir, precision):
+    scale = 2
+    num = 10
+    frac_part = scale
+    whole_part = precision - frac_part
+    with util.random_seed(0):
+        whole = [
+            random.randint(
+                10 ** (whole_part - 1),
+                10 ** whole_part - 1
+            ) * util.randsign()
+            for _ in range(num)
+        ]
+        frac = [
+            random.randint(10 ** (frac_part - 1), 10 ** frac_part - 1)
+            for _ in range(num)
+        ]
+    random_strings = [
+        '{:0{whole_part}d}.{:0{frac_part}d}'.format(
+            whole_num, frac_num,
+            whole_part=whole_part, frac_part=frac_part
+        ) for whole_num, frac_num in zip(whole, frac)
     ]
+
+    assert all(
+        len(s.replace('-', '').replace('.', '')) == precision
+        for s in random_strings
+    )
+
+    random_decimals = list(map(decimal.Decimal, random_strings))
     expected = pd.DataFrame({'group1': list('aaabbbbccc'),
                              'num': list(range(10)),
                              'decimal_num': random_decimals})[
                                          ['group1', 'num', 'decimal_num']]
-    expected['decimal_num'] *= 30
-    expected['decimal_num'] /= 4
     filename = tmpdir.join('decimals.parquet')
-    t = pa.Table.from_pandas(expected, preserve_index=False)
+    t = pa.Table.from_pandas(expected)
+    decimal_field_type = t.schema.field_by_name('decimal_num').type
+
+    assert decimal_field_type.precision == precision
+    assert decimal_field_type.scale == scale
+
     _write_table(t, str(filename))
     result = _read_table(str(filename)).to_pandas()
     tm.assert_frame_equal(result, expected)
