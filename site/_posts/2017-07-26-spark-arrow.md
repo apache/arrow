@@ -57,7 +57,7 @@ the conversion to Arrow data can be done on the JVM and pushed back for the Spar
 executors to perform in parallel, drastically reducing the load on the driver.
 
 As of the merging of [SPARK-13534][5], the use of Arrow when calling `toPandas()`
-needs to be enabled by setting the SQLConf "spark.sql.execution.arrow.enable" to
+needs to be enabled by setting the SQLConf "spark.sql.execution.arrow.enabled" to
 "true".  Let's look at a simple usage example.
 
 ```
@@ -84,7 +84,7 @@ In [2]: %time pdf = df.toPandas()
 CPU times: user 17.4 s, sys: 792 ms, total: 18.1 s
 Wall time: 20.7 s
 
-In [3]: spark.conf.set("spark.sql.execution.arrow.enable", "true")
+In [3]: spark.conf.set("spark.sql.execution.arrow.enabled", "true")
 
 In [4]: %time pdf = df.toPandas()
 CPU times: user 40 ms, sys: 32 ms, total: 72 ms                                 
@@ -118,7 +118,7 @@ It is planned to add pyarrow as a pyspark dependency so that
 
 Currently, the controlling SQLConf is disabled by default. This can be enabled
 programmatically as in the example above or by adding the line
-"spark.sql.execution.arrow.enable=true" to `SPARK_HOME/conf/spark-defaults.conf`.
+"spark.sql.execution.arrow.enabled=true" to `SPARK_HOME/conf/spark-defaults.conf`.
 
 Also, not all Spark data types are currently supported and limited to primitive
 types. Expanded type support is in the works and expected to also be in the Spark
