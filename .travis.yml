@@ -111,7 +111,6 @@ matrix:
     - export CC="clang-4.0"
     - export CXX="clang++-4.0"
     - nvm install node
-    - export ARROW_BUILD_TYPE=release
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
