@@ -38,7 +38,6 @@ export function isNullableArgv(x: any): x is { validity: Uint8Array } {
     return x && x.validity && ArrayBuffer.isView(x.validity) && x.validity instanceof Uint8Array;
 }
 
-
 type Ctor<TArgv> = new (argv: TArgv) => Vector;
 
 export const nullableMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv) => T) =>

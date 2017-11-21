@@ -25,9 +25,8 @@ import { BinaryVector, BoolVector, Utf8Vector, Int8Vector,
 
 import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 
-import { TextEncoder } from "text-encoding-utf-8";
+import { TextEncoder } from 'text-encoding-utf-8';
 const encoder = new TextEncoder('utf-8');
-
 
 export function* readJSON(jsonString: string): IterableIterator<Vector<any>[]> {
     let obj: any = JSON.parse(jsonString);
@@ -46,8 +45,7 @@ function readVector(field: any, column: any): Vector {
 }
 
 function readDictionaryVector(field: any, column: any) {
-    if (field.name == column.name) return null;
-    else return null;
+    if (field.name == column.name) { return null; } else { return null; }
 }
 
 function readValueVector(field: any, column: any): Vector {
@@ -55,17 +53,17 @@ function readValueVector(field: any, column: any): Vector {
         //case "NONE": return readNullVector(field, column);
         //case "null": return readNullVector(field, column);
         //case "map": return readMapVector(field, column);
-        case "int": return readIntVector(field, column);
-        case "bool": return readBoolVector(field, column);
+        case 'int': return readIntVector(field, column);
+        case 'bool': return readBoolVector(field, column);
         //case "date": return readDateVector(field, column);
         //case "list": return readListVector(field, column);
-        case "utf8": return readUtf8Vector(field, column);
+        case 'utf8': return readUtf8Vector(field, column);
         //case "time": return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
-        case "binary": return readBinaryVector(field, column);
+        case 'binary': return readBinaryVector(field, column);
         //case "decimal": return readDecimalVector(field, column);
         //case "struct": return readStructVector(field, column);
-        case "floatingpoint": return readFloatVector(field, column);
+        case 'floatingpoint': return readFloatVector(field, column);
         //case "timestamp": return readTimestampVector(field, column);
         //case "fixedsizelist": return readFixedSizeListVector(field, column);
         //case "fixedsizebinary": return readFixedSizeBinaryVector(field, column);
@@ -95,7 +93,7 @@ function readBoolVector(fieldObj: any, column: any) {
     const field = fieldFromJSON(fieldObj);
     const fieldNode = fieldNodeFromJSON(column);
     const validity = readValidity(column);
-    const data = readBoolean(column.DATA)
+    const data = readBoolean(column.DATA);
     return new BoolVector({field, fieldNode, validity, data});
 }
 
@@ -117,8 +115,8 @@ function readBinaryVector(field: any, column: any) {
 function readFloatVector(field: any, column: any) {
     switch (field.type.precision) {
         // TODO: case "HALF":   return new Float16Vector(readNumeric(field, column, Uint16Array));
-        case "SINGLE": return new Float32Vector(readNumeric(field, column, Float32Array));
-        case "DOUBLE": return new Float64Vector(readNumeric(field, column, Float64Array));
+        case 'SINGLE': return new Float32Vector(readNumeric(field, column, Float32Array));
+        case 'DOUBLE': return new Float64Vector(readNumeric(field, column, Float64Array));
     }
     throw new Error(`Unrecognized FloatingPoint { precision: ${field.type.precision} }`);
 }
@@ -134,7 +132,7 @@ function readList(fieldObj: any, column: any) {
 // "VALIDITY": [1,1],
 // "OFFSET": [0,7,14],
 // "DATA": ["49BC7D5B6C47D2","3F5FB6D9322026"]
-function readBinary(fieldObj:any, column: any) {
+function readBinary(fieldObj: any, column: any) {
     const field = fieldFromJSON(fieldObj);
     const fieldNode = fieldNodeFromJSON(column);
     const validity = readValidity(column);
@@ -142,9 +140,9 @@ function readBinary(fieldObj:any, column: any) {
     // There are definitely more efficient ways to do this... but it gets the
     // job done.
     const joined = column.DATA.join('');
-    let data = new Uint8Array(joined.length/2);
+    let data = new Uint8Array(joined.length / 2);
     for (let i = 0; i < joined.length; i += 2) {
-        data[i>>1] = parseInt(joined.substr(i, 2), 16);
+        data[i >> 1] = parseInt(joined.substr(i, 2), 16);
     }
     return { field, fieldNode, validity, offsets, data };
 }
@@ -161,16 +159,16 @@ function readInt64<T extends (Uint32Array|Int32Array)>(fieldObj: any, column: an
     const field = fieldFromJSON(fieldObj);
     const fieldNode = fieldNodeFromJSON(column);
     const validity = readValidity(column);
-    let data = new ArrayConstructor(column.DATA.length*2);
+    let data = new ArrayConstructor(column.DATA.length * 2);
     for (let i = 0; i < column.DATA.length; ++i) {
-        data[2*i  ] = column.DATA[i] >>> 0;
-        data[2*i+1] = Math.floor((column.DATA[i]/0xFFFFFFFF));
+        data[2 * i  ] = column.DATA[i] >>> 0;
+        data[2 * i + 1] = Math.floor((column.DATA[i] / 0xFFFFFFFF));
     }
     return { field, fieldNode, validity, data };
 }
 
 function readData<T extends TypedArray>(ArrayConstructor: TypedArrayConstructor<T>, column: [number]) {
-    return new ArrayConstructor(column)
+    return new ArrayConstructor(column);
 }
 
 function readValidity(column: any) {
@@ -178,32 +176,32 @@ function readValidity(column: any) {
 }
 
 function readBoolean(arr: Array<number>) {
-    let rtrn: Uint8Array = new Uint8Array(Math.ceil(arr.length/8));
+    let rtrn: Uint8Array = new Uint8Array(Math.ceil(arr.length / 8));
     for (const {item, index} of arr.map((item: any, index: number) => ({item, index}))) {
-        rtrn[index/8|0] |= item << (index % 8);
+        rtrn[index / 8 | 0] |= item << (index % 8);
     }
     return rtrn;
 }
 
-const TYPE_LOOKUP: {[index:string]: fb.Schema.Type} = {
-    "NONE":            fb.Schema.Type.NONE,
-    "null":            fb.Schema.Type.Null,
-    "map":             fb.Schema.Type.Map,
-    "int":             fb.Schema.Type.Int,
-    "bool":            fb.Schema.Type.Bool,
-    "date":            fb.Schema.Type.Date,
-    "list":            fb.Schema.Type.List,
-    "utf8":            fb.Schema.Type.Utf8,
-    "time":            fb.Schema.Type.Time,
-    "union":           fb.Schema.Type.Union,
-    "binary":          fb.Schema.Type.Binary,
-    "decimal":         fb.Schema.Type.Decimal,
-    "struct_":         fb.Schema.Type.Struct_,
-    "floatingpoint":   fb.Schema.Type.FloatingPoint,
-    "timestamp":       fb.Schema.Type.Timestamp,
-    "fixedsizelist":   fb.Schema.Type.FixedSizeList,
-    "fixedsizebinary": fb.Schema.Type.FixedSizeBinary
-}
+const TYPE_LOOKUP: {[index: string]: fb.Schema.Type} = {
+    'NONE':            fb.Schema.Type.NONE,
+    'null':            fb.Schema.Type.Null,
+    'map':             fb.Schema.Type.Map,
+    'int':             fb.Schema.Type.Int,
+    'bool':            fb.Schema.Type.Bool,
+    'date':            fb.Schema.Type.Date,
+    'list':            fb.Schema.Type.List,
+    'utf8':            fb.Schema.Type.Utf8,
+    'time':            fb.Schema.Type.Time,
+    'union':           fb.Schema.Type.Union,
+    'binary':          fb.Schema.Type.Binary,
+    'decimal':         fb.Schema.Type.Decimal,
+    'struct_':         fb.Schema.Type.Struct_,
+    'floatingpoint':   fb.Schema.Type.FloatingPoint,
+    'timestamp':       fb.Schema.Type.Timestamp,
+    'fixedsizelist':   fb.Schema.Type.FixedSizeList,
+    'fixedsizebinary': fb.Schema.Type.FixedSizeBinary
+};
 
 function fieldFromJSON(obj: any): FieldBuilder {
     // TODO: metadata

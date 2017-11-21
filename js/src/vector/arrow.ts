@@ -48,7 +48,7 @@ import {
 
 import { nullableMixin, fieldMixin, Field, FieldNode, isFieldArgv, isNullableArgv} from './traits';
 
-export { Field, FieldNode }
+export { Field, FieldNode };
 import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 export { fb, FieldBuilder, FieldNodeBuilder };
 function MixinArrowTraits<T extends Vector<any>, TArgv>(

@@ -47,7 +47,7 @@ import {
 
 export { Table, Vector, StructRow };
 export { readVectors, readVectorsAsync };
-export { readJSON }
+export { readJSON };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {

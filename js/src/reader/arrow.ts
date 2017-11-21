@@ -56,7 +56,7 @@ export interface VectorReaderContext {
     dictionaries: Map<string, Vector>;
     readNextNode(): FieldNode;
     readNextBuffer(): ArrowBuffer;
-};
+}
 
 export function* readVectors(buffers: Iterable<Uint8Array | Buffer | string>, context?: ArrowReaderContext) {
     const context_ = context || {} as ArrowReaderContext;
