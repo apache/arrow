@@ -421,10 +421,6 @@ class ParquetDatasetPiece(object):
         return table
 
 
-def _is_parquet_file(path):
-    return path.endswith('parq') or path.endswith('parquet')
-
-
 class PartitionSet(object):
     """A data structure for cataloguing the observed Parquet partitions at a
     particular level. So if we have
@@ -556,14 +552,14 @@ class ParquetManifest(object):
         filtered_files = []
         for path in files:
             full_path = self.pathsep.join((base_path, path))
-            if _is_parquet_file(path):
-                filtered_files.append(full_path)
-            elif path.endswith('_common_metadata'):
+            if path.endswith('_common_metadata'):
                 self.common_metadata_path = full_path
             elif path.endswith('_metadata'):
                 self.metadata_path = full_path
-            elif not self._should_silently_exclude(path):
+            elif self._should_silently_exclude(path):
                 print('Ignoring path: {0}'.format(full_path))
+            else:
+                filtered_files.append(full_path)
 
         # ARROW-1079: Filter out "private" directories starting with underscore
         filtered_directories = [self.pathsep.join((base_path, x))
