@@ -21,7 +21,7 @@ import { TypedArray, TypedArrayConstructor } from '../vector/types';
 import { BinaryVector, BoolVector, Utf8Vector, Int8Vector,
          Int16Vector, Int32Vector, Int64Vector, Uint8Vector,
          Uint16Vector, Uint32Vector, Uint64Vector,
-         Float32Vector, Float64Vector } from '../vector/arrow';
+         Float32Vector, Float64Vector, ListVector, StructVector } from '../vector/arrow';
 
 import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 
@@ -56,13 +56,13 @@ function readValueVector(field: any, column: any): Vector {
         case 'int': return readIntVector(field, column);
         case 'bool': return readBoolVector(field, column);
         //case "date": return readDateVector(field, column);
-        //case "list": return readListVector(field, column);
+        case 'list': return readListVector(field, column);
         case 'utf8': return readUtf8Vector(field, column);
         //case "time": return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
         case 'binary': return readBinaryVector(field, column);
         //case "decimal": return readDecimalVector(field, column);
-        //case "struct": return readStructVector(field, column);
+        case 'struct': return readStructVector(field, column);
         case 'floatingpoint': return readFloatVector(field, column);
         //case "timestamp": return readTimestampVector(field, column);
         //case "fixedsizelist": return readFixedSizeListVector(field, column);
@@ -97,6 +97,14 @@ function readBoolVector(fieldObj: any, column: any) {
     return new BoolVector({field, fieldNode, validity, data});
 }
 
+function readListVector(fieldObj: any, column: any): Vector {
+    const { field, fieldNode, validity, offsets } = readList(fieldObj, column);
+    return new ListVector({
+        field, fieldNode, validity, offsets,
+        values: readVector(fieldObj.children[0], column.children[0])
+    });
+}
+
 function readUtf8Vector(fieldObj: any, column: any): Vector {
     const { field, fieldNode, validity, offsets } = readList(fieldObj, column);
     const data = encoder.encode(column.DATA.join(''));
@@ -110,6 +118,18 @@ function readUtf8Vector(fieldObj: any, column: any): Vector {
 
 function readBinaryVector(field: any, column: any) {
     return new BinaryVector(readBinary(field, column));
+}
+
+function readStructVector(fieldObj: any, column: any) {
+    const n = fieldObj.children.length;
+    const columns = new Array<Vector>(n);
+    const field = fieldFromJSON(fieldObj);
+    const fieldNode = fieldNodeFromJSON(column);
+    const validity = readValidity(column);
+    for (let i = -1; ++i < n;) {
+            columns[i] = readVector(fieldObj.children[i], column.children[i]);
+    }
+    return new StructVector({ field, fieldNode, validity, columns });
 }
 
 function readFloatVector(field: any, column: any) {
