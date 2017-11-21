@@ -53,7 +53,7 @@ Install them with:
 
 ```shell
 conda install arrow-cpp=0.7.* -c conda-forge
-conda install pyarrow==0.7.* -c conda-forge
+conda install pyarrow=0.7.* -c conda-forge
 ```
 
 ### Python Wheels on PyPI (Unofficial)
