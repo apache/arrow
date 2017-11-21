@@ -21,6 +21,7 @@ import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
 import { readVectors, readVectorsAsync } from './reader/arrow';
+import { readJSON } from './reader/json';
 import { ListVector, BinaryVector, FixedSizeListVector } from './vector/list';
 
 import {
@@ -46,6 +47,7 @@ import {
 
 export { Table, Vector, StructRow };
 export { readVectors, readVectorsAsync };
+export { readJSON }
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {

@@ -18,6 +18,7 @@
 import { Vector } from './vector';
 import { StructVector, StructRow } from './struct';
 import { readVectors, readVectorsAsync } from '../reader/arrow';
+import { readJSON } from '../reader/json';
 
 export class Table<T> extends StructVector<T> {
     static from(buffers?: Iterable<Uint8Array | Buffer | string>) {
@@ -28,6 +29,15 @@ export class Table<T> extends StructVector<T> {
                     vec && col && col.concat(vec) || col || vec
                 ) as Vector<any>[];
             }
+        }
+        return new Table({ columns });
+    }
+    static fromJSON(jsonString: string) {
+        let columns: Vector<any>[] = [];
+        for (let vectors of readJSON(jsonString)) {
+            columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
+                vec && col && col.concat(vec) || col || vec
+            ) as Vector<any>[];
         }
         return new Table({ columns });
     }

@@ -17,11 +17,27 @@
 
 import { Vector } from './vector';
 import { BoolVector } from './numeric';
-import * as Schema_ from '../format/Schema';
-import * as Message_ from '../format/Message';
-import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
+import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+
+export type Field = ( fb.Schema.Field | FieldBuilder );
+export type FieldNode = ( fb.Message.FieldNode | FieldNodeBuilder );
+
+function isField(x: any): x is Field {
+    return x instanceof fb.Schema.Field || x instanceof FieldBuilder;
+}
+
+function isFieldNode(x: any): x is FieldNode {
+    return x instanceof fb.Message.FieldNode || x instanceof FieldNodeBuilder;
+}
+
+export function isFieldArgv(x: any): x is { field: Field, fieldNode: FieldNode } {
+    return x && isField(x.field) && isFieldNode(x.fieldNode);
+}
+
+export function isNullableArgv(x: any): x is { validity: Uint8Array } {
+    return x && x.validity && ArrayBuffer.isView(x.validity) && x.validity instanceof Uint8Array;
+}
+
 
 type Ctor<TArgv> = new (argv: TArgv) => Vector;
 
@@ -52,7 +68,7 @@ export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv
             this.field = field;
             this.fieldNode = fieldNode;
             this.nullable = field.nullable();
-            this.type = Type[field.typeType()];
+            this.type = fb.Schema.Type[field.typeType()];
             this.length = fieldNode.length().low | 0;
             this.nullCount = fieldNode.nullCount().low;
         }

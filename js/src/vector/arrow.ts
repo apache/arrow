@@ -15,11 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema';
-import * as Message_ from '../format/Message';
-import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
-
 import { Vector } from './vector';
 import { Utf8Vector as Utf8VectorBase } from './utf8';
 import { StructVector as StructVectorBase } from './struct';
@@ -51,8 +46,11 @@ import {
     TimestampVector as TimestampVectorBase,
 } from './numeric';
 
-import { nullableMixin, fieldMixin } from './traits';
+import { nullableMixin, fieldMixin, Field, FieldNode, isFieldArgv, isNullableArgv} from './traits';
 
+export { Field, FieldNode }
+import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+export { fb, FieldBuilder, FieldNodeBuilder };
 function MixinArrowTraits<T extends Vector<any>, TArgv>(
     Base: new (argv: TArgv) => T,
     Field: new (argv: TArgv & { field: Field, fieldNode: FieldNode }) => T,
@@ -65,14 +63,6 @@ function MixinArrowTraits<T extends Vector<any>, TArgv>(
             : !isNullableArgv(argv) ? Field : NullableField
         )(argv as any);
     } as any as { new (argv: TArgv | (TArgv & { validity: Uint8Array }) | (TArgv & { field: Field, fieldNode: FieldNode })): T };
-}
-
-function isFieldArgv(x: any): x is { field: Field, fieldNode: FieldNode } {
-    return x && x.field instanceof Field && x.fieldNode instanceof FieldNode;
-}
-
-function isNullableArgv(x: any): x is { validity: Uint8Array } {
-    return x && x.validity && ArrayBuffer.isView(x.validity) && x.validity instanceof Uint8Array;
 }
 
 export { Vector };
