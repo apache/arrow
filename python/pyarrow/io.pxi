@@ -900,5 +900,27 @@ def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
         return out_buf
 
 
-def decompress(object buf, kind='lz4', asbytes=False):
+def decompress(object buf, decompressed_size=None, kind='lz4',
+               asbytes=False, memory_pool=None):
+    """
+    Decompress data from buffer-like object
+
+    Parameters
+    ----------
+    buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+    decompressed_size : int64_t, default None
+        If not specified, will be computed if the codec is able to determine
+        the uncompressed buffer size
+    kind : string, default 'lz4'
+        Compression codec.
+        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
+    asbytes : boolean, default False
+        Return result as Python bytes object, otherwise Buffer
+    memory_pool : MemoryPool, default None
+        Memory pool to use for buffer allocations, if any
+
+    Returns
+    -------
+    uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
+    """
     pass
