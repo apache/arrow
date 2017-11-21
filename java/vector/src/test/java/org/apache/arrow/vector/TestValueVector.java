@@ -1027,18 +1027,14 @@ public class TestValueVector {
       toVector.reAlloc();
       assertEquals(initialDefaultCapacity * 8, toVector.getValueCapacity());
 
-      /* TODO: what's this testing?
-      final Float8Vector.vector tovector = toVector.getvector();
-
       for (int i = 0; i < (initialDefaultCapacity * 8); i++) {
-        double value = tovector.get(i);
         if (i < (initialDefaultCapacity * 4)) {
-          assertEquals(baseValue + (double)i, value, 0);
+          assertEquals(baseValue + (double)i, toVector.get(i), 0);
         }
         else {
-          assertEquals(0, value, 0);
+          assertTrue(toVector.isNull(i));
         }
-      }*/
+      }
 
       toVector.close();
     }

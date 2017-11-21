@@ -70,8 +70,8 @@ public class TestCopyFrom {
 
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
-         final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -130,8 +130,8 @@ public class TestCopyFrom {
 
   @Test /* NullableVarChar */
   public void testCopyFromWithNulls1() {
-    try (final NullableVarCharVector vector = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
-         final NullableVarCharVector vector2 = newVector(NullableVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VARCHAR, allocator)) {
 
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -192,10 +192,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableIntVector */
+  @Test /* IntVector */
   public void testCopyFromWithNulls2() {
-    try (final NullableIntVector vector1 = new NullableIntVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableIntVector vector2 = new NullableIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntVector vector1 = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+         final IntVector vector2 = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -252,10 +252,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableBigIntVector */
+  @Test /* BigIntVector */
   public void testCopyFromWithNulls3() {
-    try (final NullableBigIntVector vector1 = new NullableBigIntVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableBigIntVector vector2 = new NullableBigIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final BigIntVector vector1 = new BigIntVector(EMPTY_SCHEMA_PATH, allocator);
+         final BigIntVector vector2 = new BigIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -314,10 +314,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableBitVector */
+  @Test /* BitVector */
   public void testCopyFromWithNulls4() {
-    try (final NullableBitVector vector1 = new NullableBitVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableBitVector vector2 = new NullableBitVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final BitVector vector1 = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+         final BitVector vector2 = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -392,10 +392,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableFloat4Vector */
+  @Test /* Float4Vector */
   public void testCopyFromWithNulls5() {
-    try (final NullableFloat4Vector vector1 = new NullableFloat4Vector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableFloat4Vector vector2 = new NullableFloat4Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float4Vector vector1 = new Float4Vector(EMPTY_SCHEMA_PATH, allocator);
+         final Float4Vector vector2 = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -454,10 +454,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableFloat8Vector */
+  @Test /* Float8Vector */
   public void testCopyFromWithNulls6() {
-    try (final NullableFloat8Vector vector1 = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableFloat8Vector vector2 = new NullableFloat8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float8Vector vector1 = new Float8Vector(EMPTY_SCHEMA_PATH, allocator);
+         final Float8Vector vector2 = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -516,10 +516,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableIntervalDayVector */
+  @Test /* IntervalDayVector */
   public void testCopyFromWithNulls7() {
-    try (final NullableIntervalDayVector vector1 = new NullableIntervalDayVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableIntervalDayVector vector2 = new NullableIntervalDayVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntervalDayVector vector1 = new IntervalDayVector(EMPTY_SCHEMA_PATH, allocator);
+         final IntervalDayVector vector2 = new IntervalDayVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -582,10 +582,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableIntervalYearVector */
+  @Test /* IntervalYearVector */
   public void testCopyFromWithNulls8() {
-    try (final NullableIntervalYearVector vector1 = new NullableIntervalYearVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableIntervalYearVector vector2 = new NullableIntervalYearVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntervalYearVector vector1 = new IntervalYearVector(EMPTY_SCHEMA_PATH, allocator);
+         final IntervalYearVector vector2 = new IntervalYearVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -651,10 +651,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableSmallIntVector */
+  @Test /* SmallIntVector */
   public void testCopyFromWithNulls9() {
-    try (final NullableSmallIntVector vector1 = new NullableSmallIntVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableSmallIntVector vector2 = new NullableSmallIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final SmallIntVector vector1 = new SmallIntVector(EMPTY_SCHEMA_PATH, allocator);
+         final SmallIntVector vector2 = new SmallIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -714,10 +714,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableTimeMicroVector */
+  @Test /* TimeMicroVector */
   public void testCopyFromWithNulls10() {
-    try (final NullableTimeMicroVector vector1 = new NullableTimeMicroVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableTimeMicroVector vector2 = new NullableTimeMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final TimeMicroVector vector1 = new TimeMicroVector(EMPTY_SCHEMA_PATH, allocator);
+         final TimeMicroVector vector2 = new TimeMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -777,10 +777,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableTimeMilliVector */
+  @Test /* TimeMilliVector */
   public void testCopyFromWithNulls11() {
-    try (final NullableTimeMilliVector vector1 = new NullableTimeMilliVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableTimeMilliVector vector2 = new NullableTimeMilliVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final TimeMilliVector vector1 = new TimeMilliVector(EMPTY_SCHEMA_PATH, allocator);
+         final TimeMilliVector vector2 = new TimeMilliVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -840,10 +840,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableTinyIntVector */
+  @Test /* TinyIntVector */
   public void testCopyFromWithNulls12() {
-    try (final NullableTinyIntVector vector1 = new NullableTinyIntVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableTinyIntVector vector2 = new NullableTinyIntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final TinyIntVector vector1 = new TinyIntVector(EMPTY_SCHEMA_PATH, allocator);
+         final TinyIntVector vector2 = new TinyIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -906,10 +906,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableDecimalVector */
+  @Test /* DecimalVector */
   public void testCopyFromWithNulls13() {
-    try (final NullableDecimalVector vector1 = new NullableDecimalVector(EMPTY_SCHEMA_PATH, allocator, 30, 16);
-         final NullableDecimalVector vector2 = new NullableDecimalVector(EMPTY_SCHEMA_PATH, allocator, 30, 16)) {
+    try (final DecimalVector vector1 = new DecimalVector(EMPTY_SCHEMA_PATH, allocator, 30, 16);
+         final DecimalVector vector2 = new DecimalVector(EMPTY_SCHEMA_PATH, allocator, 30, 16)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());
@@ -972,10 +972,10 @@ public class TestCopyFrom {
     }
   }
 
-  @Test /* NullableTimeStampVector */
+  @Test /* TimeStampVector */
   public void testCopyFromWithNulls14() {
-    try (final NullableTimeStampVector vector1 = new NullableTimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator);
-         final NullableTimeStampVector vector2 = new NullableTimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final TimeStampVector vector1 = new TimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator);
+         final TimeStampVector vector2 = new TimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());

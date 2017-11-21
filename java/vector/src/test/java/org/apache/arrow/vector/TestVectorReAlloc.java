@@ -107,7 +107,6 @@ public class TestVectorReAlloc {
       assertEquals(1023, vector.getValueCapacity());
 
       try {
-        // TODO: is this right?
         vector.getInnerValueCountAt(2014);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
