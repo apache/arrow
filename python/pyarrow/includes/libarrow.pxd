@@ -661,6 +661,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V1" arrow::ipc::MetadataVersion::V1"
         MessageType_V2" arrow::ipc::MetadataVersion::V2"
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
+        MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
     cdef cppclass CMessage" arrow::ipc::Message":
         CStatus Open(const shared_ptr[CBuffer]& metadata,
@@ -926,3 +927,26 @@ cdef extern from 'arrow/python/init.h':
 
 cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
     void set_numpy_nan(object o)
+
+
+cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
+    enum CompressionType" arrow::Compression::type":
+        CompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
+        CompressionType_SNAPPY" arrow::Compression::SNAPPY"
+        CompressionType_GZIP" arrow::Compression::GZIP"
+        CompressionType_BROTLI" arrow::Compression::BROTLI"
+        CompressionType_ZSTD" arrow::Compression::ZSTD"
+        CompressionType_LZ4" arrow::Compression::LZ4"
+
+    cdef cppclass CCodec" arrow::Codec":
+        @staticmethod
+        CStatus Create(CompressionType codec, unique_ptr[CCodec]* out)
+
+        CStatus Decompress(int64_t input_len, const uint8_t* input,
+                           int64_t output_len, uint8_t* output_buffer)
+
+        CStatus Compress(int64_t input_len, const uint8_t* input,
+                         int64_t output_buffer_len, uint8_t* output_buffer,
+                         int64_t* output_length)
+
+        int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)

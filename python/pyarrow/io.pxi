@@ -650,7 +650,7 @@ cdef shared_ptr[PoolBuffer] _allocate_buffer(CMemoryPool* pool):
     return result
 
 
-def allocate_buffer(int64_t size, MemoryPool pool=None):
+def allocate_buffer(int64_t size, MemoryPool pool=None, resizable=False):
     """
     Allocate mutable fixed-size buffer
 
@@ -660,6 +660,7 @@ def allocate_buffer(int64_t size, MemoryPool pool=None):
         Number of bytes to allocate (plus internal padding)
     pool : MemoryPool, optional
         Uses default memory pool if not provided
+    resizable : boolean, default False
     """
     cdef:
         shared_ptr[CBuffer] buffer
@@ -783,3 +784,71 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     else:
         raise TypeError('Unable to read from object of type: {0}'
                         .format(type(source)))
+
+
+# ---------------------------------------------------------------------
+
+cdef CompressionType _get_compression_type(object name):
+    if name is None or name == 'uncompressed':
+        return CompressionType_UNCOMPRESSED
+    elif name == 'snappy':
+        return CompressionType_SNAPPY
+    elif name == 'gzip':
+        return CompressionType_GZIP
+    elif name == 'brotli':
+        return CompressionType_BROTLI
+    elif name == 'zstd':
+        return CompressionType_ZSTD
+    elif name == 'lz4':
+        return CompressionType_LZ4
+    else:
+        raise ValueError("Unrecognized compression type: {0}"
+                         .format(str(name)))
+
+
+def compress(object buf, kind='lz4', asbytes=False, memory_pool=None):
+    cdef:
+        CompressionType c_kind = _get_compression_type(kind)
+        unique_ptr[CCodec] codec
+        cdef CBuffer* c_buf
+        cdef PyObject* pyobj
+        cdef Buffer out_buf
+
+    with nogil:
+        check_status(CCodec.Create(c_kind, &codec))
+
+    if not isinstance(buf, Buffer):
+        buf = frombuffer(buf)
+
+    c_buf = (<Buffer> buf).buffer.get()
+
+    cdef int64_t max_output_size = (codec.get()
+                                    .MaxCompressedLen(c_buf.size(),
+                                                      c_buf.data()))
+    cdef uint8_t* output_buffer = NULL
+
+    if asbytes:
+        pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
+        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+    else:
+        out_buf = allocate_buffer(max_output_size, memory_pool=memory_pool)
+        output_buffer = out_buf.buffer.get().mutable_data()
+
+    cdef int64_t output_length = 0
+    with nogil:
+        codec.get().Compress(c_buf.size(), c_buf.data(),
+                             max_output_size, output_buffer,
+                             &output_length)
+
+    if asbytes:
+        cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+        return PyObject_to_object(pyobj)
+    else:
+        with nogil:
+            check_status((<ResizableBuffer*> out_buf.buffer.get())
+                         .Resize(output_length))
+        return out_buf
+
+
+def decompress(object buf, kind='lz4', asbytes=False):
+    pass
