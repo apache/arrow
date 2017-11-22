@@ -45,9 +45,9 @@ RowGroupReader::RowGroupReader(std::unique_ptr<Contents> contents)
     : contents_(std::move(contents)) {}
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  DCHECK(i < metadata()->num_columns()) << "The RowGroup only has "
+                                        << metadata()->num_columns()
+                                        << "columns, requested column: " << i;
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
@@ -57,9 +57,9 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  DCHECK(i < metadata()->num_columns()) << "The RowGroup only has "
+                                        << metadata()->num_columns()
+                                        << "columns, requested column: " << i;
   return contents_->GetColumnPageReader(i);
 }
 
@@ -127,9 +127,9 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
-  DCHECK(i < metadata()->num_row_groups())
-      << "The file only has " << metadata()->num_row_groups()
-      << "row groups, requested reader for: " << i;
+  DCHECK(i < metadata()->num_row_groups()) << "The file only has "
+                                           << metadata()->num_row_groups()
+                                           << "row groups, requested reader for: " << i;
   return contents_->GetRowGroup(i);
 }
 

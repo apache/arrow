@@ -414,7 +414,7 @@ std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& va
   std::vector<std::shared_ptr<::arrow::Column>> columns({column});
   std::vector<std::shared_ptr<::arrow::Field>> fields({column->field()});
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  return std::make_shared<::arrow::Table>(schema, columns);
+  return ::arrow::Table::Make(schema, columns);
 }
 
 template <typename T>

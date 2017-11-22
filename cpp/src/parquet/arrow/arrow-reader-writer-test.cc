@@ -23,8 +23,8 @@
 
 #include "gtest/gtest.h"
 
-#include <sstream>
 #include <arrow/compute/api.h>
+#include <sstream>
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -1145,7 +1145,7 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool nanos_as_micros = 
       std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1),
       std::make_shared<Column>("f2", a2), std::make_shared<Column>("f3", a3),
       std::make_shared<Column>("f4", a4), std::make_shared<Column>("f5", a5)};
-  *out = std::make_shared<::arrow::Table>(schema, columns);
+  *out = Table::Make(schema, columns);
 }
 
 TEST(TestArrowReadWrite, DateTimeTypes) {
@@ -1199,31 +1199,28 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   auto s1 = std::shared_ptr<::arrow::Schema>(
       new ::arrow::Schema({field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us),
                            field("f_ns", t_ns)}));
-  auto input = std::make_shared<::arrow::Table>(
-      s1, ColumnVector({std::make_shared<Column>("f_s", a_s),
-                        std::make_shared<Column>("f_ms", a_ms),
-                        std::make_shared<Column>("f_us", a_us),
-                        std::make_shared<Column>("f_ns", a_ns)}));
+  auto input = Table::Make(
+      s1,
+      {std::make_shared<Column>("f_s", a_s), std::make_shared<Column>("f_ms", a_ms),
+       std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_ns)});
 
   // Result when coercing to milliseconds
   auto s2 = std::shared_ptr<::arrow::Schema>(
       new ::arrow::Schema({field("f_s", t_ms), field("f_ms", t_ms), field("f_us", t_ms),
                            field("f_ns", t_ms)}));
-  auto ex_milli_result = std::make_shared<::arrow::Table>(
-      s2, ColumnVector({std::make_shared<Column>("f_s", a_ms),
-                        std::make_shared<Column>("f_ms", a_ms),
-                        std::make_shared<Column>("f_us", a_ms),
-                        std::make_shared<Column>("f_ns", a_ms)}));
+  auto ex_milli_result = Table::Make(
+      s2,
+      {std::make_shared<Column>("f_s", a_ms), std::make_shared<Column>("f_ms", a_ms),
+       std::make_shared<Column>("f_us", a_ms), std::make_shared<Column>("f_ns", a_ms)});
 
   // Result when coercing to microseconds
   auto s3 = std::shared_ptr<::arrow::Schema>(
       new ::arrow::Schema({field("f_s", t_us), field("f_ms", t_us), field("f_us", t_us),
                            field("f_ns", t_us)}));
-  auto ex_micro_result = std::make_shared<::arrow::Table>(
-      s3, ColumnVector({std::make_shared<Column>("f_s", a_us),
-                        std::make_shared<Column>("f_ms", a_us),
-                        std::make_shared<Column>("f_us", a_us),
-                        std::make_shared<Column>("f_ns", a_us)}));
+  auto ex_micro_result = Table::Make(
+      s3,
+      {std::make_shared<Column>("f_s", a_us), std::make_shared<Column>("f_ms", a_us),
+       std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_us)});
 
   std::shared_ptr<Table> milli_result;
   DoSimpleRoundtrip(
@@ -1276,10 +1273,10 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
   auto c3 = std::make_shared<Column>("f_us", a_us);
   auto c4 = std::make_shared<Column>("f_ns", a_ns);
 
-  auto t1 = std::make_shared<::arrow::Table>(s1, ColumnVector({c1}));
-  auto t2 = std::make_shared<::arrow::Table>(s2, ColumnVector({c2}));
-  auto t3 = std::make_shared<::arrow::Table>(s3, ColumnVector({c3}));
-  auto t4 = std::make_shared<::arrow::Table>(s4, ColumnVector({c4}));
+  auto t1 = Table::Make(s1, {c1});
+  auto t2 = Table::Make(s2, {c2});
+  auto t3 = Table::Make(s3, {c3});
+  auto t4 = Table::Make(s4, {c4});
 
   auto sink = std::make_shared<InMemoryOutputStream>();
 
@@ -1327,7 +1324,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
 
   std::vector<std::shared_ptr<::arrow::Column>> columns = {
       std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1)};
-  auto table = std::make_shared<::arrow::Table>(schema, columns);
+  auto table = Table::Make(schema, columns);
 
   // Expected schema and values
   auto e0 = field("f0", ::arrow::date32());
@@ -1341,7 +1338,7 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
 
   std::vector<std::shared_ptr<::arrow::Column>> ex_columns = {
       std::make_shared<Column>("f0", x0), std::make_shared<Column>("f1", x1)};
-  auto ex_table = std::make_shared<::arrow::Table>(ex_schema, ex_columns);
+  auto ex_table = Table::Make(ex_schema, ex_columns);
 
   std::shared_ptr<Table> result;
   DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result);
@@ -1372,7 +1369,7 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
     fields[i] = column->field();
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
-  *out = std::make_shared<Table>(schema, columns);
+  *out = Table::Make(schema, columns);
 }
 
 TEST(TestArrowReadWrite, MultithreadedRead) {
@@ -1459,9 +1456,9 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
     ex_fields.push_back(table->column(i)->field());
   }
 
-  auto ex_schema = std::make_shared<::arrow::Schema>(ex_fields);
-  Table expected(ex_schema, ex_columns);
-  AssertTablesEqual(expected, *result);
+  auto ex_schema = ::arrow::schema(ex_fields);
+  auto expected = Table::Make(ex_schema, ex_columns);
+  AssertTablesEqual(*expected, *result);
 }
 
 void MakeListTable(int num_rows, std::shared_ptr<Table>* out) {
@@ -1501,7 +1498,7 @@ void MakeListTable(int num_rows, std::shared_ptr<Table>* out) {
   auto f1 = ::arrow::field("a", ::arrow::list(::arrow::int8()));
   auto schema = ::arrow::schema({f1});
   std::vector<std::shared_ptr<Array>> arrays = {list_array};
-  *out = std::make_shared<Table>(schema, arrays);
+  *out = Table::Make(schema, arrays);
 }
 
 TEST(TestArrowReadWrite, ListLargeRecords) {
@@ -1544,7 +1541,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   auto chunked_col =
       std::make_shared<::arrow::Column>(table->schema()->field(0), chunked);
   std::vector<std::shared_ptr<::arrow::Column>> columns = {chunked_col};
-  auto chunked_table = std::make_shared<Table>(table->schema(), columns);
+  auto chunked_table = Table::Make(table->schema(), columns);
 
   ASSERT_TRUE(table->Equals(*chunked_table));
 }

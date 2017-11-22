@@ -431,7 +431,7 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
     RETURN_NOT_OK(ParallelFor(nthreads, num_columns, ReadColumnFunc));
   }
 
-  *out = std::make_shared<Table>(schema, columns);
+  *out = Table::Make(schema, columns);
   return Status::OK();
 }
 
@@ -466,7 +466,7 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
     RETURN_NOT_OK(ParallelFor(nthreads, num_fields, ReadColumnFunc));
   }
 
-  *table = std::make_shared<Table>(schema, columns);
+  *table = Table::Make(schema, columns);
   return Status::OK();
 }
 
