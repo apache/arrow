@@ -183,22 +183,24 @@ The base `apache-arrow` package includes all the compilation targets for conveni
 The targets are also published under the `@apache-arrow` namespace:
 
 ```sh
-npm install @apache-arrow/es5-cjs # ES5 CommonJS target
-npm install @apache-arrow/es5-esm # ES5 ESModules target
-npm install @apache-arrow/es5-umd # ES5 UMD target
-npm install @apache-arrow/es2015-cjs # ES2015 CommonJS target
-npm install @apache-arrow/es2015-esm # ES2015 ESModules target
-npm install @apache-arrow/es2015-umd # ES2015 UMD target
-npm install @apache-arrow/esnext-esm # ESNext CommonJS target
-npm install @apache-arrow/esnext-esm # ESNext ESModules target
-npm install @apache-arrow/esnext-umd # ESNext UMD target
+npm install apache-arrow # <-- combined es5/CommonJS + UMD, es2015/ESModules + UMD, and TypeScript package
+npm install @apache-arrow/ts # standalone TypeScript package
+npm install @apache-arrow/es5-cjs # standalone es5/CommonJS package
+npm install @apache-arrow/es5-esm # standalone es5/ESModules package
+npm install @apache-arrow/es5-umd # standalone es5/UMD package
+npm install @apache-arrow/es2015-cjs # standalone es2015/CommonJS package
+npm install @apache-arrow/es2015-esm # standalone es2015/ESModules package
+npm install @apache-arrow/es2015-umd # standalone es2015/UMD package
+npm install @apache-arrow/esnext-esm # standalone esNext/CommonJS package
+npm install @apache-arrow/esnext-esm # standalone esNext/ESModules package
+npm install @apache-arrow/esnext-umd # standalone esNext/UMD package
 ```
 
 ### Why we package like this
 
 The JS community is a diverse group with a varied list of target environments and tool chains. Publishing multiple packages accommodates projects of all stripes.
 
-If you think we missed a compilation target and it's a blocker for adoption, please open an issue. We're here for you ❤️.
+If you think we missed a compilation target and it's a blocker for adoption, please open an issue.
 
 # License
 

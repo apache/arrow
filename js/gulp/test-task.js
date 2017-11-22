@@ -73,12 +73,13 @@ const CPP_STREAM_TO_FILE = path.join(CPP_EXE_PATH, 'stream-to-file');
 const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'file-to-stream');
 
 const testFilesDir = path.join(ARROW_HOME, 'js/test/data');
+const snapshotsDir = path.join(ARROW_HOME, 'js/test/__snapshots__');
 const cppFilesDir = path.join(testFilesDir, 'cpp');
 const javaFilesDir = path.join(testFilesDir, 'java');
 const jsonFilesDir = path.join(testFilesDir, 'json');
 
 async function cleanTestData() {
-    return await del(`${testFilesDir}/**`);
+    return await del([`${testFilesDir}/**`, `${snapshotsDir}/**`]);
 }
 
 async function createTestJSON() {
