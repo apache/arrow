@@ -43,6 +43,8 @@ JS_SRC_DIR="$PWD"
 npm install
 npm version $js_version -m "[Release] apache-arrow-js-%s"
 
+git tag -a $tag -m "[Release] Apache Arrow JavaScript $js_version"
+
 release_hash=`git rev-list $tag 2> /dev/null | head -n 1 `
 
 if [ -z "$release_hash" ]; then
