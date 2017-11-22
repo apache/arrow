@@ -34,6 +34,15 @@ tagrc=${tag}-rc${rc}
 
 echo "Preparing source for tag ${tag}"
 
+tarball=${tag}.tar.gz
+
+# cd to $ARROW_HOME/js
+cd $SOURCE_DIR/../../js
+JS_SRC_DIR="$PWD"
+# npm pack the js source files
+npm install
+npm version $js_version -m "[Release] apache-arrow-js-%s"
+
 release_hash=`git rev-list $tag 2> /dev/null | head -n 1 `
 
 if [ -z "$release_hash" ]; then
@@ -43,16 +52,6 @@ fi
 
 echo "Using commit $release_hash"
 
-tarball=${tag}.tar.gz
-
-# cd to $ARROW_HOME/js
-cd $SOURCE_DIR/../../js
-JS_SRC_DIR="$PWD"
-# npm pack the js source files
-npm run clean:testdata
-npm --no-git-tag-version version $js_version
-git add package.json
-git commit -m "[Release] apache-arrow-js-@$js_version"
 cd $SOURCE_DIR
 
 rm -rf js-tmp

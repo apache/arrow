@@ -1,6 +1,6 @@
 {
   "name": "apache-arrow",
-  "version": "0.2.0",
+  "version": "0.1.2",
   "types": "./types/Arrow.d.ts",
   "typings": "./types/Arrow.d.ts",
   "main": "./targets/es5/cjs/Arrow.js",
@@ -26,7 +26,7 @@
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
     "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1",
-    "version": "npm run clean:all"
+    "version": "npm install && npm run clean:all"
   },
   "repository": {
     "type": "git",
