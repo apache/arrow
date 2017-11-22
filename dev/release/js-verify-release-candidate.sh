@@ -90,16 +90,11 @@ tar xvzf ${DIST_NAME}.tar.gz
 cd ${DIST_NAME}
 
 npm install
-# clean, lint, and build JS source
-npm run clean:all
-npm run lint
-npm run build
-# create initial integration test data
-npm run create:testdata
-# run once to write the snapshots
-npm test -- -t ts -u --integration
-# run again to test all builds against the snapshots
-npm test -- --integration
+# npx run-s clean:all lint create:testdata build
+# npm run test -- -t ts -u --integration
+# npm run test -- --integration
+npx run-s clean:all lint build
+npm run test
 
 echo 'Release candidate looks good!'
 exit 0
