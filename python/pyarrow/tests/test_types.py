@@ -56,7 +56,7 @@ def test_is_null():
 
 
 def test_is_decimal():
-    assert types.is_decimal(pa.decimal(19, 4))
+    assert types.is_decimal(pa.decimal128(19, 4))
     assert not types.is_decimal(pa.int32())
 
 

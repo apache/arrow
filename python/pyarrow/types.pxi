@@ -290,28 +290,28 @@ cdef class FixedSizeBinaryType(DataType):
             return self.fixed_size_binary_type.byte_width()
 
 
-cdef class DecimalType(FixedSizeBinaryType):
+cdef class Decimal128Type(FixedSizeBinaryType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
-        self.decimal_type = <const CDecimalType*> type.get()
+        self.decimal128_type = <const CDecimal128Type*> type.get()
 
     def __getstate__(self):
         return (self.precision, self.scale)
 
     def __setstate__(self, state):
-        cdef DataType reconstituted = decimal(*state)
+        cdef DataType reconstituted = decimal128(*state)
         self.init(reconstituted.sp_type)
 
     property precision:
 
         def __get__(self):
-            return self.decimal_type.precision()
+            return self.decimal128_type.precision()
 
     property scale:
 
         def __get__(self):
-            return self.decimal_type.scale()
+            return self.decimal128_type.scale()
 
 
 cdef class Field:
@@ -953,9 +953,9 @@ def float64():
     return primitive_type(_Type_DOUBLE)
 
 
-cpdef DataType decimal(int precision, int scale=0):
+cpdef DataType decimal128(int precision, int scale=0):
     """
-    Create decimal type with precision and scale
+    Create decimal type with precision and scale and 128bit width
 
     Parameters
     ----------
@@ -964,10 +964,10 @@ cpdef DataType decimal(int precision, int scale=0):
 
     Returns
     -------
-    decimal_type : DecimalType
+    decimal_type : Decimal128Type
     """
     cdef shared_ptr[CDataType] decimal_type
-    decimal_type.reset(new CDecimalType(precision, scale))
+    decimal_type.reset(new CDecimal128Type(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
 
 
