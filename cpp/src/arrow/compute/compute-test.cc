@@ -844,23 +844,21 @@ TEST_F(TestHashKernel, UniqueTimeTimestamp) {
 }
 
 TEST_F(TestHashKernel, UniqueBoolean) {
-  CheckUnique<BooleanType, bool>(&this->ctx_, boolean(),
-    {true, true, false, true},
-    {true, false, true, true}, {true, false}, {});
+  CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
+                                 {true, false, true, true}, {true, false}, {});
 
-  CheckUnique<BooleanType, bool>(&this->ctx_, boolean(),
-    {false, true, false, true},
-    {true, false, true, true}, {false, true}, {});
+  CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                                 {true, false, true, true}, {false, true}, {});
 }
 
 TEST_F(TestHashKernel, DictEncodeBoolean) {
-  CheckDictEncode<BooleanType, bool>(&this->ctx_, boolean(),
-    {true, true, false, true, false},
-    {true, false, true, true, true}, {true, false}, {}, {0, 0, 1, 0, 1});
+  CheckDictEncode<BooleanType, bool>(
+      &this->ctx_, boolean(), {true, true, false, true, false},
+      {true, false, true, true, true}, {true, false}, {}, {0, 0, 1, 0, 1});
 
-  CheckDictEncode<BooleanType, bool>(&this->ctx_, boolean(),
-    {false, true, false, true, false},
-    {true, false, true, true, true}, {false, true}, {}, {0, 0, 0, 1, 0});
+  CheckDictEncode<BooleanType, bool>(
+      &this->ctx_, boolean(), {false, true, false, true, false},
+      {true, false, true, true, true}, {false, true}, {}, {0, 0, 0, 1, 0});
 }
 
 TEST_F(TestHashKernel, UniqueBinary) {

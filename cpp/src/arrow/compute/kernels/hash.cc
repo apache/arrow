@@ -372,51 +372,56 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
 // Hash table for boolean types
 
 template <typename Type, typename Action>
-class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTable {
+class HashTableKernel<Type, Action, enable_if_boolean<Type>> : public HashTable {
  public:
-  using T = typename Type::c_type;
-
   HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : HashTable(type, pool), dict_(pool) {}
+      : HashTable(type, pool) {
+    std::fill(table_, table_ + 2, kHashSlotEmpty);
+  }
 
   Status Append(const ArrayData& arr) override {
-    const T* values = GetValues<T>(arr, 1);
     auto action = static_cast<Action*>(this);
 
     RETURN_NOT_OK(action->Reserve(arr.length));
 
-#define HASH_INNER_LOOP()                                               \
-  const T value = values[i];                                            \
-  int64_t j = HashValue(value) & mod_bitmask_;                          \
-  hash_slot_t slot = hash_slots_[j];                                    \
-                                                                        \
-  while (kHashSlotEmpty != slot && dict_.values[slot] != value) {       \
-    ++j;                                                                \
-    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                   \
-      j = 0;                                                            \
-    }                                                                   \
-    slot = hash_slots_[j];                                              \
-  }                                                                     \
-                                                                        \
-  if (slot == kHashSlotEmpty) {                                         \
-    if (!Action::allow_expand) {                                        \
-      throw HashException("Encountered new dictionary value");          \
-    }                                                                   \
-                                                                        \
-    slot = static_cast<hash_slot_t>(dict_.size);                        \
-    hash_slots_[j] = slot;                                              \
-    dict_.values[dict_.size++] = value;                                 \
-                                                                        \
-    action->ObserveNotFound(slot);                                      \
-                                                                        \
-    if (ARROW_PREDICT_FALSE(dict_.size > hash_table_load_threshold_)) { \
-      RETURN_NOT_OK(action->DoubleSize());                              \
-    }                                                                   \
-  } else {                                                              \
-    action->ObserveFound(slot);                                         \
+    internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
+
+#define HASH_INNER_LOOP()                                      \
+  if (slot == kHashSlotEmpty) {                                \
+    if (!Action::allow_expand) {                               \
+      throw HashException("Encountered new dictionary value"); \
+    }                                                          \
+    table_[j] = slot = static_cast<hash_slot_t>(dict_.size()); \
+    dict_.push_back(value);                                    \
+    action->ObserveNotFound(slot);                             \
+  } else {                                                     \
+    action->ObserveFound(slot);                                \
   }
 
-    GENERIC_HASH_PASS(HASH_INNER_LOOP);
+    if (arr.null_count != 0) {
+      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
+      for (int64_t i = 0; i < arr.length; ++i) {
+        const bool is_null = valid_reader.IsNotSet();
+        const bool value = value_reader.IsSet();
+        const int j = value ? 1 : 0;
+        hash_slot_t slot = table_[j];
+        valid_reader.Next();
+        value_reader.Next();
+        if (is_null) {
+          action->ObserveNull();
+          continue;
+        }
+        HASH_INNER_LOOP();
+      }
+    } else {
+      for (int64_t i = 0; i < arr.length; ++i) {
+        const bool value = value_reader.IsSet();
+        const int j = value ? 1 : 0;
+        hash_slot_t slot = table_[j];
+        value_reader.Next();
+        HASH_INNER_LOOP();
+      }
+    }
 
 #undef HASH_INNER_LOOP
 
@@ -424,17 +429,16 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
   }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    // TODO(wesm): handle null being in the dictionary
-    auto dict_data = dict_.buffer;
-    RETURN_NOT_OK(dict_data->Resize(dict_.size * sizeof(T), false));
-
-    BufferVector buffers = {nullptr, dict_data};
-    *out = std::make_shared<ArrayData>(type_, dict_.size, std::move(buffers), 0);
-    return Status::OK();
+    BooleanBuilder builder(pool_);
+    for (const bool value : dict_) {
+      RETURN_NOT_OK(builder.Append(value));
+    }
+    return builder.FinishInternal(out);
   }
 
  private:
-
+  hash_slot_t table_[2];
+  std::vector<bool> dict_;
 };
 
 // ----------------------------------------------------------------------
