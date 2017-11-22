@@ -49,3 +49,16 @@ Logon to the apache repository: https://repository.apache.org/#stagingRepositori
 Select the arrow staging repository you just just created: orgapachearrow-100x
 Click the "close" button
 Once validation has passed, click the "release" button
+
+# Releasing JavaScript
+
+* Make release branch then tag the release
+
+git checkout -b release-js-X.Y.Z
+git tag -a apache-arrow-js-X.Y.Z
+
+* Build the source release (requires NodeJS)
+
+dev/release/js-source-release.sh X.Y.Z $RC_NUM
+
+* After release vote push tag, and rebase master on release branch
