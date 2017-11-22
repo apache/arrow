@@ -16,19 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc.message;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
-import io.netty.buffer.ArrowBuf;
+  public int computeBodyLength();
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
+  public <T> T accepts(ArrowMessageVisitor<T> visitor);
 
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
+  public static interface ArrowMessageVisitor<T> {
+    public T visit(ArrowDictionaryBatch message);
 
-  ArrowBuf unLoad();
-
+    public T visit(ArrowRecordBatch message);
+  }
 }

@@ -21,8 +21,8 @@ package org.apache.arrow.tools;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.file.ArrowFileReader;
-import org.apache.arrow.vector.stream.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.ArrowFileReader;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 import java.io.File;
 import java.io.FileInputStream;

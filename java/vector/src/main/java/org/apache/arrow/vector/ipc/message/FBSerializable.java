@@ -16,19 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc.message;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import com.google.flatbuffers.FlatBufferBuilder;
 
-import io.netty.buffer.ArrowBuf;
-
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
-
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
-
-  ArrowBuf unLoad();
-
+public interface FBSerializable {
+  int writeTo(FlatBufferBuilder builder);
 }

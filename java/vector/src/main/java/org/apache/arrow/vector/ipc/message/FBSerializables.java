@@ -16,19 +16,23 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc.message;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import io.netty.buffer.ArrowBuf;
+import com.google.flatbuffers.FlatBufferBuilder;
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
+public class FBSerializables {
 
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
-
-  ArrowBuf unLoad();
-
+  public static int writeAllStructsToVector(FlatBufferBuilder builder, List<? extends FBSerializable> all) {
+    // struct vectors have to be created in reverse order
+    List<? extends FBSerializable> reversed = new ArrayList<>(all);
+    Collections.reverse(reversed);
+    for (FBSerializable element : reversed) {
+      element.writeTo(builder);
+    }
+    return builder.endVector();
+  }
 }

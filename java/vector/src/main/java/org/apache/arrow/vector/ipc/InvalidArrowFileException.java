@@ -16,19 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+public class InvalidArrowFileException extends RuntimeException {
+  private static final long serialVersionUID = 1L;
 
-import io.netty.buffer.ArrowBuf;
-
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
-
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
-
-  ArrowBuf unLoad();
+  public InvalidArrowFileException(String message) {
+    super(message);
+  }
 
 }
