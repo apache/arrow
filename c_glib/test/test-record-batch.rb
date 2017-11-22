@@ -48,16 +48,23 @@ class TestTable < Test::Unit::TestCase
 
   sub_test_case("instance methods") do
     def setup
+      @visible_field = Arrow::Field.new("visible", Arrow::BooleanDataType.new)
+      @visible_values = [true, false, true, false, true]
+      @valid_field = Arrow::Field.new("valid", Arrow::BooleanDataType.new)
+      @valid_values = [false, true, false, true, false]
+
       fields = [
-        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
-        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+        @visible_field,
+        @valid_field,
       ]
       schema = Arrow::Schema.new(fields)
       columns = [
-        build_boolean_array([true, false, true, false, true]),
-        build_boolean_array([false, true, false, true, false]),
+        build_boolean_array(@visible_values),
+        build_boolean_array(@valid_values),
       ]
-      @record_batch = Arrow::RecordBatch.new(schema, 5, columns)
+      @record_batch = Arrow::RecordBatch.new(schema,
+                                             @visible_values.size,
+                                             columns)
     end
 
     def test_equal
@@ -80,8 +87,24 @@ class TestTable < Test::Unit::TestCase
                    @record_batch.schema.fields.collect(&:name))
     end
 
-    def test_column
-      assert_equal(5, @record_batch.get_column(1).length)
+    sub_test_case("#column") do
+      def test_positive
+        assert_equal(build_boolean_array(@valid_values),
+                     @record_batch.get_column(1))
+      end
+
+      def test_negative
+        assert_equal(build_boolean_array(@visible_values),
+                     @record_batch.get_column(-2))
+      end
+
+      def test_positive_out_of_index
+        assert_nil(@record_batch.get_column(2))
+      end
+
+      def test_negative_out_of_index
+        assert_nil(@record_batch.get_column(-3))
+      end
     end
 
     def test_columns

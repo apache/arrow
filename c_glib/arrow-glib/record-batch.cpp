@@ -28,6 +28,23 @@
 
 #include <sstream>
 
+static inline bool
+garrow_record_batch_adjust_index(const std::shared_ptr<arrow::RecordBatch> arrow_record_batch,
+                                 gint &i)
+{
+  auto n_columns = arrow_record_batch->num_columns();
+  if (i < 0) {
+    i += n_columns;
+    if (i < 0) {
+      return false;
+    }
+  }
+  if (i >= n_columns) {
+    return false;
+  }
+  return true;
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -199,15 +216,21 @@ garrow_record_batch_get_schema(GArrowRecordBatch *record_batch)
 /**
  * garrow_record_batch_get_column:
  * @record_batch: A #GArrowRecordBatch.
- * @i: The index of the target column.
+ * @i: The index of the target column. If it's negative, index is
+ *   counted backward from the end of the columns. `-1` means the last
+ *   column.
  *
- * Returns: (transfer full): The i-th column in the record batch.
+ * Returns: (transfer full) (nullable): The i-th column in the record batch
+ *   on success, %NULL on out of index.
  */
 GArrowArray *
 garrow_record_batch_get_column(GArrowRecordBatch *record_batch,
-                               guint i)
+                               gint i)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  if (!garrow_record_batch_adjust_index(arrow_record_batch, i)) {
+    return NULL;
+  }
   auto arrow_column = arrow_record_batch->column(i);
   return garrow_array_new_raw(&arrow_column);
 }
@@ -237,15 +260,21 @@ garrow_record_batch_get_columns(GArrowRecordBatch *record_batch)
 /**
  * garrow_record_batch_get_column_name:
  * @record_batch: A #GArrowRecordBatch.
- * @i: The index of the target column.
+ * @i: The index of the target column. If it's negative, index is
+ *   counted backward from the end of the columns. `-1` means the last
+ *   column.
  *
- * Returns: The name of the i-th column in the record batch.
+ * Returns: (nullable): The name of the i-th column in the record batch
+ *   on success, %NULL on out of index
  */
 const gchar *
 garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
-                                    guint i)
+                                    gint i)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
+  if (!garrow_record_batch_adjust_index(arrow_record_batch, i)) {
+    return NULL;
+  }
   return arrow_record_batch->column_name(i).c_str();
 }
 
