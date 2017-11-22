@@ -43,8 +43,8 @@ import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.schema.TypeLayout;
-import org.apache.arrow.vector.schema.VectorLayout;
+import org.apache.arrow.vector.ipc.message.VectorLayout;
+import org.apache.arrow.vector.ipc.message.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
@@ -117,9 +117,9 @@ public class Field {
       }
       dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
-    ImmutableList.Builder<org.apache.arrow.vector.schema.VectorLayout> layout = ImmutableList.builder();
+    ImmutableList.Builder<VectorLayout> layout = ImmutableList.builder();
     for (int i = 0; i < field.layoutLength(); ++i) {
-      layout.add(new org.apache.arrow.vector.schema.VectorLayout(field.layout(i)));
+      layout.add(new VectorLayout(field.layout(i)));
     }
     ImmutableList.Builder<Field> childrenBuilder = ImmutableList.builder();
     for (int i = 0; i < field.childrenLength(); i++) {

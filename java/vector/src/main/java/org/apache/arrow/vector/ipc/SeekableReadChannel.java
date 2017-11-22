@@ -16,19 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import java.io.IOException;
+import java.nio.channels.SeekableByteChannel;
 
-import io.netty.buffer.ArrowBuf;
+public class SeekableReadChannel extends ReadChannel {
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
+  private final SeekableByteChannel in;
 
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
+  public SeekableReadChannel(SeekableByteChannel in) {
+    super(in);
+    this.in = in;
+  }
 
-  ArrowBuf unLoad();
+  public void setPosition(long position) throws IOException {
+    in.position(position);
+  }
 
+  public long size() throws IOException {
+    return in.size();
+  }
 }
