@@ -19,7 +19,7 @@
 set -e
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <arrow-version>"
+  echo "Usage: $0"
   exit
 fi
 
@@ -29,9 +29,5 @@ npx run-s clean:all lint create:testdata build
 npm run test -- -t ts -u --integration
 npm run test -- --integration
 
-arrow_version=$1
-
-echo "tagging as compatible with arrow v$arrow_version"
-
 # publish the JS target modules to npm
-npx lerna publish --yes --skip-git --force-publish=* --npm-tag=v"$arrow_version"
+npx lerna publish --yes --skip-git --force-publish=*

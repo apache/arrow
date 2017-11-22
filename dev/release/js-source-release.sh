@@ -22,13 +22,12 @@ set -e
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <js-version> <arrow-version> <rc-num>"
+  echo "Usage: $0 <js-version> <rc-num>"
   exit
 fi
 
 js_version=$1
-arrow_version=$2
-rc=$3
+rc=$2
 
 tag=apache-arrow-js-${js_version}
 tagrc=${tag}-rc${rc}
@@ -53,7 +52,7 @@ JS_SRC_DIR="$PWD"
 npm run clean:testdata
 npm --no-git-tag-version version $js_version
 git add package.json
-git commit -m "[Release] apache-arrow-js@$js_version"
+git commit -m "[Release] apache-arrow-js-@$js_version"
 cd $SOURCE_DIR
 
 rm -rf js-tmp
@@ -88,7 +87,7 @@ svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow js-rc-tmp
 mkdir -p js-rc-tmp/${tagrc}
 cp ${tarball}* js-rc-tmp/${tagrc}
 svn add js-rc-tmp/${tagrc}
-svn ci -m 'Apache Arrow ${version} RC${rc}' js-rc-tmp/${tagrc}
+svn ci -m 'Apache Arrow JavaScript ${version} RC${rc}' js-rc-tmp/${tagrc}
 
 cd -
 
