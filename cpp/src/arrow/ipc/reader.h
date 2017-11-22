@@ -24,13 +24,12 @@
 #include <memory>
 
 #include "arrow/ipc/message.h"
-#include "arrow/table.h"
+#include "arrow/record_batch.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Buffer;
-class RecordBatch;
 class Schema;
 class Status;
 class Tensor;

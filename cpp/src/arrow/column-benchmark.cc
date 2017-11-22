@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 
 namespace arrow {

@@ -31,8 +31,8 @@
 #include "arrow/ipc/json.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -269,7 +269,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
     std::vector<std::shared_ptr<Array>> arrays;
 
     MakeBatchArrays(schema, num_rows, &arrays);
-    auto batch = std::make_shared<RecordBatch>(schema, num_rows, arrays);
+    auto batch = RecordBatch::Make(schema, num_rows, arrays);
     batches.push_back(batch);
     ASSERT_OK(writer->WriteRecordBatch(*batch));
   }

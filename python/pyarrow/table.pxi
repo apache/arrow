@@ -724,7 +724,6 @@ cdef class RecordBatch:
             Array arr
             c_string c_name
             shared_ptr[CSchema] schema
-            shared_ptr[CRecordBatch] batch
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
             int64_t i
@@ -740,8 +739,8 @@ cdef class RecordBatch:
         for arr in arrays:
             c_arrays.push_back(arr.sp_array)
 
-        batch.reset(new CRecordBatch(schema, num_rows, c_arrays))
-        return pyarrow_wrap_batch(batch)
+        return pyarrow_wrap_batch(
+            CRecordBatch.Make(schema, num_rows, c_arrays))
 
 
 def table_to_blocks(PandasOptions options, Table table, int nthreads,
@@ -946,8 +945,7 @@ cdef class Table:
             else:
                 raise ValueError(type(arrays[i]))
 
-        table.reset(new CTable(c_schema, columns))
-        return pyarrow_wrap_table(table)
+        return pyarrow_wrap_table(CTable.Make(c_schema, columns))
 
     @staticmethod
     def from_batches(batches):

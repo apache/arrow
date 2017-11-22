@@ -37,8 +37,8 @@
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata-internal.h"
 #include "arrow/ipc/util.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/bit-util.h"
@@ -307,7 +307,7 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
     arrays[i] = std::move(arr);
   }
 
-  *out = std::make_shared<RecordBatch>(schema, num_rows, std::move(arrays));
+  *out = RecordBatch::Make(schema, num_rows, std::move(arrays));
   return Status::OK();
 }
 

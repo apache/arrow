@@ -23,6 +23,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 
 #include "arrow/python/arrow_to_pandas.h"
@@ -81,8 +82,8 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   std::vector<std::shared_ptr<Field>> fields = {f1, f2, f3};
   std::vector<std::shared_ptr<Array>> cols = {arr, arr, arr};
 
-  auto schema = std::make_shared<Schema>(fields);
-  auto table = std::make_shared<Table>(schema, cols);
+  auto schema = ::arrow::schema(fields);
+  auto table = Table::Make(schema, cols);
 
   PyObject* out;
   Py_BEGIN_ALLOW_THREADS;

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/record_batch.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -32,8 +33,6 @@ namespace arrow {
 
 class KeyValueMetadata;
 class Status;
-
-using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
@@ -113,123 +112,28 @@ class ARROW_EXPORT Column {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Column);
 };
 
-/// \class RecordBatch
-/// \brief Collection of equal-length arrays matching a particular Schema
-///
-/// A record batch is table-like data structure consisting of an internal
-/// sequence of fields, each a contiguous Arrow array
-class ARROW_EXPORT RecordBatch {
- public:
-  /// \param[in] schema The record batch schema
-  /// \param[in] num_rows length of fields in the record batch. Each array
-  /// should have the same length as num_rows
-  /// \param[in] columns the record batch fields as vector of arrays
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              const std::vector<std::shared_ptr<Array>>& columns);
-
-  /// \brief Move-based constructor for a vector of Array instances
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              std::vector<std::shared_ptr<Array>>&& columns);
-
-  /// \brief Construct record batch from vector of internal data structures
-  /// \since 0.5.0
-  ///
-  /// This class is only provided with an rvalue-reference for the input data,
-  /// and is intended for internal use, or advanced users.
-  ///
-  /// \param schema the record batch schema
-  /// \param num_rows the number of semantic rows in the record batch. This
-  /// should be equal to the length of each field
-  /// \param columns the data for the batch's columns
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              std::vector<std::shared_ptr<ArrayData>>&& columns);
-
-  /// \brief Construct record batch by copying vector of array data
-  /// \since 0.5.0
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-              const std::vector<std::shared_ptr<ArrayData>>& columns);
-
-  /// \brief Determine if two record batches are exactly equal
-  /// \return true if batches are equal
-  bool Equals(const RecordBatch& other) const;
-
-  /// \brief Determine if two record batches are approximately equal
-  bool ApproxEquals(const RecordBatch& other) const;
-
-  // \return the table's schema
-  /// \return true if batches are equal
-  std::shared_ptr<Schema> schema() const { return schema_; }
-
-  /// \brief Retrieve an array from the record batch
-  /// \param[in] i field index, does not boundscheck
-  /// \return an Array object
-  std::shared_ptr<Array> column(int i) const;
-
-  std::shared_ptr<ArrayData> column_data(int i) const { return columns_[i]; }
-
-  /// \brief Name in i-th column
-  const std::string& column_name(int i) const;
-
-  /// \return the number of columns in the table
-  int num_columns() const { return static_cast<int>(columns_.size()); }
-
-  /// \return the number of rows (the corresponding length of each column)
-  int64_t num_rows() const { return num_rows_; }
-
-  /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
-  /// \since 0.5.0
-  ///
-  /// \param[in] metadata new KeyValueMetadata
-  /// \return new RecordBatch
-  std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
-
-  /// \brief Slice each of the arrays in the record batch
-  /// \param[in] offset the starting offset to slice, through end of batch
-  /// \return new record batch
-  std::shared_ptr<RecordBatch> Slice(int64_t offset) const;
-
-  /// \brief Slice each of the arrays in the record batch
-  /// \param[in] offset the starting offset to slice
-  /// \param[in] length the number of elements to slice from offset
-  /// \return new record batch
-  std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const;
-
-  /// \brief Check for schema or length inconsistencies
-  /// \return Status
-  Status Validate() const;
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
-
-  RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
-
-  std::shared_ptr<Schema> schema_;
-  int64_t num_rows_;
-  std::vector<std::shared_ptr<ArrayData>> columns_;
-
-  // Caching boxed array data
-  mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
-};
-
 /// \class Table
 /// \brief Logical table as sequence of chunked arrays
 class ARROW_EXPORT Table {
  public:
+  virtual ~Table() = default;
+
   /// \brief Construct Table from schema and columns
   /// If columns is zero-length, the table's number of rows is zero
   /// \param schema The table schema (column types)
   /// \param columns The table's columns
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Column>>& columns, int64_t num_rows = -1);
+  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::shared_ptr<Column>>& columns,
+                                     int64_t num_rows = -1);
 
   /// \brief Construct Table from schema and arrays
   /// \param schema The table schema (column types)
   /// \param arrays The table's columns as arrays
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
-  Table(const std::shared_ptr<Schema>& schema,
-        const std::vector<std::shared_ptr<Array>>& arrays, int64_t num_rows = -1);
+  static std::shared_ptr<Table> Make(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::shared_ptr<Array>>& arrays,
+                                     int64_t num_rows = -1);
 
   // Construct table from RecordBatch, but only if all of the batch schemas are
   // equal. Returns Status::Invalid if there is some problem
@@ -242,25 +146,28 @@ class ARROW_EXPORT Table {
 
   /// \param[in] i column index, does not boundscheck
   /// \return the i-th column
-  std::shared_ptr<Column> column(int i) const { return columns_[i]; }
+  virtual std::shared_ptr<Column> column(int i) const = 0;
 
   /// \brief Remove column from the table, producing a new Table
-  Status RemoveColumn(int i, std::shared_ptr<Table>* out) const;
+  virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Add column to the table, producing a new Table
-  Status AddColumn(int i, const std::shared_ptr<Column>& column,
-                   std::shared_ptr<Table>* out) const;
+  virtual Status AddColumn(int i, const std::shared_ptr<Column>& column,
+                           std::shared_ptr<Table>* out) const = 0;
 
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0
   ///
   /// \param[in] metadata new KeyValueMetadata
   /// \return new Table
-  std::shared_ptr<Table> ReplaceSchemaMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& metadata) const;
+  virtual std::shared_ptr<Table> ReplaceSchemaMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
+
+  /// \brief Perform any checks to validate the input arguments
+  virtual Status Validate() const = 0;
 
   /// \return the number of columns in the table
-  int num_columns() const { return static_cast<int>(columns_.size()); }
+  int num_columns() const { return schema_->num_fields(); }
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -268,35 +175,14 @@ class ARROW_EXPORT Table {
   /// \brief Determine if semantic contents of tables are exactly equal
   bool Equals(const Table& other) const;
 
-  /// \brief Perform any checks to validate the input arguments
-  Status ValidateColumns() const;
+ protected:
+  Table();
 
-  /// \brief Return true if any column has multiple chunks
-  bool IsChunked() const;
+  std::shared_ptr<Schema> schema_;
+  int64_t num_rows_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Table);
-
-  std::shared_ptr<Schema> schema_;
-  std::vector<std::shared_ptr<Column>> columns_;
-
-  int64_t num_rows_;
-};
-
-/// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader {
- public:
-  virtual ~RecordBatchReader();
-
-  /// \return the shared schema of the record batches in the stream
-  virtual std::shared_ptr<Schema> schema() const = 0;
-
-  /// Read the next record batch in the stream. Return null for batch when
-  /// reaching end of stream
-  ///
-  /// \param[out] batch the next loaded batch, null at end of stream
-  /// \return Status
-  virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 };
 
 /// \brief Compute a sequence of record batches from a (possibly chunked) Table
@@ -322,12 +208,17 @@ ARROW_EXPORT
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table);
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 /// \brief Construct table from multiple input tables.
 /// \return Status, fails if any schemas are different
+/// \note Deprecated since 0.8.0
 ARROW_EXPORT
 Status MakeTable(const std::shared_ptr<Schema>& schema,
                  const std::vector<std::shared_ptr<Array>>& arrays,
                  std::shared_ptr<Table>* table);
+
+#endif
 
 }  // namespace arrow
 

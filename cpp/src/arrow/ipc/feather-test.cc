@@ -29,6 +29,7 @@
 #include "arrow/ipc/feather.h"
 #include "arrow/ipc/test-common.h"
 #include "arrow/pretty_print.h"
+#include "arrow/table.h"
 #include "arrow/test-util.h"
 
 namespace arrow {
@@ -376,8 +377,8 @@ TEST_F(TestTableWriter, TimeTypes) {
         schema->field(i)->type(), values->length(), buffers, values->null_count(), 0));
   }
 
-  RecordBatch batch(schema, values->length(), std::move(arrays));
-  CheckBatch(batch);
+  auto batch = RecordBatch::Make(schema, values->length(), std::move(arrays));
+  CheckBatch(*batch);
 }
 
 TEST_F(TestTableWriter, VLenPrimitiveRoundTrip) {

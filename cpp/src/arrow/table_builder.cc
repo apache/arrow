@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -64,7 +65,7 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
     }
     length = fields[i]->length();
   }
-  *batch = std::make_shared<RecordBatch>(schema_, length, std::move(fields));
+  *batch = RecordBatch::Make(schema_, length, std::move(fields));
   if (reset_builders) {
     return InitBuilders();
   } else {
