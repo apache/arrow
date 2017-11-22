@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+const fs = require('fs');
 const path = require(`path`);
 const pump = require(`pump`);
 const { Observable, ReplaySubject } = require('rxjs');
@@ -27,12 +28,25 @@ const releasesRootDir = `targets`;
 const knownTargets = [`es5`, `es2015`, `esnext`];
 const knownModules = [`cjs`, `esm`, `cls`, `umd`];
 const moduleFormatsToSkipCombosOf = { cls: true };
-const metadataFiles = [`../LICENSE.txt`, `../NOTICE.txt`, `README.md`];
 const packageJSONFields = [
   `version`, `license`, `description`,
   `author`, `homepage`, `repository`,
   `bugs`, `keywords`,  `dependencies`
 ];
+
+const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
+    let err = false, prefixes = [`./`, `../`];
+    let p = prefixes.find((prefix) => {
+        try {
+            fs.statSync(path.resolve(path.join(prefix, filename)));
+        } catch (e) { return false; }
+        return true;
+    });
+    if (!p) {
+        throw new Error(`Couldn't find ${filename} in ./ or ../`);
+    }
+    return path.join(p, filename);
+});
 
 // see: https://github.com/google/closure-compiler/blob/c1372b799d94582eaf4b507a4a22558ff26c403c/src/com/google/javascript/jscomp/CompilerOptions.java#L2988
 const gCCLanguageNames = {

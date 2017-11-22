@@ -50,7 +50,8 @@
     "*.json",
     "tsconfig",
     "README.md",
-    "gulpfile.js"
+    "gulpfile.js",
+    "npm-release.sh"
   ],
   "peerDependencies": {
     "command-line-usage": "4.0.1"
