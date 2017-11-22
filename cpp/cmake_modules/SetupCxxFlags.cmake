@@ -68,9 +68,6 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
@@ -118,9 +115,6 @@ elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     # /wdnnnn disables a warning where "nnnn" is a warning number
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}  /WX")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic")
     # Treat all compiler warnings as errors
@@ -140,9 +134,6 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")
