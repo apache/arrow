@@ -60,6 +60,10 @@ using enable_if_binary =
     typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type;
 
 template <typename T>
+using enable_if_boolean =
+    typename std::enable_if<std::is_same<BooleanType, T>::value>::type;
+
+template <typename T>
 using enable_if_fixed_size_binary =
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type;
 

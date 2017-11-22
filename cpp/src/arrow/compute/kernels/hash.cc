@@ -369,6 +369,75 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
 };
 
 // ----------------------------------------------------------------------
+// Hash table for boolean types
+
+template <typename Type, typename Action>
+class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTable {
+ public:
+  using T = typename Type::c_type;
+
+  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : HashTable(type, pool), dict_(pool) {}
+
+  Status Append(const ArrayData& arr) override {
+    const T* values = GetValues<T>(arr, 1);
+    auto action = static_cast<Action*>(this);
+
+    RETURN_NOT_OK(action->Reserve(arr.length));
+
+#define HASH_INNER_LOOP()                                               \
+  const T value = values[i];                                            \
+  int64_t j = HashValue(value) & mod_bitmask_;                          \
+  hash_slot_t slot = hash_slots_[j];                                    \
+                                                                        \
+  while (kHashSlotEmpty != slot && dict_.values[slot] != value) {       \
+    ++j;                                                                \
+    if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                   \
+      j = 0;                                                            \
+    }                                                                   \
+    slot = hash_slots_[j];                                              \
+  }                                                                     \
+                                                                        \
+  if (slot == kHashSlotEmpty) {                                         \
+    if (!Action::allow_expand) {                                        \
+      throw HashException("Encountered new dictionary value");          \
+    }                                                                   \
+                                                                        \
+    slot = static_cast<hash_slot_t>(dict_.size);                        \
+    hash_slots_[j] = slot;                                              \
+    dict_.values[dict_.size++] = value;                                 \
+                                                                        \
+    action->ObserveNotFound(slot);                                      \
+                                                                        \
+    if (ARROW_PREDICT_FALSE(dict_.size > hash_table_load_threshold_)) { \
+      RETURN_NOT_OK(action->DoubleSize());                              \
+    }                                                                   \
+  } else {                                                              \
+    action->ObserveFound(slot);                                         \
+  }
+
+    GENERIC_HASH_PASS(HASH_INNER_LOOP);
+
+#undef HASH_INNER_LOOP
+
+    return Status::OK();
+  }
+
+  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
+    // TODO(wesm): handle null being in the dictionary
+    auto dict_data = dict_.buffer;
+    RETURN_NOT_OK(dict_data->Resize(dict_.size * sizeof(T), false));
+
+    BufferVector buffers = {nullptr, dict_data};
+    *out = std::make_shared<ArrayData>(type_, dict_.size, std::move(buffers), 0);
+    return Status::OK();
+  }
+
+ private:
+
+};
+
+// ----------------------------------------------------------------------
 // Hash table pass for variable-length binary types
 
 template <typename Type, typename Action>
@@ -698,7 +767,7 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
 
   switch (type->id()) {
     UNIQUE_CASE(NullType);
-    // UNIQUE_CASE(BooleanType);
+    UNIQUE_CASE(BooleanType);
     UNIQUE_CASE(UInt8Type);
     UNIQUE_CASE(Int8Type);
     UNIQUE_CASE(UInt16Type);
@@ -741,7 +810,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
 
   switch (type->id()) {
     DICTIONARY_ENCODE_CASE(NullType);
-    // DICTIONARY_ENCODE_CASE(BooleanType);
+    DICTIONARY_ENCODE_CASE(BooleanType);
     DICTIONARY_ENCODE_CASE(UInt8Type);
     DICTIONARY_ENCODE_CASE(Int8Type);
     DICTIONARY_ENCODE_CASE(UInt16Type);
