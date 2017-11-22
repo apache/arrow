@@ -31,7 +31,7 @@ set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
 set(PROTOBUF_VERSION "2.6.0")
 set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
-set(ORC_VERSION "cleanup-cmake-scripts")
+set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -914,13 +914,14 @@ if (ARROW_ORC)
                       -DBUILD_JAVA=OFF
                       -DBUILD_TOOLS=OFF
                       -DBUILD_CPP_TESTS=OFF
+                      -DINSTALL_VENDORED_LIBS=OFF
                       -DPROTOBUF_HOME=${PROTOBUF_HOME}
                       -DLZ4_HOME=${LZ4_HOME}
                       -DSNAPPY_HOME=${SNAPPY_HOME}
                       -DZLIB_HOME=${ZLIB_HOME})
 
   ExternalProject_Add(orc_ep
-    GIT_REPOSITORY "https://github.com/jcrist/orc"
+    GIT_REPOSITORY "https://github.com/apache/orc"
     GIT_TAG ${ORC_VERSION}
     BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
     CMAKE_ARGS ${ORC_CMAKE_ARGS})

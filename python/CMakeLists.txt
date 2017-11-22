@@ -70,6 +70,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
+  option(PYARROW_BUILD_ORC
+    "Build the PyArrow ORC integration"
+    OFF)
   option(PYARROW_BUNDLE_ARROW_CPP
     "Bundle the Arrow C++ libraries"
     OFF)
@@ -355,6 +358,14 @@ if (PYARROW_BUILD_PLASMA)
 
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} plasma)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+endif()
+
+
+if (PYARROW_BUILD_ORC)
+  ## ORC
+  set(CYTHON_EXTENSIONS
+      ${CYTHON_EXTENSIONS}
+      _orc)
 endif()
 
 ############################################################

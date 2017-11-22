@@ -84,6 +84,7 @@ class build_ext(_build_ext):
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
+                     ('with-orc', None, 'build the ORC extension'),
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries')] +
                     _build_ext.user_options)
@@ -109,12 +110,15 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
+        self.with_orc = strtobool(
+            os.environ.get('PYARROW_WITH_ORC', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
         '_parquet',
+        '_orc',
         'plasma']
 
     def _run_cmake(self):
@@ -156,6 +160,9 @@ class build_ext(_build_ext):
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
+
+        if self.with_orc:
+            cmake_options.append('-DPYARROW_BUILD_ORC=on')
 
         if len(self.cmake_cxxflags) > 0:
             cmake_options.append('-DPYARROW_CXXFLAGS="{0}"'
@@ -283,6 +290,8 @@ class build_ext(_build_ext):
         if name == '_parquet' and not self.with_parquet:
             return True
         if name == 'plasma' and not self.with_plasma:
+            return True
+        if name == '_orc' and not self.with_orc:
             return True
         return False
 
