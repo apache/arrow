@@ -22,9 +22,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.schema.ArrowFieldNode;
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.schema.ArrowVectorType;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.ArrowVectorType;
 
 public class VectorUnloader {
 

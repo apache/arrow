@@ -17,7 +17,6 @@
  */
 
 package org.apache.arrow.vector;
-import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 
 import static org.apache.arrow.vector.TestUtils.newNullableVarBinaryVector;
@@ -38,15 +37,14 @@ import java.util.ArrayList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
-import org.apache.arrow.vector.schema.ArrowRecordBatch;
-import org.apache.arrow.vector.schema.TypeLayout;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.TypeLayout;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 

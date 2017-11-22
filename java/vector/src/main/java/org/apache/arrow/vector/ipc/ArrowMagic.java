@@ -16,19 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc;
 
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.WriteChannel;
 
-import io.netty.buffer.ArrowBuf;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded
- */
-public interface BufferBacked {
+public class ArrowMagic {
 
-  void load(ArrowFieldNode fieldNode, ArrowBuf data);
+  private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 
-  ArrowBuf unLoad();
+  public static final int MAGIC_LENGTH = MAGIC.length;
 
+  public static void writeMagic(WriteChannel out, boolean align) throws IOException {
+    out.write(MAGIC);
+    if (align) {
+      out.align();
+    }
+  }
+
+  public static boolean validateMagic(byte[] array) {
+    return Arrays.equals(MAGIC, array);
+  }
 }
