@@ -209,10 +209,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int byte_width()
         int bit_width()
 
-    cdef cppclass CDecimalType" arrow::DecimalType"(CFixedSizeBinaryType):
+    cdef cppclass CDecimal128Type" arrow::Decimal128Type"(CFixedSizeBinaryType):
+        CDecimal128Type(int precision, int scale)
         int precision()
         int scale()
-        CDecimalType(int precision, int scale)
 
     cdef cppclass CField" arrow::Field":
         const c_string& name()

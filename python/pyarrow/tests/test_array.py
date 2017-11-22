@@ -470,7 +470,7 @@ def test_simple_type_construction():
         (pa.binary(length=4), 'bytes'),
         (pa.string(), 'unicode'),
         (pa.list_(pa.list_(pa.int16())), 'list[list[int16]]'),
-        (pa.decimal(18, 3), 'decimal'),
+        (pa.decimal128(18, 3), 'decimal'),
         (pa.timestamp('ms'), 'datetime'),
         (pa.timestamp('us', 'UTC'), 'datetimetz'),
         (pa.time32('s'), 'time'),

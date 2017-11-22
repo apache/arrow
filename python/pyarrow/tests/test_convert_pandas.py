@@ -828,7 +828,7 @@ class TestPandasConversion(object):
             ]
         })
         converted = pa.Table.from_pandas(expected, preserve_index=False)
-        field = pa.field('decimals', pa.decimal(7, 3))
+        field = pa.field('decimals', pa.decimal128(7, 3))
         schema = pa.schema([field])
         assert converted.schema.equals(schema)
 
@@ -851,7 +851,7 @@ class TestPandasConversion(object):
             ]
         })
         converted = pa.Table.from_pandas(expected, preserve_index=False)
-        field = pa.field('decimals', pa.decimal(12, 6))
+        field = pa.field('decimals', pa.decimal128(12, 6))
         schema = pa.schema([field])
         assert converted.schema.equals(schema)
 
@@ -874,7 +874,7 @@ class TestPandasConversion(object):
             ]
         })
         converted = pa.Table.from_pandas(expected, preserve_index=False)
-        field = pa.field('decimals', pa.decimal(26, 11))
+        field = pa.field('decimals', pa.decimal128(26, 11))
         schema = pa.schema([field])
         assert converted.schema.equals(schema)
 
