@@ -78,7 +78,7 @@ cdef public api object pyarrow_wrap_data_type(
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType()
     elif type.get().id() == _Type_DECIMAL:
-        out = DecimalType()
+        out = Decimal128Type()
     else:
         out = DataType()
 
