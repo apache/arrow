@@ -1,14 +1,11 @@
 import { flatbuffers } from 'flatbuffers';
 
-import * as Schema_ from './Schema';
-import * as Message_ from './Message';
-import * as File_ from './Message';
+import * as Schema_ from './fb/Schema';
+import * as Message_ from './fb/Message';
 
-export namespace fb {
-    export import Schema = Schema_.org.apache.arrow.flatbuf;
-    export import Message = Message_.org.apache.arrow.flatbuf;
-    export import File = File_.org.apache.arrow.flatbuf;
-}
+import Type = Schema_.org.apache.arrow.flatbuf.Type;
+import Field = Schema_.org.apache.arrow.flatbuf.Field;
+import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 
 export class Metadatum {
     constructor(private key_: string, private value_: any) {
@@ -24,7 +21,7 @@ export class Metadatum {
 }
 
 export class FieldBuilder {
-    constructor(private name_: string, private typeType_: fb.Schema.Type, private nullable_: boolean, private metadata_: Metadatum[]) {}
+    constructor(private name_: string, private typeType_: Type, private nullable_: boolean, private metadata_: Metadatum[]) {}
     name(): string {
         return this.name_;
     }
@@ -41,9 +38,9 @@ export class FieldBuilder {
         return this.metadata_[i];
     }
     write(builder: flatbuffers.Builder): flatbuffers.Offset {
-        fb.Schema.Field.startField(builder);
+        Field.startField(builder);
         // TODO..
-        return fb.Schema.Field.endField(builder);
+        return Field.endField(builder);
     }
 }
 
@@ -56,6 +53,6 @@ export class FieldNodeBuilder {
         return this.nullCount_;
     }
     write(builder: flatbuffers.Builder): flatbuffers.Offset {
-        return fb.Message.FieldNode.createFieldNode(builder, this.length(), this.nullCount());
+        return FieldNode.createFieldNode(builder, this.length(), this.nullCount());
     }
 }

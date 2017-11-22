@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema';
+import * as Schema_ from '../format/fb/Schema';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 
 export interface Vector<T = any> extends Iterable<T | null> {

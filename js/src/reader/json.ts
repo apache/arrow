@@ -23,7 +23,9 @@ import { BinaryVector, BoolVector, Utf8Vector, Int8Vector,
          Uint16Vector, Uint32Vector, Uint64Vector,
          Float32Vector, Float64Vector, ListVector, StructVector } from '../vector/arrow';
 
-import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+import * as Schema_ from '../format/fb/Schema';
+import Type = Schema_.org.apache.arrow.flatbuf.Type;
+import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 
 import { TextEncoder } from 'text-encoding-utf-8';
 const encoder = new TextEncoder('utf-8');
@@ -203,24 +205,24 @@ function readBoolean(arr: Array<number>) {
     return rtrn;
 }
 
-const TYPE_LOOKUP: {[index: string]: fb.Schema.Type} = {
-    'NONE':            fb.Schema.Type.NONE,
-    'null':            fb.Schema.Type.Null,
-    'map':             fb.Schema.Type.Map,
-    'int':             fb.Schema.Type.Int,
-    'bool':            fb.Schema.Type.Bool,
-    'date':            fb.Schema.Type.Date,
-    'list':            fb.Schema.Type.List,
-    'utf8':            fb.Schema.Type.Utf8,
-    'time':            fb.Schema.Type.Time,
-    'union':           fb.Schema.Type.Union,
-    'binary':          fb.Schema.Type.Binary,
-    'decimal':         fb.Schema.Type.Decimal,
-    'struct_':         fb.Schema.Type.Struct_,
-    'floatingpoint':   fb.Schema.Type.FloatingPoint,
-    'timestamp':       fb.Schema.Type.Timestamp,
-    'fixedsizelist':   fb.Schema.Type.FixedSizeList,
-    'fixedsizebinary': fb.Schema.Type.FixedSizeBinary
+const TYPE_LOOKUP: {[index: string]: Type} = {
+    'NONE':            Type.NONE,
+    'null':            Type.Null,
+    'map':             Type.Map,
+    'int':             Type.Int,
+    'bool':            Type.Bool,
+    'date':            Type.Date,
+    'list':            Type.List,
+    'utf8':            Type.Utf8,
+    'time':            Type.Time,
+    'union':           Type.Union,
+    'binary':          Type.Binary,
+    'decimal':         Type.Decimal,
+    'struct_':         Type.Struct_,
+    'floatingpoint':   Type.FloatingPoint,
+    'timestamp':       Type.Timestamp,
+    'fixedsizelist':   Type.FixedSizeList,
+    'fixedsizebinary': Type.FixedSizeBinary
 };
 
 function fieldFromJSON(obj: any): FieldBuilder {

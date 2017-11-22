@@ -46,11 +46,13 @@ import {
     TimestampVector as TimestampVectorBase,
 } from './numeric';
 
-import { nullableMixin, fieldMixin, Field, FieldNode, isFieldArgv, isNullableArgv} from './traits';
+import * as Schema_ from '../format/fb/Schema';
+import * as Message_ from '../format/fb/Message';
+export import Field = Schema_.org.apache.arrow.flatbuf.Field;
+export import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
+export { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+import { nullableMixin, fieldMixin, isFieldArgv, isNullableArgv } from './traits';
 
-export { Field, FieldNode };
-import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
-export { fb, FieldBuilder, FieldNodeBuilder };
 function MixinArrowTraits<T extends Vector<any>, TArgv>(
     Base: new (argv: TArgv) => T,
     Field: new (argv: TArgv & { field: Field, fieldNode: FieldNode }) => T,

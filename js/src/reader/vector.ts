@@ -16,8 +16,8 @@
 // under the License.
 
 import { VectorReaderContext } from './arrow';
-import * as Schema_ from '../format/Schema';
-import * as Message_ from '../format/Message';
+import * as Schema_ from '../format/fb/Schema';
+import * as Message_ from '../format/fb/Message';
 import { TypedArray, TypedArrayConstructor } from '../vector/types';
 import {
     Vector, BoolVector, BinaryVector, DictionaryVector,

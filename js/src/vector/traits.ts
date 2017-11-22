@@ -17,17 +17,24 @@
 
 import { Vector } from './vector';
 import { BoolVector } from './numeric';
-import { fb, FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 
-export type Field = ( fb.Schema.Field | FieldBuilder );
-export type FieldNode = ( fb.Message.FieldNode | FieldNodeBuilder );
+import * as Schema_ from '../format/fb/Schema';
+import * as Message_ from '../format/fb/Message';
+
+import Type = Schema_.org.apache.arrow.flatbuf.Type;
+import Field_ = Schema_.org.apache.arrow.flatbuf.Field;
+import FieldNode_ = Message_.org.apache.arrow.flatbuf.FieldNode;
+
+export type Field = Field_ | FieldBuilder;
+export type FieldNode = FieldNode_ | FieldNodeBuilder;
 
 function isField(x: any): x is Field {
-    return x instanceof fb.Schema.Field || x instanceof FieldBuilder;
+    return x instanceof Field_ || x instanceof FieldBuilder;
 }
 
 function isFieldNode(x: any): x is FieldNode {
-    return x instanceof fb.Message.FieldNode || x instanceof FieldNodeBuilder;
+    return x instanceof FieldNode_ || x instanceof FieldNodeBuilder;
 }
 
 export function isFieldArgv(x: any): x is { field: Field, fieldNode: FieldNode } {
@@ -67,7 +74,7 @@ export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv
             this.field = field;
             this.fieldNode = fieldNode;
             this.nullable = field.nullable();
-            this.type = fb.Schema.Type[field.typeType()];
+            this.type = Type[field.typeType()];
             this.length = fieldNode.length().low | 0;
             this.nullCount = fieldNode.nullCount().low;
         }
