@@ -18,18 +18,32 @@
 class TestTable < Test::Unit::TestCase
   include Helper::Buildable
 
-  def test_new
-    fields = [
-      Arrow::Field.new("visible", Arrow::BooleanDataType.new),
-      Arrow::Field.new("valid", Arrow::BooleanDataType.new),
-    ]
-    schema = Arrow::Schema.new(fields)
-    columns = [
-      build_boolean_array([true]),
-      build_boolean_array([false]),
-    ]
-    record_batch = Arrow::RecordBatch.new(schema, 1, columns)
-    assert_equal(1, record_batch.n_rows)
+  sub_test_case(".new") do
+    def test_valid
+      fields = [
+        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+      ]
+      schema = Arrow::Schema.new(fields)
+      columns = [
+        build_boolean_array([true]),
+        build_boolean_array([false]),
+      ]
+      record_batch = Arrow::RecordBatch.new(schema, 1, columns)
+      assert_equal(1, record_batch.n_rows)
+    end
+
+    def test_no_columns
+      fields = [
+        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+      ]
+      schema = Arrow::Schema.new(fields)
+      message = "[record-batch][new]: " +
+        "Invalid: Number of columns did not match schema"
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        Arrow::RecordBatch.new(schema, 0, [])
+      end
+    end
   end
 
   sub_test_case("instance methods") do
@@ -40,7 +54,7 @@ class TestTable < Test::Unit::TestCase
       ]
       schema = Arrow::Schema.new(fields)
       columns = [
-        build_boolean_array([true, false, true, false, true, false]),
+        build_boolean_array([true, false, true, false, true]),
         build_boolean_array([false, true, false, true, false]),
       ]
       @record_batch = Arrow::RecordBatch.new(schema, 5, columns)
@@ -53,7 +67,7 @@ class TestTable < Test::Unit::TestCase
       ]
       schema = Arrow::Schema.new(fields)
       columns = [
-        build_boolean_array([true, false, true, false, true, false]),
+        build_boolean_array([true, false, true, false, true]),
         build_boolean_array([false, true, false, true, false]),
       ]
       other_record_batch = Arrow::RecordBatch.new(schema, 5, columns)
@@ -71,7 +85,7 @@ class TestTable < Test::Unit::TestCase
     end
 
     def test_columns
-      assert_equal([6, 5],
+      assert_equal([5, 5],
                    @record_batch.columns.collect(&:length))
     end
 
@@ -94,7 +108,7 @@ class TestTable < Test::Unit::TestCase
 
     def test_to_s
       assert_equal(<<-PRETTY_PRINT, @record_batch.to_s)
-visible: [true, false, true, false, true, false]
+visible: [true, false, true, false, true]
 valid: [false, true, false, true, false]
       PRETTY_PRINT
     end

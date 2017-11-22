@@ -68,7 +68,8 @@ GType garrow_record_batch_get_type(void) G_GNUC_CONST;
 
 GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
-                                           GList *columns);
+                                           GList *columns,
+                                           GError **error);
 
 gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);

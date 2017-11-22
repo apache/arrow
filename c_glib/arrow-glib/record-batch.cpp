@@ -135,13 +135,15 @@ garrow_record_batch_class_init(GArrowRecordBatchClass *klass)
  * @schema: The schema of the record batch.
  * @n_rows: The number of the rows in the record batch.
  * @columns: (element-type GArrowArray): The columns in the record batch.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowRecordBatch.
+ * Returns: (nullable): A newly created #GArrowRecordBatch or %NULL on error.
  */
 GArrowRecordBatch *
 garrow_record_batch_new(GArrowSchema *schema,
                         guint32 n_rows,
-                        GList *columns)
+                        GList *columns,
+                        GError **error)
 {
   std::vector<std::shared_ptr<arrow::Array>> arrow_columns;
   for (GList *node = columns; node; node = node->next) {
@@ -152,7 +154,12 @@ garrow_record_batch_new(GArrowSchema *schema,
   auto arrow_record_batch =
     arrow::RecordBatch::Make(garrow_schema_get_raw(schema),
                              n_rows, arrow_columns);
-  return garrow_record_batch_new_raw(&arrow_record_batch);
+  auto status = arrow_record_batch->Validate();
+  if (garrow_error_check(error, status, "[record-batch][new]")) {
+    return garrow_record_batch_new_raw(&arrow_record_batch);
+  } else {
+    return NULL;
+  }
 }
 
 /**
