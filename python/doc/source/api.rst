@@ -50,7 +50,7 @@ Type and Schema Factory Functions
    date64
    binary
    string
-   decimal
+   decimal128
    list_
    struct
    dictionary
