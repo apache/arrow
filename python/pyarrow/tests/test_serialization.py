@@ -23,6 +23,7 @@ from collections import namedtuple, OrderedDict, defaultdict
 import datetime
 import string
 import sys
+import pickle
 
 import pyarrow as pa
 import numpy as np
@@ -197,7 +198,9 @@ def make_serialization_context():
     context.register_type(Baz, "Baz")
     context.register_type(Qux, "Quz")
     context.register_type(SubQux, "SubQux")
-    context.register_type(SubQuxPickle, "SubQuxPickle", pickle=True)
+    context.register_type(SubQuxPickle, "SubQuxPickle",
+                          custom_serializer=pickle.dumps,
+                          custom_deserializer=pickle.loads)
     context.register_type(Exception, "Exception")
     context.register_type(CustomError, "CustomError")
     context.register_type(Point, "Point")
@@ -338,7 +341,7 @@ def test_serialization_callback_numpy():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        DummyClass, "DummyClass", pickle=False,
+        DummyClass, "DummyClass",
         custom_serializer=serialize_dummy_class,
         custom_deserializer=deserialize_dummy_class)
 
@@ -357,7 +360,7 @@ def test_buffer_serialization():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        BufferClass, "BufferClass", pickle=False,
+        BufferClass, "BufferClass",
         custom_serializer=serialize_buffer_class,
         custom_deserializer=deserialize_buffer_class)
 

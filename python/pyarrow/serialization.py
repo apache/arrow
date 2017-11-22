@@ -17,6 +17,7 @@
 
 from collections import OrderedDict, defaultdict
 import sys
+import pickle
 
 import numpy as np
 
@@ -67,9 +68,11 @@ def register_default_serialization_handlers(serialization_context):
 
     serialization_context.register_type(
         type(lambda: 0), "function",
-        pickle=True)
+        custom_serializer=pickle.dumps, custom_deserializer=pickle.loads)
 
-    serialization_context.register_type(type, "type", pickle=True)
+    serialization_context.register_type(type, "type",
+                                        custom_serializer=pickle.dumps,
+                                        custom_deserializer=pickle.loads)
 
     # ----------------------------------------------------------------------
     # Set up serialization for numpy with dtype object (primitive types are
