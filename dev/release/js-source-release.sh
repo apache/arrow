@@ -41,9 +41,11 @@ cd $SOURCE_DIR/../../js
 JS_SRC_DIR="$PWD"
 # npm pack the js source files
 npm install
-npm version $js_version -m "[Release] apache-arrow-js-%s"
 
-git tag -a $tag -m "[Release] Apache Arrow JavaScript $js_version"
+npm version --no-git-tag-version $js_version
+git add package.json
+git commit -m "[Release] Apache Arrow JavaScript $js_version"
+git tag -a ${tag}
 
 release_hash=`git rev-list $tag 2> /dev/null | head -n 1 `
 
