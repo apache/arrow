@@ -209,7 +209,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int byte_width()
         int bit_width()
 
-    cdef cppclass CDecimal128Type" arrow::Decimal128Type"(CFixedSizeBinaryType):
+    cdef cppclass CDecimal128Type \
+            " arrow::Decimal128Type"(CFixedSizeBinaryType):
         CDecimal128Type(int precision, int scale)
         int precision()
         int scale()
