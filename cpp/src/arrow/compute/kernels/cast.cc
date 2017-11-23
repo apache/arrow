@@ -747,7 +747,7 @@ class CastKernel : public UnaryKernel {
     ArrayData* result;
 
     if (out->kind() == Datum::NONE) {
-      out->value = std::make_shared<ArrayData>(out_type_, in_data.length);
+      out->value = ArrayData::Make(out_type_, in_data.length);
     }
 
     result = out->array().get();
