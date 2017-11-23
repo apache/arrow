@@ -18,13 +18,11 @@
 
 package org.apache.arrow.vector.ipc;
 
-import org.apache.arrow.vector.ipc.WriteChannel;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-public class ArrowMagic {
+class ArrowMagic {
 
   private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 
