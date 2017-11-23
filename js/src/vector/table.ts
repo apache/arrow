@@ -20,24 +20,28 @@ import { StructVector, StructRow } from './struct';
 import { readVectors, readVectorsAsync } from '../reader/arrow';
 import { readJSON } from '../reader/json';
 
+function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
+    return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
+        vec && col && col.concat(vec) || col || vec
+    ) as Vector<any>[]
+}
+
 export class Table<T> extends StructVector<T> {
-    static from(buffers?: Iterable<Uint8Array | Buffer | string>) {
+    static from(buffersOrJSON?: Iterable<Uint8Array | Buffer | string> | object | string) {
+        let input: any = buffersOrJSON;
         let columns: Vector<any>[] = [];
-        if (buffers) {
-            for (let vectors of readVectors(buffers)) {
-                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                    vec && col && col.concat(vec) || col || vec
-                ) as Vector<any>[];
-            }
+        let batches: Iterable<Vector[]>;
+        if (typeof input === 'string') {
+            try { input = JSON.parse(input); }
+            catch (e) { input = buffersOrJSON; }
         }
-        return new Table({ columns });
-    }
-    static fromJSON(jsonString: string) {
-        let columns: Vector<any>[] = [];
-        for (let vectors of readJSON(jsonString)) {
-            columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                vec && col && col.concat(vec) || col || vec
-            ) as Vector<any>[];
+        if (!input || typeof input !== 'object') {
+            batches = (typeof input === 'string') ? readVectors([input]) : [];
+        } else {
+            batches = (typeof input[Symbol.iterator] === 'function') ? readVectors(input) : readJSON(input);
+        }
+        for (let vectors of batches) {
+            columns = concatVectors(columns, vectors);
         }
         return new Table({ columns });
     }
@@ -45,9 +49,7 @@ export class Table<T> extends StructVector<T> {
         let columns: Vector<any>[] = [];
         if (buffers) {
             for await (let vectors of readVectorsAsync(buffers)) {
-                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                    vec && col && col.concat(vec) || col || vec
-                ) as Vector<any>[];
+                columns = columns = concatVectors(columns, vectors);
             }
         }
         return new Table({ columns });

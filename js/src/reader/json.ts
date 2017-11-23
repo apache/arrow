@@ -30,8 +30,7 @@ import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 import { TextEncoder } from 'text-encoding-utf-8';
 const encoder = new TextEncoder('utf-8');
 
-export function* readJSON(jsonString: string): IterableIterator<Vector<any>[]> {
-    let obj: any = JSON.parse(jsonString);
+export function* readJSON(obj: any): IterableIterator<Vector<any>[]> {
     let schema: any = {};
     for (const field of obj.schema.fields) {
         schema[field.name] = field;
