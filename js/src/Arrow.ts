@@ -45,6 +45,13 @@ import {
     TimestampVector,
 } from './vector/numeric';
 
+// closure compiler always erases static method names:
+// https://github.com/google/closure-compiler/issues/1776
+// set them via string indexers to save them from the mangler
+Table['from'] = Table.from;
+Table['fromAsync'] = Table.fromAsync;
+BoolVector['pack'] = BoolVector.pack;
+
 export { Table, Vector, StructRow };
 export { readVectors, readVectorsAsync };
 export { readJSON };

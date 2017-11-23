@@ -3,6 +3,8 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "ES5",
+    // uncomment when google-closure-compiler releases a new version
+    // "target": "es2015",
     "module": "es2015",
     "declaration": false
   }

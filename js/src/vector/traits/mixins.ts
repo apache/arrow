@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { BoolVector } from './numeric';
-import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+import { Vector } from '../vector';
+import { BoolVector } from '../numeric';
+import { FieldBuilder, FieldNodeBuilder } from '../../format/arrow';
 
-import * as Schema_ from '../format/fb/Schema';
-import * as Message_ from '../format/fb/Message';
+import * as Schema_ from '../../format/fb/Schema';
+import * as Message_ from '../../format/fb/Message';
 
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import Field_ = Schema_.org.apache.arrow.flatbuf.Field;
