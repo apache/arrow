@@ -30,6 +30,7 @@
 
 namespace arrow {
 
+class MemoryPool;
 class RecordBatch;
 class Tensor;
 
@@ -45,6 +46,26 @@ struct ARROW_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
   std::vector<std::shared_ptr<Buffer>> buffers;
+
+  /// \brief Write serialized Python object to OutputStream
+  /// \param[in,out] dst an OutputStream
+  /// \return Status
+  Status WriteTo(io::OutputStream* dst);
+
+  /// \brief Convert SerializedPyObject to a dict containing the message
+  /// components as Buffer instances with minimal memory allocation
+  ///
+  /// {
+  ///   'num_tensors': N,
+  ///   'num_buffers': K,
+  ///   'data': [Buffer]
+  /// }
+  ///
+  /// Each tensor is written as two buffers, one for the metadata and one for
+  /// the body. Therefore, the number of buffers in 'data' is 2 * N + K + 1,
+  /// with the first buffer containing the serialized record batch containing
+  /// the UnionArray that describes the whole object
+  Status GetComponents(MemoryPool* pool, PyObject** out);
 };
 
 /// \brief Serialize Python sequence as a RecordBatch plus
@@ -61,13 +82,6 @@ struct ARROW_EXPORT SerializedPyObject {
 /// Release GIL before calling
 ARROW_EXPORT
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out);
-
-/// \brief Write serialized Python object to OutputStream
-/// \param[in] object a serialized Python object to write out
-/// \param[out] dst an OutputStream
-/// \return Status
-ARROW_EXPORT
-Status WriteSerializedObject(const SerializedPyObject& object, io::OutputStream* dst);
 
 }  // namespace py
 }  // namespace arrow

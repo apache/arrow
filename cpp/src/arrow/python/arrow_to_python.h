@@ -48,6 +48,11 @@ namespace py {
 ARROW_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
+/// \brief Reconstruct SerializedPyObject from representation produced by
+/// GetSerializedObjectComponents
+ARROW_EXPORT
+Status GetSerializedObjectFromComponents(PyObject* payload, SerializedPyObject* out);
+
 /// \brief Reconstruct Python object from Arrow-serialized representation
 /// \param[in] context Serialization context which contains custom serialization
 /// and deserialization callbacks. Can be any Python object with a

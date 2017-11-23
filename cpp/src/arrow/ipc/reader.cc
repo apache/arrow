@@ -480,14 +480,12 @@ Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_read
 
 Status RecordBatchStreamReader::Open(io::InputStream* stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {

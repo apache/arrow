@@ -165,7 +165,7 @@ cdef class SerializedPyObject:
         def __get__(self):
             cdef CMockOutputStream mock_stream
             with nogil:
-                check_status(WriteSerializedObject(self.data, &mock_stream))
+                check_status(self.data.WriteTo(&mock_stream))
 
             return mock_stream.GetExtentBytesWritten()
 
@@ -179,7 +179,7 @@ cdef class SerializedPyObject:
 
     cdef _write_to(self, OutputStream* stream):
         with nogil:
-            check_status(WriteSerializedObject(self.data, stream))
+            check_status(self.data.WriteTo(stream))
 
     def deserialize(self, SerializationContext context=None):
         """
