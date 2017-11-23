@@ -182,6 +182,42 @@ def test_allocate_buffer():
     assert buf.to_pybytes()[:5] == bit
 
 
+def test_allocate_buffer_resizable():
+    buf = pa.allocate_buffer(100, resizable=True)
+    assert isinstance(buf, pa.ResizableBuffer)
+
+    buf.resize(200)
+    assert buf.size == 200
+
+
+def test_compress_decompress():
+    INPUT_SIZE = 10000
+    test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
+                 .astype(np.uint8)
+                 .tostring())
+    test_buf = pa.frombuffer(test_data)
+
+    codecs = ['lz4', 'snappy', 'gzip', 'zstd', 'brotli']
+    for codec in codecs:
+        compressed_buf = pa.compress(test_buf, codec=codec)
+        compressed_bytes = pa.compress(test_data, codec=codec, asbytes=True)
+
+        assert isinstance(compressed_bytes, bytes)
+
+        decompressed_buf = pa.decompress(compressed_buf, INPUT_SIZE,
+                                         codec=codec)
+        decompressed_bytes = pa.decompress(compressed_bytes, INPUT_SIZE,
+                                           codec=codec, asbytes=True)
+
+        assert isinstance(decompressed_bytes, bytes)
+
+        assert decompressed_buf.equals(test_buf)
+        assert decompressed_bytes == test_data
+
+        with pytest.raises(ValueError):
+            pa.decompress(compressed_bytes, codec=codec)
+
+
 def test_buffer_memoryview_is_immutable():
     val = b'some data'
 

@@ -71,17 +71,20 @@ from pyarrow.lib import (null, bool_,
 # ARROW-1683: Remove after 0.8.0?
 from pyarrow.lib import TimestampType
 
-from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
-                         FixedSizeBufferWriter,
-                         Buffer, BufferReader, BufferOutputStream,
-                         OSFile, MemoryMappedFile, memory_map,
-                         allocate_buffer, frombuffer,
-                         memory_map, create_memory_map,
-                         have_libhdfs, have_libhdfs3, MockOutputStream)
+# Buffers, allocation
+from pyarrow.lib import (Buffer, ResizableBuffer, compress, decompress,
+                         allocate_buffer, frombuffer)
 
 from pyarrow.lib import (MemoryPool, total_allocated_bytes,
                          set_memory_pool, default_memory_pool,
                          log_memory_allocations)
+
+from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
+                         FixedSizeBufferWriter,
+                         BufferReader, BufferOutputStream,
+                         OSFile, MemoryMappedFile, memory_map,
+                         create_memory_map, have_libhdfs, have_libhdfs3,
+                         MockOutputStream)
 
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
                          concat_tables)

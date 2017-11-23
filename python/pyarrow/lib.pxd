@@ -323,6 +323,11 @@ cdef class Buffer:
     cdef void init(self, const shared_ptr[CBuffer]& buffer)
 
 
+cdef class ResizableBuffer(Buffer):
+
+    cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer)
+
+
 cdef class NativeFile:
     cdef:
         shared_ptr[RandomAccessFile] rd_file
@@ -343,6 +348,8 @@ cdef get_reader(object source, shared_ptr[RandomAccessFile]* reader)
 cdef get_writer(object source, shared_ptr[OutputStream]* writer)
 
 cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
+cdef public object pyarrow_wrap_resizable_buffer(
+    const shared_ptr[CResizableBuffer]& buf)
 cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
 cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)

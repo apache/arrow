@@ -43,6 +43,13 @@ cdef public api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
     return result
 
 
+cdef public api object pyarrow_wrap_resizable_buffer(
+    const shared_ptr[CResizableBuffer]& buf):
+    cdef ResizableBuffer result = ResizableBuffer()
+    result.init_rz(buf)
+    return result
+
+
 cdef public api bint pyarrow_is_data_type(object type_):
     return isinstance(type_, DataType)
 

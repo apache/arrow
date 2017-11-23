@@ -600,6 +600,23 @@ cdef class Buffer:
         # TODO(wesm): buffer slicing
         raise NotImplementedError
 
+    def equals(self, Buffer other):
+        """
+        Determine if two buffers contain exactly the same data
+
+        Parameters
+        ----------
+        other : Buffer
+
+        Returns
+        -------
+        are_equal : True if buffer contents and size are equal
+        """
+        cdef c_bool result = False
+        with nogil:
+            result = self.buffer.get().Equals(deref(other.buffer.get()))
+        return result
+
     def to_pybytes(self):
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
@@ -644,13 +661,37 @@ cdef class Buffer:
         return self.size
 
 
+cdef class ResizableBuffer(Buffer):
+
+    cdef void init_rz(self, const shared_ptr[CResizableBuffer]& buffer):
+        self.init(<shared_ptr[CBuffer]> buffer)
+
+    def resize(self, int64_t new_size, shrink_to_fit=False):
+        """
+        Resize buffer to indicated size
+
+        Parameters
+        ----------
+        new_size : int64_t
+            New size of buffer (padding may be added internally)
+        shrink_to_fit : boolean, default False
+            If new_size is less than the current size, shrink internal
+            capacity, otherwise leave at current capacity
+        """
+        cdef c_bool c_shrink_to_fit = shrink_to_fit
+        with nogil:
+            check_status((<CResizableBuffer*> self.buffer.get())
+                         .Resize(new_size, c_shrink_to_fit))
+
+
 cdef shared_ptr[PoolBuffer] _allocate_buffer(CMemoryPool* pool):
     cdef shared_ptr[PoolBuffer] result
     result.reset(new PoolBuffer(pool))
     return result
 
 
-def allocate_buffer(int64_t size, MemoryPool pool=None):
+def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
+                    resizable=False):
     """
     Allocate mutable fixed-size buffer
 
@@ -658,17 +699,27 @@ def allocate_buffer(int64_t size, MemoryPool pool=None):
     ----------
     size : int
         Number of bytes to allocate (plus internal padding)
-    pool : MemoryPool, optional
+    memory_pool : MemoryPool, optional
         Uses default memory pool if not provided
+    resizable : boolean, default False
+
+    Returns
+    -------
+    buffer : Buffer or ResizableBuffer
     """
     cdef:
         shared_ptr[CBuffer] buffer
-        CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        shared_ptr[CResizableBuffer] rz_buffer
+        CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
 
-    with nogil:
-        check_status(AllocateBuffer(cpool, size, &buffer))
-
-    return pyarrow_wrap_buffer(buffer)
+    if resizable:
+        with nogil:
+            check_status(AllocateResizableBuffer(cpool, size, &rz_buffer))
+        return pyarrow_wrap_resizable_buffer(rz_buffer)
+    else:
+        with nogil:
+            check_status(AllocateBuffer(cpool, size, &buffer))
+        return pyarrow_wrap_buffer(buffer)
 
 
 cdef class BufferOutputStream(NativeFile):
@@ -679,7 +730,7 @@ cdef class BufferOutputStream(NativeFile):
     def __cinit__(self, MemoryPool memory_pool=None):
         self.buffer = _allocate_buffer(maybe_unbox_memory_pool(memory_pool))
         self.wr_file.reset(new CBufferOutputStream(
-            <shared_ptr[ResizableBuffer]> self.buffer))
+            <shared_ptr[CResizableBuffer]> self.buffer))
         self.is_readable = 0
         self.is_writeable = 1
         self.is_open = True
@@ -783,3 +834,145 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
     else:
         raise TypeError('Unable to read from object of type: {0}'
                         .format(type(source)))
+
+
+# ---------------------------------------------------------------------
+
+cdef CompressionType _get_compression_type(object name):
+    if name is None or name == 'uncompressed':
+        return CompressionType_UNCOMPRESSED
+    elif name == 'snappy':
+        return CompressionType_SNAPPY
+    elif name == 'gzip':
+        return CompressionType_GZIP
+    elif name == 'brotli':
+        return CompressionType_BROTLI
+    elif name == 'zstd':
+        return CompressionType_ZSTD
+    elif name == 'lz4':
+        return CompressionType_LZ4
+    else:
+        raise ValueError("Unrecognized compression type: {0}"
+                         .format(str(name)))
+
+
+def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
+    """
+    Compress pyarrow.Buffer or Python object supporting the buffer (memoryview)
+    protocol
+
+    Parameters
+    ----------
+    buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
+    codec : string, default 'lz4'
+        Compression codec.
+        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
+    asbytes : boolean, default False
+        Return result as Python bytes object, otherwise Buffer
+    memory_pool : MemoryPool, default None
+        Memory pool to use for buffer allocations, if any
+
+    Returns
+    -------
+    compressed : pyarrow.Buffer or bytes (if asbytes=True)
+    """
+    cdef:
+        CompressionType c_codec = _get_compression_type(codec)
+        unique_ptr[CCodec] compressor
+        cdef CBuffer* c_buf
+        cdef PyObject* pyobj
+        cdef ResizableBuffer out_buf
+
+    with nogil:
+        check_status(CCodec.Create(c_codec, &compressor))
+
+    if not isinstance(buf, Buffer):
+        buf = frombuffer(buf)
+
+    c_buf = (<Buffer> buf).buffer.get()
+
+    cdef int64_t max_output_size = (compressor.get()
+                                    .MaxCompressedLen(c_buf.size(),
+                                                      c_buf.data()))
+    cdef uint8_t* output_buffer = NULL
+
+    if asbytes:
+        pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
+        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+    else:
+        out_buf = allocate_buffer(max_output_size, memory_pool=memory_pool,
+                                  resizable=True)
+        output_buffer = out_buf.buffer.get().mutable_data()
+
+    cdef int64_t output_length = 0
+    with nogil:
+        check_status(compressor.get()
+                     .Compress(c_buf.size(), c_buf.data(),
+                               max_output_size, output_buffer,
+                               &output_length))
+
+    if asbytes:
+        cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+        return PyObject_to_object(pyobj)
+    else:
+        out_buf.resize(output_length)
+        return out_buf
+
+
+def decompress(object buf, decompressed_size=None, codec='lz4',
+               asbytes=False, memory_pool=None):
+    """
+    Decompress data from buffer-like object
+
+    Parameters
+    ----------
+    buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+    decompressed_size : int64_t, default None
+        If not specified, will be computed if the codec is able to determine
+        the uncompressed buffer size
+    codec : string, default 'lz4'
+        Compression codec.
+        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
+    asbytes : boolean, default False
+        Return result as Python bytes object, otherwise Buffer
+    memory_pool : MemoryPool, default None
+        Memory pool to use for buffer allocations, if any
+
+    Returns
+    -------
+    uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
+    """
+    cdef:
+        CompressionType c_codec = _get_compression_type(codec)
+        unique_ptr[CCodec] compressor
+        cdef CBuffer* c_buf
+        cdef Buffer out_buf
+
+    with nogil:
+        check_status(CCodec.Create(c_codec, &compressor))
+
+    if not isinstance(buf, Buffer):
+        buf = frombuffer(buf)
+
+    c_buf = (<Buffer> buf).buffer.get()
+
+    if decompressed_size is None:
+        raise ValueError("Must pass decompressed_size for {0} codec"
+                         .format(codec))
+
+    cdef int64_t output_size = decompressed_size
+    cdef uint8_t* output_buffer = NULL
+
+    if asbytes:
+        pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
+        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+    else:
+        out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
+        output_buffer = out_buf.buffer.get().mutable_data()
+
+    with nogil:
+        check_status(compressor.get()
+                     .Decompress(c_buf.size(), c_buf.data(),
+                                 output_size, output_buffer))
+
+    return pybuf if asbytes else out_buf

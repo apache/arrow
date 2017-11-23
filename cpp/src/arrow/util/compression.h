@@ -27,7 +27,7 @@
 namespace arrow {
 
 struct Compression {
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, ZSTD, LZ4 };
+  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO };
 };
 
 class ARROW_EXPORT Codec {
