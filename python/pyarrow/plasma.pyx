@@ -30,7 +30,7 @@ import collections
 import pyarrow
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status
-from pyarrow.includes.libarrow cimport (CMutableBuffer, CBuffer,
+from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
 
 
