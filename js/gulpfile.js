@@ -86,8 +86,8 @@ const buildConcurrent = (tasks) => () =>
             .merge(...knownTargets.map((target) =>
                 del(`${targetDir(target, `cls`)}/**`)))));
   
-gulp.task(`test:cleanTestData`, cleanTestData);
-gulp.task(`test:createTestData`, createTestData);
+gulp.task(`clean:testdata`, cleanTestData);
+gulp.task(`create:testdata`, createTestData);
 gulp.task( `test`, gulp.series(getTasks(`test`)));
 gulp.task(`debug`, gulp.series(getTasks(`debug`)));
 gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));

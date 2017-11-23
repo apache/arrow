@@ -16,5 +16,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+set -e
 
-lerna publish --yes --skip-git --force-publish=*
+# validate the targets pass all tests before publishing
+npm install
+# npx run-s clean:all lint create:testdata build
+# npm run test -- -t ts -u --integration
+# npm run test -- --integration
+npx run-s clean:all lint build
+npm run test
+
+# publish the JS target modules to npm
+npx lerna publish --yes --skip-git --force-publish=*

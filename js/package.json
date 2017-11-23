@@ -17,16 +17,16 @@
     "debug": "gulp debug",
     "perf": "node ./perf/index.js",
     "release": "./npm-release.sh",
-    "validate": "run-s --silent lint build clean",
+    "clean:all": "run-p clean clean:testdata",
+    "clean:testdata": "gulp clean:testdata",
+    "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t ts --coverage",
-    "test:cleanTestData": "gulp test:cleanTestData",
-    "test:createTestData": "gulp test:createTestData",
     "doc": "shx rm -rf ./doc && esdoc",
-    "lint": "npm-run-all -p lint:*",
+    "lint": "run-p lint:*",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
     "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1",
-    "postinstall": "shx cp node_modules/tslib/tslib.es6.js node_modules/tslib/tslib.mjs"
+    "version": "npm install && npm run clean:all"
   },
   "repository": {
     "type": "git",
@@ -43,12 +43,15 @@
   },
   "homepage": "https://github.com/apache/arrow/blob/master/js/README.md",
   "files": [
+    "bin",
     "src",
-    "dist",
-    "types",
-    "targets",
-    "LICENSE",
-    "README.md"
+    "gulp",
+    "test",
+    "*.json",
+    "tsconfig",
+    "README.md",
+    "gulpfile.js",
+    "npm-release.sh"
   ],
   "peerDependencies": {
     "command-line-usage": "4.0.1"
