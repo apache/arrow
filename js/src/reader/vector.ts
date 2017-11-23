@@ -33,7 +33,6 @@ import Date = Schema_.org.apache.arrow.flatbuf.Date;
 import Time = Schema_.org.apache.arrow.flatbuf.Time;
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import Buffer = Schema_.org.apache.arrow.flatbuf.Buffer;
 import Decimal = Schema_.org.apache.arrow.flatbuf.Decimal;
 import DateUnit = Schema_.org.apache.arrow.flatbuf.DateUnit;
 import TimeUnit = Schema_.org.apache.arrow.flatbuf.TimeUnit;
@@ -231,41 +230,29 @@ export function readIntVector(field: Field, state: VectorReaderContext) {
 function readListBuffers(field: Field, state: VectorReaderContext) {
     const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
-    const offsets = readDataBuffer(Int32Array, state);
+    const offsets = readDataBuffer(field, fieldNode, state, Int32Array);
     return { field, fieldNode, validity, offsets };
 }
 
 function readBinaryBuffers(field: Field, state: VectorReaderContext) {
     const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
-    const offsets = readDataBuffer(Int32Array, state);
-    const data = readDataBuffer(Uint8Array, state);
+    const offsets = readDataBuffer(field, fieldNode, state, Int32Array);
+    const data = readDataBuffer(field, fieldNode, state, Uint8Array);
     return { field, fieldNode, validity, offsets, data };
 }
 
 function readNumericBuffers<T extends TypedArray>(field: Field, state: VectorReaderContext, ArrayConstructor: TypedArrayConstructor<T>) {
     const fieldNode = state.readNextNode();
     const validity = readValidityBuffer(field, fieldNode, state);
-    const data = readDataBuffer(ArrayConstructor, state);
+    const data = readDataBuffer(field, fieldNode, state, ArrayConstructor);
     return { field, fieldNode, validity, data };
 }
 
-function readDataBuffer<T extends TypedArray>(ArrayConstructor: TypedArrayConstructor<T>, state: VectorReaderContext) {
-    return createTypedArray(ArrayConstructor, state.bytes, state.offset, state.readNextBuffer());
+function readDataBuffer<T extends TypedArray>(field: Field, fieldNode: FieldNode, state: VectorReaderContext, ArrayConstructor: TypedArrayConstructor<T>) {
+    return state.createTypedArray(field, fieldNode, state.readNextBuffer(), ArrayConstructor);
 }
 
 function readValidityBuffer(field: Field, fieldNode: FieldNode, state: VectorReaderContext) {
-    return createValidityArray(field, fieldNode, state.bytes, state.offset, state.readNextBuffer());
-}
-
-function createValidityArray(field: Field, fieldNode: FieldNode, bytes: Uint8Array, offset: number, buffer: Buffer) {
-    return field.nullable() && fieldNode.nullCount().low > 0 && createTypedArray(Uint8Array, bytes, offset, buffer) || null;
-}
-
-function createTypedArray<T extends TypedArray>(ArrayConstructor: TypedArrayConstructor<T>, bytes: Uint8Array, offset: number, buffer: Buffer) {
-    return new ArrayConstructor(
-        bytes.buffer,
-        bytes.byteOffset + offset + buffer.offset().low,
-        buffer.length().low / ArrayConstructor.BYTES_PER_ELEMENT
-    );
+    return state.createValidityArray(field, fieldNode, state.readNextBuffer());
 }

@@ -18,6 +18,7 @@
 import { Vector } from '../vector/vector';
 import { flatbuffers } from 'flatbuffers';
 import { readVector, readValueVector } from './vector';
+import { TypedArray, TypedArrayConstructor } from '../vector/types';
 import {
     readFileFooter, readFileMessages,
     readStreamSchema, readStreamMessages
@@ -49,12 +50,12 @@ export type ArrowReaderContext = {
 };
 
 export interface VectorReaderContext {
-    offset: number;
-    bytes: Uint8Array;
     batch: RecordBatch;
     dictionaries: Map<string, Vector>;
     readNextNode(): FieldNode;
     readNextBuffer(): ArrowBuffer;
+    createValidityArray(field: Field, fieldNode: FieldNode, buffer: ArrowBuffer): Uint8Array | null;
+    createTypedArray<T extends TypedArray>(field: Field, fieldNode: FieldNode, buffer: ArrowBuffer, ArrayConstructor: TypedArrayConstructor<T>): T;
 }
 
 export function* readVectors(buffers: Iterable<Uint8Array | Buffer | string>, context?: ArrowReaderContext) {
@@ -165,24 +166,27 @@ function toByteBuffer(bytes?: Uint8Array | Buffer | string) {
 }
 
 class BufferReaderContext implements VectorReaderContext {
-    public offset: number;
     public batch: RecordBatch;
+    public dictionaries: Map<string, Vector>;
+    constructor(bytes: Uint8Array, dictionaries: Map<string, Vector>) {
+        this.bytes = bytes;
+        this.dictionaries = dictionaries;
+    }
+    private offset: number;
+    private bytes: Uint8Array;
     private nodeIndex: number;
     private bufferIndex: number;
     private metadataVersion: MetadataVersion;
-    constructor(public bytes: Uint8Array,
-                public dictionaries: Map<string, Vector>) {
-    }
     set message(m: Message) {
         this.nodeIndex = 0;
         this.bufferIndex = 0;
         this.offset = m.bb.position();
         this.metadataVersion = m.version();
     }
-    public readNextNode() {
+    readNextNode() {
         return this.batch.nodes(this.nodeIndex++)!;
     }
-    public readNextBuffer() {
+    readNextBuffer() {
         const buffer = this.batch.buffers(this.bufferIndex++)!;
         // If this Arrow buffer was written before version 4,
         // advance the buffer's bb_pos 8 bytes to skip past
@@ -191,5 +195,16 @@ class BufferReaderContext implements VectorReaderContext {
             buffer.bb_pos += (8 * this.bufferIndex);
         }
         return buffer;
+    }
+    createValidityArray(field: Field, fieldNode: FieldNode, buffer: ArrowBuffer): Uint8Array | null {
+        return field.nullable() && fieldNode.nullCount().low > 0 && this.createTypedArray(field, fieldNode, buffer, Uint8Array) || null;
+    }
+    createTypedArray<T extends TypedArray>(_field: Field, _fieldNode: FieldNode, buffer: ArrowBuffer, ArrayConstructor: TypedArrayConstructor<T>): T {
+        const { bytes, offset } = this;
+        return new ArrayConstructor(
+            bytes.buffer,
+            bytes.byteOffset + offset + buffer.offset().low,
+            buffer.length().low / ArrayConstructor.BYTES_PER_ELEMENT
+        );
     }
 }
