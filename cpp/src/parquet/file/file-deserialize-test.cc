@@ -178,8 +178,9 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, Compression) {
-  Compression::type codec_types[3] = {Compression::GZIP, Compression::SNAPPY,
-                                      Compression::BROTLI};
+  Compression::type codec_types[5] = {Compression::GZIP, Compression::SNAPPY,
+                                      Compression::BROTLI, Compression::LZ4,
+                                      Compression::ZSTD};
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;

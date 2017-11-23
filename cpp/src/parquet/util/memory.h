@@ -57,6 +57,12 @@ static inline std::unique_ptr<::arrow::Codec> GetCodecFromArrow(Compression::typ
     case Compression::BROTLI:
       PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::BROTLI, &result));
       break;
+    case Compression::LZ4:
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::LZ4, &result));
+      break;
+    case Compression::ZSTD:
+      PARQUET_THROW_NOT_OK(::arrow::Codec::Create(::arrow::Compression::ZSTD, &result));
+      break;
     default:
       break;
   }

@@ -108,6 +108,12 @@ std::string CompressionToString(Compression::type t) {
     case Compression::LZO:
       return "LZO";
       break;
+    case Compression::LZ4:
+      return "LZ4";
+      break;
+    case Compression::ZSTD:
+      return "ZSTD";
+      break;
     default:
       return "UNKNOWN";
       break;

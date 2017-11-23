@@ -46,12 +46,14 @@ TEST(TestWriterProperties, Basics) {
 TEST(TestWriterProperties, AdvancedHandling) {
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);
+  builder.compression("zstd", Compression::ZSTD);
   builder.compression(Compression::SNAPPY);
   builder.encoding(Encoding::DELTA_BINARY_PACKED);
   builder.encoding("delta-length", Encoding::DELTA_LENGTH_BYTE_ARRAY);
   std::shared_ptr<WriterProperties> props = builder.build();
 
   ASSERT_EQ(Compression::GZIP, props->compression(ColumnPath::FromDotString("gzip")));
+  ASSERT_EQ(Compression::ZSTD, props->compression(ColumnPath::FromDotString("zstd")));
   ASSERT_EQ(Compression::SNAPPY,
             props->compression(ColumnPath::FromDotString("delta-length")));
   ASSERT_EQ(Encoding::DELTA_BINARY_PACKED,
