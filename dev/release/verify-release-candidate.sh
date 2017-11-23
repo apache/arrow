@@ -173,7 +173,16 @@ test_glib() {
 test_js() {
   pushd js
   npm install
-  npm run validate
+  # clean, lint, and build JS source
+  npm run clean:all
+  npm run lint
+  npm run build
+  # create initial integration test data
+  npm run create:testdata
+  # run once to write the snapshots
+  npm test -- -t ts -u --integration
+  # run again to test all builds against the snapshots
+  npm test -- --integration
   popd
 }
 

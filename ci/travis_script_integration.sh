@@ -51,7 +51,7 @@ pushd $ARROW_JS_DIR
 npm run lint
 npm run build
 # create initial test data
-npm run test:createTestData
+npm run create:testdata
 # run once to write the snapshots
 npm test -- -t ts -u --integration
 # run again to test all builds against the snapshots
