@@ -369,6 +369,79 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
 };
 
 // ----------------------------------------------------------------------
+// Hash table for boolean types
+
+template <typename Type, typename Action>
+class HashTableKernel<Type, Action, enable_if_boolean<Type>> : public HashTable {
+ public:
+  HashTableKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : HashTable(type, pool) {
+    std::fill(table_, table_ + 2, kHashSlotEmpty);
+  }
+
+  Status Append(const ArrayData& arr) override {
+    auto action = static_cast<Action*>(this);
+
+    RETURN_NOT_OK(action->Reserve(arr.length));
+
+    internal::BitmapReader value_reader(arr.buffers[1]->data(), arr.offset, arr.length);
+
+#define HASH_INNER_LOOP()                                      \
+  if (slot == kHashSlotEmpty) {                                \
+    if (!Action::allow_expand) {                               \
+      throw HashException("Encountered new dictionary value"); \
+    }                                                          \
+    table_[j] = slot = static_cast<hash_slot_t>(dict_.size()); \
+    dict_.push_back(value);                                    \
+    action->ObserveNotFound(slot);                             \
+  } else {                                                     \
+    action->ObserveFound(slot);                                \
+  }
+
+    if (arr.null_count != 0) {
+      internal::BitmapReader valid_reader(arr.buffers[0]->data(), arr.offset, arr.length);
+      for (int64_t i = 0; i < arr.length; ++i) {
+        const bool is_null = valid_reader.IsNotSet();
+        const bool value = value_reader.IsSet();
+        const int j = value ? 1 : 0;
+        hash_slot_t slot = table_[j];
+        valid_reader.Next();
+        value_reader.Next();
+        if (is_null) {
+          action->ObserveNull();
+          continue;
+        }
+        HASH_INNER_LOOP();
+      }
+    } else {
+      for (int64_t i = 0; i < arr.length; ++i) {
+        const bool value = value_reader.IsSet();
+        const int j = value ? 1 : 0;
+        hash_slot_t slot = table_[j];
+        value_reader.Next();
+        HASH_INNER_LOOP();
+      }
+    }
+
+#undef HASH_INNER_LOOP
+
+    return Status::OK();
+  }
+
+  Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
+    BooleanBuilder builder(pool_);
+    for (const bool value : dict_) {
+      RETURN_NOT_OK(builder.Append(value));
+    }
+    return builder.FinishInternal(out);
+  }
+
+ private:
+  hash_slot_t table_[2];
+  std::vector<bool> dict_;
+};
+
+// ----------------------------------------------------------------------
 // Hash table pass for variable-length binary types
 
 template <typename Type, typename Action>
@@ -698,7 +771,7 @@ Status GetUniqueKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& ty
 
   switch (type->id()) {
     UNIQUE_CASE(NullType);
-    // UNIQUE_CASE(BooleanType);
+    UNIQUE_CASE(BooleanType);
     UNIQUE_CASE(UInt8Type);
     UNIQUE_CASE(Int8Type);
     UNIQUE_CASE(UInt16Type);
@@ -741,7 +814,7 @@ Status GetDictionaryEncodeKernel(FunctionContext* ctx,
 
   switch (type->id()) {
     DICTIONARY_ENCODE_CASE(NullType);
-    // DICTIONARY_ENCODE_CASE(BooleanType);
+    DICTIONARY_ENCODE_CASE(BooleanType);
     DICTIONARY_ENCODE_CASE(UInt8Type);
     DICTIONARY_ENCODE_CASE(Int8Type);
     DICTIONARY_ENCODE_CASE(UInt16Type);
