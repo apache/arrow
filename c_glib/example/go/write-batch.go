@@ -188,7 +188,10 @@ func main() {
 		BuildDoubleArray(),
 	}
 
-	recordBatch := arrow.NewRecordBatch(schema, 4, columns)
+	recordBatch, err := arrow.NewRecordBatch(schema, 4, columns)
+	if err != nil {
+		log.Fatalf("Failed to create record batch #1: %v", err)
+	}
 	_, err = writer.WriteRecordBatch(recordBatch)
 	if err != nil {
 		log.Fatalf("Failed to write record batch #1: %v", err)
@@ -198,7 +201,10 @@ func main() {
 	for i, column := range columns {
 		slicedColumns[i] = column.Slice(1, 3)
 	}
-	recordBatch = arrow.NewRecordBatch(schema, 3, slicedColumns)
+	recordBatch, err = arrow.NewRecordBatch(schema, 3, slicedColumns)
+	if err != nil {
+		log.Fatalf("Failed to create record batch #2: %v", err)
+	}
 	_, err = writer.WriteRecordBatch(recordBatch)
 	if err != nil {
 		log.Fatalf("Failed to write record batch #2: %v", err)
