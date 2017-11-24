@@ -617,7 +617,7 @@ Status PlasmaClient::Fetch(int num_object_ids, const ObjectID* object_ids) {
   return SendFetchRequest(manager_conn_, object_ids, num_object_ids);
 }
 
-int PlasmaClient::get_manager_fd() { return manager_conn_; }
+int PlasmaClient::get_manager_fd() const { return manager_conn_; }
 
 Status PlasmaClient::Info(const ObjectID& object_id, int* object_status) {
   ARROW_CHECK(manager_conn_ >= 0);
