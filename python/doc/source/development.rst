@@ -108,7 +108,7 @@ building Arrow C++:
 
 .. code-block:: shell
 
-   brew update && brew bundle --file=python/Brewfile
+   brew update && brew bundle --file=arrow/python/Brewfile
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
