@@ -342,8 +342,7 @@ class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTab
     auto dict_data = dict_.buffer;
     RETURN_NOT_OK(dict_data->Resize(dict_.size * sizeof(T), false));
 
-    BufferVector buffers = {nullptr, dict_data};
-    *out = std::make_shared<ArrayData>(type_, dict_.size, std::move(buffers), 0);
+    *out = ArrayData::Make(type_, dict_.size, {nullptr, dict_data}, 0);
     return Status::OK();
   }
 
@@ -528,7 +527,7 @@ class HashTableKernel<Type, Action, enable_if_binary<Type>> : public HashTable {
     RETURN_NOT_OK(dict_offsets_.Finish(&buffers[1]));
     RETURN_NOT_OK(dict_data_.Finish(&buffers[2]));
 
-    *out = std::make_shared<ArrayData>(type_, dict_size_, std::move(buffers), 0);
+    *out = ArrayData::Make(type_, dict_size_, std::move(buffers), 0);
     return Status::OK();
   }
 
@@ -634,7 +633,7 @@ class HashTableKernel<Type, Action, enable_if_fixed_size_binary<Type>>
     BufferVector buffers = {nullptr, nullptr};
     RETURN_NOT_OK(dict_data_.Finish(&buffers[1]));
 
-    *out = std::make_shared<ArrayData>(type_, dict_size_, std::move(buffers), 0);
+    *out = ArrayData::Make(type_, dict_size_, std::move(buffers), 0);
     return Status::OK();
   }
 

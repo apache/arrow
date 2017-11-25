@@ -371,7 +371,7 @@ class TableReader::TableReaderImpl {
     buffers.push_back(SliceBuffer(buffer, offset, buffer->size() - offset));
 
     auto arr_data =
-        std::make_shared<ArrayData>(type, meta->length(), buffers, meta->null_count());
+        ArrayData::Make(type, meta->length(), std::move(buffers), meta->null_count());
     *out = MakeArray(arr_data);
     return Status::OK();
   }

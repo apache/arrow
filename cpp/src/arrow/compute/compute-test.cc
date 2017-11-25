@@ -688,7 +688,7 @@ TEST_F(TestCast, PreallocatedMemory) {
   std::unique_ptr<UnaryKernel> kernel;
   ASSERT_OK(GetCastFunction(*int32(), out_type, options, &kernel));
 
-  auto out_data = std::make_shared<ArrayData>(out_type, length);
+  auto out_data = ArrayData::Make(out_type, length);
 
   shared_ptr<Buffer> out_values;
   ASSERT_OK(this->ctx_.Allocate(length * sizeof(int64_t), &out_values));

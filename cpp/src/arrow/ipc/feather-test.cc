@@ -366,15 +366,14 @@ TEST_F(TestTableWriter, TimeTypes) {
   ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
 
   const auto& prim_values = static_cast<const PrimitiveArray&>(*values);
-  std::vector<std::shared_ptr<Buffer>> buffers = {prim_values.null_bitmap(),
-                                                  prim_values.values()};
+  BufferVector buffers = {prim_values.null_bitmap(), prim_values.values()};
 
   std::vector<std::shared_ptr<ArrayData>> arrays;
   arrays.push_back(date_array->data());
 
   for (int i = 1; i < schema->num_fields(); ++i) {
-    arrays.emplace_back(std::make_shared<ArrayData>(
-        schema->field(i)->type(), values->length(), buffers, values->null_count(), 0));
+    arrays.emplace_back(ArrayData::Make(schema->field(i)->type(), values->length(),
+                                        BufferVector(buffers), values->null_count(), 0));
   }
 
   auto batch = RecordBatch::Make(schema, values->length(), std::move(arrays));
