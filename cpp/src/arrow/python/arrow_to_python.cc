@@ -286,5 +286,9 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          obj, out);
 }
 
+Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* buffers,
+                                   SerializedPyObject* out) {
+}
+
 }  // namespace py
 }  // namespace arrow

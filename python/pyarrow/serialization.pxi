@@ -209,6 +209,46 @@ cdef class SerializedPyObject:
         self.write_to(sink)
         return output
 
+    @staticmethod
+    def from_components(components):
+        """
+        Reconstruct SerializedPyObject from output of
+        SerializedPyObject.to_components
+        """
+        cdef:
+            int num_tensors = components['num_tensors']
+            int num_buffers = components['num_buffers']
+            list buffers = components['data']
+            SerializedPyObject result = SerializedPyObject()
+
+        with nogil:
+            check_status(GetSerializedFromComponents(num_tensors, num_buffers,
+                                                     buffers, &result.data)
+
+        return result
+
+    def to_components(self, memory_pool=None):
+        """
+        Return the decomposed dict representation of the serialized object
+        containing a collection of Buffer objects which maximize opportunities
+        for zero-copy
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool default None
+            Pool to use for necessary allocations
+
+        Returns
+
+        """
+        cdef PyObject* result
+        cdef CMemoryPool* c_pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.data.GetComponents(c_pool, &result))
+
+        return PyObject_to_object(result)
+
 
 def serialize(object value, SerializationContext context=None):
     """EXPERIMENTAL: Serialize a Python sequence

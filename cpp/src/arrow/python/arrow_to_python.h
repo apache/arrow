@@ -51,7 +51,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// \brief Reconstruct SerializedPyObject from representation produced by
 /// GetSerializedObjectComponents
 ARROW_EXPORT
-Status GetSerializedObjectFromComponents(PyObject* payload, SerializedPyObject* out);
+Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* buffers,
+                                   SerializedPyObject* out);
 
 /// \brief Reconstruct Python object from Arrow-serialized representation
 /// \param[in] context Serialization context which contains custom serialization

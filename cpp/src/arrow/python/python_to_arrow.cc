@@ -740,13 +740,25 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   PyAcquireGIL py_gil;
 
   ScopedRef result(PyDict_New());
-  ScopedRef buffers(PyDict_New());
+  PyObject* buffers = PyList_New(0);
+
+  // TODO(wesm): Not sure how pedantic we need to be about checking the return
+  // values of these functions. There are other places where we do not check
+  // PyDict_SetItem/SetItemString return value, but these failures would be
+  // quite esoteric
+  PyDict_SetItemString(result.get(), "num_tensors",
+                       PyLong_FromSize_t(this->tensors.size()));
+  PyDict_SetItemString(result.get(), "num_buffers",
+                       PyLong_FromSize_t(this->buffers.size()));
+  PyDict_SetItemString(result.get(), "data", buffers);
   RETURN_IF_PYERROR();
+
+  Py_DECREF(buffers);
 
   auto PushBuffer = [&buffers](const std::shared_ptr<Buffer>& buffer) {
     PyObject* wrapped_buffer = wrap_buffer(buffer);
     RETURN_IF_PYERROR();
-    if (PyList_Append(buffers.get(), wrapped_buffer) < 0) {
+    if (PyList_Append(buffers, wrapped_buffer) < 0) {
       RETURN_IF_PYERROR();
     }
     Py_DECREF(wrapped_buffer);
@@ -778,18 +790,6 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   for (const auto& buf : this->buffers) {
     RETURN_NOT_OK(PushBuffer(buf));
   }
-
-  // TODO(wesm): Not sure how pedantic we need to be about checking the return
-  // values of these functions. There are other places where we do not check
-  // PyDict_SetItem/SetItemString return value, but these failures would be
-  // quite esoteric
-  PyDict_SetItemString(result.get(), "num_tensors",
-                       PyLong_FromSize_t(this->tensors.size()));
-  PyDict_SetItemString(result.get(), "num_buffers",
-                       PyLong_FromSize_t(this->buffers.size()));
-  PyDict_SetItemString(result.get(), "data", buffers.release());
-
-  RETURN_IF_PYERROR();
 
   *out = result.release();
   return Status::OK();
