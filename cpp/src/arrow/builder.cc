@@ -219,8 +219,7 @@ void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
 // Null builder
 
 Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  BufferVector buffers = {nullptr};
-  *out = std::make_shared<ArrayData>(null(), length_, std::move(buffers), length_);
+  *out = ArrayData::Make(null(), length_, {nullptr}, length_);
   length_ = null_count_ = 0;
   return Status::OK();
 }
@@ -314,8 +313,7 @@ Status PrimitiveBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
-  BufferVector buffers = {null_bitmap_, data_};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -404,9 +402,7 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
 
-  BufferVector buffers = {null_bitmap_, data_};
-  *out =
-      std::make_shared<ArrayData>(output_type, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -562,9 +558,7 @@ Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
       return Status::NotImplemented("Only ints of size 1,2,4,8 are supported");
   }
 
-  BufferVector buffers = {null_bitmap_, data_};
-  *out =
-      std::make_shared<ArrayData>(output_type, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(output_type, length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -741,8 +735,7 @@ Status BooleanBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     // Trim buffers
     RETURN_NOT_OK(data_->Resize(bytes_required));
   }
-  BufferVector buffers = {null_bitmap_, data_};
-  *out = std::make_shared<ArrayData>(boolean(), length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(boolean(), length_, {null_bitmap_, data_}, null_count_);
 
   data_ = null_bitmap_ = nullptr;
   capacity_ = length_ = null_count_ = 0;
@@ -828,8 +821,7 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  BufferVector buffers = {null_bitmap_, data};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
   return Status::OK();
 }
 
@@ -896,8 +888,7 @@ Status ListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
     RETURN_NOT_OK(value_builder_->FinishInternal(&items));
   }
 
-  BufferVector buffers = {null_bitmap_, offsets};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets}, null_count_);
   (*out)->child_data.emplace_back(std::move(items));
   Reset();
   return Status::OK();
@@ -969,8 +960,8 @@ Status BinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
   RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
 
-  BufferVector buffers = {null_bitmap_, offsets, value_data};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_, 0);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_, offsets, value_data}, null_count_,
+                         0);
   Reset();
   return Status::OK();
 }
@@ -1040,8 +1031,7 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
 
-  BufferVector buffers = {null_bitmap_, data};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_);
   return Status::OK();
 }
 
@@ -1060,8 +1050,7 @@ StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
 }
 
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  BufferVector buffers = {null_bitmap_};
-  *out = std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count_);
+  *out = ArrayData::Make(type_, length_, {null_bitmap_}, null_count_);
 
   (*out)->child_data.resize(field_builders_.size());
   for (size_t i = 0; i < field_builders_.size(); ++i) {

@@ -36,6 +36,20 @@
 
 namespace arrow {
 
+std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
+                                           int64_t length,
+                                           std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                           int64_t null_count, int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, std::move(buffers), null_count,
+                                     offset);
+}
+
+std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
+                                           int64_t length, int64_t null_count,
+                                           int64_t offset) {
+  return std::make_shared<ArrayData>(type, length, null_count, offset);
+}
+
 // ----------------------------------------------------------------------
 // Base array class
 
@@ -112,8 +126,7 @@ std::string Array::ToString() const {
 }
 
 NullArray::NullArray(int64_t length) {
-  BufferVector buffers = {nullptr};
-  SetData(std::make_shared<ArrayData>(null(), length, std::move(buffers), length));
+  SetData(ArrayData::Make(null(), length, {nullptr}, length));
 }
 
 // ----------------------------------------------------------------------
@@ -123,9 +136,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
                                const std::shared_ptr<Buffer>& data,
                                const std::shared_ptr<Buffer>& null_bitmap,
                                int64_t null_count, int64_t offset) {
-  BufferVector buffers = {null_bitmap, data};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
 
 const uint8_t* PrimitiveArray::raw_values() const {
@@ -165,9 +176,8 @@ ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Array>& values,
                      const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                      int64_t offset) {
-  BufferVector buffers = {null_bitmap, value_offsets};
   auto internal_data =
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
+      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
   SetData(internal_data);
 }
@@ -219,9 +229,8 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
   }
 
   auto list_type = list(values.type());
-  auto internal_data =
-      std::make_shared<ArrayData>(list_type, num_offsets - 1, std::move(buffers),
-                                  offsets.null_count(), offsets.offset());
+  auto internal_data = ArrayData::Make(list_type, num_offsets - 1, std::move(buffers),
+                                       offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
   *out = std::make_shared<ListArray>(internal_data);
@@ -276,9 +285,8 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::shared_ptr<Buffer>& data,
                          const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                          int64_t offset) {
-  BufferVector buffers = {null_bitmap, value_offsets, data};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap, value_offsets, data}, null_count,
+                          offset));
 }
 
 StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
@@ -338,9 +346,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::vector<std::shared_ptr<Array>>& children,
                          std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                          int64_t offset) {
-  BufferVector buffers = {null_bitmap};
-  SetData(
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset));
+  SetData(ArrayData::Make(type, length, {null_bitmap}, null_count, offset));
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
   }
@@ -384,9 +390,8 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& value_offsets,
                        const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                        int64_t offset) {
-  BufferVector buffers = {null_bitmap, type_ids, value_offsets};
-  auto internal_data =
-      std::make_shared<ArrayData>(type, length, std::move(buffers), null_count, offset);
+  auto internal_data = ArrayData::Make(
+      type, length, {null_bitmap, type_ids, value_offsets}, null_count, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -416,9 +421,8 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                           static_cast<const UInt8Array&>(type_ids).values(),
                           static_cast<const Int32Array&>(value_offsets).values()};
   auto union_type = union_(children, UnionMode::DENSE);
-  auto internal_data =
-      std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
-                                  type_ids.null_count(), type_ids.offset());
+  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
+                                       type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
@@ -435,9 +439,8 @@ Status UnionArray::MakeSparse(const Array& type_ids,
   BufferVector buffers = {type_ids.null_bitmap(),
                           static_cast<const UInt8Array&>(type_ids).values(), nullptr};
   auto union_type = union_(children, UnionMode::SPARSE);
-  auto internal_data =
-      std::make_shared<ArrayData>(union_type, type_ids.length(), std::move(buffers),
-                                  type_ids.null_count(), type_ids.offset());
+  auto internal_data = ArrayData::Make(union_type, type_ids.length(), std::move(buffers),
+                                       type_ids.null_count(), type_ids.offset());
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
     if (child->length() != type_ids.length()) {

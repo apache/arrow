@@ -392,9 +392,7 @@ class NumPyConverter {
       null_count = ValuesToBitmap<traits::npy_type>(arr_, null_bitmap_data_);
     }
 
-    BufferVector buffers = {null_bitmap_, data};
-    auto arr_data =
-        std::make_shared<ArrayData>(type_, length_, std::move(buffers), null_count, 0);
+    auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count, 0);
     return PushArray(arr_data);
   }
 
@@ -472,8 +470,7 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
                   const std::shared_ptr<DataType>& out_type, MemoryPool* pool,
                   std::shared_ptr<Buffer>* out) {
   // Must cast
-  std::vector<std::shared_ptr<Buffer>> buffers = {valid_bitmap, input};
-  auto tmp_data = std::make_shared<ArrayData>(in_type, length, buffers, null_count);
+  auto tmp_data = ArrayData::Make(in_type, length, {valid_bitmap, input}, null_count);
 
   std::shared_ptr<Array> tmp_array = MakeArray(tmp_data);
   std::shared_ptr<Array> casted_array;
