@@ -97,13 +97,7 @@ if [ $BUILD_SYSTEM = "autotools" ]; then
   CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CXXFLAGS=-DARROW_NO_DEPRECATED_API"
 
   ./configure $CONFIGURE_OPTIONS
-
-  if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-    ARCHFLAGS="-arch x86_64" make -j4
-  else
-    make -j4
-  fi
-
+  make -j4
   make install
 else
   MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL"
