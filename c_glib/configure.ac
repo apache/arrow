@@ -34,6 +34,19 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.13 foreign])
 AM_SILENT_RULES([yes])
 
+AC_CANONICAL_HOST
+AC_MSG_CHECKING([for macOS])
+case "$host_os" in
+darwin*)
+  os_macos=yes
+  ;;
+*)
+  os_macos=no
+  ;;
+esac
+AC_MSG_RESULT([$os_macos])
+AM_CONDITIONAL(OS_MACOS, test "$os_macos" = "yes")
+
 AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_11([ext], [mandatory])
