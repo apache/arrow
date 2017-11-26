@@ -17,11 +17,17 @@
 
 from collections import OrderedDict, defaultdict
 import sys
+import pickle
 
 import numpy as np
 
 from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.lib import _default_serialization_context
+
+try:
+    import cloudpickle
+except ImportError:
+    cloudpickle = pickle
 
 
 def register_default_serialization_handlers(serialization_context):
@@ -67,9 +73,12 @@ def register_default_serialization_handlers(serialization_context):
 
     serialization_context.register_type(
         type(lambda: 0), "function",
-        pickle=True)
+        custom_serializer=cloudpickle.dumps,
+        custom_deserializer=cloudpickle.loads)
 
-    serialization_context.register_type(type, "type", pickle=True)
+    serialization_context.register_type(type, "type",
+                                        custom_serializer=cloudpickle.dumps,
+                                        custom_deserializer=cloudpickle.loads)
 
     # ----------------------------------------------------------------------
     # Set up serialization for numpy with dtype object (primitive types are
