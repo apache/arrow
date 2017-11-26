@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <arrow-glib/basic-array.h>
 #include <arrow-glib/basic-data-type.h>
 #include <arrow-glib/field.h>
 
@@ -111,5 +112,29 @@ struct _GArrowStructDataTypeClass
 
 GType                 garrow_struct_data_type_get_type (void) G_GNUC_CONST;
 GArrowStructDataType *garrow_struct_data_type_new      (GList *fields);
+
+
+#define GARROW_TYPE_DICTIONARY_DATA_TYPE (garrow_dictionary_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryDataType,
+                         garrow_dictionary_data_type,
+                         GARROW,
+                         DICTIONARY_DATA_TYPE,
+                         GArrowFixedWidthDataType)
+struct _GArrowDictionaryDataTypeClass
+{
+  GArrowFixedWidthDataTypeClass parent_class;
+};
+
+GArrowDictionaryDataType *
+garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
+                                GArrowArray *dictionary,
+                                gboolean ordered);
+GArrowDataType *
+garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *data_type);
+GArrowArray *
+garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *data_type);
+gboolean
+garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *data_type);
+
 
 G_END_DECLS
