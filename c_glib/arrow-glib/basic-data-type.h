@@ -19,55 +19,43 @@
 
 #pragma once
 
+#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/type.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_DATA_TYPE                   \
-  (garrow_data_type_get_type())
-#define GARROW_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_DATA_TYPE,    \
-                              GArrowDataType))
-#define GARROW_DATA_TYPE_CLASS(klass)                   \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_DATA_TYPE,       \
-                           GArrowDataTypeClass))
-#define GARROW_IS_DATA_TYPE(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_DATA_TYPE))
-#define GARROW_IS_DATA_TYPE_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_DATA_TYPE))
-#define GARROW_DATA_TYPE_GET_CLASS(obj)                 \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_DATA_TYPE,     \
-                             GArrowDataTypeClass))
-
-typedef struct _GArrowDataType         GArrowDataType;
-typedef struct _GArrowDataTypeClass    GArrowDataTypeClass;
-
-/**
- * GArrowDataType:
- *
- * It wraps `arrow::DataType`.
- */
-struct _GArrowDataType
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_DATA_TYPE (garrow_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDataType,
+                         garrow_data_type,
+                         GARROW,
+                         DATA_TYPE,
+                         GObject)
 struct _GArrowDataTypeClass
 {
   GObjectClass parent_class;
 };
 
-GType      garrow_data_type_get_type  (void) G_GNUC_CONST;
 gboolean   garrow_data_type_equal     (GArrowDataType *data_type,
                                        GArrowDataType *other_data_type);
 gchar     *garrow_data_type_to_string (GArrowDataType *data_type);
 GArrowType garrow_data_type_get_id    (GArrowDataType *data_type);
+
+
+#define GARROW_TYPE_FIXED_WIDTH_DATA_TYPE (garrow_fixed_width_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedWidthDataType,
+                         garrow_fixed_width_data_type,
+                         GARROW,
+                         FIXED_WIDTH_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowFixedWidthDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+gint garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type);
+/* TODO:
+GList *garrow_fixed_width_data_type_get_buffer_layout(GArrowFixedWidthDataType *data_type);
+*/
 
 
 #define GARROW_TYPE_NULL_DATA_TYPE              \
@@ -114,47 +102,17 @@ GType               garrow_null_data_type_get_type (void) G_GNUC_CONST;
 GArrowNullDataType *garrow_null_data_type_new      (void);
 
 
-#define GARROW_TYPE_BOOLEAN_DATA_TYPE           \
-  (garrow_boolean_data_type_get_type())
-#define GARROW_BOOLEAN_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_BOOLEAN_DATA_TYPE,    \
-                              GArrowBooleanDataType))
-#define GARROW_BOOLEAN_DATA_TYPE_CLASS(klass)                   \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_BOOLEAN_DATA_TYPE,       \
-                           GArrowBooleanDataTypeClass))
-#define GARROW_IS_BOOLEAN_DATA_TYPE(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_BOOLEAN_DATA_TYPE))
-#define GARROW_IS_BOOLEAN_DATA_TYPE_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_BOOLEAN_DATA_TYPE))
-#define GARROW_BOOLEAN_DATA_TYPE_GET_CLASS(obj)                 \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_BOOLEAN_DATA_TYPE,     \
-                             GArrowBooleanDataTypeClass))
-
-typedef struct _GArrowBooleanDataType         GArrowBooleanDataType;
-typedef struct _GArrowBooleanDataTypeClass    GArrowBooleanDataTypeClass;
-
-/**
- * GArrowBooleanDataType:
- *
- * It wraps `arrow::BooleanType`.
- */
-struct _GArrowBooleanDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_BOOLEAN_DATA_TYPE (garrow_boolean_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBooleanDataType,
+                         garrow_boolean_data_type,
+                         GARROW,
+                         BOOLEAN_DATA_TYPE,
+                         GArrowFixedWidthDataType)
 struct _GArrowBooleanDataTypeClass
 {
-  GArrowDataTypeClass parent_class;
+  GArrowFixedWidthDataTypeClass parent_class;
 };
 
-GType                  garrow_boolean_data_type_get_type (void) G_GNUC_CONST;
 GArrowBooleanDataType *garrow_boolean_data_type_new      (void);
 
 
