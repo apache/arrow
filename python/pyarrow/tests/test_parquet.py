@@ -1571,9 +1571,15 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize('precision', range(3, 39))
-def test_decimal_roundtrip(tmpdir, precision):
-    scale = 2
+@pytest.mark.parametrize(
+    ('precision', 'scale'),
+    [
+        (precision, scale)
+        for precision in range(2, 39)
+        for scale in range(1, precision)
+    ]
+)
+def test_decimal_roundtrip(tmpdir, precision, scale):
     num = 10
     frac_part = scale
     whole_part = precision - frac_part
@@ -1613,6 +1619,28 @@ def test_decimal_roundtrip(tmpdir, precision):
     assert decimal_field_type.precision == precision
     assert decimal_field_type.scale == scale
 
-    _write_table(t, str(filename))
-    result = _read_table(str(filename)).to_pandas()
+    string_filename = str(filename)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+@pytest.mark.parametrize('precision', range(2, 39))
+def test_decimal_roundtrip_not_exact(tmpdir, preserve_index, precision):
+    max_value = 10 ** (precision - 1) - 1
+    min_value = -max_value
+    with util.random_seed(0):
+        randints = [random.randint(min_value, max_value) for _ in range(10)]
+
+    random_decimal_values = [
+        decimal.Decimal(str(randint) + '.0') for randint in randints
+    ]
+    expected = pd.DataFrame({'decimal_num': random_decimal_values})
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected, preserve_index=preserve_index)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
