@@ -20,6 +20,7 @@ import sys
 import pickle
 
 import numpy as np
+import pickle
 
 from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.lib import _default_serialization_context
@@ -86,10 +87,10 @@ def register_default_serialization_handlers(serialization_context):
     # python_to_arrow.cc)
 
     def _serialize_numpy_array(obj):
-        return obj.tolist(), obj.dtype.str
+        return pickle.dumps(obj)
 
     def _deserialize_numpy_array(data):
-        return np.array(data[0], dtype=np.dtype(data[1]))
+        return pickle.loads(data)
 
     serialization_context.register_type(
         np.ndarray, 'np.array',
