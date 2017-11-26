@@ -108,7 +108,7 @@ building Arrow C++:
 
 .. code-block:: shell
 
-   brew update && brew bundle --file=python/Brewfile
+   brew update && brew bundle --file=arrow/python/Brewfile
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
@@ -230,7 +230,7 @@ You should be able to run the unit tests with:
 
    ====================== 181 passed, 17 skipped in 0.98 seconds ===========
 
-You can build a wheel by running:
+To build a self-contained wheel (include Arrow C++ and Parquet C++), one can set `--bundle-arrow-cpp`:
 
 .. code-block:: shell
 
