@@ -49,7 +49,7 @@ ARROW_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
 /// \brief Reconstruct SerializedPyObject from representation produced by
-/// GetSerializedObjectComponents.
+/// SerializedPyObject::GetComponents.
 ///
 /// \param[in] num_tensors
 /// \param[in] num_buffers
