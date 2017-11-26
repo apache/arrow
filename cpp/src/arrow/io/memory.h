@@ -107,6 +107,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
 class ARROW_EXPORT BufferReader : public RandomAccessFile {
  public:
   explicit BufferReader(const std::shared_ptr<Buffer>& buffer);
+  explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
 
   Status Close() override;

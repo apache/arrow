@@ -913,7 +913,6 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
     CStatus SerializeObject(object context, object sequence,
                             CSerializedPyObject* out)
 
-
     CStatus DeserializeObject(object context,
                               const CSerializedPyObject& obj,
                               PyObject* base, PyObject** out)

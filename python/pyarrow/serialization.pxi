@@ -223,7 +223,7 @@ cdef class SerializedPyObject:
 
         with nogil:
             check_status(GetSerializedFromComponents(num_tensors, num_buffers,
-                                                     buffers, &result.data)
+                                                     buffers, &result.data))
 
         return result
 
@@ -338,6 +338,24 @@ def deserialize_from(source, object base, SerializationContext context=None):
         Python object for the deserialized sequence.
     """
     serialized = read_serialized(source, base=base)
+    return serialized.deserialize(context)
+
+
+def deserialize_components(components, SerializationContext context=None):
+    """
+    Reconstruct Python object from output of SerializedPyObject.to_components
+
+    Parameters
+    ----------
+    components : dict
+        Output of SerializedPyObject.to_components
+    context : SerializationContext, default None
+
+    Returns
+    -------
+    object : the Python object that was originally serialized
+    """
+    serialized = SerializedPyObject.from_components(components)
     return serialized.deserialize(context)
 
 
