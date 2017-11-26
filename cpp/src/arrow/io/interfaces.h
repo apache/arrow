@@ -86,11 +86,11 @@ class ARROW_EXPORT Seekable {
   virtual Status Seek(int64_t position) = 0;
 };
 
-class ARROW_EXPORT Writeable {
+class ARROW_EXPORT Writable {
  public:
-  virtual ~Writeable() = default;
+  virtual ~Writable() = default;
 
-  virtual Status Write(const uint8_t* data, int64_t nbytes) = 0;
+  virtual Status Write(const void* data, int64_t nbytes) = 0;
 
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();
@@ -102,13 +102,13 @@ class ARROW_EXPORT Readable {
  public:
   virtual ~Readable() = default;
 
-  virtual Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) = 0;
+  virtual Status Read(int64_t nbytes, int64_t* bytes_read, void* out) = 0;
 
   // Does not copy if not necessary
   virtual Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) = 0;
 };
 
-class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writeable {
+class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable {
  protected:
   OutputStream() = default;
 };
@@ -138,7 +138,7 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[out] out The buffer to read bytes into
   /// \return Status
   virtual Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                        uint8_t* out) = 0;
+                        void* out) = 0;
 
   /// \brief Read nbytes at position, provide default implementations using Read(...), but
   /// can be overridden. Default implementation is thread-safe.
@@ -162,7 +162,7 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
 
 class ARROW_EXPORT WriteableFile : public OutputStream, public Seekable {
  public:
-  virtual Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) = 0;
+  virtual Status WriteAt(int64_t position, const void* data, int64_t nbytes) = 0;
 
  protected:
   WriteableFile() = default;

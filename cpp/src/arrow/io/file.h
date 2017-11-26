@@ -59,7 +59,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
 
   // Write bytes to the stream. Thread-safe
-  Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status Write(const void* data, int64_t nbytes) override;
 
   int file_descriptor() const;
 
@@ -93,12 +93,12 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   Status Tell(int64_t* position) const override;
 
   // Read bytes from the file. Thread-safe
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   /// \brief Thread-safe implementation of ReadAt
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                uint8_t* out) override;
+                void* out) override;
 
   /// \brief Thread-safe implementation of ReadAt
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
@@ -141,13 +141,13 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   Status Seek(int64_t position) override;
 
   // Required by RandomAccessFile, copies memory into out. Not thread-safe
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) override;
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
 
   // Zero copy read. Not thread-safe
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                uint8_t* out) override;
+                void* out) override;
 
   /// Default implementation is thread-safe
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
@@ -155,10 +155,10 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   bool supports_zero_copy() const override;
 
   /// Write data at the current position in the file. Thread-safe
-  Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status Write(const void* data, int64_t nbytes) override;
 
   /// Write data at a particular position in the file. Thread-safe
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
+  Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
   // @return: the size in bytes of the memory source
   Status GetSize(int64_t* size) override;
@@ -168,7 +168,7 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  private:
   MemoryMappedFile();
 
-  Status WriteInternal(const uint8_t* data, int64_t nbytes);
+  Status WriteInternal(const void* data, int64_t nbytes);
 
   class ARROW_NO_EXPORT MemoryMap;
   std::shared_ptr<MemoryMap> memory_map_;

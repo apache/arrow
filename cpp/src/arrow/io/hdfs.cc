@@ -119,7 +119,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* buffer) {
     tSize ret;
     if (driver_->HasPread()) {
       ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
@@ -149,11 +149,11 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
       tSize ret = driver_->Read(
-          fs_, file_, reinterpret_cast<void*>(buffer + total_bytes),
+          fs_, file_, reinterpret_cast<uint8_t*>(buffer) + total_bytes,
           static_cast<tSize>(std::min<int64_t>(buffer_size_, nbytes - total_bytes)));
       RETURN_NOT_OK(CheckReadResult(ret));
       total_bytes += ret;
@@ -212,7 +212,7 @@ HdfsReadableFile::~HdfsReadableFile() { DCHECK(impl_->Close().ok()); }
 Status HdfsReadableFile::Close() { return impl_->Close(); }
 
 Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                uint8_t* buffer) {
+                                void* buffer) {
   return impl_->ReadAt(position, nbytes, bytes_read, buffer);
 }
 
@@ -223,7 +223,7 @@ Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes,
 
 bool HdfsReadableFile::supports_zero_copy() const { return false; }
 
-Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   return impl_->Read(nbytes, bytes_read, buffer);
 }
 
@@ -261,7 +261,7 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* buffer, int64_t nbytes, int64_t* bytes_written) {
+  Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written) {
     std::lock_guard<std::mutex> guard(lock_);
     tSize ret = driver_->Write(fs_, file_, reinterpret_cast<const void*>(buffer),
                                static_cast<tSize>(nbytes));
@@ -277,12 +277,11 @@ HdfsOutputStream::~HdfsOutputStream() { DCHECK(impl_->Close().ok()); }
 
 Status HdfsOutputStream::Close() { return impl_->Close(); }
 
-Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes,
-                               int64_t* bytes_read) {
+Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes, int64_t* bytes_read) {
   return impl_->Write(buffer, nbytes, bytes_read);
 }
 
-Status HdfsOutputStream::Write(const uint8_t* buffer, int64_t nbytes) {
+Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
   int64_t bytes_written_dummy = 0;
   return Write(buffer, nbytes, &bytes_written_dummy);
 }
