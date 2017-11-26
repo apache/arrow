@@ -21,6 +21,7 @@
 #  include <config.h>
 #endif
 
+#include <arrow-glib/basic-array.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
@@ -38,6 +39,8 @@ G_BEGIN_DECLS
  * #GArrowListDataType is a class for list data type.
  *
  * #GArrowStructDataType is a class for struct data type.
+ *
+ * #GArrowDictionaryDataType is a class for dictionary data type.
  */
 
 G_DEFINE_TYPE(GArrowListDataType,                \
@@ -131,6 +134,89 @@ garrow_struct_data_type_new(GList *fields)
                                          "data-type", &arrow_data_type,
                                          NULL));
   return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowDictionaryDataType,                \
+              garrow_dictionary_data_type,             \
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_dictionary_data_type_init(GArrowDictionaryDataType *object)
+{
+}
+
+static void
+garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_dictionary_data_type_new:
+ * @index_data_type: The data type of index.
+ * @dictionary: The dictionary.
+ * @ordered: Whether dictionary contents are ordered or not.
+ *
+ * Returns: The newly created dictionary data type.
+ */
+GArrowDictionaryDataType *
+garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
+                                GArrowArray *dictionary,
+                                gboolean ordered)
+{
+  auto arrow_index_data_type = garrow_data_type_get_raw(index_data_type);
+  auto arrow_dictionary = garrow_array_get_raw(dictionary);
+  auto arrow_data_type = arrow::dictionary(arrow_index_data_type,
+                                           arrow_dictionary,
+                                           ordered);
+  return GARROW_DICTIONARY_DATA_TYPE(garrow_data_type_new_raw(&arrow_data_type));
+}
+
+/**
+ * garrow_dictionary_data_type_get_index_data_type:
+ * @data_type: The #GArrowDictionaryDataType.
+ *
+ * Returns: (transfer full): The #GArrowDataType of index.
+ */
+GArrowDataType *
+garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_dictionary_data_type =
+    std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
+  auto arrow_index_data_type = arrow_dictionary_data_type->index_type();
+  return garrow_data_type_new_raw(&arrow_index_data_type);
+}
+
+/**
+ * garrow_dictionary_data_type_get_dictionary:
+ * @data_type: The #GArrowDictionaryDataType.
+ *
+ * Returns: (transfer full): The dictionary as #GArrowArray.
+ */
+GArrowArray *
+garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_dictionary_data_type =
+    std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
+  auto arrow_dictionary = arrow_dictionary_data_type->dictionary();
+  return garrow_array_new_raw(&arrow_dictionary);
+}
+
+/**
+ * garrow_dictionary_data_type_is_ordered:
+ * @data_type: The #GArrowDictionaryDataType.
+ *
+ * Returns: Whether dictionary contents are ordered or not.
+ */
+gboolean
+garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_dictionary_data_type =
+    std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
+  return arrow_dictionary_data_type->ordered();
 }
 
 G_END_DECLS

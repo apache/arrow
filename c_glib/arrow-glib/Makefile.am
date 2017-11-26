@@ -45,10 +45,12 @@ libarrow_glib_la_headers =			\
 	array.h					\
 	array-builder.h				\
 	arrow-glib.h				\
+	basic-array.h				\
 	basic-data-type.h			\
 	buffer.h				\
 	chunked-array.h				\
 	column.h				\
+	composite-array.h			\
 	composite-data-type.h			\
 	data-type.h				\
 	error.h					\
@@ -86,12 +88,13 @@ libarrow_glib_la_generated_sources =		\
 	$(libarrow_glib_la_generated_headers)
 
 libarrow_glib_la_sources =			\
-	array.cpp				\
 	array-builder.cpp			\
+	basic-array.cpp				\
 	basic-data-type.cpp			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	column.cpp				\
+	composite-array.cpp			\
 	composite-data-type.cpp			\
 	error.cpp				\
 	field.cpp				\
@@ -125,6 +128,7 @@ libarrow_glib_la_cpp_headers =			\
 	array.hpp				\
 	array-builder.hpp			\
 	arrow-glib.hpp				\
+	basic-array.hpp				\
 	basic-data-type.hpp			\
 	buffer.hpp				\
 	chunked-array.hpp			\

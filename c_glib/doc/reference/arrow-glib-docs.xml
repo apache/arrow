@@ -40,7 +40,8 @@
     <title>Data</title>
     <chapter id="array">
       <title>Array</title>
-      <xi:include href="xml/array.xml"/>
+      <xi:include href="xml/basic-array.xml"/>
+      <xi:include href="xml/composite-array.xml"/>
     </chapter>
     <chapter id="array-builder">
       <title>Array builder</title>

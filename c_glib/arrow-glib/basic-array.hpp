@@ -19,5 +19,9 @@
 
 #pragma once
 
+#include <arrow/api.h>
+
 #include <arrow-glib/basic-array.h>
-#include <arrow-glib/composite-array.h>
+
+GArrowArray *garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
+std::shared_ptr<arrow::Array> garrow_array_get_raw(GArrowArray *array);
