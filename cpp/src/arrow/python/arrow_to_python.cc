@@ -290,6 +290,7 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
 
 Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* data,
                                    SerializedPyObject* out) {
+  PyAcquireGIL gil;
   const Py_ssize_t data_length = PyList_Size(data);
   RETURN_IF_PYERROR();
 
@@ -309,10 +310,12 @@ Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* d
   {
     std::shared_ptr<Buffer> data_buffer;
     RETURN_NOT_OK(GetBuffer(buffer_index++, &data_buffer));
+    gil.release();
     io::BufferReader buf_reader(data_buffer);
     std::shared_ptr<RecordBatchReader> reader;
     RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(&buf_reader, &reader));
     RETURN_NOT_OK(reader->ReadNext(&out->batch));
+    gil.acquire();
   }
 
   // Zero-copy reconstruct tensors
