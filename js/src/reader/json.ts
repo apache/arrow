@@ -21,7 +21,8 @@ import { TypedArray, TypedArrayConstructor } from '../vector/types';
 import { BinaryVector, BoolVector, Utf8Vector, Int8Vector,
          Int16Vector, Int32Vector, Int64Vector, Uint8Vector,
          Uint16Vector, Uint32Vector, Uint64Vector,
-         Float32Vector, Float64Vector, ListVector, StructVector } from '../vector/arrow';
+         Float32Vector, Float64Vector, DecimalVector,
+         ListVector, StructVector } from '../vector/arrow';
 
 import * as Schema_ from '../format/fb/Schema';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
@@ -62,7 +63,7 @@ function readValueVector(field: any, column: any): Vector {
         //case "time": return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
         case 'binary': return readBinaryVector(field, column);
-        //case "decimal": return readDecimalVector(field, column);
+        case 'decimal': return readDecimalVector(field, column);
         case 'struct': return readStructVector(field, column);
         case 'floatingpoint': return readFloatVector(field, column);
         //case "timestamp": return readTimestampVector(field, column);
@@ -119,6 +120,26 @@ function readUtf8Vector(fieldObj: any, column: any): Vector {
 
 function readBinaryVector(field: any, column: any) {
     return new BinaryVector(readBinary(field, column));
+}
+
+function readDecimalVector(fieldObj: any, column: any) {
+    const field = fieldFromJSON(fieldObj);
+    const fieldNode = fieldNodeFromJSON(column);
+    const validity = readValidity(column);
+
+    let data = new Uint32Array(column.DATA.length * 4);
+    for (let i = 0; i < column.DATA.length; ++i) {
+        data[4 * i    ] = column.DATA[i] >>> 0;
+        data[4 * i + 1] = Math.floor(column.DATA[i] / 0xFFFFFFFF);
+        data[4 * i + 2] = Math.floor(column.DATA[i] / 0xFFFFFFFFFFFFFFFF);
+        data[4 * i + 3] = Math.floor(column.DATA[i] / 0xFFFFFFFFFFFFFFFFFFFFFFFF);
+    }
+
+    return new DecimalVector({
+        scale: fieldObj.scale,
+        precision: fieldObj.precision,
+        field, fieldNode, validity, data
+    });
 }
 
 function readStructVector(fieldObj: any, column: any) {

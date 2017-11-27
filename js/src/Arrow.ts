@@ -22,6 +22,7 @@ import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
 import { readVectors, readVectorsAsync } from './reader/arrow';
 import { readJSON } from './reader/json';
+import { Uint64, Int64, Int128 } from './util/int';
 import { ListVector, BinaryVector, FixedSizeListVector } from './vector/list';
 
 import {
@@ -55,6 +56,7 @@ BoolVector['pack'] = BoolVector.pack;
 export { Table, Vector, StructRow };
 export { readVectors, readVectorsAsync };
 export { readJSON };
+export { Uint64, Int64, Int128 };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {
