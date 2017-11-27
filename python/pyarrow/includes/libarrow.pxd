@@ -699,7 +699,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus Close()
         CStatus WriteRecordBatch(const CRecordBatch& batch,
                                  c_bool allow_64bit)
-        CStatus WriteTable(const CTable& table)
+        CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
     cdef cppclass CRecordBatchReader" arrow::ipc::RecordBatchReader":
         shared_ptr[CSchema] schema()
