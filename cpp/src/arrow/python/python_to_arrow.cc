@@ -759,6 +759,7 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
     PyObject* wrapped_buffer = wrap_buffer(buffer);
     RETURN_IF_PYERROR();
     if (PyList_Append(buffers, wrapped_buffer) < 0) {
+      Py_DECREF(wrapped_buffer);
       RETURN_IF_PYERROR();
     }
     Py_DECREF(wrapped_buffer);
