@@ -119,8 +119,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
 
   std::string result;
   RETURN_NOT_OK(writer->Finish(&result));
-  return out_file->Write(reinterpret_cast<const uint8_t*>(result.c_str()),
-                         static_cast<int64_t>(result.size()));
+  return out_file->Write(result.c_str(), static_cast<int64_t>(result.size()));
 }
 
 static Status ValidateArrowVsJson(const std::string& arrow_path,
@@ -250,8 +249,7 @@ class TestJSONIntegration : public ::testing::Test {
     do {
       std::shared_ptr<io::FileOutputStream> out;
       RETURN_NOT_OK(io::FileOutputStream::Open(path, &out));
-      RETURN_NOT_OK(out->Write(reinterpret_cast<const uint8_t*>(data),
-                               static_cast<int64_t>(strlen(data))));
+      RETURN_NOT_OK(out->Write(data, static_cast<int64_t>(strlen(data))));
     } while (0);
     return Status::OK();
   }

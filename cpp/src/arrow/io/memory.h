@@ -48,7 +48,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   // Implement the OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) const override;
-  Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status Write(const void* data, int64_t nbytes) override;
 
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
@@ -72,7 +72,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
   // Implement the OutputStream interface
   Status Close() override;
   Status Tell(int64_t* position) const override;
-  Status Write(const uint8_t* data, int64_t nbytes) override;
+  Status Write(const void* data, int64_t nbytes) override;
 
   int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
 
@@ -90,8 +90,8 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WriteableFile {
   Status Close() override;
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) const override;
-  Status Write(const uint8_t* data, int64_t nbytes) override;
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) override;
+  Status Write(const void* data, int64_t nbytes) override;
+  Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
   void set_memcopy_threads(int num_threads);
   void set_memcopy_blocksize(int64_t blocksize);
@@ -111,12 +111,12 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   Status Close() override;
   Status Tell(int64_t* position) const override;
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) override;
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
 
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                uint8_t* out) override;
+                void* out) override;
 
   /// Default implementation is thread-safe
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;

@@ -79,7 +79,7 @@ Status BufferOutputStream::Tell(int64_t* position) const {
   return Status::OK();
 }
 
-Status BufferOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
   if (ARROW_PREDICT_FALSE(!is_open_)) {
     return Status::IOError("OutputStream is closed");
   }
@@ -116,7 +116,7 @@ Status MockOutputStream::Tell(int64_t* position) const {
   return Status::OK();
 }
 
-Status MockOutputStream::Write(const uint8_t* data, int64_t nbytes) {
+Status MockOutputStream::Write(const void* data, int64_t nbytes) {
   extent_bytes_written_ += nbytes;
   return Status::OK();
 }
@@ -162,9 +162,10 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) {
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-      internal::parallel_memcopy(mutable_data_ + position_, data, nbytes,
+      internal::parallel_memcopy(mutable_data_ + position_,
+                                 reinterpret_cast<const uint8_t*>(data), nbytes,
                                  memcopy_blocksize_, memcopy_num_threads_);
     } else {
       memcpy(mutable_data_ + position_, data, nbytes);
@@ -173,7 +174,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
     return Status::OK();
   }
 
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+  Status WriteAt(int64_t position, const void* data, int64_t nbytes) {
     std::lock_guard<std::mutex> guard(lock_);
     RETURN_NOT_OK(Seek(position));
     return Write(data, nbytes);
@@ -210,11 +211,11 @@ Status FixedSizeBufferWriter::Tell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-Status FixedSizeBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
+Status FixedSizeBufferWriter::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
 }
 
-Status FixedSizeBufferWriter::WriteAt(int64_t position, const uint8_t* data,
+Status FixedSizeBufferWriter::WriteAt(int64_t position, const void* data,
                                       int64_t nbytes) {
   return impl_->WriteAt(position, data, nbytes);
 }
@@ -252,7 +253,7 @@ Status BufferReader::Tell(int64_t* position) const {
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
-Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   memcpy(buffer, data_ + position_, nbytes);
   *bytes_read = std::min(nbytes, size_ - position_);
   position_ += *bytes_read;
@@ -273,7 +274,7 @@ Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 }
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                            uint8_t* out) {
+                            void* out) {
   return RandomAccessFile::ReadAt(position, nbytes, bytes_read, out);
 }
 
