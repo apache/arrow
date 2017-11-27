@@ -689,11 +689,10 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     c_string FormatMessageType(MessageType type)
 
     cdef cppclass CMessageReader" arrow::ipc::MessageReader":
-        CStatus ReadNextMessage(unique_ptr[CMessage]* out)
+        @staticmethod
+        unique_ptr[CMessageReader] Open(const shared_ptr[InputStream]& stream)
 
-    cdef cppclass CInputStreamMessageReader \
-            " arrow::ipc::InputStreamMessageReader":
-        CInputStreamMessageReader(const shared_ptr[InputStream]& stream)
+        CStatus ReadNextMessage(unique_ptr[CMessage]* out)
 
     cdef cppclass CRecordBatchWriter" arrow::ipc::RecordBatchWriter":
         CStatus Close()
@@ -915,11 +914,11 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
         shared_ptr[CRecordBatch] batch
         vector[shared_ptr[CTensor]] tensors
 
+        CStatus WriteTo(OutputStream* dst)
+        CStatus GetComponents(CMemoryPool* pool, PyObject** dst)
+
     CStatus SerializeObject(object context, object sequence,
                             CSerializedPyObject* out)
-
-    CStatus WriteSerializedObject(const CSerializedPyObject& obj,
-                                  OutputStream* dst)
 
     CStatus DeserializeObject(object context,
                               const CSerializedPyObject& obj,
@@ -927,6 +926,10 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
     CStatus ReadSerializedObject(RandomAccessFile* src,
                                  CSerializedPyObject* out)
+
+    CStatus GetSerializedFromComponents(int num_tensors, int num_buffers,
+                                        object buffers,
+                                        CSerializedPyObject* out)
 
 
 cdef extern from 'arrow/python/init.h':

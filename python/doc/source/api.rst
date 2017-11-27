@@ -245,6 +245,7 @@ Serialization and IPC
    serialize
    serialize_to
    deserialize
+   deserialize_components
    deserialize_from
    read_serialized
    SerializedPyObject

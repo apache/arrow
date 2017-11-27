@@ -125,9 +125,11 @@ cdef class MessageReader:
     def open_stream(source):
         cdef MessageReader result = MessageReader()
         cdef shared_ptr[InputStream] in_stream
+        cdef unique_ptr[CMessageReader] reader
         get_input_stream(source, &in_stream)
         with nogil:
-            result.reader.reset(new CInputStreamMessageReader(in_stream))
+            reader = CMessageReader.Open(in_stream)
+            result.reader.reset(reader.release())
 
         return result
 

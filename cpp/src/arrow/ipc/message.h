@@ -144,31 +144,18 @@ class ARROW_EXPORT MessageReader {
  public:
   virtual ~MessageReader() = default;
 
+  /// \brief Create MessageReader that reads from InputStream
+  static std::unique_ptr<MessageReader> Open(io::InputStream* stream);
+
+  /// \brief Create MessageReader that reads from owned InputStream
+  static std::unique_ptr<MessageReader> Open(
+      const std::shared_ptr<io::InputStream>& owned_stream);
+
   /// \brief Read next Message from the interface
   ///
   /// \param[out] message an arrow::ipc::Message instance
   /// \return Status
   virtual Status ReadNextMessage(std::unique_ptr<Message>* message) = 0;
-};
-
-/// \brief Implementation of MessageReader that reads from InputStream
-/// \since 0.5.0
-class ARROW_EXPORT InputStreamMessageReader : public MessageReader {
- public:
-  explicit InputStreamMessageReader(io::InputStream* stream) : stream_(stream) {}
-
-  explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
-      : InputStreamMessageReader(owned_stream.get()) {
-    owned_stream_ = owned_stream;
-  }
-
-  ~InputStreamMessageReader();
-
-  Status ReadNextMessage(std::unique_ptr<Message>* message) override;
-
- private:
-  io::InputStream* stream_;
-  std::shared_ptr<io::InputStream> owned_stream_;
 };
 
 /// \brief Read encapulated RPC message from position in file

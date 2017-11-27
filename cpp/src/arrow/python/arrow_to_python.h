@@ -48,6 +48,19 @@ namespace py {
 ARROW_EXPORT
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 
+/// \brief Reconstruct SerializedPyObject from representation produced by
+/// SerializedPyObject::GetComponents.
+///
+/// \param[in] num_tensors
+/// \param[in] num_buffers
+/// \param[in] data a list containing pyarrow.Buffer instances. Must be 1 +
+/// num_tensors * 2 + num_buffers in length
+/// \param[out] out the reconstructed object
+/// \return Status
+ARROW_EXPORT
+Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* data,
+                                   SerializedPyObject* out);
+
 /// \brief Reconstruct Python object from Arrow-serialized representation
 /// \param[in] context Serialization context which contains custom serialization
 /// and deserialization callbacks. Can be any Python object with a
