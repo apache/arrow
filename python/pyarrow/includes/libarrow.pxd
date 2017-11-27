@@ -456,6 +456,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
 
+    cdef cppclass RecordBatchReader:
+        CStatus ReadNext(shared_ptr[CRecordBatch]* out)
+
+    cdef cppclass TableBatchReader(RecordBatchReader):
+        TableBatchReader(const CTable& table)
+        void set_chunksize(int64_t chunksize)
+
     cdef cppclass CTensor" arrow::Tensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
