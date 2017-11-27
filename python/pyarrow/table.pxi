@@ -971,6 +971,44 @@ cdef class Table:
 
         return pyarrow_wrap_table(c_table)
 
+    def to_batches(self, chunksize=None):
+        """
+        Convert Table to list of (contiguous) RecordBatch objects, with optimal
+        maximum chunk size
+
+        Parameters
+        ----------
+        chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns
+
+        Returns
+        -------
+        batches : list of RecordBatch
+        """
+        cdef:
+            unique_ptr[TableBatchReader] reader
+            int64_t c_chunksize
+            list result = []
+            shared_ptr[CRecordBatch] batch
+
+        reader.reset(new TableBatchReader(deref(self.table)))
+
+        if chunksize is not None:
+            c_chunksize = chunksize
+            reader.get().set_chunksize(c_chunksize)
+
+        while True:
+            with nogil:
+                check_status(reader.get().ReadNext(&batch))
+
+            if batch.get() == NULL:
+                break
+
+            result.append(pyarrow_wrap_batch(batch))
+
+        return result
+
     def to_pandas(self, nthreads=None, strings_to_categorical=False,
                   memory_pool=None, zero_copy_only=False):
         """

@@ -651,8 +651,12 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size) {
 
 RecordBatchWriter::~RecordBatchWriter() {}
 
-Status RecordBatchWriter::WriteTable(const Table& table) {
+Status RecordBatchWriter::WriteTable(const Table& table, int64_t max_chunksize) {
   TableBatchReader reader(table);
+
+  if (max_chunksize > 0) {
+    reader.set_chunksize(max_chunksize);
+  }
 
   std::shared_ptr<RecordBatch> batch;
   while (true) {
@@ -665,6 +669,8 @@ Status RecordBatchWriter::WriteTable(const Table& table) {
 
   return Status::OK();
 }
+
+Status RecordBatchWriter::WriteTable(const Table& table) { return WriteTable(table, -1); }
 
 // ----------------------------------------------------------------------
 // Stream writer implementation

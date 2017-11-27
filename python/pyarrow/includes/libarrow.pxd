@@ -456,6 +456,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
 
+    cdef cppclass RecordBatchReader:
+        CStatus ReadNext(shared_ptr[CRecordBatch]* out)
+
+    cdef cppclass TableBatchReader(RecordBatchReader):
+        TableBatchReader(const CTable& table)
+        void set_chunksize(int64_t chunksize)
+
     cdef cppclass CTensor" arrow::Tensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
@@ -692,7 +699,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CStatus Close()
         CStatus WriteRecordBatch(const CRecordBatch& batch,
                                  c_bool allow_64bit)
-        CStatus WriteTable(const CTable& table)
+        CStatus WriteTable(const CTable& table, int64_t max_chunksize)
 
     cdef cppclass CRecordBatchReader" arrow::ipc::RecordBatchReader":
         shared_ptr[CSchema] schema()

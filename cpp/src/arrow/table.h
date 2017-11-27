@@ -197,6 +197,8 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
+  void set_chunksize(int64_t chunksize);
+
  private:
   class TableBatchReaderImpl;
   std::unique_ptr<TableBatchReaderImpl> impl_;

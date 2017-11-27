@@ -65,6 +65,12 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \return Status
   Status WriteTable(const Table& table);
 
+  /// \brief Write Table with a particular chunksize
+  /// \param[in] table table to write
+  /// \param[in] max_chunksize maximum chunk size for table chunks
+  /// \return Status
+  Status WriteTable(const Table& table, int64_t max_chunksize);
+
   /// \brief Perform any logic necessary to finish the stream
   ///
   /// \return Status
