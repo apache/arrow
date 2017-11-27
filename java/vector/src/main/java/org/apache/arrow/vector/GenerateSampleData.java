@@ -30,62 +30,62 @@ import java.nio.charset.Charset;
 public class GenerateSampleData {
 
   public static void generateTestData(final ValueVector vector, final int valueCount) {
-    if (vector instanceof NullableIntVector) {
-      writeIntData((NullableIntVector) vector, valueCount);
-    } else if (vector instanceof NullableDecimalVector) {
-      writeDecimalData((NullableDecimalVector) vector, valueCount);
-    } else if (vector instanceof NullableBitVector) {
-      writeBooleanData((NullableBitVector) vector, valueCount);
-    } else if (vector instanceof NullableVarCharVector) {
-      writeVarCharData((NullableVarCharVector) vector, valueCount);
-    } else if (vector instanceof NullableVarBinaryVector) {
-      writeVarBinaryData((NullableVarBinaryVector) vector, valueCount);
-    } else if (vector instanceof NullableBigIntVector) {
-      writeBigIntData((NullableBigIntVector) vector, valueCount);
-    } else if (vector instanceof NullableFloat4Vector) {
-      writeFloatData((NullableFloat4Vector) vector, valueCount);
-    } else if (vector instanceof NullableFloat8Vector) {
-      writeDoubleData((NullableFloat8Vector) vector, valueCount);
-    } else if (vector instanceof NullableDateDayVector) {
-      writeDateDayData((NullableDateDayVector) vector, valueCount);
-    } else if (vector instanceof NullableDateMilliVector) {
-      writeDateMilliData((NullableDateMilliVector) vector, valueCount);
-    } else if (vector instanceof NullableIntervalDayVector) {
-      writeIntervalDayData((NullableIntervalDayVector) vector, valueCount);
-    } else if (vector instanceof NullableIntervalYearVector) {
-      writeIntervalYearData((NullableIntervalYearVector) vector, valueCount);
-    } else if (vector instanceof NullableSmallIntVector) {
-      writeSmallIntData((NullableSmallIntVector) vector, valueCount);
-    } else if (vector instanceof NullableTinyIntVector) {
-      writeTinyIntData((NullableTinyIntVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeMicroVector) {
-      writeTimeMicroData((NullableTimeMicroVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeMilliVector) {
-      writeTimeMilliData((NullableTimeMilliVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeNanoVector) {
-      writeTimeNanoData((NullableTimeNanoVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeSecVector) {
-      writeTimeSecData((NullableTimeSecVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampSecVector) {
-      writeTimeStampData((NullableTimeStampSecVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampMicroVector) {
-      writeTimeStampData((NullableTimeStampMicroVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampMilliVector) {
-      writeTimeStampData((NullableTimeStampMilliVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampNanoVector) {
-      writeTimeStampData((NullableTimeStampNanoVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampSecTZVector) {
-      writeTimeStampData((NullableTimeStampSecTZVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampMicroTZVector) {
-      writeTimeStampData((NullableTimeStampMicroTZVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampMilliTZVector) {
-      writeTimeStampData((NullableTimeStampMilliTZVector) vector, valueCount);
-    } else if (vector instanceof NullableTimeStampNanoTZVector) {
-      writeTimeStampData((NullableTimeStampNanoTZVector) vector, valueCount);
+    if (vector instanceof IntVector) {
+      writeIntData((IntVector) vector, valueCount);
+    } else if (vector instanceof DecimalVector) {
+      writeDecimalData((DecimalVector) vector, valueCount);
+    } else if (vector instanceof BitVector) {
+      writeBooleanData((BitVector) vector, valueCount);
+    } else if (vector instanceof VarCharVector) {
+      writeVarCharData((VarCharVector) vector, valueCount);
+    } else if (vector instanceof VarBinaryVector) {
+      writeVarBinaryData((VarBinaryVector) vector, valueCount);
+    } else if (vector instanceof BigIntVector) {
+      writeBigIntData((BigIntVector) vector, valueCount);
+    } else if (vector instanceof Float4Vector) {
+      writeFloatData((Float4Vector) vector, valueCount);
+    } else if (vector instanceof Float8Vector) {
+      writeDoubleData((Float8Vector) vector, valueCount);
+    } else if (vector instanceof DateDayVector) {
+      writeDateDayData((DateDayVector) vector, valueCount);
+    } else if (vector instanceof DateMilliVector) {
+      writeDateMilliData((DateMilliVector) vector, valueCount);
+    } else if (vector instanceof IntervalDayVector) {
+      writeIntervalDayData((IntervalDayVector) vector, valueCount);
+    } else if (vector instanceof IntervalYearVector) {
+      writeIntervalYearData((IntervalYearVector) vector, valueCount);
+    } else if (vector instanceof SmallIntVector) {
+      writeSmallIntData((SmallIntVector) vector, valueCount);
+    } else if (vector instanceof TinyIntVector) {
+      writeTinyIntData((TinyIntVector) vector, valueCount);
+    } else if (vector instanceof TimeMicroVector) {
+      writeTimeMicroData((TimeMicroVector) vector, valueCount);
+    } else if (vector instanceof TimeMilliVector) {
+      writeTimeMilliData((TimeMilliVector) vector, valueCount);
+    } else if (vector instanceof TimeNanoVector) {
+      writeTimeNanoData((TimeNanoVector) vector, valueCount);
+    } else if (vector instanceof TimeSecVector) {
+      writeTimeSecData((TimeSecVector) vector, valueCount);
+    } else if (vector instanceof TimeStampSecVector) {
+      writeTimeStampData((TimeStampSecVector) vector, valueCount);
+    } else if (vector instanceof TimeStampMicroVector) {
+      writeTimeStampData((TimeStampMicroVector) vector, valueCount);
+    } else if (vector instanceof TimeStampMilliVector) {
+      writeTimeStampData((TimeStampMilliVector) vector, valueCount);
+    } else if (vector instanceof TimeStampNanoVector) {
+      writeTimeStampData((TimeStampNanoVector) vector, valueCount);
+    } else if (vector instanceof TimeStampSecTZVector) {
+      writeTimeStampData((TimeStampSecTZVector) vector, valueCount);
+    } else if (vector instanceof TimeStampMicroTZVector) {
+      writeTimeStampData((TimeStampMicroTZVector) vector, valueCount);
+    } else if (vector instanceof TimeStampMilliTZVector) {
+      writeTimeStampData((TimeStampMilliTZVector) vector, valueCount);
+    } else if (vector instanceof TimeStampNanoTZVector) {
+      writeTimeStampData((TimeStampNanoTZVector) vector, valueCount);
     }
   }
 
-  private static void writeTimeStampData(NullableTimeStampVector vector, int valueCount) {
+  private static void writeTimeStampData(TimeStampVector vector, int valueCount) {
     final long even = 100000;
     final long odd = 200000;
     for (int i = 0; i < valueCount; i++) {
@@ -98,7 +98,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeDecimalData(NullableDecimalVector vector, int valueCount) {
+  private static void writeDecimalData(DecimalVector vector, int valueCount) {
     final BigDecimal even = new BigDecimal(0.0543278923);
     final BigDecimal odd = new BigDecimal(2.0543278923);
     for (int i = 0; i < valueCount; i++) {
@@ -111,7 +111,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeIntData(NullableIntVector vector, int valueCount) {
+  private static void writeIntData(IntVector vector, int valueCount) {
     final int even = 1000;
     final int odd = 2000;
     for (int i = 0; i < valueCount; i++) {
@@ -124,7 +124,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeBooleanData(NullableBitVector vector, int valueCount) {
+  private static void writeBooleanData(BitVector vector, int valueCount) {
     final int even = 0;
     final int odd = 1;
     for (int i = 0; i < valueCount; i++) {
@@ -137,7 +137,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeIntervalYearData(NullableIntervalYearVector vector, int valueCount) {
+  private static void writeIntervalYearData(IntervalYearVector vector, int valueCount) {
     final int even = 1;
     final int odd = 2;
     for (int i = 0; i < valueCount; i++) {
@@ -150,7 +150,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeIntervalDayData(NullableIntervalDayVector vector, int valueCount) {
+  private static void writeIntervalDayData(IntervalDayVector vector, int valueCount) {
     for (int i = 0; i < valueCount; i++) {
       if (i % 2 == 0) {
         vector.setSafe(i, 1, 50);
@@ -161,7 +161,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeTimeSecData(NullableTimeSecVector vector, int valueCount) {
+  private static void writeTimeSecData(TimeSecVector vector, int valueCount) {
     final int even = 500;
     final int odd = 900;
     for (int i = 0; i < valueCount; i++) {
@@ -174,7 +174,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeTimeMilliData(NullableTimeMilliVector vector, int valueCount) {
+  private static void writeTimeMilliData(TimeMilliVector vector, int valueCount) {
     final int even = 1000;
     final int odd = 2000;
     for (int i = 0; i < valueCount; i++) {
@@ -187,7 +187,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeTimeMicroData(NullableTimeMicroVector vector, int valueCount) {
+  private static void writeTimeMicroData(TimeMicroVector vector, int valueCount) {
     final long even = 1000000000;
     final long odd = 2000000000;
     for (int i = 0; i < valueCount; i++) {
@@ -201,7 +201,7 @@ public class GenerateSampleData {
 
   }
 
-  private static void writeTimeNanoData(NullableTimeNanoVector vector, int valueCount) {
+  private static void writeTimeNanoData(TimeNanoVector vector, int valueCount) {
     final long even = 1000000000;
     final long odd = 2000000000;
     for (int i = 0; i < valueCount; i++) {
@@ -214,7 +214,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeDateDayData(NullableDateDayVector vector, int valueCount) {
+  private static void writeDateDayData(DateDayVector vector, int valueCount) {
     final int even = 1000;
     final int odd = 2000;
     for (int i = 0; i < valueCount; i++) {
@@ -227,7 +227,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeDateMilliData(NullableDateMilliVector vector, int valueCount) {
+  private static void writeDateMilliData(DateMilliVector vector, int valueCount) {
     final long even = 1000000000;
     final long odd = 2000000000;
     for (int i = 0; i < valueCount; i++) {
@@ -240,7 +240,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeSmallIntData(NullableSmallIntVector vector, int valueCount) {
+  private static void writeSmallIntData(SmallIntVector vector, int valueCount) {
     final short even = 10;
     final short odd = 20;
     for (int i = 0; i < valueCount; i++) {
@@ -253,7 +253,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeTinyIntData(NullableTinyIntVector vector, int valueCount) {
+  private static void writeTinyIntData(TinyIntVector vector, int valueCount) {
     final byte even = 1;
     final byte odd = 2;
     for (int i = 0; i < valueCount; i++) {
@@ -266,7 +266,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeBigIntData(NullableBigIntVector vector, int valueCount) {
+  private static void writeBigIntData(BigIntVector vector, int valueCount) {
     final long even = 1000000000;
     final long odd = 2000000000;
     for (int i = 0; i < valueCount; i++) {
@@ -279,7 +279,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeFloatData(NullableFloat4Vector vector, int valueCount) {
+  private static void writeFloatData(Float4Vector vector, int valueCount) {
     final float even = 20.3f;
     final float odd = 40.2f;
     for (int i = 0; i < valueCount; i++) {
@@ -292,7 +292,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeDoubleData(NullableFloat8Vector vector, int valueCount) {
+  private static void writeDoubleData(Float8Vector vector, int valueCount) {
     final double even = 20.2373;
     final double odd = 40.2378;
     for (int i = 0; i < valueCount; i++) {
@@ -305,7 +305,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeVarBinaryData(NullableVarBinaryVector vector, int valueCount) {
+  private static void writeVarBinaryData(VarBinaryVector vector, int valueCount) {
     Charset utf8Charset = Charset.forName("UTF-8");
     final byte[] even = "AAAAA1".getBytes(utf8Charset);
     final byte[] odd = "BBBBBBBBB2".getBytes(utf8Charset);
@@ -319,7 +319,7 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 
-  private static void writeVarCharData(NullableVarCharVector vector, int valueCount) {
+  private static void writeVarCharData(VarCharVector vector, int valueCount) {
     Charset utf8Charset = Charset.forName("UTF-8");
     final byte[] even = "AAAAA1".getBytes(utf8Charset);
     final byte[] odd = "BBBBBBBBB2".getBytes(utf8Charset);

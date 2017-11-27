@@ -38,11 +38,11 @@ public class TestBufferOwnershipTransfer {
     BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 100000, 100000);
     BufferAllocator childAllocator2 = allocator.newChildAllocator("child2", 100000, 100000);
 
-    NullableIntVector v1 = new NullableIntVector("v1", childAllocator1);
+    IntVector v1 = new IntVector("v1", childAllocator1);
     v1.allocateNew();
     v1.setValueCount(4095);
 
-    NullableIntVector v2 = new NullableIntVector("v2", childAllocator2);
+    IntVector v2 = new IntVector("v2", childAllocator2);
 
     v1.makeTransferPair(v2).transfer();
 
@@ -58,12 +58,12 @@ public class TestBufferOwnershipTransfer {
     BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 100000, 100000);
     BufferAllocator childAllocator2 = allocator.newChildAllocator("child2", 100000, 100000);
 
-    NullableVarCharVector v1 = new NullableVarCharVector("v1", childAllocator1);
+    VarCharVector v1 = new VarCharVector("v1", childAllocator1);
     v1.allocateNew();
     v1.setSafe(4094, "hello world".getBytes(), 0, 11);
     v1.setValueCount(4001);
 
-    NullableVarCharVector v2 = new NullableVarCharVector("v2", childAllocator2);
+    VarCharVector v2 = new VarCharVector("v2", childAllocator2);
 
     v1.makeTransferPair(v2).transfer();
 

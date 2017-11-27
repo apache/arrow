@@ -42,14 +42,12 @@ public class EmptyValuePopulator {
     if (lastIndex < 0) {
       throw new IndexOutOfBoundsException("index cannot be negative");
     }
-    final UInt4Vector.Accessor accessor = offsets.getAccessor();
-    final UInt4Vector.Mutator mutator = offsets.getMutator();
-    final int lastSet = Math.max(accessor.getValueCount() - 1, 0);
-    final int previousEnd = accessor.get(lastSet);//0 ? 0 : accessor.get(lastSet);
+    final int lastSet = Math.max(offsets.getValueCount() - 1, 0);
+    final int previousEnd = offsets.get(lastSet);//0 ? 0 : accessor.get(lastSet);
     for (int i = lastSet; i < lastIndex; i++) {
-      mutator.setSafe(i + 1, previousEnd);
+      offsets.setSafe(i + 1, previousEnd);
     }
-    mutator.setValueCount(lastIndex + 1);
+    offsets.setValueCount(lastIndex + 1);
   }
 
 }

@@ -39,9 +39,9 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${eName}WriterImpl extends AbstractFieldWriter {
 
-  final Nullable${name}Vector vector;
+  final ${name}Vector vector;
 
-  public ${eName}WriterImpl(Nullable${name}Vector vector) {
+  public ${eName}WriterImpl(${name}Vector vector) {
     this.vector = vector;
   }
 
@@ -82,7 +82,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.getMutator().setValueCount(idx()+1);
   }
 
-  public void write(Nullable${minor.class?cap_first}Holder h) {
+  public void write(${minor.class?cap_first}Holder h) {
     mutator.addSafe(idx(), h);
     vector.getMutator().setValueCount(idx()+1);
   }
@@ -111,7 +111,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    vector.setSafe(idx()<#if mode == "Nullable">, 1</#if><#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
+    vector.setSafe(idx(), 1<#list fields as field><#if field.include!true >, ${field.name}</#if></#list>);
     vector.setValueCount(idx()+1);
   }
 
@@ -122,12 +122,10 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   }
   </#if>
 
-  <#if mode == "Nullable">
   public void writeNull() {
     vector.setNull(idx());
     vector.setValueCount(idx()+1);
   }
-  </#if>
   </#if>
 }
 

@@ -21,9 +21,9 @@
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "NonNullableMapVector" />
 <#else>
-<#assign containerClass = "NullableMapVector" />
+<#assign containerClass = "MapVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -51,7 +51,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
-    if (container instanceof NullableMapVector) {
+    if (container instanceof MapVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
@@ -124,7 +124,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      NullableMapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableMapVector.class);
+      MapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), MapVector.class);
       writer = new PromotableWriter(vector, container, getNullableMapWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();
@@ -214,7 +214,6 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
   <#assign vectName = capName />
-  <#assign vectName = "Nullable${capName}" />
 
   <#if minor.typeParams?? >
   @Override

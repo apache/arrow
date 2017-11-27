@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
-import org.apache.arrow.vector.NullableVarCharVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.TransferPair;
 
 import org.junit.After;
@@ -45,9 +45,9 @@ public class TestSplitAndTransfer {
         allocator.close();
     }
 
-    @Test /* NullableVarCharVector */
+    @Test /* VarCharVector */
     public void test() throws Exception {
-        try(final NullableVarCharVector varCharVector = new NullableVarCharVector("myvector", allocator)) {
+        try(final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
             varCharVector.allocateNew(10000, 1000);
 
             final int valueCount = 500;
@@ -61,7 +61,7 @@ public class TestSplitAndTransfer {
             varCharVector.setValueCount(valueCount);
 
             final TransferPair tp = varCharVector.getTransferPair(allocator);
-            final NullableVarCharVector newVarCharVector = (NullableVarCharVector) tp.getTo();
+            final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
             final int[][] startLengths = {{0, 201}, {201, 200}, {401, 99}};
 
             for (final int[] startLength : startLengths) {

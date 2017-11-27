@@ -26,7 +26,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.arrow.vector.NullableTinyIntVector;
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
@@ -65,7 +67,7 @@ public class TestArrowStream extends BaseFileTest {
       int numBatches = 1;
 
       root.getFieldVectors().get(0).allocateNew();
-      NullableTinyIntVector vector = (NullableTinyIntVector)root.getFieldVectors().get(0);
+      TinyIntVector vector = (TinyIntVector)root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
         vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }

@@ -65,7 +65,7 @@ public class UnionVector implements FieldVector {
   MapVector internalMap;
   protected ArrowBuf typeBuffer;
 
-  private NullableMapVector mapVector;
+  private MapVector mapVector;
   private ListVector listVector;
 
   private FieldReader reader;
@@ -174,10 +174,10 @@ public class UnionVector implements FieldVector {
   @Override
   public ArrowBuf getOffsetBuffer() { throw new UnsupportedOperationException(); }
 
-  public NullableMapVector getMap() {
+  public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = addOrGet(MinorType.MAP, NullableMapVector.class);
+      mapVector = addOrGet(MinorType.MAP, MapVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
         if (callBack != null) {
@@ -195,12 +195,12 @@ public class UnionVector implements FieldVector {
       <#assign lowerCaseName = name?lower_case/>
       <#if !minor.typeParams?? >
 
-  private Nullable${name}Vector ${uncappedName}Vector;
+  private ${name}Vector ${uncappedName}Vector;
 
-  public Nullable${name}Vector get${name}Vector() {
+  public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, Nullable${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
