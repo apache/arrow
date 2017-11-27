@@ -54,7 +54,7 @@ configure_file(cuda_version.h.in
   @ONLY)
 
 install(FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/cuda_version.h"
+  "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 install(FILES

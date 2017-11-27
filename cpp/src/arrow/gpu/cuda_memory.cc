@@ -101,11 +101,11 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
       is_ipc_(false) {}
 
 Status CudaBuffer::CopyToHost(const int64_t position, const int64_t nbytes,
-                              uint8_t* out) const {
+                              void* out) const {
   return context_->CopyDeviceToHost(out, data_ + position, nbytes);
 }
 
-Status CudaBuffer::CopyFromHost(const int64_t position, const uint8_t* data,
+Status CudaBuffer::CopyFromHost(const int64_t position, const void* data,
                                 int64_t nbytes) {
   DCHECK_LE(nbytes, size_ - position) << "Copy would overflow buffer";
   return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
@@ -134,7 +134,7 @@ CudaBufferReader::CudaBufferReader(const std::shared_ptr<CudaBuffer>& buffer)
 
 CudaBufferReader::~CudaBufferReader() {}
 
-Status CudaBufferReader::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* buffer) {
+Status CudaBufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   nbytes = std::min(nbytes, size_ - position_);
   *bytes_read = nbytes;
   RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, data_ + position_, nbytes));
@@ -190,7 +190,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
     return Status::OK();
   }
 
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) {
     if (nbytes == 0) {
       return Status::OK();
     }
@@ -214,7 +214,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
     return Status::OK();
   }
 
-  Status WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+  Status WriteAt(int64_t position, const void* data, int64_t nbytes) {
     std::lock_guard<std::mutex> guard(lock_);
     RETURN_NOT_OK(Seek(position));
     return Write(data, nbytes);
@@ -269,11 +269,11 @@ Status CudaBufferWriter::Seek(int64_t position) {
 
 Status CudaBufferWriter::Tell(int64_t* position) const { return impl_->Tell(position); }
 
-Status CudaBufferWriter::Write(const uint8_t* data, int64_t nbytes) {
+Status CudaBufferWriter::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
 }
 
-Status CudaBufferWriter::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+Status CudaBufferWriter::WriteAt(int64_t position, const void* data, int64_t nbytes) {
   return impl_->WriteAt(position, data, nbytes);
 }
 

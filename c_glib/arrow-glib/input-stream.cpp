@@ -420,7 +420,7 @@ namespace garrow {
 
     arrow::Status Read(int64_t n_bytes,
                        int64_t *n_read_bytes,
-                       uint8_t *out) override {
+                       void *out) override {
       GError *error = NULL;
       *n_read_bytes = g_input_stream_read(input_stream_,
                                           out,
@@ -437,7 +437,7 @@ namespace garrow {
     }
 
     arrow::Status ReadAt(int64_t position, int64_t n_bytes,
-			 int64_t *n_read_bytes, uint8_t* out) override {
+			 int64_t *n_read_bytes, void* out) override {
 	return arrow::io::RandomAccessFile::ReadAt(
 	    position, n_bytes, n_read_bytes, out);
     }
