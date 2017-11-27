@@ -480,7 +480,7 @@ inline Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
             Py_INCREF(Py_None);
             field_value.reset(Py_None);
           }
-          // PyDict_SetItemString does not steal the value reference
+          // PyDict_SetItemString increments reference count
           auto setitem_result =
               PyDict_SetItemString(dict_item.obj(), name.c_str(), field_value.obj());
           RETURN_IF_PYERROR();

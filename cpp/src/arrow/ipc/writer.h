@@ -245,6 +245,17 @@ Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 ARROW_EXPORT
 Status GetTensorSize(const Tensor& tensor, int64_t* size);
 
+/// \brief EXPERIMENTAL: Convert arrow::Tensor to a Message with minimal memory
+/// allocation
+///
+/// \param[in] tensor the Tensor to write
+/// \param[in] pool MemoryPool to allocate space for metadata
+/// \param[out] out the resulting Message
+/// \return Status
+ARROW_EXPORT
+Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
+                        std::unique_ptr<Message>* out);
+
 /// \brief EXPERIMENTAL: Write arrow::Tensor as a contiguous message
 ///
 /// \param[in] tensor the Tensor to write

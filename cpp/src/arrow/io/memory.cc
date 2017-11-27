@@ -241,6 +241,9 @@ BufferReader::BufferReader(const std::shared_ptr<Buffer>& buffer)
 BufferReader::BufferReader(const uint8_t* data, int64_t size)
     : buffer_(nullptr), data_(data), size_(size), position_(0) {}
 
+BufferReader::BufferReader(const Buffer& buffer)
+    : BufferReader(buffer.data(), buffer.size()) {}
+
 Status BufferReader::Close() {
   // no-op
   return Status::OK();

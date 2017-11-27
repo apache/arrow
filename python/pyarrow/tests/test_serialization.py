@@ -219,6 +219,17 @@ def serialization_roundtrip(value, f):
     result = pa.deserialize_from(f, None, serialization_context)
     assert_equal(value, result)
 
+    _check_component_roundtrip(value)
+
+
+def _check_component_roundtrip(value):
+    # Test to/from components
+    serialized = pa.serialize(value)
+    components = serialized.to_components()
+    from_comp = pa.SerializedPyObject.from_components(components)
+    recons = from_comp.deserialize()
+    assert_equal(value, recons)
+
 
 @pytest.yield_fixture(scope='session')
 def large_memory_map(tmpdir_factory, size=100*1024*1024):
@@ -485,3 +496,25 @@ def test_serialize_subclasses():
     deserialized = serialized.deserialize()
     assert type(deserialized).__name__ == SerializableClass.__name__
     assert deserialized.value == 3
+
+
+def test_serialize_to_components_invalid_cases():
+    buf = pa.frombuffer(b'hello')
+
+    components = {
+        'num_tensors': 0,
+        'num_buffers': 1,
+        'data': [buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
+
+    components = {
+        'num_tensors': 1,
+        'num_buffers': 0,
+        'data': [buf, buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
