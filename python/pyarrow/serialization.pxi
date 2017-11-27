@@ -68,7 +68,6 @@ cdef class SerializationContext:
         result = SerializationContext()
         result.type_to_type_id = self.type_to_type_id.copy()
         result.whitelisted_types = self.whitelisted_types.copy()
-        result.types_to_pickle = self.types_to_pickle.copy()
         result.custom_serializers = self.custom_serializers.copy()
         result.custom_deserializers = self.custom_deserializers.copy()
 
