@@ -37,6 +37,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
 
     cdef cppclass ColumnPath:
         c_string ToDotString()
+        vector[c_string] ToDotVector()
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:

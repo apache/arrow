@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import defaultdict
 import os
 import inspect
 import json
@@ -54,6 +55,24 @@ class ParquetFile(object):
         self.reader = ParquetReader()
         self.reader.open(source, metadata=metadata)
         self.common_metadata = common_metadata
+        self._nested_paths_by_prefix = self._build_nested_paths()
+
+    def _build_nested_paths(self):
+        paths = self.reader.column_paths
+
+        result = defaultdict(list)
+
+        def _visit_piece(i, key, rest):
+            result[key].append(i)
+
+            if len(rest) > 0:
+                nested_key = '.'.join((key, rest[0]))
+                _visit_piece(i, nested_key, rest[1:])
+
+        for i, path in enumerate(paths):
+            _visit_piece(i, path[0], path[1:])
+
+        return result
 
     @property
     def metadata(self):
@@ -75,7 +94,9 @@ class ParquetFile(object):
         Parameters
         ----------
         columns: list
-            If not None, only these columns will be read from the row group.
+            If not None, only these columns will be read from the row group. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'
         nthreads : int, default 1
             Number of columns to read in parallel. If > 1, requires that the
             underlying file source is threadsafe
@@ -100,7 +121,9 @@ class ParquetFile(object):
         Parameters
         ----------
         columns: list
-            If not None, only these columns will be read from the file.
+            If not None, only these columns will be read from the file. A
+            column name may be a prefix of a nested field, e.g. 'a' will select
+            'a.b', 'a.c', and 'a.d.e'
         nthreads : int, default 1
             Number of columns to read in parallel. If > 1, requires that the
             underlying file source is threadsafe
@@ -143,7 +166,11 @@ class ParquetFile(object):
         if column_names is None:
             return None
 
-        indices = list(map(self.reader.column_name_idx, column_names))
+        indices = []
+
+        for name in column_names:
+            if name in self._nested_paths_by_prefix:
+                indices.extend(self._nested_paths_by_prefix[name])
 
         if use_pandas_metadata:
             file_keyvalues = self.metadata.metadata
@@ -837,7 +864,9 @@ def read_table(source, columns=None, nthreads=1, metadata=None,
         name or directory name. For passing Python file objects or byte
         buffers, see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
-        If not None, only these columns will be read from the file.
+        If not None, only these columns will be read from the file. A column
+        name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+        'a.c', and 'a.d.e'
     nthreads : int, default 1
         Number of columns to read in parallel. Requires that the underlying
         file source is threadsafe
@@ -875,7 +904,9 @@ def read_pandas(source, columns=None, nthreads=1, metadata=None):
         name. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     columns: list
-        If not None, only these columns will be read from the file.
+        If not None, only these columns will be read from the file. A column
+        name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+        'a.c', and 'a.d.e'
     nthreads : int, default 1
         Number of columns to read in parallel. Requires that the underlying
         file source is threadsafe
