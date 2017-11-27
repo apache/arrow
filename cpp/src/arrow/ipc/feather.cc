@@ -523,10 +523,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     uint32_t buffer_size = static_cast<uint32_t>(bytes_written);
 
     // Footer: metadata length, magic bytes
-    RETURN_NOT_OK(
-        stream_->Write(reinterpret_cast<const uint8_t*>(&buffer_size), sizeof(uint32_t)));
-    return stream_->Write(reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
-                          strlen(kFeatherMagicBytes));
+    RETURN_NOT_OK(stream_->Write(&buffer_size, sizeof(uint32_t)));
+    return stream_->Write(kFeatherMagicBytes, strlen(kFeatherMagicBytes));
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {

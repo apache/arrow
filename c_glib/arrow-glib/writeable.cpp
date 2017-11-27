@@ -88,7 +88,7 @@ garrow_writeable_flush(GArrowWriteable *writeable,
 
 G_END_DECLS
 
-std::shared_ptr<arrow::io::Writeable>
+std::shared_ptr<arrow::io::Writable>
 garrow_writeable_get_raw(GArrowWriteable *writeable)
 {
   auto *iface = GARROW_WRITEABLE_GET_IFACE(writeable);

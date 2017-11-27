@@ -394,11 +394,11 @@ class OSFile {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
-    return FileRead(fd_, out, nbytes, bytes_read);
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    return FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
     std::lock_guard<std::mutex> guard(lock_);
     RETURN_NOT_OK(Seek(position));
     return Read(nbytes, bytes_read, out);
@@ -413,12 +413,12 @@ class OSFile {
 
   Status Tell(int64_t* pos) const { return FileTell(fd_, pos); }
 
-  Status Write(const uint8_t* data, int64_t length) {
+  Status Write(const void* data, int64_t length) {
     std::lock_guard<std::mutex> guard(lock_);
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
-    return FileWrite(fd_, data, length);
+    return FileWrite(fd_, reinterpret_cast<const uint8_t*>(data), length);
   }
 
   int fd() const { return fd_; }
@@ -504,13 +504,13 @@ Status ReadableFile::Close() { return impl_->Close(); }
 
 Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
-Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   std::lock_guard<std::mutex> guard(impl_->lock());
   return impl_->Read(nbytes, bytes_read, out);
 }
 
 Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                            uint8_t* out) {
+                            void* out) {
   return impl_->ReadAt(position, nbytes, bytes_read, out);
 }
 
@@ -570,7 +570,7 @@ Status FileOutputStream::Close() { return impl_->Close(); }
 
 Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
 
-Status FileOutputStream::Write(const uint8_t* data, int64_t length) {
+Status FileOutputStream::Write(const void* data, int64_t length) {
   return impl_->Write(data, length);
 }
 
@@ -710,7 +710,7 @@ Status MemoryMappedFile::Close() {
   return Status::OK();
 }
 
-Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out) {
+Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
   nbytes = std::max<int64_t>(
       0, std::min(nbytes, memory_map_->size() - memory_map_->position()));
   if (nbytes > 0) {
@@ -735,7 +735,7 @@ Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                uint8_t* out) {
+                                void* out) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
   RETURN_NOT_OK(Seek(position));
   return Read(nbytes, bytes_read, out);
@@ -750,7 +750,7 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
-Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nbytes) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -761,7 +761,7 @@ Status MemoryMappedFile::WriteAt(int64_t position, const uint8_t* data, int64_t 
   return WriteInternal(data, nbytes);
 }
 
-Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
   std::lock_guard<std::mutex> guard(memory_map_->lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -773,7 +773,7 @@ Status MemoryMappedFile::Write(const uint8_t* data, int64_t nbytes) {
   return WriteInternal(data, nbytes);
 }
 
-Status MemoryMappedFile::WriteInternal(const uint8_t* data, int64_t nbytes) {
+Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
   memcpy(memory_map_->head(), data, static_cast<size_t>(nbytes));
   memory_map_->advance(nbytes);
   return Status::OK();
