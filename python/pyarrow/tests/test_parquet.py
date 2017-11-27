@@ -1626,16 +1626,19 @@ def test_decimal_roundtrip(tmpdir, precision, scale):
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize('precision', range(2, 39))
+@pytest.mark.parametrize('precision', [3])
+@pytest.mark.parametrize('preserve_index', [False])
 def test_decimal_roundtrip_not_exact(tmpdir, preserve_index, precision):
     max_value = 10 ** (precision - 1) - 1
     min_value = -max_value
     with util.random_seed(0):
         randints = [random.randint(min_value, max_value) for _ in range(10)]
 
+    # import pdb; pdb.set_trace()  # noqa
     random_decimal_values = [
         decimal.Decimal(str(randint) + '.0') for randint in randints
     ]
+    import pdb; pdb.set_trace()  # noqa
     expected = pd.DataFrame({'decimal_num': random_decimal_values})
     filename = tmpdir.join('decimals.parquet')
     string_filename = str(filename)

@@ -692,6 +692,7 @@ Status NumPyConverter::ConvertDecimals() {
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
+  int32_t inferred_scale;
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
     if (PyObject_IsInstance(object, Decimal.obj())) {
@@ -699,7 +700,7 @@ Status NumPyConverter::ConvertDecimals() {
       RETURN_NOT_OK(internal::PythonDecimalToString(object, &string));
 
       Decimal128 value;
-      RETURN_NOT_OK(Decimal128::FromString(string, &value));
+      RETURN_NOT_OK(Decimal128::FromString(string, &value, &inferred_scale));
       RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
