@@ -29,15 +29,17 @@
 
 #include "arrow/array.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/table.h"
+#include "arrow/util/logging.h"
+
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/util/datetime.h"
-#include "arrow/table.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
@@ -284,6 +286,60 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
   PyDateTime_IMPORT;
   return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj, out);
+}
+
+Status GetSerializedFromComponents(int num_tensors, int num_buffers, PyObject* data,
+                                   SerializedPyObject* out) {
+  PyAcquireGIL gil;
+  const Py_ssize_t data_length = PyList_Size(data);
+  RETURN_IF_PYERROR();
+
+  const Py_ssize_t expected_data_length = 1 + num_tensors * 2 + num_buffers;
+  if (data_length != expected_data_length) {
+    return Status::Invalid("Invalid number of buffers in data");
+  }
+
+  auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
+    PyObject* py_buf = PyList_GET_ITEM(data, index);
+    return unwrap_buffer(py_buf, out);
+  };
+
+  Py_ssize_t buffer_index = 0;
+
+  // Read the union batch describing object structure
+  {
+    std::shared_ptr<Buffer> data_buffer;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &data_buffer));
+    gil.release();
+    io::BufferReader buf_reader(data_buffer);
+    std::shared_ptr<RecordBatchReader> reader;
+    RETURN_NOT_OK(ipc::RecordBatchStreamReader::Open(&buf_reader, &reader));
+    RETURN_NOT_OK(reader->ReadNext(&out->batch));
+    gil.acquire();
+  }
+
+  // Zero-copy reconstruct tensors
+  for (int i = 0; i < num_tensors; ++i) {
+    std::shared_ptr<Buffer> metadata;
+    std::shared_ptr<Buffer> body;
+    std::shared_ptr<Tensor> tensor;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &metadata));
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &body));
+
+    ipc::Message message(metadata, body);
+
+    RETURN_NOT_OK(ReadTensor(message, &tensor));
+    out->tensors.emplace_back(std::move(tensor));
+  }
+
+  // Unwrap and append buffers
+  for (int i = 0; i < num_buffers; ++i) {
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &buffer));
+    out->buffers.emplace_back(std::move(buffer));
+  }
+
+  return Status::OK();
 }
 
 }  // namespace py

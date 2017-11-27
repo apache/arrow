@@ -480,14 +480,12 @@ Status RecordBatchStreamReader::Open(std::unique_ptr<MessageReader> message_read
 
 Status RecordBatchStreamReader::Open(io::InputStream* stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 Status RecordBatchStreamReader::Open(const std::shared_ptr<io::InputStream>& stream,
                                      std::shared_ptr<RecordBatchReader>* out) {
-  std::unique_ptr<MessageReader> message_reader(new InputStreamMessageReader(stream));
-  return Open(std::move(message_reader), out);
+  return Open(MessageReader::Open(stream), out);
 }
 
 std::shared_ptr<Schema> RecordBatchStreamReader::schema() const {
@@ -717,14 +715,17 @@ Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
 
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  return ReadTensor(*message, out);
+}
 
+Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
   std::shared_ptr<DataType> type;
   std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   std::vector<std::string> dim_names;
-  RETURN_NOT_OK(internal::GetTensorMetadata(*message->metadata(), &type, &shape, &strides,
+  RETURN_NOT_OK(internal::GetTensorMetadata(*message.metadata(), &type, &shape, &strides,
                                             &dim_names));
-  *out = std::make_shared<Tensor>(type, message->body(), shape, strides, dim_names);
+  *out = std::make_shared<Tensor>(type, message.body(), shape, strides, dim_names);
   return Status::OK();
 }
 

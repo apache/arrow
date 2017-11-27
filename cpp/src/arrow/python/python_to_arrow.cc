@@ -31,7 +31,9 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
@@ -710,25 +712,87 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
   return Status::OK();
 }
 
-Status WriteSerializedObject(const SerializedPyObject& obj, io::OutputStream* dst) {
-  int32_t num_tensors = static_cast<int32_t>(obj.tensors.size());
-  int32_t num_buffers = static_cast<int32_t>(obj.buffers.size());
-  RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_tensors), sizeof(int32_t)));
-  RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&num_buffers), sizeof(int32_t)));
-  RETURN_NOT_OK(ipc::WriteRecordBatchStream({obj.batch}, dst));
+Status SerializedPyObject::WriteTo(io::OutputStream* dst) {
+  int32_t num_tensors = static_cast<int32_t>(this->tensors.size());
+  int32_t num_buffers = static_cast<int32_t>(this->buffers.size());
+  RETURN_NOT_OK(
+      dst->Write(reinterpret_cast<const uint8_t*>(&num_tensors), sizeof(int32_t)));
+  RETURN_NOT_OK(
+      dst->Write(reinterpret_cast<const uint8_t*>(&num_buffers), sizeof(int32_t)));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, dst));
 
   int32_t metadata_length;
   int64_t body_length;
-  for (const auto& tensor : obj.tensors) {
+  for (const auto& tensor : this->tensors) {
     RETURN_NOT_OK(ipc::WriteTensor(*tensor, dst, &metadata_length, &body_length));
   }
 
-  for (const auto& buffer : obj.buffers) {
+  for (const auto& buffer : this->buffers) {
     int64_t size = buffer->size();
-    RETURN_NOT_OK(dst->Write(reinterpret_cast<uint8_t*>(&size), sizeof(int64_t)));
+    RETURN_NOT_OK(dst->Write(reinterpret_cast<const uint8_t*>(&size), sizeof(int64_t)));
     RETURN_NOT_OK(dst->Write(buffer->data(), size));
   }
 
+  return Status::OK();
+}
+
+Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out) {
+  PyAcquireGIL py_gil;
+
+  ScopedRef result(PyDict_New());
+  PyObject* buffers = PyList_New(0);
+
+  // TODO(wesm): Not sure how pedantic we need to be about checking the return
+  // values of these functions. There are other places where we do not check
+  // PyDict_SetItem/SetItemString return value, but these failures would be
+  // quite esoteric
+  PyDict_SetItemString(result.get(), "num_tensors",
+                       PyLong_FromSize_t(this->tensors.size()));
+  PyDict_SetItemString(result.get(), "num_buffers",
+                       PyLong_FromSize_t(this->buffers.size()));
+  PyDict_SetItemString(result.get(), "data", buffers);
+  RETURN_IF_PYERROR();
+
+  Py_DECREF(buffers);
+
+  auto PushBuffer = [&buffers](const std::shared_ptr<Buffer>& buffer) {
+    PyObject* wrapped_buffer = wrap_buffer(buffer);
+    RETURN_IF_PYERROR();
+    if (PyList_Append(buffers, wrapped_buffer) < 0) {
+      Py_DECREF(wrapped_buffer);
+      RETURN_IF_PYERROR();
+    }
+    Py_DECREF(wrapped_buffer);
+    return Status::OK();
+  };
+
+  constexpr int64_t kInitialCapacity = 1024;
+
+  // Write the record batch describing the object structure
+  std::shared_ptr<io::BufferOutputStream> stream;
+  std::shared_ptr<Buffer> buffer;
+
+  py_gil.release();
+  RETURN_NOT_OK(io::BufferOutputStream::Create(kInitialCapacity, memory_pool, &stream));
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({this->batch}, stream.get()));
+  RETURN_NOT_OK(stream->Finish(&buffer));
+  py_gil.acquire();
+
+  RETURN_NOT_OK(PushBuffer(buffer));
+
+  // For each tensor, get a metadata buffer and a buffer for the body
+  for (const auto& tensor : this->tensors) {
+    std::unique_ptr<ipc::Message> message;
+    RETURN_NOT_OK(ipc::GetTensorMessage(*tensor, memory_pool, &message));
+    RETURN_NOT_OK(PushBuffer(message->metadata()));
+    RETURN_NOT_OK(PushBuffer(message->body()));
+  }
+
+  for (const auto& buf : this->buffers) {
+    RETURN_NOT_OK(PushBuffer(buf));
+  }
+
+  *out = result.release();
   return Status::OK();
 }
 
