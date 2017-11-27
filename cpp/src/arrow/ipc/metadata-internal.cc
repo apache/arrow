@@ -945,8 +945,7 @@ Status WriteMessage(const Buffer& message, io::OutputStream* file,
 
   // Write the flatbuffer size prefix including padding
   int32_t flatbuffer_size = padded_message_length - 4;
-  RETURN_NOT_OK(
-      file->Write(reinterpret_cast<const uint8_t*>(&flatbuffer_size), sizeof(int32_t)));
+  RETURN_NOT_OK(file->Write(&flatbuffer_size, sizeof(int32_t)));
 
   // Write the flatbuffer
   RETURN_NOT_OK(file->Write(message.data(), message.size()));

@@ -693,7 +693,7 @@ class StreamBookKeeper {
   }
 
   // Write data and update position
-  Status Write(const uint8_t* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) {
     RETURN_NOT_OK(sink_->Write(data, nbytes));
     position_ += nbytes;
     return Status::OK();
@@ -782,7 +782,7 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl : public StreamBookKe
 
     // Write 0 EOS message
     const int32_t kEos = 0;
-    return Write(reinterpret_cast<const uint8_t*>(&kEos), sizeof(int32_t));
+    return Write(&kEos, sizeof(int32_t));
   }
 
   Status CheckStarted() {
@@ -870,8 +870,7 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
 
   Status Start() override {
     // It is only necessary to align to 8-byte boundary at the start of the file
-    RETURN_NOT_OK(Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
-                        strlen(kArrowMagicBytes)));
+    RETURN_NOT_OK(Write(kArrowMagicBytes, strlen(kArrowMagicBytes)));
     RETURN_NOT_OK(Align());
 
     // We write the schema at the start of the file (and the end). This also
@@ -895,12 +894,10 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl
       return Status::Invalid("Invalid file footer");
     }
 
-    RETURN_NOT_OK(
-        Write(reinterpret_cast<const uint8_t*>(&footer_length), sizeof(int32_t)));
+    RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
-    return Write(reinterpret_cast<const uint8_t*>(kArrowMagicBytes),
-                 strlen(kArrowMagicBytes));
+    return Write(kArrowMagicBytes, strlen(kArrowMagicBytes));
   }
 };
 

@@ -93,7 +93,7 @@ TEST(TestFixedSizeBufferWriter, Basics) {
 
   std::string data = "data123456";
   auto nbytes = static_cast<int64_t>(data.size());
-  ASSERT_OK(writer.Write(reinterpret_cast<const uint8_t*>(data.c_str()), nbytes));
+  ASSERT_OK(writer.Write(data.c_str(), nbytes));
 
   ASSERT_OK(writer.Tell(&position));
   ASSERT_EQ(nbytes, position);
