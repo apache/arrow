@@ -124,12 +124,7 @@ template <typename T>
 struct CastFunctor<T, NullType, typename std::enable_if<
                                     std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    // Simply initialize data to 0
-    auto buf = output->buffers[1];
-    DCHECK_EQ(output->offset, 0);
-    memset(buf->mutable_data(), 0, buf->size());
-  }
+                  const ArrayData& input, ArrayData* output) {}
 };
 
 template <>
@@ -199,14 +194,19 @@ struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::v
                                                  !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    DCHECK_EQ(output->offset, 0);
+    auto in_data = GetValues<typename I::c_type>(input, 1);
+    internal::BitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
+                                  input.length);
 
-    const in_type* in_data = GetValues<in_type>(input, 1);
-    uint8_t* out_data = GetMutableValues<uint8_t>(output, 1);
     for (int64_t i = 0; i < input.length; ++i) {
-      BitUtil::SetBitTo(out_data, i, (*in_data++) != 0);
+      if (*in_data++ != 0) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
     }
+    writer.Finish();
   }
 };
 
@@ -217,7 +217,6 @@ struct CastFunctor<O, I,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
-    DCHECK_EQ(output->offset, 0);
 
     auto in_offset = input.offset;
 
@@ -475,9 +474,10 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
 
-  uint8_t* out = output->buffers[1]->mutable_data();
   int32_t byte_width =
       static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
+
+  uint8_t* out = output->buffers[1]->mutable_data() + byte_width * output->offset;
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       const uint8_t* value = dictionary.Value(in[i]);
@@ -493,7 +493,7 @@ struct CastFunctor<
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -565,7 +565,7 @@ struct CastFunctor<T, DictionaryType,
                    typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -605,12 +605,10 @@ struct CastFunctor<T, DictionaryType,
 template <typename IndexType, typename c_type>
 void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
                                c_type* out) {
-  using index_c_type = typename IndexType::c_type;
-
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  auto in = GetValues<typename IndexType::c_type>(*indices.data(), 1);
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
@@ -627,7 +625,7 @@ struct CastFunctor<T, DictionaryType,
                   const ArrayData& input, ArrayData* output) {
     using c_type = typename T::c_type;
 
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -638,7 +636,7 @@ struct CastFunctor<T, DictionaryType,
 
     const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
 
-    auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    auto out = GetMutableValues<c_type>(output, 1);
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
       case Type::INT8:

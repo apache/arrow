@@ -765,7 +765,7 @@ Status NumPyConverter::ConvertObjectStrings() {
   // If we saw PyBytes, convert everything to BinaryArray
   if (global_have_bytes) {
     for (size_t i = 0; i < out_arrays_.size(); ++i) {
-      auto binary_data = out_arrays_[i]->data()->ShallowCopy();
+      auto binary_data = out_arrays_[i]->data()->Copy();
       binary_data->type = ::arrow::binary();
       out_arrays_[i] = std::make_shared<BinaryArray>(binary_data);
     }
