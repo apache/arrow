@@ -260,7 +260,7 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
       COMPUTE_HASH;                                                              \
       while (kHashSlotEmpty != new_hash_slots[j]) {                              \
         ++j;                                                                     \
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                        \
+        if (ARROW_PREDICT_FALSE(j == new_size)) {                                \
           j = 0;                                                                 \
         }                                                                        \
       }                                                                          \
