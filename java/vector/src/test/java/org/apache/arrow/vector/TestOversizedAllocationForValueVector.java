@@ -112,10 +112,10 @@ public class TestOversizedAllocationForValueVector {
     try {
       vector.allocateNew(expectedAllocationInBytes, 10);
       assertTrue(expectedOffsetSize <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes <= vector.getDataBuffer().capacity());
       vector.reAlloc();
       assertTrue(expectedOffsetSize * 2 <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes * 2 <= vector.getBuffer().capacity());
+      assertTrue(expectedAllocationInBytes * 2 <= vector.getDataBuffer().capacity());
     } finally {
       vector.close();
     }

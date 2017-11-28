@@ -131,8 +131,8 @@ public class TestListVector {
       ArrowBuf validityBuffer = listVector.getValidityBuffer();
       ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
-      /* get the underlying data vector -- NullableBigIntVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      /* get the underlying data vector -- BigIntVector */
+      BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check current lastSet */
       assertEquals(Integer.toString(0), Integer.toString(listVector.getLastSet()));
@@ -310,7 +310,7 @@ public class TestListVector {
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
       /* get dataVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check the vector output */
 
@@ -418,7 +418,7 @@ public class TestListVector {
           final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
 
           /* get dataVector of toVector */
-          NullableBigIntVector dataVector1 = (NullableBigIntVector) toVector.getDataVector();
+          BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
             dataLength1 = offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH) -
