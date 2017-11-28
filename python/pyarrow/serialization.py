@@ -20,7 +20,6 @@ import sys
 import pickle
 
 import numpy as np
-import pickle
 
 from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.lib import _default_serialization_context, frombuffer
