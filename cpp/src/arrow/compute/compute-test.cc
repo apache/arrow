@@ -709,6 +709,66 @@ TEST_F(TestCast, PreallocatedMemory) {
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
+template <typename InType, typename InT, typename OutType, typename OutT>
+void CheckOffsetOutputCase(FunctionContext* ctx, const std::shared_ptr<DataType>& in_type,
+                           const vector<InT>& in_values,
+                           const std::shared_ptr<DataType>& out_type,
+                           const vector<OutT>& out_values) {
+  using OutTraits = TypeTraits<OutType>;
+
+  CastOptions options;
+
+  const int64_t length = static_cast<int64_t>(in_values.size());
+
+  shared_ptr<Array> arr, expected;
+  ArrayFromVector<InType, InT>(in_type, in_values, &arr);
+  ArrayFromVector<OutType, OutT>(out_type, out_values, &expected);
+
+  shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(ctx->Allocate(OutTraits::bytes_required(length), &out_buffer));
+
+  std::unique_ptr<UnaryKernel> kernel;
+  ASSERT_OK(GetCastFunction(*in_type, out_type, options, &kernel));
+
+  const int64_t first_half = length / 2;
+
+  auto out_data = ArrayData::Make(out_type, length, {nullptr, out_buffer});
+  auto out_second_data = out_data->Copy();
+  out_second_data->offset = first_half;
+
+  Datum out_first(out_data);
+  Datum out_second(out_second_data);
+
+  // Cast each bit
+  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(0, first_half)), &out_first));
+  ASSERT_OK(kernel->Call(ctx, Datum(arr->Slice(first_half)), &out_second));
+
+  shared_ptr<Array> result = MakeArray(out_data);
+
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+TEST_F(TestCast, OffsetOutputBuffer) {
+  // ARROW-1735
+  vector<int32_t> v1 = {0, 10000, 2000, 1000, 0};
+  vector<int64_t> e1 = {0, 10000, 2000, 1000, 0};
+
+  auto in_type = int32();
+  auto out_type = int64();
+  CheckOffsetOutputCase<Int32Type, int32_t, Int64Type, int64_t>(&this->ctx_, in_type, v1,
+                                                                out_type, e1);
+
+  vector<bool> e2 = {false, true, true, true, false};
+
+  out_type = boolean();
+  CheckOffsetOutputCase<Int32Type, int32_t, BooleanType, bool>(&this->ctx_, in_type, v1,
+                                                               boolean(), e2);
+
+  vector<int16_t> e3 = {0, 10000, 2000, 1000, 0};
+  CheckOffsetOutputCase<Int32Type, int32_t, Int16Type, int16_t>(&this->ctx_, in_type, v1,
+                                                                int16(), e3);
+}
+
 template <typename TestType>
 class TestDictionaryCast : public TestCast {};
 
