@@ -153,7 +153,7 @@ void BenchUnique(benchmark::State& state, const ParamType& params, int64_t lengt
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(Unique(&ctx, Datum(arr), &out));
   }
-  state.SetBytesProcessed(params.GetBytesProcessed(length));
+  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
 }
 
 template <typename ParamType>
@@ -167,7 +167,7 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params,
     Datum out;
     ABORT_NOT_OK(DictionaryEncode(&ctx, Datum(arr), &out));
   }
-  state.SetBytesProcessed(params.GetBytesProcessed(length));
+  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
 }
 
 static void BM_UniqueInt64NoNulls(benchmark::State& state) {
