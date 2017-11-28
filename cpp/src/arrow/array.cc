@@ -103,7 +103,7 @@ static inline std::shared_ptr<ArrayData> SliceData(const ArrayData& data, int64_
   length = std::min(data.length - offset, length);
   offset += data.offset;
 
-  auto new_data = data.ShallowCopy();
+  auto new_data = data.Copy();
   new_data->length = length;
   new_data->offset = offset;
   new_data->null_count = data.null_count != 0 ? kUnknownNullCount : 0;
@@ -482,14 +482,14 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
     : dict_type_(static_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
-  auto data = indices->data()->ShallowCopy();
+  auto data = indices->data()->Copy();
   data->type = type;
   SetData(data);
 }
 
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
-  auto indices_data = data_->ShallowCopy();
+  auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
   std::shared_ptr<Array> result;
   indices_ = MakeArray(indices_data);

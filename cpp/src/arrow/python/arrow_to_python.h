@@ -51,8 +51,8 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// \brief Reconstruct SerializedPyObject from representation produced by
 /// SerializedPyObject::GetComponents.
 ///
-/// \param[in] num_tensors
-/// \param[in] num_buffers
+/// \param[in] num_tensors number of tensors in the object
+/// \param[in] num_buffers number of buffers in the object
 /// \param[in] data a list containing pyarrow.Buffer instances. Must be 1 +
 /// num_tensors * 2 + num_buffers in length
 /// \param[out] out the reconstructed object

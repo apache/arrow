@@ -143,9 +143,14 @@ struct ARROW_EXPORT ArrayData {
     return *this;
   }
 
-  std::shared_ptr<ArrayData> ShallowCopy() const {
-    return std::make_shared<ArrayData>(*this);
-  }
+  std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+#ifndef ARROW_NO_DEPRECATED_API
+
+  // Deprecated since 0.8.0
+  std::shared_ptr<ArrayData> ShallowCopy() const { return Copy(); }
+
+#endif
 
   std::shared_ptr<DataType> type;
   int64_t length;
