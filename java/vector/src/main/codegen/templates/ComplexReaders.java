@@ -53,9 +53,9 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class ${name}ReaderImpl extends AbstractFieldReader {
   
-  private final ${nullMode}${name}Vector vector;
+  private final ${name}Vector vector;
   
-  public ${name}ReaderImpl(${nullMode}${name}Vector vector){
+  public ${name}ReaderImpl(${name}Vector vector){
     super();
     this.vector = vector;
   }
@@ -69,11 +69,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
   }
   
   public boolean isSet(){
-    <#if nullMode == "Nullable">
-        return !vector.isNull(idx());
-    <#else>
-    return true;
-    </#if>
+    return !vector.isNull(idx());
   }
 
   public void copyAsValue(${minor.class?cap_first}Writer writer){
@@ -88,7 +84,7 @@ public class ${name}ReaderImpl extends AbstractFieldReader {
 
   <#if nullMode != "Nullable">
   public void read(${minor.class?cap_first}Holder h){
-    vector.getAccessor().get(idx(), h);
+    vector.get(idx(), h);
   }
   </#if>
 

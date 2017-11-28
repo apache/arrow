@@ -25,13 +25,13 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 
 public class TestUtils {
 
-  public static NullableVarCharVector newNullableVarCharVector(String name, BufferAllocator allocator) {
-    return (NullableVarCharVector)
+  public static VarCharVector newVarCharVector(String name, BufferAllocator allocator) {
+    return (VarCharVector)
         FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector(name, allocator, null);
   }
 
-  public static NullableVarBinaryVector newNullableVarBinaryVector(String name, BufferAllocator allocator) {
-    return (NullableVarBinaryVector)
+  public static VarBinaryVector newVarBinaryVector(String name, BufferAllocator allocator) {
+    return (VarBinaryVector)
         FieldType.nullable(new ArrowType.Binary()).createNewSingleVector(name, allocator, null);
   }
 

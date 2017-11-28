@@ -160,8 +160,8 @@ public class JsonFileWriter implements AutoCloseable {
       generator.writeObjectField("name", field.getName());
       int valueCount = vector.getValueCount();
       generator.writeObjectField("count", valueCount);
-      final int scale = (vector instanceof NullableDecimalVector) ?
-                            ((NullableDecimalVector) vector).getScale() : 0;
+      final int scale = (vector instanceof DecimalVector) ?
+                            ((DecimalVector) vector).getScale() : 0;
       for (int v = 0; v < vectorTypes.size(); v++) {
         ArrowVectorType vectorType = vectorTypes.get(v);
         ArrowBuf vectorBuffer = vectorBuffers.get(v);
@@ -199,86 +199,86 @@ public class JsonFileWriter implements AutoCloseable {
                                      ArrowBuf offsetBuffer, FieldVector vector,
                                      final int index, final int scale) throws IOException {
     if (bufferType.equals(TYPE)) {
-      generator.writeNumber(buffer.getByte(index * NullableTinyIntVector.TYPE_WIDTH));
+      generator.writeNumber(buffer.getByte(index * TinyIntVector.TYPE_WIDTH));
     } else if (bufferType.equals(OFFSET)) {
-      generator.writeNumber(buffer.getInt(index * BaseNullableVariableWidthVector.OFFSET_WIDTH));
+      generator.writeNumber(buffer.getInt(index * BaseVariableWidthVector.OFFSET_WIDTH));
     } else if(bufferType.equals(VALIDITY)) {
       generator.writeNumber(vector.isNull(index) ? 0 : 1);
     } else if (bufferType.equals(DATA)) {
       switch (vector.getMinorType()) {
         case TINYINT:
-          generator.writeNumber(NullableTinyIntVector.get(buffer, index));
+          generator.writeNumber(TinyIntVector.get(buffer, index));
           break;
         case SMALLINT:
-          generator.writeNumber(NullableSmallIntVector.get(buffer, index));
+          generator.writeNumber(SmallIntVector.get(buffer, index));
           break;
         case INT:
-          generator.writeNumber(NullableIntVector.get(buffer, index));
+          generator.writeNumber(IntVector.get(buffer, index));
           break;
         case BIGINT:
-          generator.writeNumber(NullableBigIntVector.get(buffer, index));
+          generator.writeNumber(BigIntVector.get(buffer, index));
           break;
         case FLOAT4:
-          generator.writeNumber(NullableFloat4Vector.get(buffer, index));
+          generator.writeNumber(Float4Vector.get(buffer, index));
           break;
         case FLOAT8:
-          generator.writeNumber(NullableFloat8Vector.get(buffer, index));
+          generator.writeNumber(Float8Vector.get(buffer, index));
           break;
         case DATEDAY:
-          generator.writeNumber(NullableDateDayVector.get(buffer, index));
+          generator.writeNumber(DateDayVector.get(buffer, index));
           break;
         case DATEMILLI:
-          generator.writeNumber(NullableDateMilliVector.get(buffer, index));
+          generator.writeNumber(DateMilliVector.get(buffer, index));
           break;
         case TIMESEC:
-          generator.writeNumber(NullableTimeSecVector.get(buffer, index));
+          generator.writeNumber(TimeSecVector.get(buffer, index));
           break;
         case TIMEMILLI:
-          generator.writeNumber(NullableTimeMilliVector.get(buffer, index));
+          generator.writeNumber(TimeMilliVector.get(buffer, index));
           break;
         case TIMEMICRO:
-          generator.writeNumber(NullableTimeMicroVector.get(buffer, index));
+          generator.writeNumber(TimeMicroVector.get(buffer, index));
           break;
         case TIMENANO:
-          generator.writeNumber(NullableTimeNanoVector.get(buffer, index));
+          generator.writeNumber(TimeNanoVector.get(buffer, index));
           break;
         case TIMESTAMPSEC:
-          generator.writeNumber(NullableTimeStampSecVector.get(buffer, index));
+          generator.writeNumber(TimeStampSecVector.get(buffer, index));
           break;
         case TIMESTAMPMILLI:
-          generator.writeNumber(NullableTimeStampMilliVector.get(buffer, index));
+          generator.writeNumber(TimeStampMilliVector.get(buffer, index));
           break;
         case TIMESTAMPMICRO:
-          generator.writeNumber(NullableTimeStampMicroVector.get(buffer, index));
+          generator.writeNumber(TimeStampMicroVector.get(buffer, index));
           break;
         case TIMESTAMPNANO:
-          generator.writeNumber(NullableTimeStampNanoVector.get(buffer, index));
+          generator.writeNumber(TimeStampNanoVector.get(buffer, index));
           break;
         case TIMESTAMPSECTZ:
-          generator.writeNumber(NullableTimeStampSecTZVector.get(buffer, index));
+          generator.writeNumber(TimeStampSecTZVector.get(buffer, index));
           break;
         case TIMESTAMPMILLITZ:
-          generator.writeNumber(NullableTimeStampMilliTZVector.get(buffer, index));
+          generator.writeNumber(TimeStampMilliTZVector.get(buffer, index));
           break;
         case TIMESTAMPMICROTZ:
-          generator.writeNumber(NullableTimeStampMicroTZVector.get(buffer, index));
+          generator.writeNumber(TimeStampMicroTZVector.get(buffer, index));
           break;
         case TIMESTAMPNANOTZ:
-          generator.writeNumber(NullableTimeStampNanoTZVector.get(buffer, index));
+          generator.writeNumber(TimeStampNanoTZVector.get(buffer, index));
           break;
         case BIT:
           generator.writeNumber(BitVectorHelper.get(buffer, index));
           break;
         case VARBINARY: {
           assert offsetBuffer != null;
-          String hexString = Hex.encodeHexString(BaseNullableVariableWidthVector.get(buffer,
+          String hexString = Hex.encodeHexString(BaseVariableWidthVector.get(buffer,
                   offsetBuffer, index));
           generator.writeObject(hexString);
           break;
         }
         case VARCHAR: {
           assert offsetBuffer != null;
-          byte[] b = (BaseNullableVariableWidthVector.get(buffer, offsetBuffer, index));
+          byte[] b = (BaseVariableWidthVector.get(buffer, offsetBuffer, index));
           generator.writeString(new String(b, "UTF-8"));
           break;
         }

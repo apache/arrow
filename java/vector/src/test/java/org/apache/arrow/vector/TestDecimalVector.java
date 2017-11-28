@@ -60,9 +60,9 @@ public class TestDecimalVector {
 
   @Test
   public void testValuesWriteRead() {
-    try (NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);) {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal", new ArrowType.Decimal(10, scale), allocator);) {
 
-      try (NullableDecimalVector oldConstructor = new NullableDecimalVector("decimal", allocator, 10, scale);) {
+      try (DecimalVector oldConstructor = new DecimalVector("decimal", allocator, 10, scale);) {
         assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
       }
 
@@ -85,7 +85,7 @@ public class TestDecimalVector {
 
   @Test
   public void testBigDecimalDifferentScaleAndPrecision() {
-    try (NullableDecimalVector decimalVector = TestUtils.newVector(NullableDecimalVector.class, "decimal", new ArrowType.Decimal(4, 2), allocator);) {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal", new ArrowType.Decimal(4, 2), allocator);) {
       decimalVector.allocateNew();
 
       // test BigDecimal with different scale

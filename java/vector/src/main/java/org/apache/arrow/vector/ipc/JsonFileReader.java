@@ -222,7 +222,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT1 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableTinyIntVector.TYPE_WIDTH;
+        final int size = count * TinyIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -237,7 +237,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT2 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableSmallIntVector.TYPE_WIDTH;
+        final int size = count * SmallIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -252,7 +252,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableIntVector.TYPE_WIDTH;
+        final int size = count * IntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -267,7 +267,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader INT8 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableBigIntVector.TYPE_WIDTH;
+        final int size = count * BigIntVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -282,7 +282,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader FLOAT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableFloat4Vector.TYPE_WIDTH;
+        final int size = count * Float4Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -297,7 +297,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader FLOAT8 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableFloat8Vector.TYPE_WIDTH;
+        final int size = count * Float8Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
@@ -312,7 +312,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     BufferReader DECIMAL = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * NullableDecimalVector.TYPE_WIDTH;
+        final int size = count * DecimalVector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {

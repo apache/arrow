@@ -20,17 +20,17 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NullableMapVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
 public class NullableMapReaderImpl extends SingleMapReaderImpl {
 
-  private NullableMapVector nullableMapVector;
+  private MapVector nullableMapVector;
 
   public NullableMapReaderImpl(MapVector vector) {
-    super((NullableMapVector) vector);
-    this.nullableMapVector = (NullableMapVector) vector;
+    super((MapVector) vector);
+    this.nullableMapVector = (MapVector) vector;
   }
 
   @Override

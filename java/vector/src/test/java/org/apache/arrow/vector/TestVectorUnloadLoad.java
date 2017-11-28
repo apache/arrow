@@ -236,8 +236,8 @@ public class TestVectorUnloadLoad {
 
       vectorLoader.load(recordBatch);
 
-      NullableIntVector intDefinedVector = (NullableIntVector) newRoot.getVector("intDefined");
-      NullableIntVector intNullVector = (NullableIntVector) newRoot.getVector("intNull");
+      IntVector intDefinedVector = (IntVector) newRoot.getVector("intDefined");
+      IntVector intNullVector = (IntVector) newRoot.getVector("intNull");
       for (int i = 0; i < count; i++) {
         assertFalse("#" + i, intDefinedVector.isNull(i));
         assertEquals("#" + i, i, intDefinedVector.get(i));
@@ -283,7 +283,7 @@ public class TestVectorUnloadLoad {
         FieldVector vector = field.createVector(originalVectorsAllocator);
         vector.allocateNew();
         sources.add(vector);
-        NullableIntVector intVector = (NullableIntVector)vector;
+        IntVector intVector = (IntVector)vector;
         for (int i = 0; i < count; i++) {
           intVector.set(i, i);
         }
@@ -302,8 +302,8 @@ public class TestVectorUnloadLoad {
           List<FieldVector> targets = newRoot.getFieldVectors();
           Assert.assertEquals(sources.size(), targets.size());
           for (int k = 0; k < sources.size(); k++) {
-            NullableIntVector src = (NullableIntVector) sources.get(k);
-            NullableIntVector tgt = (NullableIntVector) targets.get(k);
+            IntVector src = (IntVector) sources.get(k);
+            IntVector tgt = (IntVector) targets.get(k);
             Assert.assertEquals(src.getValueCount(), tgt.getValueCount());
             for (int i = 0; i < count; i++) {
               Assert.assertEquals(src.get(i), tgt.get(i));

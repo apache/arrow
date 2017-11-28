@@ -35,9 +35,9 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableIntVector;
-import org.apache.arrow.vector.NullableTinyIntVector;
-import org.apache.arrow.vector.NullableVarCharVector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -92,7 +92,7 @@ public class EchoServerTest {
 
   private void testEchoServer(int serverPort,
                               Field field,
-                              NullableTinyIntVector vector,
+                              TinyIntVector vector,
                               int batches)
       throws UnknownHostException, IOException {
     VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
@@ -115,7 +115,7 @@ public class EchoServerTest {
 
       assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 
-      NullableTinyIntVector readVector = (NullableTinyIntVector) reader.getVectorSchemaRoot()
+      TinyIntVector readVector = (TinyIntVector) reader.getVectorSchemaRoot()
           .getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
         Assert.assertTrue(reader.loadNextBatch());
@@ -140,8 +140,8 @@ public class EchoServerTest {
         "testField",
         new FieldType(true, new ArrowType.Int(8, true), null, null),
         Collections.<Field>emptyList());
-    NullableTinyIntVector vector =
-        new NullableTinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
+    TinyIntVector vector =
+        new TinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
     Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.
@@ -158,13 +158,13 @@ public class EchoServerTest {
   public void testFlatDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableIntVector writeVector =
-             new NullableIntVector(
+         IntVector writeVector =
+             new IntVector(
                  "varchar",
                  new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
                  allocator);
-         NullableVarCharVector writeDictionaryVector =
-             new NullableVarCharVector(
+         VarCharVector writeDictionaryVector =
+             new VarCharVector(
                  "dict",
                  FieldType.nullable(VARCHAR.getType()),
                  allocator)) {
@@ -218,7 +218,7 @@ public class EchoServerTest {
 
         Dictionary dictionary = reader.lookup(1L);
         Assert.assertNotNull(dictionary);
-        NullableVarCharVector dictionaryVector = ((NullableVarCharVector) dictionary.getVector());
+        VarCharVector dictionaryVector = ((VarCharVector) dictionary.getVector());
         Assert.assertEquals(3, dictionaryVector.getValueCount());
         Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
         Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
@@ -231,8 +231,8 @@ public class EchoServerTest {
   public void testNestedDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(2L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         NullableVarCharVector writeDictionaryVector =
-             new NullableVarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
+         VarCharVector writeDictionaryVector =
+             new VarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
          ListVector writeVector = ListVector.empty("list", allocator)) {
 
       // data being written:
@@ -300,7 +300,7 @@ public class EchoServerTest {
 
         Dictionary readDictionary = reader.lookup(2L);
         Assert.assertNotNull(readDictionary);
-        NullableVarCharVector dictionaryVector = ((NullableVarCharVector) readDictionary.getVector());
+        VarCharVector dictionaryVector = ((VarCharVector) readDictionary.getVector());
         Assert.assertEquals(2, dictionaryVector.getValueCount());
         Assert.assertEquals(new Text("foo"), dictionaryVector.getObject(0));
         Assert.assertEquals(new Text("bar"), dictionaryVector.getObject(1));
