@@ -36,7 +36,7 @@ import org.joda.time.LocalDateTime;
 
 
 /**
- * NullableTimestampVector is an abstract interface for fixed width vector (8 bytes)
+ * TimestampVector is an abstract interface for fixed width vector (8 bytes)
  * of timestamp values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
@@ -48,7 +48,7 @@ public class TimestampVector extends BaseFixedWidthVector {
   private final DateTimeZone timezone;
 
   /**
-   * Instantiate a NullableTimestampVector. This doesn't allocate any memory for
+   * Instantiate a TimestampVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -59,7 +59,7 @@ public class TimestampVector extends BaseFixedWidthVector {
     this(name, FieldType.nullable(new ArrowType.Timestamp(unit, timezone)), allocator);
   }
   /**
-   * Instantiate a NullableTimestampVector. This doesn't allocate any memory for
+   * Instantiate a TimestampVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -164,6 +164,22 @@ public class TimestampVector extends BaseFixedWidthVector {
     setValue(index, value);
   }
 
+  public void set(int index, NullableTimestampHolder holder) {
+    if (holder.isSet < 0) {
+      throw new IllegalArgumentException();
+    } else if (holder.isSet > 0) {
+      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      setValue(index, holder.value);
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    }
+  }
+
+  public void set(int index, TimestampHolder holder) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    setValue(index, holder.value);
+  }
+
   /**
    * Same as {@link #set(int, long)} except that it handles the
    * case when index is greater than or equal to existing
@@ -185,22 +201,6 @@ public class TimestampVector extends BaseFixedWidthVector {
   public void setSafe(int index, TimestampHolder holder) {
     handleSafe(index);
     set(index, holder);
-  }
-
-  public void set(int index, NullableTimestampHolder holder) {
-    if (holder.isSet < 0) {
-      throw new IllegalArgumentException();
-    } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-      setValue(index, holder.value);
-    } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-    }
-  }
-
-  public void set(int index, TimestampHolder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    setValue(index, holder.value);
   }
 
   /**
