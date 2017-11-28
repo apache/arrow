@@ -83,6 +83,11 @@ class TestCast : public ComputeFixture, public TestBase {
     shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, options, &result));
     ASSERT_ARRAYS_EQUAL(expected, *result);
+
+    std::shared_ptr<Array> result_sliced;
+    int64_t offset = input.length()/2;
+    ASSERT_OK(Cast(&ctx_, *input.Slice(offset), out_type, options, &result_sliced));
+    ASSERT_ARRAYS_EQUAL(*expected.Slice(offset), *result_sliced);
   }
 
   template <typename InType, typename I_TYPE>
