@@ -58,13 +58,12 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     return new MapVector(name, allocator, fieldType, null);
   }
 
-  private final NullableMapReaderImpl reader;
-  private final NullableMapWriter writer;
-
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
-  protected final FieldType fieldType;
-  public int valueCount;
+  private final FieldType fieldType;
+  private int valueCount;
+  private final NullableMapReaderImpl reader;
+  private final NullableMapWriter writer;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
