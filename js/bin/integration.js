@@ -71,7 +71,7 @@ if (!argv.arrow || !argv.json || !argv.mode) print_usage();
 
 switch (argv.mode) {
     case 'VALIDATE':
-        var json_table = Table.fromJSON(fs.readFileSync(argv.json));
+        var json_table = Table.from(fs.readFileSync(argv.json, 'utf8'));
         var arrow_table = Table.from([fs.readFileSync(argv.arrow)]);
         var string_equals = (json_table.toString() == arrow_table.toString());
 
