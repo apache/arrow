@@ -853,6 +853,7 @@ public class TestComplexWriter {
 
     int initialCapacity = 1024;
     singleMapWriter.setInitialCapacity(initialCapacity);
+    singleMapWriter.allocate();
 
     IntWriter intWriter = singleMapWriter.integer("intField");
     BigIntWriter bigIntWriter = singleMapWriter.bigInt("bigIntField");
