@@ -28,6 +28,7 @@ import * as Schema_ from '../format/fb/Schema';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
 import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
 
+import { Int128 } from '../util/int';
 import { TextEncoder } from 'text-encoding-utf-8';
 const encoder = new TextEncoder('utf-8');
 
@@ -129,10 +130,7 @@ function readDecimalVector(fieldObj: any, column: any) {
 
     let data = new Uint32Array(column.DATA.length * 4);
     for (let i = 0; i < column.DATA.length; ++i) {
-        data[4 * i    ] = column.DATA[i] >>> 0;
-        data[4 * i + 1] = Math.floor(column.DATA[i] / 0xFFFFFFFF);
-        data[4 * i + 2] = Math.floor(column.DATA[i] / 0xFFFFFFFFFFFFFFFF);
-        data[4 * i + 3] = Math.floor(column.DATA[i] / 0xFFFFFFFFFFFFFFFFFFFFFFFF);
+        Int128.fromString(column.DATA[i], new Uint32Array(data.buffer, data.byteOffset + 4 * 4 * i, 4));
     }
 
     return new DecimalVector({
