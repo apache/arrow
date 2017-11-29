@@ -27,11 +27,11 @@ import org.junit.Test;
 /**
  * To test simplified implementation of IdentityHashMap
  */
-public class TestLowCostIdentityHasMap {
+public class TestLowCostIdentityHashMap {
 
   @Test
   public void testIdentityHashMap() throws Exception {
-    LowCostIdentityHasMap<String, StringWithKey> hashMap = new LowCostIdentityHasMap<>();
+    LowCostIdentityHashMap<String, StringWithKey> hashMap = new LowCostIdentityHashMap<>();
 
     StringWithKey obj1 = new StringWithKey("s1key", "s1value");
     StringWithKey obj2 = new StringWithKey("s2key", "s2value");
@@ -88,7 +88,7 @@ public class TestLowCostIdentityHasMap {
 
   @Test
   public void testLargeMap() throws Exception {
-    LowCostIdentityHasMap<String, StringWithKey> hashMap = new LowCostIdentityHasMap<>();
+    LowCostIdentityHashMap<String, StringWithKey> hashMap = new LowCostIdentityHashMap<>();
 
     String [] keys = new String[200];
     for (int i = 0; i < 200; i++) {
