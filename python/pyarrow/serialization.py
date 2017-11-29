@@ -22,12 +22,34 @@ import pickle
 import numpy as np
 
 from pyarrow import serialize_pandas, deserialize_pandas
-from pyarrow.lib import _default_serialization_context
+from pyarrow.lib import _default_serialization_context, frombuffer
 
 try:
     import cloudpickle
 except ImportError:
     cloudpickle = pickle
+
+
+# ----------------------------------------------------------------------
+# Set up serialization for numpy with dtype object (primitive types are
+# handled efficiently with Arrow's Tensor facilities, see
+# python_to_arrow.cc)
+
+def _serialize_numpy_array_list(obj):
+    return obj.tolist(), obj.dtype.str
+
+
+def _deserialize_numpy_array_list(data):
+    return np.array(data[0], dtype=np.dtype(data[1]))
+
+
+def _serialize_numpy_array_pickle(obj):
+    pickled = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    return frombuffer(pickled)
+
+
+def _deserialize_numpy_array_pickle(data):
+    return pickle.loads(memoryview(data))
 
 
 def register_default_serialization_handlers(serialization_context):
@@ -80,21 +102,10 @@ def register_default_serialization_handlers(serialization_context):
                                         custom_serializer=cloudpickle.dumps,
                                         custom_deserializer=cloudpickle.loads)
 
-    # ----------------------------------------------------------------------
-    # Set up serialization for numpy with dtype object (primitive types are
-    # handled efficiently with Arrow's Tensor facilities, see
-    # python_to_arrow.cc)
-
-    def _serialize_numpy_array(obj):
-        return obj.tolist(), obj.dtype.str
-
-    def _deserialize_numpy_array(data):
-        return np.array(data[0], dtype=np.dtype(data[1]))
-
     serialization_context.register_type(
         np.ndarray, 'np.array',
-        custom_serializer=_serialize_numpy_array,
-        custom_deserializer=_deserialize_numpy_array)
+        custom_serializer=_serialize_numpy_array_list,
+        custom_deserializer=_deserialize_numpy_array_list)
 
     # ----------------------------------------------------------------------
     # Set up serialization for pandas Series and DataFrame
@@ -153,3 +164,10 @@ def register_default_serialization_handlers(serialization_context):
 
 
 register_default_serialization_handlers(_default_serialization_context)
+
+pandas_serialization_context = _default_serialization_context.clone()
+
+pandas_serialization_context.register_type(
+    np.ndarray, 'np.array',
+    custom_serializer=_serialize_numpy_array_pickle,
+    custom_deserializer=_deserialize_numpy_array_pickle)
