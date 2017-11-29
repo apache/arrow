@@ -35,7 +35,7 @@ pushd $ARROW_JS_DIR
 npm run lint
 npm run build
 # create initial test data
-npm run test:createTestData
+npm run create:testdata
 
 popd
 
