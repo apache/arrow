@@ -16,7 +16,7 @@
 // under the License.
 
 export class Int128 {
-    constructor (private buffer: Int32Array) {
+    constructor (private buffer: Uint32Array) {
         // buffer[0] MSB (high)
         // buffer[1]
         // buffer[2]
@@ -24,11 +24,11 @@ export class Int128 {
     }
 
     high(): Int64 {
-        return new Int64(new Int32Array(this.buffer.buffer, this.buffer.byteOffset, 2));
+        return new Int64(new Uint32Array(this.buffer.buffer, this.buffer.byteOffset, 2));
     }
 
     low(): Int64 {
-        return new Int64(new Int32Array(this.buffer.buffer, this.buffer.byteOffset + 8, 2));
+        return new Int64(new Uint32Array(this.buffer.buffer, this.buffer.byteOffset + 8, 2));
     }
 
     negate(): Int128 {
@@ -92,7 +92,7 @@ export class Int128 {
         //}
         //console.log(`${this.hex()}`);
 
-        //high.plus(new Int64(new Int32Array([0, sum.high()])));
+        //high.plus(new Int64(new Uint32Array([0, sum.high()])));
         this.buffer[1] = sum.high();
         //console.log(`${this.hex()}`);
         let high = new Uint64(new Uint32Array(this.buffer.buffer, this.buffer.byteOffset, 2));
@@ -139,12 +139,12 @@ export class Int128 {
     }
 
     static multiply(left: Int128, right: Int128): Int128 {
-        let rtrn = new Int128(new Int32Array(left.buffer));
+        let rtrn = new Int128(new Uint32Array(left.buffer));
         return rtrn.times(right);
     }
 
     static add(left: Int128, right: Int128): Int128 {
-        let rtrn = new Int128(new Int32Array(left.buffer));
+        let rtrn = new Int128(new Uint32Array(left.buffer));
         return rtrn.plus(right);
     }
 
@@ -158,16 +158,16 @@ export class Int128 {
         const negate = str.startsWith("-");
         const length = str.length;
 
-        let out = new Int128(new Int32Array([0, 0, 0, 0]));
+        let out = new Int128(new Uint32Array([0, 0, 0, 0]));
         1002111867823618826746863804903129070
         for (let posn = negate ? 1 : 0; posn < length;) {
             console.log(posn);
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;
             console.log(group);
-            const chunk = new Int128(new Int32Array([0, 0, 0, parseInt(str.substr(posn, group), 10)]));
+            const chunk = new Int128(new Uint32Array([0, 0, 0, parseInt(str.substr(posn, group), 10)]));
             console.log(chunk);
-            const multiple = new Int128(new Int32Array([0, 0, 0, kPowersOfTen[group]]));
+            const multiple = new Int128(new Uint32Array([0, 0, 0, kPowersOfTen[group]]));
             console.log(multiple);
 
             out.times(multiple);
@@ -199,8 +199,8 @@ function intAsHex(value: number): string {
     return `0x${value.toString(16)}`;
 }
 
-export class BaseInt64<T extends (Int32Array|Uint32Array)> {
-    constructor (protected buffer: T) {}
+export class BaseInt64 {
+    constructor (protected buffer: Uint32Array) {}
 
     high(): number { return this.buffer[0]; }
     low (): number { return this.buffer[1]; }
@@ -312,7 +312,7 @@ export class BaseInt64<T extends (Int32Array|Uint32Array)> {
     }
 }
 
-export class Uint64 extends BaseInt64<Uint32Array> {
+export class Uint64 extends BaseInt64 {
     times(other: Uint64): Uint64 {
         this._times(other);
         return this;
@@ -346,7 +346,7 @@ const kPowersOfTen = [1,
                       100000000]
 
 
-export class Int64 extends BaseInt64<Int32Array> {
+export class Int64 extends BaseInt64 {
     negate(): Int64 {
         this.buffer[1] = ~this.buffer[1] + 1;
         this.buffer[0] = ~this.buffer[0];
@@ -365,6 +365,14 @@ export class Int64 extends BaseInt64<Int32Array> {
         return this;
     }
 
+    lessThan(other: BaseInt64<T>): boolean {
+        // force high bytes to be signed
+        const this_high = this.buffer[0] << 0;
+        const other_high = other.buffer[0] << 0;
+        return this_high < other_high ||
+            (this_high === other_high && this.buffer[1] < other.buffer[1]);
+    }
+
     static fromString(str: string): Int64 {
         //DCHECK_NE(out, NULLPTR) << "Decimal128 output variable cannot be NULLPTR";
         //DCHECK_EQ(*out, 0)
@@ -376,12 +384,12 @@ export class Int64 extends BaseInt64<Int32Array> {
         if (negate) str = str.substr(1);
         const length = str.length;
 
-        let out = new Int64(new Int32Array([0, 0]));
+        let out = new Int64(new Uint32Array([0, 0]));
         for (let posn = 0; posn < length;) {
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;
-            const chunk = new Int64(new Int32Array([0, parseInt(str.substr(posn, group), 10)]));
-            const multiple = new Int64(new Int32Array([0, kPowersOfTen[group]]));
+            const chunk = new Int64(new Uint32Array([0, parseInt(str.substr(posn, group), 10)]));
+            const multiple = new Int64(new Uint32Array([0, kPowersOfTen[group]]));
 
             out.times(multiple);
             out.plus(chunk);
@@ -393,12 +401,12 @@ export class Int64 extends BaseInt64<Int32Array> {
     }
 
     static multiply(left: Int64, right: Int64): Int64 {
-        let rtrn = new Int64(new Int32Array(left.buffer));
+        let rtrn = new Int64(new Uint32Array(left.buffer));
         return rtrn.times(right);
     }
 
     static add(left: Int64, right: Int64): Int64 {
-        let rtrn = new Int64(new Int32Array(left.buffer));
+        let rtrn = new Int64(new Uint32Array(left.buffer));
         return rtrn.plus(right);
     }
 }
