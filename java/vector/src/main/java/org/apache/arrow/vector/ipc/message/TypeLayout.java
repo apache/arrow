@@ -24,9 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.vector.DateDayVector;
-import org.apache.arrow.vector.DecimalVector;
-import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
@@ -180,8 +177,9 @@ public class TypeLayout {
             return newFixedWidthTypeLayout(VectorLayout.dataVector(32));
           case MILLISECOND:
             return newFixedWidthTypeLayout(VectorLayout.dataVector(64));
+          default:
+            throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
         }
-
       }
 
       @Override
