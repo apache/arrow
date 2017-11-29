@@ -69,7 +69,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     this.allocator = allocator;
     MappingJsonFactory jsonFactory = new MappingJsonFactory();
     this.parser = jsonFactory.createParser(inputFile);
-    // Allow for reading "NaN" for floating point values
+    // Allow reading NaN for floating point values
     this.parser.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
   }
 

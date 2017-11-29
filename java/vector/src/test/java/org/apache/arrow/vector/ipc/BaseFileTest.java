@@ -47,6 +47,7 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.DateMilliWriter;
+import org.apache.arrow.vector.complex.writer.Float4Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
@@ -95,10 +96,28 @@ public class BaseFileTest {
     DateTimeZone.setDefault(defaultTimezone);
   }
 
+  protected void writeData(int count, MapVector parent) {
+    ComplexWriter writer = new ComplexWriterImpl("root", parent);
+    MapWriter rootWriter = writer.rootAsMap();
+    IntWriter intWriter = rootWriter.integer("int");
+    BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
+    Float4Writer float4Writer = rootWriter.float4("float");
+    for (int i = 0; i < count; i++) {
+      intWriter.setPosition(i);
+      intWriter.writeInt(i);
+      bigIntWriter.setPosition(i);
+      bigIntWriter.writeBigInt(i);
+      float4Writer.setPosition(i);
+      float4Writer.writeFloat4(i == 0 ? Float.NaN : i);
+    }
+    writer.setValueCount(count);
+  }
+
   protected void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
       Assert.assertEquals(i, root.getVector("int").getObject(i));
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
+      Assert.assertEquals(i == 0 ? Float.NaN : i, root.getVector("float").getObject(i));
     }
   }
 
@@ -452,20 +471,6 @@ public class BaseFileTest {
       genValue = new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), type.getScale());
       Assert.assertEquals(genValue, readValue);
     }
-  }
-
-  protected void writeData(int count, MapVector parent) {
-    ComplexWriter writer = new ComplexWriterImpl("root", parent);
-    MapWriter rootWriter = writer.rootAsMap();
-    IntWriter intWriter = rootWriter.integer("int");
-    BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
-    for (int i = 0; i < count; i++) {
-      intWriter.setPosition(i);
-      intWriter.writeInt(i);
-      bigIntWriter.setPosition(i);
-      bigIntWriter.writeBigInt(i);
-    }
-    writer.setValueCount(count);
   }
 
   public void validateUnionData(int count, VectorSchemaRoot root) {

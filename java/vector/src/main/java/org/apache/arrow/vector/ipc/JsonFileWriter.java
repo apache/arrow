@@ -84,6 +84,8 @@ public class JsonFileWriter implements AutoCloseable {
       prettyPrinter.indentArraysWith(NopIndenter.instance);
       this.generator.setPrettyPrinter(prettyPrinter);
     }
+    // Allow writing of floating point NaN values not as strings
+    this.generator.configure(JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS, false);
   }
 
   public void start(Schema schema, DictionaryProvider provider) throws IOException {
