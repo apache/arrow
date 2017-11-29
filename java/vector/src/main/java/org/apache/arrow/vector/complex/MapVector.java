@@ -58,8 +58,8 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     return new MapVector(name, allocator, fieldType, null);
   }
 
-  private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
-  private NullableMapWriter writer;
+  private final NullableMapReaderImpl reader;
+  private final NullableMapWriter writer;
 
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
@@ -84,6 +84,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     this.valueCount = 0;
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+    this.reader = new NullableMapReaderImpl(this);
     this.writer = new NullableMapWriter(this);  // NOTE: fieldType must be set before this
   }
 
@@ -192,13 +193,13 @@ public class MapVector extends AbstractMapVector implements FieldVector {
 
     private final TransferPair[] pairs;
     private final MapVector from;
-    private MapVector to;
+    private final MapVector to;
 
     protected NullableMapTransferPair(MapVector from, MapVector to, boolean allocate) {
       this.from = from;
       this.to = to;
       this.pairs = new TransferPair[from.size()];
-      // TODO: ?? this.to.ephPair = null;
+      this.to.ephPair = null;
 
       int i = 0;
       FieldVector vector;
@@ -223,7 +224,6 @@ public class MapVector extends AbstractMapVector implements FieldVector {
         }
         pairs[i++] = vector.makeTransferPair(newVector);
       }
-      this.to = to;
     }
 
     @Override
