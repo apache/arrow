@@ -81,8 +81,131 @@ static void BM_BuildStringDictionary(
   state.SetBytesProcessed(state.iterations() * total_bytes);
 }
 
-BENCHMARK(BM_BuildDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildStringDictionary)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+template <typename Type>
+struct HashParams {
+  using T = typename Type::c_type;
+
+  double null_percent;
+
+  void GenerateTestData(const int64_t length, const int64_t num_unique,
+                        std::shared_ptr<Array>* arr) const {
+    std::vector<int64_t> draws;
+    std::vector<T> values;
+    std::vector<bool> is_valid;
+    test::randint<int64_t>(length, 0, num_unique, &draws);
+    for (int64_t draw : draws) {
+      values.push_back(draw);
+    }
+
+    if (this->null_percent > 0) {
+      test::random_is_valid(length, this->null_percent, &is_valid);
+      ArrayFromVector<Type, T>(is_valid, values, arr);
+    } else {
+      ArrayFromVector<Type, T>(values, arr);
+    }
+  }
+
+  int64_t GetBytesProcessed(int64_t length) const { return length * sizeof(T); }
+};
+
+template <>
+struct HashParams<StringType> {
+  double null_percent;
+  int32_t byte_width;
+  void GenerateTestData(const int64_t length, const int64_t num_unique,
+                        std::shared_ptr<Array>* arr) const {
+    std::vector<int64_t> draws;
+    test::randint<int64_t>(length, 0, num_unique, &draws);
+
+    const int64_t total_bytes = this->byte_width * num_unique;
+    std::vector<uint8_t> uniques(total_bytes);
+    const uint32_t seed = 0;
+    test::random_bytes(total_bytes, seed, uniques.data());
+
+    std::vector<bool> is_valid;
+    if (this->null_percent > 0) {
+      test::random_is_valid(length, this->null_percent, &is_valid);
+    }
+
+    StringBuilder builder;
+    for (int64_t i = 0; i < length; ++i) {
+      if (this->null_percent == 0 || is_valid[i]) {
+        ABORT_NOT_OK(builder.Append(uniques.data() + this->byte_width * draws[i],
+                                    this->byte_width));
+      } else {
+        ABORT_NOT_OK(builder.AppendNull());
+      }
+    }
+    ABORT_NOT_OK(builder.Finish(arr));
+  }
+
+  int64_t GetBytesProcessed(int64_t length) const { return length * byte_width; }
+};
+
+template <typename ParamType>
+void BenchUnique(benchmark::State& state, const ParamType& params, int64_t length,
+                 int64_t num_unique) {
+  std::shared_ptr<Array> arr;
+  params.GenerateTestData(length, num_unique, &arr);
+
+  FunctionContext ctx;
+  while (state.KeepRunning()) {
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(Unique(&ctx, Datum(arr), &out));
+  }
+  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
+}
+
+template <typename ParamType>
+void BenchDictionaryEncode(benchmark::State& state, const ParamType& params,
+                           int64_t length, int64_t num_unique) {
+  std::shared_ptr<Array> arr;
+  params.GenerateTestData(length, num_unique, &arr);
+
+  FunctionContext ctx;
+  while (state.KeepRunning()) {
+    Datum out;
+    ABORT_NOT_OK(DictionaryEncode(&ctx, Datum(arr), &out));
+  }
+  state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
+}
+
+static void BM_UniqueInt64NoNulls(benchmark::State& state) {
+  BenchUnique(state, HashParams<Int64Type>{0}, state.range(0), state.range(1));
+}
+
+static void BM_UniqueInt64WithNulls(benchmark::State& state) {
+  BenchUnique(state, HashParams<Int64Type>{0.05}, state.range(0), state.range(1));
+}
+
+static void BM_UniqueString10bytes(benchmark::State& state) {
+  // Byte strings with 10 bytes each
+  BenchUnique(state, HashParams<StringType>{0.05, 10}, state.range(0), state.range(1));
+}
+
+static void BM_UniqueString100bytes(benchmark::State& state) {
+  // Byte strings with 100 bytes each
+  BenchUnique(state, HashParams<StringType>{0.05, 100}, state.range(0), state.range(1));
+}
+
+BENCHMARK(BM_BuildDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildStringDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+
+constexpr int64_t kHashBenchmarkLength = 1 << 24;
+
+#define ADD_HASH_ARGS(WHAT)                        \
+  WHAT->Args({kHashBenchmarkLength, 50})           \
+      ->Args({kHashBenchmarkLength, 1 << 10})      \
+      ->Args({kHashBenchmarkLength, 10 * 1 << 10}) \
+      ->Args({kHashBenchmarkLength, 1 << 20})      \
+      ->MinTime(1.0)                               \
+      ->Unit(benchmark::kMicrosecond)              \
+      ->UseRealTime()
+
+ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64NoNulls));
+ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64WithNulls));
+ADD_HASH_ARGS(BENCHMARK(BM_UniqueString10bytes));
+ADD_HASH_ARGS(BENCHMARK(BM_UniqueString100bytes));
 
 }  // namespace compute
 }  // namespace arrow
