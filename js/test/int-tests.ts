@@ -23,210 +23,210 @@ import {
 
 describe(`Uint64`, () => {
     test(`gets expected high/low bytes`, () => {
-        let i = new Uint64(new Uint32Array([0, 5]));
+        let i = new Uint64(new Uint32Array([5, 0]));
         expect(i.high()).toEqual(0);
         expect(i.low()).toEqual(5);
     });
     test(`adds 32-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([0, 5]));
-        let b = new Uint64(new Uint32Array([0, 9]));
-        let expected = new Uint64(new Uint32Array([0, 14]));
+        let a = new Uint64(new Uint32Array([5, 0]));
+        let b = new Uint64(new Uint32Array([9, 0]));
+        let expected = new Uint64(new Uint32Array([14, 0]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`addition overflows 32-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([0, 0xffffffff]));
-        let b = new Uint64(new Uint32Array([0, 9]));
-        let expected = new Uint64(new Uint32Array([1, 8]));
+        let a = new Uint64(new Uint32Array([0xffffffff, 0]));
+        let b = new Uint64(new Uint32Array([9, 0]));
+        let expected = new Uint64(new Uint32Array([8, 1]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`multiplies 32-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([0, 5]));
-        let b = new Uint64(new Uint32Array([0, 9]));
-        let expected = new Uint64(new Uint32Array([0, 45]));
+        let a = new Uint64(new Uint32Array([5, 0]));
+        let b = new Uint64(new Uint32Array([9, 0]));
+        let expected = new Uint64(new Uint32Array([45, 0]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication overflows 32-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([0, 0x80000000]));
-        let b = new Uint64(new Uint32Array([0, 3]));
-        let expected = new Uint64(new Uint32Array([1, 0x80000000]));
+        let a = new Uint64(new Uint32Array([0x80000000, 0]));
+        let b = new Uint64(new Uint32Array([3, 0]));
+        let expected = new Uint64(new Uint32Array([0x80000000, 1]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication is associative`, () => {
-        let a = new Uint64(new Uint32Array([0, 0x80000000]));
-        let b = new Uint64(new Uint32Array([0, 3]));
+        let a = new Uint64(new Uint32Array([0x80000000, 0]));
+        let b = new Uint64(new Uint32Array([3, 0]));
         expect(Uint64.multiply(a, b)).toEqual(Uint64.multiply(b,a));
     });
     test(`lessThan works on 32-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([0, 0x0000abcd]));
-        let b = new Uint64(new Uint32Array([0, 0x0000abcf]));
+        let a = new Uint64(new Uint32Array([0x0000abcd, 0]));
+        let b = new Uint64(new Uint32Array([0x0000abcf, 0]));
         expect(a.lessThan(b)).toBeTruthy();
     });
     test(`lessThan works on 64-bit numbers`, () => {
-        let a = new Uint64(new Uint32Array([32, 123]));
-        let b = new Uint64(new Uint32Array([32, 568]));
+        let a = new Uint64(new Uint32Array([123, 32]));
+        let b = new Uint64(new Uint32Array([568, 32]));
         expect(a.lessThan(b)).toBeTruthy();
     });
 });
 
 describe(`Int64`, () => {
     test(`gets expected high/low bytes`, () => {
-        let i = new Int64(new Uint32Array([0, 5]));
+        let i = new Int64(new Uint32Array([5, 0]));
         expect(i.high()).toEqual(0);
         expect(i.low()).toEqual(5);
     });
     test(`adds 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0, 5]));
-        let b = new Int64(new Uint32Array([0, 9]));
-        let expected = new Int64(new Uint32Array([0, 14]));
+        let a = new Int64(new Uint32Array([5, 0]));
+        let b = new Int64(new Uint32Array([9, 0]));
+        let expected = new Int64(new Uint32Array([14, 0]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`adds negative 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0 ,  56789]));
-        let b = new Int64(new Uint32Array([-1, -66789]));
-        let expected = new Int64(new Uint32Array([-1, -10000]));
+        let a = new Int64(new Uint32Array([56789 ,  0]));
+        let b = new Int64(new Uint32Array([-66789, -1]));
+        let expected = new Int64(new Uint32Array([-10000, -1]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`addition overflows 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0, 0xffffffff]));
-        let b = new Int64(new Uint32Array([0, 9]));
-        let expected = new Int64(new Uint32Array([1, 8]));
+        let a = new Int64(new Uint32Array([0xffffffff, 0]));
+        let b = new Int64(new Uint32Array([9, 0]));
+        let expected = new Int64(new Uint32Array([8, 1]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`multiplies 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0, 5]));
-        let b = new Int64(new Uint32Array([0, 9]));
-        let expected = new Int64(new Uint32Array([0, 45]));
+        let a = new Int64(new Uint32Array([5, 0]));
+        let b = new Int64(new Uint32Array([9, 0]));
+        let expected = new Int64(new Uint32Array([45, 0]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication overflows 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0, 0x80000000]));
-        let b = new Int64(new Uint32Array([0, 3]));
-        let expected = new Int64(new Uint32Array([1, 0x80000000]));
+        let a = new Int64(new Uint32Array([0x80000000, 0]));
+        let b = new Int64(new Uint32Array([3, 0]));
+        let expected = new Int64(new Uint32Array([0x80000000, 1]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication works on negative numbers`, () => {
-        let a = new Int64(new Uint32Array([-1, -5]));
-        let b = new Int64(new Uint32Array([-1, -100]));
-        expect(a.times(b)).toEqual(new Int64(new Uint32Array([ 0,    500])));
-        expect(a.times(b)).toEqual(new Int64(new Uint32Array([-1,  -50000])));
-        expect(a.times(b)).toEqual(new Int64(new Uint32Array([ 0, 5000000])));
+        let a = new Int64(new Uint32Array([-5, -1]));
+        let b = new Int64(new Uint32Array([-100, -1]));
+        expect(a.times(b)).toEqual(new Int64(new Uint32Array([    500,  0])));
+        expect(a.times(b)).toEqual(new Int64(new Uint32Array([ -50000, -1])));
+        expect(a.times(b)).toEqual(new Int64(new Uint32Array([5000000,  0])));
     });
     test(`multiplication is associative`, () => {
-        let a = new Int64(new Uint32Array([0, 0x80000000]));
-        let b = new Int64(new Uint32Array([0, 3]));
+        let a = new Int64(new Uint32Array([0x80000000, 0]));
+        let b = new Int64(new Uint32Array([3, 0]));
         expect(Int64.multiply(a, b)).toEqual(Int64.multiply(b,a));
     });
     test(`lessThan works on 32-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([0, 0x0000abcd]));
-        let b = new Int64(new Uint32Array([0, 0x0000abcf]));
+        let a = new Int64(new Uint32Array([0x0000abcd, 0]));
+        let b = new Int64(new Uint32Array([0x0000abcf, 0]));
         expect(a.lessThan(b)).toBeTruthy();
     });
     test(`lessThan works on 64-bit numbers`, () => {
-        let a = new Int64(new Uint32Array([32, 123]));
-        let b = new Int64(new Uint32Array([32, 568]));
+        let a = new Int64(new Uint32Array([123, 32]));
+        let b = new Int64(new Uint32Array([568, 32]));
         expect(a.lessThan(b)).toBeTruthy();
     });
     test(`lessThan works on negative numbers`, () => {
-        let a = new Int64(new Uint32Array([-158,   0]));
-        let b = new Int64(new Uint32Array([-1,    -3]));
+        let a = new Int64(new Uint32Array([0,   -158]));
+        let b = new Int64(new Uint32Array([-3,    -1]));
         expect(a.lessThan(b)).toBeTruthy();
     });
     test(`lessThan works on mixed numbers`, () => {
-        let a = new Int64(new Uint32Array([-1, -3]));
+        let a = new Int64(new Uint32Array([-3, -1]));
         let b = new Int64(new Uint32Array([ 0,  3]));
         expect(a.lessThan(b)).toBeTruthy();
     });
     test(`negate works on 32-bit number`, () => {
-        expect (new Int64(new Uint32Array([0, 123456])).negate()).toEqual(new Int64(new Uint32Array([-1, -123456])));
+        expect (new Int64(new Uint32Array([123456, 0])).negate()).toEqual(new Int64(new Uint32Array([-123456, -1])));
     });
     test(`double negation is noop`, () => {
-        let test     = new Int64(new Uint32Array([12345, 6789]));
-        let expected = new Int64(new Uint32Array([12345, 6789]));
+        let test     = new Int64(new Uint32Array([6789, 12345]));
+        let expected = new Int64(new Uint32Array([6789, 12345]));
         expect(test.negate().negate()).toEqual(expected);
     });
     test(`negate works on 64-bit number`, () => {
-        expect (new Int64(new Uint32Array([0x62c, 0xb74abf15])).negate()).toEqual(new Int64(new Uint32Array([0xfffff9d3, 0x48b540eb])));
+        expect (new Int64(new Uint32Array([0xb74abf15, 0x62c])).negate()).toEqual(new Int64(new Uint32Array([0x48b540eb, 0xfffff9d3])));
     });
     test(`fromString parses string`, () => {
-        expect(Int64.fromString('6789123456789')).toEqual(new Int64(new Uint32Array([0x62c, 0xb74abf15])));
+        expect(Int64.fromString('6789123456789')).toEqual(new Int64(new Uint32Array([0xb74abf15, 0x62c])));
     });
     test(`fromString parses negative string`, () => {
-        expect(Int64.fromString('-6789123456789')).toEqual(new Int64(new Uint32Array([0xfffff9d3, 0x48b540eb])));
+        expect(Int64.fromString('-6789123456789')).toEqual(new Int64(new Uint32Array([0x48b540eb, 0xfffff9d3])));
     });
 });
 
 describe(`Int128`, () => {
     test(`gets expected bytes`, () => {
-        let i = new Int128(new Uint32Array([1, 2, 3, 4]));
+        let i = new Int128(new Uint32Array([4, 3, 2, 1]));
         expect(i.high().high()).toEqual(1);
         expect(i.high().low() ).toEqual(2);
         expect(i.low().high() ).toEqual(3);
         expect(i.low().low()  ).toEqual(4);
     });
     test(`adds 32-bit numbers`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0, 5]));
-        let b = new Int128(new Uint32Array([0, 0, 0, 9]));
-        let expected = new Int128(new Uint32Array([0, 0, 0, 14]));
+        let a = new Int128(new Uint32Array([5, 0, 0, 0]));
+        let b = new Int128(new Uint32Array([9, 0, 0, 0]));
+        let expected = new Int128(new Uint32Array([14, 0, 0, 0]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`adds negative 32-bit numbers`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0 ,  56789]));
-        let b = new Int128(new Uint32Array([-1, -1, -1, -66789]));
-        let expected = new Int128(new Uint32Array([-1, -1, -1, -10000]));
+        let a = new Int128(new Uint32Array([56789 ,  0, 0, 0]));
+        let b = new Int128(new Uint32Array([-66789, -1, -1, -1]));
+        let expected = new Int128(new Uint32Array([-10000, -1, -1, -1]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`addition overflows 32-bit numbers`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0, 0xffffffff]));
-        let b = new Int128(new Uint32Array([0, 0, 0, 9]));
-        let expected = new Int128(new Uint32Array([0, 0, 1, 8]));
+        let a = new Int128(new Uint32Array([0xffffffff, 0, 0, 0]));
+        let b = new Int128(new Uint32Array([9, 0, 0, 0]));
+        let expected = new Int128(new Uint32Array([8, 1, 0, 0]));
         expect(a.plus(b)).toEqual(expected);
     });
     test(`multiplies 32-bit numbers`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0, 5]));
-        let b = new Int128(new Uint32Array([0, 0, 0, 9]));
-        let expected = new Int128(new Uint32Array([0, 0, 0, 45]));
+        let a = new Int128(new Uint32Array([5, 0, 0, 0]));
+        let b = new Int128(new Uint32Array([9, 0, 0, 0]));
+        let expected = new Int128(new Uint32Array([45, 0, 0, 0]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication overflows 32-bit numbers`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0, 0x80000000]));
-        let b = new Int128(new Uint32Array([0, 0, 0, 3]));
-        let expected = new Int128(new Uint32Array([0, 0, 1, 0x80000000]));
+        let a = new Int128(new Uint32Array([0x80000000, 0, 0, 0]));
+        let b = new Int128(new Uint32Array([3, 0, 0, 0]));
+        let expected = new Int128(new Uint32Array([0x80000000, 1, 0, 0]));
         expect(a.times(b)).toEqual(expected);
     });
     test(`multiplication works on negative numbers`, () => {
-        let a = new Int128(new Uint32Array([-1, -1, -1, -5]));
-        let b = new Int128(new Uint32Array([-1, -1, -1, -100]));
-        expect(a.times(b)).toEqual(new Int128(new Uint32Array([ 0,  0,  0,    500])));
-        expect(a.times(b)).toEqual(new Int128(new Uint32Array([-1, -1, -1,  -50000])));
-        expect(a.times(b)).toEqual(new Int128(new Uint32Array([ 0,  0,  0, 5000000])));
+        let a = new Int128(new Uint32Array([-5, -1, -1, -1]));
+        let b = new Int128(new Uint32Array([-100, -1, -1, -1]));
+        expect(a.times(b)).toEqual(new Int128(new Uint32Array([    500,   0,  0,  0])));
+        expect(a.times(b)).toEqual(new Int128(new Uint32Array([ -50000,  -1, -1, -1])));
+        expect(a.times(b)).toEqual(new Int128(new Uint32Array([5000000,   0,  0,  0])));
     });
     test(`multiplication is associative`, () => {
-        let a = new Int128(new Uint32Array([1, 2, 3, 4]));
-        let b = new Int128(new Uint32Array([0, 0, 0, 3]));
+        let a = new Int128(new Uint32Array([4, 3, 2, 1]));
+        let b = new Int128(new Uint32Array([3, 0, 0, 0]));
         expect(Int128.multiply(a, b)).toEqual(Int128.multiply(b,a));
     });
     test(`multiplication can produce 128-bit number`, () => {
-        let a = new Int128(new Uint32Array([0, 0, 0xf0000000, 0]));
-        let b = new Int128(new Uint32Array([0, 0, 0x10000000, 0]));
-        expect(a.times(b)).toEqual(new Int128(new Uint32Array([0xf000000, 0x00000000, 0x00000000, 0x00000000])));
+        let a = new Int128(new Uint32Array([0, 0xf0000000, 0, 0]));
+        let b = new Int128(new Uint32Array([0, 0x10000000, 0, 0]));
+        expect(a.times(b)).toEqual(new Int128(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0xf000000])));
     });
     //test(`lessThan works on 32-bit numbers`, () => {
-    //    let a = new Int128(new Uint32Array([0, 0, 0, 0x0000abcd]));
-    //    let b = new Int128(new Uint32Array([0, 0, 0, 0x0000abcf]));
+    //    let a = new Int128(new Uint32Array([0x0000abcd, 0, 0, 0]));
+    //    let b = new Int128(new Uint32Array([0x0000abcf, 0, 0, 0]));
     //    expect(a.lessThan(b)).toBeTruthy();
     //});
     //test(`lessThan works on 64-bit numbers`, () => {
-    //    let a = new Int128(new Uint32Array([0, 0, 32, 123]));
-    //    let b = new Int128(new Uint32Array([0, 0, 32, 568]));
+    //    let a = new Int128(new Uint32Array([123, 32, 0, 0]));
+    //    let b = new Int128(new Uint32Array([568, 32, 0, 0]));
     //    expect(a.lessThan(b)).toBeTruthy();
     //});
     //test(`lessThan works on negative numbers`, () => {
-    //    let a = new Int128(new Uint32Array([-1, -1, -158,   0]));
-    //    let b = new Int128(new Uint32Array([-1, -1,   -1,  -3]));
+    //    let a = new Int128(new Uint32Array([0,   -158, -1, -1]));
+    //    let b = new Int128(new Uint32Array([-3,  -1,   -1, -1]));
     //    expect(a.lessThan(b)).toBeTruthy();
     //});
     //test(`lessThan works on mixed numbers`, () => {
-    //    let a = new Int128(new Uint32Array([-1, -1, -1, -3]));
+    //    let a = new Int128(new Uint32Array([-3, -1, -1, -1]));
     //    let b = new Int128(new Uint32Array([ 0,  0,  0,  3]));
     //    expect(a.lessThan(b)).toBeTruthy();
     //});
@@ -239,10 +239,10 @@ describe(`Int128`, () => {
     });
     test(`fromString parses negative string`, () => {
         expect(Int128.fromString('-12345678901234567890123456789012345678'))
-            .toEqual(new Int64(new Uint32Array([0xf6b64f09,
-                                               0x0ffdccec,
-                                               0x3bb66faf,
-                                               0x21c70cb2])));
+            .toEqual(new Int64(new Uint32Array([0x21c70cb2,
+                                                0x3bb66faf,
+                                                0x0ffdccec,
+                                                0xf6b64f09])));
     });
 });
 
