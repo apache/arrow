@@ -19,7 +19,7 @@ const carryBit16 = 1 << 16;
 
 function intAsHex(value: number): string {
     if (value < 0) {
-        value = 0xFFFFFFFF + value + 1
+        value = 0xFFFFFFFF + value + 1;
     }
     return `0x${value.toString(16)}`;
 }
@@ -33,7 +33,7 @@ const kPowersOfTen = [1,
                       100000,
                       1000000,
                       10000000,
-                      100000000]
+                      100000000];
 
 export class BaseInt64 {
     constructor (protected buffer: Uint32Array) {}
@@ -134,7 +134,7 @@ export class Int64 extends BaseInt64 {
         this.buffer[0] = ~this.buffer[0] + 1;
         this.buffer[1] = ~this.buffer[1];
 
-        if (this.buffer[0] == 0) ++this.buffer[1];
+        if (this.buffer[0] == 0) { ++this.buffer[1]; }
         return this;
     }
 
@@ -161,10 +161,9 @@ export class Int64 extends BaseInt64 {
         //DCHECK_EQ(*out, 0)
             //<< "When converting a string to Decimal128 the initial output must be 0";
 
-
         //DCHECK_GT(length, 0) << "length of parsed decimal string should be greater than 0";
-        const negate = str.startsWith("-")
-        if (negate) str = str.substr(1);
+        const negate = str.startsWith('-');
+        if (negate) { str = str.substr(1); }
         const length = str.length;
 
         let out = new Int64(new Uint32Array([0, 0]));
@@ -216,24 +215,24 @@ export class Int128 {
         this.buffer[2] = ~this.buffer[2];
         this.buffer[3] = ~this.buffer[3];
 
-        if (this.buffer[0] == 0) ++this.buffer[1];
-        if (this.buffer[1] == 0) ++this.buffer[2];
-        if (this.buffer[2] == 0) ++this.buffer[3];
+        if (this.buffer[0] == 0) { ++this.buffer[1]; }
+        if (this.buffer[1] == 0) { ++this.buffer[2]; }
+        if (this.buffer[2] == 0) { ++this.buffer[3]; }
         return this;
     }
 
     times(other: Int128): Int128 {
         // Break the left and right numbers into 32 bit chunks
         // so that we can multiply them without overflow.
-        const L0 = new Uint64(new Uint32Array([this.buffer[3],  0]))
-        const L1 = new Uint64(new Uint32Array([this.buffer[2],  0]))
-        const L2 = new Uint64(new Uint32Array([this.buffer[1],  0]))
-        const L3 = new Uint64(new Uint32Array([this.buffer[0],  0]))
+        const L0 = new Uint64(new Uint32Array([this.buffer[3],  0]));
+        const L1 = new Uint64(new Uint32Array([this.buffer[2],  0]));
+        const L2 = new Uint64(new Uint32Array([this.buffer[1],  0]));
+        const L3 = new Uint64(new Uint32Array([this.buffer[0],  0]));
 
-        const R0 = new Uint64(new Uint32Array([other.buffer[3], 0]))
-        const R1 = new Uint64(new Uint32Array([other.buffer[2], 0]))
-        const R2 = new Uint64(new Uint32Array([other.buffer[1], 0]))
-        const R3 = new Uint64(new Uint32Array([other.buffer[0], 0]))
+        const R0 = new Uint64(new Uint32Array([other.buffer[3], 0]));
+        const R1 = new Uint64(new Uint32Array([other.buffer[2], 0]));
+        const R2 = new Uint64(new Uint32Array([other.buffer[1], 0]));
+        const R3 = new Uint64(new Uint32Array([other.buffer[0], 0]));
 
         let product = Uint64.multiply(L3, R3);
         this.buffer[0] = product.low();
@@ -246,7 +245,7 @@ export class Int128 {
         product = Uint64.multiply(L3, R2);
         sum.plus(product);
 
-        this.buffer[1] = sum.low()
+        this.buffer[1] = sum.low();
 
         this.buffer[3] = (sum.lessThan(product) ? 1 : 0);
 
@@ -305,7 +304,7 @@ export class Int128 {
 
     static fromString(str: string, out_buffer = new Uint32Array(4)): Int128 {
         // TODO: Assert that out_buffer is 0 and length = 4
-        const negate = str.startsWith("-");
+        const negate = str.startsWith('-');
         const length = str.length;
 
         let out = new Int128(out_buffer);

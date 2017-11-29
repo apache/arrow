@@ -40,7 +40,7 @@ function MixinArrowTraits<T extends Vector<any>, TArgv>(
     } as any as { new (argv: TArgv | (TArgv & { validity: Uint8Array }) | (TArgv & { field: Field, fieldNode: FieldNode })): T };
 }
 
-export { Vector }
+export { Vector };
 export const MixinListVector = MixinArrowTraits(vectors.ListVector as any, fieldVectors.ListVector as any, nullableVectors.ListVector as any, nullableFieldVectors.ListVector as any);
 export class ListVector extends MixinListVector {}
 export const MixinBinaryVector = MixinArrowTraits(vectors.BinaryVector as any, fieldVectors.BinaryVector as any, nullableVectors.BinaryVector as any, nullableFieldVectors.BinaryVector as any);

@@ -23,7 +23,7 @@ import { readJSON } from '../reader/json';
 function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
     return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
         vec && col && col.concat(vec) || col || vec
-    ) as Vector<any>[]
+    ) as Vector<any>[];
 }
 
 export class Table<T> extends StructVector<T> {
