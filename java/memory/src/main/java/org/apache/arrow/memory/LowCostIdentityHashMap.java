@@ -28,7 +28,7 @@ import com.google.common.base.Preconditions;
  * that provides "getKey" method
  * @param <V>
  */
-public class LowCostIdentityHasMap<K, V extends ValueWithKeyIncluded<K>> {
+public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
 
   /*
    * The internal data structure to hold values.
@@ -52,7 +52,7 @@ public class LowCostIdentityHasMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Creates an Map with default expected maximum size.
    */
-  public LowCostIdentityHasMap() {
+  public LowCostIdentityHashMap() {
     this(DEFAULT_MIN_SIZE);
   }
 
@@ -63,7 +63,7 @@ public class LowCostIdentityHasMap<K, V extends ValueWithKeyIncluded<K>> {
    *            The estimated maximum number of entries that will be put in
    *            this map.
    */
-  public LowCostIdentityHasMap(int maxSize) {
+  public LowCostIdentityHashMap(int maxSize) {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
@@ -96,7 +96,7 @@ public class LowCostIdentityHasMap<K, V extends ValueWithKeyIncluded<K>> {
   private Object[] newElementArray(int s) {
     return new Object[s];
   }
-  
+
   /**
    * Removes all elements from this map, leaving it empty.
    *
