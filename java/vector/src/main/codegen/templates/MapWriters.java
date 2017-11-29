@@ -188,10 +188,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    <#if mode == "Single">
-    <#else>
     container.setIndexDefined(idx());
-    </#if>
   }
 
   @Override
