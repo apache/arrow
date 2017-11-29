@@ -158,6 +158,8 @@ garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
  * @ordered: Whether dictionary contents are ordered or not.
  *
  * Returns: The newly created dictionary data type.
+ *
+ * Since: 0.8.0
  */
 GArrowDictionaryDataType *
 garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
@@ -177,6 +179,8 @@ garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
  * @data_type: The #GArrowDictionaryDataType.
  *
  * Returns: (transfer full): The #GArrowDataType of index.
+ *
+ * Since: 0.8.0
  */
 GArrowDataType *
 garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *data_type)
@@ -193,6 +197,8 @@ garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *data_t
  * @data_type: The #GArrowDictionaryDataType.
  *
  * Returns: (transfer full): The dictionary as #GArrowArray.
+ *
+ * Since: 0.8.0
  */
 GArrowArray *
 garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *data_type)
@@ -209,6 +215,8 @@ garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *data_type)
  * @data_type: The #GArrowDictionaryDataType.
  *
  * Returns: Whether dictionary contents are ordered or not.
+ *
+ * Since: 0.8.0
  */
 gboolean
 garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *data_type)
