@@ -57,6 +57,22 @@ cdef class SerializationContext:
         self.custom_serializers = dict()
         self.custom_deserializers = dict()
 
+    def clone(self):
+        """
+        Return copy of this SerializationContext
+
+        Returns
+        -------
+        clone : SerializationContext
+        """
+        result = SerializationContext()
+        result.type_to_type_id = self.type_to_type_id.copy()
+        result.whitelisted_types = self.whitelisted_types.copy()
+        result.custom_serializers = self.custom_serializers.copy()
+        result.custom_deserializers = self.custom_deserializers.copy()
+
+        return result
+
     def register_type(self, type_, type_id,
                       custom_serializer=None, custom_deserializer=None):
         """EXPERIMENTAL: Add type to the list of types we can serialize.

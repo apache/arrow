@@ -212,11 +212,11 @@ def make_serialization_context():
 serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, f):
+def serialization_roundtrip(value, f, ctx=serialization_context):
     f.seek(0)
-    pa.serialize_to(value, f, serialization_context)
+    pa.serialize_to(value, f, ctx)
     f.seek(0)
-    result = pa.deserialize_from(f, None, serialization_context)
+    result = pa.deserialize_from(f, None, ctx)
     assert_equal(value, result)
 
     _check_component_roundtrip(value)
@@ -249,6 +249,7 @@ def test_primitive_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in PRIMITIVE_OBJECTS:
             serialization_roundtrip(obj, mmap)
+            serialization_roundtrip(obj, mmap, pa.pandas_serialization_context)
 
 
 def test_serialize_to_buffer():
