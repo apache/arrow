@@ -129,4 +129,25 @@ GArrowArray *garrow_struct_array_get_field(GArrowStructArray *array,
                                            gint i);
 GList *garrow_struct_array_get_fields(GArrowStructArray *array);
 
+
+#define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryArray,
+                         garrow_dictionary_array,
+                         GARROW,
+                         DICTIONARY_ARRAY,
+                         GArrowArray)
+struct _GArrowDictionaryArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GArrowDictionaryArray *
+garrow_dictionary_array_new(GArrowDataType *data_type, GArrowArray *indices);
+GArrowArray *
+garrow_dictionary_array_get_indices(GArrowDictionaryArray *array);
+GArrowArray *
+garrow_dictionary_array_get_dictionary(GArrowDictionaryArray *array);
+GArrowDictionaryDataType *
+garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array);
+
 G_END_DECLS

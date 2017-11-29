@@ -44,6 +44,11 @@ G_BEGIN_DECLS
  * or more structs. One struct has zero or more fields. If you don't
  * have Arrow format data, you need to use #GArrowStructArrayBuilder
  * to create a new array.
+ *
+ * #GArrowDictionaryArray is a class for dictionary array. It can
+ * store data with dictionary and indices. It's space effective than
+ * normal array when the array has many same values. You can convert a
+ * normal array to dictionary array by garrow_array_dictionary_encode().
  */
 
 G_DEFINE_TYPE(GArrowListArray,               \
@@ -232,6 +237,108 @@ garrow_struct_array_get_fields(GArrowStructArray *array)
   }
 
   return g_list_reverse(fields);
+}
+
+
+G_DEFINE_TYPE(GArrowDictionaryArray,            \
+              garrow_dictionary_array,          \
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_dictionary_array_init(GArrowDictionaryArray *object)
+{
+}
+
+static void
+garrow_dictionary_array_class_init(GArrowDictionaryArrayClass *klass)
+{
+}
+
+/**
+ * garrow_dictionary_array_new:
+ * @data_type: The data type of dictionary.
+ * @indices: The indices of values in dictionary.
+ *
+ * Returns: A newly created #GArrowDictionaryArray.
+ *
+ * Since: 0.8.0
+ */
+GArrowDictionaryArray *
+garrow_dictionary_array_new(GArrowDataType *data_type,
+                            GArrowArray *indices)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_indices = garrow_array_get_raw(indices);
+  auto arrow_dictionary_array =
+    std::make_shared<arrow::DictionaryArray>(arrow_data_type,
+                                             arrow_indices);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
+  return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_dictionary_array_get_indices:
+ * @array: A #GArrowDictionaryArray.
+ *
+ * Returns: (transfer full): The indices of values in dictionary.
+ *
+ * Since: 0.8.0
+ */
+GArrowArray *
+garrow_dictionary_array_get_indices(GArrowDictionaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dictionary_array =
+    std::static_pointer_cast<arrow::DictionaryArray>(arrow_array);
+  auto arrow_indices = arrow_dictionary_array->indices();
+  return garrow_array_new_raw(&arrow_indices);
+}
+
+/**
+ * garrow_dictionary_array_get_dictionary:
+ * @array: A #GArrowDictionaryArray.
+ *
+ * Returns: (transfer full): The dictionary of this array.
+ *
+ * Since: 0.8.0
+ */
+GArrowArray *
+garrow_dictionary_array_get_dictionary(GArrowDictionaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dictionary_array =
+    std::static_pointer_cast<arrow::DictionaryArray>(arrow_array);
+  auto arrow_dictionary = arrow_dictionary_array->dictionary();
+  return garrow_array_new_raw(&arrow_dictionary);
+}
+
+/**
+ * garrow_dictionary_array_get_dictionary_data_type:
+ * @array: A #GArrowDictionaryArray.
+ *
+ * Returns: (transfer full): The dictionary data type of this array.
+ *
+ * Since: 0.8.0
+ */
+GArrowDictionaryDataType *
+garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dictionary_array =
+    std::static_pointer_cast<arrow::DictionaryArray>(arrow_array);
+  auto arrow_dictionary_data_type = arrow_dictionary_array->dict_type();
+  auto const_arrow_data_type =
+    static_cast<const arrow::DataType *>(arrow_dictionary_data_type);
+  auto arrow_data_type = const_cast<arrow::DataType *>(const_arrow_data_type);
+  struct NullDeleter {
+    void operator()(arrow::DataType *data_type) {
+    }
+  };
+  std::shared_ptr<arrow::DataType>
+    shared_arrow_data_type(arrow_data_type, NullDeleter());
+  auto data_type = garrow_data_type_new_raw(&shared_arrow_data_type);
+  return GARROW_DICTIONARY_DATA_TYPE(data_type);
 }
 
 G_END_DECLS
