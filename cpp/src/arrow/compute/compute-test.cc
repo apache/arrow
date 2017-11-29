@@ -869,8 +869,8 @@ TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
     return;
   }
 
-  const int64_t kTotalValues = 10000;
-  const int64_t kRepeats = 10;
+  const int64_t kTotalValues = 1000000;
+  const int64_t kRepeats = 5;
 
   vector<T> values;
   vector<T> uniques;
