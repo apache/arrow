@@ -119,7 +119,7 @@ public class TestListVector {
   public void testSetLastSetUsage() throws Exception {
     try (ListVector listVector = ListVector.empty("input", allocator)) {
 
-      /* Explicitly add the dataVector */
+      /* Explicitly add the dataBuffer */
       MinorType type = MinorType.BIGINT;
       listVector.addOrGetVector(FieldType.nullable(type.getType()));
 
@@ -170,16 +170,16 @@ public class TestListVector {
       /* set lastset and arbitrary valuecount for list vector.
        *
        * NOTE: if we don't execute setLastSet() before setLastValueCount(), then
-       * the latter will corrupt the offsetVector and thus the accessor will not
-       * retrieve the correct values from underlying dataVector. Run the test
+       * the latter will corrupt the offsetBuffer and thus the accessor will not
+       * retrieve the correct values from underlying dataBuffer. Run the test
        * by commenting out next line and we should see failures from 5th assert
        * onwards. This is why doing setLastSet() is important before setValueCount()
        * once the vector has been loaded.
        *
        * Another important thing to remember is the value of lastSet itself.
        * Even though the listVector has elements till index 2 only, the lastSet should
-       * be set as 3. This is because the offsetVector has valid offsets filled till index 3.
-       * If we do setLastSet(2), the offsetVector at index 3 will contain incorrect value
+       * be set as 3. This is because the offsetBuffer has valid offsets filled till index 3.
+       * If we do setLastSet(2), the offsetBuffer at index 3 will contain incorrect value
        * after execution of setValueCount().
        *
        * correct state of the listVector
@@ -258,7 +258,7 @@ public class TestListVector {
   public void testSplitAndTransfer() throws Exception {
     try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
 
-      /* Explicitly add the dataVector */
+      /* Explicitly add the dataBuffer */
       MinorType type = MinorType.BIGINT;
       listVector.addOrGetVector(FieldType.nullable(type.getType()));
 
@@ -309,7 +309,7 @@ public class TestListVector {
       /* get offset buffer */
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
-      /* get dataVector */
+      /* get dataBuffer */
       BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check the vector output */
@@ -414,10 +414,10 @@ public class TestListVector {
 
           transferPair.splitAndTransfer(start, splitLength);
 
-          /* get offsetVector of toVector */
+          /* get offsetBuffer of toVector */
           final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
 
-          /* get dataVector of toVector */
+          /* get dataBuffer of toVector */
           BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
@@ -454,7 +454,7 @@ public class TestListVector {
       /* allocate memory */
       listWriter.allocate();
 
-      /* the dataVector that backs a listVector will also be a
+      /* the dataBuffer that backs a listVector will also be a
        * listVector for this test.
        */
 

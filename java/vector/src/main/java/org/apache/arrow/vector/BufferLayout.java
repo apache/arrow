@@ -16,34 +16,50 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.ipc.message;
+package org.apache.arrow.vector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import com.google.flatbuffers.FlatBufferBuilder;
 
-public class VectorLayout {
+public class BufferLayout {
 
-  private static final VectorLayout VALIDITY_VECTOR = new VectorLayout(ArrowVectorType.VALIDITY, 1);
-  private static final VectorLayout OFFSET_VECTOR = new VectorLayout(ArrowVectorType.OFFSET, 32);
-  private static final VectorLayout TYPE_VECTOR = new VectorLayout(ArrowVectorType.TYPE, 32);
-  private static final VectorLayout BOOLEAN_VECTOR = new VectorLayout(ArrowVectorType.DATA, 1);
-  private static final VectorLayout VALUES_128 = new VectorLayout(ArrowVectorType.DATA, 128);
-  private static final VectorLayout VALUES_64 = new VectorLayout(ArrowVectorType.DATA, 64);
-  private static final VectorLayout VALUES_32 = new VectorLayout(ArrowVectorType.DATA, 32);
-  private static final VectorLayout VALUES_16 = new VectorLayout(ArrowVectorType.DATA, 16);
-  private static final VectorLayout VALUES_8 = new VectorLayout(ArrowVectorType.DATA, 8);
+  public enum BufferType {
+    DATA("DATA"),
+    OFFSET("OFFSET"),
+    VALIDITY("VALIDITY"),
+    TYPE("TYPE");
 
-  public static VectorLayout typeVector() {
-    return TYPE_VECTOR;
+    final private String name;
+
+    BufferType(String name) {
+      this.name = name;
+    }
+
+    public String getName() {
+      return name;
+    }
   }
 
-  public static VectorLayout offsetVector() {
-    return OFFSET_VECTOR;
+  private static final BufferLayout VALIDITY_BUFFER = new BufferLayout(BufferType.VALIDITY, 1);
+  private static final BufferLayout OFFSET_BUFFER = new BufferLayout(BufferType.OFFSET, 32);
+  private static final BufferLayout TYPE_BUFFER = new BufferLayout(BufferType.TYPE, 32);
+  private static final BufferLayout BIT_BUFFER = new BufferLayout(BufferType.DATA, 1);
+  private static final BufferLayout VALUES_128 = new BufferLayout(BufferType.DATA, 128);
+  private static final BufferLayout VALUES_64 = new BufferLayout(BufferType.DATA, 64);
+  private static final BufferLayout VALUES_32 = new BufferLayout(BufferType.DATA, 32);
+  private static final BufferLayout VALUES_16 = new BufferLayout(BufferType.DATA, 16);
+  private static final BufferLayout VALUES_8 = new BufferLayout(BufferType.DATA, 8);
+
+  public static BufferLayout typeBuffer() {
+    return TYPE_BUFFER;
   }
 
-  public static VectorLayout dataVector(int typeBitWidth) {
+  public static BufferLayout offsetBuffer() {
+    return OFFSET_BUFFER;
+  }
+
+  public static BufferLayout dataBuffer(int typeBitWidth) {
     switch (typeBitWidth) {
       case 8:
         return VALUES_8;
@@ -60,24 +76,24 @@ public class VectorLayout {
     }
   }
 
-  public static VectorLayout booleanVector() {
-    return BOOLEAN_VECTOR;
+  public static BufferLayout booleanVector() {
+    return BIT_BUFFER;
   }
 
-  public static VectorLayout validityVector() {
-    return VALIDITY_VECTOR;
+  public static BufferLayout validityVector() {
+    return VALIDITY_BUFFER;
   }
 
-  public static VectorLayout byteVector() {
-    return dataVector(8);
+  public static BufferLayout byteVector() {
+    return dataBuffer(8);
   }
 
   private final short typeBitWidth;
 
-  private final ArrowVectorType type;
+  private final BufferType type;
 
   @JsonCreator
-  private VectorLayout(@JsonProperty("type") ArrowVectorType type, @JsonProperty("typeBitWidth") int typeBitWidth) {
+  private BufferLayout(@JsonProperty("type") BufferType type, @JsonProperty("typeBitWidth") int typeBitWidth) {
     super();
     this.type = Preconditions.checkNotNull(type);
     this.typeBitWidth = (short) typeBitWidth;
@@ -90,7 +106,7 @@ public class VectorLayout {
     return typeBitWidth;
   }
 
-  public ArrowVectorType getType() {
+  public BufferType getType() {
     return type;
   }
 
@@ -115,7 +131,7 @@ public class VectorLayout {
     if (getClass() != obj.getClass()) {
       return false;
     }
-    VectorLayout other = (VectorLayout) obj;
+    BufferLayout other = (BufferLayout) obj;
     return type.equals(other.type) && (typeBitWidth == other.typeBitWidth);
   }
 }

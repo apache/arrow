@@ -43,8 +43,7 @@ import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ipc.message.VectorLayout;
-import org.apache.arrow.vector.ipc.message.TypeLayout;
+import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 public class Field {
