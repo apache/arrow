@@ -76,7 +76,7 @@ public class AllocationManager {
   private final UnsafeDirectLittleEndian underlying;
   // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
   // see JIRA for details
-  private final LowCostIdentityHasMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHasMap<>();
+  private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private final AutoCloseableLock readLock = new AutoCloseableLock(lock.readLock());
   private final AutoCloseableLock writeLock = new AutoCloseableLock(lock.writeLock());
