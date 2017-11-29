@@ -59,7 +59,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
   }
 
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
-  private final NullableMapWriter writer = new NullableMapWriter(this);
+  private NullableMapWriter writer;
 
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
@@ -84,6 +84,7 @@ public class MapVector extends AbstractMapVector implements FieldVector {
     this.valueCount = 0;
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+    this.writer = new NullableMapWriter(this);  // NOTE: fieldType must be set before this
   }
 
   @Override
