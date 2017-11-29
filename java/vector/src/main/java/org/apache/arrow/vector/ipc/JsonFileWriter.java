@@ -34,6 +34,7 @@ import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowVectorType;
+import org.apache.arrow.vector.ipc.message.TypeLayout;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -152,7 +153,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
-    List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
+    List<ArrowVectorType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getVectorTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {
       throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " + vectorTypes.size() + " != " + vectorBuffers.size());

@@ -711,11 +711,9 @@ public class TestValueVector {
 
       vector.setValueCount(1024);
       Field field = vector.getField();
-      TypeLayout typeLayout = field.getTypeLayout();
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-      assertEquals(2, typeLayout.getVectors().size());
       assertEquals(2, buffers.size());
 
       ArrowBuf validityVectorBuf = buffers.get(0);

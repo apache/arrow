@@ -124,9 +124,6 @@ public class TestArrowStreamPipe {
     public void run() {
       try {
         assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
-        assertTrue(
-            reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectorTypes().toString(),
-            reader.getVectorSchemaRoot().getSchema().getFields().get(0).getTypeLayout().getVectors().size() > 0);
         while (!done) {
           assertTrue(reader.loadNextBatch() != done);
         }

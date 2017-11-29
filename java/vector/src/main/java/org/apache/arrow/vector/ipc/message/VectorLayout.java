@@ -23,12 +23,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.flatbuffers.FlatBufferBuilder;
 
-public class VectorLayout implements FBSerializable {
+public class VectorLayout {
 
   private static final VectorLayout VALIDITY_VECTOR = new VectorLayout(ArrowVectorType.VALIDITY, 1);
   private static final VectorLayout OFFSET_VECTOR = new VectorLayout(ArrowVectorType.OFFSET, 32);
   private static final VectorLayout TYPE_VECTOR = new VectorLayout(ArrowVectorType.TYPE, 32);
   private static final VectorLayout BOOLEAN_VECTOR = new VectorLayout(ArrowVectorType.DATA, 1);
+  private static final VectorLayout VALUES_128 = new VectorLayout(ArrowVectorType.DATA, 128);
   private static final VectorLayout VALUES_64 = new VectorLayout(ArrowVectorType.DATA, 64);
   private static final VectorLayout VALUES_32 = new VectorLayout(ArrowVectorType.DATA, 32);
   private static final VectorLayout VALUES_16 = new VectorLayout(ArrowVectorType.DATA, 16);
@@ -52,6 +53,8 @@ public class VectorLayout implements FBSerializable {
         return VALUES_32;
       case 64:
         return VALUES_64;
+      case 128:
+        return VALUES_128;
       default:
         throw new IllegalArgumentException("only 8, 16, 32, or 64 bits supported");
     }
@@ -81,10 +84,6 @@ public class VectorLayout implements FBSerializable {
     if (typeBitWidth <= 0) {
       throw new IllegalArgumentException("bitWidth invalid: " + typeBitWidth);
     }
-  }
-
-  public VectorLayout(org.apache.arrow.flatbuf.VectorLayout layout) {
-    this(new ArrowVectorType(layout.type()), layout.bitWidth());
   }
 
   public int getTypeBitWidth() {
@@ -119,12 +118,4 @@ public class VectorLayout implements FBSerializable {
     VectorLayout other = (VectorLayout) obj;
     return type.equals(other.type) && (typeBitWidth == other.typeBitWidth);
   }
-
-  @Override
-  public int writeTo(FlatBufferBuilder builder) {
-    ;
-    return org.apache.arrow.flatbuf.VectorLayout.createVectorLayout(builder, typeBitWidth, type.getType());
-  }
-
-
 }

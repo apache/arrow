@@ -43,6 +43,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowVectorType;
+import org.apache.arrow.vector.ipc.message.TypeLayout;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -471,7 +472,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   }
 
   private void readFromJsonIntoVector(Field field, FieldVector vector) throws JsonParseException, IOException {
-    List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
+    TypeLayout typeLayout = TypeLayout.getTypeLayout(field.getType());
+    List<ArrowVectorType> vectorTypes = typeLayout.getVectorTypes();
     ArrowBuf[] vectorBuffers = new ArrowBuf[vectorTypes.size()];
     /*
      * The order of inner buffers is :
