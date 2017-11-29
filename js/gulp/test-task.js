@@ -42,6 +42,7 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
     if (!argv.integration) {
         args.push('test/vector-tests.ts');
+        args.push('test/int-tests.ts');
     }
     opts.env = { ...opts.env,
         TEST_TARGET: target,
