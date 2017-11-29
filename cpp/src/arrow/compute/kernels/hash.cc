@@ -43,7 +43,7 @@ typedef int32_t hash_slot_t;
 static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
 
 // The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.7;
+static constexpr double kMaxHashTableLoad = 0.5;
 
 enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
 
@@ -260,7 +260,7 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
       COMPUTE_HASH;                                                              \
       while (kHashSlotEmpty != new_hash_slots[j]) {                              \
         ++j;                                                                     \
-        if (ARROW_PREDICT_FALSE(j == hash_table_size_)) {                        \
+        if (ARROW_PREDICT_FALSE(j == new_size)) {                                \
           j = 0;                                                                 \
         }                                                                        \
       }                                                                          \
