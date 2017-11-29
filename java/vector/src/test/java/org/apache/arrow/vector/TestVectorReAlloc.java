@@ -130,7 +130,7 @@ public class TestVectorReAlloc {
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        vector.getAccessor().getObject(513);
+        vector.getObject(513);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok

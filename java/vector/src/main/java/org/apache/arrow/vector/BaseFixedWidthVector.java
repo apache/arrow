@@ -91,19 +91,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * the top class as of now is not a good idea.
    */
 
-
-  @Override
-  @Deprecated
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to vector");
-  }
-
-  @Override
-  @Deprecated
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
-  }
-
   /**
    * Get the memory address of buffer that manages the validity
    * (NULL or NON-NULL nature) of elements in the vector.
@@ -711,6 +698,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @return the number of null elements.
    */
+  @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
@@ -721,6 +709,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @return valueCount for the vector
    */
+  @Override
   public int getValueCount() {
     return valueCount;
   }
@@ -730,6 +719,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @param valueCount  value count to set
    */
+  @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
     final int currentValueCapacity = getValueCapacity();
@@ -789,6 +779,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param index  position of element
    * @return true if element at given index is null, false otherwise
    */
+  @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
