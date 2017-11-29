@@ -18,8 +18,6 @@
 
 package org.apache.arrow.vector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 
 public class BufferLayout {
@@ -92,8 +90,7 @@ public class BufferLayout {
 
   private final BufferType type;
 
-  @JsonCreator
-  private BufferLayout(@JsonProperty("type") BufferType type, @JsonProperty("typeBitWidth") int typeBitWidth) {
+  private BufferLayout(BufferType type, int typeBitWidth) {
     super();
     this.type = Preconditions.checkNotNull(type);
     this.typeBitWidth = (short) typeBitWidth;

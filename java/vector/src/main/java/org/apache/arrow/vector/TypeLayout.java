@@ -42,9 +42,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 
 /**
@@ -206,8 +203,7 @@ public class TypeLayout {
 
   private final List<BufferLayout> bufferLayouts;
 
-  @JsonCreator
-  public TypeLayout(@JsonProperty("bufferLayouts") List<BufferLayout> bufferLayouts) {
+  public TypeLayout(List<BufferLayout> bufferLayouts) {
     super();
     this.bufferLayouts = Preconditions.checkNotNull(bufferLayouts);
   }
@@ -221,7 +217,6 @@ public class TypeLayout {
     return bufferLayouts;
   }
 
-  @JsonIgnore
   public List<BufferType> getBufferTypes() {
     List<BufferType> types = new ArrayList<>(bufferLayouts.size());
     for (BufferLayout vector : bufferLayouts) {
