@@ -600,8 +600,10 @@ cdef class ParquetReader:
         object source
         CMemoryPool* allocator
         unique_ptr[FileReader] reader
-        column_idx_map
         FileMetaData _metadata
+
+    cdef public:
+        _column_idx_map
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.allocator = maybe_unbox_memory_pool(memory_pool)
@@ -623,6 +625,23 @@ cdef class ParquetReader:
         with nogil:
             check_status(OpenFile(rd_handle, self.allocator, properties,
                                   c_metadata, &self.reader))
+
+    property column_paths:
+
+        def __get__(self):
+            cdef:
+                FileMetaData container = self.metadata
+                const CFileMetaData* metadata = container._metadata
+                vector[c_string] path
+                int i = 0
+
+            paths = []
+            for i in range(0, metadata.num_columns()):
+                path = (metadata.schema().Column(i)
+                        .path().get().ToDotVector())
+                paths.append([frombytes(x) for x in path])
+
+            return paths
 
     @property
     def metadata(self):
@@ -729,14 +748,14 @@ cdef class ParquetReader:
             const CFileMetaData* metadata = container._metadata
             int i = 0
 
-        if self.column_idx_map is None:
-            self.column_idx_map = {}
+        if self._column_idx_map is None:
+            self._column_idx_map = {}
             for i in range(0, metadata.num_columns()):
                 col_bytes = tobytes(metadata.schema().Column(i)
                                     .path().get().ToDotString())
-                self.column_idx_map[col_bytes] = i
+                self._column_idx_map[col_bytes] = i
 
-        return self.column_idx_map[tobytes(column_name)]
+        return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
         cdef:
