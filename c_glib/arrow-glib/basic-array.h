@@ -66,6 +66,8 @@ GArrowArray   *garrow_array_cast        (GArrowArray *array,
                                          GArrowDataType *target_data_type,
                                          GArrowCastOptions *options,
                                          GError **error);
+GArrowArray   *garrow_array_unique      (GArrowArray *array,
+                                         GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \
   (garrow_null_array_get_type())
