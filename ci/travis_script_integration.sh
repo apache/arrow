@@ -34,8 +34,6 @@ pushd $ARROW_JS_DIR
 # lint and compile JS source
 npm run lint
 npm run build
-# create initial test data
-npm run create:testdata
 
 popd
 
@@ -57,6 +55,8 @@ popd
 
 pushd $ARROW_JS_DIR
 
+# create initial test data
+npm run create:testdata
 # run once to write the snapshots
 npm test -- -t ts -u --integration
 # run again to test all builds against the snapshots
