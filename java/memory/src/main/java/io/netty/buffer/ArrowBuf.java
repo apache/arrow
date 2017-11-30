@@ -512,10 +512,30 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
+  public float getFloat(int index) {
+    return Float.intBitsToFloat(getInt(index));
+  }
+
+  @Override
   public long getLongLE(int index) {
     chk(index, 8);
     final long v = PlatformDependent.getLong(addr(index));
     return Long.reverseBytes(v);
+  }
+
+  @Override
+  public double getDouble(int index) {
+    return Double.longBitsToDouble(getLong(index));
+  }
+
+  @Override
+  public char getChar(int index) {
+    return (char) getShort(index);
+  }
+
+  @Override
+  public long getUnsignedInt(int index) {
+    return getInt(index) & 0xFFFFFFFFL;
   }
 
   @Override
@@ -530,6 +550,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     chk(index, 4);
     final int v = PlatformDependent.getInt(addr(index));
     return Integer.reverseBytes(v);
+  }
+
+  @Override
+  public int getUnsignedShort(int index) {
+    return getShort(index) & 0xFFFF;
   }
 
   @Override
@@ -622,6 +647,27 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
+  public ArrowBuf setChar(int index, int value) {
+    chk(index, 2);
+    PlatformDependent.putShort(addr(index), (short) value);
+    return this;
+  }
+
+  @Override
+  public ArrowBuf setFloat(int index, float value) {
+    chk(index, 4);
+    PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
+    return this;
+  }
+
+  @Override
+  public ArrowBuf setDouble(int index, double value) {
+    chk(index, 8);
+    PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
+    return this;
+  }
+
+  @Override
   public ArrowBuf writeShort(int value) {
     ensure(2);
     PlatformDependent.putShort(addr(writerIndex), (short) value);
@@ -641,6 +687,30 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   public ArrowBuf writeLong(long value) {
     ensure(8);
     PlatformDependent.putLong(addr(writerIndex), value);
+    writerIndex += 8;
+    return this;
+  }
+
+  @Override
+  public ArrowBuf writeChar(int value) {
+    ensure(2);
+    PlatformDependent.putShort(addr(writerIndex), (short) value);
+    writerIndex += 2;
+    return this;
+  }
+
+  @Override
+  public ArrowBuf writeFloat(float value) {
+    ensure(4);
+    PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
+    writerIndex += 4;
+    return this;
+  }
+
+  @Override
+  public ArrowBuf writeDouble(double value) {
+    ensure(8);
+    PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
     writerIndex += 8;
     return this;
   }
