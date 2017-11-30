@@ -20,7 +20,6 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -131,7 +130,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     switch (mode) {
 
       case INIT:
-        mapRoot = nullableMapWriterFactory.build((MapVector) container);
+        mapRoot = nullableMapWriterFactory.build(container);
         mapRoot.setPosition(idx());
         mode = Mode.MAP;
         break;
