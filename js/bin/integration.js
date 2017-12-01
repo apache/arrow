@@ -19,7 +19,7 @@
 
 var fs = require('fs');
 var arrow = require('../targets/es5/cjs/Arrow.js')
-var readJSON = arrow.readJSON;
+var parse = require('json-bignum').parse;
 var Table = arrow.Table;
 var optionList = [
     {
@@ -71,7 +71,7 @@ if (!argv.arrow || !argv.json || !argv.mode) print_usage();
 
 switch (argv.mode) {
     case 'VALIDATE':
-        var json_table = Table.from(fs.readFileSync(argv.json, 'utf8'));
+        var json_table = Table.from(parse(fs.readFileSync(argv.json, 'utf8')));
         var arrow_table = Table.from([fs.readFileSync(argv.arrow)]);
         var string_equals = (json_table.toString() == arrow_table.toString());
 
