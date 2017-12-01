@@ -33,6 +33,7 @@
 #include "arrow/test-util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit-util.h"
 #include "arrow/util/decimal.h"
 
 namespace arrow {
@@ -150,28 +151,90 @@ TEST_F(TestArray, TestIsNullIsValid) {
                                  1, 0, 1, 1, 0, 1, 0, 0,
                                  1, 0, 0, 1};
   // clang-format on
+  vector<uint8_t> valid_bitmap;
   int64_t null_count = 0;
   for (uint8_t x : null_bitmap) {
     if (x == 0) {
       ++null_count;
+      valid_bitmap.push_back(1);
+    } else {
+      valid_bitmap.push_back(0);
     }
   }
 
   std::shared_ptr<Buffer> null_buf;
+  std::shared_ptr<Buffer> null_arr_buf;
+  std::shared_ptr<Buffer> valid_arr_buf;
   ASSERT_OK(BitUtil::BytesToBits(null_bitmap, default_memory_pool(), &null_buf));
+  ASSERT_OK(null_buf->Copy(0, null_buf->size(), &valid_arr_buf));
+  ASSERT_OK(BitUtil::BytesToBits(valid_bitmap, default_memory_pool(), &null_arr_buf));
 
   std::unique_ptr<Array> arr;
   arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
+
+  std::unique_ptr<Array> null_arr;
+  std::unique_ptr<Array> valid_arr;
+  null_arr.reset(new BooleanArray(valid_bitmap.size(), null_arr_buf, nullptr, 0));
+  valid_arr.reset(new BooleanArray(null_bitmap.size(), valid_arr_buf, nullptr, 0));
 
   ASSERT_EQ(null_count, arr->null_count());
   ASSERT_EQ(5, null_buf->size());
 
   ASSERT_TRUE(arr->null_bitmap()->Equals(*null_buf.get()));
 
+  EXPECT_TRUE(arr->IsNull()->Equals(*null_arr.get()));
+  EXPECT_TRUE(arr->IsValid()->Equals(*valid_arr.get()));
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
     EXPECT_EQ(null_bitmap[i] != 0, !arr->IsNull(i)) << i;
     EXPECT_EQ(null_bitmap[i] != 0, arr->IsValid(i)) << i;
   }
+}
+
+TEST_F(TestArray, TestIsNullIsValidLarge) {
+  // clang-format off
+  vector<uint8_t> null_bitmap = {1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 1, 1, 0, 1, 0, 0,
+                                 1, 0, 0, 1};
+  // clang-format on
+  const size_t initial_size = null_bitmap.size();
+  const size_t generate_size = (3 * BitUtil::kSimdWidth * 8) / null_bitmap.size() + 1;
+
+  for (size_t i = 1; i < generate_size; i++) {
+    for (size_t j = 0; j < initial_size; j++) {
+      null_bitmap.push_back(null_bitmap[j]);
+    }
+  }
+
+  vector<uint8_t> valid_bitmap;
+  int64_t null_count = 0;
+  for (uint8_t x : null_bitmap) {
+    if (x == 0) {
+      ++null_count;
+      valid_bitmap.push_back(1);
+    } else {
+      valid_bitmap.push_back(0);
+    }
+  }
+
+  std::shared_ptr<Buffer> null_buf;
+  std::shared_ptr<Buffer> null_arr_buf;
+  std::shared_ptr<Buffer> valid_arr_buf;
+  ASSERT_OK(BitUtil::BytesToBits(null_bitmap, default_memory_pool(), &null_buf));
+  ASSERT_OK(null_buf->Copy(0, null_buf->size(), &valid_arr_buf));
+  ASSERT_OK(BitUtil::BytesToBits(valid_bitmap, default_memory_pool(), &null_arr_buf));
+
+  std::unique_ptr<Array> arr;
+  arr.reset(new Int32Array(null_bitmap.size(), nullptr, null_buf, null_count));
+
+  std::unique_ptr<Array> null_arr;
+  std::unique_ptr<Array> valid_arr;
+  null_arr.reset(new BooleanArray(valid_bitmap.size(), null_arr_buf, nullptr, 0));
+  valid_arr.reset(new BooleanArray(null_bitmap.size(), valid_arr_buf, nullptr, 0));
+
+  EXPECT_TRUE(arr->IsNull()->Equals(*null_arr.get()));
+  EXPECT_TRUE(arr->IsValid()->Equals(*valid_arr.get()));
 }
 
 TEST_F(TestArray, BuildLargeInMemoryArray) {
