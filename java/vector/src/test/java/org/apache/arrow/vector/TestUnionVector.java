@@ -26,13 +26,15 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.holders.NullableBitHolder;
-import org.apache.arrow.vector.holders.NullableIntHolder;
-import org.apache.arrow.vector.holders.NullableUInt4Holder;
-import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.complex.impl.UnionReader;
+import org.apache.arrow.vector.complex.impl.UnionWriter;
+import org.apache.arrow.vector.holders.*;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -83,6 +85,45 @@ public class TestUnionVector {
       assertEquals(100, unionVector.getObject(2));
 
       assertEquals(true, unionVector.isNull(3));
+    }
+  }
+
+  @Test
+  public void testNonSimpleType() throws Exception {
+    final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+    final NullableTimestampHolder timestampHolder = new NullableTimestampHolder();
+    timestampHolder.unit = TimeUnit.SECOND;
+    timestampHolder.timezone = "America/New_York";
+
+    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      unionVector.allocateNew();
+
+      int count = 100;
+
+      for (int i = 0; i < count; i++) {
+        if (i % 3 == 0) {
+          float4Holder.isSet = 1;
+          float4Holder.value = i;
+          unionVector.setSafe(i, float4Holder);
+        } else if (i % 3 == 1) {
+          timestampHolder.isSet = 1;
+          timestampHolder.value = i * 60 * 60;
+          unionVector.setSafe(i, timestampHolder);
+        }
+      }
+      unionVector.setValueCount(count);
+
+      for (int i = 0; i < count; i++) {
+        if (i % 3 == 0) {
+          assertEquals(Float.valueOf(i), unionVector.getObject(i));
+        } else if (i % 3 == 1) {
+          LocalDateTime actual = (LocalDateTime) unionVector.getObject(i);
+          LocalDateTime expected = new LocalDateTime(i * 60 * 60 * 1000, DateTimeZone.forID("America/New_York"));
+          assertTrue(actual.equals(expected));
+        } else {
+          assert(unionVector.isNull(i));
+        }
+      }
     }
   }
 

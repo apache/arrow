@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.joda.time.Period;
 import org.junit.After;
@@ -49,7 +50,7 @@ import static org.junit.Assert.assertNull;
  * NullableVarChar
  * NullableTimeMicro
  * NullableTimeMilli
- * NullableTimeStamp*
+ * NullableTimestamp
  */
 
 public class TestCopyFrom {
@@ -974,8 +975,10 @@ public class TestCopyFrom {
 
   @Test /* TimeStampVector */
   public void testCopyFromWithNulls14() {
-    try (final TimeStampVector vector1 = new TimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator);
-         final TimeStampVector vector2 = new TimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final TimestampVector vector1 = new TimestampVector(
+            EMPTY_SCHEMA_PATH, allocator, TimeUnit.MILLISECOND, null);
+         final TimestampVector vector2 = new TimestampVector(
+            EMPTY_SCHEMA_PATH, allocator, TimeUnit.MILLISECOND, null)) {
 
       vector1.allocateNew();
       assertEquals(4096, vector1.getValueCapacity());

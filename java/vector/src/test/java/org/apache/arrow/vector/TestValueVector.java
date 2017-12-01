@@ -17,7 +17,7 @@
  */
 
 package org.apache.arrow.vector;
-import org.apache.arrow.vector.util.OversizedAllocationException;
+
 
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
@@ -39,11 +39,15 @@ import org.apache.arrow.memory.RootAllocator;
 
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.TypeLayout;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDateTime;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -470,6 +474,39 @@ public class TestValueVector {
       for(int i = 0; i < (initialCapacity * 2); i++) {
         assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
       }
+    }
+  }
+
+  @Test
+  public void testTimestampVector() {
+     try (final TimestampVector vector = newVector(
+            TimestampVector.class,
+            EMPTY_SCHEMA_PATH,
+            new ArrowType.Timestamp(TimeUnit.SECOND, null), allocator);) {
+      int initialCapacity = 16;
+      vector.allocateNew(initialCapacity);
+
+      vector.set(0, 1000);
+      vector.set(1, 2000);
+
+      assertEquals(new LocalDateTime(1000 * 1000, DateTimeZone.UTC), vector.getObject(0));
+      assertEquals(new LocalDateTime(2000 * 1000, DateTimeZone.UTC), vector.getObject(1));
+    }
+
+    try (final TimestampVector vector = newVector(
+            TimestampVector.class,
+            EMPTY_SCHEMA_PATH,
+            new ArrowType.Timestamp(TimeUnit.SECOND, "America/New_York"), allocator);) {
+      int initialCapacity = 16;
+      vector.allocateNew(initialCapacity);
+
+      vector.set(0, 1000);
+      vector.set(1, 2000);
+
+      assertEquals(new LocalDateTime(1000 * 1000, DateTimeZone.forID("America/New_York")),
+              vector.getObject(0));
+      assertEquals(new LocalDateTime(2000 * 1000, DateTimeZone.forID("America/New_York")),
+              vector.getObject(1));
     }
   }
 

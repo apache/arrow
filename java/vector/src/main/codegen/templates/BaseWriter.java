@@ -78,6 +78,9 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
+    <#if minor.typeParams?? >
+    ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>);
+    </#if>
     ${capName}Writer ${lowerName}();
     </#list></#list>
   }

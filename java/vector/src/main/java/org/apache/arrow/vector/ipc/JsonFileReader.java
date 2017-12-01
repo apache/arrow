@@ -445,14 +445,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case TIMENANO:
           reader = helper.INT8;
           break;
-        case TIMESTAMPNANO:
-        case TIMESTAMPMICRO:
-        case TIMESTAMPMILLI:
-        case TIMESTAMPSEC:
-        case TIMESTAMPNANOTZ:
-        case TIMESTAMPMICROTZ:
-        case TIMESTAMPMILLITZ:
-        case TIMESTAMPSECTZ:
+        case TIMESTAMP:
           reader = helper.INT8;
           break;
         default:

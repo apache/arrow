@@ -138,16 +138,12 @@ public class UnionVector implements FieldVector {
      throw new UnsupportedOperationException("There are no inner vectors. Use geFieldBuffers");
   }
 
-  private String fieldName(MinorType type) {
-    return type.name().toLowerCase();
+  private String fieldName(ArrowType type) {
+    return Types.getMinorTypeForArrowType(type).name().toLowerCase();
   }
 
-  private FieldType fieldType(MinorType type) {
-    return FieldType.nullable(type.getType());
-  }
-
-  private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
-    return internalMap.addOrGet(fieldName(minorType), fieldType(minorType), c);
+  private <T extends FieldVector> T addOrGet(ArrowType type, Class<T> c) {
+    return internalMap.addOrGet(fieldName(type), FieldType.nullable(type), c);
   }
 
   @Override
@@ -177,7 +173,7 @@ public class UnionVector implements FieldVector {
   public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = addOrGet(MinorType.MAP, MapVector.class);
+      mapVector = addOrGet(MinorType.MAP.getType(), MapVector.class);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
         if (callBack != null) {
@@ -200,7 +196,7 @@ public class UnionVector implements FieldVector {
   public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}.getType(), ${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -210,6 +206,31 @@ public class UnionVector implements FieldVector {
     }
     return ${uncappedName}Vector;
   }
+      <#else>
+
+  private ${name}Vector ${uncappedName}Vector;
+
+  public ${name}Vector get${name}Vector() {
+    assert ${uncappedName}Vector != null;
+    return ${uncappedName}Vector;
+  }
+
+  public ${name}Vector get${name}Vector(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>) {
+    ArrowType type = new ArrowType.${name}(<#list minor.typeParams as typeParam>${typeParam.name}<#sep>, </#list>);
+
+    if (${uncappedName}Vector == null) {
+      int vectorCount = internalMap.size();
+      ${uncappedName}Vector = addOrGet(type, ${name}Vector.class);
+      if (internalMap.size() > vectorCount) {
+        ${uncappedName}Vector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return ${uncappedName}Vector;
+  }
+
       </#if>
     </#list>
   </#list>
@@ -217,7 +238,7 @@ public class UnionVector implements FieldVector {
   public ListVector getList() {
     if (listVector == null) {
       int vectorCount = internalMap.size();
-      listVector = addOrGet(MinorType.LIST, ListVector.class);
+      listVector = addOrGet(MinorType.LIST.getType(), ListVector.class);
       if (internalMap.size() > vectorCount) {
         listVector.allocateNew();
         if (callBack != null) {
@@ -499,10 +520,8 @@ public class UnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? >
       case ${name?upper_case}:
           return get${name}Vector().getObject(index);
-          </#if>
         </#list>
       </#list>
       case MAP:
@@ -599,13 +618,17 @@ public class UnionVector implements FieldVector {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? >
+          <#if !minor.typeParams?? >
     public void setSafe(int index, Nullable${name}Holder holder) {
       setType(index, MinorType.${name?upper_case});
       get${name}Vector().setSafe(index, holder);
     }
-
-        </#if>
+          <#else>
+    public void setSafe(int index, Nullable${name}Holder holder) {
+      setType(index, MinorType.${name?upper_case});
+      get${name}Vector(<#list minor.typeParams as typeParam>holder.${typeParam.name}<#sep>, </#list>).setSafe(index, holder);
+    }
+          </#if>
       </#list>
     </#list>
 

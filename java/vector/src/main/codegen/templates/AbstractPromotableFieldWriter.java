@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.types.Types;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 <@pp.dropOutputFile />
@@ -42,6 +43,8 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
    * @param type the type of the values we want to write
    * @return the corresponding field writer
    */
+  abstract protected FieldWriter getWriter(ArrowType type);
+
   abstract protected FieldWriter getWriter(MinorType type);
 
   /**
@@ -118,7 +121,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     return getWriter(MinorType.MAP).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
 
-  </#if>
+  @Override
+  public ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>) {
+    return getWriter(MinorType.LIST).${lowerName}(<#list minor.typeParams as typeParam>${typeParam.name}<#sep>, </#list>);
+  }
+
+  <#else>
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     return getWriter(MinorType.MAP).${lowerName}(name);
@@ -128,7 +136,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public ${capName}Writer ${lowerName}() {
     return getWriter(MinorType.LIST).${lowerName}();
   }
-
+  </#if>
   </#list></#list>
 
   public void copyReader(FieldReader reader) {

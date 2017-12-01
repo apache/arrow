@@ -26,7 +26,9 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -119,7 +121,27 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
-  protected FieldWriter getWriter(MinorType type) {
+  protected FieldWriter getWriter(MinorType minorType) {
+
+    if (state == State.UNION) {
+      ((UnionWriter) writer).getWriter(type);
+    } else if (state == State.UNTYPED) {
+      if (minorType == null) {
+        // ???
+        return null;
+      }
+      ValueVector v = listVector.addOrGetVector(FieldType.nullable(minorType.getType())).getVector();
+      v.allocateNew();
+      setWriter(v);
+      writer.setPosition(position);
+    } else if (minorType != this.type) {
+      promoteToUnion();
+      ((UnionWriter) writer).getWriter(minorType);
+    }
+    return writer;
+  }
+
+  protected FieldWriter getWriter(ArrowType type) {
     if (state == State.UNION) {
       ((UnionWriter) writer).getWriter(type);
     } else if (state == State.UNTYPED) {
@@ -127,11 +149,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         // ???
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(type.getType())).getVector();
+      ValueVector v = listVector.addOrGetVector(FieldType.nullable(type)).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
-    } else if (type != this.type) {
+    } else if (Types.getMinorTypeForArrowType(type) != this.type) {
       promoteToUnion();
       ((UnionWriter) writer).getWriter(type);
     }

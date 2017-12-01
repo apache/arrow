@@ -53,7 +53,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.holders.IntHolder;
-import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.NullableTimestampHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -69,6 +70,7 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
+import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDateTime;
 import org.junit.Assert;
 import org.junit.Test;
@@ -379,10 +381,12 @@ public class TestComplexWriter {
           ListWriter innerListWriter = listWriter.list();
           innerListWriter.startList();
           for (int k = 0; k < i % 13; k++) {
-            if (k % 2 == 0) {
+            if (k % 3 == 0) {
               innerListWriter.integer().writeInt(k);
-            } else {
+            } else if (k % 3 == 1){
               innerListWriter.bigInt().writeBigInt(k);
+            } else {
+              innerListWriter.timestamp(TimeUnit.SECOND, "America/New_York").writeTimestamp(k * 60 * 60);
             }
           }
           innerListWriter.endList();
@@ -409,10 +413,12 @@ public class TestComplexWriter {
         for (int j = 0; j < i % 7; j++) {
           innerListWriter.startList();
           for (int k = 0; k < i % 13; k++) {
-            if (k % 2 == 0) {
+            if (k % 3 == 0) {
               innerListWriter.integer().writeInt(k);
-            } else {
+            } else if (k % 3 == 1){
               innerListWriter.bigInt().writeBigInt(k);
+            } else {
+              innerListWriter.timestamp(TimeUnit.SECOND, "America/New_York").writeTimestamp(k * 60 * 60);
             }
           }
           innerListWriter.endList();
@@ -433,10 +439,14 @@ public class TestComplexWriter {
         FieldReader innerListReader = listReader.reader();
         for (int k = 0; k < i % 13; k++) {
           innerListReader.next();
-          if (k % 2 == 0) {
+          if (k % 3 == 0) {
             Assert.assertEquals("record: " + i, k, innerListReader.reader().readInteger().intValue());
-          } else {
+          } else if (k % 3 == 1) {
             Assert.assertEquals("record: " + i, k, innerListReader.reader().readLong().longValue());
+          } else {
+            Assert.assertEquals("record:" + i,
+                    new LocalDateTime(k * 60 * 60 * 1000, DateTimeZone.forID("America/New_York")),
+                    innerListReader.reader().readLocalDateTime());
           }
         }
       }
@@ -450,20 +460,26 @@ public class TestComplexWriter {
     unionWriter.allocate();
     for (int i = 0; i < COUNT; i++) {
       unionWriter.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 3 == 0 ) {
         unionWriter.writeInt(i);
-      } else {
+      } else if (i % 3 == 1) {
         unionWriter.writeFloat4((float) i);
+      } else {
+        unionWriter.asTimestamp(TimeUnit.SECOND, "America/New_York").writeTimestamp(i * 60 * 60);
       }
     }
     vector.setValueCount(COUNT);
     UnionReader unionReader = new UnionReader(vector);
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 3 == 0) {
         Assert.assertEquals(i, i, unionReader.readInteger());
-      } else {
+      } else if (i % 3 == 1) {
         Assert.assertEquals((float) i, unionReader.readFloat(), 1e-12);
+      } else {
+        Assert.assertEquals(
+                new LocalDateTime(i * 60 * 60 * 1000, DateTimeZone.forID("America/New_York")),
+                unionReader.readLocalDateTime());
       }
     }
     vector.close();
@@ -474,6 +490,7 @@ public class TestComplexWriter {
     MapVector parent = MapVector.empty("parent", allocator);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
+
     for (int i = 0; i < 100; i++) {
       BigIntWriter bigIntWriter = rootWriter.bigInt("a");
       bigIntWriter.setPosition(i);
@@ -494,11 +511,18 @@ public class TestComplexWriter {
       tempBuf.setBytes(0, bytes);
       varCharWriter.writeVarChar(0, bytes.length, tempBuf);
     }
+    for (int i = 200; i < 300 ; i++) {
+      TimestampWriter timestampWriter = rootWriter.timestamp("a", TimeUnit.SECOND, "America/New_York");
+      timestampWriter.setPosition(i);
+      timestampWriter.writeTimestamp(i * 60 * 60);
+    }
+
     field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
     Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeID());
     Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeID());
     Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeID());
+    Assert.assertEquals(new ArrowType.Timestamp(TimeUnit.SECOND, "America/New_York"), field.getChildren().get(2).getType());
     MapReader rootReader = new SingleMapReaderImpl(parent).reader("root");
     for (int i = 0; i < 100; i++) {
       rootReader.setPosition(i);
@@ -513,6 +537,12 @@ public class TestComplexWriter {
       Text value = reader.readText();
       Assert.assertEquals(Integer.toString(i), value.toString());
     }
+    for (int i = 200; i < 300; i++) {
+      rootReader.setPosition(i);
+      FieldReader reader = rootReader.reader("a");
+      LocalDateTime value = reader.readLocalDateTime();
+      Assert.assertEquals(new LocalDateTime(i * 60 * 60 * 1000, DateTimeZone.forID("America/New_York")), value);
+    }
   }
 
   /**
@@ -525,6 +555,7 @@ public class TestComplexWriter {
     MapWriter rootWriter = writer.rootAsMap();
     rootWriter.bigInt("a");
     rootWriter.varChar("a");
+    rootWriter.timestamp("a", TimeUnit.SECOND, "America/New_York");
 
     Field field = parent.getField().getChildren().get(0).getChildren().get(0);
     Assert.assertEquals("a", field.getName());
@@ -535,6 +566,8 @@ public class TestComplexWriter {
     Assert.assertEquals(64, intType.getBitWidth());
     Assert.assertTrue(intType.getIsSigned());
     Assert.assertEquals(ArrowTypeID.Utf8, field.getChildren().get(1).getType().getTypeID());
+    Assert.assertEquals(new ArrowType.Timestamp(TimeUnit.SECOND, "America/New_York"),
+            field.getChildren().get(2).getType());
   }
 
   private Set<String> getFieldNames(List<Field> fields) {
@@ -623,14 +656,14 @@ public class TestComplexWriter {
     MapWriter rootWriter = writer.rootAsMap();
 
     {
-      TimeStampSecWriter timeStampSecWriter = rootWriter.timeStampSec("sec");
+      TimestampWriter timeStampSecWriter = rootWriter.timestamp("sec", TimeUnit.SECOND, null);
       timeStampSecWriter.setPosition(0);
-      timeStampSecWriter.writeTimeStampSec(expectedSecs);
+      timeStampSecWriter.writeTimestamp(expectedSecs);
     }
     {
-      TimeStampSecTZWriter timeStampSecTZWriter = rootWriter.timeStampSecTZ("secTZ", "UTC");
+      TimestampWriter timeStampSecTZWriter = rootWriter.timestamp("secTZ", TimeUnit.SECOND, "UTC");
       timeStampSecTZWriter.setPosition(1);
-      timeStampSecTZWriter.writeTimeStampSecTZ(expectedSecs);
+      timeStampSecTZWriter.writeTimestamp(expectedSecs);
     }
     // schema
     List<Field> children = parent.getField().getChildren().get(0).getChildren();
@@ -666,15 +699,15 @@ public class TestComplexWriter {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     MapWriter rootWriter = writer.rootAsMap();
     {
-      TimeStampMilliWriter timeStampWriter = rootWriter.timeStampMilli("milli");
+      TimestampWriter timeStampWriter = rootWriter.timestamp("milli",TimeUnit.MILLISECOND, null);
       timeStampWriter.setPosition(0);
-      timeStampWriter.writeTimeStampMilli(expectedMillis);
+      timeStampWriter.writeTimestamp(expectedMillis);
     }
     String tz = DateUtility.getTimeZone(10);
     {
-      TimeStampMilliTZWriter timeStampTZWriter = rootWriter.timeStampMilliTZ("milliTZ", tz);
+      TimestampWriter timeStampTZWriter = rootWriter.timestamp("milliTZ", TimeUnit.MILLISECOND, tz);
       timeStampTZWriter.setPosition(0);
-      timeStampTZWriter.writeTimeStampMilliTZ(expectedMillis);
+      timeStampTZWriter.writeTimestamp(expectedMillis);
     }
     // schema
     List<Field> children = parent.getField().getChildren().get(0).getChildren();
@@ -723,15 +756,15 @@ public class TestComplexWriter {
     MapWriter rootWriter = writer.rootAsMap();
 
     {
-      TimeStampMicroWriter timeStampMicroWriter = rootWriter.timeStampMicro("micro");
+      TimestampWriter timeStampMicroWriter = rootWriter.timestamp("micro", TimeUnit.MICROSECOND, null);
       timeStampMicroWriter.setPosition(0);
-      timeStampMicroWriter.writeTimeStampMicro(expectedMicros);
+      timeStampMicroWriter.writeTimestamp(expectedMicros);
     }
     String tz = DateUtility.getTimeZone(5);
     {
-      TimeStampMicroTZWriter timeStampMicroWriter = rootWriter.timeStampMicroTZ("microTZ", tz);
+      TimestampWriter timeStampMicroWriter = rootWriter.timestamp("microTZ", TimeUnit.MICROSECOND, tz);
       timeStampMicroWriter.setPosition(1);
-      timeStampMicroWriter.writeTimeStampMicroTZ(expectedMicros);
+      timeStampMicroWriter.writeTimestamp(expectedMicros);
     }
 
     // schema
@@ -770,15 +803,15 @@ public class TestComplexWriter {
     MapWriter rootWriter = writer.rootAsMap();
 
     {
-      TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("nano");
+      TimestampWriter timeStampNanoWriter = rootWriter.timestamp("nano", TimeUnit.NANOSECOND, null);
       timeStampNanoWriter.setPosition(0);
-      timeStampNanoWriter.writeTimeStampNano(expectedNanos);
+      timeStampNanoWriter.writeTimestamp(expectedNanos);
     }
     String tz = DateUtility.getTimeZone(3);
     {
-      TimeStampNanoTZWriter timeStampNanoWriter = rootWriter.timeStampNanoTZ("nanoTZ", tz);
+      TimestampWriter timeStampNanoWriter = rootWriter.timestamp("nanoTZ", TimeUnit.NANOSECOND, tz);
       timeStampNanoWriter.setPosition(0);
-      timeStampNanoWriter.writeTimeStampNanoTZ(expectedNanos);
+      timeStampNanoWriter.writeTimestamp(expectedNanos);
     }
     // schema
     List<Field> children = parent.getField().getChildren().get(0).getChildren();
@@ -800,7 +833,7 @@ public class TestComplexWriter {
       nanoReader.setPosition(0);
       long nanoLong = nanoReader.readLong();
       Assert.assertEquals(expectedNanos, nanoLong);
-      NullableTimeStampNanoTZHolder h = new NullableTimeStampNanoTZHolder();
+      NullableTimestampHolder h = new NullableTimestampHolder();
       nanoReader.read(h);
       Assert.assertEquals(expectedNanos, h.value);
     }

@@ -18,30 +18,83 @@
 
 package org.apache.arrow.vector;
 
+import com.google.common.base.Preconditions;
+import org.apache.arrow.vector.types.TimeUnit;
+import org.joda.time.DateTimeZone;
+
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.impl.TimestampReaderImpl;
+import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.holders.NullableTimestampHolder;
+import org.apache.arrow.vector.holders.TimestampHolder;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.joda.time.LocalDateTime;
+
 
 /**
- * TimeStampVector is an abstract interface for fixed width vector (8 bytes)
+ * TimestampVector is an abstract interface for fixed width vector (8 bytes)
  * of timestamp values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public abstract class TimeStampVector extends BaseFixedWidthVector {
+public class TimestampVector extends BaseFixedWidthVector {
   protected static final byte TYPE_WIDTH = 8;
 
+  private final FieldReader reader;
+  private final TimeUnit unit;
+  private final DateTimeZone timezone;
+
   /**
-   * Instantiate a TimeStampVector. This doesn't allocate any memory for
+   * Instantiate a TimestampVector. This doesn't allocate any memory for
+   * the data in vector.
+   * @param name name of the vector
+   * @param allocator allocator for memory management.
+   * @param unit time unit
+   * @param timezone time zone
+   */
+  public TimestampVector(String name, BufferAllocator allocator, TimeUnit unit, String timezone) {
+    this(name, FieldType.nullable(new ArrowType.Timestamp(unit, timezone)), allocator);
+  }
+  /**
+   * Instantiate a TimestampVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public TimeStampVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public TimestampVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, allocator, fieldType, TYPE_WIDTH);
+
+    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
+
+    this.reader = new TimestampReaderImpl(this);
+    this.unit = arrowType.getUnit();
+    // TODO: Decide if this is right - This matches the current behavior
+    this.timezone = arrowType.getTimezone() == null ?
+            DateTimeZone.UTC : DateTimeZone.forID(arrowType.getTimezone());
   }
 
+  /**
+   * Get a reader that supports reading values from this vector
+   * @return Field Reader for this vector
+   */
+  @Override
+  public FieldReader getReader() {
+    return reader;
+  }
+
+  /**
+   * Get minor type for this vector. The vector holds values belonging
+   * to a particular type.
+   * @return {@link org.apache.arrow.vector.types.Types.MinorType}
+   */
+  @Override
+  public Types.MinorType getMinorType() {
+    return Types.MinorType.TIMESTAMP;
+  }
 
   /******************************************************************
    *                                                                *
@@ -69,21 +122,21 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int fromIndex, int thisIndex, TimeStampVector from) {
+  public void copyFrom(int fromIndex, int thisIndex, TimestampVector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
   /**
-   * Same as {@link #copyFromSafe(int, int, TimeStampVector)} except that
+   * Same as {@link #copyFromSafe(int, int, TimestampVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int fromIndex, int thisIndex, TimeStampVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, TimestampVector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }
@@ -111,6 +164,22 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     setValue(index, value);
   }
 
+  public void set(int index, NullableTimestampHolder holder) {
+    if (holder.isSet < 0) {
+      throw new IllegalArgumentException();
+    } else if (holder.isSet > 0) {
+      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      setValue(index, holder.value);
+    } else {
+      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    }
+  }
+
+  public void set(int index, TimestampHolder holder) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    setValue(index, holder.value);
+  }
+
   /**
    * Same as {@link #set(int, long)} except that it handles the
    * case when index is greater than or equal to existing
@@ -122,6 +191,16 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   public void setSafe(int index, long value) {
     handleSafe(index);
     set(index, value);
+  }
+
+  public void setSafe(int index, NullableTimestampHolder holder) {
+    handleSafe(index);
+    set(index, holder);
+  }
+
+  public void setSafe(int index, TimestampHolder holder) {
+    handleSafe(index);
+    set(index, holder);
   }
 
   /**
@@ -179,6 +258,37 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     return buffer.getLong(index * TYPE_WIDTH);
   }
 
+  public void get(int index, NullableTimestampHolder holder) {
+    if (isSet(index) == 0) {
+      holder.isSet = 0;
+      return;
+    }
+    holder.isSet = 1;
+    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+  }
+
+  @Override
+  public LocalDateTime getObject(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      long millis = unit.toMillis(get(index));
+      LocalDateTime date = new LocalDateTime(millis, timezone);
+      return date;
+    }
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    TimestampVector to = new TimestampVector(ref, field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  @Override
+  public TransferPair makeTransferPair(ValueVector to) {
+    return new TransferImpl((TimestampVector) to);
+  }
+
 
   /******************************************************************
    *                                                                *
@@ -188,14 +298,15 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
 
 
   public class TransferImpl implements TransferPair {
-    TimeStampVector to;
+    TimestampVector to;
 
-    public TransferImpl(TimeStampVector to) {
+    public TransferImpl(TimestampVector to) {
+      Preconditions.checkArgument(unit == to.unit);
       this.to = to;
     }
 
     @Override
-    public TimeStampVector getTo() {
+    public TimestampVector getTo() {
       return to;
     }
 
@@ -211,7 +322,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
 
     @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, TimeStampVector.this);
+      to.copyFromSafe(fromIndex, toIndex, TimestampVector.this);
     }
   }
 }

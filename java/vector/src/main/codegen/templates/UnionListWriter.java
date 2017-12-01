@@ -93,7 +93,6 @@ public class UnionListWriter extends AbstractFieldWriter {
   <#assign uncappedName = name?uncap_first/>
   <#if uncappedName == "int" ><#assign uncappedName = "integer" /></#if>
   <#if !minor.typeParams?? >
-
   @Override
   public ${name}Writer ${uncappedName}() {
     return this;
@@ -104,6 +103,24 @@ public class UnionListWriter extends AbstractFieldWriter {
     mapName = name;
     return writer.${uncappedName}(name);
   }
+
+  <#else>
+  @Override
+  public ${name}Writer ${uncappedName}() {
+    return this;
+  }
+
+  public ${name}Writer ${uncappedName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>) {
+    ArrowType.${name} type = new ArrowType.${name}(<#list minor.typeParams as typeParam>${typeParam.name}<#sep>, </#list>);
+    writer.getWriter(type);
+    return this;
+  }
+
+  public ${name}Writer ${uncappedName}(String name, <#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#sep>, </#list>) {
+    mapName = name;
+    return writer.${uncappedName}(name, <#list minor.typeParams as typeParam>${typeParam.name}<#sep>, </#list>);
+  }
+
   </#if>
   </#list></#list>
 
@@ -158,7 +175,7 @@ public class UnionListWriter extends AbstractFieldWriter {
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
-      <#if !minor.typeParams?? >
+
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
@@ -170,7 +187,6 @@ public class UnionListWriter extends AbstractFieldWriter {
     writer.setPosition(writer.idx()+1);
   }
 
-      </#if>
     </#list>
   </#list>
 }

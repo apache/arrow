@@ -19,10 +19,10 @@
 package org.apache.arrow.vector.types;
 
 public enum TimeUnit {
-  SECOND(org.apache.arrow.flatbuf.TimeUnit.SECOND),
-  MILLISECOND(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND),
-  MICROSECOND(org.apache.arrow.flatbuf.TimeUnit.MICROSECOND),
-  NANOSECOND(org.apache.arrow.flatbuf.TimeUnit.NANOSECOND);
+  SECOND(org.apache.arrow.flatbuf.TimeUnit.SECOND, java.util.concurrent.TimeUnit.SECONDS),
+  MILLISECOND(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND, java.util.concurrent.TimeUnit.MILLISECONDS),
+  MICROSECOND(org.apache.arrow.flatbuf.TimeUnit.MICROSECOND, java.util.concurrent.TimeUnit.MICROSECONDS),
+  NANOSECOND(org.apache.arrow.flatbuf.TimeUnit.NANOSECOND, java.util.concurrent.TimeUnit.NANOSECONDS);
 
   private static final TimeUnit[] valuesByFlatbufId = new TimeUnit[TimeUnit.values().length];
 
@@ -33,9 +33,11 @@ public enum TimeUnit {
   }
 
   private final short flatbufID;
+  private final java.util.concurrent.TimeUnit timeUnit;
 
-  TimeUnit(short flatbufID) {
+  TimeUnit(short flatbufID, java.util.concurrent.TimeUnit timeUnit) {
     this.flatbufID = flatbufID;
+    this.timeUnit = timeUnit;
   }
 
   public short getFlatbufID() {
@@ -44,5 +46,21 @@ public enum TimeUnit {
 
   public static TimeUnit fromFlatbufID(short id) {
     return valuesByFlatbufId[id];
+  }
+
+  public final long toNanos(long duration) {
+    return timeUnit.toNanos(duration);
+  }
+
+  public final long toMicros(long duration) {
+    return timeUnit.toMicros(duration);
+  }
+
+  public final long toMillis(long duration) {
+    return timeUnit.toMillis(duration);
+  }
+
+  public final long toSeconds(long duration) {
+    return timeUnit.toSeconds(duration);
   }
 }

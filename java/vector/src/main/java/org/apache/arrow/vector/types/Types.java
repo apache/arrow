@@ -35,18 +35,11 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimestampVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeNanoVector;
 import org.apache.arrow.vector.TimeSecVector;
-import org.apache.arrow.vector.TimeStampMicroTZVector;
-import org.apache.arrow.vector.TimeStampMicroVector;
-import org.apache.arrow.vector.TimeStampMilliTZVector;
-import org.apache.arrow.vector.TimeStampMilliVector;
-import org.apache.arrow.vector.TimeStampNanoTZVector;
-import org.apache.arrow.vector.TimeStampNanoVector;
-import org.apache.arrow.vector.TimeStampSecTZVector;
-import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -76,14 +69,7 @@ import org.apache.arrow.vector.complex.impl.TimeMicroWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeNanoWriterImpl;
 import org.apache.arrow.vector.complex.impl.TimeSecWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampMicroTZWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampMicroWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampMilliTZWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampMilliWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampNanoTZWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampNanoWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampSecTZWriterImpl;
-import org.apache.arrow.vector.complex.impl.TimeStampSecWriterImpl;
+import org.apache.arrow.vector.complex.impl.TimestampWriterImpl;
 import org.apache.arrow.vector.complex.impl.TinyIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
@@ -249,52 +235,15 @@ public class Types {
         return new TimeNanoWriterImpl((TimeNanoVector) vector);
       }
     },
-    // time in second from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, null)) {
+    TIMESTAMP(null) {
       @Override
       public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampSecVector(name, fieldType, allocator);
+        return new TimestampVector(name, fieldType, allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampSecWriterImpl((TimeStampSecVector) vector);
-      }
-    },
-    // time in millis from the Unix epoch, 00:00:00.000 on 1 January 1970, UTC.
-    TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, null)) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampMilliVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampMilliWriterImpl((TimeStampMilliVector) vector);
-      }
-    },
-    // time in microsecond from the Unix epoch, 00:00:00.000000 on 1 January 1970, UTC.
-    TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, null)) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampMicroVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampMicroWriterImpl((TimeStampMicroVector) vector);
-      }
-    },
-    // time in nanosecond from the Unix epoch, 00:00:00.000000000 on 1 January 1970, UTC.
-    TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, null)) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampNanoVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampNanoWriterImpl((TimeStampNanoVector) vector);
+        return new TimestampWriterImpl((TimestampVector) vector);
       }
     },
     INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
@@ -466,51 +415,8 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new UnionWriter((UnionVector) vector);
       }
-    },
-    TIMESTAMPSECTZ(null) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampSecTZVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampSecTZWriterImpl((TimeStampSecTZVector) vector);
-      }
-    },
-    TIMESTAMPMILLITZ(null) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampMilliTZVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampMilliTZWriterImpl((TimeStampMilliTZVector) vector);
-      }
-    },
-    TIMESTAMPMICROTZ(null) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampMicroTZVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampMicroTZWriterImpl((TimeStampMicroTZVector) vector);
-      }
-    },
-    TIMESTAMPNANOTZ(null) {
-      @Override
-      public FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new TimeStampNanoTZVector(name, fieldType, allocator);
-      }
-
-      @Override
-      public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new TimeStampNanoTZWriterImpl((TimeStampNanoTZVector) vector);
-      }
     };
+
 
     private final ArrowType type;
 
@@ -637,19 +543,7 @@ public class Types {
 
       @Override
       public MinorType visit(Timestamp type) {
-        String tz = type.getTimezone();
-        switch (type.getUnit()) {
-          case SECOND:
-            return tz == null ? MinorType.TIMESTAMPSEC : MinorType.TIMESTAMPSECTZ;
-          case MILLISECOND:
-            return tz == null ? MinorType.TIMESTAMPMILLI : MinorType.TIMESTAMPMILLITZ;
-          case MICROSECOND:
-            return tz == null ? MinorType.TIMESTAMPMICRO : MinorType.TIMESTAMPMICROTZ;
-          case NANOSECOND:
-            return tz == null ? MinorType.TIMESTAMPNANO : MinorType.TIMESTAMPNANOTZ;
-          default:
-            throw new IllegalArgumentException("unknown unit: " + type);
-        }
+        return MinorType.TIMESTAMP;
       }
 
       @Override
