@@ -21,6 +21,8 @@
 #define __builtin_popcount __popcnt
 #include <nmmintrin.h>
 #define __builtin_popcountll _mm_popcnt_u64
+#else
+#include <x86intrin.h>
 #endif
 
 #include <algorithm>
@@ -104,6 +106,12 @@ Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>*
   return Status::OK();
 }
 
+Status GetFullBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result) {
+  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), result));
+  memset((*result)->mutable_data(), 0xffff, static_cast<size_t>((*result)->size()));
+  return Status::OK();
+}
+
 Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out) {
   std::shared_ptr<Buffer> buffer;
@@ -112,6 +120,43 @@ Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t
   for (int64_t i = 0; i < length; ++i) {
     BitUtil::SetBitTo(dest, i, BitUtil::GetBit(data, i + offset));
   }
+  *out = buffer;
+  return Status::OK();
+}
+
+Status CopyFlipedBitmap(MemoryPool* pool, const uint8_t* data, int64_t length,
+                        std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(GetEmptyBitmap(pool, length, &buffer));
+  uint8_t* dest = buffer->mutable_data();
+
+  // flip bits with vectorization
+  // TODO: use AVX instructions if available
+  size_t size = BitUtil::BytesForBits(length);
+  size_t rational = size / BitUtil::kSimdWidth;
+  size_t quotient = size % BitUtil::kSimdWidth;
+
+  if (quotient != 0) {
+    size_t align = BitUtil::kSimdWidth * rational;
+
+    for (size_t i = 0; i < quotient; i++) {
+      size_t position = align + i;
+      dest[position] = ~data[position];
+    }
+  }
+
+  for (size_t i = 0; i < rational; i++) {
+    size_t position = i * BitUtil::kSimdWidth;
+    const __m128i* data_in = reinterpret_cast<const __m128i*>(&data[position]);
+    __m128i* data_out = reinterpret_cast<__m128i*>(&dest[position]);
+
+    __m128i mask = _mm_set_epi32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff);
+    __m128i loaded_data = _mm_load_si128(data_in);
+    __m128i result = _mm_xor_si128(loaded_data, mask);
+
+    _mm_stream_si128(data_out, result);
+  }
+
   *out = buffer;
   return Status::OK();
 }

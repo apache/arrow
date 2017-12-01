@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
@@ -52,6 +53,39 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
 
 // ----------------------------------------------------------------------
 // Base array class
+std::shared_ptr<Array> Array::IsNull() const {
+  auto pool = default_memory_pool();
+
+  const auto bitmap_buffer = null_bitmap();
+  std::shared_ptr<Buffer> new_bitmap_buffer;
+
+  if (bitmap_buffer == NULLPTR) {
+    ARROW_CHECK_OK(GetEmptyBitmap(pool, length(), &new_bitmap_buffer));
+  } else {
+    ARROW_CHECK_OK(CopyFlipedBitmap(pool, bitmap_buffer->mutable_data(), length(),
+                                    &new_bitmap_buffer));
+  }
+
+  auto boolean_array =
+      std::make_shared<BooleanArray>(length(), new_bitmap_buffer, NULLPTR, 0);
+  return std::dynamic_pointer_cast<Array>(boolean_array);
+}
+
+std::shared_ptr<Array> Array::IsValid() const {
+  auto bitmap_buffer = null_bitmap();
+  std::shared_ptr<Buffer> new_bitmap_buffer;
+
+  if (bitmap_buffer == NULLPTR) {
+    auto pool = default_memory_pool();
+    ARROW_CHECK_OK(GetFullBitmap(pool, length(), &new_bitmap_buffer));
+  } else {
+    ARROW_CHECK_OK(bitmap_buffer->Copy(0, bitmap_buffer->size(), &new_bitmap_buffer));
+  }
+
+  auto boolean_array =
+      std::make_shared<BooleanArray>(length(), new_bitmap_buffer, NULLPTR, 0);
+  return std::dynamic_pointer_cast<Array>(boolean_array);
+}
 
 int64_t Array::null_count() const {
   if (ARROW_PREDICT_FALSE(data_->null_count < 0)) {

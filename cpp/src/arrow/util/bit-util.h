@@ -106,6 +106,8 @@ class Status;
 
 namespace BitUtil {
 
+static constexpr size_t kSimdWidth = 16;
+
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 // the ~i byte version of kBitmaks
@@ -535,6 +537,9 @@ class BitmapWriter {
 ARROW_EXPORT
 Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result);
 
+ARROW_EXPORT
+Status GetFullBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>* result);
+
 /// Copy a bit range of an existing bitmap
 ///
 /// \param[in] pool memory pool to allocate memory from
@@ -547,6 +552,10 @@ Status GetEmptyBitmap(MemoryPool* pool, int64_t length, std::shared_ptr<Buffer>*
 ARROW_EXPORT
 Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
                   std::shared_ptr<Buffer>* out);
+
+ARROW_EXPORT
+Status CopyFlipedBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t length,
+                        std::shared_ptr<Buffer>* out);
 
 /// Compute the number of 1's in the given data array
 ///
