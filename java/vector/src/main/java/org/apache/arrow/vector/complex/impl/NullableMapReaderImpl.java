@@ -20,7 +20,6 @@
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
@@ -29,8 +28,8 @@ public class NullableMapReaderImpl extends SingleMapReaderImpl {
   private MapVector nullableMapVector;
 
   public NullableMapReaderImpl(MapVector vector) {
-    super((MapVector) vector);
-    this.nullableMapVector = (MapVector) vector;
+    super(vector);
+    this.nullableMapVector = vector;
   }
 
   @Override

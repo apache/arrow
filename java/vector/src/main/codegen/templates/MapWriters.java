@@ -20,11 +20,7 @@
 <#list ["Nullable", "Single"] as mode>
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#assign index = "idx()">
-<#if mode == "Single">
-<#assign containerClass = "NonNullableMapVector" />
-<#else>
 <#assign containerClass = "MapVector" />
-</#if>
 
 <#include "/@includes/license.ftl" />
 
@@ -50,11 +46,6 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   private int initialCapacity;
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}MapWriter(${containerClass} container) {
-    <#if mode == "Single">
-    if (container instanceof MapVector) {
-      throw new IllegalArgumentException("Invalid container: " + container);
-    }
-    </#if>
     this.container = container;
     this.initialCapacity = 0;
     for (Field child : container.getField().getChildren()) {
@@ -197,10 +188,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
-    <#if mode == "Single">
-    <#else>
     container.setIndexDefined(idx());
-    </#if>
   }
 
   @Override

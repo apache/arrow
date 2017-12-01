@@ -21,12 +21,15 @@ package org.apache.arrow.vector.complex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.ObjectArrays;
 
+import com.google.common.collect.Ordering;
+import com.google.common.primitives.Ints;
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -35,27 +38,32 @@ import org.apache.arrow.vector.complex.impl.NullableMapReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableMapWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class MapVector extends NonNullableMapVector implements FieldVector {
+import javax.annotation.Nullable;
+
+public class MapVector extends AbstractMapVector implements FieldVector {
 
   public static MapVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
     return new MapVector(name, allocator, fieldType, null);
   }
 
-  private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
-  private final NullableMapWriter writer = new NullableMapWriter(this);
-
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
+  private final FieldType fieldType;
+  private int valueCount;
+  private final NullableMapReaderImpl reader;
+  private final NullableMapWriter writer;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
@@ -70,14 +78,27 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   }
 
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    super(name, checkNotNull(allocator), fieldType, callBack);
+    super(name, checkNotNull(allocator), callBack);
+    this.fieldType = checkNotNull(fieldType);
+    this.valueCount = 0;
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+    this.reader = new NullableMapReaderImpl(this);
+    this.writer = new NullableMapWriter(this);  // NOTE: fieldType must be set before this
+  }
+
+  @Override
+  public Types.MinorType getMinorType() {
+    return Types.MinorType.MAP;
   }
 
   @Override
   public Field getField() {
-    Field f = super.getField();
+    List<Field> children = new ArrayList<>();
+    for (ValueVector child : getChildren()) {
+      children.add(child.getField());
+    }
+    Field f = new Field(name, fieldType, children);
     FieldType type = new FieldType(true, f.getType(), f.getFieldType().getDictionary(), f.getFieldType().getMetadata());
     return new Field(f.getName(), type, f.getChildren());
   }
@@ -117,12 +138,34 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   }
 
   @Override
+  protected boolean supportsDirectRead() {
+    return true;
+  }
+
+  public Iterator<String> fieldNameIterator() {
+    return getChildFieldNames().iterator();
+  }
+
+  public ValueVector getVectorById(int id) {
+    return getChildByOrdinal(id);
+  }
+
+  @Override
   public NullableMapReaderImpl getReader() {
     return reader;
   }
 
   public NullableMapWriter getWriter() {
     return writer;
+  }
+
+  transient private NullableMapTransferPair ephPair;
+
+  public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
+    if (ephPair == null || ephPair.from != from) {
+      ephPair = (NullableMapTransferPair) from.makeTransferPair(this);
+    }
+    ephPair.copyValueSafe(fromIndex, thisIndex);
   }
 
   @Override
@@ -145,37 +188,79 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
     return new NullableMapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
   }
 
-  protected class NullableMapTransferPair extends MapTransferPair {
+  protected class NullableMapTransferPair implements TransferPair {
 
-    private MapVector target;
+    private final TransferPair[] pairs;
+    private final MapVector from;
+    private final MapVector to;
 
     protected NullableMapTransferPair(MapVector from, MapVector to, boolean allocate) {
-      super(from, to, allocate);
-      this.target = to;
+      this.from = from;
+      this.to = to;
+      this.pairs = new TransferPair[from.size()];
+      this.to.ephPair = null;
+
+      int i = 0;
+      FieldVector vector;
+      for (String child : from.getChildFieldNames()) {
+        int preSize = to.size();
+        vector = from.getChild(child);
+        if (vector == null) {
+          continue;
+        }
+        //DRILL-1872: we add the child fields for the vector, looking up the field by name. For a map vector,
+        // the child fields may be nested fields of the top level child. For example if the structure
+        // of a child field is oa.oab.oabc then we add oa, then add oab to oa then oabc to oab.
+        // But the children member of a Materialized field is a HashSet. If the fields are added in the
+        // children HashSet, and the hashCode of the Materialized field includes the hash code of the
+        // children, the hashCode value of oa changes *after* the field has been added to the HashSet.
+        // (This is similar to what happens in ScanBatch where the children cannot be added till they are
+        // read). To take care of this, we ensure that the hashCode of the MaterializedField does not
+        // include the hashCode of the children but is based only on MaterializedField$key.
+        final FieldVector newVector = to.addOrGet(child, vector.getField().getFieldType(), vector.getClass());
+        if (allocate && to.size() != preSize) {
+          newVector.allocateNew();
+        }
+        pairs[i++] = vector.makeTransferPair(newVector);
+      }
     }
 
     @Override
     public void transfer() {
-      target.clear();
-      target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
-      super.transfer();
+      to.clear();
+      to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
+      for (final TransferPair p : pairs) {
+        p.transfer();
+      }
+      to.valueCount = from.valueCount;
+      from.clear();
       clear();
     }
 
     @Override
+    public ValueVector getTo() {
+      return to;
+    }
+
+    @Override
     public void copyValueSafe(int fromIndex, int toIndex) {
-      while (toIndex >= target.getValidityBufferValueCapacity()) {
-        target.reallocValidityBuffer();
+      while (toIndex >= to.getValidityBufferValueCapacity()) {
+        to.reallocValidityBuffer();
       }
-      BitVectorHelper.setValidityBit(target.validityBuffer, toIndex, isSet(fromIndex));
-      super.copyValueSafe(fromIndex, toIndex);
+      BitVectorHelper.setValidityBit(to.validityBuffer, toIndex, isSet(fromIndex));
+      for (TransferPair p : pairs) {
+        p.copyValueSafe(fromIndex, toIndex);
+      }
     }
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      target.clear();
-      splitAndTransferValidityBuffer(startIndex, length, target);
-      super.splitAndTransfer(startIndex, length);
+      to.clear();
+      splitAndTransferValidityBuffer(startIndex, length, to);
+      for (TransferPair p : pairs) {
+        p.splitAndTransfer(startIndex, length);
+      }
+      to.setValueCount(length);
     }
   }
 
@@ -252,8 +337,22 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
    */
   @Override
   public int getValueCapacity() {
+    if (size() == 0) {
+      return 0;
+    }
+
+    final Ordering<ValueVector> natural = new Ordering<ValueVector>() {
+      @Override
+      public int compare(@Nullable ValueVector left, @Nullable ValueVector right) {
+        return Ints.compare(
+            checkNotNull(left).getValueCapacity(),
+            checkNotNull(right).getValueCapacity()
+        );
+      }
+    };
+
     return Math.min(getValidityBufferValueCapacity(),
-            super.getValueCapacity());
+        natural.min(getChildren()).getValueCapacity());
   }
 
   /**
@@ -293,6 +392,12 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   @Override
   public void close() {
     clearValidityBuffer();
+    final Collection<FieldVector> vectors = getChildren();
+    for (final FieldVector v : vectors) {
+      v.close();
+    }
+    vectors.clear();
+    valueCount = 0;
     super.close();
   }
 
@@ -302,7 +407,10 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   @Override
   public void clear() {
     clearValidityBuffer();
-    super.clear();
+    for (final ValueVector v : getChildren()) {
+      v.clear();
+    }
+    valueCount = 0;
   }
 
   /**
@@ -320,11 +428,15 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
    */
   @Override
   public int getBufferSize() {
-    if (valueCount == 0) {
+    if (valueCount == 0 || size() == 0) {
       return 0;
     }
-    return super.getBufferSize() +
-            BitVectorHelper.getValidityBufferSize(valueCount);
+    long bufferSize = 0;
+    for (final ValueVector v : (Iterable<ValueVector>) this) {
+      bufferSize += v.getBufferSize();
+    }
+
+    return ((int) bufferSize) + BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   /**
@@ -338,14 +450,21 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
     if (valueCount == 0) {
       return 0;
     }
-    return super.getBufferSizeFor(valueCount)
-            + BitVectorHelper.getValidityBufferSize(valueCount);
+
+    long bufferSize = 0;
+    for (final ValueVector v : (Iterable<ValueVector>) this) {
+      bufferSize += v.getBufferSizeFor(valueCount);
+    }
+
+    return ((int) bufferSize) + BitVectorHelper.getValidityBufferSize(valueCount);
   }
 
   @Override
   public void setInitialCapacity(int numRecords) {
     validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(numRecords);
-    super.setInitialCapacity(numRecords);
+    for (final ValueVector v : (Iterable<ValueVector>) this) {
+      v.setInitialCapacity(numRecords);
+    }
   }
 
   @Override
@@ -438,18 +557,33 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   }
 
   @Override
+  public int getValueCount() {
+    return valueCount;
+  }
+
+  @Override
   public Object getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return super.getObject(index);
+      Map<String, Object> vv = new JsonStringHashMap<>();
+      for (String child : getChildFieldNames()) {
+        ValueVector v = getChild(child);
+        if (v != null && index < v.getValueCount()) {
+          Object value = v.getObject(index);
+          if (value != null) {
+            vv.put(child, value);
+          }
+        }
+      }
+      return vv;
     }
   }
 
-  @Override
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
-    super.get(index, holder);
+    reader.setPosition(index);
+    holder.reader = reader;
   }
 
   public int getNullCount() {
@@ -490,12 +624,27 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }
-    super.setValueCount(valueCount);
+    for (final ValueVector v : getChildren()) {
+      v.setValueCount(valueCount);
+    }
     this.valueCount = valueCount;
   }
 
   public void reset() {
     valueCount = 0;
+  }
+
+  @Override
+  public void initializeChildrenFromFields(List<Field> children) {
+    for (Field field : children) {
+      FieldVector vector = (FieldVector) this.add(field.getName(), field.getFieldType());
+      vector.initializeChildrenFromFields(field.getChildren());
+    }
+  }
+
+  @Override
+  public List<FieldVector> getChildrenFromFields() {
+    return getChildren();
   }
 
   @Override
