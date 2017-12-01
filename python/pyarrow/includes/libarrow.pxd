@@ -109,6 +109,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
+        shared_ptr[CArray] IsNull()
+        c_bool IsValid(int i)
+        shared_ptr[CArray] IsValid()
 
         shared_ptr[CArrayData] data()
 

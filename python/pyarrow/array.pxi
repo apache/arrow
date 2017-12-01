@@ -361,7 +361,14 @@ cdef class Array:
             return 0
 
     def isnull(self):
-        raise NotImplemented
+        null_arr = Array()
+        null_arr.init(self.sp_array.get().IsNull())
+        return null_arr
+
+    def notnull(self):
+        notnull_arr = Array()
+        notnull_arr.init(self.sp_array.get().IsValid())
+        return notnull_arr
 
     def __getitem__(self, key):
         cdef Py_ssize_t n = len(self)
