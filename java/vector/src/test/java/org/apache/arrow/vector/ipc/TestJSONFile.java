@@ -39,6 +39,33 @@ public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);
 
   @Test
+  public void testWriteRead() throws IOException {
+    File file = new File("target/mytest.json");
+    int count = COUNT;
+
+    // write
+    try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+      writeData(count, parent);
+      writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
+    ) {
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateContent(count, root);
+      }
+    }
+  }
+
+  @Test
   public void testWriteReadComplexJSON() throws IOException {
     File file = new File("target/mytest_complex.json");
     int count = COUNT;
