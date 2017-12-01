@@ -58,6 +58,7 @@
   },
   "dependencies": {
     "flatbuffers": "trxcllnt/flatbuffers-esm",
+    "json-bignum": "0.0.3",
     "text-encoding-utf-8": "^1.0.2",
     "tslib": "^1.8.0"
   },

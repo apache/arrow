@@ -156,18 +156,13 @@ export class Int64 extends BaseInt64 {
             (this_high === other_high && this.buffer[0] < other.buffer[0]);
     }
 
-    static fromString(str: string): Int64 {
-        //DCHECK_NE(out, NULLPTR) << "Decimal128 output variable cannot be NULLPTR";
-        //DCHECK_EQ(*out, 0)
-            //<< "When converting a string to Decimal128 the initial output must be 0";
-
-        //DCHECK_GT(length, 0) << "length of parsed decimal string should be greater than 0";
+    static fromString(str: string, out_buffer = new Uint32Array(2)): Int64 {
+        // TODO: Assert that out_buffer is 0 and length = 2
         const negate = str.startsWith('-');
-        if (negate) { str = str.substr(1); }
         const length = str.length;
 
-        let out = new Int64(new Uint32Array([0, 0]));
-        for (let posn = 0; posn < length;) {
+        let out = new Int64(out_buffer);
+        for (let posn = negate ? 1 : 0; posn < length;) {
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;
             const chunk = new Int64(new Uint32Array([parseInt(str.substr(posn, group), 10), 0]));

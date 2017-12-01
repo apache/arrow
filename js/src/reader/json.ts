@@ -18,17 +18,18 @@
 import { flatbuffers } from 'flatbuffers';
 import { Vector } from '../vector/vector';
 import { TypedArray, TypedArrayConstructor } from '../vector/types';
-import { BinaryVector, BoolVector, Utf8Vector, Int8Vector,
-         Int16Vector, Int32Vector, Int64Vector, Uint8Vector,
-         Uint16Vector, Uint32Vector, Uint64Vector,
-         Float32Vector, Float64Vector, DecimalVector,
-         ListVector, StructVector } from '../vector/arrow';
+import {
+    BinaryVector, BoolVector, Date32Vector, Date64Vector, Time32Vector,
+    Time64Vector, TimestampVector, Utf8Vector, Int8Vector, Int16Vector,
+    Int32Vector, Int64Vector, Uint8Vector, Uint16Vector, Uint32Vector,
+    Uint64Vector, Float32Vector, Float64Vector, DecimalVector, ListVector,
+    StructVector } from '../vector/arrow';
 
-import * as Schema_ from '../format/fb/Schema';
-import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import { FieldBuilder, FieldNodeBuilder } from '../format/arrow';
+import * as Schema_ from '../format/fb/Schema'; import Type
+= Schema_.org.apache.arrow.flatbuf.Type; import { FieldBuilder,
+    FieldNodeBuilder } from '../format/arrow';
 
-import { Int128 } from '../util/int';
+import { Int64, Int128 } from '../util/int';
 import { TextEncoder } from 'text-encoding-utf-8';
 const encoder = new TextEncoder('utf-8');
 
@@ -58,16 +59,16 @@ function readValueVector(field: any, column: any): Vector {
         //case "map": return readMapVector(field, column);
         case 'int': return readIntVector(field, column);
         case 'bool': return readBoolVector(field, column);
-        //case "date": return readDateVector(field, column);
+        case "date": return readDateVector(field, column);
         case 'list': return readListVector(field, column);
         case 'utf8': return readUtf8Vector(field, column);
-        //case "time": return readTimeVector(field, column);
+        case "time": return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
         case 'binary': return readBinaryVector(field, column);
         case 'decimal': return readDecimalVector(field, column);
         case 'struct': return readStructVector(field, column);
         case 'floatingpoint': return readFloatVector(field, column);
-        //case "timestamp": return readTimestampVector(field, column);
+        case "timestamp": return readTimestampVector(field, column);
         //case "fixedsizelist": return readFixedSizeListVector(field, column);
         //case "fixedsizebinary": return readFixedSizeBinaryVector(field, column);
     }
@@ -116,6 +117,33 @@ function readUtf8Vector(fieldObj: any, column: any): Vector {
         values: new BinaryVector({
             validity, offsets, data
         })
+    });
+}
+
+function readDateVector(field: any, state: any) {
+    const type = field.type!;
+    switch (type.unit) {
+        case "DAY": return new Date32Vector({ ...readNumeric(field, state, Int32Array), unit: type.unit });
+        case "MILLISECOND": return new Date64Vector({ ...readInt64(field, state, Int32Array), unit: type.unit });
+    }
+    throw new Error(`Unrecognized Date { unit: ${type.unit} }`);
+}
+
+function readTimeVector(field: any, state: any) {
+    const type = field.type!;
+    switch (type.bitWidth) {
+        case 32: return new Time32Vector({ ...readNumeric(field, state, Int32Array), unit:type.unit });
+        case 64: return new Time64Vector({ ...readInt64(field, state, Uint32Array), unit: type.unit });
+    }
+    throw new Error(`Unrecognized Time { unit: ${type.unit}, bitWidth: ${type.bitWidth} }`);
+}
+
+function readTimestampVector(field: any, state: any) {
+    const type = field.type!;
+    return new TimestampVector({
+        ... readInt64(field, state, Uint32Array),
+        timezone: type.timezone!,
+        unit: type.unit!,
     });
 }
 
@@ -201,8 +229,13 @@ function readInt64<T extends (Uint32Array|Int32Array)>(fieldObj: any, column: an
     const validity = readValidity(column);
     let data = new ArrayConstructor(column.DATA.length * 2);
     for (let i = 0; i < column.DATA.length; ++i) {
-        data[2 * i  ] = column.DATA[i] >>> 0;
-        data[2 * i + 1] = Math.floor((column.DATA[i] / 0xFFFFFFFF));
+        // Force all values (even numbers) to be parsed as strings since
+        // pulling out high and low bits seems to lose precision sometimes
+        // For example:
+        //     > -4613034156400212000 >>> 0
+        //     721782784
+        // The correct lower 32-bits are 721782752
+        Int64.fromString(column.DATA[i].toString(), new Uint32Array(data.buffer, data.byteOffset + 2 * i * 4, 2));
     }
     return { field, fieldNode, validity, data };
 }

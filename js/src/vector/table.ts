@@ -19,6 +19,7 @@ import { Vector } from './vector';
 import { StructVector, StructRow } from './struct';
 import { readVectors, readVectorsAsync } from '../reader/arrow';
 import { readJSON } from '../reader/json';
+import { parse } from 'json-bignum';
 
 function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
     return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
@@ -32,7 +33,7 @@ export class Table<T> extends StructVector<T> {
         let columns: Vector<any>[] = [];
         let batches: Iterable<Vector[]>;
         if (typeof input === 'string') {
-            try { input = JSON.parse(input); }
+            try { input = parse(input); }
             catch (e) { input = buffersOrJSON; }
         }
         if (!input || typeof input !== 'object') {
