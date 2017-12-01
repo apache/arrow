@@ -23,7 +23,7 @@ import {
     Time64Vector, TimestampVector, Utf8Vector, Int8Vector, Int16Vector,
     Int32Vector, Int64Vector, Uint8Vector, Uint16Vector, Uint32Vector,
     Uint64Vector, Float32Vector, Float64Vector, DecimalVector, ListVector,
-    StructVector } from '../vector/arrow';
+    StructVector, DictionaryVector } from '../vector/arrow';
 
 import * as Schema_ from '../format/fb/Schema'; import Type
 = Schema_.org.apache.arrow.flatbuf.Type; import { FieldBuilder,
@@ -35,24 +35,61 @@ const encoder = new TextEncoder('utf-8');
 
 export function* readJSON(obj: any): IterableIterator<Vector<any>[]> {
     let schema: any = {};
+    let dictionaryEncodedFields = new Map<string, any>(), encoding, id;
     for (const field of obj.schema.fields) {
         schema[field.name] = field;
+        if ((encoding = field.dictionary) &&
+            (id = encoding.id.toString())) {
+            !dictionaryEncodedFields.has(id) && dictionaryEncodedFields.set(id, field);
+        }
+    }
+
+    let dictionaries = new Map<string, Vector>();
+
+    for (const batch of obj.dictionaries || []) {
+        let id = batch.id.toString();
+        let field = dictionaryEncodedFields.get(id)!;
+        let vector = readValueVector(field, batch.data.columns[0]);
+        //if (batch.isDelta() && dictionaries.has(id)) {
+        //    vector = dictionaries.get(id)!.concat(vector);
+        //}
+        dictionaries.set(id, vector);
     }
 
     for (const batch of obj.batches) {
-        yield batch.columns.map((column: any): Vector => readVector(schema[column.name], column));
+        yield batch.columns.map((column: any): Vector => readVector(schema[column.name], column, dictionaries));
     }
 }
 
-function readVector(field: any, column: any): Vector {
-    return readDictionaryVector(field, column) || readValueVector(field, column);
+function readVector(field: any, column: any, dictionaries = new Map<string, Vector>()): Vector {
+    return readDictionaryVector(field, column, dictionaries) || readValueVector(field, column, dictionaries);
 }
 
-function readDictionaryVector(field: any, column: any) {
-    if (field.name == column.name) { return null; } else { return null; }
+/* a dictionary index defaults to signed 32 bit int if unspecified */
+const defaultDictionaryIndexType = { bitWidth: 32, isSigned: true };
+const intVectors = [
+    [/* unsigned */ [Uint8Vector,  Uint8Array ],  /* signed */ [Int8Vector , Int8Array ]],
+    [/* unsigned */ [Uint16Vector, Uint16Array],  /* signed */ [Int16Vector, Int16Array]],
+    [/* unsigned */ [Uint32Vector, Uint32Array],  /* signed */ [Int32Vector, Int32Array]],,
+    [/* unsigned */ [Uint64Vector, Uint32Array],  /* signed */ [Int64Vector, Int32Array]]
+] as [any, TypedArrayConstructor][][];
+
+function readDictionaryVector(fieldObj: any, column: any, dictionaries: Map<String, Vector>) {
+    const encoding = fieldObj.dictionary!;
+    if (encoding) {
+        const type = encoding.indexType || defaultDictionaryIndexType;
+        const data = dictionaries.get(encoding.id.toString())!;
+        const [IntVector, IntArray] = intVectors[type.bitWidth >>> 4]![+type.isSigned];
+        const { field, fieldNode, validity, data: keys } = readNumeric(fieldObj, column, IntArray);
+        return new DictionaryVector({
+            validity, data, field, fieldNode,
+            keys: new IntVector({ field, fieldNode, data: keys })
+        });
+    }
+    return null;
 }
 
-function readValueVector(field: any, column: any): Vector {
+function readValueVector(field: any, column: any, dictionaries = new Map<string, Vector>()): Vector {
     switch (field.type.name) {
         //case "NONE": return readNullVector(field, column);
         //case "null": return readNullVector(field, column);
@@ -60,13 +97,13 @@ function readValueVector(field: any, column: any): Vector {
         case 'int': return readIntVector(field, column);
         case 'bool': return readBoolVector(field, column);
         case "date": return readDateVector(field, column);
-        case 'list': return readListVector(field, column);
+        case 'list': return readListVector(field, column, dictionaries);
         case 'utf8': return readUtf8Vector(field, column);
         case "time": return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
         case 'binary': return readBinaryVector(field, column);
         case 'decimal': return readDecimalVector(field, column);
-        case 'struct': return readStructVector(field, column);
+        case 'struct': return readStructVector(field, column, dictionaries);
         case 'floatingpoint': return readFloatVector(field, column);
         case "timestamp": return readTimestampVector(field, column);
         //case "fixedsizelist": return readFixedSizeListVector(field, column);
@@ -101,11 +138,11 @@ function readBoolVector(fieldObj: any, column: any) {
     return new BoolVector({field, fieldNode, validity, data});
 }
 
-function readListVector(fieldObj: any, column: any): Vector {
+function readListVector(fieldObj: any, column: any, dictionaries: Map<string, Vector>): Vector {
     const { field, fieldNode, validity, offsets } = readList(fieldObj, column);
     return new ListVector({
         field, fieldNode, validity, offsets,
-        values: readVector(fieldObj.children[0], column.children[0])
+        values: readVector(fieldObj.children[0], column.children[0], dictionaries)
     });
 }
 
@@ -168,14 +205,14 @@ function readDecimalVector(fieldObj: any, column: any) {
     });
 }
 
-function readStructVector(fieldObj: any, column: any) {
+function readStructVector(fieldObj: any, column: any, dictionaries: Map<string, Vector>) {
     const n = fieldObj.children.length;
     const columns = new Array<Vector>(n);
     const field = fieldFromJSON(fieldObj);
     const fieldNode = fieldNodeFromJSON(column);
     const validity = readValidity(column);
     for (let i = -1; ++i < n;) {
-            columns[i] = readVector(fieldObj.children[i], column.children[i]);
+            columns[i] = readVector(fieldObj.children[i], column.children[i], dictionaries);
     }
     return new StructVector({ field, fieldNode, validity, columns });
 }
