@@ -96,16 +96,16 @@ function readValueVector(field: any, column: any, dictionaries = new Map<string,
         //case "map": return readMapVector(field, column);
         case 'int': return readIntVector(field, column);
         case 'bool': return readBoolVector(field, column);
-        case "date": return readDateVector(field, column);
+        case 'date': return readDateVector(field, column);
         case 'list': return readListVector(field, column, dictionaries);
         case 'utf8': return readUtf8Vector(field, column);
-        case "time": return readTimeVector(field, column);
+        case 'time': return readTimeVector(field, column);
         //case "union": return readUnionVector(field, column);
         case 'binary': return readBinaryVector(field, column);
         case 'decimal': return readDecimalVector(field, column);
         case 'struct': return readStructVector(field, column, dictionaries);
         case 'floatingpoint': return readFloatVector(field, column);
-        case "timestamp": return readTimestampVector(field, column);
+        case 'timestamp': return readTimestampVector(field, column);
         //case "fixedsizelist": return readFixedSizeListVector(field, column);
         //case "fixedsizebinary": return readFixedSizeBinaryVector(field, column);
     }
@@ -160,8 +160,8 @@ function readUtf8Vector(fieldObj: any, column: any): Vector {
 function readDateVector(field: any, state: any) {
     const type = field.type!;
     switch (type.unit) {
-        case "DAY": return new Date32Vector({ ...readNumeric(field, state, Int32Array), unit: type.unit });
-        case "MILLISECOND": return new Date64Vector({ ...readInt64(field, state, Int32Array), unit: type.unit });
+        case 'DAY': return new Date32Vector({ ...readNumeric(field, state, Int32Array), unit: type.unit });
+        case 'MILLISECOND': return new Date64Vector({ ...readInt64(field, state, Int32Array), unit: type.unit });
     }
     throw new Error(`Unrecognized Date { unit: ${type.unit} }`);
 }
@@ -169,7 +169,7 @@ function readDateVector(field: any, state: any) {
 function readTimeVector(field: any, state: any) {
     const type = field.type!;
     switch (type.bitWidth) {
-        case 32: return new Time32Vector({ ...readNumeric(field, state, Int32Array), unit:type.unit });
+        case 32: return new Time32Vector({ ...readNumeric(field, state, Int32Array), unit: type.unit });
         case 64: return new Time64Vector({ ...readInt64(field, state, Uint32Array), unit: type.unit });
     }
     throw new Error(`Unrecognized Time { unit: ${type.unit}, bitWidth: ${type.bitWidth} }`);
