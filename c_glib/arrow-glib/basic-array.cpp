@@ -563,6 +563,39 @@ garrow_array_cast(GArrowArray *array,
   return garrow_array_new_raw(&arrow_casted_array);
 }
 
+/**
+ * garrow_array_unique:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   A newly created unique elements array on success, %NULL on error.
+ *
+ * Since: 0.8.0
+ */
+GArrowArray *
+garrow_array_unique(GArrowArray *array,
+                    GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_unique_array;
+  auto status = arrow::compute::Unique(&context,
+                                       arrow::compute::Datum(arrow_array),
+                                       &arrow_unique_array);
+  if (!status.ok()) {
+    std::stringstream message;
+    message << "[array][unique] <";
+    message << arrow_array->type()->ToString();
+    message << ">";
+    garrow_error_check(error, status, message.str().c_str());
+    return NULL;
+  }
+
+  return garrow_array_new_raw(&arrow_unique_array);
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,               \
               garrow_null_array,             \
