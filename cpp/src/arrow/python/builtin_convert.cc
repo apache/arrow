@@ -692,7 +692,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
   inline Status AppendItem(const OwnedRef& item) override {
     RETURN_NOT_OK(typed_builder_->Append());
     PyObject* item_obj = item.obj();
-    int64_t list_size = static_cast<int64_t>(PySequence_Size(item_obj));
+    const auto list_size = static_cast<int64_t>(PySequence_Size(item_obj));
     return value_converter_->AppendData(item_obj, list_size);
   }
 
@@ -703,7 +703,7 @@ class ListConverter : public TypedConverterVisitor<ListBuilder, ListConverter> {
 class DecimalConverter
     : public TypedConverterVisitor<arrow::Decimal128Builder, DecimalConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     /// TODO(phillipc): Check for nan?
     Decimal128 value;
     const auto& type = static_cast<const DecimalType&>(*typed_builder_->type());
