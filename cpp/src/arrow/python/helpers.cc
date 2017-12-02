@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "arrow/python/helpers.h"
 #include "arrow/python/common.h"
 #include "arrow/util/decimal.h"
@@ -131,6 +133,105 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
 
   return PyObject_CallFunction(decimal_constructor, const_cast<char*>("s#"), string_bytes,
                                string_size);
+}
+
+static const Decimal128 ScaleMultipliers[] = {
+    Decimal128(1),
+    Decimal128(10),
+    Decimal128(100),
+    Decimal128(1000),
+    Decimal128(10000),
+    Decimal128(100000),
+    Decimal128(1000000),
+    Decimal128(10000000),
+    Decimal128(100000000),
+    Decimal128(1000000000),
+    Decimal128(10000000000),
+    Decimal128(100000000000),
+    Decimal128(1000000000000),
+    Decimal128(10000000000000),
+    Decimal128(100000000000000),
+    Decimal128(1000000000000000),
+    Decimal128(10000000000000000),
+    Decimal128(100000000000000000),
+    Decimal128(1000000000000000000),
+    Decimal128("10000000000000000000"),
+    Decimal128("100000000000000000000"),
+    Decimal128("1000000000000000000000"),
+    Decimal128("10000000000000000000000"),
+    Decimal128("100000000000000000000000"),
+    Decimal128("1000000000000000000000000"),
+    Decimal128("10000000000000000000000000"),
+    Decimal128("100000000000000000000000000"),
+    Decimal128("1000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000000000")};
+
+/// Rescale a decimal value, doesn't check for overflow
+static Status Rescale(const Decimal128& value, int32_t original_scale, int32_t new_scale,
+                      Decimal128* out) {
+  DCHECK_NE(out, NULLPTR);
+  DCHECK_NE(original_scale, new_scale);
+  const int32_t delta_scale = original_scale - new_scale;
+  const int32_t abs_delta_scale = std::abs(delta_scale);
+  DCHECK_GE(abs_delta_scale, 1);
+  DCHECK_LE(abs_delta_scale, 38);
+
+  const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
+  const Decimal128 result = value * scale_multiplier;
+
+  if (ARROW_PREDICT_FALSE(result < value)) {
+    std::stringstream buf;
+    buf << "Rescaling decimal value from original scale " << original_scale
+        << " to new scale " << new_scale << " would cause overflow";
+    return Status::Invalid(buf.str());
+  }
+
+  *out = result;
+  return Status::OK();
+}
+
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type, Decimal128* out) {
+
+  int32_t actual_precision, actual_scale, inferred_precision, inferred_scale;
+  std::string string;
+  RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
+  RETURN_NOT_OK(InferDecimalPrecisionAndScale(python_decimal, &actual_precision,
+                                                        &actual_scale));
+
+  Decimal128 value;
+  RETURN_NOT_OK(
+      Decimal128::FromString(string, &value, &inferred_precision, &inferred_scale));
+
+  DCHECK_EQ(actual_precision, inferred_precision);
+  DCHECK_EQ(actual_scale, inferred_scale);
+
+  DCHECK_LE(actual_scale, actual_precision);
+
+  const int32_t precision = arrow_type.precision();
+  const int32_t scale = arrow_type.scale();
+
+  if (actual_precision > precision) {
+    std::stringstream buf;
+    buf << "Decimal type with precision " << actual_precision
+        << " does not fit into precision inferred from first array element: "
+        << precision;
+    return Status::Invalid(buf.str());
+  }
+
+  if (scale != actual_scale) {
+    RETURN_NOT_OK(Rescale(value, actual_scale, scale, &value));
+  }
+  return Status::OK();
 }
 
 }  // namespace internal

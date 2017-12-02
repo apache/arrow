@@ -76,12 +76,12 @@ TEST_F(DecimalTest, TestInferPrecisionAndScale) {
   int32_t precision;
   int32_t scale;
 
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
   const auto expected_precision =
       static_cast<int32_t>(decimal_string.size() - 2);  // 1 for -, 1 for .
   const int32_t expected_scale = 5;
-
-  ASSERT_OK(
-      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
 
   ASSERT_EQ(expected_precision, precision);
   ASSERT_EQ(expected_scale, scale);
@@ -94,11 +94,11 @@ TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
   int32_t precision;
   int32_t scale;
 
-  const auto expected_precision = 9;
-  const int32_t expected_scale = -2;
-
   ASSERT_OK(
       internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const auto expected_precision = 9;
+  const int32_t expected_scale = -2;
 
   ASSERT_EQ(expected_precision, precision);
   ASSERT_EQ(expected_scale, scale);

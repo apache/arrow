@@ -705,11 +705,9 @@ class DecimalConverter
  public:
   inline Status AppendItem(const OwnedRef& item) {
     /// TODO(phillipc): Check for nan?
-    std::string string;
-    RETURN_NOT_OK(internal::PythonDecimalToString(item.obj(), &string));
-
     Decimal128 value;
-    RETURN_NOT_OK(Decimal128::FromString(string, &value));
+    const auto& type = static_cast<const DecimalType&>(*typed_builder_->type());
+    RETURN_NOT_OK(internal::DecimalFromPythonDecimal(item.obj(), type, &value));
     return typed_builder_->Append(value);
   }
 };

@@ -670,71 +670,6 @@ Status NumPyConverter::ConvertDates() {
   return PushBuilderResult(&builder);
 }
 
-static const Decimal128 ScaleMultipliers[] = {
-    Decimal128(1),
-    Decimal128(10),
-    Decimal128(100),
-    Decimal128(1000),
-    Decimal128(10000),
-    Decimal128(100000),
-    Decimal128(1000000),
-    Decimal128(10000000),
-    Decimal128(100000000),
-    Decimal128(1000000000),
-    Decimal128(10000000000),
-    Decimal128(100000000000),
-    Decimal128(1000000000000),
-    Decimal128(10000000000000),
-    Decimal128(100000000000000),
-    Decimal128(1000000000000000),
-    Decimal128(10000000000000000),
-    Decimal128(100000000000000000),
-    Decimal128(1000000000000000000),
-    Decimal128("10000000000000000000"),
-    Decimal128("100000000000000000000"),
-    Decimal128("1000000000000000000000"),
-    Decimal128("10000000000000000000000"),
-    Decimal128("100000000000000000000000"),
-    Decimal128("1000000000000000000000000"),
-    Decimal128("10000000000000000000000000"),
-    Decimal128("100000000000000000000000000"),
-    Decimal128("1000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000000"),
-    Decimal128("1000000000000000000000000000000000000"),
-    Decimal128("10000000000000000000000000000000000000"),
-    Decimal128("100000000000000000000000000000000000000")};
-
-/// Rescale a decimal value, doesn't check for overflow
-static Status Rescale(const Decimal128& value, int32_t original_scale, int32_t new_scale,
-                      Decimal128* out) {
-  DCHECK_NE(out, NULLPTR);
-  DCHECK_NE(original_scale, new_scale);
-  const int32_t delta_scale = original_scale - new_scale;
-  const int32_t abs_delta_scale = std::abs(delta_scale);
-  DCHECK_GE(abs_delta_scale, 1);
-  DCHECK_LE(abs_delta_scale, 38);
-
-  const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
-  const Decimal128 result = value * scale_multiplier;
-
-  if (ARROW_PREDICT_FALSE(result < value)) {
-    std::stringstream buf;
-    buf << "Rescaling decimal value from original scale " << original_scale
-        << " to new scale " << new_scale << " would cause overflow";
-    return Status::Invalid(buf.str());
-  }
-
-  *out = result;
-  return Status::OK();
-}
-
 Status NumPyConverter::ConvertDecimals() {
   PyAcquireGIL lock;
 
@@ -747,58 +682,27 @@ Status NumPyConverter::ConvertDecimals() {
   Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
 
-  int32_t precision;
-  int32_t desired_scale;
 
   if (type_ == NULLPTR) {
+    int32_t precision;
+    int32_t desired_scale;
+
     RETURN_NOT_OK(
         internal::InferDecimalPrecisionAndScale(object, &precision, &desired_scale));
     type_ = ::arrow::decimal(precision, desired_scale);
-  } else {
-    const auto& type = static_cast<const DecimalType&>(*type_);
-    precision = type.precision();
-    desired_scale = type.scale();
   }
 
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  int32_t actual_precision;
-  int32_t inferred_precision;
-
-  int32_t actual_scale;
-  int32_t inferred_scale;
+  const auto& decimal_type = static_cast<const DecimalType&>(*type_);
 
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
 
     if (PyObject_IsInstance(object, Decimal.obj())) {
-      std::string string;
-      RETURN_NOT_OK(internal::PythonDecimalToString(object, &string));
-      RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &actual_precision,
-                                                            &actual_scale));
-
       Decimal128 value;
-      RETURN_NOT_OK(
-          Decimal128::FromString(string, &value, &inferred_precision, &inferred_scale));
-
-      DCHECK_EQ(actual_precision, inferred_precision);
-      DCHECK_EQ(actual_scale, inferred_scale);
-
-      DCHECK_LE(actual_scale, actual_precision);
-
-      if (actual_precision > precision) {
-        std::stringstream buf;
-        buf << "Decimal type with precision " << actual_precision
-            << " does not fit into precision inferred from first array element: "
-            << precision;
-        return Status::Invalid(buf.str());
-      }
-
-      if (desired_scale != actual_scale) {
-        RETURN_NOT_OK(Rescale(value, actual_scale, desired_scale, &value));
-      }
-
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
       RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
