@@ -686,8 +686,22 @@ Status NumPyConverter::ConvertDecimals() {
     int32_t precision;
     int32_t desired_scale;
 
+    int32_t tmp_precision;
+    int32_t tmp_scale;
+
     RETURN_NOT_OK(
-        internal::InferDecimalPrecisionAndScale(object, &precision, &desired_scale));
+        internal::InferDecimalPrecisionAndScale(objects[0], &precision, &desired_scale));
+
+    for (int32_t i = 1; i < length_; ++i) {
+      RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(objects[i], &tmp_precision,
+                                                            &tmp_scale));
+      precision = std::max(precision, tmp_precision);
+
+      if (std::abs(desired_scale) < std::abs(tmp_scale)) {
+        desired_scale = tmp_scale;
+      }
+    }
+
     type_ = ::arrow::decimal(precision, desired_scale);
   }
 
@@ -695,11 +709,12 @@ Status NumPyConverter::ConvertDecimals() {
   RETURN_NOT_OK(builder.Resize(length_));
 
   const auto& decimal_type = static_cast<const DecimalType&>(*type_);
+  PyObject* Decimal_type_object = Decimal.obj();
 
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
 
-    if (PyObject_IsInstance(object, Decimal.obj())) {
+    if (PyObject_IsInstance(object, Decimal_type_object)) {
       Decimal128 value;
       RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
       RETURN_NOT_OK(builder.Append(value));
