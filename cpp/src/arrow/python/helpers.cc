@@ -91,20 +91,29 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   return Status::OK();
 }
 
-Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int* precision,
-                                     int* scale) {
-  // Call Python's str(decimal_object)
-  OwnedRef str_obj(PyObject_Str(python_decimal));
+Status InferDecimalPrecisionAndScale(PyObject* decimal_value, int32_t* precision,
+                                     int32_t* scale) {
+  OwnedRef decimal_tuple(PyObject_CallMethod(decimal_value, "as_tuple", "()"));
   RETURN_IF_PYERROR();
-  PyObjectStringify str(str_obj.obj());
 
-  const char* bytes = str.bytes;
-  DCHECK_NE(bytes, nullptr);
+  OwnedRef decimal_exponent_integer(
+      PyObject_GetAttrString(decimal_tuple.obj(), "exponent"));
+  RETURN_IF_PYERROR();
 
-  auto size = str.size;
+  if (precision != NULLPTR) {
+    const auto result = static_cast<int32_t>(PyTuple_Size(decimal_tuple.obj()));
+    RETURN_IF_PYERROR();
+    *precision = result;
+  }
 
-  std::string c_string(bytes, size);
-  return Decimal128::FromString(c_string, nullptr, precision, scale);
+  if (scale != NULLPTR) {
+    const auto result =
+        -static_cast<int32_t>(PyLong_AsLong(decimal_exponent_integer.obj()));
+    RETURN_IF_PYERROR();
+    *scale = result;
+  }
+
+  return Status::OK();
 }
 
 PyObject* DecimalFromString(PyObject* decimal_constructor,
