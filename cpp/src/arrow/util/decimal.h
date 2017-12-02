@@ -146,6 +146,9 @@ ARROW_EXPORT Decimal128 operator*(const Decimal128& left, const Decimal128& righ
 ARROW_EXPORT Decimal128 operator/(const Decimal128& left, const Decimal128& right);
 ARROW_EXPORT Decimal128 operator%(const Decimal128& left, const Decimal128& right);
 
+Status Rescale(const Decimal128& value, int32_t original_scale, int32_t new_scale,
+               Decimal128* out);
+
 }  // namespace arrow
 
 #endif  //  ARROW_DECIMAL_H
