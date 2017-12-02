@@ -101,7 +101,10 @@ Status InferDecimalPrecisionAndScale(PyObject* decimal_value, int32_t* precision
   RETURN_IF_PYERROR();
 
   if (precision != NULLPTR) {
-    const auto result = static_cast<int32_t>(PyTuple_Size(decimal_tuple.obj()));
+    OwnedRef digits_tuple(PyObject_GetAttrString(decimal_tuple.obj(), "digits"));
+    RETURN_IF_PYERROR();
+
+    const auto result = static_cast<int32_t>(PyTuple_Size(digits_tuple.obj()));
     RETURN_IF_PYERROR();
     *precision = result;
   }
