@@ -35,37 +35,26 @@ namespace py {
 
 TEST(PyBuffer, InvalidInputObject) { PyBuffer buffer(Py_None); }
 
-class DecimalTest : public ::testing::Test {
- public:
-  DecimalTest() : lock_(), decimal_(), Decimal_() {
-    auto s = internal::ImportModule("decimal", &decimal_);
-    DCHECK(s.ok()) << s.message();
-    DCHECK_NE(decimal_.obj(), nullptr);
-    ASSERT_OK(internal::ImportFromModule(decimal_, "Decimal", &Decimal_));
-    DCHECK_NE(Decimal_.obj(), nullptr);
-  }
+TEST(DecimalTest, TestPythonDecimalToString) {
+  PyAcquireGIL lock;
 
-  OwnedRef MakePyDecimal(const std::string& decimal_string) {
-    const char* c_string = decimal_string.c_str();
-    DCHECK_NE(c_string, NULLPTR);
-    const size_t c_string_size = decimal_string.size();
-    DCHECK_GT(c_string_size, 0);
-    OwnedRef pydecimal(PyObject_CallFunction(Decimal_.obj(), const_cast<char*>("s#"),
-                                             c_string, c_string_size));
-    return pydecimal;
-  }
+  OwnedRef decimal;
+  OwnedRef Decimal;
+  ASSERT_OK(internal::ImportModule("decimal", &decimal));
+  ASSERT_NE(decimal.obj(), nullptr);
 
- private:
-  PyAcquireGIL lock_;
-  OwnedRef decimal_;
-  OwnedRef Decimal_;
-};
+  ASSERT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
+  ASSERT_NE(Decimal.obj(), nullptr);
 
-TEST_F(DecimalTest, TestPythonDecimalToString) {
   std::string decimal_string("-39402950693754869342983");
+  const char* format = "s#";
+  auto c_string = decimal_string.c_str();
+  ASSERT_NE(c_string, nullptr);
 
-  OwnedRef pydecimal(MakePyDecimal(decimal_string));
-
+  auto c_string_size = decimal_string.size();
+  ASSERT_GT(c_string_size, 0);
+  OwnedRef pydecimal(PyObject_CallFunction(Decimal.obj(), const_cast<char*>(format),
+                                           c_string, c_string_size));
   ASSERT_NE(pydecimal.obj(), nullptr);
   ASSERT_EQ(PyErr_Occurred(), nullptr);
 
@@ -74,16 +63,6 @@ TEST_F(DecimalTest, TestPythonDecimalToString) {
 
   std::string string_result;
   ASSERT_OK(internal::PythonDecimalToString(python_object, &string_result));
-}
-
-TEST_F(DecimalTest, TestPythonDecimalRoundTrip) {
-  PyAcquireGIL lock;
-
-  std::string decimal_string("-1.0");
-  OwnedRef pydecimal(MakePyDecimal(decimal_string));
-  std::string string_result;
-  ASSERT_OK(internal::PythonDecimalToString(pydecimal.obj(), &string_result));
-  ASSERT_EQ(string_result, "-1.0");
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
