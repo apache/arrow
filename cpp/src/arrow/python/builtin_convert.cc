@@ -396,22 +396,22 @@ class TypedConverterVisitor : public TypedConverter<BuilderType> {
 
 class NullConverter : public TypedConverterVisitor<NullBuilder, NullConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     return Status::Invalid("NullConverter: passed non-None value");
   }
 };
 
 class BoolConverter : public TypedConverterVisitor<BooleanBuilder, BoolConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     return typed_builder_->Append(item.obj() == Py_True);
   }
 };
 
 class Int8Converter : public TypedConverterVisitor<Int8Builder, Int8Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    int64_t val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int8_t>::max() ||
                             val < std::numeric_limits<int8_t>::min())) {
@@ -426,8 +426,8 @@ class Int8Converter : public TypedConverterVisitor<Int8Builder, Int8Converter> {
 
 class Int16Converter : public TypedConverterVisitor<Int16Builder, Int16Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    int64_t val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int16_t>::max() ||
                             val < std::numeric_limits<int16_t>::min())) {
@@ -442,8 +442,8 @@ class Int16Converter : public TypedConverterVisitor<Int16Builder, Int16Converter
 
 class Int32Converter : public TypedConverterVisitor<Int32Builder, Int32Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    int64_t val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<int32_t>::max() ||
                             val < std::numeric_limits<int32_t>::min())) {
@@ -458,8 +458,8 @@ class Int32Converter : public TypedConverterVisitor<Int32Builder, Int32Converter
 
 class Int64Converter : public TypedConverterVisitor<Int64Builder, Int64Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    int64_t val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
     RETURN_IF_PYERROR();
     return typed_builder_->Append(val);
   }
@@ -467,8 +467,8 @@ class Int64Converter : public TypedConverterVisitor<Int64Builder, Int64Converter
 
 class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint8_t>::max())) {
       return Status::Invalid(
@@ -482,8 +482,8 @@ class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter
 
 class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint16_t>::max())) {
       return Status::Invalid(
@@ -497,8 +497,8 @@ class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Conver
 
 class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    uint64_t val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint32_t>::max())) {
       return Status::Invalid(
@@ -512,8 +512,8 @@ class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Conver
 
 class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
-    int64_t val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+  inline Status AppendItem(const OwnedRef& item) override {
+    const auto val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
     RETURN_IF_PYERROR();
     return typed_builder_->Append(val);
   }
@@ -521,13 +521,13 @@ class UInt64Converter : public TypedConverterVisitor<UInt64Builder, UInt64Conver
 
 class Date32Converter : public TypedConverterVisitor<Date32Builder, Date32Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     int32_t t;
     if (PyDate_Check(item.obj())) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
       t = static_cast<int32_t>(PyDate_to_s(pydate));
     } else {
-      int64_t casted_val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
+      const auto casted_val = static_cast<int64_t>(PyLong_AsLongLong(item.obj()));
       RETURN_IF_PYERROR();
       if (casted_val > std::numeric_limits<int32_t>::max()) {
         return Status::Invalid("Integer as date32 larger than INT32_MAX");
@@ -540,7 +540,7 @@ class Date32Converter : public TypedConverterVisitor<Date32Builder, Date32Conver
 
 class Date64Converter : public TypedConverterVisitor<Date64Builder, Date64Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     int64_t t;
     if (PyDate_Check(item.obj())) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(item.obj());
@@ -558,7 +558,7 @@ class TimestampConverter
  public:
   explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
 
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     int64_t t;
     if (PyDateTime_Check(item.obj())) {
       auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(item.obj());
@@ -590,7 +590,7 @@ class TimestampConverter
 
 class DoubleConverter : public TypedConverterVisitor<DoubleBuilder, DoubleConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     double val = PyFloat_AsDouble(item.obj());
     RETURN_IF_PYERROR();
     return typed_builder_->Append(val);
@@ -599,7 +599,7 @@ class DoubleConverter : public TypedConverterVisitor<DoubleBuilder, DoubleConver
 
 class BytesConverter : public TypedConverterVisitor<BinaryBuilder, BytesConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     PyObject* bytes_obj;
     const char* bytes;
     Py_ssize_t length;
@@ -627,7 +627,7 @@ class BytesConverter : public TypedConverterVisitor<BinaryBuilder, BytesConverte
 class FixedWidthBytesConverter
     : public TypedConverterVisitor<FixedSizeBinaryBuilder, FixedWidthBytesConverter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     PyObject* bytes_obj;
     OwnedRef tmp;
     Py_ssize_t expected_length =
@@ -654,7 +654,7 @@ class FixedWidthBytesConverter
 
 class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter> {
  public:
-  inline Status AppendItem(const OwnedRef& item) {
+  inline Status AppendItem(const OwnedRef& item) override {
     PyObject* bytes_obj;
     OwnedRef tmp;
     const char* bytes;
