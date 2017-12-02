@@ -137,15 +137,23 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
 
 Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
                                 Decimal128* out) {
-  int32_t actual_precision, actual_scale, inferred_precision, inferred_scale;
-  std::string string;
-  RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
+  DCHECK_NE(python_decimal, NULLPTR);
+  DCHECK_NE(out, NULLPTR);
+
+  int32_t actual_precision;
+  int32_t actual_scale;
+
   RETURN_NOT_OK(
       InferDecimalPrecisionAndScale(python_decimal, &actual_precision, &actual_scale));
 
-  Decimal128 value;
+  std::string string;
+  RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
+
+  int32_t inferred_precision;
+  int32_t inferred_scale;
+
   RETURN_NOT_OK(
-      Decimal128::FromString(string, &value, &inferred_precision, &inferred_scale));
+      Decimal128::FromString(string, out, &inferred_precision, &inferred_scale));
 
   DCHECK_EQ(actual_precision, inferred_precision);
   DCHECK_EQ(actual_scale, inferred_scale);
@@ -155,7 +163,7 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
 
-  if (actual_precision > precision) {
+  if (ARROW_PREDICT_FALSE(actual_precision > precision)) {
     std::stringstream buf;
     buf << "Decimal type with precision " << actual_precision
         << " does not fit into precision inferred from first array element: "
@@ -164,7 +172,8 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   }
 
   if (scale != actual_scale) {
-    RETURN_NOT_OK(Rescale(value, actual_scale, scale, &value));
+    DCHECK_NE(out, NULLPTR);
+    RETURN_NOT_OK(Rescale(*out, actual_scale, scale, out));
   }
   return Status::OK();
 }
