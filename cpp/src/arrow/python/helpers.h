@@ -53,7 +53,8 @@ Status InferDecimalPrecisionAndScale(PyObject* decimal_value,
 
 PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string);
-Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type, Decimal128* out);
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal128* out);
 
 }  // namespace internal
 }  // namespace py

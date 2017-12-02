@@ -682,7 +682,6 @@ Status NumPyConverter::ConvertDecimals() {
   Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
 
-
   if (type_ == NULLPTR) {
     int32_t precision;
     int32_t desired_scale;

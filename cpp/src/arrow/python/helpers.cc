@@ -17,8 +17,8 @@
 
 #include <sstream>
 
-#include "arrow/python/helpers.h"
 #include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
@@ -200,13 +200,13 @@ static Status Rescale(const Decimal128& value, int32_t original_scale, int32_t n
   return Status::OK();
 }
 
-Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type, Decimal128* out) {
-
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal128* out) {
   int32_t actual_precision, actual_scale, inferred_precision, inferred_scale;
   std::string string;
   RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
-  RETURN_NOT_OK(InferDecimalPrecisionAndScale(python_decimal, &actual_precision,
-                                                        &actual_scale));
+  RETURN_NOT_OK(
+      InferDecimalPrecisionAndScale(python_decimal, &actual_precision, &actual_scale));
 
   Decimal128 value;
   RETURN_NOT_OK(
