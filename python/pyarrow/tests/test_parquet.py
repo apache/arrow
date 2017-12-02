@@ -1638,7 +1638,6 @@ def test_decimal_roundtrip_not_exact(tmpdir, preserve_index, precision):
     random_decimal_values = [
         decimal.Decimal(str(randint) + '.0') for randint in randints
     ]
-    import pdb; pdb.set_trace()  # noqa
     expected = pd.DataFrame({'decimal_num': random_decimal_values})
     filename = tmpdir.join('decimals.parquet')
     string_filename = str(filename)
