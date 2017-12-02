@@ -35,7 +35,6 @@ namespace py {
 
 TEST(PyBuffer, InvalidInputObject) { PyBuffer buffer(Py_None); }
 
-
 class DecimalTest : public ::testing::Test {
  public:
   DecimalTest() : lock_(), decimal_(), Decimal_() {
