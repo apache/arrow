@@ -692,7 +692,7 @@ Status NumPyConverter::ConvertDecimals() {
     RETURN_NOT_OK(
         internal::InferDecimalPrecisionAndScale(objects[0], &precision, &desired_scale));
 
-    for (int32_t i = 1; i < length_; ++i) {
+    for (int64_t i = 1; i < length_; ++i) {
       RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(objects[i], &tmp_precision,
                                                             &tmp_scale));
       precision = std::max(precision, tmp_precision);
