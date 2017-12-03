@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sstream>
+#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -95,29 +96,9 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
 
 Status InferDecimalPrecisionAndScale(PyObject* decimal_value, int32_t* precision,
                                      int32_t* scale) {
-  OwnedRef decimal_tuple(PyObject_CallMethod(decimal_value, "as_tuple", "()"));
-  RETURN_IF_PYERROR();
-
-  OwnedRef decimal_exponent_integer(
-      PyObject_GetAttrString(decimal_tuple.obj(), "exponent"));
-  RETURN_IF_PYERROR();
-
-  if (precision != NULLPTR) {
-    OwnedRef digits_tuple(PyObject_GetAttrString(decimal_tuple.obj(), "digits"));
-    RETURN_IF_PYERROR();
-
-    const auto result = static_cast<int32_t>(PyTuple_Size(digits_tuple.obj()));
-    RETURN_IF_PYERROR();
-    *precision = result;
-  }
-
-  if (scale != NULLPTR) {
-    const auto result =
-        -static_cast<int32_t>(PyLong_AsLong(decimal_exponent_integer.obj()));
-    RETURN_IF_PYERROR();
-    *scale = result;
-  }
-
+  std::string string;
+  RETURN_NOT_OK(PythonDecimalToString(decimal_value, &string));
+  RETURN_NOT_OK(Decimal128::FromString(string, NULLPTR, precision, scale));
   return Status::OK();
 }
 
@@ -140,12 +121,6 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   DCHECK_NE(python_decimal, NULLPTR);
   DCHECK_NE(out, NULLPTR);
 
-  int32_t actual_precision;
-  int32_t actual_scale;
-
-  RETURN_NOT_OK(
-      InferDecimalPrecisionAndScale(python_decimal, &actual_precision, &actual_scale));
-
   std::string string;
   RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
 
@@ -155,25 +130,20 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
   RETURN_NOT_OK(
       Decimal128::FromString(string, out, &inferred_precision, &inferred_scale));
 
-  DCHECK_EQ(actual_precision, inferred_precision);
-  DCHECK_EQ(actual_scale, inferred_scale);
-
-  DCHECK_LE(actual_scale, actual_precision);
-
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
 
-  if (ARROW_PREDICT_FALSE(actual_precision > precision)) {
+  if (ARROW_PREDICT_FALSE(inferred_precision > precision)) {
     std::stringstream buf;
-    buf << "Decimal type with precision " << actual_precision
+    buf << "Decimal type with precision " << inferred_precision
         << " does not fit into precision inferred from first array element: "
         << precision;
     return Status::Invalid(buf.str());
   }
 
-  if (scale != actual_scale) {
+  if (scale != inferred_scale) {
     DCHECK_NE(out, NULLPTR);
-    RETURN_NOT_OK(Rescale(*out, actual_scale, scale, out));
+    RETURN_NOT_OK(Rescale(*out, inferred_scale, scale, out));
   }
   return Status::OK();
 }
