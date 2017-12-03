@@ -596,6 +596,44 @@ garrow_array_unique(GArrowArray *array,
   return garrow_array_new_raw(&arrow_unique_array);
 }
 
+/**
+ * garrow_array_dictionary_encode:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full):
+ *   A newly created #GArrowDictionarArray for the @array on success,
+ *   %NULL on error.
+ *
+ * Since: 0.8.0
+ */
+GArrowArray *
+garrow_array_dictionary_encode(GArrowArray *array,
+                               GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum dictionary_encoded_datum;
+  auto status =
+    arrow::compute::DictionaryEncode(&context,
+                                     arrow::compute::Datum(arrow_array),
+                                     &dictionary_encoded_datum);
+  if (!status.ok()) {
+    std::stringstream message;
+    message << "[array][dictionary-encode] <";
+    message << arrow_array->type()->ToString();
+    message << ">";
+    garrow_error_check(error, status, message.str().c_str());
+    return NULL;
+  }
+
+  auto arrow_dictionary_encoded_array =
+    arrow::MakeArray(dictionary_encoded_datum.array());
+
+  return garrow_array_new_raw(&arrow_dictionary_encoded_array);
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,               \
               garrow_null_array,             \
