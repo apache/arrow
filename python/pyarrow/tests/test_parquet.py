@@ -20,9 +20,8 @@ from os.path import join as pjoin
 import datetime
 import decimal
 import io
-import os
 import json
-import random
+import os
 
 import pytest
 
@@ -1575,38 +1574,35 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     ('precision', 'scale'),
     [
         (precision, scale)
-        for precision in range(2, 39)
-        for scale in range(1, precision + 1)
+        for precision in range(1, 39)
+        for scale in range(0, precision + 1)
     ]
 )
-@pytest.mark.parametrize('preserve_index', [False])
-def test_decimal_roundtrip_not_exact(tmpdir, precision, scale, preserve_index):
+def test_decimal_roundtrip(tmpdir, precision, scale):
     num_values = 10
 
-    max_whole_value = 10 ** (precision - scale) - 1
-    max_fractional_value = 10 ** scale - 1
-
     with util.random_seed(0):
-        random_whole_part = [
-            random.randint(0, max_whole_value) * util.randsign()
-            for _ in range(num_values)
+        random_decimal_values = [
+            util.randdecimal(precision, scale) for _ in range(num_values)
         ]
-        random_fractional_part = [
-            random.randint(0, max_fractional_value)
-            for _ in range(num_values)
-        ]
-
-    random_decimal_values = [
-        decimal.Decimal(
-            '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
-        ) for whole, fractional in zip(
-            random_whole_part, random_fractional_part
-        )
-    ]
     expected = pd.DataFrame({'decimal_num': random_decimal_values})
     filename = tmpdir.join('decimals.parquet')
     string_filename = str(filename)
-    t = pa.Table.from_pandas(expected, preserve_index=preserve_index)
+    t = pa.Table.from_pandas(expected)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+@pytest.mark.xfail(
+    raises=pa.ArrowException, reason='Parquet does not support negative scale'
+)
+def test_decimal_roundtrip_negative_scale(tmpdir):
+    expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected)
     _write_table(t, string_filename)
     result_table = _read_table(string_filename)
     result = result_table.to_pandas()
