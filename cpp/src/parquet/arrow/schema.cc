@@ -601,8 +601,9 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       return Status::NotImplemented(ss.str());
     }
   }
-  *out = PrimitiveNode::Make(field->name(), repetition, type, logical_type, length,
-                             precision, scale);
+  PARQUET_CATCH_NOT_OK(*out =
+                           PrimitiveNode::Make(field->name(), repetition, type,
+                                               logical_type, length, precision, scale));
   return Status::OK();
 }
 

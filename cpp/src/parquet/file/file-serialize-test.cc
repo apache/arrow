@@ -209,17 +209,11 @@ TYPED_TEST(TestSerialize, SmallFileBrotli) {
   this->FileSerializeTest(Compression::BROTLI);
 }
 
-TYPED_TEST(TestSerialize, SmallFileGzip) {
-  this->FileSerializeTest(Compression::GZIP);
-}
+TYPED_TEST(TestSerialize, SmallFileGzip) { this->FileSerializeTest(Compression::GZIP); }
 
-TYPED_TEST(TestSerialize, SmallFileLz4) {
-  this->FileSerializeTest(Compression::LZ4);
-}
+TYPED_TEST(TestSerialize, SmallFileLz4) { this->FileSerializeTest(Compression::LZ4); }
 
-TYPED_TEST(TestSerialize, SmallFileZstd) {
-  this->FileSerializeTest(Compression::ZSTD);
-}
+TYPED_TEST(TestSerialize, SmallFileZstd) { this->FileSerializeTest(Compression::ZSTD); }
 
 }  // namespace test
 

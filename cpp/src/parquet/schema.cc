@@ -137,11 +137,13 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         throw ParquetException(ss.str());
       }
       if (precision <= 0) {
-        ss << "Invalid DECIMAL precision: " << precision;
+        ss << "Invalid DECIMAL precision: " << precision
+           << ". Precision must be a number between 1 and 38 inclusive";
         throw ParquetException(ss.str());
       }
       if (scale < 0) {
-        ss << "Invalid DECIMAL scale: " << scale;
+        ss << "Invalid DECIMAL scale: " << scale
+           << ". Scale must be a number between 0 and precision inclusive";
         throw ParquetException(ss.str());
       }
       if (scale > precision) {
