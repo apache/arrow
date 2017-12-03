@@ -163,7 +163,7 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
 
   if (scale != inferred_scale) {
     DCHECK_NE(out, NULLPTR);
-    RETURN_NOT_OK(Rescale(*out, inferred_scale, scale, out));
+    RETURN_NOT_OK(RescaleDecimal(*out, inferred_scale, scale, out));
   }
   return Status::OK();
 }
