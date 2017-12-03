@@ -210,6 +210,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "ZStd static lib suffix used on Windows with MSVC (default _static)")
+
+    option(ARROW_USE_STATIC_CRT
+      "Build Arrow with statically linked CRT"
+      OFF)
   endif()
 endif()
 
