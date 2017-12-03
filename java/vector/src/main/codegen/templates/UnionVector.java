@@ -417,18 +417,6 @@ public class UnionVector implements FieldVector {
   }
 
   @Override
-  @Deprecated
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from UNION");
-  }
-
-  @Override
-  @Deprecated
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to UNION");
-  }
-
-  @Override
   public FieldReader getReader() {
     if (reader == null) {
       reader = new UnionReader(this);
