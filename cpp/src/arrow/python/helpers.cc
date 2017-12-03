@@ -16,7 +16,6 @@
 // under the License.
 
 #include <sstream>
-#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
