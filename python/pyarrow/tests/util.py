@@ -3,6 +3,12 @@ import contextlib
 
 
 def randsign():
+    """Randomly choose from 1 and -1.
+
+    Returns
+    -------
+    sign : int
+    """
     return random.choice((-1, 1))
 
 
