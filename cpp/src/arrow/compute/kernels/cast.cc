@@ -461,6 +461,29 @@ struct CastFunctor<Date32Type, Date64Type> {
 };
 
 // ----------------------------------------------------------------------
+// List to List
+
+template <>
+struct CastFunctor<ListType, ListType> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    Datum datum_out;
+    ListArray input_array(input.Copy());
+
+    const ListType& type = static_cast<const ListType&>(*output->type);
+
+    FUNC_RETURN_NOT_OK(
+        Cast(ctx, Datum(input_array.values()), type.value_type(), options, &datum_out));
+
+    FUNC_RETURN_NOT_OK(
+        input.buffers[0]->Copy(0, input.buffers[0]->size(), &output->buffers[0]));
+    FUNC_RETURN_NOT_OK(
+        input.buffers[1]->Copy(0, input.buffers[1]->size(), &output->buffers[1]));
+    output->child_data.emplace_back(datum_out.array());
+  }
+};
+
+// ----------------------------------------------------------------------
 // Dictionary to other things
 
 template <typename IndexType>
@@ -698,13 +721,16 @@ static Status AllocateIfNotPreallocated(FunctionContext* ctx, const ArrayData& i
     const Type::type type_id = out->type->id();
 
     if (!(is_primitive(type_id) || type_id == Type::FIXED_SIZE_BINARY ||
-          type_id == Type::DECIMAL)) {
+          type_id == Type::DECIMAL) &&
+        type_id != Type::LIST) {
       std::stringstream ss;
       ss << "Cannot pre-allocate memory for type: " << out->type->ToString();
       return Status::NotImplemented(ss.str());
     }
 
-    if (type_id != Type::NA) {
+    if (type_id == Type::LIST) {
+      out->buffers.resize(2);
+    } else if (type_id != Type::NA) {
       const auto& fw_type = static_cast<const FixedWidthType&>(*out->type);
 
       int bit_width = fw_type.bit_width();
@@ -860,6 +886,8 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 
+#define LIST_CASES(FN, IN_TYPE) FN(IN_TYPE, ListType)
+
 #define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                              \
   static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                   \
       const std::shared_ptr<DataType>& out_type, const CastOptions& options) { \
@@ -897,6 +925,7 @@ GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
 
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
+GET_CAST_FUNCTION(LIST_CASES, ListType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
@@ -924,6 +953,7 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
     CAST_FUNCTION_CASE(DictionaryType);
+    CAST_FUNCTION_CASE(ListType);
     default:
       break;
   }
