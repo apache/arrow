@@ -1576,67 +1576,32 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     [
         (precision, scale)
         for precision in range(2, 39)
-        for scale in range(1, precision)
+        for scale in range(1, precision + 1)
     ]
 )
-def test_decimal_roundtrip(tmpdir, precision, scale):
-    num = 10
-    frac_part = scale
-    whole_part = precision - frac_part
-    with util.random_seed(0):
-        whole = [
-            random.randint(
-                10 ** (whole_part - 1),
-                10 ** whole_part - 1
-            ) * util.randsign()
-            for _ in range(num)
-        ]
-        frac = [
-            random.randint(10 ** (frac_part - 1), 10 ** frac_part - 1)
-            for _ in range(num)
-        ]
-    random_strings = [
-        '{:0{whole_part}d}.{:0{frac_part}d}'.format(
-            whole_num, frac_num,
-            whole_part=whole_part, frac_part=frac_part
-        ) for whole_num, frac_num in zip(whole, frac)
-    ]
-
-    assert all(
-        len(s.replace('-', '').replace('.', '')) == precision
-        for s in random_strings
-    )
-
-    random_decimals = list(map(decimal.Decimal, random_strings))
-    expected = pd.DataFrame({'group1': list('aaabbbbccc'),
-                             'num': list(range(10)),
-                             'decimal_num': random_decimals})[
-                                         ['group1', 'num', 'decimal_num']]
-    filename = tmpdir.join('decimals.parquet')
-    t = pa.Table.from_pandas(expected)
-    decimal_field_type = t.schema.field_by_name('decimal_num').type
-
-    assert decimal_field_type.precision == precision
-    assert decimal_field_type.scale == scale
-
-    string_filename = str(filename)
-    _write_table(t, string_filename)
-    result_table = _read_table(string_filename)
-    result = result_table.to_pandas()
-    tm.assert_frame_equal(result, expected)
-
-
-@pytest.mark.parametrize('precision', [3])
 @pytest.mark.parametrize('preserve_index', [False])
-def test_decimal_roundtrip_not_exact(tmpdir, preserve_index, precision):
-    max_value = 10 ** (precision - 1) - 1
-    min_value = -max_value
-    with util.random_seed(0):
-        randints = [random.randint(min_value, max_value) for _ in range(10)]
+def test_decimal_roundtrip_not_exact(tmpdir, precision, scale, preserve_index):
+    num_values = 10
 
-    # import pdb; pdb.set_trace()  # noqa
+    max_whole_value = 10 ** (precision - scale) - 1
+    max_fractional_value = 10 ** scale - 1
+
+    with util.random_seed(0):
+        random_whole_part = [
+            random.randint(0, max_whole_value) * util.randsign()
+            for _ in range(num_values)
+        ]
+        random_fractional_part = [
+            random.randint(0, max_fractional_value)
+            for _ in range(num_values)
+        ]
+
     random_decimal_values = [
-        decimal.Decimal(str(randint) + '.0') for randint in randints
+        decimal.Decimal(
+            '{}.{}'.format(whole, str(fractional).rjust(scale, '0'))
+        ) for whole, fractional in zip(
+            random_whole_part, random_fractional_part
+        )
     ]
     expected = pd.DataFrame({'decimal_num': random_decimal_values})
     filename = tmpdir.join('decimals.parquet')
