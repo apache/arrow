@@ -93,11 +93,32 @@ Status PythonDecimalToString(PyObject* python_decimal, std::string* out) {
   return Status::OK();
 }
 
-Status InferDecimalPrecisionAndScale(PyObject* decimal_value, int32_t* precision,
+Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precision,
                                      int32_t* scale) {
-  std::string string;
-  RETURN_NOT_OK(PythonDecimalToString(decimal_value, &string));
-  RETURN_NOT_OK(Decimal128::FromString(string, NULLPTR, precision, scale));
+  DCHECK_NE(python_decimal, NULLPTR);
+  DCHECK_NE(precision, NULLPTR);
+  DCHECK_NE(scale, NULLPTR);
+
+  OwnedRef as_tuple(PyObject_CallMethod(python_decimal, "as_tuple", "()"));
+  RETURN_IF_PYERROR();
+  DCHECK(PyTuple_Check(as_tuple.obj()));
+
+  OwnedRef digits(PyObject_GetAttrString(as_tuple.obj(), "digits"));
+  RETURN_IF_PYERROR();
+  DCHECK(PyTuple_Check(digits.obj()));
+
+  const auto num_digits = static_cast<int32_t>(PyTuple_Size(digits.obj()));
+  RETURN_IF_PYERROR();
+
+  OwnedRef py_exponent(PyObject_GetAttrString(as_tuple.obj(), "exponent"));
+  RETURN_IF_PYERROR();
+  DCHECK(PyLong_Check(py_exponent.obj()));
+
+  const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
+  RETURN_IF_PYERROR();
+
+  *precision = num_digits;
+  *scale = -exponent;
   return Status::OK();
 }
 

@@ -47,7 +47,7 @@ Status ImportFromModule(const OwnedRef& module, const std::string& module_name,
 
 Status PythonDecimalToString(PyObject* python_decimal, std::string* out);
 
-Status InferDecimalPrecisionAndScale(PyObject* decimal_value,
+Status InferDecimalPrecisionAndScale(PyObject* python_decimal,
                                      int32_t* precision = NULLPTR,
                                      int32_t* scale = NULLPTR);
 
