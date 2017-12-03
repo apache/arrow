@@ -312,6 +312,20 @@ def test_table_remove_column():
     assert t2.equals(expected)
 
 
+def test_table_remove_column_empty():
+    # ARROW-1865
+    data = [
+        pa.array(range(5)),
+    ]
+    table = pa.Table.from_arrays(data, names=['a'])
+
+    t2 = table.remove_column(0)
+    assert len(t2) == len(table)
+
+    t3 = t2.add_column(0, table[0])
+    assert t3.equals(table)
+
+
 def test_concat_tables():
     data = [
         list(range(5)),
