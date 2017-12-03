@@ -277,16 +277,4 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
             offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     vector.setValueCount(childValueCount);
   }
-
-  @Override
-  @Deprecated
-  public RepeatedAccessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from LIST.");
-  }
-
-  @Override
-  @Deprecated
-  public RepeatedMutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to LIST");
-  }
 }

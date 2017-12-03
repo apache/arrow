@@ -80,7 +80,7 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
       }
     }
     holder.reader = data.getReader();
-    holder.isSet = vector.getAccessor().isNull(idx()) ? 0 : 1;
+    holder.isSet = vector.isNull(idx()) ? 0 : 1;
   }
 
   @Override

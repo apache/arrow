@@ -90,18 +90,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * the top class as of now is not a good idea.
    */
 
-  @Override
-  @Deprecated
-  public VariableWidthMutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing into vector");
-  }
-
-  @Override
-  @Deprecated
-  public VariableWidthAccessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
-  }
-
   /**
    * Get buffer that manages the validity (NULL or NON-NULL nature) of
    * elements in the vector. Consider it as a buffer for internal bit vector

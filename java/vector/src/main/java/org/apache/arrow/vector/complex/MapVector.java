@@ -497,16 +497,4 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   public void reset() {
     valueCount = 0;
   }
-
-  @Override
-  @Deprecated
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from Nullable MAP");
-  }
-
-  @Override
-  @Deprecated
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to Nullable MAP");
-  }
 }

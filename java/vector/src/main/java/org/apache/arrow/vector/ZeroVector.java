@@ -60,41 +60,6 @@ public class ZeroVector implements FieldVector {
     }
   };
 
-  private final Accessor defaultAccessor = new Accessor() {
-    @Override
-    public Object getObject(int index) {
-      return null;
-    }
-
-    @Override
-    public int getValueCount() {
-      return 0;
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return true;
-    }
-
-    @Override
-    public int getNullCount() {
-      return 0;
-    }
-  };
-
-  private final Mutator defaultMutator = new Mutator() {
-    @Override
-    public void setValueCount(int valueCount) {
-    }
-
-    @Override
-    public void reset() {
-    }
-
-    @Override
-    public void generateTestData(int values) {
-    }
-  };
 
   public ZeroVector() {
   }
@@ -184,16 +149,6 @@ public class ZeroVector implements FieldVector {
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return defaultPair;
-  }
-
-  @Override
-  public Accessor getAccessor() {
-    return defaultAccessor;
-  }
-
-  @Override
-  public Mutator getMutator() {
-    return defaultMutator;
   }
 
   @Override

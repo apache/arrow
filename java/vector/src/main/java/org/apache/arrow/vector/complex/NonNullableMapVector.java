@@ -253,16 +253,6 @@ public class NonNullableMapVector extends AbstractMapVector {
   }
 
   @Override
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("accessor is not needed for MAP");
-  }
-
-  @Override
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("mutator is not needed for MAP");
-  }
-
-  @Override
   public Object getObject(int index) {
     Map<String, Object> vv = new JsonStringHashMap<>();
     for (String child : getChildFieldNames()) {
