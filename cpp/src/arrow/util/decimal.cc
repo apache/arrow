@@ -813,4 +813,68 @@ Decimal128 operator%(const Decimal128& left, const Decimal128& right) {
   return remainder;
 }
 
+static const Decimal128 ScaleMultipliers[] = {
+    Decimal128(1),
+    Decimal128(10),
+    Decimal128(100),
+    Decimal128(1000),
+    Decimal128(10000),
+    Decimal128(100000),
+    Decimal128(1000000),
+    Decimal128(10000000),
+    Decimal128(100000000),
+    Decimal128(1000000000),
+    Decimal128(10000000000),
+    Decimal128(100000000000),
+    Decimal128(1000000000000),
+    Decimal128(10000000000000),
+    Decimal128(100000000000000),
+    Decimal128(1000000000000000),
+    Decimal128(10000000000000000),
+    Decimal128(100000000000000000),
+    Decimal128(1000000000000000000),
+    Decimal128("10000000000000000000"),
+    Decimal128("100000000000000000000"),
+    Decimal128("1000000000000000000000"),
+    Decimal128("10000000000000000000000"),
+    Decimal128("100000000000000000000000"),
+    Decimal128("1000000000000000000000000"),
+    Decimal128("10000000000000000000000000"),
+    Decimal128("100000000000000000000000000"),
+    Decimal128("1000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000000"),
+    Decimal128("1000000000000000000000000000000000000"),
+    Decimal128("10000000000000000000000000000000000000"),
+    Decimal128("100000000000000000000000000000000000000")};
+
+Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
+                           Decimal128* out) const {
+  DCHECK_NE(out, NULLPTR);
+  DCHECK_NE(original_scale, new_scale);
+  const int32_t delta_scale = original_scale - new_scale;
+  const int32_t abs_delta_scale = std::abs(delta_scale);
+  DCHECK_GE(abs_delta_scale, 1);
+  DCHECK_LE(abs_delta_scale, 38);
+
+  const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
+  const Decimal128 result = *this * scale_multiplier;
+
+  if (ARROW_PREDICT_FALSE(result < *this)) {
+    std::stringstream buf;
+    buf << "Rescaling decimal value from original scale " << original_scale
+        << " to new scale " << new_scale << " would cause overflow";
+    return Status::Invalid(buf.str());
+  }
+
+  *out = result;
+  return Status::OK();
+}
+
 }  // namespace arrow

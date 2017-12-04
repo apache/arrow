@@ -682,24 +682,41 @@ Status NumPyConverter::ConvertDecimals() {
   Ndarray1DIndexer<PyObject*> objects(arr_);
   PyObject* object = objects[0];
 
-  int precision;
-  int scale;
+  if (type_ == NULLPTR) {
+    int32_t precision;
+    int32_t desired_scale;
 
-  RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(object, &precision, &scale));
+    int32_t tmp_precision;
+    int32_t tmp_scale;
 
-  type_ = std::make_shared<Decimal128Type>(precision, scale);
+    RETURN_NOT_OK(
+        internal::InferDecimalPrecisionAndScale(objects[0], &precision, &desired_scale));
+
+    for (int64_t i = 1; i < length_; ++i) {
+      RETURN_NOT_OK(internal::InferDecimalPrecisionAndScale(objects[i], &tmp_precision,
+                                                            &tmp_scale));
+      precision = std::max(precision, tmp_precision);
+
+      if (std::abs(desired_scale) < std::abs(tmp_scale)) {
+        desired_scale = tmp_scale;
+      }
+    }
+
+    type_ = ::arrow::decimal(precision, desired_scale);
+  }
 
   Decimal128Builder builder(type_, pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
+  const auto& decimal_type = static_cast<const DecimalType&>(*type_);
+  PyObject* Decimal_type_object = Decimal.obj();
+
   for (int64_t i = 0; i < length_; ++i) {
     object = objects[i];
-    if (PyObject_IsInstance(object, Decimal.obj())) {
-      std::string string;
-      RETURN_NOT_OK(internal::PythonDecimalToString(object, &string));
 
+    if (PyObject_IsInstance(object, Decimal_type_object)) {
       Decimal128 value;
-      RETURN_NOT_OK(Decimal128::FromString(string, &value));
+      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(object, decimal_type, &value));
       RETURN_NOT_OK(builder.Append(value));
     } else if (PandasObjectIsNull(object)) {
       RETURN_NOT_OK(builder.AppendNull());
@@ -724,7 +741,7 @@ Status NumPyConverter::ConvertTimes() {
   Time64Builder builder(::arrow::time64(TimeUnit::MICRO), pool_);
   RETURN_NOT_OK(builder.Resize(length_));
 
-  PyObject* obj;
+  PyObject* obj = NULLPTR;
   for (int64_t i = 0; i < length_; ++i) {
     obj = objects[i];
     if (PyTime_Check(obj)) {

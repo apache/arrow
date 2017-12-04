@@ -35,34 +35,73 @@ namespace py {
 
 TEST(PyBuffer, InvalidInputObject) { PyBuffer buffer(Py_None); }
 
-TEST(DecimalTest, TestPythonDecimalToString) {
-  PyAcquireGIL lock;
+class DecimalTest : public ::testing::Test {
+ public:
+  DecimalTest() : lock_(), decimal_module_(), decimal_constructor_() {
+    auto s = internal::ImportModule("decimal", &decimal_module_);
+    DCHECK(s.ok()) << s.message();
+    DCHECK_NE(decimal_module_.obj(), NULLPTR);
 
-  OwnedRef decimal;
-  OwnedRef Decimal;
-  ASSERT_OK(internal::ImportModule("decimal", &decimal));
-  ASSERT_NE(decimal.obj(), nullptr);
+    s = internal::ImportFromModule(decimal_module_, "Decimal", &decimal_constructor_);
+    DCHECK(s.ok()) << s.message();
 
-  ASSERT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
-  ASSERT_NE(Decimal.obj(), nullptr);
+    DCHECK_NE(decimal_constructor_.obj(), NULLPTR);
+  }
 
+  OwnedRef CreatePythonDecimal(const std::string& string_value) {
+    OwnedRef ref(internal::DecimalFromString(decimal_constructor_.obj(), string_value));
+    return ref;
+  }
+
+ private:
+  PyAcquireGIL lock_;
+  OwnedRef decimal_module_;
+  OwnedRef decimal_constructor_;
+};
+
+TEST_F(DecimalTest, TestPythonDecimalToString) {
   std::string decimal_string("-39402950693754869342983");
-  const char* format = "s#";
-  auto c_string = decimal_string.c_str();
-  ASSERT_NE(c_string, nullptr);
 
-  auto c_string_size = decimal_string.size();
-  ASSERT_GT(c_string_size, 0);
-  OwnedRef pydecimal(PyObject_CallFunction(Decimal.obj(), const_cast<char*>(format),
-                                           c_string, c_string_size));
-  ASSERT_NE(pydecimal.obj(), nullptr);
-  ASSERT_EQ(PyErr_Occurred(), nullptr);
-
-  PyObject* python_object = pydecimal.obj();
-  ASSERT_NE(python_object, nullptr);
+  OwnedRef python_object = this->CreatePythonDecimal(decimal_string);
+  ASSERT_NE(python_object.obj(), nullptr);
 
   std::string string_result;
-  ASSERT_OK(internal::PythonDecimalToString(python_object, &string_result));
+  ASSERT_OK(internal::PythonDecimalToString(python_object.obj(), &string_result));
+}
+
+TEST_F(DecimalTest, TestInferPrecisionAndScale) {
+  std::string decimal_string("-394029506937548693.42983");
+  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+
+  int32_t precision;
+  int32_t scale;
+
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const auto expected_precision =
+      static_cast<int32_t>(decimal_string.size() - 2);  // 1 for -, 1 for .
+  const int32_t expected_scale = 5;
+
+  ASSERT_EQ(expected_precision, precision);
+  ASSERT_EQ(expected_scale, scale);
+}
+
+TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
+  std::string decimal_string("-3.94042983E+10");
+  OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
+
+  int32_t precision;
+  int32_t scale;
+
+  ASSERT_OK(
+      internal::InferDecimalPrecisionAndScale(python_decimal.obj(), &precision, &scale));
+
+  const auto expected_precision = 9;
+  const int32_t expected_scale = -2;
+
+  ASSERT_EQ(expected_precision, precision);
+  ASSERT_EQ(expected_scale, scale);
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
