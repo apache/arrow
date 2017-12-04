@@ -467,19 +467,8 @@ template <>
 struct CastFunctor<ListType, ListType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    Datum datum_out;
-    ListArray input_array(input.Copy());
-
-    const ListType& type = static_cast<const ListType&>(*output->type);
-
-    FUNC_RETURN_NOT_OK(
-        Cast(ctx, Datum(input_array.values()), type.value_type(), options, &datum_out));
-
-    FUNC_RETURN_NOT_OK(
-        input.buffers[0]->Copy(0, input.buffers[0]->size(), &output->buffers[0]));
-    FUNC_RETURN_NOT_OK(
-        input.buffers[1]->Copy(0, input.buffers[1]->size(), &output->buffers[1]));
-    output->child_data.emplace_back(datum_out.array());
+    output->buffers[0] = input.buffers[0];
+    output->buffers[1] = input.buffers[1];
   }
 };
 
@@ -764,6 +753,23 @@ class CastKernel : public UnaryKernel {
         can_pre_allocate_values_(can_pre_allocate_values),
         out_type_(out_type) {}
 
+  Status SetChildCastKernel(const DataType& in_type) {
+    if (in_type.num_children() != out_type_->num_children()) {
+      return Status::SerializationError("Number of children are not same.");
+    }
+
+    for (int i = 0; i < in_type.num_children(); i++) {
+      auto in_field = in_type.child(i);
+      auto out_field = out_type_->child(i);
+      std::unique_ptr<UnaryKernel> child_cast_kernel;
+      RETURN_NOT_OK(GetCastFunction(*in_field->type(), out_field->type(), options_,
+                                    &child_cast_kernel));
+
+      child_cast_kernels.emplace_back(std::move(child_cast_kernel));
+    }
+    return Status::OK();
+  }
+
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
 
@@ -782,6 +788,14 @@ class CastKernel : public UnaryKernel {
     }
     func_(ctx, options_, in_data, result);
 
+    for (size_t i = 0; i < in_data.child_data.size(); i++) {
+      auto in_child_data = in_data.child_data[i];
+
+      Datum datum_out;
+      RETURN_NOT_OK(child_cast_kernels[i]->Call(ctx, Datum(in_child_data), &datum_out));
+      result->child_data.emplace_back(datum_out.array());
+    }
+
     RETURN_IF_ERROR(ctx);
     return Status::OK();
   }
@@ -792,6 +806,7 @@ class CastKernel : public UnaryKernel {
   bool is_zero_copy_;
   bool can_pre_allocate_values_;
   std::shared_ptr<DataType> out_type_;
+  std::vector<std::unique_ptr<UnaryKernel>> child_cast_kernels;
 };
 
 #define CAST_CASE(InType, OutType)                                                      \
@@ -888,22 +903,28 @@ class CastKernel : public UnaryKernel {
 
 #define LIST_CASES(FN, IN_TYPE) FN(IN_TYPE, ListType)
 
-#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                              \
-  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                   \
-      const std::shared_ptr<DataType>& out_type, const CastOptions& options) { \
-    CastFunction func;                                                         \
-    bool is_zero_copy = false;                                                 \
-    bool can_pre_allocate_values = true;                                       \
-    switch (out_type->id()) {                                                  \
-      CASE_GENERATOR(CAST_CASE, InType);                                       \
-      default:                                                                 \
-        break;                                                                 \
-    }                                                                          \
-    if (func != nullptr) {                                                     \
-      return std::unique_ptr<UnaryKernel>(new CastKernel(                      \
-          options, func, is_zero_copy, can_pre_allocate_values, out_type));    \
-    }                                                                          \
-    return nullptr;                                                            \
+#define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                           \
+  static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                \
+      const DataType& in_type, const std::shared_ptr<DataType>& out_type,   \
+      const CastOptions& options) {                                         \
+    CastFunction func;                                                      \
+    bool is_zero_copy = false;                                              \
+    bool can_pre_allocate_values = true;                                    \
+    switch (out_type->id()) {                                               \
+      CASE_GENERATOR(CAST_CASE, InType);                                    \
+      default:                                                              \
+        break;                                                              \
+    }                                                                       \
+    if (func != nullptr) {                                                  \
+      auto cast_kernel = new CastKernel(options, func, is_zero_copy,        \
+                                        can_pre_allocate_values, out_type); \
+      if (cast_kernel->SetChildCastKernel(in_type).ok()) {                  \
+        return std::unique_ptr<UnaryKernel>(cast_kernel);                   \
+      } else {                                                              \
+        return nullptr;                                                     \
+      }                                                                     \
+    }                                                                       \
+    return nullptr;                                                         \
   }
 
 GET_CAST_FUNCTION(NULL_CASES, NullType);
@@ -927,9 +948,9 @@ GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 GET_CAST_FUNCTION(LIST_CASES, ListType);
 
-#define CAST_FUNCTION_CASE(InType)                      \
-  case InType::type_id:                                 \
-    *kernel = Get##InType##CastFunc(out_type, options); \
+#define CAST_FUNCTION_CASE(InType)                               \
+  case InType::type_id:                                          \
+    *kernel = Get##InType##CastFunc(in_type, out_type, options); \
     break
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
