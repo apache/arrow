@@ -1221,6 +1221,21 @@ class TestPandasConversion(object):
         assert pa.Array.from_pandas(expected,
                                     type=pa.list_(t())).equals(result)
 
+    def test_table_column_subset_metadata(self):
+        # ARROW-1883
+        df = pd.DataFrame({
+            'a': [1, 2, 3],
+            'b': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+        table = pa.Table.from_pandas(df)
+
+        table_subset = table.remove_column(1)
+        result = table_subset.to_pandas()
+        tm.assert_frame_equal(result, df[['a']])
+
+        table_subset2 = table.remove_column(1)
+        result = table_subset2.to_pandas()
+        tm.assert_frame_equal(result, df[['a']])
+
 
 def _pytime_from_micros(val):
     microseconds = val % 1000000
