@@ -105,7 +105,6 @@ public class TestArrowReaderWriter {
          ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
       Schema readSchema = reader.getVectorSchemaRoot().getSchema();
       assertEquals(schema, readSchema);
-      assertTrue(readSchema.getFields().get(0).getTypeLayout().getVectorTypes().toString(), readSchema.getFields().get(0).getTypeLayout().getVectors().size() > 0);
       // TODO: dictionaries
       List<ArrowBlock> recordBatches = reader.getRecordBlocks();
       assertEquals(1, recordBatches.size());

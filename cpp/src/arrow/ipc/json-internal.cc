@@ -43,22 +43,6 @@ namespace ipc {
 namespace json {
 namespace internal {
 
-static std::string GetBufferTypeName(BufferType type) {
-  switch (type) {
-    case BufferType::DATA:
-      return "DATA";
-    case BufferType::OFFSET:
-      return "OFFSET";
-    case BufferType::TYPE:
-      return "TYPE";
-    case BufferType::VALIDITY:
-      return "VALIDITY";
-    default:
-      break;
-  }
-  return "UNKNOWN";
-}
-
 static std::string GetFloatingPrecisionName(FloatingPoint::Precision precision) {
   switch (precision) {
     case FloatingPoint::HALF:
@@ -174,12 +158,9 @@ class SchemaWriter {
       RETURN_NOT_OK(WriteDictionaryMetadata(dict_type));
 
       const DataType& dictionary_type = *dict_type.dictionary()->type();
-      const DataType& index_type = *dict_type.index_type();
       RETURN_NOT_OK(WriteChildren(dictionary_type.children()));
-      WriteBufferLayout(index_type.GetBufferLayout());
     } else {
       RETURN_NOT_OK(WriteChildren(type.children()));
-      WriteBufferLayout(type.GetBufferLayout());
     }
 
     writer_->EndObject();
@@ -299,26 +280,6 @@ class SchemaWriter {
   Status WriteVarBytes(const std::string& typeclass, const T& type) {
     WriteName(typeclass, type);
     return Status::OK();
-  }
-
-  void WriteBufferLayout(const std::vector<BufferDescr>& buffer_layout) {
-    writer_->Key("typeLayout");
-    writer_->StartObject();
-    writer_->Key("vectors");
-    writer_->StartArray();
-
-    for (const BufferDescr& buffer : buffer_layout) {
-      writer_->StartObject();
-      writer_->Key("type");
-      writer_->String(GetBufferTypeName(buffer.type()));
-
-      writer_->Key("typeBitWidth");
-      writer_->Int(buffer.bit_width());
-
-      writer_->EndObject();
-    }
-    writer_->EndArray();
-    writer_->EndObject();
   }
 
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {

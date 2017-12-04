@@ -38,7 +38,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.apache.arrow.vector.ipc.message.TypeLayout;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -711,11 +710,9 @@ public class TestValueVector {
 
       vector.setValueCount(1024);
       Field field = vector.getField();
-      TypeLayout typeLayout = field.getTypeLayout();
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-      assertEquals(2, typeLayout.getVectors().size());
       assertEquals(2, buffers.size());
 
       ArrowBuf validityVectorBuf = buffers.get(0);

@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.apache.arrow.vector.ipc.message.ArrowVectorType.*;
+import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +33,8 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.ipc.message.ArrowVectorType;
+import org.apache.arrow.vector.BufferLayout.BufferType;
+import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -152,7 +153,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
-    List<ArrowVectorType> vectorTypes = field.getTypeLayout().getVectorTypes();
+    List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {
       throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " + vectorTypes.size() + " != " + vectorBuffers.size());
@@ -165,16 +166,16 @@ public class JsonFileWriter implements AutoCloseable {
       final int scale = (vector instanceof DecimalVector) ?
                             ((DecimalVector) vector).getScale() : 0;
       for (int v = 0; v < vectorTypes.size(); v++) {
-        ArrowVectorType vectorType = vectorTypes.get(v);
+        BufferType bufferType = vectorTypes.get(v);
         ArrowBuf vectorBuffer = vectorBuffers.get(v);
-        generator.writeArrayFieldStart(vectorType.getName());
-        final int bufferValueCount = (vectorType.equals(OFFSET)) ? valueCount + 1 : valueCount;
+        generator.writeArrayFieldStart(bufferType.getName());
+        final int bufferValueCount = (bufferType.equals(OFFSET)) ? valueCount + 1 : valueCount;
         for (int i = 0; i < bufferValueCount; i++) {
-          if (vectorType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR ||
+          if (bufferType.equals(DATA) && (vector.getMinorType() == Types.MinorType.VARCHAR ||
                   vector.getMinorType() == Types.MinorType.VARBINARY)) {
-            writeValueToGenerator(vectorType, vectorBuffer, vectorBuffers.get(v-1), vector, i, scale);
+            writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v-1), vector, i, scale);
           } else {
-            writeValueToGenerator(vectorType, vectorBuffer, null, vector, i, scale);
+            writeValueToGenerator(bufferType, vectorBuffer, null, vector, i, scale);
           }
         }
         generator.writeEndArray();
@@ -197,7 +198,7 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndObject();
   }
 
-  private void writeValueToGenerator(ArrowVectorType bufferType, ArrowBuf buffer,
+  private void writeValueToGenerator(BufferType bufferType, ArrowBuf buffer,
                                      ArrowBuf offsetBuffer, FieldVector vector,
                                      final int index, final int scale) throws IOException {
     if (bufferType.equals(TYPE)) {
