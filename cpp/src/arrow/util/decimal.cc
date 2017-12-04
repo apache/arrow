@@ -854,8 +854,8 @@ static const Decimal128 ScaleMultipliers[] = {
     Decimal128("10000000000000000000000000000000000000"),
     Decimal128("100000000000000000000000000000000000000")};
 
-Status RescaleDecimal(const Decimal128& value, int32_t original_scale, int32_t new_scale,
-                      Decimal128* out) {
+Status Decimal128::Rescale(int32_t original_scale, int32_t new_scale,
+                           Decimal128* out) const {
   DCHECK_NE(out, NULLPTR);
   DCHECK_NE(original_scale, new_scale);
   const int32_t delta_scale = original_scale - new_scale;
@@ -864,9 +864,9 @@ Status RescaleDecimal(const Decimal128& value, int32_t original_scale, int32_t n
   DCHECK_LE(abs_delta_scale, 38);
 
   const Decimal128 scale_multiplier = ScaleMultipliers[abs_delta_scale];
-  const Decimal128 result = value * scale_multiplier;
+  const Decimal128 result = *this * scale_multiplier;
 
-  if (ARROW_PREDICT_FALSE(result < value)) {
+  if (ARROW_PREDICT_FALSE(result < *this)) {
     std::stringstream buf;
     buf << "Rescaling decimal value from original scale " << original_scale
         << " to new scale " << new_scale << " would cause overflow";
