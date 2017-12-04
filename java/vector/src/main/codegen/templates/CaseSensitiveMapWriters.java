@@ -23,7 +23,7 @@
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
 <#else>
-<#assign containerClass = "MapVector" />
+<#assign containerClass = "NullableMapVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
