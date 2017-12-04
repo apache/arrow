@@ -27,6 +27,14 @@
 namespace arrow {
 namespace py {
 
+bool IsPyInteger(PyObject* obj) {
+#if PYARROW_IS_PY2
+  return PyLong_Check(obj) || PyInt_Check(obj);
+#else
+  return PyLong_Check(obj);
+#endif
+}
+
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
   case Type::NAME:                        \
     return FACTORY()
@@ -112,7 +120,7 @@ Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* precisio
 
   OwnedRef py_exponent(PyObject_GetAttrString(as_tuple.obj(), "exponent"));
   RETURN_IF_PYERROR();
-  DCHECK(PyLong_Check(py_exponent.obj()));
+  DCHECK(IsPyInteger(py_exponent.obj()));
 
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();

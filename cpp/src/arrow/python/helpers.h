@@ -55,6 +55,7 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
                             const std::string& decimal_string);
 Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
                                 Decimal128* out);
+bool IsPyInteger(PyObject* obj);
 
 }  // namespace internal
 }  // namespace py

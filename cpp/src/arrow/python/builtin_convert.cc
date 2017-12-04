@@ -37,14 +37,6 @@
 namespace arrow {
 namespace py {
 
-static inline bool IsPyInteger(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyLong_Check(obj) || PyInt_Check(obj);
-#else
-  return PyLong_Check(obj);
-#endif
-}
-
 Status InvalidConversion(PyObject* obj, const std::string& expected_types,
                          std::ostream* out) {
   OwnedRef type(PyObject_Type(obj));
