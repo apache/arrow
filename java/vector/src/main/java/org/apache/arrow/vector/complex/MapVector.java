@@ -47,12 +47,12 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class NonNullableMapVector extends AbstractMapVector {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(NonNullableMapVector.class);
+public class MapVector extends AbstractMapVector {
+  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
-  public static NonNullableMapVector empty(String name, BufferAllocator allocator) {
+  public static MapVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
-    return new NonNullableMapVector(name, allocator, fieldType, null);
+    return new MapVector(name, allocator, fieldType, null);
   }
 
   private final SingleMapReaderImpl reader = new SingleMapReaderImpl(this);
@@ -61,11 +61,11 @@ public class NonNullableMapVector extends AbstractMapVector {
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public NonNullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public MapVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
   }
 
-  public NonNullableMapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
     this.valueCount = 0;
@@ -78,7 +78,7 @@ public class NonNullableMapVector extends AbstractMapVector {
 
   transient private MapTransferPair ephPair;
 
-  public void copyFromSafe(int fromIndex, int thisIndex, NonNullableMapVector from) {
+  public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
     if (ephPair == null || ephPair.from != from) {
       ephPair = (MapTransferPair) from.makeTransferPair(this);
     }
@@ -150,29 +150,29 @@ public class NonNullableMapVector extends AbstractMapVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new MapTransferPair(this, new NonNullableMapVector(name, allocator, fieldType, callBack), false);
+    return new MapTransferPair(this, new MapVector(name, allocator, fieldType, callBack), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new MapTransferPair(this, (NonNullableMapVector) to);
+    return new MapTransferPair(this, (MapVector) to);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new MapTransferPair(this, new NonNullableMapVector(ref, allocator, fieldType, callBack), false);
+    return new MapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected static class MapTransferPair implements TransferPair {
     private final TransferPair[] pairs;
-    private final NonNullableMapVector from;
-    private final NonNullableMapVector to;
+    private final MapVector from;
+    private final MapVector to;
 
-    public MapTransferPair(NonNullableMapVector from, NonNullableMapVector to) {
+    public MapTransferPair(MapVector from, MapVector to) {
       this(from, to, true);
     }
 
-    protected MapTransferPair(NonNullableMapVector from, NonNullableMapVector to, boolean allocate) {
+    protected MapTransferPair(MapVector from, MapVector to, boolean allocate) {
       this.from = from;
       this.to = to;
       this.pairs = new TransferPair[from.size()];
@@ -291,7 +291,7 @@ public class NonNullableMapVector extends AbstractMapVector {
     for (final ValueVector v : getChildren()) {
       v.setValueCount(valueCount);
     }
-    NonNullableMapVector.this.valueCount = valueCount;
+    MapVector.this.valueCount = valueCount;
   }
 
   @Override

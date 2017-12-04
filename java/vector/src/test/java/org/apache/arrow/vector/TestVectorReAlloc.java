@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -121,7 +121,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testMapType() {
-    try (final MapVector vector = MapVector.empty("", allocator)) {
+    try (final NullableMapVector vector = NullableMapVector.empty("", allocator)) {
       vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       vector.setInitialCapacity(512);

@@ -44,11 +44,11 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-public class MapVector extends NonNullableMapVector implements FieldVector {
+public class NullableMapVector extends MapVector implements FieldVector {
 
-  public static MapVector empty(String name, BufferAllocator allocator) {
+  public static NullableMapVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
-    return new MapVector(name, allocator, fieldType, null);
+    return new NullableMapVector(name, allocator, fieldType, null);
   }
 
   private final NullableMapReaderImpl reader = new NullableMapReaderImpl(this);
@@ -59,17 +59,17 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public MapVector(String name, BufferAllocator allocator, CallBack callBack) {
+  public NullableMapVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), callBack);
   }
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
-  public MapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
+  public NullableMapVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.Struct.INSTANCE, dictionary, null), callBack);
   }
 
-  public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public NullableMapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
@@ -127,29 +127,29 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new MapVector(name, allocator, fieldType, null), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(name, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    return new NullableMapTransferPair(this, (MapVector) to, true);
+    return new NullableMapTransferPair(this, (NullableMapVector) to, true);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new NullableMapTransferPair(this, new MapVector(ref, allocator, fieldType, null), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, null), false);
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return new NullableMapTransferPair(this, new MapVector(ref, allocator, fieldType, callBack), false);
+    return new NullableMapTransferPair(this, new NullableMapVector(ref, allocator, fieldType, callBack), false);
   }
 
   protected class NullableMapTransferPair extends MapTransferPair {
 
-    private MapVector target;
+    private NullableMapVector target;
 
-    protected NullableMapTransferPair(MapVector from, MapVector to, boolean allocate) {
+    protected NullableMapTransferPair(NullableMapVector from, NullableMapVector to, boolean allocate) {
       super(from, to, allocate);
       this.target = to;
     }
@@ -182,7 +182,7 @@ public class MapVector extends NonNullableMapVector implements FieldVector {
   /*
    * transfer the validity.
    */
-  private void splitAndTransferValidityBuffer(int startIndex, int length, MapVector target) {
+  private void splitAndTransferValidityBuffer(int startIndex, int length, NullableMapVector target) {
     assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);

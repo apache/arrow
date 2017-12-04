@@ -23,7 +23,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractMapVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -94,7 +94,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     type = v.getMinorType();
     switch (type) {
       case MAP:
-        writer = nullableMapWriterFactory.build((MapVector) vector);
+        writer = nullableMapWriterFactory.build((NullableMapVector) vector);
         break;
       case LIST:
         writer = new UnionListWriter((ListVector) vector, nullableMapWriterFactory);

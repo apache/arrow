@@ -34,7 +34,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NonNullableMapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.SingleMapReaderImpl;
@@ -830,7 +830,7 @@ public class TestComplexWriter {
     rootWriter.end();
     writer.setValueCount(1);
 
-    MapVector mapVector = (MapVector) parent.getChild("root");
+    NullableMapVector mapVector = (NullableMapVector) parent.getChild("root");
     TransferPair tp = mapVector.getTransferPair(allocator);
     tp.splitAndTransfer(0, 1);
     MapVector toMapVector = (MapVector) tp.getTo();
@@ -849,7 +849,7 @@ public class TestComplexWriter {
     /* initialize a SingleMapWriter with empty MapVector and then lazily
      * create all vectors with expected initialCapacity.
      */
-    NonNullableMapVector parent = NonNullableMapVector.empty("parent", allocator);
+    MapVector parent = MapVector.empty("parent", allocator);
     SingleMapWriter singleMapWriter = new SingleMapWriter(parent);
 
     int initialCapacity = 1024;
