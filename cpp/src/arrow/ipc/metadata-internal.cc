@@ -54,7 +54,6 @@ using DictionaryOffset = flatbuffers::Offset<flatbuf::DictionaryEncoding>;
 using FieldOffset = flatbuffers::Offset<flatbuf::Field>;
 using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
 using RecordBatchOffset = flatbuffers::Offset<flatbuf::RecordBatch>;
-using VectorLayoutOffset = flatbuffers::Offset<arrow::flatbuf::VectorLayout>;
 using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 
@@ -341,34 +340,8 @@ static Status TypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
 // TODO(wesm): Convert this to visitor pattern
 static Status TypeToFlatbuffer(FBB& fbb, const DataType& type,
                                std::vector<FieldOffset>* children,
-                               std::vector<VectorLayoutOffset>* layout,
                                flatbuf::Type* out_type, DictionaryMemo* dictionary_memo,
                                Offset* offset) {
-  std::vector<BufferDescr> buffer_layout = type.GetBufferLayout();
-  for (const BufferDescr& descr : buffer_layout) {
-    flatbuf::VectorType vector_type;
-    switch (descr.type()) {
-      case BufferType::OFFSET:
-        vector_type = flatbuf::VectorType_OFFSET;
-        break;
-      case BufferType::DATA:
-        vector_type = flatbuf::VectorType_DATA;
-        break;
-      case BufferType::VALIDITY:
-        vector_type = flatbuf::VectorType_VALIDITY;
-        break;
-      case BufferType::TYPE:
-        vector_type = flatbuf::VectorType_TYPE;
-        break;
-      default:
-        vector_type = flatbuf::VectorType_DATA;
-        break;
-    }
-    auto offset = flatbuf::CreateVectorLayout(
-        fbb, static_cast<int16_t>(descr.bit_width()), vector_type);
-    layout->push_back(offset);
-  }
-
   const DataType* value_type = &type;
 
   if (type.id() == Type::DICTIONARY) {
@@ -543,14 +516,11 @@ static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
 
   flatbuf::Type type_enum;
   Offset type_offset;
-  Offset type_layout;
   std::vector<FieldOffset> children;
-  std::vector<VectorLayoutOffset> layout;
 
-  RETURN_NOT_OK(TypeToFlatbuffer(fbb, *field.type(), &children, &layout, &type_enum,
+  RETURN_NOT_OK(TypeToFlatbuffer(fbb, *field.type(), &children, &type_enum,
                                  dictionary_memo, &type_offset));
   auto fb_children = fbb.CreateVector(children);
-  auto fb_layout = fbb.CreateVector(layout);
 
   DictionaryOffset dictionary = 0;
   if (field.type()->id() == Type::DICTIONARY) {
@@ -560,7 +530,7 @@ static Status FieldToFlatbuffer(FBB& fbb, const Field& field,
 
   // TODO: produce the list of VectorTypes
   *offset = flatbuf::CreateField(fbb, fb_name, field.nullable(), type_enum, type_offset,
-                                 dictionary, fb_children, fb_layout);
+                                 dictionary, fb_children);
 
   return Status::OK();
 }

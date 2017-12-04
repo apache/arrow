@@ -111,8 +111,7 @@ class DataType(object):
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children()),
-            ('typeLayout', self._get_type_layout())
+            ('children', self._get_children())
         ])
 
     def _make_is_valid(self, size):
@@ -157,14 +156,6 @@ class PrimitiveType(DataType):
 
     def _get_children(self):
         return []
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
 
 
 class PrimitiveColumn(Column):
@@ -402,14 +393,6 @@ class DecimalType(PrimitiveType):
             ('scale', self.scale),
         ])
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
-
     def generate_column(self, size, name=None):
         min_value, max_value = decimal_range_from_precision(self.precision)
         values = [random.randint(min_value, max_value) for _ in range(size)]
@@ -460,16 +443,6 @@ class BinaryType(PrimitiveType):
 
     def _get_type(self):
         return OrderedDict([('name', 'binary')])
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', 8)])])])
 
     def generate_column(self, size, name=None):
         K = 7
@@ -572,14 +545,6 @@ class ListType(DataType):
     def _get_children(self):
         return [self.value_type.get_json()]
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)])])])
-
     def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
 
@@ -633,12 +598,6 @@ class StructType(DataType):
     def _get_children(self):
         return [type_.get_json() for type_ in self.field_types]
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)])])])
-
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
 
@@ -689,12 +648,8 @@ class DictionaryType(DataType):
                 ('id', self.dictionary.id_),
                 ('indexType', self.index_type._get_type()),
                 ('isOrdered', self.dictionary.ordered)
-            ])),
-            ('typeLayout', self.index_type._get_type_layout())
+            ]))
         ])
-
-    def _get_type_layout(self):
-        return self.index_type._get_type_layout()
 
     def generate_column(self, size, name=None):
         if name is None:
