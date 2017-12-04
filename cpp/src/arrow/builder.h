@@ -891,7 +891,7 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   bool SlotDifferent(hash_slot_t slot, const Scalar& value);
   Status AppendDictionary(const Scalar& value);
 
-  std::shared_ptr<PoolBuffer> hash_table_;
+  std::shared_ptr<Buffer> hash_table_;
   int32_t* hash_slots_;
 
   /// Size of the table. Must be a power of 2.
@@ -904,6 +904,9 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   typename TypeTraits<T>::BuilderType dict_builder_;
   AdaptiveIntBuilder values_builder_;
   int32_t byte_width_;
+
+  /// Size at which we decide to resize
+  int64_t hash_table_load_threshold_;
 };
 
 template <>

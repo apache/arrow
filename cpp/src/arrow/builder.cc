@@ -34,6 +34,7 @@
 #include "arrow/util/cpu-info.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hash-util.h"
+#include "arrow/util/hash.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -813,7 +814,6 @@ template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
                                         MemoryPool* pool)
     : ArrayBuilder(type, pool),
-      hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(type, pool),
       values_builder_(pool),
@@ -837,7 +837,6 @@ template <>
 DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : ArrayBuilder(type, pool),
-      hash_table_(new PoolBuffer(pool)),
       hash_slots_(nullptr),
       dict_builder_(type, pool),
       values_builder_(pool),
@@ -852,11 +851,12 @@ Status DictionaryBuilder<T>::Init(int64_t elements) {
   RETURN_NOT_OK(ArrayBuilder::Init(elements));
 
   // Fill the initial hash table
-  RETURN_NOT_OK(hash_table_->Resize(sizeof(hash_slot_t) * kInitialHashTableSize));
+  RETURN_NOT_OK(internal::NewHashTable(kInitialHashTableSize, pool_, &hash_table_));
   hash_slots_ = reinterpret_cast<int32_t*>(hash_table_->mutable_data());
-  std::fill(hash_slots_, hash_slots_ + kInitialHashTableSize, kHashSlotEmpty);
   hash_table_size_ = kInitialHashTableSize;
   mod_bitmask_ = kInitialHashTableSize - 1;
+  hash_table_load_threshold_ =
+      static_cast<int64_t>(static_cast<double>(elements) * kMaxHashTableLoad);
 
   return values_builder_.Init(elements);
 }
@@ -933,7 +933,7 @@ Status DictionaryBuilder<T>::Append(const Scalar& value) {
     RETURN_NOT_OK(AppendDictionary(value));
 
     if (ARROW_PREDICT_FALSE(static_cast<int32_t>(dict_builder_.length()) >
-                            hash_table_size_ * kMaxHashTableLoad)) {
+                            hash_table_load_threshold_)) {
       RETURN_NOT_OK(DoubleTableSize());
     }
   }
@@ -989,45 +989,11 @@ Status DictionaryBuilder<NullType>::AppendNull() { return values_builder_.Append
 
 template <typename T>
 Status DictionaryBuilder<T>::DoubleTableSize() {
-  int new_size = hash_table_size_ * 2;
-  auto new_hash_table = std::make_shared<PoolBuffer>(pool_);
+#define INNER_LOOP                                                \
+  Scalar value = GetDictionaryValue(static_cast<int64_t>(index)); \
+  int j = HashValue(value) & new_mod_bitmask;                     \
 
-  RETURN_NOT_OK(new_hash_table->Resize(sizeof(hash_slot_t) * new_size));
-  int32_t* new_hash_slots = reinterpret_cast<int32_t*>(new_hash_table->mutable_data());
-  std::fill(new_hash_slots, new_hash_slots + new_size, kHashSlotEmpty);
-  int new_mod_bitmask = new_size - 1;
-
-  for (int i = 0; i < hash_table_size_; ++i) {
-    hash_slot_t index = hash_slots_[i];
-
-    if (index == kHashSlotEmpty) {
-      continue;
-    }
-
-    // Compute the hash value mod the new table size to start looking for an
-    // empty slot
-    Scalar value = GetDictionaryValue(static_cast<int64_t>(index));
-
-    // Find an empty slot in the new hash table
-    int j = HashValue(value) & new_mod_bitmask;
-    hash_slot_t slot = new_hash_slots[j];
-
-    while (kHashSlotEmpty != slot && SlotDifferent(slot, value)) {
-      ++j;
-      if (j == new_size) {
-        j = 0;
-      }
-      slot = new_hash_slots[j];
-    }
-
-    // Copy the old slot index to the new hash table
-    new_hash_slots[j] = index;
-  }
-
-  hash_table_ = new_hash_table;
-  hash_slots_ = reinterpret_cast<int32_t*>(hash_table_->mutable_data());
-  hash_table_size_ = new_size;
-  mod_bitmask_ = new_size - 1;
+  DOUBLE_TABLE_SIZE(, INNER_LOOP);
 
   return Status::OK();
 }
@@ -1137,7 +1103,6 @@ template class DictionaryBuilder<DoubleType>;
 template class DictionaryBuilder<FixedSizeBinaryType>;
 template class DictionaryBuilder<BinaryType>;
 template class DictionaryBuilder<StringType>;
-
 
 // ----------------------------------------------------------------------
 // Decimal128Builder
