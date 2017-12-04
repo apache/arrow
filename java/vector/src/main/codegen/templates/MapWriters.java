@@ -21,9 +21,9 @@
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/${mode}MapWriter.java" />
 <#assign index = "idx()">
 <#if mode == "Single">
-<#assign containerClass = "NonNullableMapVector" />
-<#else>
 <#assign containerClass = "MapVector" />
+<#else>
+<#assign containerClass = "NullableMapVector" />
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -51,7 +51,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   private final Map<String, FieldWriter> fields = Maps.newHashMap();
   public ${mode}MapWriter(${containerClass} container) {
     <#if mode == "Single">
-    if (container instanceof MapVector) {
+    if (container instanceof NullableMapVector) {
       throw new IllegalArgumentException("Invalid container: " + container);
     }
     </#if>
@@ -124,7 +124,7 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
     FieldWriter writer = fields.get(finalName);
     if(writer == null){
       int vectorCount=container.size();
-      MapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), MapVector.class);
+      NullableMapVector vector = container.addOrGet(name, FieldType.nullable(MinorType.MAP.getType()), NullableMapVector.class);
       writer = new PromotableWriter(vector, container, getNullableMapWriterFactory());
       if(vectorCount != container.size()) {
         writer.allocate();

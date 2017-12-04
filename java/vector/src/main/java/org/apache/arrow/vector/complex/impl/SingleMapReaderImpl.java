@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.NonNullableMapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -35,10 +34,10 @@ import com.google.common.collect.Maps;
 @SuppressWarnings("unused")
 public class SingleMapReaderImpl extends AbstractFieldReader {
 
-  private final NonNullableMapVector vector;
+  private final MapVector vector;
   private final Map<String, FieldReader> fields = Maps.newHashMap();
 
-  public SingleMapReaderImpl(NonNullableMapVector vector) {
+  public SingleMapReaderImpl(MapVector vector) {
     this.vector = vector;
   }
 
