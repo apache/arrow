@@ -667,7 +667,8 @@ class UTF8Converter : public TypedConverterVisitor<StringBuilder, UTF8Converter>
       RETURN_IF_PYERROR();
       bytes_obj = obj;
     } else if (!PyUnicode_Check(obj)) {
-      PyObjectStringify stringified(obj);
+      OwnedRef repr(PyObject_Repr(obj));
+      PyObjectStringify stringified(repr.obj());
       std::stringstream ss;
       ss << "Non bytes/unicode value encountered: " << stringified.bytes;
       return Status::Invalid(ss.str());

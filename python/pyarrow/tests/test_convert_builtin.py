@@ -312,6 +312,13 @@ class TestConvertSequence(unittest.TestCase):
         with self.assertRaises(pa.ArrowException):
             pa.array(data)
 
+    def test_mixed_types_with_specified_type_fails(self):
+        data = ['-10', '-5', {'a': 1}, '0', '5', '10']
+
+        type = pa.string()
+        with self.assertRaises(pa.ArrowInvalid):
+            pa.array(data, type=type)
+
     def test_decimal(self):
         data = [decimal.Decimal('1234.183'), decimal.Decimal('8094.234')]
         type = pa.decimal128(precision=7, scale=3)
