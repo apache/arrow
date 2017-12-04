@@ -119,7 +119,7 @@ public class TestListVector {
   public void testSetLastSetUsage() throws Exception {
     try (ListVector listVector = ListVector.empty("input", allocator)) {
 
-      /* Explicitly add the dataBuffer */
+      /* Explicitly add the dataVector */
       MinorType type = MinorType.BIGINT;
       listVector.addOrGetVector(FieldType.nullable(type.getType()));
 
@@ -258,7 +258,7 @@ public class TestListVector {
   public void testSplitAndTransfer() throws Exception {
     try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
 
-      /* Explicitly add the dataBuffer */
+      /* Explicitly add the dataVector */
       MinorType type = MinorType.BIGINT;
       listVector.addOrGetVector(FieldType.nullable(type.getType()));
 
@@ -309,7 +309,7 @@ public class TestListVector {
       /* get offset buffer */
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
-      /* get dataBuffer */
+      /* get dataVector */
       BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check the vector output */
@@ -417,7 +417,7 @@ public class TestListVector {
           /* get offsetBuffer of toVector */
           final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
 
-          /* get dataBuffer of toVector */
+          /* get dataVector of toVector */
           BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
@@ -454,7 +454,7 @@ public class TestListVector {
       /* allocate memory */
       listWriter.allocate();
 
-      /* the dataBuffer that backs a listVector will also be a
+      /* the dataVector that backs a listVector will also be a
        * listVector for this test.
        */
 

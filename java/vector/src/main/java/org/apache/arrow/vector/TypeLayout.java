@@ -45,8 +45,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import com.google.common.base.Preconditions;
 
 /**
- * The layout of bufferLayouts for a given type
- * It defines its own bufferLayouts followed by the bufferLayouts for the children
+ * The buffer layout of vectors for a given type
+ * It defines its own buffers followed by the buffers for the children
  * if it is a nested type (Struct_, List, Union)
  */
 public class TypeLayout {
