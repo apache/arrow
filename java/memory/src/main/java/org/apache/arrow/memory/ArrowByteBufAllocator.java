@@ -147,6 +147,12 @@ public class ArrowByteBufAllocator implements ByteBufAllocator {
     throw new UnsupportedOperationException("Allocator doesn't support heap-based memory.");
   }
 
+  /**
+   * This method was copied from AbstractByteBufAllocator. Netty 4.1.x moved this method from
+   * AbstractByteBuf to AbstractByteBufAllocator. However, as ArrowByteBufAllocator doesn't extend
+   * AbstractByteBufAllocator, it doesn't get the implementation automatically and we have to copy
+   * the codes.
+   */
   @Override
   public int calculateNewCapacity(int minNewCapacity, int maxCapacity) {
     if (minNewCapacity < 0) {
