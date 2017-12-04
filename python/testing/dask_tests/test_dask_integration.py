@@ -14,11 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import pytest
+
 from datetime import date, timedelta
 import csv
 from random import randint
-import dask.dataframe as dd
+
 import pyarrow as pa
+
+dd = pytest.importorskip('dask.dataframe')
+
 
 def make_datafiles(tmpdir, prefix='data', num_files=20):
     rowcount = 5000
@@ -36,6 +42,7 @@ def make_datafiles(tmpdir, prefix='data', num_files=20):
                 writer.writerow({'date': the_date, 'temperature': temperature,
                                  'dewpoint': dewpoint})
                 the_date += timedelta(days=1)
+
 
 def test_dask_file_read(tmpdir):
     prefix = 'data'
