@@ -83,7 +83,7 @@ class ScalarVisitor {
       ++bool_count_;
     } else if (PyFloat_Check(obj)) {
       ++float_count_;
-    } else if (IsPyInteger(obj)) {
+    } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
     } else if (PyDate_CheckExact(obj)) {
       ++date_count_;

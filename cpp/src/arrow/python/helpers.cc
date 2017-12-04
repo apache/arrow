@@ -27,14 +27,6 @@
 namespace arrow {
 namespace py {
 
-bool IsPyInteger(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyLong_Check(obj) || PyInt_Check(obj);
-#else
-  return PyLong_Check(obj);
-#endif
-}
-
 #define GET_PRIMITIVE_TYPE(NAME, FACTORY) \
   case Type::NAME:                        \
     return FACTORY()
@@ -174,6 +166,14 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
     RETURN_NOT_OK(RescaleDecimal(*out, inferred_scale, scale, out));
   }
   return Status::OK();
+}
+
+bool IsPyInteger(PyObject* obj) {
+#if PYARROW_IS_PY2
+  return PyLong_Check(obj) || PyInt_Check(obj);
+#else
+  return PyLong_Check(obj);
+#endif
 }
 
 }  // namespace internal
