@@ -395,6 +395,16 @@ if sys.version_info.major == 2:
     install_requires.append('futures')
 
 
+def parse_version(root):
+    from setuptools_scm import version_from_scm
+    import setuptools_scm.git
+    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --exclude 'apache-arrow-js-*'"
+    version = setuptools_scm.git.parse(root, describe)
+    if not version:
+        return version_from_scm(root)
+    else:
+        return version
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
@@ -413,7 +423,7 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..", "relative_to": __file__},
+    use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
     install_requires=install_requires,
     tests_require=['pytest'],
