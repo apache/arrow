@@ -19,6 +19,7 @@
 #define ARROW_UTIL_HASH_H
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 
 namespace arrow {
