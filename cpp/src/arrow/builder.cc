@@ -40,7 +40,6 @@
 namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
-using internal::WrappedBinary;
 
 Status ArrayBuilder::AppendToBitmap(bool is_valid) {
   if (length_ == capacity_) {
@@ -809,6 +808,8 @@ Status BooleanBuilder::Append(const std::vector<bool>& values) {
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder
+
+using internal::WrappedBinary;
 
 template <typename T>
 DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,

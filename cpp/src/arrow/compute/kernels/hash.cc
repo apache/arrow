@@ -35,16 +35,7 @@
 namespace arrow {
 namespace compute {
 
-using internal::hash_slot_t;
-using internal::kHashSlotEmpty;
-
 namespace {
-
-// Initially 1024 elements
-static constexpr int64_t kInitialHashTableSize = 1 << 10;
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.5;
 
 enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
 

@@ -28,6 +28,15 @@ class Buffer;
 class MemoryPool;
 class Status;
 
+typedef int32_t hash_slot_t;
+static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
+
+// Initially 1024 elements
+static constexpr int kInitialHashTableSize = 1 << 10;
+
+// The maximum load factor for the hash table before resizing.
+static constexpr double kMaxHashTableLoad = 0.5;
+
 namespace internal {
 
 #define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                              \
@@ -67,9 +76,6 @@ namespace internal {
         static_cast<int64_t>(static_cast<double>(new_size) * kMaxHashTableLoad); \
     mod_bitmask_ = new_size - 1;                                                 \
   } while (false)
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
 
 Status NewHashTable(int64_t size, MemoryPool* pool, std::shared_ptr<Buffer>* out);
 

@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/hash.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -811,17 +812,6 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
 // ----------------------------------------------------------------------
 // Dictionary builder
-
-// Based on Apache Parquet-cpp's DictEncoder
-
-// Initially 1024 elements
-static constexpr int kInitialHashTableSize = 1 << 10;
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.7;
 
 namespace internal {
 
