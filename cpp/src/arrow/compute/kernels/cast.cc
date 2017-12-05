@@ -903,8 +903,6 @@ class CastKernel : public UnaryKernel {
   FN(IN_TYPE, BinaryType);            \
   FN(IN_TYPE, StringType);
 
-#define LIST_CASES(FN, IN_TYPE) FN(IN_TYPE, ListType)
-
 #define GET_CAST_FUNCTION(CASE_GENERATOR, InType)                              \
   static std::unique_ptr<UnaryKernel> Get##InType##CastFunc(                   \
       const std::shared_ptr<DataType>& out_type, const CastOptions& options) { \
