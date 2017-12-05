@@ -400,9 +400,9 @@ def _reconstruct_block(item):
     block_arr = item['block']
     placement = item['placement']
     if 'dictionary' in item:
-        cat = pd.Categorical(block_arr,
-                             categories=item['dictionary'],
-                             ordered=item['ordered'], fastpath=True)
+        cat = pd.Categorical.from_codes(block_arr,
+                                        categories=item['dictionary'],
+                                        ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
                                 klass=_int.CategoricalBlock,
                                 fastpath=True)
