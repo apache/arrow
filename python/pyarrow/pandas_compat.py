@@ -530,7 +530,8 @@ def _add_any_metadata(table, pandas_metadata):
 
     schema = table.schema
 
-    n_index_levels = len(pandas_metadata['index_columns'])
+    index_columns = pandas_metadata['index_columns']
+    n_index_levels = len(index_columns)
     n_columns = len(pandas_metadata['columns']) - n_index_levels
 
     # Add time zones
@@ -539,7 +540,7 @@ def _add_any_metadata(table, pandas_metadata):
         raw_name = col_meta['name']
         if i >= n_columns:
             # index columns
-            raw_name = pandas_metadata['index_columns'][i - n_columns]
+            raw_name = index_columns[i - n_columns]
         if raw_name is None:
             raw_name = 'None'
 
