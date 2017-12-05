@@ -516,6 +516,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return Float.intBitsToFloat(getInt(index));
   }
 
+  /**
+   * Gets a 64-bit long integer at the specified absolute {@code index} in
+   * this buffer in Big Endian Byte Order.
+   */
   @Override
   public long getLongLE(int index) {
     chk(index, 8);
@@ -545,6 +549,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return v;
   }
 
+  /**
+   * Gets a 32-bit integer at the specified absolute {@code index} in
+   * this buffer in Big Endian Byte Order.
+   */
   @Override
   public int getIntLE(int index) {
     chk(index, 4);
@@ -564,12 +572,20 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return v;
   }
 
+  /**
+   * Gets a 16-bit short integer at the specified absolute {@code index} in
+   * this buffer in Big Endian Byte Order.
+   */
   @Override
   public short getShortLE(int index) {
     final short v = PlatformDependent.getShort(addr(index));
     return Short.reverseBytes(v);
   }
 
+  /**
+   * Gets an unsigned 24-bit medium integer at the specified absolute
+   * {@code index} in this buffer.
+   */
   @Override
   public int getUnsignedMedium(int index) {
     chk(index, 3);
@@ -578,6 +594,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
         (PlatformDependent.getShort(addr + 1) & 0xffff);
   }
 
+  /**
+   * Gets an unsigned 24-bit medium integer at the specified absolute {@code index} in
+   * this buffer in Big Endian Byte Order.
+   */
   @Override
   public int getUnsignedMediumLE(int index) {
     chk(index, 3);
@@ -593,6 +613,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Sets the specified 16-bit short integer at the specified absolute {@code index}
+   * in this buffer with Big Endian byte order.
+   */
   @Override
   public ByteBuf setShortLE(int index, int value) {
     chk(index, 2);
@@ -600,6 +624,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Sets the specified 24-bit medium integer at the specified absolute
+   * {@code index} in this buffer.
+   */
   @Override
   public ByteBuf setMedium(int index, int value) {
     chk(index, 3);
@@ -609,6 +637,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+
+  /**
+   * Sets the specified 24-bit medium integer at the specified absolute {@code index}
+   * in this buffer with Big Endian byte order.
+   */
   @Override
   public ByteBuf setMediumLE(int index, int value) {
     chk(index, 3);
@@ -625,6 +658,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Sets the specified 32-bit integer at the specified absolute {@code index}
+   * in this buffer with Big Endian byte order.
+   */
   @Override
   public ByteBuf setIntLE(int index, int value) {
     chk(index, 4);
@@ -639,6 +676,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Sets the specified 64-bit long integer at the specified absolute {@code index}
+   * in this buffer with Big Endian byte order.
+   */
   @Override
   public ByteBuf setLongLE(int index, long value) {
     chk(index, 8);
@@ -754,6 +795,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getShort(index);
   }
 
+  /** @see  {@link #getShortLE(int)} */
   @Override
   protected short _getShortLE(int index) {
     return getShortLE(index);
@@ -764,16 +806,19 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getInt(index);
   }
 
+  /** @see  {@link #getIntLE(int)} */
   @Override
   protected int _getIntLE(int index) {
     return getIntLE(index);
   }
 
+  /** @see  {@link #getUnsignedMedium(int)} */
   @Override
   protected int _getUnsignedMedium(int index) {
     return getUnsignedMedium(index);
   }
 
+  /** @see  {@link #getUnsignedMediumLE(int)} */
   @Override
   protected int _getUnsignedMediumLE(int index) {
     return getUnsignedMediumLE(index);
@@ -784,6 +829,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return getLong(index);
   }
 
+  /** @see  {@link #getLongLE(int)} */
   @Override
   protected long _getLongLE(int index) {
     return getLongLE(index);
@@ -799,6 +845,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setShort(index, value);
   }
 
+  /** @see  {@link #setShortLE(int, int)} */
   @Override
   protected void _setShortLE(int index, int value) {
     setShortLE(index, value);
@@ -809,6 +856,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setMedium(index, value);
   }
 
+  /** @see  {@link #setMediumLE(int, int)} */
   @Override
   protected void _setMediumLE(int index, int value) {
     setMediumLE(index, value);
@@ -819,6 +867,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setInt(index, value);
   }
 
+  /** @see  {@link #setIntLE(int, int)} */
   @Override
   protected void _setIntLE(int index, int value) {
     setIntLE(index, value);
@@ -829,6 +878,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     setLong(index, value);
   }
 
+  /** @see  {@link #setLongLE(int, long)} */
   @Override
   public void _setLongLE(int index, long value) {
     setLongLE(index, value);

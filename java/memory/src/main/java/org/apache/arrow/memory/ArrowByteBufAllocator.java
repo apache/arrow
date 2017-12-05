@@ -18,8 +18,8 @@
 
 package org.apache.arrow.memory;
 
+import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.ExpandableByteBuf;
 
@@ -32,11 +32,10 @@ import io.netty.buffer.ExpandableByteBuf;
  * otherwise non-expandable
  * ArrowBufs to be expandable.
  */
-public class ArrowByteBufAllocator implements ByteBufAllocator {
+public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   private static final int DEFAULT_BUFFER_SIZE = 4096;
   private static final int DEFAULT_MAX_COMPOSITE_COMPONENTS = 16;
-  private static final int CALCULATE_THRESHOLD = 1048576 * 4; // 4 MiB page
 
   private final BufferAllocator allocator;
 
@@ -143,49 +142,17 @@ public class ArrowByteBufAllocator implements ByteBufAllocator {
     throw fail();
   }
 
-  private RuntimeException fail() {
-    throw new UnsupportedOperationException("Allocator doesn't support heap-based memory.");
+  @Override
+  protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+    throw fail();
   }
 
-  /**
-   * This method was copied from AbstractByteBufAllocator. Netty 4.1.x moved this method from
-   * AbstractByteBuf to AbstractByteBufAllocator. However, as ArrowByteBufAllocator doesn't extend
-   * AbstractByteBufAllocator, it doesn't get the implementation automatically and we have to copy
-   * the codes.
-   */
   @Override
-  public int calculateNewCapacity(int minNewCapacity, int maxCapacity) {
-    if (minNewCapacity < 0) {
-      throw new IllegalArgumentException("minNewCapacity: " + minNewCapacity + " (expected: 0+)");
-    }
-    if (minNewCapacity > maxCapacity) {
-      throw new IllegalArgumentException(String.format(
-          "minNewCapacity: %d (expected: not greater than maxCapacity(%d)",
-          minNewCapacity, maxCapacity));
-    }
-    final int threshold = CALCULATE_THRESHOLD; // 4 MiB page
+  protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
+    return buffer(initialCapacity, maxCapacity);
+  }
 
-    if (minNewCapacity == threshold) {
-      return threshold;
-    }
-
-    // If over threshold, do not double but just increase by threshold.
-    if (minNewCapacity > threshold) {
-      int newCapacity = minNewCapacity / threshold * threshold;
-      if (newCapacity > maxCapacity - threshold) {
-        newCapacity = maxCapacity;
-      } else {
-        newCapacity += threshold;
-      }
-      return newCapacity;
-    }
-
-    // Not over threshold. Double up to 4 MiB, starting from 64.
-    int newCapacity = 64;
-    while (newCapacity < minNewCapacity) {
-      newCapacity <<= 1;
-    }
-
-    return Math.min(newCapacity, maxCapacity);
+  private RuntimeException fail() {
+    throw new UnsupportedOperationException("Allocator doesn't support heap-based memory.");
   }
 }
