@@ -56,8 +56,8 @@ class Ndarray1DIndexer {
 
   bool is_strided() const { return stride_ == 1; }
 
-  T& operator[](size_type index) { return *(data_ + index * stride_); }
-  T& operator[](size_type index) const { return *(data_ + index * stride_); }
+  T& operator[](size_type index) { return data_[index * stride_]; }
+  T& operator[](size_type index) const { return data_[index * stride_]; }
 
  private:
   PyArrayObject* arr_;

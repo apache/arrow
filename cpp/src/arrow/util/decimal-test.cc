@@ -366,4 +366,13 @@ TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
   ASSERT_EQ(expected_value, value);
 }
 
+TEST(Decimal128Test, TestSmallNumberFormat) {
+  Decimal128 value("0.2");
+  std::string expected("0.2");
+
+  const int32_t scale = 1;
+  std::string result = value.ToString(scale);
+  ASSERT_EQ(expected, result);
+}
+
 }  // namespace arrow
