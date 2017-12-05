@@ -20,6 +20,7 @@ import collections
 import json
 import re
 
+import pandas.core.internals as _int
 import numpy as np
 import pandas as pd
 
@@ -353,33 +354,73 @@ def get_datetimetz_type(values, dtype, type_):
 # objects friendly to pyarrow.serialize
 
 
-def dataframe_to_serialize_dict(frame):
+def dataframe_to_serialized_dict(frame):
     block_manager = frame._data
 
     blocks = []
-    block_placements = []
     axes = [ax for ax in block_manager.axes]
 
     for block in block_manager.blocks:
-        block_placements.append(block.mgr_locs)
+        values = block.values
+        block_data = {}
+
+        if isinstance(block, _int.DatetimeTZBlock):
+            block_data['timezone'] = values.tz.zone
+            values = values.values
+        elif isinstance(block, _int.CategoricalBlock):
+            block_data.update(dictionary=values.categories,
+                              ordered=values.ordered)
+            values = values.codes
+
+        block_data.update(
+            placement=block.mgr_locs.as_array,
+            block=values
+        )
+        blocks.append(block_data)
 
     return {
         'blocks': blocks,
-        'block_placements': block_placements,
         'axes': axes
     }
 
 
-def _datetimetz_block_to_dict(block):
-    pass
+def serialized_dict_to_dataframe(data):
+    reconstructed_blocks = [_reconstruct_block(block)
+                            for block in data['blocks']]
+
+    block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
+    return pd.DataFrame(block_mgr)
 
 
-def _categorical_block_to_dict(block):
-    pass
+def _reconstruct_block(item):
+    # Construct the individual blocks converting dictionary types to pandas
+    # categorical types and Timestamps-with-timezones types to the proper
+    # pandas Blocks
+
+    block_arr = item['block']
+    placement = item['placement']
+    if 'dictionary' in item:
+        cat = pd.Categorical(block_arr,
+                             categories=item['dictionary'],
+                             ordered=item['ordered'], fastpath=True)
+        block = _int.make_block(cat, placement=placement,
+                                klass=_int.CategoricalBlock,
+                                fastpath=True)
+    elif 'timezone' in item:
+        dtype = _make_datetimetz(item['timezone'])
+        block = _int.make_block(block_arr, placement=placement,
+                                klass=_int.DatetimeTZBlock,
+                                dtype=dtype, fastpath=True)
+    else:
+        block = _int.make_block(block_arr, placement=placement)
+
+    return block
 
 
-def serialize_dict_to_dataframe(data):
-    pass
+def _make_datetimetz(tz):
+    from pyarrow.compat import DatetimeTZDtype
+    return DatetimeTZDtype('ns', tz=tz)
+
 
 # ----------------------------------------------------------------------
 # Converting pyarrow.Table efficiently to pandas.DataFrame
@@ -387,8 +428,6 @@ def serialize_dict_to_dataframe(data):
 
 def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                           categoricals=None):
-    import pandas.core.internals as _int
-
     index_columns = []
     columns = []
     column_indexes = []
@@ -524,40 +563,13 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
 def _table_to_blocks(options, block_table, nthreads, memory_pool):
     # Part of table_to_blockmanager
-    import pandas.core.internals as _int
 
     # Convert an arrow table to Block from the internal pandas API
     result = pa.lib.table_to_blocks(options, block_table, nthreads,
                                     memory_pool)
 
-    # Construct the individual blocks converting dictionary types to pandas
-    # categorical types and Timestamps-with-timezones types to the proper
-    # pandas Blocks
-    blocks = []
-    for item in result:
-        block_arr = item['block']
-        placement = item['placement']
-        if 'dictionary' in item:
-            cat = pd.Categorical(block_arr,
-                                 categories=item['dictionary'],
-                                 ordered=item['ordered'], fastpath=True)
-            block = _int.make_block(cat, placement=placement,
-                                    klass=_int.CategoricalBlock,
-                                    fastpath=True)
-        elif 'timezone' in item:
-            dtype = _make_datetimetz(item['timezone'])
-            block = _int.make_block(block_arr, placement=placement,
-                                    klass=_int.DatetimeTZBlock,
-                                    dtype=dtype, fastpath=True)
-        else:
-            block = _int.make_block(block_arr, placement=placement)
-        blocks.append(block)
-    return blocks
-
-
-def _make_datetimetz(tz):
-    from pyarrow.compat import DatetimeTZDtype
-    return DatetimeTZDtype('ns', tz=tz)
+    # Defined above
+    return [_reconstruct_block(item) for item in result]
 
 
 def _flatten_single_level_multiindex(index):
