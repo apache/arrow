@@ -913,7 +913,7 @@ template <typename T>
 Status DictionaryBuilder<T>::Append(const Scalar& value) {
   RETURN_NOT_OK(Reserve(1));
   // Based on DictEncoder<DType>::Put
-  int j = HashValue(value) & mod_bitmask_;
+  int64_t j = HashValue(value) & mod_bitmask_;
   hash_slot_t index = hash_slots_[j];
 
   // Find an empty slot
@@ -1011,12 +1011,12 @@ const uint8_t* DictionaryBuilder<FixedSizeBinaryType>::GetDictionaryValue(int64_
 }
 
 template <typename T>
-int DictionaryBuilder<T>::HashValue(const Scalar& value) {
+int64_t DictionaryBuilder<T>::HashValue(const Scalar& value) {
   return HashUtil::Hash(&value, sizeof(Scalar), 0);
 }
 
 template <>
-int DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
+int64_t DictionaryBuilder<FixedSizeBinaryType>::HashValue(const Scalar& value) {
   return HashUtil::Hash(value, byte_width_, 0);
 }
 
@@ -1068,7 +1068,7 @@ Status DictionaryBuilder<T>::AppendDictionary(const Scalar& value) {
   }                                                                                 \
                                                                                     \
   template <>                                                                       \
-  int DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {              \
+  int64_t DictionaryBuilder<Type>::HashValue(const WrappedBinary& value) {          \
     return HashUtil::Hash(value.ptr_, value.length_, 0);                            \
   }                                                                                 \
                                                                                     \
