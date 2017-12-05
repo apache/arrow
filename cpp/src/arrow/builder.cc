@@ -991,7 +991,7 @@ template <typename T>
 Status DictionaryBuilder<T>::DoubleTableSize() {
 #define INNER_LOOP                                                \
   Scalar value = GetDictionaryValue(static_cast<int64_t>(index)); \
-  int j = HashValue(value) & new_mod_bitmask;
+  int64_t j = HashValue(value) & new_mod_bitmask;
 
   DOUBLE_TABLE_SIZE(, INNER_LOOP);
 
