@@ -1236,7 +1236,9 @@ def _fully_loaded_dataframe_example():
         5: pd.Series(['foo', 'bar'] * 5).astype('category').values,
         6: [True, False] * 5,
         7: np.random.randn(10),
-        8: np.random.randint(0, 100, size=10)
+        8: np.random.randint(0, 100, size=10),
+        9: pd.period_range('2013', periods=10, freq='M'),
+        10: pd.interval_range(start=1, freq=1, periods=10)
     }
 
     return pd.DataFrame(data, index=index)
