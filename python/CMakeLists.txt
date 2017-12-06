@@ -64,6 +64,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_PARQUET_USE_SHARED
     "Rely on parquet shared libraries where relevant"
     ON)
+  option(PYARROW_BOOST_USE_SHARED
+    "Rely on boost shared libraries on linking static parquet"
+    OFF)
   option(PYARROW_BUILD_PLASMA
     "Build the PyArrow Plasma integration"
     OFF)
@@ -306,7 +309,11 @@ if (PYARROW_BUILD_PARQUET)
       parquet_shared)
   else()
     find_package(Thrift)
-    set(Boost_USE_STATIC_LIBS ON)
+    if (PYARROW_BOOST_USE_SHARED)
+      set(Boost_USE_STATIC_LIBS OFF)
+    else()
+      set(Boost_USE_STATIC_LIBS ON)
+    endif()
     find_package(Boost COMPONENTS regex REQUIRED)
     ADD_THIRDPARTY_LIB(boost_regex
       STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
