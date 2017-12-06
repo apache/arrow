@@ -198,4 +198,18 @@ public class BitVectorHelper {
 
     return newBuffer;
   }
+
+  /**
+   * Set the byte of the given index in the data buffer by applying a bit mask to
+   * the current byte at that index.
+   *
+   * @param data
+   * @param byteIndex
+   * @param bitMask
+   */
+  static void setBitMaskedByte(ArrowBuf data, int byteIndex, byte bitMask) {
+    byte currentByte = data.getByte(byteIndex);
+    currentByte |= bitMask;
+    data.setByte(byteIndex, currentByte);
+  }
 }
