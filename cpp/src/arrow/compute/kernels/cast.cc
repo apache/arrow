@@ -962,7 +962,8 @@ Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>&
       std::unique_ptr<UnaryKernel>(new ListCastKernel(std::move(child_caster), out_type));
   return Status::OK();
 }
-}
+
+}  // namespace
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
