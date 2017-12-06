@@ -19,7 +19,6 @@
 package org.apache.arrow.vector.util;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,21 +37,6 @@ public class JsonStringArrayList<E> extends ArrayList<E> {
 
   public JsonStringArrayList(int size) {
     super(size);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (!(obj instanceof List)) {
-      return false;
-    }
-    List<?> other = (List<?>) obj;
-    return this.size() == other.size() && this.containsAll(other);
   }
 
   @Override
