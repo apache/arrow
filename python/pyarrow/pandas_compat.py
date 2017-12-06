@@ -20,6 +20,7 @@ import collections
 import json
 import re
 
+import pandas.core.internals as _int
 import numpy as np
 import pandas as pd
 
@@ -348,25 +349,85 @@ def get_datetimetz_type(values, dtype, type_):
 
     return values, type_
 
+# ----------------------------------------------------------------------
+# Converting pandas.DataFrame to a dict containing only NumPy arrays or other
+# objects friendly to pyarrow.serialize
 
-def make_datetimetz(tz):
+
+def dataframe_to_serialized_dict(frame):
+    block_manager = frame._data
+
+    blocks = []
+    axes = [ax for ax in block_manager.axes]
+
+    for block in block_manager.blocks:
+        values = block.values
+        block_data = {}
+
+        if isinstance(block, _int.DatetimeTZBlock):
+            block_data['timezone'] = values.tz.zone
+            values = values.values
+        elif isinstance(block, _int.CategoricalBlock):
+            block_data.update(dictionary=values.categories,
+                              ordered=values.ordered)
+            values = values.codes
+
+        block_data.update(
+            placement=block.mgr_locs.as_array,
+            block=values
+        )
+        blocks.append(block_data)
+
+    return {
+        'blocks': blocks,
+        'axes': axes
+    }
+
+
+def serialized_dict_to_dataframe(data):
+    reconstructed_blocks = [_reconstruct_block(block)
+                            for block in data['blocks']]
+
+    block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
+    return pd.DataFrame(block_mgr)
+
+
+def _reconstruct_block(item):
+    # Construct the individual blocks converting dictionary types to pandas
+    # categorical types and Timestamps-with-timezones types to the proper
+    # pandas Blocks
+
+    block_arr = item['block']
+    placement = item['placement']
+    if 'dictionary' in item:
+        cat = pd.Categorical.from_codes(block_arr,
+                                        categories=item['dictionary'],
+                                        ordered=item['ordered'])
+        block = _int.make_block(cat, placement=placement,
+                                klass=_int.CategoricalBlock,
+                                fastpath=True)
+    elif 'timezone' in item:
+        dtype = _make_datetimetz(item['timezone'])
+        block = _int.make_block(block_arr, placement=placement,
+                                klass=_int.DatetimeTZBlock,
+                                dtype=dtype, fastpath=True)
+    else:
+        block = _int.make_block(block_arr, placement=placement)
+
+    return block
+
+
+def _make_datetimetz(tz):
     from pyarrow.compat import DatetimeTZDtype
     return DatetimeTZDtype('ns', tz=tz)
 
 
-def backwards_compatible_index_name(raw_name, logical_name):
-    pattern = r'^__index_level_\d+__$'
-    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
-        return None
-    else:
-        return logical_name
+# ----------------------------------------------------------------------
+# Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
 def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                           categoricals=None):
-    import pandas.core.internals as _int
-    import pyarrow.lib as lib
-
     index_columns = []
     columns = []
     column_indexes = []
@@ -405,37 +466,13 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
             index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
             index_names.append(
-                backwards_compatible_index_name(raw_name, logical_name)
+                _backwards_compatible_index_name(raw_name, logical_name)
             )
             block_table = block_table.remove_column(
                 block_table.schema.get_field_index(raw_name)
             )
 
-    # Convert an arrow table to Block from the internal pandas API
-    result = lib.table_to_blocks(options, block_table, nthreads, memory_pool)
-
-    # Construct the individual blocks converting dictionary types to pandas
-    # categorical types and Timestamps-with-timezones types to the proper
-    # pandas Blocks
-    blocks = []
-    for item in result:
-        block_arr = item['block']
-        placement = item['placement']
-        if 'dictionary' in item:
-            cat = pd.Categorical(block_arr,
-                                 categories=item['dictionary'],
-                                 ordered=item['ordered'], fastpath=True)
-            block = _int.make_block(cat, placement=placement,
-                                    klass=_int.CategoricalBlock,
-                                    fastpath=True)
-        elif 'timezone' in item:
-            dtype = make_datetimetz(item['timezone'])
-            block = _int.make_block(block_arr, placement=placement,
-                                    klass=_int.DatetimeTZBlock,
-                                    dtype=dtype, fastpath=True)
-        else:
-            block = _int.make_block(block_arr, placement=placement)
-        blocks.append(block)
+    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool)
 
     # Construct the row index
     if len(index_arrays) > 1:
@@ -477,37 +514,62 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
     # if we're reconstructing the index
     if has_pandas_metadata:
-
-        # Get levels and labels, and provide sane defaults if the index has a
-        # single level to avoid if/else spaghetti.
-        levels = getattr(columns, 'levels', None) or [columns]
-        labels = getattr(columns, 'labels', None) or [
-            pd.RangeIndex(len(level)) for level in levels
-        ]
-
-        # Convert each level to the dtype provided in the metadata
-        levels_dtypes = [
-            (level, col_index.get('numpy_type', level.dtype))
-            for level, col_index in zip_longest(
-                levels, column_indexes, fillvalue={}
-            )
-        ]
-        new_levels = [
-            _level if _level.dtype == _dtype else _level.astype(_dtype)
-            for _level, _dtype in levels_dtypes
-        ]
-
-        columns = pd.MultiIndex(
-            levels=new_levels,
-            labels=labels,
-            names=columns.names
-        )
+        columns = _reconstruct_columns_from_metadata(columns, column_indexes)
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
 
     axes = [columns, index]
     return _int.BlockManager(blocks, axes)
+
+
+def _backwards_compatible_index_name(raw_name, logical_name):
+    # Part of table_to_blockmanager
+    pattern = r'^__index_level_\d+__$'
+    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
+        return None
+    else:
+        return logical_name
+
+
+def _reconstruct_columns_from_metadata(columns, column_indexes):
+    # Part of table_to_blockmanager
+
+    # Get levels and labels, and provide sane defaults if the index has a
+    # single level to avoid if/else spaghetti.
+    levels = getattr(columns, 'levels', None) or [columns]
+    labels = getattr(columns, 'labels', None) or [
+        pd.RangeIndex(len(level)) for level in levels
+    ]
+
+    # Convert each level to the dtype provided in the metadata
+    levels_dtypes = [
+        (level, col_index.get('numpy_type', level.dtype))
+        for level, col_index in zip_longest(
+            levels, column_indexes, fillvalue={}
+        )
+    ]
+    new_levels = [
+        _level if _level.dtype == _dtype else _level.astype(_dtype)
+        for _level, _dtype in levels_dtypes
+    ]
+
+    return pd.MultiIndex(
+        levels=new_levels,
+        labels=labels,
+        names=columns.names
+    )
+
+
+def _table_to_blocks(options, block_table, nthreads, memory_pool):
+    # Part of table_to_blockmanager
+
+    # Convert an arrow table to Block from the internal pandas API
+    result = pa.lib.table_to_blocks(options, block_table, nthreads,
+                                    memory_pool)
+
+    # Defined above
+    return [_reconstruct_block(item) for item in result]
 
 
 def _flatten_single_level_multiindex(index):
