@@ -398,7 +398,7 @@ if sys.version_info.major == 2:
 def parse_version(root):
     from setuptools_scm import version_from_scm
     import setuptools_scm.git
-    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --exclude 'apache-arrow-js-*'"
+    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
     version = setuptools_scm.git.parse(root, describe)
     if not version:
         return version_from_scm(root)
