@@ -152,6 +152,30 @@ cdef class SerializationContext:
                     obj.__dict__.update(serialized_obj)
         return obj
 
+    def serialize(self, obj):
+        """
+        Call pyarrow.serialize and pass this SerializationContext
+        """
+        return serialize(obj, context=self)
+
+    def serialize_to(self, object value, sink):
+        """
+        Call pyarrow.serialize_to and pass this SerializationContext
+        """
+        return serialize_to(value, sink, context=self)
+
+    def deserialize(self, what):
+        """
+        Call pyarrow.deserialize and pass this SerializationContext
+        """
+        return deserialize(what, context=self)
+
+    def deserialize_components(self, what):
+        """
+        Call pyarrow.deserialize_components and pass this SerializationContext
+        """
+        return deserialize_components(what, context=self)
+
 
 _default_serialization_context = SerializationContext()
 

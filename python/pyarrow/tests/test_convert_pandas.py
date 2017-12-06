@@ -60,70 +60,73 @@ def _alltypes_example(size=100):
     })
 
 
+def _check_pandas_roundtrip(df, expected=None, nthreads=1,
+                            expected_schema=None,
+                            check_dtype=True, schema=None,
+                            preserve_index=False,
+                            as_batch=False):
+    klass = pa.RecordBatch if as_batch else pa.Table
+    table = klass.from_pandas(df, schema=schema,
+                              preserve_index=preserve_index,
+                              nthreads=nthreads)
+
+    result = table.to_pandas(nthreads=nthreads)
+    if expected_schema:
+        assert table.schema.equals(expected_schema)
+    if expected is None:
+        expected = df
+    tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                          check_index_type=('equiv' if preserve_index
+                                            else False))
+
+
+def _check_series_roundtrip(s, type_=None):
+    arr = pa.array(s, from_pandas=True, type=type_)
+
+    result = pd.Series(arr.to_pandas(), name=s.name)
+    if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
+        result = (result.dt.tz_localize('utc')
+                  .dt.tz_convert(arr.type.tz))
+
+    tm.assert_series_equal(s, result)
+
+
+def _check_array_roundtrip(values, expected=None, mask=None,
+                           type=None):
+    arr = pa.array(values, from_pandas=True, mask=mask, type=type)
+    result = arr.to_pandas()
+
+    values_nulls = pd.isnull(values)
+    if mask is None:
+        assert arr.null_count == values_nulls.sum()
+    else:
+        assert arr.null_count == (mask | values_nulls).sum()
+
+    if mask is None:
+        tm.assert_series_equal(pd.Series(result), pd.Series(values),
+                               check_names=False)
+    else:
+        expected = pd.Series(np.ma.masked_array(values, mask=mask))
+        tm.assert_series_equal(pd.Series(result), expected,
+                               check_names=False)
+
+
+def _check_array_from_pandas_roundtrip(np_array):
+    arr = pa.array(np_array, from_pandas=True)
+    result = arr.to_pandas()
+    npt.assert_array_equal(result, np_array)
+
+
 class TestPandasConversion(object):
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    def _check_pandas_roundtrip(self, df, expected=None, nthreads=1,
-                                expected_schema=None,
-                                check_dtype=True, schema=None,
-                                preserve_index=False,
-                                as_batch=False):
-        klass = pa.RecordBatch if as_batch else pa.Table
-        table = klass.from_pandas(df, schema=schema,
-                                  preserve_index=preserve_index,
-                                  nthreads=nthreads)
-
-        result = table.to_pandas(nthreads=nthreads)
-        if expected_schema:
-            assert table.schema.equals(expected_schema)
-        if expected is None:
-            expected = df
-        tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
-                              check_index_type=('equiv' if preserve_index
-                                                else False))
-
-    def _check_series_roundtrip(self, s, type_=None):
-        arr = pa.array(s, from_pandas=True, type=type_)
-
-        result = pd.Series(arr.to_pandas(), name=s.name)
-        if patypes.is_timestamp(arr.type) and arr.type.tz is not None:
-            result = (result.dt.tz_localize('utc')
-                      .dt.tz_convert(arr.type.tz))
-
-        tm.assert_series_equal(s, result)
-
-    def _check_array_roundtrip(self, values, expected=None, mask=None,
-                               type=None):
-        arr = pa.array(values, from_pandas=True, mask=mask, type=type)
-        result = arr.to_pandas()
-
-        values_nulls = pd.isnull(values)
-        if mask is None:
-            assert arr.null_count == values_nulls.sum()
-        else:
-            assert arr.null_count == (mask | values_nulls).sum()
-
-        if mask is None:
-            tm.assert_series_equal(pd.Series(result), pd.Series(values),
-                                   check_names=False)
-        else:
-            expected = pd.Series(np.ma.masked_array(values, mask=mask))
-            tm.assert_series_equal(pd.Series(result), expected,
-                                   check_names=False)
 
     def test_all_none_objects(self):
         df = pd.DataFrame({'a': [None, None, None]})
-        self._check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df)
 
     def test_all_none_category(self):
         df = pd.DataFrame({'a': [None, None, None]})
         df['a'] = df['a'].astype('category')
-        self._check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df)
 
     def test_non_string_columns(self):
         df = pd.DataFrame({0: [1, 2, 3]})
@@ -133,14 +136,14 @@ class TestPandasConversion(object):
     def test_column_index_names_are_preserved(self):
         df = pd.DataFrame({'data': [1, 2, 3]})
         df.columns.names = ['a']
-        self._check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
         ])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_with_dtypes(self):
         columns = pd.MultiIndex.from_arrays(
@@ -151,11 +154,11 @@ class TestPandasConversion(object):
             names=['level_1', 'level_2'],
         )
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
-        self._check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
-        self._check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_categorical_column_index(self):
         # I *really* hope no one uses category dtypes for single level column
@@ -203,7 +206,7 @@ class TestPandasConversion(object):
         df['a'] = df.a.astype('category')
         df = df.set_index('a')
 
-        self._check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_float_no_nulls(self):
         data = {}
@@ -218,7 +221,7 @@ class TestPandasConversion(object):
 
         df = pd.DataFrame(data)
         schema = pa.schema(fields)
-        self._check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_zero_copy_success(self):
         result = pa.array([0, 1, 2]).to_pandas(zero_copy_only=True)
@@ -312,8 +315,8 @@ class TestPandasConversion(object):
         expected = pd.DataFrame({'floats': pd.to_numeric(arr)})
         field = pa.field('floats', pa.float64())
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(df, expected=expected,
-                                     expected_schema=schema)
+        _check_pandas_roundtrip(df, expected=expected,
+                                expected_schema=schema)
 
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
@@ -321,8 +324,8 @@ class TestPandasConversion(object):
         expected = pd.DataFrame({'ints': pd.to_numeric(arr)})
         field = pa.field('ints', pa.int64())
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(df, expected=expected,
-                                     expected_schema=schema)
+        _check_pandas_roundtrip(df, expected=expected,
+                                expected_schema=schema)
 
     def test_integer_no_nulls(self):
         data = OrderedDict()
@@ -347,7 +350,7 @@ class TestPandasConversion(object):
 
         df = pd.DataFrame(data)
         schema = pa.schema(fields)
-        self._check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_integer_with_nulls(self):
         # pandas requires upcast to float dtype
@@ -395,7 +398,7 @@ class TestPandasConversion(object):
         df = pd.DataFrame({'bools': np.random.randn(num_values) > 0})
         field = pa.field('bools', pa.bool_())
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_boolean_nulls(self):
         # pandas requires upcast to object dtype
@@ -425,7 +428,7 @@ class TestPandasConversion(object):
         df = pd.DataFrame({'bools': arr})
         field = pa.field('bools', pa.bool_())
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_all_nulls_cast_numeric(self):
         arr = np.array([None], dtype=object)
@@ -445,7 +448,7 @@ class TestPandasConversion(object):
         field = pa.field('strings', pa.string())
         schema = pa.schema([field])
 
-        self._check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected_schema=schema)
 
     def test_bytes_to_binary(self):
         values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
@@ -456,7 +459,7 @@ class TestPandasConversion(object):
 
         values2 = [b'qux', b'foo', None, b'bar', b'qux', np.nan]
         expected = pd.DataFrame({'strings': values2})
-        self._check_pandas_roundtrip(df, expected)
+        _check_pandas_roundtrip(df, expected)
 
     @pytest.mark.large_memory
     def test_bytes_exceed_2gb(self):
@@ -499,7 +502,7 @@ class TestPandasConversion(object):
         })
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(
+        _check_pandas_roundtrip(
             df,
             expected_schema=schema,
         )
@@ -514,7 +517,7 @@ class TestPandasConversion(object):
         })
         field = pa.field('datetime64', pa.timestamp('ns'))
         schema = pa.schema([field])
-        self._check_pandas_roundtrip(
+        _check_pandas_roundtrip(
             df,
             expected_schema=schema,
         )
@@ -529,9 +532,9 @@ class TestPandasConversion(object):
         })
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
-        self._check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df)
 
-        self._check_series_roundtrip(df['datetime64'])
+        _check_series_roundtrip(df['datetime64'])
 
         # drop-in a null and ns instead of ms
         df = pd.DataFrame({
@@ -545,7 +548,7 @@ class TestPandasConversion(object):
         df['datetime64'] = (df['datetime64'].dt.tz_localize('US/Eastern')
                             .to_frame())
 
-        self._check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df)
 
     def test_datetime64_to_date32(self):
         # ARROW-1718
@@ -647,13 +650,13 @@ class TestPandasConversion(object):
 
     def test_column_of_arrays(self):
         df, schema = dataframe_with_arrays()
-        self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
+        _check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
         assert table.schema.equals(schema)
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            self._check_array_roundtrip(df[column], type=field.type)
+            _check_array_roundtrip(df[column], type=field.type)
 
     def test_column_of_arrays_to_py(self):
         # Test regression in ARROW-1199 not caught in above test
@@ -674,13 +677,13 @@ class TestPandasConversion(object):
 
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()
-        self._check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
+        _check_pandas_roundtrip(df, schema=schema, expected_schema=schema)
         table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
         assert table.schema.equals(schema)
 
         for column in df.columns:
             field = schema.field_by_name(column)
-            self._check_array_roundtrip(df[column], type=field.type)
+            _check_array_roundtrip(df[column], type=field.type)
 
     def test_column_of_lists_chunked(self):
         # ARROW-1357
@@ -732,7 +735,7 @@ class TestPandasConversion(object):
         arr = df['int64'].values[::3]
         assert arr.strides[0] != 8
 
-        self._check_array_roundtrip(arr)
+        _check_array_roundtrip(arr)
 
     def test_nested_lists_all_none(self):
         data = np.array([[None, None], None], dtype=object)
@@ -751,8 +754,8 @@ class TestPandasConversion(object):
 
     def test_threaded_conversion(self):
         df = _alltypes_example()
-        self._check_pandas_roundtrip(df, nthreads=2)
-        self._check_pandas_roundtrip(df, nthreads=2, as_batch=True)
+        _check_pandas_roundtrip(df, nthreads=2)
+        _check_pandas_roundtrip(df, nthreads=2, as_batch=True)
 
     def test_category(self):
         repeats = 5
@@ -770,7 +773,7 @@ class TestPandasConversion(object):
                            'strings': v1 * repeats,
                            'strings2': v1 * repeats,
                            'strings3': v3 * repeats})
-        self._check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df)
 
         arrays = [
             pd.Categorical(v1 * repeats),
@@ -778,7 +781,7 @@ class TestPandasConversion(object):
             pd.Categorical(v3 * repeats)
         ]
         for values in arrays:
-            self._check_array_roundtrip(values)
+            _check_array_roundtrip(values)
 
     def test_mixed_types_fails(self):
         data = pd.DataFrame({'a': ['a', 1, 2.0]})
@@ -825,9 +828,9 @@ class TestPandasConversion(object):
             df = pd.DataFrame(case, columns=columns)
             col = df['a']
 
-            self._check_pandas_roundtrip(df)
-            self._check_array_roundtrip(col)
-            self._check_array_roundtrip(col, mask=strided_mask)
+            _check_pandas_roundtrip(df)
+            _check_array_roundtrip(col)
+            _check_array_roundtrip(col, mask=strided_mask)
 
     def test_decimal_32_from_pandas(self):
         expected = pd.DataFrame({
@@ -987,11 +990,6 @@ class TestPandasConversion(object):
 
         tm.assert_frame_equal(df, expected_df)
 
-    def _check_array_from_pandas_roundtrip(self, np_array):
-        arr = pa.array(np_array, from_pandas=True)
-        result = arr.to_pandas()
-        npt.assert_array_equal(result, np_array)
-
     def test_numpy_datetime64_columns(self):
         datetime64_ns = np.array([
                 '2007-07-13T01:23:34.123456789',
@@ -999,7 +997,7 @@ class TestPandasConversion(object):
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
                 dtype='datetime64[ns]')
-        self._check_array_from_pandas_roundtrip(datetime64_ns)
+        _check_array_from_pandas_roundtrip(datetime64_ns)
 
         datetime64_us = np.array([
                 '2007-07-13T01:23:34.123456',
@@ -1007,7 +1005,7 @@ class TestPandasConversion(object):
                 '2006-01-13T12:34:56.432539',
                 '2010-08-13T05:46:57.437699'],
                 dtype='datetime64[us]')
-        self._check_array_from_pandas_roundtrip(datetime64_us)
+        _check_array_from_pandas_roundtrip(datetime64_us)
 
         datetime64_ms = np.array([
                 '2007-07-13T01:23:34.123',
@@ -1015,7 +1013,7 @@ class TestPandasConversion(object):
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
                 dtype='datetime64[ms]')
-        self._check_array_from_pandas_roundtrip(datetime64_ms)
+        _check_array_from_pandas_roundtrip(datetime64_ms)
 
         datetime64_s = np.array([
                 '2007-07-13T01:23:34',
@@ -1023,7 +1021,7 @@ class TestPandasConversion(object):
                 '2006-01-13T12:34:56',
                 '2010-08-13T05:46:57'],
                 dtype='datetime64[s]')
-        self._check_array_from_pandas_roundtrip(datetime64_s)
+        _check_array_from_pandas_roundtrip(datetime64_s)
 
     def test_numpy_datetime64_day_unit(self):
         datetime64_d = np.array([
@@ -1032,7 +1030,7 @@ class TestPandasConversion(object):
                 '2006-01-15',
                 '2010-08-19'],
                 dtype='datetime64[D]')
-        self._check_array_from_pandas_roundtrip(datetime64_d)
+        _check_array_from_pandas_roundtrip(datetime64_d)
 
     def test_all_nones(self):
         def _check_series(s):
@@ -1079,8 +1077,8 @@ class TestPandasConversion(object):
             pa.field('c', pa.int64())
         ])
 
-        self._check_pandas_roundtrip(df, schema=partial_schema,
-                                     expected_schema=expected_schema)
+        _check_pandas_roundtrip(df, schema=partial_schema,
+                                expected_schema=expected_schema)
 
     def test_structarray(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
@@ -1115,7 +1113,7 @@ class TestPandasConversion(object):
             pa.field('nested_strs', pa.list_(pa.list_(pa.string())))
         ])
 
-        self._check_pandas_roundtrip(df, expected_schema=expected_schema)
+        _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_infer_numpy_array(self):
         data = OrderedDict([
@@ -1129,7 +1127,7 @@ class TestPandasConversion(object):
             pa.field('ints', pa.list_(pa.int64()))
         ])
 
-        self._check_pandas_roundtrip(df, expected_schema=expected_schema)
+        _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', u'some_unicode']})
@@ -1184,12 +1182,12 @@ class TestPandasConversion(object):
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
-        self._check_pandas_roundtrip(df)
-        self._check_pandas_roundtrip(df, as_batch=True)
+        _check_pandas_roundtrip(df)
+        _check_pandas_roundtrip(df, as_batch=True)
 
         df2 = pd.DataFrame({}, index=[0, 1, 2])
-        self._check_pandas_roundtrip(df2, preserve_index=True)
-        self._check_pandas_roundtrip(df2, as_batch=True, preserve_index=True)
+        _check_pandas_roundtrip(df2, preserve_index=True)
+        _check_pandas_roundtrip(df2, as_batch=True, preserve_index=True)
 
     def test_array_from_pandas_date_with_mask(self):
         m = np.array([True, False, True])
@@ -1229,6 +1227,51 @@ class TestPandasConversion(object):
 
         assert pa.Array.from_pandas(expected,
                                     type=pa.list_(t())).equals(result)
+
+
+def _fully_loaded_dataframe_example():
+    from distutils.version import LooseVersion
+
+    index = pd.MultiIndex.from_arrays([
+        pd.date_range('2000-01-01', periods=5).repeat(2),
+        np.tile(np.array(['foo', 'bar'], dtype=object), 5)
+    ])
+
+    c1 = pd.date_range('2000-01-01', periods=10)
+    data = {
+        0: c1,
+        1: c1.tz_localize('utc'),
+        2: c1.tz_localize('US/Eastern'),
+        3: c1[::2].tz_localize('utc').repeat(2).astype('category'),
+        4: ['foo', 'bar'] * 5,
+        5: pd.Series(['foo', 'bar'] * 5).astype('category').values,
+        6: [True, False] * 5,
+        7: np.random.randn(10),
+        8: np.random.randint(0, 100, size=10),
+        9: pd.period_range('2013', periods=10, freq='M')
+    }
+
+    if LooseVersion(pd.__version__) >= '0.21':
+        # There is an issue with pickling IntervalIndex in pandas 0.20.x
+        data[10] = pd.interval_range(start=1, freq=1, periods=10)
+
+    return pd.DataFrame(data, index=index)
+
+
+def _check_serialize_components_roundtrip(df):
+    ctx = pa.pandas_serialization_context
+
+    components = ctx.serialize(df).to_components()
+    deserialized = ctx.deserialize_components(components)
+
+    tm.assert_frame_equal(df, deserialized)
+
+
+def test_serialize_deserialize_pandas():
+    # ARROW-1784, serialize and deserialize DataFrame by decomposing
+    # BlockManager
+    df = _fully_loaded_dataframe_example()
+    _check_serialize_components_roundtrip(df)
 
 
 def _pytime_from_micros(val):

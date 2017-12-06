@@ -256,6 +256,83 @@ Lastly, we use this context as an additioanl argument to ``pyarrow.serialize``:
    buf = pa.serialize(val, context=context).to_buffer()
    restored_val = pa.deserialize(buf, context=context)
 
+The ``SerializationContext`` also has convenience methods ``serialize`` and
+``deserialize``, so these are equivalent statements:
+
+.. code-block:: python
+
+   buf = context.serialize(val).to_buffer()
+   restored_val = context.deserialize(buf)
+
+Component-based Serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For serializing Python objects containing some number of NumPy arrays, Arrow
+buffers, or other data types, it may be desirable to transport their serialized
+representation without having to produce an intermediate copy using the
+``to_buffer`` method. To motivate this, support we have a list of NumPy arrays:
+
+.. ipython:: python
+
+   import numpy as np
+   data = [np.random.randn(10, 10) for i in range(5)]
+
+The call ``pa.serialize(data)`` does not copy the memory inside each of these
+NumPy arrays. This serialized representation can be then decomposed into a
+dictionary containing a sequence of ``pyarrow.Buffer`` objects containing
+metadata for each array and references to the memory inside the arrays. To do
+this, use the ``to_components`` method:
+
+.. ipython:: python
+
+   serialized = pa.serialize(data)
+   components = serialized.to_components()
+
+The particular details of the output of ``to_components`` are not too
+important. The objects in the ``'data'`` field are ``pyarrow.Buffer`` objects,
+which are zero-copy convertible to Python ``memoryview`` objects:
+
+.. ipython:: python
+
+   memoryview(components['data'][0])
+
+A memoryview can be converted back to a ``Buffer`` with ``pyarrow.frombuffer``:
+
+.. ipython:: python
+
+   mv = memoryview(components['data'][0])
+   buf = pa.frombuffer(mv)
+
+An object can be reconstructed from its component-based representation using
+``deserialize_components``:
+
+.. ipython:: python
+
+   restored_data = pa.deserialize_components(components)
+   restored_data[0]
+
+``deserialize_components`` is also available as a method on
+``SerializationContext`` objects.
+
+Serializing pandas Objects
+--------------------------
+
+We provide a serialization context that has optimized handling of pandas
+objects like ``DataFrame`` and ``Series``. This is the
+``pyarrow.pandas_serialization_context`` member. Combined with component-based
+serialization above, this enables zero-copy transport of pandas DataFrame
+objects not containing any Python objects:
+
+.. ipython:: python
+
+   import pandas as pd
+   df = pd.DataFrame({'a': [1, 2, 3, 4, 5]})
+   context = pa.pandas_serialization_context
+   serialized_df = context.serialize(df)
+   df_components = serialized_df.to_components()
+   original_df = context.deserialize_components(df_components)
+   original_df
+
 Feather Format
 --------------
 
