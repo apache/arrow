@@ -153,6 +153,52 @@ Status CheckFlatNumpyArray(PyArrayObject* numpy_array, int np_type) {
 /// \param[out] end_offset ending offset where we stopped appending. Will
 /// be length of arr if fully consumed
 /// \param[out] have_bytes true if we encountered any PyBytes object
+static Status AppendObjectBinaries(PyArrayObject* arr, PyArrayObject* mask,
+                                   int64_t offset, BinaryBuilder* builder,
+                                   int64_t* end_offset, bool* have_bytes) {
+  PyObject* obj;
+
+  Ndarray1DIndexer<PyObject*> objects(arr);
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask != nullptr) {
+    mask_values.Init(mask);
+    have_mask = true;
+  }
+
+  for (; offset < objects.size(); ++offset) {
+    OwnedRef tmp_obj;
+    obj = objects[offset];
+    if ((have_mask && mask_values[offset]) || PandasObjectIsNull(obj)) {
+      RETURN_NOT_OK(builder->AppendNull());
+      continue;
+    } else if (!PyBytes_Check(obj)) {
+      std::stringstream ss;
+      ss << "Error converting to Python objects to bytes: ";
+      RETURN_NOT_OK(InvalidConversion(obj, "str, bytes", &ss));
+      return Status::Invalid(ss.str());
+    }
+
+    const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(obj));
+    if (ARROW_PREDICT_FALSE(builder->value_data_length() + length > kBinaryMemoryLimit)) {
+      break;
+    }
+    RETURN_NOT_OK(builder->Append(PyBytes_AS_STRING(obj), length));
+  }
+
+  // If we consumed the whole array, this will be the length of arr
+  *end_offset = offset;
+  return Status::OK();
+}
+
+/// Append as many string objects from NumPy arrays to a `StringBuilder` as we
+/// can fit
+///
+/// \param[in] offset starting offset for appending
+/// \param[out] end_offset ending offset where we stopped appending. Will
+/// be length of arr if fully consumed
+/// \param[out] have_bytes true if we encountered any PyBytes object
 static Status AppendObjectStrings(PyArrayObject* arr, PyArrayObject* mask, int64_t offset,
                                   StringBuilder* builder, int64_t* end_offset,
                                   bool* have_bytes) {
@@ -1194,6 +1240,59 @@ inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, NullType>(
 }
 
 template <>
+inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, BinaryType>(
+    const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
+  PyAcquireGIL lock;
+  // TODO: If there are bytes involed, convert to Binary representation
+  bool have_bytes = false;
+
+  Ndarray1DIndexer<uint8_t> mask_values;
+
+  bool have_mask = false;
+  if (mask_ != nullptr) {
+    mask_values.Init(mask_);
+    have_mask = true;
+  }
+
+  auto value_builder = static_cast<BinaryBuilder*>(builder->value_builder());
+
+  auto foreach_item = [&](PyObject* object, bool mask) {
+    if (mask || PandasObjectIsNull(object)) {
+      return builder->AppendNull();
+    } else if (PyArray_Check(object)) {
+      auto numpy_array = reinterpret_cast<PyArrayObject*>(object);
+      RETURN_NOT_OK(builder->Append(true));
+
+      // TODO(uwe): Support more complex numpy array structures
+      RETURN_NOT_OK(CheckFlatNumpyArray(numpy_array, NPY_OBJECT));
+
+      int64_t offset = 0;
+      RETURN_NOT_OK(AppendObjectBinaries(numpy_array, nullptr, 0, value_builder, &offset,
+                                         &have_bytes));
+      if (offset < PyArray_SIZE(numpy_array)) {
+        return Status::Invalid("Array cell value exceeded 2GB");
+      }
+      return Status::OK();
+    } else if (PyList_Check(object)) {
+      int64_t size;
+      std::shared_ptr<DataType> inferred_type;
+      RETURN_NOT_OK(builder->Append(true));
+      RETURN_NOT_OK(InferArrowTypeAndSize(object, &size, &inferred_type));
+      if (inferred_type->id() != Type::NA && inferred_type->id() != Type::BINARY) {
+        std::stringstream ss;
+        ss << inferred_type->ToString() << " cannot be converted to BINARY.";
+        return Status::TypeError(ss.str());
+      }
+      return AppendPySequence(object, size, inferred_type, value_builder);
+    } else {
+      return Status::TypeError("Unsupported Python type for list items");
+    }
+  };
+
+  return LoopPySequenceWithMasks(list, mask_values, have_mask, foreach_item);
+}
+
+template <>
 inline Status NumPyConverter::ConvertTypedLists<NPY_OBJECT, StringType>(
     const std::shared_ptr<DataType>& type, ListBuilder* builder, PyObject* list) {
   PyAcquireGIL lock;
@@ -1267,6 +1366,7 @@ Status NumPyConverter::ConvertLists(const std::shared_ptr<DataType>& type,
     LIST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
     LIST_CASE(FLOAT, NPY_FLOAT, FloatType)
     LIST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
+    LIST_CASE(BINARY, NPY_OBJECT, BinaryType)
     LIST_CASE(STRING, NPY_OBJECT, StringType)
     case Type::LIST: {
       const auto& list_type = static_cast<const ListType&>(*type);
