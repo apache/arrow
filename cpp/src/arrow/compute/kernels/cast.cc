@@ -461,6 +461,49 @@ struct CastFunctor<Date32Type, Date64Type> {
 };
 
 // ----------------------------------------------------------------------
+// List to List
+
+class ListCastKernel : public UnaryKernel {
+ public:
+  ListCastKernel(std::unique_ptr<UnaryKernel> child_caster,
+                 const std::shared_ptr<DataType>& out_type)
+      : child_caster_(std::move(child_caster)), out_type_(out_type) {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+
+    const ArrayData& in_data = *input.array();
+    DCHECK_EQ(Type::LIST, in_data.type->id());
+    ArrayData* result;
+
+    if (in_data.offset != 0) {
+      return Status::NotImplemented(
+          "Casting sliced lists (non-zero offset) not yet implemented");
+    }
+
+    if (out->kind() == Datum::NONE) {
+      out->value = ArrayData::Make(out_type_, in_data.length);
+    }
+
+    result = out->array().get();
+
+    // Copy buffers from parent
+    result->buffers = in_data.buffers;
+
+    Datum casted_child;
+    RETURN_NOT_OK(child_caster_->Call(ctx, Datum(in_data.child_data[0]), &casted_child));
+    result->child_data.push_back(casted_child.array());
+
+    RETURN_IF_ERROR(ctx);
+    return Status::OK();
+  }
+
+ private:
+  std::unique_ptr<UnaryKernel> child_caster_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+// ----------------------------------------------------------------------
 // Dictionary to other things
 
 template <typename IndexType>
@@ -895,13 +938,32 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
-
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
     *kernel = Get##InType##CastFunc(out_type, options); \
     break
+
+namespace {
+
+Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
+                       const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
+  if (out_type->id() != Type::LIST) {
+    // Kernel will be null
+    return Status::OK();
+  }
+  const DataType& in_value_type = *static_cast<const ListType&>(in_type).value_type();
+  std::shared_ptr<DataType> out_value_type =
+      static_cast<const ListType&>(*out_type).value_type();
+  std::unique_ptr<UnaryKernel> child_caster;
+  RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
+  *kernel =
+      std::unique_ptr<UnaryKernel>(new ListCastKernel(std::move(child_caster), out_type));
+  return Status::OK();
+}
+
+}  // namespace
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
@@ -924,6 +986,9 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
     CAST_FUNCTION_CASE(DictionaryType);
+    case Type::LIST:
+      RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));
+      break;
     default:
       break;
   }
