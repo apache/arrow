@@ -120,6 +120,7 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   for (int i = 0; i < length; ++i) {
     if (mask_values[i]) {
       ++null_count;
+      BitUtil::ClearBit(bitmap, i);
     } else {
       BitUtil::SetBit(bitmap, i);
     }

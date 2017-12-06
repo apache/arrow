@@ -572,6 +572,15 @@ class TestPandasConversion(object):
         expected['date'] = pd.to_datetime(df['date'])
         tm.assert_frame_equal(result, expected)
 
+    def test_date_mask(self):
+        arr = np.array([date(2017, 4, 3), date(2017, 4, 4)],
+                       dtype='datetime64[D]')
+        mask = [True, False]
+        result = pa.array(arr, mask=np.array(mask))
+        expected = np.array([None, date(2017, 4, 4)], dtype='datetime64[D]')
+        expected = pa.array(expected, from_pandas=True)
+        assert expected.equals(result)
+
     def test_date_objects_typed(self):
         arr = np.array([
             date(2017, 4, 3),
