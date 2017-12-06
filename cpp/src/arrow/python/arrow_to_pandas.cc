@@ -100,6 +100,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::BINARY:
     case Type::STRING:
     case Type::TIMESTAMP:
       // The above types are all supported.
@@ -695,6 +696,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
+        CONVERTLISTSLIKE_CASE(BinaryType, BINARY)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
         default: {
@@ -1642,6 +1644,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
+      CONVERTVALUES_LISTSLIKE_CASE(BinaryType, BINARY)
       CONVERTVALUES_LISTSLIKE_CASE(StringType, STRING)
       CONVERTVALUES_LISTSLIKE_CASE(Decimal128Type, DECIMAL)
       CONVERTVALUES_LISTSLIKE_CASE(ListType, LIST)
