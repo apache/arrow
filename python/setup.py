@@ -105,6 +105,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
+        self.with_static_boost = strtobool(
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -149,6 +151,8 @@ class build_ext(_build_ext):
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
         if self.with_static_parquet:
             cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
+        if not self.with_static_boost:
+            cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
