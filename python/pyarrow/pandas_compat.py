@@ -132,7 +132,7 @@ def get_extension_dtype_info(column):
     return physical_dtype, metadata
 
 
-def get_column_metadata(column, name, arrow_type):
+def get_column_metadata(column, name, arrow_type, field_name):
     """Construct the metadata for a given column
 
     Parameters
@@ -140,6 +140,10 @@ def get_column_metadata(column, name, arrow_type):
     column : pandas.Series or pandas.Index
     name : str
     arrow_type : pyarrow.DataType
+    field_name : str
+        Equivalent to `name` when `column` is a `Series`, otherwise if `column`
+        is a pandas Index then `field_name` will not be the same as `name`.
+        This is the name of the field in the arrow Table's schema.
 
     Returns
     -------
@@ -164,6 +168,7 @@ def get_column_metadata(column, name, arrow_type):
 
     return {
         'name': name,
+        'field_name': field_name,
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -193,10 +198,14 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     index_types = types[ncolumns - len(index_levels):]
 
     column_metadata = [
-        get_column_metadata(df[col_name], name=sanitized_name,
-                            arrow_type=arrow_type)
-        for col_name, sanitized_name, arrow_type in
-        zip(df.columns, column_names, df_types)
+        get_column_metadata(
+            df[col_name],
+            name=sanitized_name,
+            arrow_type=arrow_type,
+            field_name=sanitized_name
+        ) for col_name, sanitized_name, arrow_type in zip(
+            df.columns, column_names, df_types
+        )
     ]
 
     if preserve_index:
@@ -204,9 +213,13 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
             index_level_name, range(len(index_levels))
         ))
         index_column_metadata = [
-            get_column_metadata(level, name=level.name, arrow_type=arrow_type)
-            for i, (level, arrow_type) in enumerate(
-                zip(index_levels, index_types)
+            get_column_metadata(
+                level,
+                name=level.name,
+                arrow_type=arrow_type,
+                field_name=field_name,
+            ) for i, (level, arrow_type, field_name) in enumerate(
+                zip(index_levels, index_types, index_column_names)
             )
         ]
 
@@ -450,9 +463,33 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
     block_table = table
 
+    index_columns_set = frozenset(index_columns)
+
+    # 0. 'field_name' is the name of the column in the arrow Table
+    # 1. 'name' is the user-facing name of the column, that is, it came from
+    #    pandas
+    # 2. 'field_name' and 'name' differ for index columns
+    # 3. We fall back on c['name'] for backwards compatibility
+    logical_index_names = [
+        c['name'] for c in columns
+        if c.get('field_name', c['name']) in index_columns_set
+    ]
+
+    # There must be the same number of field names and physical names
+    # (fields in the arrow Table)
+    assert len(logical_index_names) == len(index_columns_set)
+
+    # It can never be the case in a released version of pyarrow that
+    # c['name'] is None *and* 'field_name' is not a key in the column metadata,
+    # because the change to allow c['name'] to be None and the change to add
+    # 'field_name' are in the same release (0.8.0)
+    assert all(
+        (c['name'] is None and 'field_name' in c) or c['name'] is not None
+        for c in columns
+    )
+
     # Build up a list of index columns and names while removing those columns
     # from the original table
-    logical_index_names = [c['name'] for c in columns[-len(index_columns):]]
     for raw_name, logical_name in zip(index_columns, logical_index_names):
         i = schema.get_field_index(raw_name)
         if i != -1:

@@ -160,9 +160,40 @@ class TestPandasConversion(object):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_index_metadata_field_name(self):
+        # test None case, and strangely named non-index columns
+        df = pd.DataFrame(
+            [(1, 'a', 3.1), (2, 'b', 2.2), (3, 'c', 1.3)],
+            index=pd.MultiIndex.from_arrays(
+                [['c', 'b', 'a'], [3, 2, 1]],
+                names=[None, 'foo']
+            )
+        ).rename(columns=dict(zip(range(3), ['a', None, '__index_level_0__'])))
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        col1, col2, col3, idx0, foo = js['columns']
+
+        assert col1['name'] == 'a'
+        assert col1['name'] == col1['field_name']
+
+        assert col2['name'] is None
+        assert col2['field_name'] is None
+
+        assert col3['name'] == '__index_level_0__'
+        assert col3['name'] == col3['field_name']
+
+        idx0_name, foo_name = js['index_columns']
+        assert idx0_name == '__index_level_0__'
+        assert idx0['field_name'] == idx0_name
+        assert idx0['name'] is None
+
+        assert foo_name == '__index_level_1__'
+        assert foo['name'] == 'foo'
+
     def test_categorical_column_index(self):
-        # I *really* hope no one uses category dtypes for single level column
-        # indexes
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.Index(list('def'), dtype='category')
@@ -181,8 +212,6 @@ class TestPandasConversion(object):
         assert md['ordered'] is False
 
     def test_datetimetz_column_index(self):
-        # I *really* hope no one uses category dtypes for single level column
-        # indexes
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
