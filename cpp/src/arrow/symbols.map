@@ -62,9 +62,24 @@
       # a system with an older libstdc++ which doesn't include the necessary
       # c++11 symbols.
       std::*;
+      __cxxabiv1::*;
+      __gnu_cxx::*;
 
       # Statically linked C++ dependencies
       boost::*;
       snappy::*;
     };
+
+    # Things that are C++ but are not matched by above filters
+    __dynamic_cast;
+    execute_native_thread_routine;
+    __gcclibcxx_demangle_callback;
+    __gxx_personality_v0;
+    # operator new/delete
+    _ZdaPv;
+    _ZdlPv;
+    _Znam;
+    _Znwm;
+    _ZSt14__convert*;
+    _ZSt21__copy*;
 };

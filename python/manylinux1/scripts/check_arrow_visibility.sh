@@ -23,4 +23,7 @@ then
     exit 0
 fi
 
+grep ' T ' nm_arrow.log | grep -v arrow
+nm -D /arrow-dist/lib64/libarrow.so | grep ' T ' | grep -v arrow
+
 exit 1

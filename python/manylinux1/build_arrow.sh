@@ -45,6 +45,7 @@ export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PKG_CONFIG_PATH=/arrow-dist/lib64/pkgconfig
 export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr'
+export PYARROW_CXXFLAGS='-Wl,-Bsymbolic -static-libstdc++'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
@@ -81,7 +82,9 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
 
-    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v
+    ulimit -c unlimited
+    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow -v || true
+    /bin/bash
     deactivate
 
     mv repaired_wheels/*.whl /io/dist

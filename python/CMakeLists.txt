@@ -401,5 +401,10 @@ foreach(module ${CYTHON_EXTENSIONS})
         INSTALL_RPATH ${module_install_rpath})
     endif()
 
+    if (NOT APPLE AND NOT MSVC)
+      set_target_properties(${module_name} PROPERTIES
+          LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/pyarrow/symbols.map")
+    endif()
+
     target_link_libraries(${module_name} ${LINK_LIBS})
 endforeach(module)
