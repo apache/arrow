@@ -19,7 +19,6 @@
 package org.apache.arrow.vector.util;
 
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,36 +33,6 @@ public class JsonStringHashMap<K, V> extends LinkedHashMap<K, V> {
 
   static {
     mapper = new ObjectMapper();
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null) {
-      return false;
-    }
-    if (!(obj instanceof Map)) {
-      return false;
-    }
-    Map<?, ?> other = (Map<?, ?>) obj;
-    if (this.size() != other.size()) {
-      return false;
-    }
-    for (K key : this.keySet()) {
-      if (this.get(key) == null) {
-        if (other.get(key) == null) {
-          continue;
-        } else {
-          return false;
-        }
-      }
-      if (!this.get(key).equals(other.get(key))) {
-        return false;
-      }
-    }
-    return true;
   }
 
   @Override
