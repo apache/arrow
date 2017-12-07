@@ -122,7 +122,7 @@ def get_extension_dtype_info(column):
             'num_categories': len(cats.categories),
             'ordered': cats.ordered,
         }
-        physical_dtype = 'object'
+        physical_dtype = str(cats.codes.dtype)
     elif hasattr(dtype, 'tz'):
         metadata = {'timezone': str(dtype.tz)}
         physical_dtype = 'datetime64[ns]'

@@ -205,7 +205,7 @@ class TestPandasConversion(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'categorical'
-        assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['numpy_type'] == 'int8'
 
         md = column_indexes['metadata']
         assert md['num_categories'] == 3
