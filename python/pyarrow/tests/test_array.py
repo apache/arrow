@@ -495,6 +495,14 @@ def test_array_conversions_no_sentinel_values():
     assert arr3.null_count == 0
 
 
+def test_array_from_numpy_datetimeD():
+    arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
+
+    result = pa.array(arr)
+    expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
+    assert result.equals(expected)
+
+
 def test_array_from_numpy_ascii():
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
