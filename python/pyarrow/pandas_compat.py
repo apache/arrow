@@ -172,7 +172,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
 
     return {
         'name': name,
-        'field_name': field_name,
+        'field_name': str(field_name),
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -460,7 +460,6 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
     schema = table.schema
     row_count = table.num_rows
     metadata = schema.metadata
-    columns_metadata = None
 
     has_pandas_metadata = metadata is not None and b'pandas' in metadata
 
@@ -470,7 +469,6 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
         columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         table = _add_any_metadata(table, pandas_metadata)
-        columns_metadata = pandas_metadata.get('columns', None)
 
     block_table = table
 
@@ -531,15 +529,12 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
         index = pd.RangeIndex(row_count)
 
     column_strings = [x.name for x in block_table.itercolumns()]
-    if columns_metadata is not None:
-        columns_name_dict = dict(
-            (str(x['name']), x['name'])
-            for x in columns_metadata
-        )
+    if columns:
+        columns_name_dict = {
+            c.get('field_name', str(c['name'])): c['name'] for c in columns
+        }
         columns_values = [
-            columns_name_dict[y]
-            if y in columns_name_dict.keys() else y
-            for y in column_strings
+            columns_name_dict.get(name, name) for name in column_strings
         ]
     else:
         columns_values = column_strings

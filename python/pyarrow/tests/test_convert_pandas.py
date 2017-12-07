@@ -180,7 +180,7 @@ class TestPandasConversion(object):
         assert col1['name'] == col1['field_name']
 
         assert col2['name'] is None
-        assert col2['field_name'] is None
+        assert col2['field_name'] == 'None'
 
         assert col3['name'] == '__index_level_0__'
         assert col3['name'] == col3['field_name']
