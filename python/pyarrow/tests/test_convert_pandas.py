@@ -30,7 +30,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.util.testing as tm
 
-from pyarrow.compat import u
+from pyarrow.compat import u, PY2
 import pyarrow as pa
 import pyarrow.types as patypes
 
@@ -224,7 +224,7 @@ class TestPandasConversion(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['pandas_type'] == 'unicode'
+        assert column_indexes['pandas_type'] == 'bytes' if PY2 else 'unicode'
         assert column_indexes['numpy_type'] == 'object'
 
         md = column_indexes['metadata']
