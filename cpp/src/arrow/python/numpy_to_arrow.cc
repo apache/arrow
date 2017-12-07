@@ -421,7 +421,11 @@ class NumPyConverter {
     using traits = internal::arrow_traits<ArrowType::type_id>;
 
     const bool null_sentinels_possible =
-        (use_pandas_null_sentinels_ && traits::supports_nulls);
+        // NumPy has a NaT type
+        (ArrowType::type_id == Type::TIMESTAMP || ArrowType::type_id == Type::DATE32) ||
+
+        // Observing pandas's null sentinels
+        ((use_pandas_null_sentinels_ && traits::supports_nulls));
 
     if (mask_ != nullptr || null_sentinels_possible) {
       RETURN_NOT_OK(InitNullBitmap());
@@ -631,8 +635,6 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
 
   auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(dtype_->c_metadata);
   if (dtype_->type_num == NPY_DATETIME) {
-    const int64_t null_count = ValuesToBitmap<NPY_DATETIME>(arr_, null_bitmap_data_);
-
     // If we have inbound datetime64[D] data, this needs to be downcasted
     // separately here from int64_t to int32_t, because this data is not
     // supported in compute::Cast
@@ -642,6 +644,9 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
       RETURN_NOT_OK(s);
     } else {
+      // TODO(wesm): This is redundant, and recomputed in VisitNative()
+      const int64_t null_count = ValuesToBitmap<NPY_DATETIME>(arr_, null_bitmap_data_);
+
       RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
       if (!input_type->Equals(*type_)) {
         RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count,
