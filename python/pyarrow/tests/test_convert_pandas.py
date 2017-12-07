@@ -224,7 +224,7 @@ class TestPandasConversion(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] == 'stringz'
         assert column_indexes['name'] == column_indexes['field_name']
-        assert column_indexes['pandas_type'] == 'bytes' if PY2 else 'unicode'
+        assert column_indexes['pandas_type'] == ('bytes' if PY2 else 'unicode')
         assert column_indexes['numpy_type'] == 'object'
 
         md = column_indexes['metadata']
