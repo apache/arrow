@@ -1570,19 +1570,21 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize('precision', range(1, 39))
-def test_decimal_roundtrip(tmpdir, precision):
+def test_decimal_roundtrip(tmpdir):
     num_values = 10
 
     columns = {}
 
-    for scale in range(0, precision + 1):
-        with util.random_seed(0):
-            random_decimal_values = [
-                util.randdecimal(precision, scale) for _ in range(num_values)
-            ]
-        column_name = 'dec_precision_{:d}_scale_{:d}'.format(precision, scale)
-        columns[column_name] = random_decimal_values
+    for precision in range(1, 39):
+        for scale in range(0, precision + 1):
+            with util.random_seed(0):
+                random_decimal_values = [
+                    util.randdecimal(precision, scale)
+                    for _ in range(num_values)
+                ]
+            column_name = ('dec_precision_{:d}_scale_{:d}'
+                           .format(precision, scale))
+            columns[column_name] = random_decimal_values
 
     expected = pd.DataFrame(columns)
     filename = tmpdir.join('decimals.parquet')
