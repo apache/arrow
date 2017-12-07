@@ -211,6 +211,25 @@ class TestPandasConversion(object):
         assert md['num_categories'] == 3
         assert md['ordered'] is False
 
+    def test_string_column_index(self):
+        df = pd.DataFrame(
+            [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
+            columns=pd.Index(list('def'), name='stringz')
+        )
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        column_indexes, = js['column_indexes']
+        assert column_indexes['name'] == 'stringz'
+        assert column_indexes['name'] == column_indexes['field_name']
+        assert column_indexes['pandas_type'] == 'unicode'
+        assert column_indexes['numpy_type'] == 'object'
+
+        md = column_indexes['metadata']
+        assert len(md) == 1
+        assert md['encoding'] == 'UTF-8'
+
     def test_datetimetz_column_index(self):
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],

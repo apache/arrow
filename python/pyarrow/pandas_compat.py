@@ -110,7 +110,11 @@ def get_logical_type_from_numpy(pandas_collection):
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
-        return infer_dtype(pandas_collection)
+        result = infer_dtype(pandas_collection)
+
+        if result == 'string':
+            return 'bytes' if PY2 else 'unicode'
+        return result
 
 
 def get_extension_dtype_info(column):
@@ -227,9 +231,16 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
 
         for level in getattr(df.columns, 'levels', [df.columns]):
             string_dtype, extra_metadata = get_extension_dtype_info(level)
+
+            pandas_type = get_logical_type_from_numpy(level)
+            if pandas_type == 'unicode':
+                assert not extra_metadata
+                extra_metadata = {'encoding': 'UTF-8'}
+
             column_index = {
                 'name': level.name,
-                'pandas_type': get_logical_type_from_numpy(level),
+                'field_name': level.name,
+                'pandas_type': pandas_type,
                 'numpy_type': string_dtype,
                 'metadata': extra_metadata,
             }
