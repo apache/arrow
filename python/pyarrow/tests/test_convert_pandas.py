@@ -167,8 +167,9 @@ class TestPandasConversion(object):
             index=pd.MultiIndex.from_arrays(
                 [['c', 'b', 'a'], [3, 2, 1]],
                 names=[None, 'foo']
-            )
-        ).rename(columns=dict(zip(range(3), ['a', None, '__index_level_0__'])))
+            ),
+            columns=['a', None, '__index_level_0__'],
+        )
         t = pa.Table.from_pandas(df, preserve_index=True)
         raw_metadata = t.schema.metadata
 
