@@ -92,8 +92,8 @@ using RjObject = rj::Value::ConstObject;
 
 namespace arrow {
 namespace ipc {
-namespace json {
 namespace internal {
+namespace json {
 
 Status WriteSchema(const Schema& schema, RjWriter* writer);
 Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
@@ -111,8 +111,8 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
 Status ReadArray(MemoryPool* pool, const rj::Value& json_obj, const Schema& schema,
                  std::shared_ptr<Array>* array);
 
-}  // namespace internal
 }  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
 
