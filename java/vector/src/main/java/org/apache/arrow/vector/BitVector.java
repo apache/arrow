@@ -444,6 +444,72 @@ public class BitVector extends BaseFixedWidthVector {
     set(index, isSet, value);
   }
 
+  /**
+   * Set the element at the given index to one.
+   *
+   * @param index position of element
+   */
+  public void setToOne(int index) {
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setValidityBitToOne(valueBuffer, index);
+  }
+
+  /**
+   * Same as {@link #setToOne(int)} except that it handles the case when
+   * index is greater than or equal to current value capacity of the vector.
+   *
+   * @param index position of the element
+   */
+  public void setSafeToOne(int index) {
+    handleSafe(index);
+    setToOne(index);
+  }
+
+  /**
+   * Set count bits to 1 in data starting at firstBitIndex
+   *
+   * @param firstBitIndex the index of the first bit to set
+   * @param count         the number of bits to set
+   */
+  public void setRangeToOne(int firstBitIndex, int count) {
+    int startByteIndex = BitVectorHelper.byteIndex(firstBitIndex);
+    final int lastBitIndex = firstBitIndex + count;
+    final int endByteIndex = BitVectorHelper.byteIndex(lastBitIndex);
+    final int startByteBitIndex = BitVectorHelper.bitIndex(firstBitIndex);
+    final int endBytebitIndex = BitVectorHelper.bitIndex(lastBitIndex);
+    if (count < 8 && startByteIndex == endByteIndex) {
+      // handles the case where we don't have a first and a last byte
+      byte bitMask = 0;
+      for (int i = startByteBitIndex; i < endBytebitIndex; ++i) {
+        bitMask |= (byte) (1L << i);
+      }
+      BitVectorHelper.setBitMaskedByte(validityBuffer, startByteIndex, bitMask);
+      BitVectorHelper.setBitMaskedByte(valueBuffer, startByteIndex, bitMask);
+    } else {
+      // fill in first byte (if it's not full)
+      if (startByteBitIndex != 0) {
+        final byte bitMask = (byte) (0xFFL << startByteBitIndex);
+        BitVectorHelper.setBitMaskedByte(validityBuffer, startByteIndex, bitMask);
+        BitVectorHelper.setBitMaskedByte(valueBuffer, startByteIndex, bitMask);
+        ++startByteIndex;
+      }
+
+      // fill in one full byte at a time
+      for (int i = startByteIndex; i < endByteIndex; i++) {
+        validityBuffer.setByte(i, 0xFF);
+        valueBuffer.setByte(i, 0xFF);
+      }
+
+      // fill in the last byte (if it's not full)
+      if (endBytebitIndex != 0) {
+        final int byteIndex = BitVectorHelper.byteIndex(lastBitIndex - endBytebitIndex);
+        final byte bitMask = (byte) (0xFFL >>> ((8 - endBytebitIndex) & 7));
+        BitVectorHelper.setBitMaskedByte(validityBuffer, byteIndex, bitMask);
+        BitVectorHelper.setBitMaskedByte(valueBuffer, byteIndex, bitMask);
+      }
+    }
+  }
+
 
   /******************************************************************
    *                                                                *
