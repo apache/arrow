@@ -16,18 +16,19 @@
 # under the License.
 
 from collections import OrderedDict, defaultdict
+import six
 import sys
-import pickle
 
 import numpy as np
 
 from pyarrow import serialize_pandas, deserialize_pandas
+from pyarrow.compat import builtin_pickle
 from pyarrow.lib import _default_serialization_context, frombuffer
 
 try:
     import cloudpickle
 except ImportError:
-    cloudpickle = pickle
+    cloudpickle = builtin_pickle
 
 
 # ----------------------------------------------------------------------
@@ -44,12 +45,16 @@ def _deserialize_numpy_array_list(data):
 
 
 def _pickle_to_buffer(x):
-    pickled = pickle.dumps(x, protocol=pickle.HIGHEST_PROTOCOL)
+    pickled = builtin_pickle.dumps(x, protocol=builtin_pickle.HIGHEST_PROTOCOL)
     return frombuffer(pickled)
 
 
 def _load_pickle_from_buffer(data):
-    return pickle.loads(memoryview(data))
+    as_memoryview = memoryview(data)
+    if six.PY2:
+        return builtin_pickle.loads(as_memoryview.tobytes())
+    else:
+        return builtin_pickle.loads(as_memoryview)
 
 
 _serialize_numpy_array_pickle = _pickle_to_buffer

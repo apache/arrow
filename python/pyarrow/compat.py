@@ -70,7 +70,7 @@ else:
 
 
 if PY2:
-    import cPickle
+    import cPickle as builtin_pickle
 
     try:
         from cdecimal import Decimal
@@ -107,6 +107,8 @@ if PY2:
     def unichar(s):
         return unichr(s)
 else:
+    import pickle as builtin_pickle
+
     unicode_type = str
     def lzip(*x):
         return list(zip(*x))
