@@ -40,8 +40,11 @@
 
 namespace arrow {
 namespace ipc {
-namespace json {
 namespace internal {
+namespace json {
+
+using ::arrow::ipc::DictionaryMemo;
+using ::arrow::ipc::DictionaryTypeMap;
 
 static std::string GetFloatingPrecisionName(FloatingPoint::Precision precision) {
   switch (precision) {
@@ -1463,7 +1466,7 @@ Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& sc
   return ReadArray(pool, json_array, result->type(), array);
 }
 
-}  // namespace internal
 }  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
