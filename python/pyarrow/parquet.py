@@ -1013,7 +1013,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
         fs = _ensure_filesystem(filesystem)
 
     if fs._isfilestore() and not fs.exists(root_path):
-        fs.mkdir(root_path)
+        try:
+            fs.mkdir(root_path)
+        except OSError:
+            assert fs.exists(root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
         df = table.to_pandas()
