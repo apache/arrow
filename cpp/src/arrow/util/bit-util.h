@@ -139,13 +139,10 @@ static inline void SetArrayBit(uint8_t* bits, int i, bool is_set) {
 }
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
-  // TODO: speed up. See https://graphics.stanford.edu/~seander/bithacks.html
+  // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
-  if (bit_is_set) {
-    SetBit(bits, i);
-  } else {
-    ClearBit(bits, i);
-  }
+  bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
+                 kBitmask[i % 8];
 }
 
 // Returns the minimum number of bits needed to represent the value of 'x'
