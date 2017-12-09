@@ -227,6 +227,11 @@ class TestPandasConversion(object):
         result = pa.array([0, 1, 2]).to_pandas(zero_copy_only=True)
         npt.assert_array_equal(result, [0, 1, 2])
 
+    def test_duplicate_column_names_does_not_crash(self):
+        df = pd.DataFrame([(1, 'a'), (2, 'b')], columns=list('aa'))
+        with pytest.raises(ValueError):
+            pa.Table.from_pandas(df)
+
     def test_dictionary_indices_boundscheck(self):
         # ARROW-1658. No validation of indices leads to segfaults in pandas
         indices = [[0, 1], [0, -1]]
