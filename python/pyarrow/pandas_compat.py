@@ -641,19 +641,36 @@ def _add_any_metadata(table, pandas_metadata):
 
     schema = table.schema
 
+    index_columns = pandas_metadata['index_columns']
+    n_index_levels = len(index_columns)
+    n_columns = len(pandas_metadata['columns']) - n_index_levels
+
     # Add time zones
     for i, col_meta in enumerate(pandas_metadata['columns']):
-        if col_meta['pandas_type'] == 'datetimetz':
-            col = table[i]
-            converted = col.to_pandas()
-            tz = col_meta['metadata']['timezone']
-            tz_aware_type = pa.timestamp('ns', tz=tz)
-            with_metadata = pa.Array.from_pandas(converted.values,
-                                                 type=tz_aware_type)
 
-            field = pa.field(schema[i].name, tz_aware_type)
-            modified_columns[i] = pa.Column.from_array(field,
-                                                       with_metadata)
+        raw_name = col_meta.get('field_name')
+        if not raw_name:
+            # deal with metadata written with arrow < 0.8
+            raw_name = col_meta['name']
+            if i >= n_columns:
+                # index columns
+                raw_name = index_columns[i - n_columns]
+            if raw_name is None:
+                raw_name = 'None'
+
+        idx = schema.get_field_index(raw_name)
+        if idx != -1:
+            if col_meta['pandas_type'] == 'datetimetz':
+                col = table[idx]
+                converted = col.to_pandas()
+                tz = col_meta['metadata']['timezone']
+                tz_aware_type = pa.timestamp('ns', tz=tz)
+                with_metadata = pa.Array.from_pandas(converted.values,
+                                                     type=tz_aware_type)
+
+                field = pa.field(schema[idx].name, tz_aware_type)
+                modified_columns[idx] = pa.Column.from_array(field,
+                                                             with_metadata)
 
     if len(modified_columns) > 0:
         columns = []

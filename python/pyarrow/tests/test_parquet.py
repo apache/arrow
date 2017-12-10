@@ -1570,6 +1570,29 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     tm.assert_frame_equal(result, expected)
 
 
+@parquet
+def test_backwards_compatible_column_metadata_handling():
+    expected = pd.DataFrame(
+        {'a': [1, 2, 3], 'b': [.1, .2, .3],
+         'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+    expected.index = pd.MultiIndex.from_arrays(
+        [['a', 'b', 'c'],
+         pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
+        names=['index', None])
+
+    path = os.path.join(
+        os.path.dirname(__file__), 'data',
+        'v0.7.1.column-metadata-handling.parquet'
+    )
+    t = _read_table(path)
+    result = t.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+    t = _read_table(path, columns=['a'])
+    result = t.to_pandas()
+    tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
+
+
 def test_decimal_roundtrip(tmpdir):
     num_values = 10
 
