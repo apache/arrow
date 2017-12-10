@@ -30,7 +30,7 @@ import numpy.testing as npt
 import pandas as pd
 import pandas.util.testing as tm
 
-from pyarrow.compat import u
+from pyarrow.compat import u, PY2
 import pyarrow as pa
 import pyarrow.types as patypes
 
@@ -160,9 +160,41 @@ class TestPandasConversion(object):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_index_metadata_field_name(self):
+        # test None case, and strangely named non-index columns
+        df = pd.DataFrame(
+            [(1, 'a', 3.1), (2, 'b', 2.2), (3, 'c', 1.3)],
+            index=pd.MultiIndex.from_arrays(
+                [['c', 'b', 'a'], [3, 2, 1]],
+                names=[None, 'foo']
+            ),
+            columns=['a', None, '__index_level_0__'],
+        )
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        col1, col2, col3, idx0, foo = js['columns']
+
+        assert col1['name'] == 'a'
+        assert col1['name'] == col1['field_name']
+
+        assert col2['name'] is None
+        assert col2['field_name'] == 'None'
+
+        assert col3['name'] == '__index_level_0__'
+        assert col3['name'] == col3['field_name']
+
+        idx0_name, foo_name = js['index_columns']
+        assert idx0_name == '__index_level_0__'
+        assert idx0['field_name'] == idx0_name
+        assert idx0['name'] is None
+
+        assert foo_name == '__index_level_1__'
+        assert foo['name'] == 'foo'
+
     def test_categorical_column_index(self):
-        # I *really* hope no one uses category dtypes for single level column
-        # indexes
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.Index(list('def'), dtype='category')
@@ -174,15 +206,36 @@ class TestPandasConversion(object):
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'categorical'
-        assert column_indexes['numpy_type'] == 'object'
+        assert column_indexes['numpy_type'] == 'int8'
 
         md = column_indexes['metadata']
         assert md['num_categories'] == 3
         assert md['ordered'] is False
 
+    def test_string_column_index(self):
+        df = pd.DataFrame(
+            [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
+            columns=pd.Index(list('def'), name='stringz')
+        )
+        t = pa.Table.from_pandas(df, preserve_index=True)
+        raw_metadata = t.schema.metadata
+        js = json.loads(raw_metadata[b'pandas'].decode('utf8'))
+
+        column_indexes, = js['column_indexes']
+        assert column_indexes['name'] == 'stringz'
+        assert column_indexes['name'] == column_indexes['field_name']
+        assert column_indexes['pandas_type'] == ('bytes' if PY2 else 'unicode')
+        assert column_indexes['numpy_type'] == 'object'
+
+        md = column_indexes['metadata']
+
+        if not PY2:
+            assert len(md) == 1
+            assert md['encoding'] == 'UTF-8'
+        else:
+            assert md is None or 'encoding' not in md
+
     def test_datetimetz_column_index(self):
-        # I *really* hope no one uses category dtypes for single level column
-        # indexes
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
