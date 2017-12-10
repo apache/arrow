@@ -42,7 +42,7 @@ sudo apt-get install cmake \
 On OS X, you can use [Homebrew][1]:
 
 ```shell
-brew update && brew bundle --file=cpp/Brewfile
+brew update && brew bundle --file=c_glib/Brewfile
 ```
 
 If you are developing on Windows, see the [Windows developer guide][2].
