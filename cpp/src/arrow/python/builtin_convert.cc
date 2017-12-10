@@ -148,15 +148,14 @@ static constexpr int MAX_NESTING_LEVELS = 32;
 // SeqVisitor is used to infer the type.
 class SeqVisitor {
  public:
-  SeqVisitor() : max_nesting_level_(0), max_observed_level_(0) {
-    memset(nesting_histogram_, 0, MAX_NESTING_LEVELS * sizeof(int));
+  SeqVisitor() : max_nesting_level_(0), max_observed_level_(0), nesting_histogram_() {
+    std::fill(nesting_histogram_, nesting_histogram_ + MAX_NESTING_LEVELS, 0);
   }
 
   // co-recursive with VisitElem
   Status Visit(PyObject* obj, int level = 0) {
-    if (level > max_nesting_level_) {
-      max_nesting_level_ = level;
-    }
+    max_nesting_level_ = std::max(max_nesting_level_, level);
+
     // Loop through either a sequence or an iterator.
     if (PySequence_Check(obj)) {
       Py_ssize_t size = PySequence_Size(obj);
@@ -165,18 +164,26 @@ class SeqVisitor {
         if (PyArray_Check(obj)) {
           auto array = reinterpret_cast<PyArrayObject*>(obj);
           auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
+
           ref.reset(PyArray_GETITEM(array, ptr));
+          RETURN_IF_PYERROR();
+
           RETURN_NOT_OK(VisitElem(ref, level));
         } else {
           ref.reset(PySequence_GetItem(obj, i));
+          RETURN_IF_PYERROR();
           RETURN_NOT_OK(VisitElem(ref, level));
         }
       }
     } else if (PyObject_HasAttrString(obj, "__iter__")) {
-      OwnedRef iter = OwnedRef(PyObject_GetIter(obj));
-      PyObject* item;
+      OwnedRef iter(PyObject_GetIter(obj));
+      RETURN_IF_PYERROR();
+
+      PyObject* item = NULLPTR;
       while ((item = PyIter_Next(iter.obj()))) {
-        OwnedRef ref = OwnedRef(item);
+        RETURN_IF_PYERROR();
+
+        OwnedRef ref(item);
         RETURN_NOT_OK(VisitElem(ref, level));
       }
     } else {
@@ -242,6 +249,7 @@ class SeqVisitor {
 
   // Visits a specific element (inner part of the loop).
   Status VisitElem(const OwnedRef& item_ref, int level) {
+    DCHECK_NE(item_ref.obj(), NULLPTR);
     if (PyList_Check(item_ref.obj())) {
       RETURN_NOT_OK(Visit(item_ref.obj(), level + 1));
     } else if (PyDict_Check(item_ref.obj())) {
@@ -323,7 +331,7 @@ class SeqConverter {
 
   virtual Status AppendData(PyObject* seq, int64_t size) = 0;
 
-  virtual ~SeqConverter() {}
+  virtual ~SeqConverter() = default;
 
  protected:
   ArrayBuilder* builder_;
@@ -459,13 +467,13 @@ class UInt8Converter : public TypedConverterVisitor<UInt8Builder, UInt8Converter
  public:
   Status AppendItem(const OwnedRef& item) {
     const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+    RETURN_IF_PYERROR();
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint8_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");
     }
-    RETURN_IF_PYERROR();
     return typed_builder_->Append(static_cast<uint8_t>(val));
   }
 };
@@ -474,13 +482,13 @@ class UInt16Converter : public TypedConverterVisitor<UInt16Builder, UInt16Conver
  public:
   Status AppendItem(const OwnedRef& item) {
     const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+    RETURN_IF_PYERROR();
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint16_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");
     }
-    RETURN_IF_PYERROR();
     return typed_builder_->Append(static_cast<uint16_t>(val));
   }
 };
@@ -489,13 +497,13 @@ class UInt32Converter : public TypedConverterVisitor<UInt32Builder, UInt32Conver
  public:
   Status AppendItem(const OwnedRef& item) {
     const auto val = static_cast<uint64_t>(PyLong_AsLongLong(item.obj()));
+    RETURN_IF_PYERROR();
 
     if (ARROW_PREDICT_FALSE(val > std::numeric_limits<uint32_t>::max())) {
       return Status::Invalid(
           "Cannot coerce values to array type that would "
           "lose data");
     }
-    RETURN_IF_PYERROR();
     return typed_builder_->Append(static_cast<uint32_t>(val));
   }
 };

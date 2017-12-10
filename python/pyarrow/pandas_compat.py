@@ -281,6 +281,12 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
     columns_to_convert = []
     convert_types = []
+
+    if not df.columns.is_unique:
+        raise ValueError(
+            'Duplicate column names found: {}'.format(list(df.columns))
+        )
+
     for name in df.columns:
         col = df[name]
         if not isinstance(name, six.string_types):
