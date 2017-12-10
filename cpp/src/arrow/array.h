@@ -573,9 +573,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width() const { return byte_width_; }
 
-  const uint8_t* raw_values() const {
-    return raw_values_ + data_->offset * byte_width_;
-  }
+  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
 
  protected:
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
