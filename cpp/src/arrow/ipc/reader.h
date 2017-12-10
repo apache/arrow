@@ -219,7 +219,7 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
                        int max_recursion_depth, io::RandomAccessFile* file,
                        std::shared_ptr<RecordBatch>* out);
 
-/// EXPERIMENTAL: Read arrow::Tensor as encapsulated IPC message in file
+/// \brief EXPERIMENTAL: Read arrow::Tensor as encapsulated IPC message in file
 ///
 /// \param[in] offset the file location of the start of the message
 /// \param[in] file the file where the batch is located
@@ -228,6 +228,14 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 ARROW_EXPORT
 Status ReadTensor(int64_t offset, io::RandomAccessFile* file,
                   std::shared_ptr<Tensor>* out);
+
+/// \brief EXPERIMENTAL: Read arrow::Tensor from IPC message
+///
+/// \param[in] message a Message containing the tensor metadata and body
+/// \param[out] out the read tensor
+/// \return Status
+ARROW_EXPORT
+Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out);
 
 }  // namespace ipc
 }  // namespace arrow

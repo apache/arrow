@@ -23,8 +23,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
+
+import io.netty.util.ByteProcessor;
 
 /**
  * This is basically a complete copy of DuplicatedByteBuf. We copy because we want to override
@@ -129,6 +132,16 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
+  public short getShortLE(int index) {
+    return buffer.getShortLE(index);
+  }
+
+  @Override
+  protected short _getShortLE(int index) {
+    return buffer.getShortLE(index);
+  }
+
+  @Override
   public int getUnsignedMedium(int index) {
     return _getUnsignedMedium(index);
   }
@@ -136,6 +149,16 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   @Override
   protected int _getUnsignedMedium(int index) {
     return buffer.getUnsignedMedium(index);
+  }
+
+  @Override
+  public int getUnsignedMediumLE(int index) {
+    return buffer.getUnsignedMediumLE(index);
+  }
+
+  @Override
+  protected int _getUnsignedMediumLE(int index) {
+    return buffer.getUnsignedMediumLE(index);
   }
 
   @Override
@@ -149,6 +172,16 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
+  public int getIntLE(int index) {
+    return buffer.getIntLE(index);
+  }
+
+  @Override
+  protected int _getIntLE(int index) {
+    return buffer.getIntLE(index);
+  }
+
+  @Override
   public long getLong(int index) {
     return _getLong(index);
   }
@@ -156,6 +189,16 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   @Override
   protected long _getLong(int index) {
     return buffer.getLong(index);
+  }
+
+  @Override
+  public long getLongLE(int index) {
+    return buffer.getLongLE(index);
+  }
+
+  @Override
+  protected long _getLongLE(int index) {
+    return buffer.getLongLE(index);
   }
 
   @Override
@@ -207,6 +250,17 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
+  public ByteBuf setShortLE(int index, int value) {
+    buffer.setShortLE(index, value);
+    return this;
+  }
+
+  @Override
+  protected void _setShortLE(int index, int value) {
+    buffer.setShortLE(index, value);
+  }
+
+  @Override
   public ByteBuf setMedium(int index, int value) {
     _setMedium(index, value);
     return this;
@@ -215,6 +269,17 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   @Override
   protected void _setMedium(int index, int value) {
     buffer.setMedium(index, value);
+  }
+
+  @Override
+  public ByteBuf setMediumLE(int index, int value) {
+    buffer.setMediumLE(index, value);
+    return this;
+  }
+
+  @Override
+  protected void _setMediumLE(int index, int value) {
+    buffer.setMediumLE(index, value);
   }
 
   @Override
@@ -229,6 +294,17 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
+  public ByteBuf setIntLE(int index, int value) {
+    buffer.setIntLE(index, value);
+    return this;
+  }
+
+  @Override
+  protected void _setIntLE(int index, int value) {
+    buffer.setIntLE(index, value);
+  }
+
+  @Override
   public ByteBuf setLong(int index, long value) {
     _setLong(index, value);
     return this;
@@ -237,6 +313,17 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   @Override
   protected void _setLong(int index, long value) {
     buffer.setLong(index, value);
+  }
+
+  @Override
+  public ByteBuf setLongLE(int index, long value) {
+    buffer.setLongLE(index, value);
+    return this;
+  }
+
+  @Override
+  protected void _setLongLE(int index, long value) {
+    buffer.setLongLE(index, value);
   }
 
   @Override
@@ -255,6 +342,12 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   public ByteBuf setBytes(int index, ByteBuffer src) {
     buffer.setBytes(index, src);
     return this;
+  }
+
+  @Override
+  public int setBytes(int index, FileChannel in, long position, int length)
+      throws IOException {
+    return buffer.setBytes(index, in, position, length);
   }
 
   @Override
@@ -282,6 +375,13 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
     return buffer.setBytes(index, in, length);
   }
 
+
+  @Override
+  public int getBytes(int index, FileChannel out, long position, int length)
+      throws IOException {
+    return buffer.getBytes(index, out, position, length);
+  }
+
   @Override
   public int nioBufferCount() {
     return buffer.nioBufferCount();
@@ -298,18 +398,30 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
-  public int forEachByte(int index, int length, ByteBufProcessor processor) {
+  public int forEachByte(int index, int length, ByteProcessor processor) {
     return buffer.forEachByte(index, length, processor);
   }
 
   @Override
-  public int forEachByteDesc(int index, int length, ByteBufProcessor processor) {
+  public int forEachByteDesc(int index, int length, ByteProcessor processor) {
     return buffer.forEachByteDesc(index, length, processor);
   }
 
   @Override
   public final int refCnt() {
     return unwrap().refCnt();
+  }
+
+  @Override
+  public final ByteBuf touch() {
+    unwrap().touch();
+    return this;
+  }
+
+  @Override
+  public final ByteBuf touch(Object hint) {
+    unwrap().touch(hint);
+    return this;
   }
 
   @Override

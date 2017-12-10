@@ -156,19 +156,14 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
   if (timeout < 0) {
     timeout = CONNECT_TIMEOUT_MS;
   }
-
-  *fd = -1;
-  for (int num_attempts = 0; num_attempts < num_retries; ++num_attempts) {
-    *fd = connect_ipc_sock(pathname);
-    if (*fd >= 0) {
-      break;
-    }
-    if (num_attempts == 0) {
-      ARROW_LOG(ERROR) << "Connection to IPC socket failed for pathname " << pathname
-                       << ", retrying " << num_retries << " times";
-    }
+  *fd = connect_ipc_sock(pathname);
+  while (*fd < 0 && num_retries > 0) {
+    ARROW_LOG(ERROR) << "Connection to IPC socket failed for pathname " << pathname
+                     << ", retrying " << num_retries << " more times";
     /* Sleep for timeout milliseconds. */
     usleep(static_cast<int>(timeout * 1000));
+    *fd = connect_ipc_sock(pathname);
+    --num_retries;
   }
   /* If we could not connect to the socket, exit. */
   if (*fd == -1) {

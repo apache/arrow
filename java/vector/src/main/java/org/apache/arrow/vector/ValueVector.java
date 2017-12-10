@@ -136,18 +136,6 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   TransferPair makeTransferPair(ValueVector target);
 
   /**
-   * @return an {@link org.apache.arrow.vector.ValueVector.Accessor accessor} that is used to read from this vector
-   * instance.
-   */
-  Accessor getAccessor();
-
-  /**
-   * @return an {@link org.apache.arrow.vector.ValueVector.Mutator mutator} that is used to write to this vector
-   * instance.
-   */
-  Mutator getMutator();
-
-  /**
    * @return a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports reading values
    * from this vector.
    */
@@ -160,7 +148,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Returns the number of bytes that is used by this vector if it holds the given number
-   * of values. The result will be the same as if Mutator.setValueCount() were called, followed
+   * of values. The result will be the same as if setValueCount() were called, followed
    * by calling getBufferSize(), but without any of the closing side-effects that setValueCount()
    * implies wrt finishing off the population of a vector. Some operations might wish to use
    * this to determine how much memory has been used by a vector so far, even though it is
@@ -183,90 +171,55 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   ArrowBuf[] getBuffers(boolean clear);
 
   /**
-   * An abstraction that is used to read from this vector instance.
-   */
-  interface Accessor {
-    /**
-     * Get the Java Object representation of the element at the specified position. Useful for testing.
-     *
-     * @param index Index of the value to get
-     * @return the friendly java type
-     */
-    Object getObject(int index);
-
-    /**
-     * @return the number of values that is stored in this vector.
-     */
-    int getValueCount();
-
-    /**
-     * @param index the index to check for nullity
-     * @return true if the value at the given index is null, false otherwise.
-     */
-    boolean isNull(int index);
-
-    /**
-     * @return the number of null values
-     */
-    int getNullCount();
-  }
-
-  /**
-   * An abstraction that is used to write into this vector instance.
-   */
-  interface Mutator {
-    /**
-     * Sets the number of values that is stored in this vector to the given value count.
-     *
-     * @param valueCount value count to set.
-     */
-    void setValueCount(int valueCount);
-
-    /**
-     * Resets the mutator to pristine state.
-     */
-    void reset();
-
-    /**
-     * @param values the number of values to generate
-     * @deprecated this has nothing to do with value vector abstraction and should be removed.
-     */
-    @Deprecated
-    void generateTestData(int values);
-  }
-
-  /**
    * Gets the underlying buffer associated with validity vector
    *
    * @return buffer
    */
-  public ArrowBuf getValidityBuffer();
+  ArrowBuf getValidityBuffer();
 
   /**
    * Gets the underlying buffer associated with data vector
    *
    * @return buffer
    */
-  public ArrowBuf getDataBuffer();
+  ArrowBuf getDataBuffer();
 
   /**
    * Gets the underlying buffer associated with offset vector
    *
    * @return buffer
    */
-  public ArrowBuf getOffsetBuffer();
+  ArrowBuf getOffsetBuffer();
 
-  /* temporarily add these methods here until we remove other vectors
-   * (non-nullable) which are under ValueVector hierarchy and still
-   * use the mutator/accessor interfaces.
+  /**
+   * Gets the number of values
+   * @return
    */
-  public int getValueCount();
+  int getValueCount();
 
-  public void setValueCount(int valueCount);
+  /**
+   * Set number of values in the vector
+   * @return
+   */
+  void setValueCount(int valueCount);
 
-  public Object getObject(int index);
+  /**
+   * Get friendly type object from the vector
+   * @param index
+   * @return
+   */
+  Object getObject(int index);
 
-  public int getNullCount();
+  /**
+   * Returns number of null elements in the vector
+   * @return
+   */
+  int getNullCount();
 
-  public boolean isNull(int index);
+  /**
+   * Check whether an element in the vector is null
+   * @param index
+   * @return
+   */
+  boolean isNull(int index);
 }

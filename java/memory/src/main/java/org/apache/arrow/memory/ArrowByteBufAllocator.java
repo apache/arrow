@@ -18,8 +18,8 @@
 
 package org.apache.arrow.memory;
 
+import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.ExpandableByteBuf;
 
@@ -32,7 +32,7 @@ import io.netty.buffer.ExpandableByteBuf;
  * otherwise non-expandable
  * ArrowBufs to be expandable.
  */
-public class ArrowByteBufAllocator implements ByteBufAllocator {
+public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   private static final int DEFAULT_BUFFER_SIZE = 4096;
   private static final int DEFAULT_MAX_COMPOSITE_COMPONENTS = 16;
@@ -142,8 +142,17 @@ public class ArrowByteBufAllocator implements ByteBufAllocator {
     throw fail();
   }
 
+  @Override
+  protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+    throw fail();
+  }
+
+  @Override
+  protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
+    return buffer(initialCapacity, maxCapacity);
+  }
+
   private RuntimeException fail() {
     throw new UnsupportedOperationException("Allocator doesn't support heap-based memory.");
   }
-
 }

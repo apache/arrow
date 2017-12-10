@@ -39,6 +39,7 @@
 
 namespace arrow {
 namespace ipc {
+namespace internal {
 namespace json {
 
 void TestSchemaRoundTrip(const Schema& schema) {
@@ -46,7 +47,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::Writer<rj::StringBuffer> writer(sb);
 
   writer.StartObject();
-  ASSERT_OK(internal::WriteSchema(schema, &writer));
+  ASSERT_OK(WriteSchema(schema, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
@@ -55,7 +56,7 @@ void TestSchemaRoundTrip(const Schema& schema) {
   d.Parse(json_schema);
 
   std::shared_ptr<Schema> out;
-  if (!internal::ReadSchema(d, default_memory_pool(), &out).ok()) {
+  if (!ReadSchema(d, default_memory_pool(), &out).ok()) {
     FAIL() << "Unable to read JSON schema: " << json_schema;
   }
 
@@ -70,7 +71,7 @@ void TestArrayRoundTrip(const Array& array) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  ASSERT_OK(internal::WriteArray(name, array, &writer));
+  ASSERT_OK(WriteArray(name, array, &writer));
 
   std::string array_as_json = sb.GetString();
 
@@ -82,7 +83,7 @@ void TestArrayRoundTrip(const Array& array) {
   }
 
   std::shared_ptr<Array> out;
-  ASSERT_OK(internal::ReadArray(default_memory_pool(), d, array.type(), &out));
+  ASSERT_OK(ReadArray(default_memory_pool(), d, array.type(), &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -415,5 +416,6 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
 INSTANTIATE_TEST_CASE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
 
 }  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

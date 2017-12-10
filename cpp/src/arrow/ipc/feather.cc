@@ -371,7 +371,7 @@ class TableReader::TableReaderImpl {
     buffers.push_back(SliceBuffer(buffer, offset, buffer->size() - offset));
 
     auto arr_data =
-        std::make_shared<ArrayData>(type, meta->length(), buffers, meta->null_count());
+        ArrayData::Make(type, meta->length(), std::move(buffers), meta->null_count());
     *out = MakeArray(arr_data);
     return Status::OK();
   }
@@ -523,10 +523,8 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
     uint32_t buffer_size = static_cast<uint32_t>(bytes_written);
 
     // Footer: metadata length, magic bytes
-    RETURN_NOT_OK(
-        stream_->Write(reinterpret_cast<const uint8_t*>(&buffer_size), sizeof(uint32_t)));
-    return stream_->Write(reinterpret_cast<const uint8_t*>(kFeatherMagicBytes),
-                          strlen(kFeatherMagicBytes));
+    RETURN_NOT_OK(stream_->Write(&buffer_size, sizeof(uint32_t)));
+    return stream_->Write(kFeatherMagicBytes, strlen(kFeatherMagicBytes));
   }
 
   Status LoadArrayMetadata(const Array& values, ArrayMetadata* meta) {

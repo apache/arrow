@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.TestUtils.newNullableVarCharVector;
+import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.charset.StandardCharsets;
@@ -54,8 +54,8 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeStrings() {
     // Create a new value vector
-    try (final NullableVarCharVector vector = newNullableVarCharVector("foo", allocator);
-         final NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", allocator);) {
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew(512, 5);
 
       // set some values
@@ -77,9 +77,9 @@ public class TestDictionaryVector {
 
       try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
-        assertEquals(NullableIntVector.class, encoded.getClass());
+        assertEquals(IntVector.class, encoded.getClass());
 
-        NullableIntVector index = ((NullableIntVector)encoded);
+        IntVector index = ((IntVector)encoded);
         assertEquals(5, index.getValueCount());
         assertEquals(0, index.get(0));
         assertEquals(1, index.get(1));
@@ -90,9 +90,9 @@ public class TestDictionaryVector {
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = DictionaryEncoder.decode(encoded, dictionary)) {
           assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getValueCount(), ((NullableVarCharVector)decoded).getValueCount());
+          assertEquals(vector.getValueCount(), ((VarCharVector)decoded).getValueCount());
           for (int i = 0; i < 5; i++) {
-            assertEquals(vector.getObject(i), ((NullableVarCharVector)decoded).getObject(i));
+            assertEquals(vector.getObject(i), ((VarCharVector)decoded).getObject(i));
           }
         }
       }
@@ -102,8 +102,8 @@ public class TestDictionaryVector {
   @Test
   public void testEncodeLargeVector() {
     // Create a new value vector
-    try (final NullableVarCharVector vector = newNullableVarCharVector("foo", allocator);
-         final NullableVarCharVector dictionaryVector = newNullableVarCharVector("dict", allocator);) {
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator);) {
       vector.allocateNew();
 
       int count = 10000;
@@ -124,9 +124,9 @@ public class TestDictionaryVector {
 
       try (final ValueVector encoded = (FieldVector) DictionaryEncoder.encode(vector, dictionary)) {
         // verify indices
-        assertEquals(NullableIntVector.class, encoded.getClass());
+        assertEquals(IntVector.class, encoded.getClass());
 
-        NullableIntVector index = ((NullableIntVector) encoded);
+        IntVector index = ((IntVector) encoded);
         assertEquals(count, index.getValueCount());
         for (int i = 0; i < count; ++i) {
           assertEquals(i % 3, index.get(i));

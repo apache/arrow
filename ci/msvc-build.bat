@@ -17,6 +17,38 @@
 
 @echo on
 
+if "%JOB%" == "Static_Crt_Build" (
+  mkdir cpp\build-debug
+  pushd cpp\build-debug
+
+  cmake -G "%GENERATOR%" ^
+        -DARROW_USE_STATIC_CRT=ON ^
+        -DARROW_BOOST_USE_SHARED=OFF ^
+        -DCMAKE_BUILD_TYPE=Debug ^
+        -DARROW_CXXFLAGS="/MP" ^
+        ..  || exit /B
+
+  cmake --build . --config Debug || exit /B
+  popd
+
+  mkdir cpp\build-release
+  pushd cpp\build-release
+
+  cmake -G "%GENERATOR%" ^
+        -DARROW_USE_STATIC_CRT=ON ^
+        -DARROW_BOOST_USE_SHARED=OFF ^
+        -DCMAKE_BUILD_TYPE=Release ^
+        -DARROW_CXXFLAGS="/WX /MP" ^
+        ..  || exit /B
+
+  cmake --build . --config Release || exit /B
+  ctest -VV  || exit /B
+  popd
+
+  @rem Finish Static_Crt_Build build successfully
+  exit /B 0
+)
+
 if "%JOB%" == "Build_Debug" (
   mkdir cpp\build-debug
   pushd cpp\build-debug

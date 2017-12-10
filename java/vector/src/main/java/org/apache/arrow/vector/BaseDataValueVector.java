@@ -99,7 +99,7 @@ public abstract class BaseDataValueVector extends BaseValueVector implements Buf
 
   @Override
   public int getBufferSize() {
-    if (getAccessor().getValueCount() == 0) {
+    if (getValueCount() == 0) {
       return 0;
     }
     return data.writerIndex();

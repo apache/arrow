@@ -36,13 +36,12 @@ import com.google.common.collect.Lists;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullableFloat4Vector;
-import org.apache.arrow.vector.NullableIntVector;
-import org.apache.arrow.vector.NullableTinyIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -70,7 +69,7 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, new ByteArrayOutputStream());
     }
@@ -98,7 +97,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, stream);
     }
@@ -154,7 +153,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       write(parent.getChild("root"), file, stream);
     }
@@ -195,7 +194,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator);
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator);
          FileOutputStream fileOutputStream = new FileOutputStream(file)) {
       writeData(counts[0], parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
@@ -304,7 +303,7 @@ public class TestArrowFile extends BaseFileTest {
 
     try (VectorSchemaRoot root = VectorSchemaRoot.create(MessageSerializerTest.testSchema(), allocator)) {
       root.getFieldVectors().get(0).allocateNew();
-      NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
+      TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
         vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
@@ -352,7 +351,7 @@ public class TestArrowFile extends BaseFileTest {
 
   private void validateTinyData(VectorSchemaRoot root) {
     Assert.assertEquals(16, root.getRowCount());
-    NullableTinyIntVector vector = (NullableTinyIntVector) root.getFieldVectors().get(0);
+    TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
     for (int i = 0; i < 16; i++) {
       if (i < 8) {
         Assert.assertEquals((byte) (i + 1), vector.get(i));
@@ -560,8 +559,8 @@ public class TestArrowFile extends BaseFileTest {
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
          NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       FixedSizeListVector tuples = parent.addOrGet("float-pairs", FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
-      NullableFloat4Vector floats = (NullableFloat4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
-      NullableIntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), NullableIntVector.class);
+      Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+      IntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), IntVector.class);
       parent.allocateNew();
 
       for (int i = 0; i < 10; i++) {

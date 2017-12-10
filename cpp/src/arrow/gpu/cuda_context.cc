@@ -69,28 +69,27 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
-  Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes) {
+  Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
-    CU_RETURN_NOT_OK(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst),
-                                  reinterpret_cast<const void*>(src),
+    CU_RETURN_NOT_OK(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst), src,
                                   static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
-  Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes) {
+  Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
     CU_RETURN_NOT_OK(cuMemcpyDtoH(dst, reinterpret_cast<const CUdeviceptr>(src),
                                   static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
-  Status Free(uint8_t* device_ptr, int64_t nbytes) {
+  Status Free(void* device_ptr, int64_t nbytes) {
     CU_RETURN_NOT_OK(cuMemFree(reinterpret_cast<CUdeviceptr>(device_ptr)));
     bytes_allocated_ -= nbytes;
     return Status::OK();
   }
 
-  Status ExportIpcBuffer(uint8_t* data, std::unique_ptr<CudaIpcMemHandle>* handle) {
+  Status ExportIpcBuffer(void* data, std::unique_ptr<CudaIpcMemHandle>* handle) {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
     CUipcMemHandle cu_handle;
     CU_RETURN_NOT_OK(cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
@@ -145,7 +144,7 @@ class CudaDeviceManager::CudaDeviceManagerImpl {
     return Status::OK();
   }
 
-  Status FreeHost(uint8_t* data, int64_t nbytes) {
+  Status FreeHost(void* data, int64_t nbytes) {
     CU_RETURN_NOT_OK(cuMemFreeHost(data));
     host_bytes_allocated_ -= nbytes;
     return Status::OK();
@@ -221,7 +220,7 @@ Status CudaDeviceManager::AllocateHost(int64_t nbytes,
   return Status::OK();
 }
 
-Status CudaDeviceManager::FreeHost(uint8_t* data, int64_t nbytes) {
+Status CudaDeviceManager::FreeHost(void* data, int64_t nbytes) {
   return impl_->FreeHost(data, nbytes);
 }
 
@@ -241,22 +240,22 @@ Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
   return Status::OK();
 }
 
-Status CudaContext::ExportIpcBuffer(uint8_t* data,
+Status CudaContext::ExportIpcBuffer(void* data,
                                     std::unique_ptr<CudaIpcMemHandle>* handle) {
   return impl_->ExportIpcBuffer(data, handle);
 }
 
-Status CudaContext::CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes) {
+Status CudaContext::CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
   return impl_->CopyHostToDevice(dst, src, nbytes);
 }
 
-Status CudaContext::CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes) {
+Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
   return impl_->CopyDeviceToHost(dst, src, nbytes);
 }
 
 Status CudaContext::Close() { return impl_->Close(); }
 
-Status CudaContext::Free(uint8_t* device_ptr, int64_t nbytes) {
+Status CudaContext::Free(void* device_ptr, int64_t nbytes) {
   return impl_->Free(device_ptr, nbytes);
 }
 

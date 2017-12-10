@@ -20,6 +20,7 @@ import collections
 import json
 import re
 
+import pandas.core.internals as _int
 import numpy as np
 import pandas as pd
 
@@ -109,7 +110,11 @@ def get_logical_type_from_numpy(pandas_collection):
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
-        return infer_dtype(pandas_collection)
+        result = infer_dtype(pandas_collection)
+
+        if result == 'string':
+            return 'bytes' if PY2 else 'unicode'
+        return result
 
 
 def get_extension_dtype_info(column):
@@ -121,7 +126,7 @@ def get_extension_dtype_info(column):
             'num_categories': len(cats.categories),
             'ordered': cats.ordered,
         }
-        physical_dtype = 'object'
+        physical_dtype = str(cats.codes.dtype)
     elif hasattr(dtype, 'tz'):
         metadata = {'timezone': str(dtype.tz)}
         physical_dtype = 'datetime64[ns]'
@@ -131,7 +136,7 @@ def get_extension_dtype_info(column):
     return physical_dtype, metadata
 
 
-def get_column_metadata(column, name, arrow_type):
+def get_column_metadata(column, name, arrow_type, field_name):
     """Construct the metadata for a given column
 
     Parameters
@@ -139,6 +144,10 @@ def get_column_metadata(column, name, arrow_type):
     column : pandas.Series or pandas.Index
     name : str
     arrow_type : pyarrow.DataType
+    field_name : str
+        Equivalent to `name` when `column` is a `Series`, otherwise if `column`
+        is a pandas Index then `field_name` will not be the same as `name`.
+        This is the name of the field in the arrow Table's schema.
 
     Returns
     -------
@@ -163,6 +172,7 @@ def get_column_metadata(column, name, arrow_type):
 
     return {
         'name': name,
+        'field_name': str(field_name),
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -192,10 +202,14 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
     index_types = types[ncolumns - len(index_levels):]
 
     column_metadata = [
-        get_column_metadata(df[col_name], name=sanitized_name,
-                            arrow_type=arrow_type)
-        for col_name, sanitized_name, arrow_type in
-        zip(df.columns, column_names, df_types)
+        get_column_metadata(
+            df[col_name],
+            name=sanitized_name,
+            arrow_type=arrow_type,
+            field_name=sanitized_name
+        ) for col_name, sanitized_name, arrow_type in zip(
+            df.columns, column_names, df_types
+        )
     ]
 
     if preserve_index:
@@ -203,9 +217,13 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
             index_level_name, range(len(index_levels))
         ))
         index_column_metadata = [
-            get_column_metadata(level, name=level.name, arrow_type=arrow_type)
-            for i, (level, arrow_type) in enumerate(
-                zip(index_levels, index_types)
+            get_column_metadata(
+                level,
+                name=level.name,
+                arrow_type=arrow_type,
+                field_name=field_name,
+            ) for i, (level, arrow_type, field_name) in enumerate(
+                zip(index_levels, index_types, index_column_names)
             )
         ]
 
@@ -213,9 +231,16 @@ def construct_metadata(df, column_names, index_levels, preserve_index, types):
 
         for level in getattr(df.columns, 'levels', [df.columns]):
             string_dtype, extra_metadata = get_extension_dtype_info(level)
+
+            pandas_type = get_logical_type_from_numpy(level)
+            if pandas_type == 'unicode':
+                assert not extra_metadata
+                extra_metadata = {'encoding': 'UTF-8'}
+
             column_index = {
                 'name': level.name,
-                'pandas_type': get_logical_type_from_numpy(level),
+                'field_name': level.name,
+                'pandas_type': pandas_type,
                 'numpy_type': string_dtype,
                 'metadata': extra_metadata,
             }
@@ -280,6 +305,12 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1):
 
     columns_to_convert = []
     convert_types = []
+
+    if not df.columns.is_unique:
+        raise ValueError(
+            'Duplicate column names found: {}'.format(list(df.columns))
+        )
+
     for name in df.columns:
         col = df[name]
         if not isinstance(name, six.string_types):
@@ -348,25 +379,85 @@ def get_datetimetz_type(values, dtype, type_):
 
     return values, type_
 
+# ----------------------------------------------------------------------
+# Converting pandas.DataFrame to a dict containing only NumPy arrays or other
+# objects friendly to pyarrow.serialize
 
-def make_datetimetz(tz):
+
+def dataframe_to_serialized_dict(frame):
+    block_manager = frame._data
+
+    blocks = []
+    axes = [ax for ax in block_manager.axes]
+
+    for block in block_manager.blocks:
+        values = block.values
+        block_data = {}
+
+        if isinstance(block, _int.DatetimeTZBlock):
+            block_data['timezone'] = values.tz.zone
+            values = values.values
+        elif isinstance(block, _int.CategoricalBlock):
+            block_data.update(dictionary=values.categories,
+                              ordered=values.ordered)
+            values = values.codes
+
+        block_data.update(
+            placement=block.mgr_locs.as_array,
+            block=values
+        )
+        blocks.append(block_data)
+
+    return {
+        'blocks': blocks,
+        'axes': axes
+    }
+
+
+def serialized_dict_to_dataframe(data):
+    reconstructed_blocks = [_reconstruct_block(block)
+                            for block in data['blocks']]
+
+    block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
+    return pd.DataFrame(block_mgr)
+
+
+def _reconstruct_block(item):
+    # Construct the individual blocks converting dictionary types to pandas
+    # categorical types and Timestamps-with-timezones types to the proper
+    # pandas Blocks
+
+    block_arr = item['block']
+    placement = item['placement']
+    if 'dictionary' in item:
+        cat = pd.Categorical.from_codes(block_arr,
+                                        categories=item['dictionary'],
+                                        ordered=item['ordered'])
+        block = _int.make_block(cat, placement=placement,
+                                klass=_int.CategoricalBlock,
+                                fastpath=True)
+    elif 'timezone' in item:
+        dtype = _make_datetimetz(item['timezone'])
+        block = _int.make_block(block_arr, placement=placement,
+                                klass=_int.DatetimeTZBlock,
+                                dtype=dtype, fastpath=True)
+    else:
+        block = _int.make_block(block_arr, placement=placement)
+
+    return block
+
+
+def _make_datetimetz(tz):
     from pyarrow.compat import DatetimeTZDtype
     return DatetimeTZDtype('ns', tz=tz)
 
 
-def backwards_compatible_index_name(raw_name, logical_name):
-    pattern = r'^__index_level_\d+__$'
-    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
-        return None
-    else:
-        return logical_name
+# ----------------------------------------------------------------------
+# Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
 def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                           categoricals=None):
-    import pandas.core.internals as _int
-    import pyarrow.lib as lib
-
     index_columns = []
     columns = []
     column_indexes = []
@@ -375,7 +466,6 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
     schema = table.schema
     row_count = table.num_rows
     metadata = schema.metadata
-    columns_metadata = None
 
     has_pandas_metadata = metadata is not None and b'pandas' in metadata
 
@@ -385,13 +475,36 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
         columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
         table = _add_any_metadata(table, pandas_metadata)
-        columns_metadata = pandas_metadata.get('columns', None)
 
     block_table = table
 
+    index_columns_set = frozenset(index_columns)
+
+    # 0. 'field_name' is the name of the column in the arrow Table
+    # 1. 'name' is the user-facing name of the column, that is, it came from
+    #    pandas
+    # 2. 'field_name' and 'name' differ for index columns
+    # 3. We fall back on c['name'] for backwards compatibility
+    logical_index_names = [
+        c['name'] for c in columns
+        if c.get('field_name', c['name']) in index_columns_set
+    ]
+
+    # There must be the same number of field names and physical names
+    # (fields in the arrow Table)
+    assert len(logical_index_names) == len(index_columns_set)
+
+    # It can never be the case in a released version of pyarrow that
+    # c['name'] is None *and* 'field_name' is not a key in the column metadata,
+    # because the change to allow c['name'] to be None and the change to add
+    # 'field_name' are in the same release (0.8.0)
+    assert all(
+        (c['name'] is None and 'field_name' in c) or c['name'] is not None
+        for c in columns
+    )
+
     # Build up a list of index columns and names while removing those columns
     # from the original table
-    logical_index_names = [c['name'] for c in columns[-len(index_columns):]]
     for raw_name, logical_name in zip(index_columns, logical_index_names):
         i = schema.get_field_index(raw_name)
         if i != -1:
@@ -405,37 +518,13 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
             index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
             index_names.append(
-                backwards_compatible_index_name(raw_name, logical_name)
+                _backwards_compatible_index_name(raw_name, logical_name)
             )
             block_table = block_table.remove_column(
                 block_table.schema.get_field_index(raw_name)
             )
 
-    # Convert an arrow table to Block from the internal pandas API
-    result = lib.table_to_blocks(options, block_table, nthreads, memory_pool)
-
-    # Construct the individual blocks converting dictionary types to pandas
-    # categorical types and Timestamps-with-timezones types to the proper
-    # pandas Blocks
-    blocks = []
-    for item in result:
-        block_arr = item['block']
-        placement = item['placement']
-        if 'dictionary' in item:
-            cat = pd.Categorical(block_arr,
-                                 categories=item['dictionary'],
-                                 ordered=item['ordered'], fastpath=True)
-            block = _int.make_block(cat, placement=placement,
-                                    klass=_int.CategoricalBlock,
-                                    fastpath=True)
-        elif 'timezone' in item:
-            dtype = make_datetimetz(item['timezone'])
-            block = _int.make_block(block_arr, placement=placement,
-                                    klass=_int.DatetimeTZBlock,
-                                    dtype=dtype, fastpath=True)
-        else:
-            block = _int.make_block(block_arr, placement=placement)
-        blocks.append(block)
+    blocks = _table_to_blocks(options, block_table, nthreads, memory_pool)
 
     # Construct the row index
     if len(index_arrays) > 1:
@@ -446,15 +535,12 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
         index = pd.RangeIndex(row_count)
 
     column_strings = [x.name for x in block_table.itercolumns()]
-    if columns_metadata is not None:
-        columns_name_dict = dict(
-            (str(x['name']), x['name'])
-            for x in columns_metadata
-        )
+    if columns:
+        columns_name_dict = {
+            c.get('field_name', str(c['name'])): c['name'] for c in columns
+        }
         columns_values = [
-            columns_name_dict[y]
-            if y in columns_name_dict.keys() else y
-            for y in column_strings
+            columns_name_dict.get(name, name) for name in column_strings
         ]
     else:
         columns_values = column_strings
@@ -477,37 +563,62 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
     # if we're reconstructing the index
     if has_pandas_metadata:
-
-        # Get levels and labels, and provide sane defaults if the index has a
-        # single level to avoid if/else spaghetti.
-        levels = getattr(columns, 'levels', None) or [columns]
-        labels = getattr(columns, 'labels', None) or [
-            pd.RangeIndex(len(level)) for level in levels
-        ]
-
-        # Convert each level to the dtype provided in the metadata
-        levels_dtypes = [
-            (level, col_index.get('numpy_type', level.dtype))
-            for level, col_index in zip_longest(
-                levels, column_indexes, fillvalue={}
-            )
-        ]
-        new_levels = [
-            _level if _level.dtype == _dtype else _level.astype(_dtype)
-            for _level, _dtype in levels_dtypes
-        ]
-
-        columns = pd.MultiIndex(
-            levels=new_levels,
-            labels=labels,
-            names=columns.names
-        )
+        columns = _reconstruct_columns_from_metadata(columns, column_indexes)
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
 
     axes = [columns, index]
     return _int.BlockManager(blocks, axes)
+
+
+def _backwards_compatible_index_name(raw_name, logical_name):
+    # Part of table_to_blockmanager
+    pattern = r'^__index_level_\d+__$'
+    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
+        return None
+    else:
+        return logical_name
+
+
+def _reconstruct_columns_from_metadata(columns, column_indexes):
+    # Part of table_to_blockmanager
+
+    # Get levels and labels, and provide sane defaults if the index has a
+    # single level to avoid if/else spaghetti.
+    levels = getattr(columns, 'levels', None) or [columns]
+    labels = getattr(columns, 'labels', None) or [
+        pd.RangeIndex(len(level)) for level in levels
+    ]
+
+    # Convert each level to the dtype provided in the metadata
+    levels_dtypes = [
+        (level, col_index.get('numpy_type', level.dtype))
+        for level, col_index in zip_longest(
+            levels, column_indexes, fillvalue={}
+        )
+    ]
+    new_levels = [
+        _level if _level.dtype == _dtype else _level.astype(_dtype)
+        for _level, _dtype in levels_dtypes
+    ]
+
+    return pd.MultiIndex(
+        levels=new_levels,
+        labels=labels,
+        names=columns.names
+    )
+
+
+def _table_to_blocks(options, block_table, nthreads, memory_pool):
+    # Part of table_to_blockmanager
+
+    # Convert an arrow table to Block from the internal pandas API
+    result = pa.lib.table_to_blocks(options, block_table, nthreads,
+                                    memory_pool)
+
+    # Defined above
+    return [_reconstruct_block(item) for item in result]
 
 
 def _flatten_single_level_multiindex(index):

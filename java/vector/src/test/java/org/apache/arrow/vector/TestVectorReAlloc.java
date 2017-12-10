@@ -53,14 +53,13 @@ public class TestVectorReAlloc {
   @Test
   public void testFixedType() {
     try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
-      final UInt4Vector.Mutator m = vector.getMutator();
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        m.set(512, 0);
+        vector.set(512, 0);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -69,14 +68,14 @@ public class TestVectorReAlloc {
       vector.reAlloc();
       assertEquals(1024, vector.getValueCapacity());
 
-      m.set(512, 100);
-      assertEquals(100, vector.getAccessor().get(512));
+      vector.set(512, 100);
+      assertEquals(100, vector.get(512));
     }
   }
 
   @Test
   public void testNullableType() {
-    try (final NullableVarCharVector vector = new NullableVarCharVector("", allocator)) {
+    try (final VarCharVector vector = new VarCharVector("", allocator)) {
       vector.setInitialCapacity(512);
       vector.allocateNew();
 
@@ -108,7 +107,7 @@ public class TestVectorReAlloc {
       assertEquals(1023, vector.getValueCapacity());
 
       try {
-        vector.getOffsetVector().getAccessor().get(2014);
+        vector.getInnerValueCountAt(2014);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
@@ -123,7 +122,7 @@ public class TestVectorReAlloc {
   @Test
   public void testMapType() {
     try (final NullableMapVector vector = NullableMapVector.empty("", allocator)) {
-      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), NullableIntVector.class);
+      vector.addOrGet("", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
 
       vector.setInitialCapacity(512);
       vector.allocateNew();
@@ -131,7 +130,7 @@ public class TestVectorReAlloc {
       assertEquals(512, vector.getValueCapacity());
 
       try {
-        vector.getAccessor().getObject(513);
+        vector.getObject(513);
         Assert.fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok

@@ -48,8 +48,8 @@ import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 
 /**
- * A vector which can hold values of different types. It does so by using a MapVector which contains a vector for each
- * primitive type that is stored. MapVector is used in order to take advantage of its serialization/deserialization methods,
+ * A vector which can hold values of different types. It does so by using a NullableMapVector which contains a vector for each
+ * primitive type that is stored. NullableMapVector is used in order to take advantage of its serialization/deserialization methods,
  * as well as the addOrGet method.
  *
  * For performance reasons, UnionVector stores a cached reference to each subtype vector, to avoid having to do the map lookup
@@ -195,12 +195,12 @@ public class UnionVector implements FieldVector {
       <#assign lowerCaseName = name?lower_case/>
       <#if !minor.typeParams?? >
 
-  private Nullable${name}Vector ${uncappedName}Vector;
+  private ${name}Vector ${uncappedName}Vector;
 
-  public Nullable${name}Vector get${name}Vector() {
+  public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, Nullable${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(MinorType.${name?upper_case}, ${name}Vector.class);
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -414,18 +414,6 @@ public class UnionVector implements FieldVector {
     public void copyValueSafe(int from, int to) {
       this.to.copyFrom(from, to, UnionVector.this);
     }
-  }
-
-  @Override
-  @Deprecated
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from UNION");
-  }
-
-  @Override
-  @Deprecated
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to UNION");
   }
 
   @Override

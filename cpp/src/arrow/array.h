@@ -104,6 +104,17 @@ struct ARROW_EXPORT ArrayData {
     this->buffers = std::move(buffers);
   }
 
+  static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
+                                         int64_t length,
+                                         std::vector<std::shared_ptr<Buffer>>&& buffers,
+                                         int64_t null_count = kUnknownNullCount,
+                                         int64_t offset = 0);
+
+  static std::shared_ptr<ArrayData> Make(const std::shared_ptr<DataType>& type,
+                                         int64_t length,
+                                         int64_t null_count = kUnknownNullCount,
+                                         int64_t offset = 0);
+
   // Move constructor
   ArrayData(ArrayData&& other) noexcept
       : type(std::move(other.type)),
@@ -132,9 +143,14 @@ struct ARROW_EXPORT ArrayData {
     return *this;
   }
 
-  std::shared_ptr<ArrayData> ShallowCopy() const {
-    return std::make_shared<ArrayData>(*this);
-  }
+  std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+#ifndef ARROW_NO_DEPRECATED_API
+
+  // Deprecated since 0.8.0
+  std::shared_ptr<ArrayData> ShallowCopy() const { return Copy(); }
+
+#endif
 
   std::shared_ptr<DataType> type;
   int64_t length;

@@ -124,12 +124,7 @@ template <typename T>
 struct CastFunctor<T, NullType, typename std::enable_if<
                                     std::is_base_of<FixedWidthType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {
-    // Simply initialize data to 0
-    auto buf = output->buffers[1];
-    DCHECK_EQ(output->offset, 0);
-    memset(buf->mutable_data(), 0, buf->size());
-  }
+                  const ArrayData& input, ArrayData* output) {}
 };
 
 template <>
@@ -199,14 +194,19 @@ struct CastFunctor<O, I, typename std::enable_if<std::is_same<BooleanType, O>::v
                                                  !std::is_same<O, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    using in_type = typename I::c_type;
-    DCHECK_EQ(output->offset, 0);
+    auto in_data = GetValues<typename I::c_type>(input, 1);
+    internal::BitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
+                                  input.length);
 
-    const in_type* in_data = GetValues<in_type>(input, 1);
-    uint8_t* out_data = GetMutableValues<uint8_t>(output, 1);
     for (int64_t i = 0; i < input.length; ++i) {
-      BitUtil::SetBitTo(out_data, i, (*in_data++) != 0);
+      if (*in_data++ != 0) {
+        writer.Set();
+      } else {
+        writer.Clear();
+      }
+      writer.Next();
     }
+    writer.Finish();
   }
 };
 
@@ -217,7 +217,6 @@ struct CastFunctor<O, I,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
     using out_type = typename O::c_type;
-    DCHECK_EQ(output->offset, 0);
 
     auto in_offset = input.offset;
 
@@ -462,6 +461,49 @@ struct CastFunctor<Date32Type, Date64Type> {
 };
 
 // ----------------------------------------------------------------------
+// List to List
+
+class ListCastKernel : public UnaryKernel {
+ public:
+  ListCastKernel(std::unique_ptr<UnaryKernel> child_caster,
+                 const std::shared_ptr<DataType>& out_type)
+      : child_caster_(std::move(child_caster)), out_type_(out_type) {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+
+    const ArrayData& in_data = *input.array();
+    DCHECK_EQ(Type::LIST, in_data.type->id());
+    ArrayData* result;
+
+    if (in_data.offset != 0) {
+      return Status::NotImplemented(
+          "Casting sliced lists (non-zero offset) not yet implemented");
+    }
+
+    if (out->kind() == Datum::NONE) {
+      out->value = ArrayData::Make(out_type_, in_data.length);
+    }
+
+    result = out->array().get();
+
+    // Copy buffers from parent
+    result->buffers = in_data.buffers;
+
+    Datum casted_child;
+    RETURN_NOT_OK(child_caster_->Call(ctx, Datum(in_data.child_data[0]), &casted_child));
+    result->child_data.push_back(casted_child.array());
+
+    RETURN_IF_ERROR(ctx);
+    return Status::OK();
+  }
+
+ private:
+  std::unique_ptr<UnaryKernel> child_caster_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+// ----------------------------------------------------------------------
 // Dictionary to other things
 
 template <typename IndexType>
@@ -475,9 +517,10 @@ void UnpackFixedSizeBinaryDictionary(FunctionContext* ctx, const Array& indices,
 
   const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
 
-  uint8_t* out = output->buffers[1]->mutable_data();
   int32_t byte_width =
       static_cast<const FixedSizeBinaryType&>(*output->type).byte_width();
+
+  uint8_t* out = output->buffers[1]->mutable_data() + byte_width * output->offset;
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       const uint8_t* value = dictionary.Value(in[i]);
@@ -493,7 +536,7 @@ struct CastFunctor<
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -565,7 +608,7 @@ struct CastFunctor<T, DictionaryType,
                    typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -605,12 +648,10 @@ struct CastFunctor<T, DictionaryType,
 template <typename IndexType, typename c_type>
 void UnpackPrimitiveDictionary(const Array& indices, const c_type* dictionary,
                                c_type* out) {
-  using index_c_type = typename IndexType::c_type;
-
   internal::BitmapReader valid_bits_reader(indices.null_bitmap_data(), indices.offset(),
                                            indices.length());
 
-  const index_c_type* in = GetValues<index_c_type>(*indices.data(), 1);
+  auto in = GetValues<typename IndexType::c_type>(*indices.data(), 1);
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (valid_bits_reader.IsSet()) {
       out[i] = dictionary[in[i]];
@@ -627,7 +668,7 @@ struct CastFunctor<T, DictionaryType,
                   const ArrayData& input, ArrayData* output) {
     using c_type = typename T::c_type;
 
-    DictionaryArray dict_array(input.ShallowCopy());
+    DictionaryArray dict_array(input.Copy());
 
     const DictionaryType& type = static_cast<const DictionaryType&>(*input.type);
     const DataType& values_type = *type.dictionary()->type();
@@ -638,7 +679,7 @@ struct CastFunctor<T, DictionaryType,
 
     const c_type* dictionary = GetValues<c_type>(*type.dictionary()->data(), 1);
 
-    auto out = reinterpret_cast<c_type*>(output->buffers[1]->mutable_data());
+    auto out = GetMutableValues<c_type>(output, 1);
     const Array& indices = *dict_array.indices();
     switch (indices.type()->id()) {
       case Type::INT8:
@@ -747,7 +788,7 @@ class CastKernel : public UnaryKernel {
     ArrayData* result;
 
     if (out->kind() == Datum::NONE) {
-      out->value = std::make_shared<ArrayData>(out_type_, in_data.length);
+      out->value = ArrayData::Make(out_type_, in_data.length);
     }
 
     result = out->array().get();
@@ -897,13 +938,32 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type);
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type);
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type);
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType);
-
 GET_CAST_FUNCTION(DICTIONARY_CASES, DictionaryType);
 
 #define CAST_FUNCTION_CASE(InType)                      \
   case InType::type_id:                                 \
     *kernel = Get##InType##CastFunc(out_type, options); \
     break
+
+namespace {
+
+Status GetListCastFunc(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
+                       const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
+  if (out_type->id() != Type::LIST) {
+    // Kernel will be null
+    return Status::OK();
+  }
+  const DataType& in_value_type = *static_cast<const ListType&>(in_type).value_type();
+  std::shared_ptr<DataType> out_value_type =
+      static_cast<const ListType&>(*out_type).value_type();
+  std::unique_ptr<UnaryKernel> child_caster;
+  RETURN_NOT_OK(GetCastFunction(in_value_type, out_value_type, options, &child_caster));
+  *kernel =
+      std::unique_ptr<UnaryKernel>(new ListCastKernel(std::move(child_caster), out_type));
+  return Status::OK();
+}
+
+}  // namespace
 
 Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>& out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
@@ -926,6 +986,9 @@ Status GetCastFunction(const DataType& in_type, const std::shared_ptr<DataType>&
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
     CAST_FUNCTION_CASE(DictionaryType);
+    case Type::LIST:
+      RETURN_NOT_OK(GetListCastFunc(in_type, out_type, options, kernel));
+      break;
     default:
       break;
   }

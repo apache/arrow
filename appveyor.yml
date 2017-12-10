@@ -40,6 +40,10 @@ environment:
       PYTHON: "3.5"
       ARCH: "64"
       CONFIGURATION: "Release"
+    - JOB: "Static_Crt_Build"
+      GENERATOR: Visual Studio 14 2015 Win64
+      PYTHON: "3.5"
+      ARCH: "64"
     - JOB: "Toolchain"
       GENERATOR: Visual Studio 14 2015 Win64
       PYTHON: "3.5"

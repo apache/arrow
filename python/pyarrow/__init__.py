@@ -101,6 +101,7 @@ from pyarrow.lib import (ArrowException,
 
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
+                         deserialize_components,
                          serialize, serialize_to, read_serialized,
                          SerializedPyObject, SerializationContext,
                          SerializationCallbackError,
@@ -124,6 +125,7 @@ from pyarrow.ipc import (Message, MessageReader,
 localfs = LocalFileSystem.get_instance()
 
 from pyarrow.serialization import (_default_serialization_context,
+                                   pandas_serialization_context,
                                    register_default_serialization_handlers)
 
 import pyarrow.types as types

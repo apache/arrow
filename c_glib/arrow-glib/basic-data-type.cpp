@@ -220,6 +220,37 @@ garrow_data_type_get_id(GArrowDataType *data_type)
 }
 
 
+G_DEFINE_ABSTRACT_TYPE(GArrowFixedWidthDataType,                 \
+                       garrow_fixed_width_data_type,             \
+                       GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_fixed_width_data_type_init(GArrowFixedWidthDataType *object)
+{
+}
+
+static void
+garrow_fixed_width_data_type_class_init(GArrowFixedWidthDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_fixed_width_data_type_get_id:
+ * @data_type: A #GArrowFixedWidthDataType.
+ *
+ * Returns: The number of bits for one data.
+ */
+gint
+garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_fixed_width_type =
+    std::static_pointer_cast<arrow::FixedWidthType>(arrow_data_type);
+  return arrow_fixed_width_type->bit_width();
+}
+
+
 G_DEFINE_TYPE(GArrowNullDataType,                \
               garrow_null_data_type,             \
               GARROW_TYPE_DATA_TYPE)
@@ -254,7 +285,7 @@ garrow_null_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowBooleanDataType,                \
               garrow_boolean_data_type,             \
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
 
 static void
 garrow_boolean_data_type_init(GArrowBooleanDataType *object)
@@ -1015,12 +1046,15 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_DATA_TYPE;
     break;
+  case arrow::Type::type::DICTIONARY:
+    type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
+    break;
   default:
     type = GARROW_TYPE_DATA_TYPE;
     break;
   }
   data_type = GARROW_DATA_TYPE(g_object_new(type,
-                                            "data_type", arrow_data_type,
+                                            "data-type", arrow_data_type,
                                             NULL));
   return data_type;
 }

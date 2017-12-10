@@ -214,7 +214,6 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
   <#assign vectName = capName />
-  <#assign vectName = "Nullable${capName}" />
 
   <#if minor.typeParams?? >
   @Override

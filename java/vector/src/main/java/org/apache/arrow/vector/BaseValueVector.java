@@ -68,42 +68,6 @@ public abstract class BaseValueVector implements ValueVector {
     return getTransferPair(name, allocator);
   }
 
-  public abstract static class BaseAccessor implements ValueVector.Accessor {
-    protected BaseAccessor() {
-    }
-
-    @Override
-    public boolean isNull(int index) {
-      return false;
-    }
-
-    @Override
-    // override this in case your implementation is faster, see BitVector
-    public int getNullCount() {
-      int nullCount = 0;
-      for (int i = 0; i < getValueCount(); i++) {
-        if (isNull(i)) {
-          nullCount++;
-        }
-      }
-      return nullCount;
-    }
-  }
-
-  public abstract static class BaseMutator implements ValueVector.Mutator {
-    protected BaseMutator() {
-    }
-
-    @Override
-    public void generateTestData(int values) {
-    }
-
-    //TODO: consider making mutator stateless(if possible) on another issue.
-    @Override
-    public void reset() {
-    }
-  }
-
   @Override
   public Iterator<ValueVector> iterator() {
     return Collections.emptyIterator();
@@ -134,33 +98,6 @@ public abstract class BaseValueVector implements ValueVector {
     buffer.release();
     buffer = allocator.getEmpty();
     return buffer;
-  }
-
-  @Override
-  public int getValueCount() {
-    return getAccessor().getValueCount();
-  }
-
-  @Override
-  public void setValueCount(int valueCount) {
-    getMutator().setValueCount(valueCount);
-  }
-
-  @Override
-
-  public Object getObject(int index) {
-    return getAccessor().getObject(index);
-  }
-
-  @Override
-
-  public int getNullCount() {
-    return getAccessor().getNullCount();
-  }
-
-  @Override
-  public boolean isNull(int index) {
-    return getAccessor().isNull(index);
   }
 
   /* number of bytes for the validity buffer for the given valueCount */

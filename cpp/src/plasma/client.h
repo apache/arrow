@@ -313,7 +313,7 @@ class ARROW_EXPORT PlasmaClient {
   ///
   /// \return The file descriptor for the manager connection. If there is no
   ///         connection to the manager, this is -1.
-  int get_manager_fd();
+  int get_manager_fd() const;
 
  private:
   /// This is a helper method for unmapping objects for which all references have

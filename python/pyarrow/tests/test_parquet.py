@@ -16,13 +16,17 @@
 # under the License.
 
 from os.path import join as pjoin
+
 import datetime
+import decimal
 import io
-import os
 import json
+import os
+
 import pytest
 
 from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
+from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -1469,6 +1473,28 @@ def test_index_column_name_duplicate(tmpdir):
 
 
 @parquet
+def test_parquet_nested_convenience(tmpdir):
+    # ARROW-1684
+    import pyarrow.parquet as pq
+
+    df = pd.DataFrame({
+        'a': [[1, 2, 3], None, [4, 5], []],
+        'b': [[1.], None, None, [6., 7.]],
+    })
+
+    path = str(tmpdir / 'nested_convenience.parquet')
+
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    _write_table(table, path)
+
+    read = pq.read_table(path, columns=['a'])
+    tm.assert_frame_equal(read.to_pandas(), df[['a']])
+
+    read = pq.read_table(path, columns=['a', 'b'])
+    tm.assert_frame_equal(read.to_pandas(), df)
+
+
+@parquet
 def test_backwards_compatible_index_naming():
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -1541,4 +1567,44 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     )
     t = _read_table(path)
     result = t.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+def test_decimal_roundtrip(tmpdir):
+    num_values = 10
+
+    columns = {}
+
+    for precision in range(1, 39):
+        for scale in range(0, precision + 1):
+            with util.random_seed(0):
+                random_decimal_values = [
+                    util.randdecimal(precision, scale)
+                    for _ in range(num_values)
+                ]
+            column_name = ('dec_precision_{:d}_scale_{:d}'
+                           .format(precision, scale))
+            columns[column_name] = random_decimal_values
+
+    expected = pd.DataFrame(columns)
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+@pytest.mark.xfail(
+    raises=pa.ArrowException, reason='Parquet does not support negative scale'
+)
+def test_decimal_roundtrip_negative_scale(tmpdir):
+    expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)

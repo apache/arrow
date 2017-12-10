@@ -47,6 +47,15 @@ if (MSVC)
     # Set desired warning level (e.g. set /W4 for more warnings)
     set(CXX_COMMON_FLAGS "/W3")
   endif()
+
+  if (ARROW_USE_STATIC_CRT)
+    foreach (c_flag CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_DEBUG
+                    CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+                    CMAKE_C_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG
+                    CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
+      string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+    endforeach()
+  endif()
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
@@ -68,9 +77,6 @@ if ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
@@ -118,9 +124,6 @@ elseif ("${UPPERCASE_BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     # /wdnnnn disables a warning where "nnnn" is a warning number
     # Treat all compiler warnings as errors
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}  /WX")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic")
     # Treat all compiler warnings as errors
@@ -140,9 +143,6 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-
-    # MSVC version of -Wno-deprecated
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
   elseif ("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   elseif ("${COMPILER_FAMILY}" STREQUAL "gcc")

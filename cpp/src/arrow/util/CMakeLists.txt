@@ -34,6 +34,7 @@ install(FILES
   cpu-info.h
   decimal.h
   hash-util.h
+  hash.h
   key_value_metadata.h
   logging.h
   macros.h

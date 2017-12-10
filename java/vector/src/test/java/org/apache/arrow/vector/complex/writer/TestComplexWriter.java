@@ -28,10 +28,10 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.SchemaChangeCallBack;
-import org.apache.arrow.vector.NullableFloat8Vector;
-import org.apache.arrow.vector.NullableFloat4Vector;
-import org.apache.arrow.vector.NullableBigIntVector;
-import org.apache.arrow.vector.NullableIntVector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NullableMapVector;
@@ -885,10 +885,10 @@ public class TestComplexWriter {
       singleMapWriter.end();
     }
 
-    NullableIntVector intVector = (NullableIntVector)parent.getChild("intField");
-    NullableBigIntVector bigIntVector = (NullableBigIntVector)parent.getChild("bigIntField");
-    NullableFloat4Vector float4Vector = (NullableFloat4Vector)parent.getChild("float4Field");
-    NullableFloat8Vector float8Vector = (NullableFloat8Vector)parent.getChild("float8Field");
+    IntVector intVector = (IntVector)parent.getChild("intField");
+    BigIntVector bigIntVector = (BigIntVector)parent.getChild("bigIntField");
+    Float4Vector float4Vector = (Float4Vector)parent.getChild("float4Field");
+    Float8Vector float8Vector = (Float8Vector)parent.getChild("float8Field");
 
     assertEquals(initialCapacity, singleMapWriter.getValueCapacity());
     assertEquals(initialCapacity, intVector.getValueCapacity());

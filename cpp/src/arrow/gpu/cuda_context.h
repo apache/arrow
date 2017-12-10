@@ -46,7 +46,7 @@ class ARROW_EXPORT CudaDeviceManager {
 
   Status AllocateHost(int64_t nbytes, std::shared_ptr<CudaHostBuffer>* buffer);
 
-  Status FreeHost(uint8_t* data, int64_t nbytes);
+  Status FreeHost(void* data, int64_t nbytes);
 
   int num_devices() const;
 
@@ -88,10 +88,10 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
  private:
   CudaContext();
 
-  Status ExportIpcBuffer(uint8_t* data, std::unique_ptr<CudaIpcMemHandle>* handle);
-  Status CopyHostToDevice(uint8_t* dst, const uint8_t* src, int64_t nbytes);
-  Status CopyDeviceToHost(uint8_t* dst, const uint8_t* src, int64_t nbytes);
-  Status Free(uint8_t* device_ptr, int64_t nbytes);
+  Status ExportIpcBuffer(void* data, std::unique_ptr<CudaIpcMemHandle>* handle);
+  Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes);
+  Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes);
+  Status Free(void* device_ptr, int64_t nbytes);
 
   class CudaContextImpl;
   std::unique_ptr<CudaContextImpl> impl_;

@@ -76,7 +76,7 @@ garrow_output_stream_file_interface_init(GArrowFileInterface *iface)
   iface->get_raw = garrow_output_stream_get_raw_file_interface;
 }
 
-static std::shared_ptr<arrow::io::Writeable>
+static std::shared_ptr<arrow::io::Writable>
 garrow_output_stream_get_raw_writeable_interface(GArrowWriteable *writeable)
 {
   auto output_stream = GARROW_OUTPUT_STREAM(writeable);
@@ -325,7 +325,7 @@ namespace garrow {
       return arrow::Status::OK();
     }
 
-    arrow::Status Write(const uint8_t *data,
+    arrow::Status Write(const void *data,
                         int64_t n_bytes) override {
       GError *error = NULL;
       gsize n_written_bytes;

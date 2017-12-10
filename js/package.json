@@ -1,6 +1,6 @@
 {
   "name": "apache-arrow",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "types": "./types/Arrow.d.ts",
   "typings": "./types/Arrow.d.ts",
   "main": "./targets/es5/cjs/Arrow.js",

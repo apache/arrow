@@ -131,8 +131,8 @@ public class TestListVector {
       ArrowBuf validityBuffer = listVector.getValidityBuffer();
       ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
-      /* get the underlying data vector -- NullableBigIntVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      /* get the underlying data vector -- BigIntVector */
+      BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check current lastSet */
       assertEquals(Integer.toString(0), Integer.toString(listVector.getLastSet()));
@@ -170,16 +170,16 @@ public class TestListVector {
       /* set lastset and arbitrary valuecount for list vector.
        *
        * NOTE: if we don't execute setLastSet() before setLastValueCount(), then
-       * the latter will corrupt the offsetVector and thus the accessor will not
-       * retrieve the correct values from underlying dataVector. Run the test
+       * the latter will corrupt the offsetBuffer and thus the accessor will not
+       * retrieve the correct values from underlying dataBuffer. Run the test
        * by commenting out next line and we should see failures from 5th assert
        * onwards. This is why doing setLastSet() is important before setValueCount()
        * once the vector has been loaded.
        *
        * Another important thing to remember is the value of lastSet itself.
        * Even though the listVector has elements till index 2 only, the lastSet should
-       * be set as 3. This is because the offsetVector has valid offsets filled till index 3.
-       * If we do setLastSet(2), the offsetVector at index 3 will contain incorrect value
+       * be set as 3. This is because the offsetBuffer has valid offsets filled till index 3.
+       * If we do setLastSet(2), the offsetBuffer at index 3 will contain incorrect value
        * after execution of setValueCount().
        *
        * correct state of the listVector
@@ -310,7 +310,7 @@ public class TestListVector {
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
       /* get dataVector */
-      NullableBigIntVector dataVector = (NullableBigIntVector) listVector.getDataVector();
+      BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
 
       /* check the vector output */
 
@@ -414,11 +414,11 @@ public class TestListVector {
 
           transferPair.splitAndTransfer(start, splitLength);
 
-          /* get offsetVector of toVector */
+          /* get offsetBuffer of toVector */
           final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
 
           /* get dataVector of toVector */
-          NullableBigIntVector dataVector1 = (NullableBigIntVector) toVector.getDataVector();
+          BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
             dataLength1 = offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH) -

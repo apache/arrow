@@ -34,12 +34,14 @@ class RecordBatch;
 class Schema;
 
 namespace ipc {
+namespace internal {
+namespace json {
 
 /// \class JsonWriter
 /// \brief Write the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_EXPORT JsonWriter {
+class JsonWriter {
  public:
   ~JsonWriter();
 
@@ -72,7 +74,7 @@ class ARROW_EXPORT JsonWriter {
 /// \brief Read the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_EXPORT JsonReader {
+class JsonReader {
  public:
   ~JsonReader();
 
@@ -113,6 +115,8 @@ class ARROW_EXPORT JsonReader {
   std::unique_ptr<JsonReaderImpl> impl_;
 };
 
+}  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
 

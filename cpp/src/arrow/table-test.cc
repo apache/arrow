@@ -404,6 +404,26 @@ TEST_F(TestTable, RemoveColumn) {
   ASSERT_TRUE(result->Equals(*expected));
 }
 
+TEST_F(TestTable, RemoveColumnEmpty) {
+  // ARROW-1865
+  const int64_t length = 10;
+
+  auto f0 = field("f0", int32());
+  auto schema = ::arrow::schema({f0});
+  auto a0 = MakeRandomArray<Int32Array>(length);
+
+  auto table = Table::Make(schema, {std::make_shared<Column>(f0, a0)});
+
+  std::shared_ptr<Table> empty;
+  ASSERT_OK(table->RemoveColumn(0, &empty));
+
+  ASSERT_EQ(table->num_rows(), empty->num_rows());
+
+  std::shared_ptr<Table> added;
+  ASSERT_OK(empty->AddColumn(0, table->column(0), &added));
+  ASSERT_EQ(table->num_rows(), added->num_rows());
+}
+
 TEST_F(TestTable, AddColumn) {
   const int64_t length = 10;
   MakeExample1(length);
@@ -581,6 +601,39 @@ TEST_F(TestTableBatchReader, ReadNext) {
   // Ensure non-sliced
   ASSERT_EQ(a1->data().get(), batch->column_data(0).get());
   ASSERT_EQ(a4->data().get(), batch->column_data(1).get());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
+TEST_F(TestTableBatchReader, Chunksize) {
+  auto a1 = MakeRandomArray<Int32Array>(10);
+  auto a2 = MakeRandomArray<Int32Array>(20);
+  auto a3 = MakeRandomArray<Int32Array>(10);
+
+  auto sch1 = arrow::schema({field("f1", int32())});
+  auto t1 = Table::Make(sch1, {column(sch1->field(0), {a1, a2, a3})});
+
+  TableBatchReader i1(*t1);
+
+  i1.set_chunksize(15);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(10, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(15, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(5, batch->num_rows());
+
+  ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_OK(batch->Validate());
+  ASSERT_EQ(10, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);

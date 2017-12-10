@@ -68,17 +68,18 @@ GType garrow_record_batch_get_type(void) G_GNUC_CONST;
 
 GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
-                                           GList *columns);
+                                           GList *columns,
+                                           GError **error);
 
 gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);
 
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
 GArrowArray  *garrow_record_batch_get_column     (GArrowRecordBatch *record_batch,
-                                                  guint i);
+                                                  gint i);
 GList        *garrow_record_batch_get_columns    (GArrowRecordBatch *record_batch);
 const gchar  *garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
-                                                  guint i);
+                                                  gint i);
 guint         garrow_record_batch_get_n_columns  (GArrowRecordBatch *record_batch);
 gint64        garrow_record_batch_get_n_rows     (GArrowRecordBatch *record_batch);
 GArrowRecordBatch *garrow_record_batch_slice     (GArrowRecordBatch *record_batch,

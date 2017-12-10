@@ -41,43 +41,4 @@ public interface RepeatedValueVector extends ValueVector {
    * @return the underlying data vector or null if none exists.
    */
   ValueVector getDataVector();
-
-  @Override
-  RepeatedAccessor getAccessor();
-
-  @Override
-  RepeatedMutator getMutator();
-
-  interface RepeatedAccessor extends ValueVector.Accessor {
-    /**
-     * The result includes empty, null valued cells.
-     *
-     * @return total number of cells that vector contains.
-     */
-    int getInnerValueCount();
-
-
-    /**
-     * @param index the index of the value for which we want the size
-     * @return number of cells that the value at the given index contains.
-     */
-    int getInnerValueCountAt(int index);
-
-    /**
-     * @param index value index
-     * @return true if the value at the given index is empty, false otherwise.
-     */
-    boolean isEmpty(int index);
-  }
-
-  interface RepeatedMutator extends ValueVector.Mutator {
-
-    /**
-     * Starts a new value that is a container of cells.
-     *
-     * @param index index of new value to start
-     * @return index into the child vector
-     */
-    int startNewValue(int index);
-  }
 }

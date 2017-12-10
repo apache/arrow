@@ -23,6 +23,7 @@ from collections import namedtuple, OrderedDict, defaultdict
 import datetime
 import string
 import sys
+import pickle
 
 import pyarrow as pa
 import numpy as np
@@ -197,7 +198,9 @@ def make_serialization_context():
     context.register_type(Baz, "Baz")
     context.register_type(Qux, "Quz")
     context.register_type(SubQux, "SubQux")
-    context.register_type(SubQuxPickle, "SubQuxPickle", pickle=True)
+    context.register_type(SubQuxPickle, "SubQuxPickle",
+                          custom_serializer=pickle.dumps,
+                          custom_deserializer=pickle.loads)
     context.register_type(Exception, "Exception")
     context.register_type(CustomError, "CustomError")
     context.register_type(Point, "Point")
@@ -209,12 +212,23 @@ def make_serialization_context():
 serialization_context = make_serialization_context()
 
 
-def serialization_roundtrip(value, f):
+def serialization_roundtrip(value, f, ctx=serialization_context):
     f.seek(0)
-    pa.serialize_to(value, f, serialization_context)
+    pa.serialize_to(value, f, ctx)
     f.seek(0)
-    result = pa.deserialize_from(f, None, serialization_context)
+    result = pa.deserialize_from(f, None, ctx)
     assert_equal(value, result)
+
+    _check_component_roundtrip(value)
+
+
+def _check_component_roundtrip(value):
+    # Test to/from components
+    serialized = pa.serialize(value)
+    components = serialized.to_components()
+    from_comp = pa.SerializedPyObject.from_components(components)
+    recons = from_comp.deserialize()
+    assert_equal(value, recons)
 
 
 @pytest.yield_fixture(scope='session')
@@ -235,6 +249,7 @@ def test_primitive_serialization(large_memory_map):
     with pa.memory_map(large_memory_map, mode="r+") as mmap:
         for obj in PRIMITIVE_OBJECTS:
             serialization_roundtrip(obj, mmap)
+            serialization_roundtrip(obj, mmap, pa.pandas_serialization_context)
 
 
 def test_serialize_to_buffer():
@@ -338,7 +353,7 @@ def test_serialization_callback_numpy():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        DummyClass, "DummyClass", pickle=False,
+        DummyClass, "DummyClass",
         custom_serializer=serialize_dummy_class,
         custom_deserializer=deserialize_dummy_class)
 
@@ -357,7 +372,7 @@ def test_buffer_serialization():
         return serialized_obj
 
     pa._default_serialization_context.register_type(
-        BufferClass, "BufferClass", pickle=False,
+        BufferClass, "BufferClass",
         custom_serializer=serialize_buffer_class,
         custom_deserializer=deserialize_buffer_class)
 
@@ -482,3 +497,25 @@ def test_serialize_subclasses():
     deserialized = serialized.deserialize()
     assert type(deserialized).__name__ == SerializableClass.__name__
     assert deserialized.value == 3
+
+
+def test_serialize_to_components_invalid_cases():
+    buf = pa.frombuffer(b'hello')
+
+    components = {
+        'num_tensors': 0,
+        'num_buffers': 1,
+        'data': [buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
+
+    components = {
+        'num_tensors': 1,
+        'num_buffers': 0,
+        'data': [buf, buf]
+    }
+
+    with pytest.raises(pa.ArrowException):
+        pa.deserialize_components(components)
