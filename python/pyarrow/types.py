@@ -69,7 +69,7 @@ def is_unsigned_integer(t):
 
 def is_int8(t):
     """
-    Return True if value is an instance of an int32 type
+    Return True if value is an instance of an int8 type
     """
     return t.id == lib.Type_INT8
 
