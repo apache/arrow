@@ -648,12 +648,15 @@ def _add_any_metadata(table, pandas_metadata):
     # Add time zones
     for i, col_meta in enumerate(pandas_metadata['columns']):
 
-        raw_name = col_meta['name']
-        if i >= n_columns:
-            # index columns
-            raw_name = index_columns[i - n_columns]
-        if raw_name is None:
-            raw_name = 'None'
+        raw_name = col_meta.get('field_name')
+        if not raw_name:
+            # deal with metadata written with arrow < 0.8
+            raw_name = col_meta['name']
+            if i >= n_columns:
+                # index columns
+                raw_name = index_columns[i - n_columns]
+            if raw_name is None:
+                raw_name = 'None'
 
         idx = schema.get_field_index(raw_name)
         if idx != -1:
