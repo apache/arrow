@@ -228,12 +228,12 @@ class TestPandasConversion(object):
         assert column_indexes['numpy_type'] == 'object'
 
         md = column_indexes['metadata']
-        assert len(md) == 1
 
         if not PY2:
+            assert len(md) == 1
             assert md['encoding'] == 'UTF-8'
         else:
-            assert 'encoding' not in md
+            assert md is None or 'encoding' not in md
 
     def test_datetimetz_column_index(self):
         df = pd.DataFrame(
