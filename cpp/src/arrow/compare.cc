@@ -312,8 +312,16 @@ static bool IsEqualPrimitive(const PrimitiveArray& left, const PrimitiveArray& r
   const auto& size_meta = dynamic_cast<const FixedWidthType&>(*left.type());
   const int byte_width = size_meta.bit_width() / CHAR_BIT;
 
-  const uint8_t* left_data = left.values() ? left.raw_values() : nullptr;
-  const uint8_t* right_data = right.values() ? right.raw_values() : nullptr;
+  const uint8_t* left_data = nullptr;
+  const uint8_t* right_data = nullptr;
+
+  if (left.values()) {
+    left_data = left.values()->data() + left.offset() * byte_width;
+  }
+
+  if (right.values()) {
+    right_data = right.values()->data() + right.offset() * byte_width;
+  }
 
   if (left.null_count() > 0) {
     for (int64_t i = 0; i < left.length(); ++i) {
