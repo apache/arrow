@@ -22,7 +22,7 @@
 [![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
 [![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
-Arrow is a set of technologies that enable big-data systems to process and transfer data quickly.
+Arrow is a set of technologies that enable big data systems to process and transfer data quickly.
 
 ## install [apache-arrow from npm](https://www.npmjs.com/package/apache-arrow)
 
@@ -32,7 +32,7 @@ Arrow is a set of technologies that enable big-data systems to process and trans
 
 # Powering Columnar In-Memory Analytics
 
-Apache Arrow is a columnar memory layout specification for encoding vectors and table-like containers of flat and nested data. The Arrow spec aligns columnar data in memory to minimize cache misses and take advantage of the latest SIMD (Single input multiple data) and GPU operations on modern processors.
+[Apache Arrow](https://github.com/apache/arrow) is a columnar memory layout specification for encoding vectors and table-like containers of flat and nested data. The Arrow spec aligns columnar data in memory to minimize cache misses and take advantage of the latest SIMD (Single input multiple data) and GPU operations on modern processors.
 
 Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](http://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), [Graphistry](https://www.graphistry.com), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
 
@@ -197,26 +197,24 @@ The JS community is a diverse group with a varied list of target environments an
 
 If you think we missed a compilation target and it's a blocker for adoption, please open an issue.
 
-# Community
+# People
 
 Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/) and [projects & organizations](https://github.com/apache/arrow/blob/master/site/powered_by.md).
 
-## Committers
+* Brian Hulette, CCRi,  _contributor_
+* Paul Taylor, Graphistry, Inc.,  _committer_
 
-* Brian Hulette, CCRI
-* Paul Taylor, Graphistry, Inc.
+# Powered By Apache Arrow in JS 
 
 ## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
 * [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
 
-
-
 ## Companies & Organizations
 
 * [CCRi](http://www.ccri.com/) -- Commonwealth Computer Research Inc, or CCRi, is a Central Virginia based data science and software engineering company
-* [GoAI](http://gpuopenanalytics.com/) -- Open GPU-Accelerated Analytics Initiative for Arrow-powered analytics across GPU tools and vendors
+* [GOAI](http://gpuopenanalytics.com/) -- GPU Open Analytics Initiative standardizes on Arrow as part of creating common data frameworks that enable developers and statistical researchers to accelerate data science on GPUs
 * [Graphistry, Inc.](https://www.graphistry.com/) - Supercharged Visual Investigation Platform used by teams for security, anti-fraud, and related investigations. The Graphistry team uses Arrow in its NodeJS GPU backend and client libraries, and is an early contributing member to GOAI and Arrow\[JS\] focused on bringing these technologies to the enterprise.
 
 # License
