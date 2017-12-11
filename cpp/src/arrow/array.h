@@ -334,8 +334,14 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   /// Does not account for any slice offset
   std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
 
+#ifndef ARROW_NO_DEPRECATED_API
+
   /// \brief Return pointer to start of raw data
+  ///
+  /// \note Deprecated since 0.8.0
   const uint8_t* raw_values() const;
+
+#endif
 
  protected:
   PrimitiveArray() {}
@@ -566,6 +572,8 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   const uint8_t* Value(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return byte_width_; }
+
+  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
 
  protected:
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
