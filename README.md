@@ -40,6 +40,7 @@ Initial implementations include:
  - [Java implementation](https://github.com/apache/arrow/tree/master/java)
  - [C++ implementation](https://github.com/apache/arrow/tree/master/cpp)
  - [Python interface to C++ libraries](https://github.com/apache/arrow/tree/master/python)
+ - [JavaScript reader and writer](https://github.com/apache/arrow/tree/master/js)
 
 Arrow is an [Apache Software Foundation](www.apache.org) project. Learn more at
 [arrow.apache.org](http://arrow.apache.org).
