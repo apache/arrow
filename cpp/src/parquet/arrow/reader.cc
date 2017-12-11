@@ -868,7 +868,7 @@ struct TransferFunctor<
 
     if (type->id() == ::arrow::Type::STRING) {
       // Convert from BINARY type to STRING
-      auto new_data = (*out)->data()->ShallowCopy();
+      auto new_data = (*out)->data()->Copy();
       new_data->type = type;
       *out = ::arrow::MakeArray(new_data);
     }
