@@ -369,7 +369,8 @@ def get_datetimetz_type(values, dtype, type_):
     if values.dtype.type != np.datetime64:
         return values, type_
 
-    if isinstance(dtype, DatetimeTZDtype):
+    if isinstance(dtype, DatetimeTZDtype) and type_ is None:
+        # If no user type passed, construct a tz-aware timestamp type
         tz = dtype.tz
         unit = dtype.unit
         type_ = pa.timestamp(unit, tz)
