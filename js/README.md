@@ -199,13 +199,15 @@ If you think we missed a compilation target and it's a blocker for adoption, ple
 
 # People
 
-Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/) and [projects & organizations](https://github.com/apache/arrow/blob/master/site/powered_by.md).
+Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/).
 
 * Brian Hulette, CCRi,  _contributor_
 * Paul Taylor, Graphistry, Inc.,  _committer_
 
 # Powered By Apache Arrow in JS 
 
+Full list of broader Apache Arrow [projects & organizations](https://github.com/apache/arrow/blob/master/site/powered_by.md).
+ 
 ## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
