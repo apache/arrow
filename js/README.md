@@ -34,11 +34,12 @@ Arrow is a set of technologies that enable big-data systems to process and trans
 
 Apache Arrow is a columnar memory layout specification for encoding vectors and table-like containers of flat and nested data. The Arrow spec aligns columnar data in memory to minimize cache misses and take advantage of the latest SIMD (Single input multiple data) and GPU operations on modern processors.
 
-Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](http://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
+Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](http://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), [Graphistry](https://www.graphistry.com), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
 
 # Related Projects
 
-* [GoAI](http://gpuopenanalytics.com/) -- Arrow-powered GPU analytics
+* [Graphistry](https://www.graphistry.com) -- Supercharged visual investigations for security, anti-fraud, and other enterprise-scale event data problems that includes Arrow JS for the GPU backend
+* [GoAI](http://gpuopenanalytics.com/) -- Open GPU-Accelerated Analytics Initiative for Arrow-powered analytics across GPU tools and vendors
 * [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
 
 # Usage
