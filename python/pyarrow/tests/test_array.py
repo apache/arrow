@@ -331,7 +331,11 @@ def test_cast_timestamp_unit():
     s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
 
     us_with_tz = pa.timestamp('us', tz='America/New_York')
+
     arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
+
+    # ARROW-1906
+    assert arr.type == us_with_tz
 
     arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
 
