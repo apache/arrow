@@ -1,14 +1,10 @@
 {
-  "name": "apache-arrow",
   "version": "0.2.0",
-  "types": "./types/Arrow.d.ts",
-  "typings": "./types/Arrow.d.ts",
-  "main": "./targets/es5/cjs/Arrow.js",
-  "module": "./targets/es5/esm/Arrow.js",
-  "browser": "./targets/es5/umd/Arrow.js",
-  "jsnext:main": "./targets/es2015/esm/Arrow.js",
-  "esnext:main": "./targets/esnext/esm/Arrow.js",
+  "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
+  "bin": {
+    "arrow2csv": "bin/arrow2csv"
+  },
   "scripts": {
     "lerna": "lerna",
     "test": "gulp test",
@@ -57,6 +53,8 @@
     "command-line-usage": "4.0.1"
   },
   "dependencies": {
+    "command-line-args": "4.0.7",
+    "command-line-usage": "4.0.1",
     "flatbuffers": "trxcllnt/flatbuffers-esm",
     "json-bignum": "0.0.3",
     "text-encoding-utf-8": "^1.0.2",
@@ -70,8 +68,6 @@
     "@types/node": "8.0.51",
     "@types/text-encoding": "0.0.32",
     "benchmark": "2.1.4",
-    "command-line-args": "4.0.7",
-    "command-line-usage": "4.0.1",
     "coveralls": "3.0.0",
     "del": "3.0.0",
     "esdoc": "1.0.3",
@@ -83,7 +79,7 @@
     "gulp-rename": "1.2.2",
     "gulp-sourcemaps": "2.6.1",
     "gulp-typescript": "3.2.3",
-    "ix": "2.3.1",
+    "ix": "2.3.4",
     "jest": "21.2.1",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",

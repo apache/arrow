@@ -53,7 +53,12 @@ const createMainPackageJson = (target, format) => (orig) => ({
   
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
-    main: `${mainExport}.ts`, types: `${mainExport}.ts`
+    main: `${mainExport}.ts`, types: `${mainExport}.ts`,
+    dependencies: {
+        '@types/flatbuffers': '*',
+        '@types/node': '*',
+        ...orig.dependencies
+    }
 });
   
 const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>

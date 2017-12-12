@@ -31,7 +31,8 @@ const moduleFormatsToSkipCombosOf = { cls: true };
 const packageJSONFields = [
   `version`, `license`, `description`,
   `author`, `homepage`, `repository`,
-  `bugs`, `keywords`,  `dependencies`
+  `bugs`, `keywords`,  `dependencies`,
+  `bin`
 ];
 
 const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
