@@ -37,8 +37,9 @@ Arrow is a set of technologies that enable big-data systems to process and move 
 Initial implementations include:
 
  - [The Arrow Format](https://github.com/apache/arrow/tree/master/format)
- - [Java implementation](https://github.com/apache/arrow/tree/master/java)
  - [C++ implementation](https://github.com/apache/arrow/tree/master/cpp)
+ - [Java implementation](https://github.com/apache/arrow/tree/master/java)
+ - [JavaScript implementation](https://github.com/apache/arrow/tree/master/js)
  - [Python interface to C++ libraries](https://github.com/apache/arrow/tree/master/python)
 
 Arrow is an [Apache Software Foundation](www.apache.org) project. Learn more at
