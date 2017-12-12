@@ -16,7 +16,7 @@
 // under the License.
 
 import Arrow from './Arrow';
-const { Table, readVectors } = Arrow;
+const { Table, read } = Arrow;
 import { config, sources, formats } from './test-config';
 
 describe(`Table`, () => {
@@ -77,7 +77,7 @@ function testReaderVectorsAndTableColumns(buffers: Uint8Array[]) {
         expect.hasAssertions();
         let rowsTotal = 0;
         let table = Table.from(buffers);
-        for (let vectors of readVectors(buffers)) {
+        for (let vectors of read(buffers)) {
             let rowsNow = Math.max(...vectors.map((v) => v.length));
             for (let vi = -1, vn = vectors.length; ++vi < vn;) {
                 let v1 = vectors[vi];

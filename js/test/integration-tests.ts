@@ -19,7 +19,7 @@ import Arrow from './Arrow';
 import { zip } from 'ix/iterable/zip';
 import { config, formats } from './test-config';
 
-const { Table, readVectors } = Arrow;
+const { Table, read } = Arrow;
 
 expect.extend({
     toEqualVector(v1: any, v2: any) {
@@ -89,7 +89,7 @@ describe(`Integration`, () => {
 function testReaderIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array[]) {
     test(`cpp and java vectors report the same values`, () => {
         expect.hasAssertions();
-        for (const [cppVectors, javaVectors] of zip(readVectors(cppBuffers), readVectors(javaBuffers))) {
+        for (const [cppVectors, javaVectors] of zip(read(cppBuffers), read(javaBuffers))) {
             expect(cppVectors.length).toEqual(javaVectors.length);
             for (let i = -1, n = cppVectors.length; ++i < n;) {
                 (expect(cppVectors[i]) as any).toEqualVector(javaVectors[i]);

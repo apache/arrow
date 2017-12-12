@@ -16,8 +16,8 @@
 // under the License.
 
 import {
-    Int64
-    Uint64
+    Int64,
+    Uint64,
     Int128
 } from './Arrow';
 
