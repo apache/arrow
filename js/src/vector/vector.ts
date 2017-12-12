@@ -29,6 +29,7 @@ export interface Vector<T = any> extends Iterable<T | null> {
     concat(...vectors: Vector<T>[]): Vector<T>;
     slice<R = T[]>(start?: number, end?: number): R;
 }
+
 export class Vector<T = any> implements Vector<T> {
     slice<R = T[]>(start?: number, end?: number): R {
         let { length } = this, from = start! | 0;

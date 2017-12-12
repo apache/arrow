@@ -1,58 +1,32 @@
-import { flatbuffers } from 'flatbuffers';
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-import * as Schema_ from './fb/Schema';
-import * as Message_ from './fb/Message';
+import { footerFromByteBuffer, messageFromByteBuffer } from './fb';
+import { schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json';
+import {
+    IntBitWidth, TimeBitWidth,
+    VisitorNode, Visitor, Footer, Block, Message, Schema, RecordBatch, DictionaryBatch, Field, DictionaryEncoding, Buffer, FieldNode,
+    Null, Int, FloatingPoint, Binary, Bool, Utf8, Decimal, Date, Time, Timestamp, Interval, List, Struct, Union, FixedSizeBinary, FixedSizeList, Map_,
+} from './types';
 
-import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
-
-export class Metadatum {
-    constructor(private key_: string, private value_: any) {
-    }
-
-    key(): string {
-        return this.key_;
-    }
-
-    value(): any {
-        return this.value_;
-    }
-}
-
-export class FieldBuilder {
-    constructor(private name_: string, private typeType_: Type, private nullable_: boolean, private metadata_: Metadatum[]) {}
-    name(): string {
-        return this.name_;
-    }
-    typeType(): number {
-        return this.typeType_;
-    }
-    nullable(): boolean {
-        return this.nullable_;
-    }
-    customMetadataLength(): number {
-        return this.metadata_.length;
-    }
-    customMetadata(i: number): Metadatum {
-        return this.metadata_[i];
-    }
-    write(builder: flatbuffers.Builder): flatbuffers.Offset {
-        Field.startField(builder);
-        // TODO..
-        return Field.endField(builder);
-    }
-}
-
-export class FieldNodeBuilder {
-    constructor(private length_: flatbuffers.Long, private nullCount_: flatbuffers.Long) {}
-    length(): flatbuffers.Long {
-        return this.length_;
-    }
-    nullCount(): flatbuffers.Long {
-        return this.nullCount_;
-    }
-    write(builder: flatbuffers.Builder): flatbuffers.Offset {
-        return FieldNode.createFieldNode(builder, this.length(), this.nullCount());
-    }
-}
+export {
+    IntBitWidth, TimeBitWidth,
+    footerFromByteBuffer, messageFromByteBuffer,
+    schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON,
+    VisitorNode, Visitor, Footer, Block, Message, Schema, RecordBatch, DictionaryBatch, Field, DictionaryEncoding, Buffer, FieldNode,
+    Null, Int, FloatingPoint, Binary, Bool, Utf8, Decimal, Date, Time, Timestamp, Interval, List, Struct, Union, FixedSizeBinary, FixedSizeList, Map_ as Map,
+};

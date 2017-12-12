@@ -14,17 +14,14 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 import { Vector } from './vector';
 import * as vectors from './traits/vectors';
 import * as fieldVectors from './traits/field';
 import * as nullableVectors from './traits/nullable';
 import * as nullableFieldVectors from './traits/nullablefield';
+import { Field, FieldNode } from '../format/arrow';
 import { isFieldArgv, isNullableArgv } from './traits/mixins';
-
-import * as Schema_ from '../format/fb/Schema';
-import * as Message_ from '../format/fb/Message';
-export import Field = Schema_.org.apache.arrow.flatbuf.Field;
-export import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
 
 function MixinArrowTraits<T extends Vector<any>, TArgv>(
     Base: new (argv: TArgv) => T,

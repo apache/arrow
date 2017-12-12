@@ -17,8 +17,7 @@
 
 import { Vector } from './vector';
 import { StructVector, StructRow } from './struct';
-import { readVectors, readVectorsAsync } from '../reader/arrow';
-import { readJSON } from '../reader/json';
+import { read, readAsync } from '../reader/arrow';
 
 function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
     return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
@@ -27,28 +26,19 @@ function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[])
 }
 
 export class Table<T> extends StructVector<T> {
-    static from(buffersOrJSON?: Iterable<Uint8Array | Buffer | string> | object | string) {
-        let input: any = buffersOrJSON;
+    static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         let columns: Vector<any>[] = [];
-        let batches: Iterable<Vector[]>;
-        if (typeof input === 'string') {
-            try { input = JSON.parse(input); }
-            catch (e) { input = buffersOrJSON; }
-        }
-        if (!input || typeof input !== 'object') {
-            batches = (typeof input === 'string') ? readVectors([input]) : [];
-        } else {
-            batches = (typeof input[Symbol.iterator] === 'function') ? readVectors(input) : readJSON(input);
-        }
-        for (let vectors of batches) {
-            columns = concatVectors(columns, vectors);
+        if (sources) {
+            for (let vectors of read(sources)) {
+                columns = concatVectors(columns, vectors);
+            }
         }
         return new Table({ columns });
     }
-    static async fromAsync(buffers?: AsyncIterable<Uint8Array | Buffer | string>) {
+    static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
         let columns: Vector<any>[] = [];
-        if (buffers) {
-            for await (let vectors of readVectorsAsync(buffers)) {
+        if (sources) {
+            for await (let vectors of readAsync(sources)) {
                 columns = columns = concatVectors(columns, vectors);
             }
         }

@@ -20,8 +20,7 @@ import { Vector } from './vector/vector';
 import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
-import { readVectors, readVectorsAsync } from './reader/arrow';
-import { readJSON } from './reader/json';
+import { read, readAsync } from './reader/arrow';
 import { Uint64, Int64, Int128 } from './util/int';
 import { ListVector, BinaryVector, FixedSizeListVector } from './vector/list';
 
@@ -53,9 +52,8 @@ Table['from'] = Table.from;
 Table['fromAsync'] = Table.fromAsync;
 BoolVector['pack'] = BoolVector.pack;
 
+export { read, readAsync };
 export { Table, Vector, StructRow };
-export { readVectors, readVectorsAsync };
-export { readJSON };
 export { Uint64, Int64, Int128 };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
@@ -91,8 +89,8 @@ try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
-        Arrow['readVectors'] = readVectors;
-        Arrow['readVectorsAsync'] = readVectorsAsync;
+        Arrow['read'] = read;
+        Arrow['readAsync'] = readAsync;
         Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
         Arrow['StructRow'] = StructRow;
