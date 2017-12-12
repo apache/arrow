@@ -17,6 +17,30 @@
   under the License.
 -->
 
+# Getting Involved
+Even if you do not plan to contribute to Apache Arrow itself or Arrow
+integrations in other projects, we'd be happy to have you involved:
+
+* Join the mailing list: send an email to
+  [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
+  project.
+* [Follow our activity on JIRA][3]
+* [Learn the format][2]
+* Contribute code to one of the reference implementations
+
+We prefer to receive contributions in the form of GitHub pull requests. Please send pull requests against the [github.com/apache/arrow][4] repository.
+
+If you are looking for some ideas on what to contribute, check out the [JIRA
+issues][3] for the Apache Arrow project. Comment on the issue and/or contact
+[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+with your questions and ideas.
+
+If you’d like to report a bug but don’t have time to fix it, you can still post
+it on JIRA, or email the mailing list
+[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+
+
+
 # The npm scripts
 
 * `npm run clean` - cleans targets

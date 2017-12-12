@@ -103,6 +103,13 @@ short description of your use case.
   Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
   buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
   Python, R, and more (all backed by Apache Arrow).
+* **[GOAI][19]:** Open GPU-Accelerated Analytics Initiative for Arrow-powered 
+  analytics across GPU tools and vendors  
+* **[Graphistry][18]:** Supercharged Visual Investigation Platform used by
+  teams for security, anti-fraud, and related investigations. The Graphistry
+  team uses Arrow in its NodeJS GPU backend and client libraries, and is an
+  early contributing member to GOAI and Arrow\[JS\] focused on bringing these 
+  technologies to the enterprise.  
 * **[Quilt Data][13]:** Quilt is a data package manager, designed to make
   managing data as easy as managing code. It supports Parquet format via
   pyarrow for data access.
@@ -124,3 +131,5 @@ short description of your use case.
 [15]: https://github.com/dask/dask
 [16]: https://red-data-tools.github.io/
 [17]: https://github.com/red-data-tools/red-arrow/
+[18]: https://www.graphistry.com
+[19]: http://gpuopenanalytics.com
