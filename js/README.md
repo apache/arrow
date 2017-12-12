@@ -217,7 +217,7 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 
 * [CCRi](http://www.ccri.com/) -- Commonwealth Computer Research Inc, or CCRi, is a Central Virginia based data science and software engineering company
 * [GOAI](http://gpuopenanalytics.com/) -- GPU Open Analytics Initiative standardizes on Arrow as part of creating common data frameworks that enable developers and statistical researchers to accelerate data science on GPUs
-* [Graphistry, Inc.](https://www.graphistry.com/) - Supercharged Visual Investigation Platform used by teams for security, anti-fraud, and related investigations. The Graphistry team uses Arrow in its NodeJS GPU backend and client libraries, and is an early contributing member to GOAI and Arrow\[JS\] focused on bringing these technologies to the enterprise.
+* [Graphistry, Inc.](https://www.graphistry.com/) - An end-to-end GPU accelerated visual investigation platform used by teams for security, anti-fraud, and related investigations. Graphistry uses Arrow in its NodeJS GPU backend and client libraries, and is an early contributing member to GOAI and Arrow\[JS\] working to bring these technologies to the enterprise.
 
 # License
 
