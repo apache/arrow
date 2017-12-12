@@ -23,6 +23,10 @@ install(FILES
   column_writer.h
   encoding.h
   exception.h
+  file_reader.h
+  file_writer.h
+  metadata.h
+  printer.h
   properties.h
   schema.h
   statistics.h
@@ -49,9 +53,12 @@ install(FILES
 ADD_PARQUET_TEST(column_reader-test)
 ADD_PARQUET_TEST(column_scanner-test)
 ADD_PARQUET_TEST(column_writer-test)
+ADD_PARQUET_TEST(file-deserialize-test)
+ADD_PARQUET_TEST(file-serialize-test)
 ADD_PARQUET_TEST(properties-test)
 ADD_PARQUET_TEST(statistics-test)
 ADD_PARQUET_TEST(encoding-test)
+ADD_PARQUET_TEST(metadata-test)
 ADD_PARQUET_TEST(public-api-test)
 ADD_PARQUET_TEST(types-test)
 ADD_PARQUET_TEST(reader-test)

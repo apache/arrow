@@ -168,35 +168,6 @@ class DictionaryPage : public Page {
   bool is_sorted_;
 };
 
-// Abstract page iterator interface. This way, we can feed column pages to the
-// ColumnReader through whatever mechanism we choose
-class PageReader {
- public:
-  virtual ~PageReader() {}
-
-  // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
-  // containing new Page otherwise
-  virtual std::shared_ptr<Page> NextPage() = 0;
-};
-
-class PageWriter {
- public:
-  virtual ~PageWriter() {}
-
-  // The Column Writer decides if dictionary encoding is used if set and
-  // if the dictionary encoding has fallen back to default encoding on reaching dictionary
-  // page limit
-  virtual void Close(bool has_dictionary, bool fallback) = 0;
-
-  virtual int64_t WriteDataPage(const CompressedDataPage& page) = 0;
-
-  virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
-
-  virtual bool has_compressor() = 0;
-
-  virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
-};
-
 }  // namespace parquet
 
 #endif  // PARQUET_COLUMN_PAGE_H

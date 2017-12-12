@@ -79,14 +79,16 @@ class MockPageReader : public PageReader {
   explicit MockPageReader(const vector<shared_ptr<Page>>& pages)
       : pages_(pages), page_index_(0) {}
 
-  // Implement the PageReader interface
-  virtual shared_ptr<Page> NextPage() {
+  shared_ptr<Page> NextPage() override {
     if (page_index_ == static_cast<int>(pages_.size())) {
       // EOS to consumer
       return shared_ptr<Page>(nullptr);
     }
     return pages_[page_index_++];
   }
+
+  // No-op
+  void set_max_page_header_size(uint32_t size) override {}
 
  private:
   vector<shared_ptr<Page>> pages_;

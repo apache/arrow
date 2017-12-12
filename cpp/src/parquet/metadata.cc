@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "parquet/exception.h"
-#include "parquet/file/metadata.h"
+#include "parquet/metadata.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/thrift.h"

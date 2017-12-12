@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/file/printer.h"
+#include "parquet/printer.h"
 
 #include <string>
 #include <vector>

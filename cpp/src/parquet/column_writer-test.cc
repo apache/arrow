@@ -19,8 +19,7 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
-#include "parquet/file/reader-internal.h"
-#include "parquet/file/writer-internal.h"
+#include "parquet/parquet_types.h"
 #include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
@@ -63,8 +62,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                    Compression::type compression = Compression::UNCOMPRESSED) {
     auto buffer = sink_->GetBuffer();
     std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
-    std::unique_ptr<SerializedPageReader> page_reader(
-        new SerializedPageReader(std::move(source), num_rows, compression));
+    std::unique_ptr<PageReader> page_reader =
+        PageReader::Open(std::move(source), num_rows, compression);
     reader_.reset(new TypedColumnReader<TestType>(this->descr_, std::move(page_reader)));
   }
 
@@ -74,8 +73,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     sink_.reset(new InMemoryOutputStream());
     metadata_ = ColumnChunkMetaDataBuilder::Make(
         writer_properties_, this->descr_, reinterpret_cast<uint8_t*>(&thrift_metadata_));
-    std::unique_ptr<SerializedPageWriter> pager(
-        new SerializedPageWriter(sink_.get(), column_properties.codec, metadata_.get()));
+    std::unique_ptr<PageWriter> pager =
+        PageWriter::Open(sink_.get(), column_properties.codec, metadata_.get());
     WriterProperties::Builder wp_builder;
     if (column_properties.encoding == Encoding::PLAIN_DICTIONARY ||
         column_properties.encoding == Encoding::RLE_DICTIONARY) {

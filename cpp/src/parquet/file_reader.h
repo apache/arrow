@@ -25,8 +25,8 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column_page.h"
-#include "parquet/file/metadata.h"
+#include "parquet/column_reader.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
@@ -71,6 +71,11 @@ class PARQUET_EXPORT ParquetFileReader {
   // easily create test fixtures
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
+    static std::unique_ptr<Contents> Open(
+        std::unique_ptr<RandomAccessSource> source,
+        const ReaderProperties& props = default_reader_properties(),
+        const std::shared_ptr<FileMetaData>& metadata = nullptr);
+
     virtual ~Contents() {}
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;

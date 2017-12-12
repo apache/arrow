@@ -49,6 +49,12 @@ class RleDecoder;
 
 namespace parquet {
 
+// 16 MB is the default maximum page header size
+static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
+
+// 16 KB is the default expected page header size
+static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
+
 namespace BitUtil = ::arrow::BitUtil;
 
 class PARQUET_EXPORT LevelDecoder {
@@ -70,6 +76,24 @@ class PARQUET_EXPORT LevelDecoder {
   Encoding::type encoding_;
   std::unique_ptr<::arrow::RleDecoder> rle_decoder_;
   std::unique_ptr<::arrow::BitReader> bit_packed_decoder_;
+};
+
+// Abstract page iterator interface. This way, we can feed column pages to the
+// ColumnReader through whatever mechanism we choose
+class PARQUET_EXPORT PageReader {
+ public:
+  virtual ~PageReader() = default;
+
+  static std::unique_ptr<PageReader> Open(
+      std::unique_ptr<InputStream> stream, int64_t total_num_rows,
+      Compression::type codec,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
+  // containing new Page otherwise
+  virtual std::shared_ptr<Page> NextPage() = 0;
+
+  virtual void set_max_page_header_size(uint32_t size) = 0;
 };
 
 class PARQUET_EXPORT ColumnReader {

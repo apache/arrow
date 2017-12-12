@@ -34,7 +34,7 @@
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
 
-#include "parquet/file/writer.h"
+#include "parquet/file_writer.h"
 
 #include "arrow/api.h"
 #include "arrow/test-util.h"

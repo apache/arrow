@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "parquet/file/reader.h"
+#include "parquet/file_reader.h"
 #include "parquet/properties.h"
 
 namespace parquet {

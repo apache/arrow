@@ -30,7 +30,7 @@
 #include <arrow/memory_pool.h>
 #include <arrow/util/bit-util.h>
 
-#include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/schema.h"
 #include "parquet/util/visibility.h"
 

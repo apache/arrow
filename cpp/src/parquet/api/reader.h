@@ -22,11 +22,9 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/exception.h"
-#include "parquet/file/printer.h"
-#include "parquet/file/reader.h"
-
-// Metadata reader API
-#include "parquet/file/metadata.h"
+#include "parquet/file_reader.h"
+#include "parquet/metadata.h"
+#include "parquet/printer.h"
 
 // Schemas
 #include "parquet/api/schema.h"

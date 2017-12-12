@@ -19,8 +19,8 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
-#include "parquet/file/reader-internal.h"
-#include "parquet/file/writer-internal.h"
+#include "parquet/file_reader.h"
+#include "parquet/parquet_types.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {
@@ -33,8 +33,8 @@ std::unique_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
                                          ColumnChunkMetaDataBuilder* metadata,
                                          ColumnDescriptor* schema,
                                          const WriterProperties* properties) {
-  std::unique_ptr<SerializedPageWriter> pager(
-      new SerializedPageWriter(dst, Compression::UNCOMPRESSED, metadata));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(dst, Compression::UNCOMPRESSED, metadata);
   return std::unique_ptr<Int64Writer>(
       new Int64Writer(metadata, std::move(pager), Encoding::PLAIN, properties));
 }
@@ -110,8 +110,8 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::ZSTD)
 std::unique_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
                                          int64_t num_values, ColumnDescriptor* schema) {
   std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
-  std::unique_ptr<SerializedPageReader> page_reader(
-      new SerializedPageReader(std::move(source), num_values, Compression::UNCOMPRESSED));
+  std::unique_ptr<PageReader> page_reader =
+      PageReader::Open(std::move(source), num_values, Compression::UNCOMPRESSED);
   return std::unique_ptr<Int64Reader>(new Int64Reader(schema, std::move(page_reader)));
 }
 

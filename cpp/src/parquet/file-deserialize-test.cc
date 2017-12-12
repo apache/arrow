@@ -26,9 +26,9 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/exception.h"
-#include "parquet/file/reader-internal.h"
+#include "parquet/file_reader.h"
 #include "parquet/parquet_types.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
@@ -73,7 +73,7 @@ class TestPageSerde : public ::testing::Test {
     EndStream();
     std::unique_ptr<InputStream> stream;
     stream.reset(new InMemoryInputStream(out_buffer_));
-    page_reader_.reset(new SerializedPageReader(std::move(stream), num_rows, codec));
+    page_reader_ = PageReader::Open(std::move(stream), num_rows, codec);
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,
@@ -99,7 +99,7 @@ class TestPageSerde : public ::testing::Test {
   std::unique_ptr<InMemoryOutputStream> out_stream_;
   std::shared_ptr<Buffer> out_buffer_;
 
-  std::unique_ptr<SerializedPageReader> page_reader_;
+  std::unique_ptr<PageReader> page_reader_;
   format::PageHeader page_header_;
   format::DataPageHeader data_page_header_;
 };
@@ -149,7 +149,7 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
 
   // check header size is between 256 KB to 16 MB
   ASSERT_LE(stats_size, out_stream_->Tell());
-  ASSERT_GE(DEFAULT_MAX_PAGE_HEADER_SIZE, out_stream_->Tell());
+  ASSERT_GE(kDefaultMaxPageHeaderSize, out_stream_->Tell());
 
   InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
@@ -249,7 +249,7 @@ class TestParquetFileReader : public ::testing::Test {
     auto reader = std::make_shared<BufferReader>(buffer);
     auto wrapper = std::unique_ptr<ArrowInputFile>(new ArrowInputFile(reader));
 
-    ASSERT_THROW(reader_->Open(SerializedFile::Open(std::move(wrapper))),
+    ASSERT_THROW(reader_->Open(ParquetFileReader::Contents::Open(std::move(wrapper))),
                  ParquetException);
   }
 

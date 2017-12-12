@@ -23,8 +23,8 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
-#include "parquet/file/reader-internal.h"
-#include "parquet/file/writer-internal.h"
+#include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/util/memory.h"
 
 #include "arrow/api.h"
@@ -142,7 +142,6 @@ std::shared_ptr<::arrow::Table> TableFromVector<BooleanType>(const std::vector<b
 
 template <bool nullable, typename ParquetType>
 static void BM_WriteColumn(::benchmark::State& state) {
-  format::ColumnChunk thrift_metadata;
   std::vector<typename ParquetType::c_type> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 

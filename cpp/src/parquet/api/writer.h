@@ -18,15 +18,10 @@
 #ifndef PARQUET_API_WRITER_H
 #define PARQUET_API_WRITER_H
 
-// Column reader API
+#include "parquet/api/io.h"
+#include "parquet/api/schema.h"
 #include "parquet/column_writer.h"
 #include "parquet/exception.h"
-#include "parquet/file/writer.h"
-
-// Schemas
-#include "parquet/api/schema.h"
-
-// IO
-#include "parquet/api/io.h"
+#include "parquet/file_writer.h"
 
 #endif  // PARQUET_API_WRITER_H

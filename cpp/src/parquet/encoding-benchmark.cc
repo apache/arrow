@@ -18,7 +18,6 @@
 #include "benchmark/benchmark.h"
 
 #include "parquet/encoding-internal.h"
-#include "parquet/file/reader-internal.h"
 #include "parquet/util/memory.h"
 
 using arrow::default_memory_pool;
@@ -26,7 +25,6 @@ using arrow::MemoryPool;
 
 namespace parquet {
 
-using format::ColumnChunk;
 using schema::PrimitiveNode;
 
 namespace benchmark {

@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/file/reader.h"
+#include "parquet/file_reader.h"
 
 namespace parquet {
 

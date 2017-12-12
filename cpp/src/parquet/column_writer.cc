@@ -17,12 +17,17 @@
 
 #include "parquet/column_writer.h"
 
+#include <cstdint>
+#include <memory>
+
 #include "arrow/util/bit-util.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/rle-encoding.h"
 
 #include "parquet/encoding-internal.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
+#include "parquet/thrift.h"
 #include "parquet/util/logging.h"
 #include "parquet/util/memory.h"
 
@@ -101,6 +106,169 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
     bit_packed_encoder_->Flush();
   }
   return num_encoded;
+}
+
+// ----------------------------------------------------------------------
+// PageWriter implementation
+
+static format::Statistics ToThrift(const EncodedStatistics& row_group_statistics) {
+  format::Statistics statistics;
+  if (row_group_statistics.has_min) statistics.__set_min(row_group_statistics.min());
+  if (row_group_statistics.has_max) statistics.__set_max(row_group_statistics.max());
+  if (row_group_statistics.has_null_count)
+    statistics.__set_null_count(row_group_statistics.null_count);
+  if (row_group_statistics.has_distinct_count)
+    statistics.__set_distinct_count(row_group_statistics.distinct_count);
+  return statistics;
+}
+
+// This subclass delimits pages appearing in a serialized stream, each preceded
+// by a serialized Thrift format::PageHeader indicating the type of each page
+// and the page metadata.
+class SerializedPageWriter : public PageWriter {
+ public:
+  SerializedPageWriter(OutputStream* sink, Compression::type codec,
+                       ColumnChunkMetaDataBuilder* metadata,
+                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
+      : sink_(sink),
+        metadata_(metadata),
+        pool_(pool),
+        num_values_(0),
+        dictionary_page_offset_(0),
+        data_page_offset_(0),
+        total_uncompressed_size_(0),
+        total_compressed_size_(0) {
+    compressor_ = GetCodecFromArrow(codec);
+  }
+
+  virtual ~SerializedPageWriter() = default;
+
+  int64_t WriteDictionaryPage(const DictionaryPage& page) override {
+    int64_t uncompressed_size = page.size();
+    std::shared_ptr<Buffer> compressed_data = nullptr;
+    if (has_compressor()) {
+      auto buffer = std::static_pointer_cast<ResizableBuffer>(
+          AllocateBuffer(pool_, uncompressed_size));
+      Compress(*(page.buffer().get()), buffer.get());
+      compressed_data = std::static_pointer_cast<Buffer>(buffer);
+    } else {
+      compressed_data = page.buffer();
+    }
+
+    format::DictionaryPageHeader dict_page_header;
+    dict_page_header.__set_num_values(page.num_values());
+    dict_page_header.__set_encoding(ToThrift(page.encoding()));
+    dict_page_header.__set_is_sorted(page.is_sorted());
+
+    format::PageHeader page_header;
+    page_header.__set_type(format::PageType::DICTIONARY_PAGE);
+    page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+    page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
+    page_header.__set_dictionary_page_header(dict_page_header);
+    // TODO(PARQUET-594) crc checksum
+
+    int64_t start_pos = sink_->Tell();
+    if (dictionary_page_offset_ == 0) {
+      dictionary_page_offset_ = start_pos;
+    }
+    int64_t header_size =
+        SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
+    sink_->Write(compressed_data->data(), compressed_data->size());
+
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += compressed_data->size() + header_size;
+
+    return sink_->Tell() - start_pos;
+  }
+
+  void Close(bool has_dictionary, bool fallback) override {
+    // index_page_offset = 0 since they are not supported
+    metadata_->Finish(num_values_, dictionary_page_offset_, 0, data_page_offset_,
+                      total_compressed_size_, total_uncompressed_size_, has_dictionary,
+                      fallback);
+
+    // Write metadata at end of column chunk
+    metadata_->WriteTo(sink_);
+  }
+
+  /**
+   * Compress a buffer.
+   */
+  void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) override {
+    DCHECK(compressor_ != nullptr);
+
+    // Compress the data
+    int64_t max_compressed_size =
+        compressor_->MaxCompressedLen(src_buffer.size(), src_buffer.data());
+
+    // Use Arrow::Buffer::shrink_to_fit = false
+    // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
+    PARQUET_THROW_NOT_OK(dest_buffer->Resize(max_compressed_size, false));
+
+    int64_t compressed_size;
+    PARQUET_THROW_NOT_OK(
+        compressor_->Compress(src_buffer.size(), src_buffer.data(), max_compressed_size,
+                              dest_buffer->mutable_data(), &compressed_size));
+    PARQUET_THROW_NOT_OK(dest_buffer->Resize(compressed_size, false));
+  }
+
+  int64_t WriteDataPage(const CompressedDataPage& page) override {
+    int64_t uncompressed_size = page.uncompressed_size();
+    std::shared_ptr<Buffer> compressed_data = page.buffer();
+
+    format::DataPageHeader data_page_header;
+    data_page_header.__set_num_values(page.num_values());
+    data_page_header.__set_encoding(ToThrift(page.encoding()));
+    data_page_header.__set_definition_level_encoding(
+        ToThrift(page.definition_level_encoding()));
+    data_page_header.__set_repetition_level_encoding(
+        ToThrift(page.repetition_level_encoding()));
+    data_page_header.__set_statistics(ToThrift(page.statistics()));
+
+    format::PageHeader page_header;
+    page_header.__set_type(format::PageType::DATA_PAGE);
+    page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+    page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
+    page_header.__set_data_page_header(data_page_header);
+    // TODO(PARQUET-594) crc checksum
+
+    int64_t start_pos = sink_->Tell();
+    if (data_page_offset_ == 0) {
+      data_page_offset_ = start_pos;
+    }
+
+    int64_t header_size =
+        SerializeThriftMsg(&page_header, sizeof(format::PageHeader), sink_);
+    sink_->Write(compressed_data->data(), compressed_data->size());
+
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += compressed_data->size() + header_size;
+    num_values_ += page.num_values();
+
+    return sink_->Tell() - start_pos;
+  }
+
+  bool has_compressor() override { return (compressor_ != nullptr); }
+
+ private:
+  OutputStream* sink_;
+  ColumnChunkMetaDataBuilder* metadata_;
+  ::arrow::MemoryPool* pool_;
+  int64_t num_values_;
+  int64_t dictionary_page_offset_;
+  int64_t data_page_offset_;
+  int64_t total_uncompressed_size_;
+  int64_t total_compressed_size_;
+
+  // Compression codec to use.
+  std::unique_ptr<::arrow::Codec> compressor_;
+};
+
+std::unique_ptr<PageWriter> PageWriter::Open(OutputStream* sink, Compression::type codec,
+                                             ColumnChunkMetaDataBuilder* metadata,
+                                             ::arrow::MemoryPool* pool) {
+  return std::unique_ptr<PageWriter>(
+      new SerializedPageWriter(sink, codec, metadata, pool));
 }
 
 // ----------------------------------------------------------------------

@@ -27,9 +27,8 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-#include "parquet/file/printer.h"
-#include "parquet/file/reader-internal.h"
-#include "parquet/file/reader.h"
+#include "parquet/file_reader.h"
+#include "parquet/printer.h"
 #include "parquet/util/memory.h"
 
 using std::string;
@@ -204,7 +203,7 @@ class HelperFileClosed : public ArrowInputFile {
 TEST_F(TestLocalFile, FileClosedOnDestruction) {
   bool close_called = false;
   {
-    auto contents = SerializedFile::Open(
+    auto contents = ParquetFileReader::Contents::Open(
         std::unique_ptr<RandomAccessSource>(new HelperFileClosed(handle, &close_called)));
     std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
     result->Open(std::move(contents));
