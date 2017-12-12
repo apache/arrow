@@ -32,9 +32,6 @@ set(ARROW_GPU_SRCS
   cuda_memory.cc
 )
 
-add_custom_target(arrow_gpu_sources DEPENDS ${ARROW_GPU_SRCS})
-add_dependencies(arrow_gpu_sources metadata_fbs)
-
 set(ARROW_GPU_SHARED_LINK_LIBS
   arrow_shared
   ${CUDA_LIBRARIES}
@@ -43,6 +40,7 @@ set(ARROW_GPU_SHARED_LINK_LIBS
 
 ADD_ARROW_LIB(arrow_gpu
   SOURCES ${ARROW_GPU_SRCS}
+  DEPENDENCIES metadata_fbs
   SHARED_LINK_FLAGS ""
   SHARED_LINK_LIBS ${ARROW_GPU_SHARED_LINK_LIBS}
   STATIC_LINK_LIBS ""
