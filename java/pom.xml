@@ -41,8 +41,8 @@
   </properties>
 
   <scm>
-    <connection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</developerConnection>
+    <connection>scm:git:https://github.com/apache/arrow.git</connection>
+    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
     <url>https://github.com/apache/arrow</url>
     <tag>apache-arrow-0.7.1</tag>
   </scm>
