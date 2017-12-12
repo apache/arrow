@@ -140,6 +140,13 @@ export class Field implements VisitorNode {
     accept(visitor: Visitor): any {
         return visitor.visitField(this);
     }
+    indexField() {
+        return !this.dictionary ? this : new Field(
+            this.name,
+            this.dictionary.indexType, this.dictionary.indexType.type,
+            this.nullable, this.children, this.metadata, this.dictionary
+        );
+    }
 }
 
 export class RecordBatch extends Message {
@@ -307,7 +314,7 @@ export class Time extends FieldType {
 export class Timestamp extends FieldType {
     toString() { return `Timestamp unit[${this.unit}], timezone[${this.timezone}]`; }
     constructor(public unit: TimeUnit, public timezone?: string | null) {
-        super(Type.Time);
+        super(Type.Timestamp);
     }
     accept(visitor: Visitor) {
         return visitor.visitTimestampFieldType(this);
@@ -327,7 +334,7 @@ export class Interval extends FieldType {
 export class List extends FieldType {
     toString() { return `List`; }
     constructor() {
-        super(Type.Time);
+        super(Type.List);
     }
     accept(visitor: Visitor) {
         return visitor.visitListFieldType(this);
@@ -337,7 +344,7 @@ export class List extends FieldType {
 export class Struct extends FieldType {
     toString() { return `Struct`; }
     constructor() {
-        super(Type.Time);
+        super(Type.Struct_);
     }
     accept(visitor: Visitor) {
         return visitor.visitStructFieldType(this);
@@ -347,7 +354,7 @@ export class Struct extends FieldType {
 export class Union extends FieldType {
     toString() { return `Union mode[${this.mode}], typeIds[${this.typeIds}]`; }
     constructor(public mode: UnionMode, public typeIds: Type[]) {
-        super(Type.Time);
+        super(Type.Union);
     }
     accept(visitor: Visitor) {
         return visitor.visitUnionFieldType(this);
@@ -377,7 +384,7 @@ export class FixedSizeList extends FieldType {
 export class Map_ extends FieldType {
     toString() { return `Map keysSorted[${this.keysSorted}]`; }
     constructor(public keysSorted: boolean) {
-        super(Type.Time);
+        super(Type.Map);
     }
     accept(visitor: Visitor) {
         return visitor.visitMapFieldType(this);

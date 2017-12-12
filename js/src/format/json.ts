@@ -154,7 +154,7 @@ function boolFromJSON(_type: any) { return new Bool(); }
 function decimalFromJSON(_type: any) { return new Decimal(_type.scale, _type.precision); }
 function dateFromJSON(_type: any) { return new Date(DateUnit[_type.unit] as any); }
 function timeFromJSON(_type: any) { return new Time(TimeUnit[_type.unit] as any, _type.bitWidth as TimeBitWidth); }
-function timestampFromJSON(_type: any) { return new Timestamp(_type.unit, _type.timezone); }
+function timestampFromJSON(_type: any) { return new Timestamp(TimeUnit[_type.unit] as any, _type.timezone); }
 function intervalFromJSON(_type: any) { return new Interval(IntervalUnit[_type.unit] as any); }
 function listFromJSON(_type: any) { return new List(); }
 function structFromJSON(_type: any) { return new Struct(); }

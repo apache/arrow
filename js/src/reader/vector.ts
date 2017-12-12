@@ -97,7 +97,7 @@ export class VectorReader implements VectorLayoutReader {
     readDictionaryVector(field: Field) {
         const encoding = field.dictionary;
         if (encoding) {
-            const keys = this.readIntVector(field, encoding.indexType);
+            const keys = this.readIntVector(field.indexField());
             const data = this.dictionaries.get(encoding.dictionaryId.toFloat64().toString())!;
             return new DictionaryVector({
                 field, data, keys,
@@ -222,7 +222,8 @@ export class VectorReader implements VectorLayoutReader {
         }
         throw new Error(`Unrecognized FloatingPoint { precision: ${type.precision} }`);
     }
-    readIntVector(field: Field, type = field.type as Int) {
+    readIntVector(field: Field) {
+        const type = field.type as Int;
         if (type.isSigned) {
             switch (type.bitWidth) {
                 case  8: return new  Int8Vector(this.readFixedWidthLayout(field, Int8Array));

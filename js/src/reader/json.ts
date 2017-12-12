@@ -31,9 +31,9 @@ export function* readJSON(json: any) {
         const message = dictionaryBatchFromJSON(batch);
         yield {
             schema, message, reader: new JSONVectorLayoutReader(
-                flattenDataSources(batch.columns),
-                message.fieldNodes[Symbol.iterator](),
-                message.buffers[Symbol.iterator]()
+                flattenDataSources(batch.data.columns),
+                (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
+                (function* (buffers) { yield* buffers; })(message.buffers)
             ) as VectorLayoutReader
         };
     }
@@ -42,8 +42,8 @@ export function* readJSON(json: any) {
         yield {
             schema, message, reader: new JSONVectorLayoutReader(
                 flattenDataSources(batch.columns),
-                message.fieldNodes[Symbol.iterator](),
-                message.buffers[Symbol.iterator]()
+                (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
+                (function* (buffers) { yield* buffers; })(message.buffers)
             ) as VectorLayoutReader
         };
     }
@@ -104,7 +104,9 @@ const encoder = new TextEncoder('utf-8');
 
 function createDataArray<T extends TypedArray>(sources: any[][], field: Field, _fieldNode: FieldNode, buffer: Buffer, ArrayConstructor: TypedArrayConstructor<T>): T {
     let type = field.type, data: ArrayLike<number> | ArrayBufferLike;
-    if ((type.isInt() || type.isTime()) && type.bitWidth === 64) {
+    if (type.isTimestamp() === true) {
+        data = int64sFromJSON(sources[buffer.offset.low] as string[]);
+    } else if ((type.isInt() || type.isTime()) && type.bitWidth === 64) {
         data = int64sFromJSON(sources[buffer.offset.low] as string[]);
     } else if (type.isDate() && type.unit === DateUnit.MILLISECOND) {
         data = int64sFromJSON(sources[buffer.offset.low] as string[]);

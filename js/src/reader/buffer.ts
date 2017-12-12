@@ -32,8 +32,8 @@ export function* readBuffers<T extends Uint8Array | NodeBuffer | string>(sources
                 yield {
                     schema, message, reader: new BufferVectorLayoutReader(
                         bb,
-                        message.fieldNodes[Symbol.iterator](),
-                        message.buffers[Symbol.iterator]()
+                        (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
+                        (function* (buffers) { yield* buffers; })(message.buffers)
                     ) as VectorLayoutReader
                 };
             }
@@ -51,8 +51,8 @@ export async function* readBuffersAsync<T extends Uint8Array | NodeBuffer | stri
                 yield {
                     schema, message, reader: new BufferVectorLayoutReader(
                         bb,
-                        message.fieldNodes[Symbol.iterator](),
-                        message.buffers[Symbol.iterator]()
+                        (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
+                        (function* (buffers) { yield* buffers; })(message.buffers)
                     ) as VectorLayoutReader
                 };
             }
