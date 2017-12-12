@@ -1593,6 +1593,7 @@ def test_backwards_compatible_column_metadata_handling():
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
+@parquet
 def test_decimal_roundtrip(tmpdir):
     num_values = 10
 
@@ -1619,6 +1620,7 @@ def test_decimal_roundtrip(tmpdir):
     tm.assert_frame_equal(result, expected)
 
 
+@parquet
 @pytest.mark.xfail(
     raises=pa.ArrowException, reason='Parquet does not support negative scale'
 )
