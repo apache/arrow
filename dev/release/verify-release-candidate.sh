@@ -176,15 +176,17 @@ test_js() {
   pushd js
   npm install
   # clean, lint, and build JS source
-  npm run clean:all
-  npm run lint
-  npm run build
+  npx run-s clean:all lint build
+  npm run test
+
   # create initial integration test data
-  npm run create:testdata
+  # npm run create:testdata
+
   # run once to write the snapshots
-  npm test -- -t ts -u --integration
+  # npm test -- -t ts -u --integration
+
   # run again to test all builds against the snapshots
-  npm test -- --integration
+  # npm test -- --integration
   popd
 }
 
@@ -243,10 +245,11 @@ cd ${DIST_NAME}
 test_package_java
 setup_miniconda
 test_and_install_cpp
+test_integration
 test_glib
 install_parquet_cpp
 test_python
-test_integration
+
 test_js
 
 echo 'Release candidate looks good!'
