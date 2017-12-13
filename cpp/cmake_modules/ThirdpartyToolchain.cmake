@@ -908,6 +908,9 @@ if (ARROW_ORC)
   set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
   set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
+  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+  # ${LZ4_HOME}/include, which forces us to specify the include directory
+  # manually as well.
   set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                       -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
                       -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
@@ -918,6 +921,7 @@ if (ARROW_ORC)
                       -DINSTALL_VENDORED_LIBS=OFF
                       -DPROTOBUF_HOME=${PROTOBUF_HOME}
                       -DLZ4_HOME=${LZ4_HOME}
+                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
                       -DSNAPPY_HOME=${SNAPPY_HOME}
                       -DZLIB_HOME=${ZLIB_HOME})
 
@@ -931,6 +935,6 @@ if (ARROW_ORC)
   ADD_THIRDPARTY_LIB(orc
     STATIC_LIB ${ORC_STATIC_LIB})
 
-  add_dependencies(orc_ep protobuf)
+  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
   add_dependencies(orc orc_ep)
 endif()
