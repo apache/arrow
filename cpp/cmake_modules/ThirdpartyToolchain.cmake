@@ -879,7 +879,7 @@ if (ARROW_ORC)
     set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
 
     ExternalProject_Add(protobuf_ep
-      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}"
+      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
       BUILD_IN_SOURCE 1
       URL ${PROTOBUF_SRC_URL}
       LOG_DOWNLOAD 1
