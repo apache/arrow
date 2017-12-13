@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
     parquet::FloatWriter* float_writer =
         static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-      float value = i * 1.1f;
+      float value = static_cast<float>(i) * 1.1f;
       float_writer->WriteBatch(1, nullptr, nullptr, &value);
     }
 
@@ -188,9 +188,9 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
       parquet::ByteArray value;
       char hello[FIXED_LENGTH] = "parquet";
-      hello[7] = '0' + i / 100;
-      hello[8] = '0' + (i / 10) % 10;
-      hello[9] = '0' + i % 10;
+      hello[7] = static_cast<char>(static_cast<int>('0') + i / 100);
+      hello[8] = static_cast<char>(static_cast<int>('0') + (i / 10) % 10);
+      hello[9] = static_cast<char>(static_cast<int>('0') + i % 10);
       if (i % 2 == 0) {
         int16_t definition_level = 1;
         value.ptr = reinterpret_cast<const uint8_t*>(&hello[0]);
@@ -369,7 +369,7 @@ int main(int argc, char** argv) {
         // There are no NULL values in the rows written
         assert(values_read == 1);
         // Verify the value written
-        float expected_value = i * 1.1f;
+        float expected_value = static_cast<float>(i) * 1.1f;
         assert(value == expected_value);
         i++;
       }
@@ -411,9 +411,9 @@ int main(int argc, char** argv) {
         assert(rows_read == 1);
         // Verify the value written
         char expected_value[FIXED_LENGTH] = "parquet";
-        expected_value[7] = '0' + i / 100;
-        expected_value[8] = '0' + (i / 10) % 10;
-        expected_value[9] = '0' + i % 10;
+        expected_value[7] = static_cast<char>('0' + i / 100);
+        expected_value[8] = static_cast<char>('0' + (i / 10) % 10);
+        expected_value[9] = static_cast<char>('0' + i % 10);
         if (i % 2 == 0) {  // only alternate values exist
           // There are no NULL values in the rows written
           assert(values_read == 1);
