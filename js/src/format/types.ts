@@ -119,6 +119,27 @@ export class Schema extends Message {
     }
 }
 
+export class RecordBatch extends Message {
+    constructor(version: MetadataVersion, public length: Long, public fieldNodes: FieldNode[], public buffers: Buffer[]) {
+        super(version, new Long(buffers.reduce((s, b) => align(s + b.length.low + (b.offset.low - s), 8), 0), 0), MessageHeader.RecordBatch);
+    }
+    accept(visitor: Visitor) {
+        return visitor.visitRecordBatch(this);
+    }
+}
+
+export class DictionaryBatch extends Message {
+    constructor(version: MetadataVersion, public dictionary: RecordBatch, public dictionaryId: Long, public isDelta: boolean) {
+        super(version, dictionary.bodyLength, MessageHeader.DictionaryBatch);
+    }
+    get fieldNodes(): FieldNode[] { return this.dictionary.fieldNodes; }
+    get buffers(): Buffer[] { return this.dictionary.buffers; }
+    accept(visitor: Visitor) {
+        return visitor.visitDictionaryBatch(this);
+    }
+    static atomicDictionaryId = 0;
+}
+
 export class Field implements VisitorNode {
     public dictionaries: Field[];
     constructor(public name: string,
@@ -147,27 +168,6 @@ export class Field implements VisitorNode {
             this.nullable, this.children, this.metadata, this.dictionary
         );
     }
-}
-
-export class RecordBatch extends Message {
-    constructor(version: MetadataVersion, public length: Long, public fieldNodes: FieldNode[], public buffers: Buffer[]) {
-        super(version, new Long(buffers.reduce((s, b) => align(s + b.length.low + (b.offset.low - s), 8), 0), 0), MessageHeader.RecordBatch);
-    }
-    accept(visitor: Visitor) {
-        return visitor.visitRecordBatch(this);
-    }
-}
-
-export class DictionaryBatch extends Message {
-    constructor(version: MetadataVersion, public dictionary: RecordBatch, public dictionaryId: Long, public isDelta: boolean) {
-        super(version, dictionary.bodyLength, MessageHeader.DictionaryBatch);
-    }
-    get fieldNodes(): FieldNode[] { return this.dictionary.fieldNodes; }
-    get buffers(): Buffer[] { return this.dictionary.buffers; }
-    accept(visitor: Visitor) {
-        return visitor.visitDictionaryBatch(this);
-    }
-    static atomicDictionaryId = 0;
 }
 
 export class Buffer implements VisitorNode {

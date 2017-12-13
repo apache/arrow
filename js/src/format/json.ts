@@ -32,23 +32,23 @@ import {
 
 export function schemaFromJSON(s: any): Schema {
     // todo: metadataFromJSON
-    return new Schema(MetadataVersion.V4, fieldsFromJSON(s.fields));
+    return new Schema(MetadataVersion.V4, fieldsFromJSON(s['fields']));
 }
 
 export function recordBatchFromJSON(b: any): RecordBatch {
     return new RecordBatch(
         MetadataVersion.V4,
-        new Long(b.count, 0),
-        fieldNodesFromJSON(b.columns),
-        buffersFromJSON(b.columns)
+        new Long(b['count'], 0),
+        fieldNodesFromJSON(b['columns']),
+        buffersFromJSON(b['columns'])
     );
 }
 
 export function dictionaryBatchFromJSON(b: any): DictionaryBatch {
     return new DictionaryBatch(
         MetadataVersion.V4,
-        recordBatchFromJSON(b.data),
-        new Long(b.id, 0), b.isDelta
+        recordBatchFromJSON(b['data']),
+        new Long(b['id'], 0), b['isDelta']
     );
 }
 
@@ -60,20 +60,20 @@ function fieldNodesFromJSON(xs: any[]): FieldNode[] {
     return (xs || []).reduce<FieldNode[]>((fieldNodes, column: any) => [
         ...fieldNodes,
         new FieldNode(
-            new Long(column.count, 0),
-            new Long(nullCountFromJSON(column.VALIDITY), 0)
+            new Long(column['count'], 0),
+            new Long(nullCountFromJSON(column['VALIDITY']), 0)
         ),
-        ...fieldNodesFromJSON(column.children)
+        ...fieldNodesFromJSON(column['children'])
     ], [] as FieldNode[]);
 }
 
 function buffersFromJSON(xs: any[], buffers: Buffer[] = []): Buffer[] {
     for (let i = -1, n = (xs || []).length; ++i < n;) {
         const column = xs[i];
-        column.VALIDITY && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.VALIDITY.length, 0)));
-        column.OFFSET && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.OFFSET.length, 0)));
-        column.DATA && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.DATA.length, 0)));
-        buffers = buffersFromJSON(column.children, buffers);
+        column['VALIDITY'] && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column['VALIDITY'].length, 0)));
+        column['OFFSET'] && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column['OFFSET'].length, 0)));
+        column['DATA'] && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column['DATA'].length, 0)));
+        buffers = buffersFromJSON(column['children'], buffers);
     }
     return buffers;
 }
@@ -84,13 +84,13 @@ function nullCountFromJSON(validity: number[]) {
 
 function fieldFromJSON(f: any) {
     return new Field(
-        f.name,
-        typeFromJSON(f.type),
-        namesToTypeMap[f.type.name],
+        f['name'],
+        typeFromJSON(f['type']),
+        namesToTypeMap[f['type']['name']],
         f.nullable,
-        fieldsFromJSON(f.children),
+        fieldsFromJSON(f['children']),
         null, // todo: metadataFromJSON
-        dictionaryEncodingFromJSON(f.dictionary)
+        dictionaryEncodingFromJSON(f['dictionary'])
     );
 }
 
@@ -123,7 +123,7 @@ const namesToTypeMap: { [n: string]: Type }  = {
 };
 
 function typeFromJSON(t: any) {
-    switch (namesToTypeMap[t.name]) {
+    switch (namesToTypeMap[t['name']]) {
         case Type.NONE: return nullFromJSON(t);
         case Type.Null: return nullFromJSON(t);
         case Type.Int: return intFromJSON(t);
@@ -143,23 +143,23 @@ function typeFromJSON(t: any) {
         case Type.FixedSizeList: return fixedSizeListFromJSON(t);
         case Type.Map: return mapFromJSON(t);
     }
-    throw new Error(`Unrecognized type ${t.name}`);
+    throw new Error(`Unrecognized type ${t['name']}`);
 }
 
 function nullFromJSON(_type: any) { return new Null(); }
-function intFromJSON(_type: any) { return new Int(_type.isSigned, _type.bitWidth as IntBitWidth); }
-function floatingPointFromJSON(_type: any) { return new FloatingPoint(Precision[_type.precision] as any); }
+function intFromJSON(_type: any) { return new Int(_type['isSigned'], _type['bitWidth'] as IntBitWidth); }
+function floatingPointFromJSON(_type: any) { return new FloatingPoint(Precision[_type['precision']] as any); }
 function binaryFromJSON(_type: any) { return new Binary(); }
 function utf8FromJSON(_type: any) { return new Utf8(); }
 function boolFromJSON(_type: any) { return new Bool(); }
-function decimalFromJSON(_type: any) { return new Decimal(_type.scale, _type.precision); }
-function dateFromJSON(_type: any) { return new Date(DateUnit[_type.unit] as any); }
-function timeFromJSON(_type: any) { return new Time(TimeUnit[_type.unit] as any, _type.bitWidth as TimeBitWidth); }
-function timestampFromJSON(_type: any) { return new Timestamp(TimeUnit[_type.unit] as any, _type.timezone); }
-function intervalFromJSON(_type: any) { return new Interval(IntervalUnit[_type.unit] as any); }
+function decimalFromJSON(_type: any) { return new Decimal(_type['scale'], _type['precision']); }
+function dateFromJSON(_type: any) { return new Date(DateUnit[_type['unit']] as any); }
+function timeFromJSON(_type: any) { return new Time(TimeUnit[_type['unit']] as any, _type['bitWidth'] as TimeBitWidth); }
+function timestampFromJSON(_type: any) { return new Timestamp(TimeUnit[_type['unit']] as any, _type['timezone']); }
+function intervalFromJSON(_type: any) { return new Interval(IntervalUnit[_type['unit']] as any); }
 function listFromJSON(_type: any) { return new List(); }
 function structFromJSON(_type: any) { return new Struct(); }
-function unionFromJSON(_type: any) { return new Union(_type.mode, (_type.typeIdsArray || []) as Type[]); }
-function fixedSizeBinaryFromJSON(_type: any) { return new FixedSizeBinary(_type.byteWidth); }
-function fixedSizeListFromJSON(_type: any) { return new FixedSizeList(_type.listSize); }
-function mapFromJSON(_type: any) { return new Map_(_type.keysSorted); }
+function unionFromJSON(_type: any) { return new Union(_type['mode'], (_type['typeIdsArray'] || []) as Type[]); }
+function fixedSizeBinaryFromJSON(_type: any) { return new FixedSizeBinary(_type['byteWidth']); }
+function fixedSizeListFromJSON(_type: any) { return new FixedSizeList(_type['listSize']); }
+function mapFromJSON(_type: any) { return new Map_(_type['keysSorted']); }

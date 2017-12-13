@@ -70,7 +70,7 @@ export async function* readVectorsAsync(messages: AsyncIterable<{ schema: Schema
 }
 
 function* readMessageVectors(schema: Schema, message: RecordBatch | DictionaryBatch, reader: VectorReader) {
-    if (message.isRecordBatch()) {
+    if (message.isRecordBatch() === true) {
         yield schema.fields.map((field) => reader.readVector(field));
     } else if (message.isDictionaryBatch()) {
         let id = message.dictionaryId.toFloat64().toString();

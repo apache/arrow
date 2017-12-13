@@ -26,22 +26,22 @@ import { Schema, RecordBatch, DictionaryBatch, Field, Buffer, FieldNode } from '
 export { Schema, RecordBatch, DictionaryBatch };
 
 export function* readJSON(json: any) {
-    const schema = schemaFromJSON(json.schema);
-    for (const batch of (json.dictionaries || [])) {
+    const schema = schemaFromJSON(json['schema']);
+    for (const batch of (json['dictionaries'] || [])) {
         const message = dictionaryBatchFromJSON(batch);
         yield {
             schema, message, reader: new JSONVectorLayoutReader(
-                flattenDataSources(batch.data.columns),
+                flattenDataSources(batch['data']['columns']),
                 (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
                 (function* (buffers) { yield* buffers; })(message.buffers)
             ) as VectorLayoutReader
         };
     }
-    for (const batch of (json.batches || [])) {
+    for (const batch of (json['batches'] || [])) {
         const message = recordBatchFromJSON(batch);
         yield {
             schema, message, reader: new JSONVectorLayoutReader(
-                flattenDataSources(batch.columns),
+                flattenDataSources(batch['columns']),
                 (function* (fieldNodes) { yield* fieldNodes; })(message.fieldNodes),
                 (function* (buffers) { yield* buffers; })(message.buffers)
             ) as VectorLayoutReader
@@ -52,10 +52,10 @@ export function* readJSON(json: any) {
 function flattenDataSources(xs: any[]): any[][] {
     return (xs || []).reduce<any[][]>((buffers, column: any) => [
         ...buffers,
-        ...(column.VALIDITY && [column.VALIDITY] || []),
-        ...(column.OFFSET && [column.OFFSET] || []),
-        ...(column.DATA && [column.DATA] || []),
-        ...flattenDataSources(column.children)
+        ...(column['VALIDITY'] && [column['VALIDITY']] || []),
+        ...(column['OFFSET'] && [column['OFFSET']] || []),
+        ...(column['DATA'] && [column['DATA']] || []),
+        ...flattenDataSources(column['children'])
     ], [] as any[][]);
 }
 
