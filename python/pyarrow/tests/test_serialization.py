@@ -198,9 +198,7 @@ def make_serialization_context():
     context.register_type(Baz, "Baz")
     context.register_type(Qux, "Quz")
     context.register_type(SubQux, "SubQux")
-    context.register_type(SubQuxPickle, "SubQuxPickle",
-                          custom_serializer=pickle.dumps,
-                          custom_deserializer=pickle.loads)
+    context.register_type(SubQuxPickle, "SubQuxPickle", pickle=True)
     context.register_type(Exception, "Exception")
     context.register_type(CustomError, "CustomError")
     context.register_type(Point, "Point")
