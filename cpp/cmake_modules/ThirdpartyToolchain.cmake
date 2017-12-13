@@ -910,6 +910,7 @@ if (ARROW_ORC)
 
   set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                       -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
                       -DBUILD_LIBHDFSPP=OFF
                       -DBUILD_JAVA=OFF
                       -DBUILD_TOOLS=OFF
