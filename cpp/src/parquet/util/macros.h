@@ -27,6 +27,23 @@
   void operator=(const TypeName&) = delete
 #endif
 
+#if defined(__GNUC__)
+#define PARQUET_PREDICT_FALSE(x) (__builtin_expect(x, 0))
+#define PARQUET_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#define PARQUET_NORETURN __attribute__((noreturn))
+#define PARQUET_PREFETCH(addr) __builtin_prefetch(addr)
+#elif defined(_MSC_VER)
+#define PARQUET_NORETURN __declspec(noreturn)
+#define PARQUET_PREDICT_FALSE(x) x
+#define PARQUET_PREDICT_TRUE(x) x
+#define PARQUET_PREFETCH(addr)
+#else
+#define PARQUET_NORETURN
+#define PARQUET_PREDICT_FALSE(x) x
+#define PARQUET_PREDICT_TRUE(x) x
+#define PARQUET_PREFETCH(addr)
+#endif
+
 // ----------------------------------------------------------------------
 // From googletest
 

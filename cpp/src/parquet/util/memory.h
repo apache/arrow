@@ -244,6 +244,8 @@ class PARQUET_EXPORT ChunkedAllocator {
 
 class PARQUET_EXPORT FileInterface {
  public:
+  virtual ~FileInterface() = default;
+
   // Close the file
   virtual void Close() = 0;
 
@@ -255,7 +257,7 @@ class PARQUET_EXPORT FileInterface {
 /// resources
 class PARQUET_EXPORT RandomAccessSource : virtual public FileInterface {
  public:
-  virtual ~RandomAccessSource() {}
+  virtual ~RandomAccessSource() = default;
 
   virtual int64_t Size() const = 0;
 
@@ -272,7 +274,7 @@ class PARQUET_EXPORT RandomAccessSource : virtual public FileInterface {
 
 class PARQUET_EXPORT OutputStream : virtual public FileInterface {
  public:
-  virtual ~OutputStream() {}
+  virtual ~OutputStream() = default;
 
   // Copy bytes into the output stream
   virtual void Write(const uint8_t* data, int64_t length) = 0;

@@ -21,19 +21,23 @@
 #include <sstream>
 #include <string>
 
+#include "parquet/util/macros.h"
+
 namespace parquet {
 
-void ParquetException::EofException() {
+PARQUET_NORETURN void ParquetException::EofException() {
   throw ParquetException("Unexpected end of stream.");
 }
 
-void ParquetException::NYI(const std::string& msg) {
+PARQUET_NORETURN void ParquetException::NYI(const std::string& msg) {
   std::stringstream ss;
   ss << "Not yet implemented: " << msg << ".";
   throw ParquetException(ss.str());
 }
 
-void ParquetException::Throw(const std::string& msg) { throw ParquetException(msg); }
+PARQUET_NORETURN void ParquetException::Throw(const std::string& msg) {
+  throw ParquetException(msg);
+}
 
 ParquetException::ParquetException(const char* msg) : msg_(msg) {}
 

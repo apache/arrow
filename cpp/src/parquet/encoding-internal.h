@@ -81,7 +81,7 @@ class PlainDecoder : public Decoder<DType> {
 template <typename T>
 inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
                        int type_length, T* out) {
-  int bytes_to_decode = num_values * sizeof(T);
+  int bytes_to_decode = num_values * static_cast<int>(sizeof(T));
   if (data_size < bytes_to_decode) {
     ParquetException::EofException();
   }
@@ -98,7 +98,7 @@ inline int DecodePlain<ByteArray>(const uint8_t* data, int64_t data_size, int nu
   int increment;
   for (int i = 0; i < num_values; ++i) {
     uint32_t len = out[i].len = *reinterpret_cast<const uint32_t*>(data);
-    increment = sizeof(uint32_t) + len;
+    increment = static_cast<int>(sizeof(uint32_t) + len);
     if (data_size < increment) ParquetException::EofException();
     out[i].ptr = data + sizeof(uint32_t);
     data += increment;
@@ -518,7 +518,7 @@ class DictEncoder : public Encoder<DType> {
     ClearIndices();
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
-  };
+  }
 
   void Put(const T* values, int num_values) override {
     for (int i = 0; i < num_values; i++) {
@@ -688,7 +688,7 @@ inline void DictEncoder<DType>::DoubleTableSize() {
 template <typename DType>
 inline void DictEncoder<DType>::AddDictKey(const typename DType::c_type& v) {
   uniques_.push_back(v);
-  dict_encoded_size_ += sizeof(typename DType::c_type);
+  dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type));
 }
 
 template <>
@@ -699,7 +699,7 @@ inline void DictEncoder<ByteArrayType>::AddDictKey(const ByteArray& v) {
   }
   memcpy(heap, v.ptr, v.len);
   uniques_.push_back(ByteArray(v.len, heap));
-  dict_encoded_size_ += v.len + sizeof(uint32_t);
+  dict_encoded_size_ += static_cast<int>(v.len + sizeof(uint32_t));
 }
 
 template <>
@@ -757,7 +757,7 @@ inline void DictEncoder<FLBAType>::WriteDict(uint8_t* buffer) {
 template <typename DType>
 inline int DictEncoder<DType>::WriteIndices(uint8_t* buffer, int buffer_len) {
   // Write bit width in first byte
-  *buffer = bit_width();
+  *buffer = static_cast<uint8_t>(bit_width());
   ++buffer;
   --buffer_len;
 

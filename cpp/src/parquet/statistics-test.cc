@@ -563,8 +563,8 @@ void TestStatistics<Int96Type>::SetValues() {
 template <>
 void TestStatistics<FloatType>::SetValues() {
   for (int i = 0; i < NUM_VALUES; i++) {
-    values_[i] =
-        (i * 1.0f) - 5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
+    values_[i] = static_cast<float>(i) -
+                 5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
   }
 
   // Write Float min/max values
@@ -577,8 +577,8 @@ void TestStatistics<FloatType>::SetValues() {
 template <>
 void TestStatistics<DoubleType>::SetValues() {
   for (int i = 0; i < NUM_VALUES; i++) {
-    values_[i] =
-        (i * 1.0f) - 5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
+    values_[i] = static_cast<float>(i) -
+                 5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
   }
 
   // Write Double min/max values

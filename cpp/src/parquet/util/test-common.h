@@ -103,7 +103,7 @@ void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
   std::uniform_int_distribution<int> d(0, 255);
 
   for (int i = 0; i < n; ++i) {
-    out->push_back(d(gen) & 0xFF);
+    out->push_back(static_cast<uint8_t>(d(gen) & 0xFF));
   }
 }
 
@@ -160,7 +160,7 @@ void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* 
   for (int i = 0; i < n; ++i) {
     out[i].ptr = buf;
     for (int j = 0; j < len; ++j) {
-      buf[j] = d(gen) & 0xFF;
+      buf[j] = static_cast<uint8_t>(d(gen) & 0xFF);
     }
     buf += len;
   }
@@ -176,7 +176,7 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
     out[i].len = len;
     out[i].ptr = buf;
     for (int j = 0; j < len; ++j) {
-      buf[j] = d2(gen) & 0xFF;
+      buf[j] = static_cast<uint8_t>(d2(gen) & 0xFF);
     }
     buf += len;
   }

@@ -186,7 +186,7 @@ class LevelBuilder {
     if (nullable_[rep_level]) {
       if (null_counts_[rep_level] == 0 ||
           BitUtil::GetBit(valid_bitmaps_[rep_level], index + array_offsets_[rep_level])) {
-        return HandleNonNullList(def_level + 1, rep_level, index);
+        return HandleNonNullList(static_cast<int16_t>(def_level + 1), rep_level, index);
       } else {
         return def_levels_.Append(def_level);
       }
@@ -203,24 +203,26 @@ class LevelBuilder {
       return def_levels_.Append(def_level);
     }
     if (recursion_level < static_cast<int64_t>(offsets_.size())) {
-      return HandleListEntries(def_level + 1, rep_level + 1, inner_offset, inner_length);
+      return HandleListEntries(static_cast<int16_t>(def_level + 1),
+                               static_cast<int16_t>(rep_level + 1), inner_offset,
+                               inner_length);
     } else {
       // We have reached the leaf: primitive list, handle remaining nullables
       for (int64_t i = 0; i < inner_length; i++) {
         if (i > 0) {
-          RETURN_NOT_OK(rep_levels_.Append(rep_level + 1));
+          RETURN_NOT_OK(rep_levels_.Append(static_cast<int16_t>(rep_level + 1)));
         }
         if (nullable_[recursion_level] &&
             ((null_counts_[recursion_level] == 0) ||
              BitUtil::GetBit(valid_bitmaps_[recursion_level],
                              inner_offset + i + array_offsets_[recursion_level]))) {
-          RETURN_NOT_OK(def_levels_.Append(def_level + 2));
+          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 2)));
         } else {
           // This can be produced in two case:
           //  * elements are nullable and this one is null (i.e. max_def_level = def_level
           //  + 2)
           //  * elements are non-nullable (i.e. max_def_level = def_level + 1)
-          RETURN_NOT_OK(def_levels_.Append(def_level + 1));
+          RETURN_NOT_OK(def_levels_.Append(static_cast<int16_t>(def_level + 1)));
         }
       }
       return Status::OK();
@@ -340,20 +342,21 @@ Status FileWriter::Impl::TypedWriteBatch(ColumnWriter* column_writer,
                                          const int16_t* rep_levels) {
   using ArrowCType = typename ArrowType::c_type;
 
-  auto data = static_cast<const PrimitiveArray*>(array.get());
-  auto data_ptr = reinterpret_cast<const ArrowCType*>(data->raw_values());
+  const auto& data = static_cast<const PrimitiveArray&>(*array);
+  auto data_ptr =
+      reinterpret_cast<const ArrowCType*>(data.values()->data()) + data.offset();
   auto writer = reinterpret_cast<TypedColumnWriter<ParquetType>*>(column_writer);
 
-  if (writer->descr()->schema_node()->is_required() || (data->null_count() == 0)) {
+  if (writer->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
     // no nulls, just dump the data
     RETURN_NOT_OK((WriteNonNullableBatch<ParquetType, ArrowType>(
         writer, static_cast<const ArrowType&>(*array->type()), array->length(),
         num_levels, def_levels, rep_levels, data_ptr)));
   } else {
-    const uint8_t* valid_bits = data->null_bitmap_data();
+    const uint8_t* valid_bits = data.null_bitmap_data();
     RETURN_NOT_OK((WriteNullableBatch<ParquetType, ArrowType>(
-        writer, static_cast<const ArrowType&>(*array->type()), data->length(), num_levels,
-        def_levels, rep_levels, valid_bits, data->offset(), data_ptr)));
+        writer, static_cast<const ArrowType&>(*array->type()), data.length(), num_levels,
+        def_levels, rep_levels, valid_bits, data.offset(), data_ptr)));
   }
   PARQUET_CATCH_NOT_OK(writer->Close());
   return Status::OK();
@@ -912,11 +915,10 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
   }
   std::shared_ptr<Array> values_array = _values_array->Slice(values_offset, num_values);
 
-#define WRITE_BATCH_CASE(ArrowEnum, ArrowType, ParquetType)               \
-  case ::arrow::Type::ArrowEnum:                                          \
-    return TypedWriteBatch<ParquetType, ::arrow::ArrowType>(              \
-        column_writer, values_array, num_levels, def_levels, rep_levels); \
-    break;
+#define WRITE_BATCH_CASE(ArrowEnum, ArrowType, ParquetType)  \
+  case ::arrow::Type::ArrowEnum:                             \
+    return TypedWriteBatch<ParquetType, ::arrow::ArrowType>( \
+        column_writer, values_array, num_levels, def_levels, rep_levels);
 
   switch (values_type) {
     case ::arrow::Type::UINT32: {
@@ -953,14 +955,13 @@ Status FileWriter::Impl::WriteColumnChunk(const Array& data) {
       WRITE_BATCH_CASE(TIME32, Time32Type, Int32Type)
       WRITE_BATCH_CASE(TIME64, Time64Type, Int64Type)
     default:
-      std::stringstream ss;
-      ss << "Data type not supported as list value: " << values_array->type()->ToString();
-      return Status::NotImplemented(ss.str());
+      break;
   }
 
   PARQUET_CATCH_NOT_OK(column_writer->Close());
-
-  return Status::OK();
+  std::stringstream ss;
+  ss << "Data type not supported as list value: " << values_array->type()->ToString();
+  return Status::NotImplemented(ss.str());
 }
 
 Status FileWriter::WriteColumnChunk(const ::arrow::Array& array) {

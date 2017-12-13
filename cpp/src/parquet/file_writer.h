@@ -94,7 +94,7 @@ class PARQUET_EXPORT ParquetFileWriter {
     // Perform any cleanup associated with the file contents
     virtual void Close() = 0;
 
-    /// \deprecated Since 1.3.0
+    /// \note Deprecated since 1.3.0
     RowGroupWriter* AppendRowGroup(int64_t num_rows);
 
     virtual RowGroupWriter* AppendRowGroup() = 0;

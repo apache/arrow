@@ -66,31 +66,22 @@ std::string EncodingToString(Encoding::type t) {
   switch (t) {
     case Encoding::PLAIN:
       return "PLAIN";
-      break;
     case Encoding::PLAIN_DICTIONARY:
       return "PLAIN_DICTIONARY";
-      break;
     case Encoding::RLE:
       return "RLE";
-      break;
     case Encoding::BIT_PACKED:
       return "BIT_PACKED";
-      break;
     case Encoding::DELTA_BINARY_PACKED:
       return "DELTA_BINARY_PACKED";
-      break;
     case Encoding::DELTA_LENGTH_BYTE_ARRAY:
       return "DELTA_LENGTH_BYTE_ARRAY";
-      break;
     case Encoding::DELTA_BYTE_ARRAY:
       return "DELTA_BYTE_ARRAY";
-      break;
     case Encoding::RLE_DICTIONARY:
       return "RLE_DICTIONARY";
-      break;
     default:
       return "UNKNOWN";
-      break;
   }
 }
 
@@ -98,25 +89,18 @@ std::string CompressionToString(Compression::type t) {
   switch (t) {
     case Compression::UNCOMPRESSED:
       return "UNCOMPRESSED";
-      break;
     case Compression::SNAPPY:
       return "SNAPPY";
-      break;
     case Compression::GZIP:
       return "GZIP";
-      break;
     case Compression::LZO:
       return "LZO";
-      break;
     case Compression::LZ4:
       return "LZ4";
-      break;
     case Compression::ZSTD:
       return "ZSTD";
-      break;
     default:
       return "UNKNOWN";
-      break;
   }
 }
 
@@ -124,31 +108,22 @@ std::string TypeToString(Type::type t) {
   switch (t) {
     case Type::BOOLEAN:
       return "BOOLEAN";
-      break;
     case Type::INT32:
       return "INT32";
-      break;
     case Type::INT64:
       return "INT64";
-      break;
     case Type::INT96:
       return "INT96";
-      break;
     case Type::FLOAT:
       return "FLOAT";
-      break;
     case Type::DOUBLE:
       return "DOUBLE";
-      break;
     case Type::BYTE_ARRAY:
       return "BYTE_ARRAY";
-      break;
     case Type::FIXED_LEN_BYTE_ARRAY:
       return "FIXED_LEN_BYTE_ARRAY";
-      break;
     default:
       return "UNKNOWN";
-      break;
   }
 }
 

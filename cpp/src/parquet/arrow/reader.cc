@@ -122,7 +122,7 @@ class AllRowGroupsIterator : public FileColumnIterator {
       result = nullptr;
     }
     return result;
-  };
+  }
 
  private:
   int next_row_group_;
@@ -145,7 +145,7 @@ class SingleRowGroupIterator : public FileColumnIterator {
         reader_->RowGroup(row_group_number_)->GetColumnPageReader(column_index_);
     done_ = true;
     return result;
-  };
+  }
 
  private:
   int row_group_number_;
@@ -298,8 +298,8 @@ Status FileReader::Impl::GetReaderForNode(
       // TODO(itaiin): Remove the -1 index hack when all types of nested reads
       // are supported. This currently just signals the lower level reader resolution
       // to abort
-      RETURN_NOT_OK(GetReaderForNode(index, group->field(i).get(), indices, def_level + 1,
-                                     &child_reader));
+      RETURN_NOT_OK(GetReaderForNode(index, group->field(i).get(), indices,
+                                     static_cast<int16_t>(def_level + 1), &child_reader));
       if (child_reader != nullptr) {
         children.push_back(std::move(child_reader));
       }
@@ -631,7 +631,7 @@ Status PrimitiveImpl::WrapIntoListArray(std::shared_ptr<Array>* array) {
       if (nullable[i]) {
         def_level++;
       }
-      empty_def_level[i] = def_level;
+      empty_def_level[i] = static_cast<int16_t>(def_level);
       def_level++;
     }
 

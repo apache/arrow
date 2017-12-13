@@ -258,7 +258,7 @@ TEST(TestBufferedInputStream, Basics) {
   std::shared_ptr<PoolBuffer> buf = AllocateBuffer(default_memory_pool(), source_size);
   ASSERT_EQ(source_size, buf->size());
   for (int i = 0; i < source_size; i++) {
-    buf->mutable_data()[i] = i;
+    buf->mutable_data()[i] = static_cast<uint8_t>(i);
   }
 
   auto wrapper =

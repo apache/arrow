@@ -309,8 +309,8 @@ class RecordReader::RecordReaderImpl {
   // into memory
   int64_t num_decoded_values_;
 
-  const int max_def_level_;
-  const int max_rep_level_;
+  const int16_t max_def_level_;
+  const int16_t max_rep_level_;
 
   bool nullable_values_;
 

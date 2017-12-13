@@ -207,7 +207,7 @@ class TestEncodingBase : public ::testing::Test {
   using TestEncodingBase<Type>::data_buffer_;   \
   using TestEncodingBase<Type>::type_length_;   \
   using TestEncodingBase<Type>::encode_buffer_; \
-  using TestEncodingBase<Type>::decode_buf_;
+  using TestEncodingBase<Type>::decode_buf_
 
 template <typename Type>
 class TestPlainEncoding : public TestEncodingBase<Type> {

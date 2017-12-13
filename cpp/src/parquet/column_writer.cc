@@ -342,7 +342,7 @@ int64_t ColumnWriter::RleEncodeLevels(const Buffer& src_buffer,
 
   level_encoder_.Init(Encoding::RLE, max_level, static_cast<int>(num_buffered_values_),
                       dest_buffer->mutable_data() + sizeof(int32_t),
-                      static_cast<int>(dest_buffer->size()) - sizeof(int32_t));
+                      static_cast<int>(dest_buffer->size() - sizeof(int32_t)));
   int encoded =
       level_encoder_.Encode(static_cast<int>(num_buffered_values_),
                             reinterpret_cast<const int16_t*>(src_buffer.data()));

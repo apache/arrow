@@ -186,15 +186,16 @@ static void BM_RleEncoding(::benchmark::State& state) {
   std::generate(levels.begin(), levels.end(),
                 [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
-  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
+  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
+                                                 static_cast<int>(levels.size()));
   auto buffer_rle = std::make_shared<PoolBuffer>();
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size));
 
   while (state.KeepRunning()) {
     LevelEncoder level_encoder;
-    level_encoder.Init(Encoding::RLE, max_level, levels.size(),
-                       buffer_rle->mutable_data(), buffer_rle->size());
-    level_encoder.Encode(levels.size(), levels.data());
+    level_encoder.Init(Encoding::RLE, max_level, static_cast<int>(levels.size()),
+                       buffer_rle->mutable_data(), static_cast<int>(buffer_rle->size()));
+    level_encoder.Encode(static_cast<int>(levels.size()), levels.data());
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int16_t));
   state.SetItemsProcessed(state.iterations() * state.range(0));
@@ -209,17 +210,19 @@ static void BM_RleDecoding(::benchmark::State& state) {
   std::generate(levels.begin(), levels.end(),
                 [&state, &n] { return (n++ % state.range(1)) == 0; });
   int16_t max_level = 1;
-  int64_t rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level, levels.size());
+  int rle_size = LevelEncoder::MaxBufferSize(Encoding::RLE, max_level,
+                                             static_cast<int>(levels.size()));
   auto buffer_rle = std::make_shared<PoolBuffer>();
   PARQUET_THROW_NOT_OK(buffer_rle->Resize(rle_size + sizeof(int32_t)));
-  level_encoder.Init(Encoding::RLE, max_level, levels.size(),
+  level_encoder.Init(Encoding::RLE, max_level, static_cast<int>(levels.size()),
                      buffer_rle->mutable_data() + sizeof(int32_t), rle_size);
-  level_encoder.Encode(levels.size(), levels.data());
+  level_encoder.Encode(static_cast<int>(levels.size()), levels.data());
   reinterpret_cast<int32_t*>(buffer_rle->mutable_data())[0] = level_encoder.len();
 
   while (state.KeepRunning()) {
     LevelDecoder level_decoder;
-    level_decoder.SetData(Encoding::RLE, max_level, levels.size(), buffer_rle->data());
+    level_decoder.SetData(Encoding::RLE, max_level, static_cast<int>(levels.size()),
+                          buffer_rle->data());
     level_decoder.Decode(state.range(0), levels.data());
   }
 

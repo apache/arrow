@@ -40,7 +40,9 @@ TEST(TestPublicAPI, DoesNotIncludeZlib) {
 #endif
 }
 
-void ThrowsParquetException() { throw parquet::ParquetException("This function throws"); }
+PARQUET_NORETURN void ThrowsParquetException() {
+  throw parquet::ParquetException("This function throws");
+}
 
 TEST(TestPublicAPI, CanThrowParquetException) {
   ASSERT_THROW(ThrowsParquetException(), parquet::ParquetException);

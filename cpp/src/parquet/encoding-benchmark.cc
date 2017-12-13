@@ -40,7 +40,7 @@ static void BM_PlainEncodingBoolean(::benchmark::State& state) {
   PlainEncoder<BooleanType> encoder(nullptr);
 
   while (state.KeepRunning()) {
-    encoder.Put(values, values.size());
+    encoder.Put(values, static_cast<int>(values.size()));
     encoder.FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
@@ -52,13 +52,14 @@ static void BM_PlainDecodingBoolean(::benchmark::State& state) {
   std::vector<bool> values(state.range(0), 64);
   bool* output = new bool[state.range(0)];
   PlainEncoder<BooleanType> encoder(nullptr);
-  encoder.Put(values, values.size());
+  encoder.Put(values, static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder.FlushValues();
 
   while (state.KeepRunning()) {
     PlainDecoder<BooleanType> decoder(nullptr);
-    decoder.SetData(values.size(), buf->data(), buf->size());
-    decoder.Decode(output, values.size());
+    decoder.SetData(static_cast<int>(values.size()), buf->data(),
+                    static_cast<int>(buf->size()));
+    decoder.Decode(output, static_cast<int>(values.size()));
   }
 
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
@@ -72,7 +73,7 @@ static void BM_PlainEncodingInt64(::benchmark::State& state) {
   PlainEncoder<Int64Type> encoder(nullptr);
 
   while (state.KeepRunning()) {
-    encoder.Put(values.data(), values.size());
+    encoder.Put(values.data(), static_cast<int>(values.size()));
     encoder.FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
@@ -83,13 +84,14 @@ BENCHMARK(BM_PlainEncodingInt64)->Range(1024, 65536);
 static void BM_PlainDecodingInt64(::benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
   PlainEncoder<Int64Type> encoder(nullptr);
-  encoder.Put(values.data(), values.size());
+  encoder.Put(values.data(), static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buf = encoder.FlushValues();
 
   while (state.KeepRunning()) {
     PlainDecoder<Int64Type> decoder(nullptr);
-    decoder.SetData(values.size(), buf->data(), buf->size());
-    decoder.Decode(values.data(), values.size());
+    decoder.SetData(static_cast<int>(values.size()), buf->data(),
+                    static_cast<int>(buf->size()));
+    decoder.Decode(values.data(), static_cast<int>(values.size()));
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
 }
@@ -100,7 +102,7 @@ template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
                        ::benchmark::State& state) {
   typedef typename Type::c_type T;
-  int num_values = values.size();
+  int num_values = static_cast<int>(values.size());
 
   ChunkedAllocator pool;
   MemoryPool* allocator = default_memory_pool();
@@ -118,16 +120,18 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
       AllocateBuffer(allocator, encoder.EstimatedDataEncodedSize());
 
   encoder.WriteDict(dict_buffer->mutable_data());
-  int actual_bytes = encoder.WriteIndices(indices->mutable_data(), indices->size());
+  int actual_bytes =
+      encoder.WriteIndices(indices->mutable_data(), static_cast<int>(indices->size()));
 
   PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
   while (state.KeepRunning()) {
     PlainDecoder<Type> dict_decoder(descr.get());
-    dict_decoder.SetData(encoder.num_entries(), dict_buffer->data(), dict_buffer->size());
+    dict_decoder.SetData(encoder.num_entries(), dict_buffer->data(),
+                         static_cast<int>(dict_buffer->size()));
     DictionaryDecoder<Type> decoder(descr.get());
     decoder.SetDict(&dict_decoder);
-    decoder.SetData(num_values, indices->data(), indices->size());
+    decoder.SetData(num_values, indices->data(), static_cast<int>(indices->size()));
     decoder.Decode(values.data(), num_values);
   }
 

@@ -84,7 +84,6 @@ static Status FromFLBA(const PrimitiveNode& node, TypePtr* out) {
       ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
          << " for fixed-length binary array";
       return Status::NotImplemented(ss.str());
-      break;
   }
 
   return Status::OK();
@@ -127,7 +126,6 @@ static Status FromInt32(const PrimitiveNode& node, TypePtr* out) {
       ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
          << " for INT32";
       return Status::NotImplemented(ss.str());
-      break;
   }
   return Status::OK();
 }
@@ -160,7 +158,6 @@ static Status FromInt64(const PrimitiveNode& node, TypePtr* out) {
       ss << "Unhandled logical type " << LogicalTypeToString(node.logical_type())
          << " for INT64";
       return Status::NotImplemented(ss.str());
-      break;
   }
   return Status::OK();
 }
@@ -697,9 +694,9 @@ int32_t DecimalSize(int32_t precision) {
     case 38:
       return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
     default:
-      DCHECK(false);
       break;
   }
+  DCHECK(false);
   return -1;
 }
 

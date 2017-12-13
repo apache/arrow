@@ -43,7 +43,7 @@ template <>
 void InitValues<ByteArray>(int num_values, vector<ByteArray>& values,
                            vector<uint8_t>& buffer) {
   int max_byte_array_len = 12;
-  int num_bytes = max_byte_array_len + sizeof(uint32_t);
+  int num_bytes = static_cast<int>(max_byte_array_len + sizeof(uint32_t));
   size_t nbytes = num_values * num_bytes;
   buffer.resize(nbytes);
   random_byte_array(num_values, 0, buffer.data(), values.data(), max_byte_array_len);

@@ -98,6 +98,8 @@ class PARQUET_EXPORT ColumnWriter {
                bool has_dictionary, Encoding::type encoding,
                const WriterProperties* properties);
 
+  virtual ~ColumnWriter() = default;
+
   static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
                                             std::unique_ptr<PageWriter>,
                                             const WriterProperties* properties);

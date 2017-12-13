@@ -56,7 +56,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
-      return sizeof(int32_t) + num_bytes;
+      return static_cast<int>(sizeof(int32_t)) + num_bytes;
     }
     case Encoding::BIT_PACKED: {
       num_bytes =

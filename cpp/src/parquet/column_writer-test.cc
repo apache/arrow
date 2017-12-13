@@ -509,19 +509,19 @@ void GenerateLevels(int min_repeat_factor, int max_repeat_factor, int max_level,
     // repeat count increases by a factor of 2 for every iteration
     int repeat_count = (1 << repeat);
     // generate levels for repetition count upto the maximum level
-    int value = 0;
+    int16_t value = 0;
     int bwidth = 0;
     while (value <= max_level) {
       for (int i = 0; i < repeat_count; i++) {
         input_levels.push_back(value);
       }
-      value = (2 << bwidth) - 1;
+      value = static_cast<int16_t>((2 << bwidth) - 1);
       bwidth++;
     }
   }
 }
 
-void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
+void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
                   const int16_t* input_levels, std::vector<uint8_t>& bytes) {
   LevelEncoder encoder;
   int levels_count = 0;
@@ -543,7 +543,7 @@ void EncodeLevels(Encoding::type encoding, int max_level, int num_levels,
   ASSERT_EQ(num_levels, levels_count);
 }
 
-void VerifyDecodingLevels(Encoding::type encoding, int max_level,
+void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
                           std::vector<int16_t>& input_levels,
                           std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
@@ -581,7 +581,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int max_level,
   ASSERT_EQ(0, decoder.Decode(1, output_levels.data()));
 }
 
-void VerifyDecodingMultipleSetData(Encoding::type encoding, int max_level,
+void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
                                    std::vector<int16_t>& input_levels,
                                    std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
@@ -623,7 +623,7 @@ TEST(TestLevels, TestLevelsDecodeMultipleBitWidth) {
     // for each maximum bit-width
     for (int bit_width = 1; bit_width <= max_bit_width; bit_width++) {
       // find the maximum level for the current bit_width
-      int max_level = (1 << bit_width) - 1;
+      int16_t max_level = static_cast<int16_t>((1 << bit_width) - 1);
       // Generate levels
       GenerateLevels(min_repeat_factor, max_repeat_factor, max_level, input_levels);
       EncodeLevels(encoding, max_level, static_cast<int>(input_levels.size()),
@@ -639,7 +639,7 @@ TEST(TestLevels, TestLevelsDecodeMultipleSetData) {
   int min_repeat_factor = 3;
   int max_repeat_factor = 7;  // 128
   int bit_width = 8;
-  int max_level = (1 << bit_width) - 1;
+  int16_t max_level = static_cast<int16_t>((1 << bit_width) - 1);
   std::vector<int16_t> input_levels;
   std::vector<std::vector<uint8_t>> bytes;
   Encoding::type encodings[2] = {Encoding::RLE, Encoding::BIT_PACKED};
@@ -705,7 +705,7 @@ TEST(TestLevelEncoder, MinimumBufferSize2) {
     }
   }
 
-  for (int bit_width = 1; bit_width <= 8; bit_width++) {
+  for (int16_t bit_width = 1; bit_width <= 8; bit_width++) {
     std::vector<uint8_t> output(
         LevelEncoder::MaxBufferSize(Encoding::RLE, bit_width, kNumToEncode));
 
