@@ -67,14 +67,15 @@ function fieldNodesFromJSON(xs: any[]): FieldNode[] {
     ], [] as FieldNode[]);
 }
 
-function buffersFromJSON(xs: any[], total = 0): Buffer[] {
-    return (xs || []).reduce<Buffer[]>((buffers, column: any) => [
-        ...buffers,
-        ...(column.VALIDITY && [new Buffer(new Long(total++, 0), new Long(column.VALIDITY.length, 0))] || []),
-        ...(column.OFFSET && [new Buffer(new Long(total++, 0), new Long(column.OFFSET.length, 0))] || []),
-        ...(column.DATA && [new Buffer(new Long(total++, 0), new Long(column.DATA.length, 0))] || []),
-        ...buffersFromJSON(column.children, total)
-    ], [] as Buffer[]);
+function buffersFromJSON(xs: any[], buffers: Buffer[] = []): Buffer[] {
+    for (let i = -1, n = (xs || []).length; ++i < n;) {
+        const column = xs[i];
+        column.VALIDITY && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.VALIDITY.length, 0)));
+        column.OFFSET && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.OFFSET.length, 0)));
+        column.DATA && buffers.push(new Buffer(new Long(buffers.length, 0), new Long(column.DATA.length, 0)));
+        buffers = buffersFromJSON(column.children, buffers);
+    }
+    return buffers;
 }
 
 function nullCountFromJSON(validity: number[]) {
