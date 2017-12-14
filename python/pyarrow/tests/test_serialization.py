@@ -516,3 +516,25 @@ def test_serialize_to_components_invalid_cases():
 
     with pytest.raises(pa.ArrowException):
         pa.deserialize_components(components)
+
+
+def test_deserialize_in_different_process():
+    from multiprocessing import Process, Queue
+    import re
+
+    regex = re.compile(r"\d+\.\d*")
+
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(type(regex), "Regex", pickle=True)
+
+    serialized = pa.serialize(regex, serialization_context).to_buffer()
+
+    def deserialize_regex(serialized, q):
+        import pyarrow as pa
+        q.put(pa.deserialize(serialized))
+
+    q = Queue()
+    p = Process(target=deserialize_regex, args=(serialized, q))
+    p.start()
+    assert q.get().pattern == regex.pattern
+    p.join()
