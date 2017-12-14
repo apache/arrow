@@ -69,7 +69,6 @@ const createClosureArgs = (entry, externs) => ({
     module_resolution: `NODE`,
     // formatting: `PRETTY_PRINT`, debug: true,
     compilation_level: `ADVANCED`,
-    // uncomment when google-closure-compiler releases a new version
     allow_method_call_decomposing: true,
     package_json_entry_names: `module,jsnext:main,main`,
     assume_function_wrapper: true,

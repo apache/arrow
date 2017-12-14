@@ -16,12 +16,14 @@
 // under the License.
 
 const argv = require(`command-line-args`)([
-    { name: `all`, alias: `a`, type: Boolean },
+    { name: `all`, type: Boolean },
     { name: 'update', alias: 'u', type: Boolean },
     { name: 'verbose', alias: 'v', type: Boolean },
     { name: `target`, type: String, defaultValue: `` },
     { name: `module`, type: String, defaultValue: `` },
     { name: `coverage`, type: Boolean, defaultValue: false },
+    { name: `json_file`, alias: `j`, type: String, defaultValue: null },
+    { name: `arrow_file`, alias: `a`, type: String, defaultValue: null },
     { name: `integration`, alias: `i`, type: Boolean, defaultValue: false },
     { name: `targets`, alias: `t`, type: String, multiple: true, defaultValue: [] },
     { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] },

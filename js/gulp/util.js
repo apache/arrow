@@ -27,7 +27,7 @@ const npmOrgName = `@${npmPkgName}`;
 const releasesRootDir = `targets`;
 const knownTargets = [`es5`, `es2015`, `esnext`];
 const knownModules = [`cjs`, `esm`, `cls`, `umd`];
-const moduleFormatsToSkipCombosOf = { cls: true };
+const moduleFormatsToSkipCombosOf = { cls: { test: true, integration: true } };
 const packageJSONFields = [
   `version`, `license`, `description`,
   `author`, `homepage`, `repository`,
