@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Improved JAVA Vector APIs"
-excerpt: "This post describes the recent improvements in JAVA Vector code"
+title: "Improved Java Vector APIs"
+excerpt: "This post describes the recent improvements in Java Vector code"
 date: 2017-12-13 12:50:00
 author: Siddharth Teotia
 categories: [application]
@@ -27,7 +27,7 @@ limitations under the License.
 -->
 
 
-This post gives insight into the major improvements in the JAVA implementation
+This post gives insight into the major improvements in the Java implementation
 of vectors.
 
 ## Design Goals
@@ -38,13 +38,13 @@ of vectors.
 
 ## Background
 
-**Improved Maintainability and Extensibility** 
+**Improved maintainability and extensibility** 
 
-We use templates in several places for compile time JAVA code generation for
+We use templates in several places for compile time Java code generation for
 different vector classes, readers, writers etc. Templates are helpful as the
 developers don't have to write a lot of duplicate code. 
 
-However, we realized that over a period of time some specific JAVA 
+However, we realized that over a period of time some specific Java 
 templates became extremely complex with giant if-else blocks, poor code indentation
 and documentation. All this impacted the ability to easily extend these templates 
 for adding new functionality or improving the existing infrastructure.
@@ -53,24 +53,24 @@ So we evaluated the usage of templates for compile time code generation and
 decided not to use complex templates in some places by writing small amount of 
 duplicate code which is elegant, well documented and extensible.
 
-**Improved Heap Usage**
+**Improved heap usage**
 
 We did extensive memory analysis downstream in Dremio where Arrow is used
 heavily for in-memory query execution on columnar data. The general conclusion
-was that Arrow JAVA Vectors have non-negligible heap overhead and volume of 
+was that Arrow Java Vectors have non-negligible heap overhead and volume of 
 objects was too high. There were places in code where we were creating objects
 unnecessarily and using structures that could be substituted with better
 alternatives.
 
 **No performance overhead on hot code paths**
 
-JAVA Vectors used delegation and abstraction heavily throughout the object 
+Java Vectors used delegation and abstraction heavily throughout the object 
 hierarchy. The performance critical get/set methods of vectors went through
 a chain of function calls back and forth between different objects before 
 doing meaningful work. We also evaluated the usage of branches in vector
 APIs and reimplemented some of them by avoiding branches completely.
 
-We took inspiration from how the JAVA memory code in ArrowBuf works. For
+We took inspiration from how the Java memory code in ArrowBuf works. For
 all the performance critical methods, ArrowBuf bypasses all the netty object 
 hierarchy, grabs the target virtual address and directly interacts with 
 the memory.
@@ -78,9 +78,9 @@ the memory.
 There were cases where branches could be avoided all together.
 
 In case of Nullable vectors, we were doing multiple checks to confirm if
-the value at a given position in the vector is NULL or not. 
+the value at a given position in the vector is null or not. 
 
-## Our Implementation Approach
+## Our implementation approach
 
 - For scalars, the inheritance tree was simplified by writing different
 abstract base classes for fixed and variable width scalars. 
@@ -99,12 +99,4 @@ inner vectors for each vector and delegating all the functionality to inner
 vectors. This introduced a lot of bugs in memory management, excessive heap 
 overhead and performance penalty due to chain of delegations.
 - We reduced the number of vector classes by removing non-nullable vectors.
-In the new implementation, all vectors in JAVA are nullable in nature.
-
-## Performance Testing
-
-We did performance testing downstream in Dremio and saw a 5% average improvement
-in Tpch queries. 
-
-
-
+In the new implementation, all vectors in Java are nullable in nature.
