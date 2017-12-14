@@ -23,7 +23,6 @@ from collections import namedtuple, OrderedDict, defaultdict
 import datetime
 import string
 import sys
-import pickle
 
 import pyarrow as pa
 import numpy as np
