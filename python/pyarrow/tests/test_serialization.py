@@ -527,14 +527,15 @@ def test_deserialize_in_different_process():
     serialization_context = pa.SerializationContext()
     serialization_context.register_type(type(regex), "Regex", pickle=True)
 
-    serialized = pa.serialize(regex, serialization_context).to_buffer()
+    serialized = pa.serialize(regex, serialization_context)
+    serialized_bytes = serialized.to_buffer().to_pybytes()
 
     def deserialize_regex(serialized, q):
         import pyarrow as pa
         q.put(pa.deserialize(serialized))
 
     q = Queue()
-    p = Process(target=deserialize_regex, args=(serialized, q))
+    p = Process(target=deserialize_regex, args=(serialized_bytes, q))
     p.start()
     assert q.get().pattern == regex.pattern
     p.join()
