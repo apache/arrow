@@ -50,7 +50,7 @@ and documentation. All this impacted the ability to easily extend these template
 for adding new functionality or improving the existing infrastructure.
 
 So we evaluated the usage of templates for compile time code generation and
-decided not to use comlplex templates in some places by writing small amount of 
+decided not to use complex templates in some places by writing small amount of 
 duplicate code which is elegant, well documented and extensible.
 
 **Improved Heap Usage**
