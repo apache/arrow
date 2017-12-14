@@ -55,6 +55,7 @@ cdef class SerializationContext:
         # Types with special serialization handlers
         self.type_to_type_id = dict()
         self.whitelisted_types = dict()
+        self.types_to_pickle = set()
         self.custom_serializers = dict()
         self.custom_deserializers = dict()
 
