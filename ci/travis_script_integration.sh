@@ -53,18 +53,11 @@ python integration_test.py --debug
 
 popd
 
-pushd $ARROW_JS_DIR
+# pushd $ARROW_JS_DIR
 
-# create initial test data
-npm run create:testdata
-# run once to write the snapshots
-npm test -- -t ts -u --integration
-# run again to test all builds against the snapshots
-npm test -- --integration
 # run tests against source to generate coverage data
-npm run test:coverage -- --integration
+# npm run test:coverage
 # Uncomment to upload to coveralls
 # cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js;
 
-
-popd
+# popd

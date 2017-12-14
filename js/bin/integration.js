@@ -17,15 +17,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-var fs = require('fs');
-var arrow = require('../targets/es5/cjs/Arrow.js')
-var parse = require('json-bignum').parse;
-var Table = arrow.Table;
+var path = require('path');
+var gulp = require.resolve(path.join(`..`, `node_modules/gulp/bin/gulp.js`));
+var child_process = require(`child_process`);
 var optionList = [
     {
         type: String,
-        name: 'mode', alias: 'm',
-        description: 'The Arrow file to read/write'
+        name: 'mode',
+        description: 'The integration test to run'
     },
     {
         type: String,
@@ -50,7 +49,7 @@ function print_usage() {
         {
             header: 'Synopsis',
             content: [
-                '$ integration.js -j file.json -a file.arrow -m validate'
+                '$ integration.js -j file.json -a file.arrow --mode validate'
             ]
         },
         {
@@ -67,20 +66,21 @@ function print_usage() {
     process.exit(1);
 }
 
-if (!argv.arrow || !argv.json || !argv.mode) print_usage();
+if (!argv.arrow || !argv.json || !argv.mode) {
+    return print_usage();
+}
 
-switch (argv.mode) {
+switch (argv.mode.toUpperCase()) {
     case 'VALIDATE':
-        var json_table = Table.from(parse(fs.readFileSync(argv.json, 'utf8')));
-        var arrow_table = Table.from([fs.readFileSync(argv.arrow)]);
-        var string_equals = (json_table.toString() == arrow_table.toString());
-
-        //console.log(json_table.toString());
-        //console.log(arrow_table.toString());
-
-        if (string_equals) console.log("JSON file and Arrow buffer are equivalent")
-        else               console.log("JSON file and Arrow buffer don't match")
-        process.exit(!string_equals);
+        child_process.spawnSync(
+            gulp,
+            [`test`, `-i`].concat(process.argv.slice(2)),
+            {
+                cwd: path.resolve(__dirname, '..'),
+                stdio: ['ignore', 'inherit', 'inherit']
+            }
+        );
+        break;
     default:
         print_usage();
 }
