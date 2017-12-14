@@ -746,8 +746,9 @@ class TestPlasmaClient(object):
             create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
 
+
 def test_object_id_size():
     import pyarrow.plasma as plasma
     with pytest.raises(RuntimeError):
-         plasma.ObjectID("hello")
+        plasma.ObjectID("hello")
     plasma.ObjectID(20 * b"0")
