@@ -19,7 +19,7 @@ import {
     Int64,
     Uint64,
     Int128
-} from './Arrow';
+} from '../Arrow';
 
 describe(`Uint64`, () => {
     test(`gets expected high/low bytes`, () => {
