@@ -32,7 +32,11 @@ import {
 
 export function schemaFromJSON(s: any): Schema {
     // todo: metadataFromJSON
-    return new Schema(MetadataVersion.V4, fieldsFromJSON(s['fields']));
+    return new Schema(
+        MetadataVersion.V4,
+        fieldsFromJSON(s['fields']),
+        customMetadata(s['customMetadata'])
+    );
 }
 
 export function recordBatchFromJSON(b: any): RecordBatch {
@@ -89,7 +93,7 @@ function fieldFromJSON(f: any) {
         namesToTypeMap[f['type']['name']],
         f.nullable,
         fieldsFromJSON(f['children']),
-        null, // todo: metadataFromJSON
+        customMetadata(f['customMetadata']),
         dictionaryEncodingFromJSON(f['dictionary'])
     );
 }
@@ -99,6 +103,10 @@ function dictionaryEncodingFromJSON(d: any) {
         d.indexType ? intFromJSON(d.indexType) : null,
         new Long(d.id, 0), d.isOrdered
     );
+}
+
+function customMetadata(metadata?: any) {
+    return new Map<string, string>(Object.entries(metadata || {}));
 }
 
 const namesToTypeMap: { [n: string]: Type }  = {
