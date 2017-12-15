@@ -21,6 +21,7 @@ import pytest
 
 from collections import namedtuple, OrderedDict, defaultdict
 import datetime
+import os
 import string
 import sys
 
@@ -518,6 +519,7 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
 
+@pytest.mark.skipif(os.name == 'nt')
 def test_deserialize_in_different_process():
     from multiprocessing import Process, Queue
     import re
