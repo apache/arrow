@@ -519,7 +519,7 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
 
-@pytest.mark.skipif(os.name == 'nt')
+@pytest.mark.skipif(os.name == 'nt', reason="deserialize_regex not pickleable")
 def test_deserialize_in_different_process():
     from multiprocessing import Process, Queue
     import re
