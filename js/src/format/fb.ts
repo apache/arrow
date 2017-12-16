@@ -140,7 +140,7 @@ function buffersFromRecordBatch(b: _RecordBatch, version: MetadataVersion) {
         // advance the buffer's bb_pos 8 bytes to skip past
         // the now-removed page id field.
         if (version < MetadataVersion.V4) {
-            buffer.bb_pos += (8 * i);
+            buffer.bb_pos += (8 * (i + 1));
         }
         buffers.push(bufferFromRecordBatch(buffer));
     }
