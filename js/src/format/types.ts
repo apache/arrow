@@ -168,6 +168,7 @@ export class Field implements VisitorNode {
             this.nullable, this.children, this.metadata, this.dictionary
         );
     }
+    toString() { return `Field name[${this.name}], nullable[${this.nullable}], type[${this.type.toString()}]`; }
 }
 
 export class Buffer implements VisitorNode {

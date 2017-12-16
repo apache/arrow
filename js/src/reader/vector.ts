@@ -127,7 +127,7 @@ export class VectorReader implements VectorLayoutReader {
             case Type.FixedSizeList: return this.readFixedSizeListVector(field);
             case Type.FixedSizeBinary: return this.readFixedSizeBinaryVector(field);
         }
-        throw new Error(`Unrecognized Vector { name: ${Type[field.typeType]}, type: ${field.typeType} }`);
+        throw new Error(`Unrecognized ${field.toString()}`);
     }
     readNullVector() {
         return new Vector();
@@ -141,7 +141,7 @@ export class VectorReader implements VectorLayoutReader {
             case DateUnit.DAY: return new Date32Vector({ ...this.readFixedWidthLayout(field, Int32Array), unit: DateUnit[type.unit] });
             case DateUnit.MILLISECOND: return new Date64Vector({ ...this.readFixedWidthLayout(field, Int32Array), unit: DateUnit[type.unit] });
         }
-        throw new Error(`Unrecognized Date { unit: ${type.unit()} }`);
+        throw new Error(`Unrecognized ${type.toString()}`);
     }
     readTimeVector(field: Field) {
         const type = field.type as Time;
@@ -149,7 +149,7 @@ export class VectorReader implements VectorLayoutReader {
             case 32: return new Time32Vector({ ...this.readFixedWidthLayout(field, Int32Array), unit: TimeUnit[type.unit] });
             case 64: return new Time64Vector({ ...this.readFixedWidthLayout(field, Uint32Array), unit: TimeUnit[type.unit] });
         }
-        throw new Error(`Unrecognized Time { unit: ${type.unit}, bitWidth: ${type.bitWidth} }`);
+        throw new Error(`Unrecognized ${type.toString()}`);
     }
     readTimestampVector(field: Field) {
         const type = field.type as Timestamp;
