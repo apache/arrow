@@ -102,4 +102,9 @@ void EvictionPolicy::end_object_access(const ObjectID& object_id,
   cache_.add(object_id, entry->info.data_size + entry->info.metadata_size);
 }
 
+void EvictionPolicy::remove_object(const ObjectID& object_id) {
+  /* If the object is in the LRU cache, remove it. */
+  cache_.remove(object_id);
+}
+
 }  // namespace plasma
