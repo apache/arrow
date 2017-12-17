@@ -412,36 +412,36 @@ int PlasmaStore::abort_object(const ObjectID& object_id, Client* client) {
 }
 
 int PlasmaStore::delete_object(ObjectID& object_id) {
-    auto entry = get_object_table_entry(&store_info_, object_id);
-    // TODO(rkn): This should probably not fail, but should instead throw an
-    // error. Maybe we should also support deleting objects that have been
-    // created but not sealed.
-    if(entry == NULL) {
-      // To delete an object it must be in the object table.
-      return PlasmaError_ObjectNonexistent;
-    }
+  auto entry = get_object_table_entry(&store_info_, object_id);
+  // TODO(rkn): This should probably not fail, but should instead throw an
+  // error. Maybe we should also support deleting objects that have been
+  // created but not sealed.
+  if (entry == NULL) {
+    // To delete an object it must be in the object table.
+    return PlasmaError_ObjectNonexistent;
+  }
 
-    if(entry->state != PLASMA_SEALED) {
-      // To delete an object it must have been sealed.
-      return PlasmaError_ObjectNotSealed;
-    }
+  if (entry->state != PLASMA_SEALED) {
+    // To delete an object it must have been sealed.
+    return PlasmaError_ObjectNotSealed;
+  }
 
-    if(entry->clients.size() != 0) {
-      // To delete an object, there must be no clients currently using it.
-      return PlasmaError_ObjectInUse;
-    }
+  if (entry->clients.size() != 0) {
+    // To delete an object, there must be no clients currently using it.
+    return PlasmaError_ObjectInUse;
+  }
 
-    eviction_policy_.remove_object(object_id);
+  eviction_policy_.remove_object(object_id);
 
-    dlfree(entry->pointer);
-    store_info_.objects.erase(object_id);
-    // Inform all subscribers that the object has been deleted.
-    ObjectInfoT notification;
-    notification.object_id = object_id.binary();
-    notification.is_deletion = true;
-    push_notification(&notification);
+  dlfree(entry->pointer);
+  store_info_.objects.erase(object_id);
+  // Inform all subscribers that the object has been deleted.
+  ObjectInfoT notification;
+  notification.object_id = object_id.binary();
+  notification.is_deletion = true;
+  push_notification(&notification);
 
-    return PlasmaError_OK;
+  return PlasmaError_OK;
 }
 
 void PlasmaStore::delete_objects(const std::vector<ObjectID>& object_ids) {

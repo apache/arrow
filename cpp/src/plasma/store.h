@@ -83,7 +83,6 @@ class PlasmaStore {
   /// @return 1 if the abort succeeds, else 0.
   int abort_object(const ObjectID& object_id, Client* client);
 
-
   /// Delete an specific object by object_id that have been created in the hash table.
   ///
   /// @param object_id Object ID of the object to be deleted.
