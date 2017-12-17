@@ -117,6 +117,8 @@ class PARQUET_EXPORT ColumnWriter {
 
   int64_t rows_written() const { return rows_written_; }
 
+  const WriterProperties* properties() { return properties_; }
+
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
 

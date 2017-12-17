@@ -717,8 +717,7 @@ struct supports_fast_path_impl<ArrowType, FLBAType> {
 
 template <typename ArrowType, typename ParquetType>
 using supports_fast_path =
-    typename std::enable_if<supports_fast_path_impl<ArrowType, ParquetType>::value,
-                            ParquetType>::type;
+    typename std::enable_if<supports_fast_path_impl<ArrowType, ParquetType>::value>::type;
 
 template <typename ArrowType, typename ParquetType, typename Enable = void>
 struct TransferFunctor {
@@ -728,6 +727,10 @@ struct TransferFunctor {
   Status operator()(RecordReader* reader, MemoryPool* pool,
                     const std::shared_ptr<::arrow::DataType>& type,
                     std::shared_ptr<Array>* out) {
+    static_assert(!std::is_same<ArrowType, ::arrow::Int32Type>::value,
+                  "The fast path transfer functor should be used "
+                  "for primitive values");
+
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(ArrowCType), &data));

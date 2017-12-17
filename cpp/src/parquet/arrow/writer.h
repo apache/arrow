@@ -133,15 +133,16 @@ class PARQUET_EXPORT FileWriter {
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
       std::unique_ptr<FileWriter>* writer);
 
-  /**
-   * Write a Table to Parquet.
-   *
-   * The table shall only consist of columns of primitive type or of primitive lists.
-   */
+  /// \brief Write a Table to Parquet.
   ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size);
 
   ::arrow::Status NewRowGroup(int64_t chunk_size);
   ::arrow::Status WriteColumnChunk(const ::arrow::Array& data);
+
+  /// \brief Write ColumnChunk in row group using slice of a ChunkedArray
+  ::arrow::Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data,
+                                   const int64_t offset, const int64_t size);
+  ::arrow::Status WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>& data);
   ::arrow::Status Close();
 
   virtual ~FileWriter();

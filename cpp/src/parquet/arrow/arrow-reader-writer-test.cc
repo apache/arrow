@@ -24,7 +24,10 @@
 #include "gtest/gtest.h"
 
 #include <arrow/compute/api.h>
+#include <cstdint>
+#include <functional>
 #include <sstream>
+#include <vector>
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -38,6 +41,7 @@
 
 #include "arrow/api.h"
 #include "arrow/test-util.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
 using arrow::Array;
@@ -45,6 +49,7 @@ using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
 using arrow::Column;
+using arrow::DataType;
 using arrow::ListArray;
 using arrow::PoolBuffer;
 using arrow::PrimitiveArray;
@@ -77,7 +82,7 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-LogicalType::type get_logical_type(const ::arrow::DataType& type) {
+LogicalType::type get_logical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
       return LogicalType::UINT_8;
@@ -130,7 +135,7 @@ LogicalType::type get_logical_type(const ::arrow::DataType& type) {
   return LogicalType::NONE;
 }
 
-ParquetType::type get_physical_type(const ::arrow::DataType& type) {
+ParquetType::type get_physical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::BOOL:
       return ParquetType::BOOLEAN;
@@ -325,74 +330,6 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int num_threads,
   *out = sink->GetBuffer();
 }
 
-void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
-                       int64_t row_group_size, const std::vector<int>& column_subset,
-                       std::shared_ptr<Table>* out,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-                           default_arrow_writer_properties()) {
-  std::shared_ptr<Buffer> buffer;
-  WriteTableToBuffer(table, num_threads, row_group_size, arrow_properties, &buffer);
-
-  std::unique_ptr<FileReader> reader;
-  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(),
-                              ::parquet::default_reader_properties(), nullptr, &reader));
-
-  reader->set_num_threads(num_threads);
-
-  if (column_subset.size() > 0) {
-    ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
-  } else {
-    // Read everything
-    ASSERT_OK_NO_THROW(reader->ReadTable(out));
-  }
-}
-
-static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::arrow::DataType& type,
-                                                   Repetition::type repetition) {
-  int32_t byte_width = -1;
-  int32_t precision = -1;
-  int32_t scale = -1;
-
-  switch (type.id()) {
-    case ::arrow::Type::DICTIONARY: {
-      const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(type);
-      const ::arrow::DataType& values_type = *dict_type.dictionary()->type();
-      switch (values_type.id()) {
-        case ::arrow::Type::FIXED_SIZE_BINARY:
-          byte_width =
-              static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
-          break;
-        case ::arrow::Type::DECIMAL: {
-          const auto& decimal_type =
-              static_cast<const ::arrow::Decimal128Type&>(values_type);
-          precision = decimal_type.precision();
-          scale = decimal_type.scale();
-          byte_width = DecimalSize(precision);
-        } break;
-        default:
-          break;
-      }
-    } break;
-    case ::arrow::Type::FIXED_SIZE_BINARY:
-      byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
-      break;
-    case ::arrow::Type::DECIMAL: {
-      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      precision = decimal_type.precision();
-      scale = decimal_type.scale();
-      byte_width = DecimalSize(precision);
-    } break;
-    default:
-      break;
-  }
-  auto pnode = PrimitiveNode::Make("column1", repetition, get_physical_type(type),
-                                   get_logical_type(type), byte_width, precision, scale);
-  NodePtr node_ =
-      GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
-  return std::static_pointer_cast<GroupNode>(node_);
-}
-
 namespace internal {
 
 void AssertArraysEqual(const Array& expected, const Array& actual) {
@@ -427,13 +364,113 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
   }
 }
 
-void AssertTablesEqual(const Table& expected, const Table& actual) {
+void PrintColumn(const Column& col, std::stringstream* ss) {
+  const ChunkedArray& carr = *col.data();
+  for (int i = 0; i < carr.num_chunks(); ++i) {
+    auto c1 = carr.chunk(i);
+    *ss << "Chunk " << i << std::endl;
+    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    *ss << std::endl;
+  }
+}
+
+void AssertTablesEqual(const Table& expected, const Table& actual,
+                       bool same_chunk_layout = true) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
 
-  for (int i = 0; i < actual.num_columns(); ++i) {
-    AssertChunkedEqual(*expected.column(i)->data(), *actual.column(i)->data());
+  if (same_chunk_layout) {
+    for (int i = 0; i < actual.num_columns(); ++i) {
+      AssertChunkedEqual(*expected.column(i)->data(), *actual.column(i)->data());
+    }
+  } else {
+    std::stringstream ss;
+    if (!actual.Equals(expected)) {
+      for (int i = 0; i < expected.num_columns(); ++i) {
+        ss << "Actual column " << i << std::endl;
+        PrintColumn(*actual.column(i), &ss);
+
+        ss << "Expected column " << i << std::endl;
+        PrintColumn(*expected.column(i), &ss);
+      }
+      FAIL() << ss.str();
+    }
   }
-  ASSERT_TRUE(actual.Equals(expected));
+}
+
+void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, int num_threads,
+                       int64_t row_group_size, const std::vector<int>& column_subset,
+                       std::shared_ptr<Table>* out,
+                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+                           default_arrow_writer_properties()) {
+  std::shared_ptr<Buffer> buffer;
+  WriteTableToBuffer(table, num_threads, row_group_size, arrow_properties, &buffer);
+
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(),
+                              ::parquet::default_reader_properties(), nullptr, &reader));
+
+  reader->set_num_threads(num_threads);
+
+  if (column_subset.size() > 0) {
+    ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
+  } else {
+    // Read everything
+    ASSERT_OK_NO_THROW(reader->ReadTable(out));
+  }
+}
+
+void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                          const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+                              default_arrow_writer_properties()) {
+  std::shared_ptr<Table> result;
+  DoSimpleRoundtrip(table, 1, row_group_size, {}, &result, arrow_properties);
+  AssertTablesEqual(*table, *result, false);
+}
+
+static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
+                                                   Repetition::type repetition) {
+  int32_t byte_width = -1;
+  int32_t precision = -1;
+  int32_t scale = -1;
+
+  switch (type.id()) {
+    case ::arrow::Type::DICTIONARY: {
+      const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(type);
+      const ::DataType& values_type = *dict_type.dictionary()->type();
+      switch (values_type.id()) {
+        case ::arrow::Type::FIXED_SIZE_BINARY:
+          byte_width =
+              static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
+          break;
+        case ::arrow::Type::DECIMAL: {
+          const auto& decimal_type =
+              static_cast<const ::arrow::Decimal128Type&>(values_type);
+          precision = decimal_type.precision();
+          scale = decimal_type.scale();
+          byte_width = DecimalSize(precision);
+        } break;
+        default:
+          break;
+      }
+    } break;
+    case ::arrow::Type::FIXED_SIZE_BINARY:
+      byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
+      break;
+    case ::arrow::Type::DECIMAL: {
+      const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
+      precision = decimal_type.precision();
+      scale = decimal_type.scale();
+      byte_width = DecimalSize(precision);
+    } break;
+    default:
+      break;
+  }
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_physical_type(type),
+                                   get_logical_type(type), byte_width, precision, scale);
+  NodePtr node_ =
+      GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
+  return std::static_pointer_cast<GroupNode>(node_);
 }
 
 template <typename TestType>
@@ -527,10 +564,7 @@ class TestParquetIO : public ::testing::Test {
   }
 
   void CheckRoundTrip(const std::shared_ptr<Table>& table) {
-    std::shared_ptr<Table> result;
-    DoSimpleRoundtrip(table, 1, table->num_rows(), {}, &result);
-
-    AssertTablesEqual(*table, *result);
+    CheckSimpleRoundtrip(table, table->num_rows());
   }
 
   template <typename ArrayType>
@@ -1315,32 +1349,48 @@ TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
 
   auto f0 = field("f0", ::arrow::date64());
   auto f1 = field("f1", ::arrow::time32(TimeUnit::SECOND));
-  std::shared_ptr<::arrow::Schema> schema(new ::arrow::Schema({f0, f1}));
+  auto f2 = field("f2", ::arrow::date64());
+  auto f3 = field("f3", ::arrow::time32(TimeUnit::SECOND));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
   std::vector<int64_t> a0_values = {1489190400000, 1489276800000, 1489363200000,
                                     1489449600000, 1489536000000, 1489622400000};
   std::vector<int32_t> a1_values = {0, 1, 2, 3, 4, 5};
 
-  std::shared_ptr<Array> a0, a1, x0, x1;
+  std::shared_ptr<Array> a0, a1, a0_nonnull, a1_nonnull, x0, x1, x0_nonnull, x1_nonnull;
+
   ArrayFromVector<::arrow::Date64Type, int64_t>(f0->type(), is_valid, a0_values, &a0);
+  ArrayFromVector<::arrow::Date64Type, int64_t>(f0->type(), a0_values, &a0_nonnull);
+
   ArrayFromVector<::arrow::Time32Type, int32_t>(f1->type(), is_valid, a1_values, &a1);
+  ArrayFromVector<::arrow::Time32Type, int32_t>(f1->type(), a1_values, &a1_nonnull);
 
   std::vector<std::shared_ptr<::arrow::Column>> columns = {
-      std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1)};
+      std::make_shared<Column>("f0", a0), std::make_shared<Column>("f1", a1),
+      std::make_shared<Column>("f2", a0_nonnull),
+      std::make_shared<Column>("f3", a1_nonnull)};
   auto table = Table::Make(schema, columns);
 
   // Expected schema and values
   auto e0 = field("f0", ::arrow::date32());
   auto e1 = field("f1", ::arrow::time32(TimeUnit::MILLI));
-  std::shared_ptr<::arrow::Schema> ex_schema(new ::arrow::Schema({e0, e1}));
+  auto e2 = field("f2", ::arrow::date32());
+  auto e3 = field("f3", ::arrow::time32(TimeUnit::MILLI));
+  auto ex_schema = ::arrow::schema({e0, e1, e2, e3});
 
   std::vector<int32_t> x0_values = {17236, 17237, 17238, 17239, 17240, 17241};
   std::vector<int32_t> x1_values = {0, 1000, 2000, 3000, 4000, 5000};
   ArrayFromVector<::arrow::Date32Type, int32_t>(e0->type(), is_valid, x0_values, &x0);
+  ArrayFromVector<::arrow::Date32Type, int32_t>(e0->type(), x0_values, &x0_nonnull);
+
   ArrayFromVector<::arrow::Time32Type, int32_t>(e1->type(), is_valid, x1_values, &x1);
+  ArrayFromVector<::arrow::Time32Type, int32_t>(e1->type(), x1_values, &x1_nonnull);
 
   std::vector<std::shared_ptr<::arrow::Column>> ex_columns = {
-      std::make_shared<Column>("f0", x0), std::make_shared<Column>("f1", x1)};
+      std::make_shared<Column>("f0", x0), std::make_shared<Column>("f1", x1),
+      std::make_shared<Column>("f2", x0_nonnull),
+      std::make_shared<Column>("f3", x1_nonnull)};
   auto ex_table = Table::Make(ex_schema, ex_columns);
 
   std::shared_ptr<Table> result;
@@ -1373,6 +1423,43 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
   }
   auto schema = std::make_shared<::arrow::Schema>(fields);
   *out = Table::Make(schema, columns);
+}
+
+void MakeListArray(int num_rows, std::shared_ptr<::DataType>* out_type,
+                   std::shared_ptr<Array>* out_array) {
+  ::arrow::Int32Builder offset_builder;
+
+  std::vector<int32_t> length_draws;
+  randint(num_rows, 0, 100, &length_draws);
+
+  std::vector<int32_t> offset_values;
+
+  // Make sure some of them are length 0
+  int32_t total_elements = 0;
+  for (size_t i = 0; i < length_draws.size(); ++i) {
+    if (length_draws[i] < 10) {
+      length_draws[i] = 0;
+    }
+    offset_values.push_back(total_elements);
+    total_elements += length_draws[i];
+  }
+  offset_values.push_back(total_elements);
+
+  std::vector<int8_t> value_draws;
+  randint(total_elements, 0, 100, &value_draws);
+
+  std::vector<bool> is_valid;
+  random_is_valid(total_elements, 0.1, &is_valid);
+
+  std::shared_ptr<Array> values, offsets;
+  ::arrow::ArrayFromVector<::arrow::Int8Type, int8_t>(::arrow::int8(), is_valid,
+                                                      value_draws, &values);
+  ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offset_values, &offsets);
+
+  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *values, default_memory_pool(),
+                                           out_array));
+
+  *out_type = ::arrow::list(::arrow::int8());
 }
 
 TEST(TestArrowReadWrite, MultithreadedRead) {
@@ -1464,51 +1551,16 @@ TEST(TestArrowReadWrite, ReadColumnSubset) {
   AssertTablesEqual(*expected, *result);
 }
 
-void MakeListTable(int num_rows, std::shared_ptr<Table>* out) {
-  ::arrow::Int32Builder offset_builder;
-
-  std::vector<int32_t> length_draws;
-  randint(num_rows, 0, 100, &length_draws);
-
-  std::vector<int32_t> offset_values;
-
-  // Make sure some of them are length 0
-  int32_t total_elements = 0;
-  for (size_t i = 0; i < length_draws.size(); ++i) {
-    if (length_draws[i] < 10) {
-      length_draws[i] = 0;
-    }
-    offset_values.push_back(total_elements);
-    total_elements += length_draws[i];
-  }
-  offset_values.push_back(total_elements);
-
-  std::vector<int8_t> value_draws;
-  randint(total_elements, 0, 100, &value_draws);
-
-  std::vector<bool> is_valid;
-  random_is_valid(total_elements, 0.1, &is_valid);
-
-  std::shared_ptr<Array> values, offsets;
-  ::arrow::ArrayFromVector<::arrow::Int8Type, int8_t>(::arrow::int8(), is_valid,
-                                                      value_draws, &values);
-  ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offset_values, &offsets);
-
-  std::shared_ptr<Array> list_array;
-  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *values, default_memory_pool(),
-                                           &list_array));
-
-  auto f1 = ::arrow::field("a", ::arrow::list(::arrow::int8()));
-  auto schema = ::arrow::schema({f1});
-  std::vector<std::shared_ptr<Array>> arrays = {list_array};
-  *out = Table::Make(schema, arrays);
-}
-
 TEST(TestArrowReadWrite, ListLargeRecords) {
   const int num_rows = 50;
 
-  std::shared_ptr<Table> table;
-  MakeListTable(num_rows, &table);
+  std::shared_ptr<Array> list_array;
+  std::shared_ptr<::DataType> list_type;
+
+  MakeListArray(num_rows, &list_type, &list_array);
+
+  auto schema = ::arrow::schema({::arrow::field("a", list_type)});
+  std::shared_ptr<Table> table = Table::Make(schema, {list_array});
 
   std::shared_ptr<Buffer> buffer;
   WriteTableToBuffer(table, 1, 100, default_arrow_writer_properties(), &buffer);
@@ -1547,6 +1599,74 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   auto chunked_table = Table::Make(table->schema(), columns);
 
   ASSERT_TRUE(table->Equals(*chunked_table));
+}
+
+typedef std::function<void(int, std::shared_ptr<::DataType>*, std::shared_ptr<Array>*)>
+    ArrayFactory;
+
+template <typename ArrowType>
+struct GenerateArrayFunctor {
+  explicit GenerateArrayFunctor(double pct_null = 0.1) : pct_null(pct_null) {}
+
+  void operator()(int length, std::shared_ptr<::DataType>* type,
+                  std::shared_ptr<Array>* array) {
+    using T = typename ArrowType::c_type;
+
+    // TODO(wesm): generate things other than integers
+    std::vector<T> draws;
+    randint(length, 0, 100, &draws);
+
+    std::vector<bool> is_valid;
+    random_is_valid(length, this->pct_null, &is_valid);
+
+    *type = ::arrow::TypeTraits<ArrowType>::type_singleton();
+    ::arrow::ArrayFromVector<ArrowType, T>(*type, is_valid, draws, array);
+  }
+
+  double pct_null;
+};
+
+typedef std::function<void(int, std::shared_ptr<::DataType>*, std::shared_ptr<Array>*)>
+    ArrayFactory;
+
+auto GenerateInt32 = [](int length, std::shared_ptr<::DataType>* type,
+                        std::shared_ptr<Array>* array) {
+  GenerateArrayFunctor<::arrow::Int32Type> func;
+  func(length, type, array);
+};
+
+auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
+                       std::shared_ptr<Array>* array) {
+  MakeListArray(length, type, array);
+};
+
+TEST(TestArrowReadWrite, TableWithChunkedColumns) {
+  std::vector<ArrayFactory> functions = {GenerateInt32, GenerateList};
+
+  std::vector<int> chunk_sizes = {2, 4, 10, 2};
+  const int64_t total_length = 18;
+
+  for (const auto& datagen_func : functions) {
+    ::arrow::ArrayVector arrays;
+    std::shared_ptr<Array> arr;
+    std::shared_ptr<::DataType> type;
+    datagen_func(total_length, &type, &arr);
+
+    int64_t offset = 0;
+    for (int chunk_size : chunk_sizes) {
+      arrays.push_back(arr->Slice(offset, chunk_size));
+      offset += chunk_size;
+    }
+
+    auto field = ::arrow::field("fname", type);
+    auto schema = ::arrow::schema({field});
+    auto col = std::make_shared<::arrow::Column>(field, arrays);
+    auto table = Table::Make(schema, {col});
+
+    CheckSimpleRoundtrip(table, 2);
+    CheckSimpleRoundtrip(table, 3);
+    CheckSimpleRoundtrip(table, 10);
+  }
 }
 
 TEST(TestArrowWrite, CheckChunkSize) {
@@ -1943,13 +2063,13 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
 
 class TestArrowReaderAdHocSpark
     : public ::testing::TestWithParam<
-          std::tuple<std::string, std::shared_ptr<::arrow::DataType>>> {};
+          std::tuple<std::string, std::shared_ptr<::DataType>>> {};
 
 TEST_P(TestArrowReaderAdHocSpark, ReadDecimals) {
   std::string path(std::getenv("PARQUET_TEST_DATA"));
 
   std::string filename;
-  std::shared_ptr<::arrow::DataType> decimal_type;
+  std::shared_ptr<::DataType> decimal_type;
   std::tie(filename, decimal_type) = GetParam();
 
   path += "/" + filename;
