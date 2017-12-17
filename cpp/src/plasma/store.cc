@@ -417,17 +417,17 @@ int PlasmaStore::delete_object(ObjectID& object_id) {
     // error. Maybe we should also support deleting objects that have been
     // created but not sealed.
     if(entry == NULL) {
-    // To delete an object it must be in the object table.
+      // To delete an object it must be in the object table.
       return PlasmaError_ObjectNonexistent;
     }
 
     if(entry->state != PLASMA_SEALED) {
-    // To delete an object it must have been sealed.
+      // To delete an object it must have been sealed.
       return PlasmaError_ObjectNotSealed;
     }
 
     if(entry->clients.size() != 0) {
-    // To delete an object, there must be no clients currently using it.
+      // To delete an object, there must be no clients currently using it.
       return PlasmaError_ObjectInUse;
     }
 
