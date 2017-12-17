@@ -513,6 +513,7 @@ Status PlasmaClient::Abort(const ObjectID& object_id) {
 }
 
 Status PlasmaClient::Delete(const ObjectID& object_id) {
+  RETURN_NOT_OK(FlushReleaseHistory());
   // If the object is in used, client can't send the remove message.
   if (objects_in_use_.count(object_id) > 0) {
     return Status::UnknownError("PlasmaClient::Object is in used.");
