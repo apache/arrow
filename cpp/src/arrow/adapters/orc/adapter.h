@@ -35,19 +35,56 @@ namespace adapters {
 
 namespace orc {
 
+/// \class ORCFileReader
+/// \brief Read an Arrow Table or RecordBatch from an ORC file.
 class ARROW_EXPORT ORCFileReader {
  public:
   ~ORCFileReader();
+
+  /// \brief Create a new ORC reader
+  ///
+  /// \param[in] file the data source
+  /// \param[in] pool a MemoryPool to use for buffer allocations
+  /// \param[out] reader the returned reader object
+  /// \return Status
   static Status Open(const std::shared_ptr<io::ReadableFileInterface>& file,
                      MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader);
+
+  /// \brief Return the schema read from the ORC file
+  ///
+  /// \param[out] out the returned Schema object
   Status ReadSchema(std::shared_ptr<Schema>* out);
+
+  /// \brief Read the file as a RecordBatch
+  ///
+  /// \param[out] out the returned RecordBatch
   Status Read(std::shared_ptr<RecordBatch>* out);
+
+  /// \brief Read the file as a RecordBatch
+  ///
+  /// \param[in] include_indices the selected field indices to read
+  /// \param[out] out the returned RecordBatch
   Status Read(const std::list<uint64_t>& include_indices,
               std::shared_ptr<RecordBatch>* out);
+
+  /// \brief Read a single stripe as a RecordBatch
+  ///
+  /// \param[in] stripe the stripe index
+  /// \param[out] out the returned RecordBatch
   Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out);
+
+  /// \brief Read a single stripe as a RecordBatch
+  ///
+  /// \param[in] stripe the stripe index
+  /// \param[in] include_indices the selected field indices to read
+  /// \param[out] out the returned RecordBatch
   Status ReadStripe(int64_t stripe, const std::list<uint64_t>& include_indices,
                     std::shared_ptr<RecordBatch>* out);
+
+  /// \brief The number of stripes in the file
   int64_t NumberOfStripes();
+
+  /// \brief The number of rows in the file
   int64_t NumberOfRows();
 
  private:
