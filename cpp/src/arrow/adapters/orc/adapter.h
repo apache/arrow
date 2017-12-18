@@ -53,7 +53,7 @@ class ARROW_EXPORT ORCFileReader {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  explicit ORCFileReader(std::unique_ptr<Impl> impl);
+  ORCFileReader();
 };
 
 }  // namespace orc
