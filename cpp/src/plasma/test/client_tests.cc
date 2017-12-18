@@ -61,11 +61,6 @@ class TestPlasmaStore : public ::testing::Test {
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = ObjectID::from_random();
 
-  // Test for object non-existence.
-  bool has_object;
-  ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
-  ASSERT_EQ(has_object, false);
-
   // Test for deleting non-existance object.
   Status result = client_.Delete(object_id);
   ASSERT_EQ(result.IsPlasmaObjectNonexistent(), true);
