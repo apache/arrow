@@ -47,6 +47,7 @@ cdef class SerializationContext:
     cdef:
         object type_to_type_id
         object whitelisted_types
+        object types_to_pickle
         object custom_serializers
         object custom_deserializers
 
@@ -54,6 +55,7 @@ cdef class SerializationContext:
         # Types with special serialization handlers
         self.type_to_type_id = dict()
         self.whitelisted_types = dict()
+        self.types_to_pickle = set()
         self.custom_serializers = dict()
         self.custom_deserializers = dict()
 
@@ -73,7 +75,7 @@ cdef class SerializationContext:
 
         return result
 
-    def register_type(self, type_, type_id,
+    def register_type(self, type_, type_id, pickle=False,
                       custom_serializer=None, custom_deserializer=None):
         """EXPERIMENTAL: Add type to the list of types we can serialize.
 
@@ -83,6 +85,9 @@ cdef class SerializationContext:
             The type that we can serialize.
         type_id : bytes
             A string of bytes used to identify the type.
+        pickle : bool
+            True if the serialization should be done with pickle.
+            False if it should be done efficiently with Arrow.
         custom_serializer : callable
             This argument is optional, but can be provided to
             serialize objects of the class in a particular way.
@@ -92,6 +97,8 @@ cdef class SerializationContext:
         """
         self.type_to_type_id[type_] = type_id
         self.whitelisted_types[type_id] = type_
+        if pickle:
+            self.types_to_pickle.add(type_id)
         if custom_serializer is not None:
             self.custom_serializers[type_id] = custom_serializer
             self.custom_deserializers[type_id] = custom_deserializer
@@ -111,7 +118,9 @@ cdef class SerializationContext:
 
         # use the closest match to type(obj)
         type_id = self.type_to_type_id[type_]
-        if type_id in self.custom_serializers:
+        if type_id in self.types_to_pickle:
+            serialized_obj = {"data": pickle.dumps(obj), "pickle": True}
+        elif type_id in self.custom_serializers:
             serialized_obj = {"data": self.custom_serializers[type_id](obj)}
         else:
             if is_named_tuple(type_):
@@ -132,6 +141,7 @@ cdef class SerializationContext:
             # The object was pickled, so unpickle it.
             obj = pickle.loads(serialized_obj["data"])
         else:
+            assert type_id not in self.types_to_pickle
             if type_id not in self.whitelisted_types:
                 msg = "Type ID " + str(type_id) + " not registered in " \
                       "deserialization callback"
