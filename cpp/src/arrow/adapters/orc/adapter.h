@@ -44,11 +44,11 @@ class ARROW_EXPORT ORCFileReader {
   Status Read(std::shared_ptr<RecordBatch>* out);
   Status Read(const std::list<uint64_t>& include_indices,
               std::shared_ptr<RecordBatch>* out);
-  Status ReadStripe(uint64_t stripe, std::shared_ptr<RecordBatch>* out);
-  Status ReadStripe(uint64_t stripe, const std::list<uint64_t>& include_indices,
+  Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out);
+  Status ReadStripe(int64_t stripe, const std::list<uint64_t>& include_indices,
                     std::shared_ptr<RecordBatch>* out);
-  uint64_t NumberOfStripes();
-  uint64_t NumberOfRows();
+  int64_t NumberOfStripes();
+  int64_t NumberOfRows();
 
  private:
   class Impl;

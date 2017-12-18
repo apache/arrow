@@ -165,14 +165,13 @@ Status get_dtype(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       std::shared_ptr<DataType> valtype;
       RETURN_NOT_OK(get_dtype(type->getSubtype(0), &keytype));
       RETURN_NOT_OK(get_dtype(type->getSubtype(1), &valtype));
-      auto fields = {field("key", keytype), field("value", valtype)};
-      *out = list(struct_(fields));
+      *out = list(struct_({field("key", keytype), field("value", valtype)}));
       break;
     }
     case liborc::STRUCT: {
-      auto size = type->getSubtypeCount();
-      auto fields = std::vector<std::shared_ptr<Field>>();
-      for (uint64_t child = 0; child < size; ++child) {
+      int size = type->getSubtypeCount();
+      std::vector<std::shared_ptr<Field>> fields;
+      for (int child = 0; child < size; ++child) {
         std::shared_ptr<DataType> elemtype;
         RETURN_NOT_OK(get_dtype(type->getSubtype(child), &elemtype));
         std::string name = type->getFieldName(child);
@@ -182,14 +181,13 @@ Status get_dtype(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       break;
     }
     case liborc::UNION: {
-      auto size = type->getSubtypeCount();
-      auto fields = std::vector<std::shared_ptr<Field>>();
+      int size = type->getSubtypeCount();
+      std::vector<std::shared_ptr<Field>> fields;
       std::vector<uint8_t> type_codes;
-      for (uint64_t child = 0; child < size; ++child) {
+      for (int child = 0; child < size; ++child) {
         std::shared_ptr<DataType> elemtype;
         RETURN_NOT_OK(get_dtype(type->getSubtype(child), &elemtype));
-        auto f = field("_union_" + std::to_string(child), elemtype);
-        fields.push_back(f);
+        fields.push_back(field("_union_" + std::to_string(child), elemtype));
         type_codes.push_back((uint8_t)child);
       }
       *out = union_(fields, type_codes);
@@ -203,6 +201,9 @@ Status get_dtype(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   }
   return Status::OK();
 }
+
+// The number of rows to read in a ColumnVectorBatch
+constexpr int64_t kReadRowsBatch = 1000;
 
 class ORCFileReader::Impl {
  public:
@@ -237,9 +238,9 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  uint64_t NumberOfStripes() { return stripes_.size(); }
+  int64_t NumberOfStripes() { return stripes_.size(); }
 
-  uint64_t NumberOfRows() { return reader_->getNumberOfRows(); }
+  int64_t NumberOfRows() { return reader_->getNumberOfRows(); }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     const liborc::Type& type = reader_->getType();
@@ -252,16 +253,16 @@ class ORCFileReader::Impl {
           "Only ORC files with a top-level struct "
           "can be handled");
     }
-    auto size = type.getSubtypeCount();
-    auto fields = std::vector<std::shared_ptr<Field>>();
-    for (uint64_t child = 0; child < size; ++child) {
+    int size = type.getSubtypeCount();
+    std::vector<std::shared_ptr<Field>> fields;
+    for (int child = 0; child < size; ++child) {
       std::shared_ptr<DataType> elemtype;
       RETURN_NOT_OK(get_dtype(type.getSubtype(child), &elemtype));
       std::string name = type.getFieldName(child);
       fields.push_back(field(name, elemtype));
     }
     std::list<std::string> keys = reader_->getMetadataKeys();
-    std::shared_ptr<KeyValueMetadata> metadata = nullptr;
+    std::shared_ptr<KeyValueMetadata> metadata;
     if (!keys.empty()) {
       metadata = std::make_shared<KeyValueMetadata>();
       for (auto it = keys.begin(); it != keys.end(); ++it) {
@@ -285,13 +286,13 @@ class ORCFileReader::Impl {
     return read_batch(opts, NumberOfRows(), out);
   }
 
-  Status ReadStripe(uint64_t stripe, std::shared_ptr<RecordBatch>* out) {
+  Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(select_stripe(&opts, stripe));
     return read_batch(opts, stripes_[stripe].num_rows, out);
   }
 
-  Status ReadStripe(uint64_t stripe, const std::list<uint64_t>& include_indices,
+  Status ReadStripe(int64_t stripe, const std::list<uint64_t>& include_indices,
                     std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(select_stripe(&opts, stripe));
@@ -299,8 +300,8 @@ class ORCFileReader::Impl {
     return read_batch(opts, stripes_[stripe].num_rows, out);
   }
 
-  Status select_stripe(liborc::RowReaderOptions* opts, uint64_t stripe) {
-    if (stripe >= stripes_.size()) {
+  Status select_stripe(liborc::RowReaderOptions* opts, int64_t stripe) {
+    if (stripe < 0 || stripe >= NumberOfStripes()) {
       std::stringstream ss;
       ss << "Out of bounds stripe: " << stripe;
       return Status::Invalid(ss.str());
@@ -309,13 +310,13 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status read_batch(const liborc::RowReaderOptions& opts, uint64_t nrows,
+  Status read_batch(const liborc::RowReaderOptions& opts, int64_t nrows,
                     std::shared_ptr<RecordBatch>* out) {
     std::unique_ptr<liborc::RowReader> rowreader;
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
     try {
       rowreader = reader_->createRowReader(opts);
-      batch = rowreader->createRowBatch(std::min(nrows, (uint64_t)1000));
+      batch = rowreader->createRowBatch(std::min(nrows, kReadRowsBatch));
     } catch (const liborc::ParseError& e) {
       return Status::Invalid(e.what());
     }
@@ -418,8 +419,8 @@ class ORCFileReader::Impl {
                            int64_t length) {
     auto builder = static_cast<ListBuilder*>(abuilder);
     auto batch = static_cast<liborc::ListVectorBatch*>(cbatch);
-    auto elements = batch->elements.get();
-    auto elemtype = type->getSubtype(0);
+    liborc::ColumnVectorBatch* elements = batch->elements.get();
+    const liborc::Type* elemtype = type->getSubtype(0);
 
     for (int i = offset; i < length + offset; i++) {
       if (!batch->hasNulls || batch->notNull[i]) {
@@ -441,10 +442,10 @@ class ORCFileReader::Impl {
     auto list_builder = static_cast<ListBuilder*>(abuilder);
     auto struct_builder = static_cast<StructBuilder*>(list_builder->value_builder());
     auto batch = static_cast<liborc::MapVectorBatch*>(cbatch);
-    auto keys = batch->keys.get();
-    auto vals = batch->elements.get();
-    auto keytype = type->getSubtype(0);
-    auto valtype = type->getSubtype(1);
+    liborc::ColumnVectorBatch* keys = batch->keys.get();
+    liborc::ColumnVectorBatch* vals = batch->elements.get();
+    const liborc::Type* keytype = type->getSubtype(0);
+    const liborc::Type* valtype = type->getSubtype(1);
 
     for (int i = offset; i < length + offset; i++) {
       RETURN_NOT_OK(list_builder->Append());
@@ -679,19 +680,19 @@ Status ORCFileReader::Read(const std::list<uint64_t>& include_indices,
   return impl_->Read(include_indices, out);
 }
 
-Status ORCFileReader::ReadStripe(uint64_t stripe, std::shared_ptr<RecordBatch>* out) {
+Status ORCFileReader::ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
   return impl_->ReadStripe(stripe, out);
 }
 
-Status ORCFileReader::ReadStripe(uint64_t stripe,
+Status ORCFileReader::ReadStripe(int64_t stripe,
                                  const std::list<uint64_t>& include_indices,
                                  std::shared_ptr<RecordBatch>* out) {
   return impl_->ReadStripe(stripe, include_indices, out);
 }
 
-uint64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
+int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
-uint64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
+int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
 }  // namespace orc
 }  // namespace adapters

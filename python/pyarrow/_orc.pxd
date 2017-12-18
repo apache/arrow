@@ -38,12 +38,12 @@ cdef extern from "arrow/adapters/orc/adapter.h" namespace "arrow::adapters::orc"
 
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 
-        CStatus ReadStripe(uint64_t stripe, shared_ptr[CRecordBatch]* out)
-        CStatus ReadStripe(uint64_t stripe, std_list[uint64_t], shared_ptr[CRecordBatch]* out)
+        CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
+        CStatus ReadStripe(int64_t stripe, std_list[uint64_t], shared_ptr[CRecordBatch]* out)
 
         CStatus Read(shared_ptr[CRecordBatch]* out)
         CStatus Read(std_list[uint64_t], shared_ptr[CRecordBatch]* out)
 
-        uint64_t NumberOfStripes()
+        int64_t NumberOfStripes()
 
-        uint64_t NumberOfRows()
+        int64_t NumberOfRows()

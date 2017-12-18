@@ -77,7 +77,7 @@ cdef class ORCReader:
         cdef:
             shared_ptr[CRecordBatch] sp_record_batch
             RecordBatch batch
-            uint64_t stripe
+            int64_t stripe
             std_list[uint64_t] indices
 
         stripe = n
