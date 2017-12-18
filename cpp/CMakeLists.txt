@@ -230,6 +230,11 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZSTD ON)
 endif()
 
+if (WIN32)
+  # ORC doesn't build on windows
+  set(ARROW_ORC OFF)
+endif()
+
 if(ARROW_ORC)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
