@@ -140,7 +140,7 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       *out = timestamp(TimeUnit::NANO);
       break;
     case liborc::DATE:
-      *out = date64();
+      *out = date32();
       break;
     case liborc::DECIMAL: {
       if (type->getPrecision() == 0) {
@@ -207,9 +207,6 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
 
 // The number of rows to read in a ColumnVectorBatch
 constexpr int64_t kReadRowsBatch = 1000;
-
-// The number of milliseconds in a day
-constexpr int64_t kOneDayMillis = 24 * 60 * 60 * 1000;
 
 // The numer of nanoseconds in a second
 constexpr int64_t kOneSecondNanos = 1000000000LL;
@@ -389,7 +386,8 @@ class ORCFileReader::Impl {
       case liborc::CHAR:
         return AppendFixedBinaryBatch(batch, offset, length, builder);
       case liborc::DATE:
-        return AppendDateBatch(batch, offset, length, builder);
+        return AppendNumericBatchCast<Date32Builder, int32_t, liborc::LongVectorBatch,
+                                      int64_t>(batch, offset, length, builder);
       case liborc::TIMESTAMP:
         return AppendTimestampBatch(batch, offset, length, builder);
       case liborc::DECIMAL:
@@ -563,31 +561,6 @@ class ORCFileReader::Impl {
       // TODO: boundscheck this, as ORC supports higher resolution timestamps
       // than arrow for nanosecond resolution
       target[start + i] = seconds[i] * kOneSecondNanos + nanos[i];
-    }
-    return Status::OK();
-  }
-
-  Status AppendDateBatch(liborc::ColumnVectorBatch* cbatch, int64_t offset,
-                         int64_t length, ArrayBuilder* abuilder) {
-    auto builder = static_cast<Date64Builder*>(abuilder);
-    auto batch = static_cast<liborc::LongVectorBatch*>(cbatch);
-
-    if (length == 0) {
-      return Status::OK();
-    }
-    int start = builder->length();
-
-    const uint8_t* valid_bytes = nullptr;
-    if (batch->hasNulls) {
-      valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
-    }
-    RETURN_NOT_OK(builder->AppendNulls(valid_bytes, length));
-
-    const int64_t* source = batch->data.data() + offset;
-    int64_t* target = reinterpret_cast<int64_t*>(builder->data()->mutable_data());
-
-    for (int i = 0; i < length; i++) {
-      target[start + i] = source[i] * kOneDayMillis;
     }
     return Status::OK();
   }
