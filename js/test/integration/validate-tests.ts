@@ -15,11 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow from './Arrow';
-import { zip } from 'ix/iterable/zip';
-import { config, formats } from './test-config';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const { Table, readVectors } = Arrow;
+if (!process.env.JSON_PATH || !process.env.ARROW_PATH) {
+    throw new Error('Integration tests need paths to both json and arrow files');
+}
+
+const jsonPath = path.resolve(process.env.JSON_PATH + '');
+const arrowPath = path.resolve(process.env.ARROW_PATH + '');
+
+if (!fs.existsSync(jsonPath) || !fs.existsSync(arrowPath)) {
+    throw new Error('Integration tests need both json and arrow files to exist');
+}
+
+/* tslint:disable */
+const { parse } = require('json-bignum');
+
+const jsonData = parse(fs.readFileSync(jsonPath, 'utf8'));
+const arrowBuffers: Uint8Array[] = [fs.readFileSync(arrowPath)];
+
+import Arrow from '../Arrow';
+import { zip } from 'ix/iterable/zip';
+import { toArray } from 'ix/iterable/toArray';
+
+const { Table, read } = Arrow;
 
 expect.extend({
     toEqualVector(v1: any, v2: any) {
@@ -65,7 +85,7 @@ expect.extend({
         return {
             pass: allFailures.every(({ failures }) => failures.length === 0),
             message: () => [
-                `${v1.name}: (${format('cpp', 'java', ' !== ')})\n`,
+                `${v1.name}: (${format('json', 'arrow', ' !== ')})\n`,
                 ...allFailures.map(({ failures, title }) =>
                     !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
             ].join('\n')
@@ -74,41 +94,35 @@ expect.extend({
 });
 
 describe(`Integration`, () => {
-    for (const format of formats) {
-        describe(format, () => {
-            for (const [cppArrow, javaArrow] of zip(config.cpp[format], config.java[format])) {
-                describe(`${cppArrow.name}`, () => {
-                    testReaderIntegration(cppArrow.buffers, javaArrow.buffers);
-                    testTableFromBuffersIntegration(cppArrow.buffers, javaArrow.buffers);
-                });
-            }
-        });
-    }
+    testReaderIntegration();
+    testTableFromBuffersIntegration();
 });
 
-function testReaderIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array[]) {
-    test(`cpp and java vectors report the same values`, () => {
+function testReaderIntegration() {
+    test(`json and arrow buffers report the same values`, () => {
         expect.hasAssertions();
-        for (const [cppVectors, javaVectors] of zip(readVectors(cppBuffers), readVectors(javaBuffers))) {
-            expect(cppVectors.length).toEqual(javaVectors.length);
-            for (let i = -1, n = cppVectors.length; ++i < n;) {
-                (expect(cppVectors[i]) as any).toEqualVector(javaVectors[i]);
+        const jsonVectors = toArray(read(jsonData));
+        const binaryVectors = toArray(read(arrowBuffers));
+        for (const [jVectors, bVectors] of zip(jsonVectors, binaryVectors)) {
+            expect(jVectors.length).toEqual(bVectors.length);
+            for (let i = -1, n = jVectors.length; ++i < n;) {
+                (expect(jVectors[i]) as any).toEqualVector(bVectors[i]);
             }
         }
     });
 }
 
-function testTableFromBuffersIntegration(cppBuffers: Uint8Array[], javaBuffers: Uint8Array[]) {
-    test(`cpp and java tables report the same values`, () => {
+function testTableFromBuffersIntegration() {
+    test(`json and arrow buffers report the same values`, () => {
         expect.hasAssertions();
-        const cppTable = Table.from(cppBuffers);
-        const javaTable = Table.from(javaBuffers);
-        const cppVectors = cppTable.columns;
-        const javaVectors = javaTable.columns;
-        expect(cppTable.length).toEqual(javaTable.length);
-        expect(cppVectors.length).toEqual(javaVectors.length);
-        for (let i = -1, n = cppVectors.length; ++i < n;) {
-            (expect(cppVectors[i]) as any).toEqualVector(javaVectors[i]);
+        const jsonTable = Table.from(jsonData);
+        const binaryTable = Table.from(arrowBuffers);
+        const jsonVectors = jsonTable.columns;
+        const binaryVectors = binaryTable.columns;
+        expect(jsonTable.length).toEqual(binaryTable.length);
+        expect(jsonVectors.length).toEqual(binaryVectors.length);
+        for (let i = -1, n = jsonVectors.length; ++i < n;) {
+            (expect(jsonVectors[i]) as any).toEqualVector(binaryVectors[i]);
         }
     });
 }

@@ -52,10 +52,10 @@ function maybeCopyRawJSArrowFormatFiles(target, format) {
         return Observable.empty();
     }
     return Observable.defer(async () => {
-        const outFormatDir = path.join(targetDir(target, format), `format`);
+        const outFormatDir = path.join(targetDir(target, format), `format`, `fb`);
         await del(path.join(outFormatDir, '*.js'));
         await observableFromStreams(
-            gulp.src(path.join(`src`, `format`, `*_generated.js`)),
+            gulp.src(path.join(`src`, `format`, `fb`, `*_generated.js`)),
             gulpRename((p) => { p.basename = p.basename.replace(`_generated`, ``); }),
             gulp.dest(outFormatDir)
         ).toPromise();

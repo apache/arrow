@@ -39,6 +39,7 @@ else if (!~targets.indexOf(target)) throwInvalidImportError('target', target, ta
 else if (!~formats.indexOf(format)) throwInvalidImportError('module', format, formats);
 else modulePath = path.join(target, format);
 
+export { Int64, Uint64, Int128 } from '../src/Arrow';
 export { List } from '../src/Arrow';
 export { TypedArray } from '../src/Arrow';
 export { TypedArrayConstructor } from '../src/Arrow';
