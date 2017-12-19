@@ -119,6 +119,24 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
 
 
 @parquet
+def test_chunked_table_write(tmpdir):
+    # ARROW-232
+    df = alltypes_sample(size=10)
+
+    # The nanosecond->ms conversion is a nuisance, so we just avoid it here
+    del df['datetime']
+
+    batch = pa.RecordBatch.from_pandas(df)
+    table = pa.Table.from_batches([batch] * 3)
+    _check_roundtrip(table, version='2.0')
+
+    df, _ = dataframe_with_lists()
+    batch = pa.RecordBatch.from_pandas(df)
+    table = pa.Table.from_batches([batch] * 3)
+    _check_roundtrip(table, version='2.0')
+
+
+@parquet
 def test_pandas_parquet_datetime_tz():
     import pyarrow.parquet as pq
 
