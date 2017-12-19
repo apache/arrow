@@ -56,6 +56,13 @@ if (MSVC)
       string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
     endforeach()
   endif()
+
+  # Support large object code
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
+
+  # TODO(wesm): Included per ARROW-1931, but should remove later
+  # MSVC version of -Wno-deprecated
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
