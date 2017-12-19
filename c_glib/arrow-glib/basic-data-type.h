@@ -774,6 +774,8 @@ struct _GArrowTimestampDataTypeClass
 
 GType                 garrow_timestamp_data_type_get_type (void) G_GNUC_CONST;
 GArrowTimestampDataType *garrow_timestamp_data_type_new   (GArrowTimeUnit unit);
+GArrowTimeUnit
+garrow_timestamp_data_type_get_unit (GArrowTimestampDataType *timestamp_data_type);
 
 
 #define GARROW_TYPE_TIME_DATA_TYPE              \
