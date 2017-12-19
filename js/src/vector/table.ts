@@ -17,27 +17,29 @@
 
 import { Vector } from './vector';
 import { StructVector, StructRow } from './struct';
-import { readVectors, readVectorsAsync } from '../reader/arrow';
+import { read, readAsync } from '../reader/arrow';
+
+function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
+    return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
+        vec && col && col.concat(vec) || col || vec
+    ) as Vector<any>[];
+}
 
 export class Table<T> extends StructVector<T> {
-    static from(buffers?: Iterable<Uint8Array | Buffer | string>) {
+    static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         let columns: Vector<any>[] = [];
-        if (buffers) {
-            for (let vectors of readVectors(buffers)) {
-                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                    vec && col && col.concat(vec) || col || vec
-                ) as Vector<any>[];
+        if (sources) {
+            for (let vectors of read(sources)) {
+                columns = concatVectors(columns, vectors);
             }
         }
         return new Table({ columns });
     }
-    static async fromAsync(buffers?: AsyncIterable<Uint8Array | Buffer | string>) {
+    static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
         let columns: Vector<any>[] = [];
-        if (buffers) {
-            for await (let vectors of readVectorsAsync(buffers)) {
-                columns = columns.length === 0 ? vectors : vectors.map((vec, i, _vs, col = columns[i]) =>
-                    vec && col && col.concat(vec) || col || vec
-                ) as Vector<any>[];
+        if (sources) {
+            for await (let vectors of readAsync(sources)) {
+                columns = columns = concatVectors(columns, vectors);
             }
         }
         return new Table({ columns });

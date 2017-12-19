@@ -31,65 +31,65 @@ org.apache.arrow.flatbuf.MetadataVersion = {
   /**
    * 0.1.0
    */
-  V1: 0, 0: 'V1',
+  'V1': 0, 0: 'V1',
 
   /**
    * 0.2.0
    */
-  V2: 1, 1: 'V2',
+  'V2': 1, 1: 'V2',
 
   /**
    * 0.3.0 -> 0.7.1
    */
-  V3: 2, 2: 'V3',
+  'V3': 2, 2: 'V3',
 
   /**
    * >= 0.8.0
    */
-  V4: 3, 3: 'V4'
+  'V4': 3, 3: 'V4'
 };
 
 /**
  * @enum
  */
 org.apache.arrow.flatbuf.UnionMode = {
-  Sparse: 0, 0: 'Sparse',
-  Dense: 1, 1: 'Dense',
+  'Sparse': 0, 0: 'Sparse',
+  'Dense': 1, 1: 'Dense',
 };
 
 /**
  * @enum
  */
 org.apache.arrow.flatbuf.Precision = {
-  HALF: 0, 0: 'HALF',
-  SINGLE: 1, 1: 'SINGLE',
-  DOUBLE: 2, 2: 'DOUBLE',
+  'HALF': 0, 0: 'HALF',
+  'SINGLE': 1, 1: 'SINGLE',
+  'DOUBLE': 2, 2: 'DOUBLE',
 };
 
 /**
  * @enum
  */
 org.apache.arrow.flatbuf.DateUnit = {
-  DAY: 0, 0: 'DAY',
-  MILLISECOND: 1, 1: 'MILLISECOND',
+  'DAY': 0, 0: 'DAY',
+  'MILLISECOND': 1, 1: 'MILLISECOND',
 };
 
 /**
  * @enum
  */
 org.apache.arrow.flatbuf.TimeUnit = {
-  SECOND: 0, 0: 'SECOND',
-  MILLISECOND: 1, 1: 'MILLISECOND',
-  MICROSECOND: 2, 2: 'MICROSECOND',
-  NANOSECOND: 3, 3: 'NANOSECOND',
+  'SECOND': 0, 0: 'SECOND',
+  'MILLISECOND': 1, 1: 'MILLISECOND',
+  'MICROSECOND': 2, 2: 'MICROSECOND',
+  'NANOSECOND': 3, 3: 'NANOSECOND',
 };
 
 /**
  * @enum
  */
 org.apache.arrow.flatbuf.IntervalUnit = {
-  YEAR_MONTH: 0, 0: 'YEAR_MONTH',
-  DAY_TIME: 1, 1: 'DAY_TIME',
+  'YEAR_MONTH': 0, 0: 'YEAR_MONTH',
+  'DAY_TIME': 1, 1: 'DAY_TIME',
 };
 
 /**
@@ -100,24 +100,24 @@ org.apache.arrow.flatbuf.IntervalUnit = {
  * @enum
  */
 org.apache.arrow.flatbuf.Type = {
-  NONE: 0, 0: 'NONE',
-  Null: 1, 1: 'Null',
-  Int: 2, 2: 'Int',
-  FloatingPoint: 3, 3: 'FloatingPoint',
-  Binary: 4, 4: 'Binary',
-  Utf8: 5, 5: 'Utf8',
-  Bool: 6, 6: 'Bool',
-  Decimal: 7, 7: 'Decimal',
-  Date: 8, 8: 'Date',
-  Time: 9, 9: 'Time',
-  Timestamp: 10, 10: 'Timestamp',
-  Interval: 11, 11: 'Interval',
-  List: 12, 12: 'List',
-  Struct_: 13, 13: 'Struct_',
-  Union: 14, 14: 'Union',
-  FixedSizeBinary: 15, 15: 'FixedSizeBinary',
-  FixedSizeList: 16, 16: 'FixedSizeList',
-  Map: 17, 17: 'Map'
+  'NONE': 0, 0: 'NONE',
+  'Null': 1, 1: 'Null',
+  'Int': 2, 2: 'Int',
+  'FloatingPoint': 3, 3: 'FloatingPoint',
+  'Binary': 4, 4: 'Binary',
+  'Utf8': 5, 5: 'Utf8',
+  'Bool': 6, 6: 'Bool',
+  'Decimal': 7, 7: 'Decimal',
+  'Date': 8, 8: 'Date',
+  'Time': 9, 9: 'Time',
+  'Timestamp': 10, 10: 'Timestamp',
+  'Interval': 11, 11: 'Interval',
+  'List': 12, 12: 'List',
+  'Struct_': 13, 13: 'Struct_',
+  'Union': 14, 14: 'Union',
+  'FixedSizeBinary': 15, 15: 'FixedSizeBinary',
+  'FixedSizeList': 16, 16: 'FixedSizeList',
+  'Map': 17, 17: 'Map'
 };
 
 /**
@@ -130,22 +130,22 @@ org.apache.arrow.flatbuf.VectorType = {
   /**
    * used in List type, Dense Union and variable length primitive types (String, Binary)
    */
-  OFFSET: 0, 0: 'OFFSET',
+  'OFFSET': 0, 0: 'OFFSET',
 
   /**
    * actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
    */
-  DATA: 1, 1: 'DATA',
+  'DATA': 1, 1: 'DATA',
 
   /**
    * Bit vector indicating if each value is null
    */
-  VALIDITY: 2, 2: 'VALIDITY',
+  'VALIDITY': 2, 2: 'VALIDITY',
 
   /**
    * Type vector used in Union type
    */
-  TYPE: 3, 3: 'TYPE'
+  'TYPE': 3, 3: 'TYPE'
 };
 
 /**
@@ -155,8 +155,8 @@ org.apache.arrow.flatbuf.VectorType = {
  * @enum
  */
 org.apache.arrow.flatbuf.Endianness = {
-  Little: 0, 0: 'Little',
-  Big: 1, 1: 'Big',
+  'Little': 0, 0: 'Little',
+  'Big': 1, 1: 'Big',
 };
 
 /**

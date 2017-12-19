@@ -20,7 +20,8 @@ import { Vector } from './vector/vector';
 import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
 import { StructVector, StructRow } from './vector/struct';
-import { readVectors, readVectorsAsync } from './reader/arrow';
+import { read, readAsync } from './reader/arrow';
+import { Uint64, Int64, Int128 } from './util/int';
 import { ListVector, BinaryVector, FixedSizeListVector } from './vector/list';
 
 import {
@@ -44,8 +45,16 @@ import {
     TimestampVector,
 } from './vector/numeric';
 
+// closure compiler always erases static method names:
+// https://github.com/google/closure-compiler/issues/1776
+// set them via string indexers to save them from the mangler
+Table['from'] = Table.from;
+Table['fromAsync'] = Table.fromAsync;
+BoolVector['pack'] = BoolVector.pack;
+
+export { read, readAsync };
 export { Table, Vector, StructRow };
-export { readVectors, readVectorsAsync };
+export { Uint64, Int64, Int128 };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
 export {
@@ -80,8 +89,8 @@ try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
-        Arrow['readVectors'] = readVectors;
-        Arrow['readVectorsAsync'] = readVectorsAsync;
+        Arrow['read'] = read;
+        Arrow['readAsync'] = readAsync;
         Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
         Arrow['StructRow'] = StructRow;

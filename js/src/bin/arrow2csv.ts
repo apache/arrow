@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+// #! /usr/bin/env node
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -17,13 +17,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-var fs = require('fs');
-var Table = require('../dist/Arrow.js').Table;
-var optionList = [
+/* tslint:disable */
+
+import * as Arrow from '../Arrow';
+
+(function() {
+
+const fs = require('fs');
+const { parse } = require('json-bignum');
+const optionList = [
     {
         type: String,
-        name: 'schema',
-        alias: 's', multiple: true,
+        name: 'schema', alias: 's',
+        optional: true, multiple: true,
         typeLabel: '[underline]{columns}',
         description: 'A space-delimited list of column names'
     },
@@ -34,12 +40,10 @@ var optionList = [
     }
 ];
 
-var argv = require(`command-line-args`)(optionList, { partial: true });
-var files = [argv.file, ...(argv._unknown || [])].filter(Boolean);
+const argv = require(`command-line-args`)(optionList, { partial: true });
+const files = [argv.file, ...(argv._unknown || [])].filter(Boolean);
 
-// console.log(JSON.stringify(argv));
-
-if (!argv.schema || !files.length) {
+if (!files.length) {
     console.log(require('command-line-usage')([
         {
             header: 'arrow2csv',
@@ -81,9 +85,51 @@ if (!argv.schema || !files.length) {
 }
 
 files.forEach((source) => {
-    var allColumns = Table.from(fs.readFileSync(source));
-    var selectedColumns = new Table(argv.schema.map((columnName) => {
-        return allColumns.getColumn(columnName);
-    }));
-    console.log(selectedColumns.toString());
+    let table: any, input = fs.readFileSync(source);
+    try {
+        table = Arrow.Table.from([input]);
+    } catch (e) {
+        table = Arrow.Table.from(parse(input + ''));
+    }
+    if (argv.schema && argv.schema.length) {
+        table = table.select(...argv.schema);
+    }
+    printTable(table);
 });
+
+function printTable(table: Arrow.Table<any>) {
+    let header = [...table.columns.map((_, i) => table.key(i))].map(stringify);
+    let maxColumnWidths = header.map(x => x.length);
+    // Pass one to convert to strings and count max column widths
+    for (let i = -1, n = table.length - 1; ++i < n;) {
+        let val,
+            row = [i, ...table.get(i)];
+        for (let j = -1, k = row.length; ++j < k; ) {
+            val = stringify(row[j]);
+            maxColumnWidths[j] = Math.max(maxColumnWidths[j], val.length);
+        }
+    }
+    console.log(header.map((x, j) => leftPad(x, ' ', maxColumnWidths[j])).join(' | '));
+    // Pass two to pad each one to max column width
+    for (let i = -1, n = table.length; ++i < n; ) {
+        console.log(
+            [...table.get(i)]
+                .map(stringify)
+                .map((x, j) => leftPad(x, ' ', maxColumnWidths[j]))
+                .join(' | ')
+        );
+    }
+}
+
+function leftPad(str: string, fill: string, n: number) {
+    return (new Array(n + 1).join(fill) + str).slice(-1 * n);
+}
+
+function stringify(x: any) {
+    return typeof x === 'string' ? `"${x}"`
+              : Array.isArray(x) ? JSON.stringify(x)
+              : ArrayBuffer.isView(x) ? `[${x}]`
+                                      : `${x}`;
+}
+
+})();

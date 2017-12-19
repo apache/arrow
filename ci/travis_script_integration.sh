@@ -20,6 +20,7 @@
 set -e
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 
 pushd $ARROW_JAVA_DIR
 
@@ -28,8 +29,15 @@ mvn -B clean package 2>&1 > mvn_package.log || (cat mvn_package.log && false)
 
 popd
 
+pushd $ARROW_JS_DIR
+
+# lint and compile JS source
+npm run lint
+npm run build
+
+popd
+
 pushd $ARROW_INTEGRATION_DIR
-export ARROW_CPP_EXE_PATH=$ARROW_CPP_BUILD_DIR/debug
 
 CONDA_ENV_NAME=arrow-integration-test
 conda create -y -q -n $CONDA_ENV_NAME python=3.5
@@ -45,21 +53,11 @@ python integration_test.py --debug
 
 popd
 
-pushd $ARROW_JS_DIR
+# pushd $ARROW_JS_DIR
 
-# lint and compile JS source
-npm run lint
-npm run build
-# create initial test data
-npm run create:testdata
-# run once to write the snapshots
-npm test -- -t ts -u --integration
-# run again to test all builds against the snapshots
-npm test -- --integration
 # run tests against source to generate coverage data
-npm run test:coverage -- --integration
+# npm run test:coverage
 # Uncomment to upload to coveralls
 # cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js;
 
-
-popd
+# popd

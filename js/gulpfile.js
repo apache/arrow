@@ -93,13 +93,13 @@ gulp.task(`debug`, gulp.series(getTasks(`debug`)));
 gulp.task(`clean`, gulp.parallel(getTasks(`clean`)));
 gulp.task(`build`, buildConcurrent(getTasks(`build`)));
 gulp.task(`default`,  gulp.series(`build`, `test`));
-  
+
 function getTasks(name) {
     const tasks = [];
     if (targets.indexOf(`ts`) !== -1) tasks.push(`${name}:ts`);
     if (targets.indexOf(npmPkgName) !== -1) tasks.push(`${name}:${npmPkgName}`);
     for (const [target, format] of combinations(targets, modules)) {
-        if (moduleFormatsToSkipCombosOf[format] && name === `test`) {
+        if (moduleFormatsToSkipCombosOf[format] && moduleFormatsToSkipCombosOf[format][name]) {
             continue;
         }
         tasks.push(`${name}:${taskName(target, format)}`);
