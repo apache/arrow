@@ -34,6 +34,11 @@ if (MSVC)
   # headers will see dllimport
   add_definitions(-DARROW_EXPORTING)
 
+  # ARROW-1931 See https://github.com/google/googletest/issues/1318
+  if (MSVC_VERSION VERSION_GREATER 1411)
+    add_definitions(/D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
+  endif()
+
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")
@@ -59,10 +64,6 @@ if (MSVC)
 
   # Support large object code
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
-
-  # TODO(wesm): Included per ARROW-1931, but should remove later
-  # MSVC version of -Wno-deprecated
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
