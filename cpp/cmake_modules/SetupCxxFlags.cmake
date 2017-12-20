@@ -34,11 +34,6 @@ if (MSVC)
   # headers will see dllimport
   add_definitions(-DARROW_EXPORTING)
 
-  # ARROW-1931 See https://github.com/google/googletest/issues/1318
-  if (MSVC_VERSION VERSION_GREATER 1411)
-    add_definitions(/D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
-  endif()
-
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")
