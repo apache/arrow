@@ -34,6 +34,14 @@ if (MSVC)
   # headers will see dllimport
   add_definitions(-DARROW_EXPORTING)
 
+  # ARROW-1931 See https://github.com/google/googletest/issues/1318
+  #
+  # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
+  # former is passed into the external projects
+  if (MSVC_VERSION VERSION_GREATER 1900)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
+  endif()
+
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # clang-cl
     set(CXX_COMMON_FLAGS "-EHsc")
@@ -56,6 +64,9 @@ if (MSVC)
       string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
     endforeach()
   endif()
+
+  # Support large object code
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /bigobj")
 else()
   # Common flags set below with warning level
   set(CXX_COMMON_FLAGS "")
