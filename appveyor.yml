@@ -20,16 +20,13 @@ os: Visual Studio 2015
 
 environment:
   matrix:
-    - JOB: "Cmake_Script_Tests"
-      GENERATOR: NMake Makefiles
-      PYTHON: "3.5"
-      ARCH: "64"
-      CONFIGURATION: "Release"
     - JOB: "Build"
-      GENERATOR: NMake Makefiles
+      GENERATOR: Visual Studio 15 2017 Win64
       PYTHON: "3.5"
       ARCH: "64"
       CONFIGURATION: "Release"
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      BOOST_ROOT: C:\Libraries\boost_1_64_0
     - JOB: "Build_Debug"
       GENERATOR: Visual Studio 14 2015 Win64
       PYTHON: "3.5"
@@ -49,13 +46,16 @@ environment:
       PYTHON: "3.5"
       ARCH: "64"
       CONFIGURATION: "Release"
-    - JOB: "Build"
-      GENERATOR: Visual Studio 15 2017 Win64
+    - JOB: "Cmake_Script_Tests"
+      GENERATOR: NMake Makefiles
       PYTHON: "3.5"
       ARCH: "64"
       CONFIGURATION: "Release"
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      BOOST_ROOT: C:\Libraries\boost_1_64_0
+    - JOB: "Build"
+      GENERATOR: NMake Makefiles
+      PYTHON: "3.5"
+      ARCH: "64"
+      CONFIGURATION: "Release"
 
   MSVC_DEFAULT_OPTIONS: ON
   BOOST_ROOT: C:\Libraries\boost_1_63_0
