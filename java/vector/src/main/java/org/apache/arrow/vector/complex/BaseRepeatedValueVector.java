@@ -23,12 +23,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.AddOrGetResult;
-import org.apache.arrow.vector.BaseValueVector;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -134,7 +129,11 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   @Override
   public void setInitialCapacity(int numRecords) {
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
-    vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
+    if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
+      vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
+    } else {
+     vector.setInitialCapacity(numRecords);
+    }
   }
 
   @Override
