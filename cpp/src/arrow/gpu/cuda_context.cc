@@ -89,11 +89,11 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
-  Status ExportIpcBuffer(void* data, std::unique_ptr<CudaIpcMemHandle>* handle) {
+  Status ExportIpcBuffer(void* data, std::shared_ptr<CudaIpcMemHandle>* handle) {
     CU_RETURN_NOT_OK(cuCtxSetCurrent(context_));
     CUipcMemHandle cu_handle;
     CU_RETURN_NOT_OK(cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
-    *handle = std::unique_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
+    *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(&cu_handle));
     return Status::OK();
   }
 
@@ -241,7 +241,7 @@ Status CudaContext::Allocate(int64_t nbytes, std::shared_ptr<CudaBuffer>* out) {
 }
 
 Status CudaContext::ExportIpcBuffer(void* data,
-                                    std::unique_ptr<CudaIpcMemHandle>* handle) {
+                                    std::shared_ptr<CudaIpcMemHandle>* handle) {
   return impl_->ExportIpcBuffer(data, handle);
 }
 
