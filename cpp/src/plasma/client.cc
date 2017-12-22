@@ -46,6 +46,7 @@
 #include "plasma/io.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
+#include "arrow/buffer.h"
 
 #define XXH_STATIC_LINKING_ONLY
 #include "thirdparty/xxhash.h"

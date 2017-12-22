@@ -30,9 +30,11 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 #include "plasma/common.h"
+#include "arrow/buffer.h"
 
 using arrow::Buffer;
 using arrow::Status;
+using arrow::Buffer;
 
 namespace plasma {
 
