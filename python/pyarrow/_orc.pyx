@@ -20,7 +20,7 @@
 # cython: embedsignature = True
 
 from cython.operator cimport dereference as deref
-from libcpp.list cimport list as std_list
+from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status,
@@ -78,7 +78,7 @@ cdef class ORCReader:
             shared_ptr[CRecordBatch] sp_record_batch
             RecordBatch batch
             int64_t stripe
-            std_list[uint64_t] indices
+            std_vector[int] indices
 
         stripe = n
 
@@ -98,7 +98,7 @@ cdef class ORCReader:
         cdef:
             shared_ptr[CRecordBatch] sp_record_batch
             RecordBatch batch
-            std_list[uint64_t] indices
+            std_vector[int] indices
 
         if include_indices is None:
             with nogil:

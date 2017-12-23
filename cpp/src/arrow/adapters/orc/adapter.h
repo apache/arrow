@@ -64,8 +64,7 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \param[in] include_indices the selected field indices to read
   /// \param[out] out the returned RecordBatch
-  Status Read(const std::list<uint64_t>& include_indices,
-              std::shared_ptr<RecordBatch>* out);
+  Status Read(const std::vector<int>& include_indices, std::shared_ptr<RecordBatch>* out);
 
   /// \brief Read a single stripe as a RecordBatch
   ///
@@ -78,7 +77,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] stripe the stripe index
   /// \param[in] include_indices the selected field indices to read
   /// \param[out] out the returned RecordBatch
-  Status ReadStripe(int64_t stripe, const std::list<uint64_t>& include_indices,
+  Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
                     std::shared_ptr<RecordBatch>* out);
 
   /// \brief The number of stripes in the file

@@ -284,10 +284,17 @@ class ORCFileReader::Impl {
     return ReadBatch(opts, NumberOfRows(), out);
   }
 
-  Status Read(const std::list<uint64_t>& include_indices,
+  Status Read(const std::vector<int>& include_indices,
               std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
-    opts.includeTypes(include_indices);
+    std::list<uint64_t> include_indices_list;
+    for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
+      if (*it < 0) {
+        return Status::Invalid("Negative field index");
+      }
+      include_indices_list.push_back(*it);
+    }
+    opts.includeTypes(include_indices_list);
     return ReadBatch(opts, NumberOfRows(), out);
   }
 
@@ -297,11 +304,18 @@ class ORCFileReader::Impl {
     return ReadBatch(opts, stripes_[stripe].num_rows, out);
   }
 
-  Status ReadStripe(int64_t stripe, const std::list<uint64_t>& include_indices,
+  Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
                     std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    opts.includeTypes(include_indices);
+    std::list<uint64_t> include_indices_list;
+    for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
+      if (*it < 0) {
+        return Status::Invalid("Negative field index");
+      }
+      include_indices_list.push_back(*it);
+    }
+    opts.includeTypes(include_indices_list);
     return ReadBatch(opts, stripes_[stripe].num_rows, out);
   }
 
@@ -650,7 +664,7 @@ Status ORCFileReader::ReadSchema(std::shared_ptr<Schema>* out) {
 
 Status ORCFileReader::Read(std::shared_ptr<RecordBatch>* out) { return impl_->Read(out); }
 
-Status ORCFileReader::Read(const std::list<uint64_t>& include_indices,
+Status ORCFileReader::Read(const std::vector<int>& include_indices,
                            std::shared_ptr<RecordBatch>* out) {
   return impl_->Read(include_indices, out);
 }
@@ -659,8 +673,7 @@ Status ORCFileReader::ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* o
   return impl_->ReadStripe(stripe, out);
 }
 
-Status ORCFileReader::ReadStripe(int64_t stripe,
-                                 const std::list<uint64_t>& include_indices,
+Status ORCFileReader::ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
                                  std::shared_ptr<RecordBatch>* out) {
   return impl_->ReadStripe(stripe, include_indices, out);
 }

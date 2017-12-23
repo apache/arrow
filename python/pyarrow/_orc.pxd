@@ -18,7 +18,7 @@
 # distutils: language = c++
 
 from libc.string cimport const_char
-from libcpp.list cimport list as std_list
+from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CTable, CMemoryPool,
@@ -39,10 +39,10 @@ cdef extern from "arrow/adapters/orc/adapter.h" namespace "arrow::adapters::orc"
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 
         CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
-        CStatus ReadStripe(int64_t stripe, std_list[uint64_t], shared_ptr[CRecordBatch]* out)
+        CStatus ReadStripe(int64_t stripe, std_vector[int], shared_ptr[CRecordBatch]* out)
 
         CStatus Read(shared_ptr[CRecordBatch]* out)
-        CStatus Read(std_list[uint64_t], shared_ptr[CRecordBatch]* out)
+        CStatus Read(std_vector[int], shared_ptr[CRecordBatch]* out)
 
         int64_t NumberOfStripes()
 
