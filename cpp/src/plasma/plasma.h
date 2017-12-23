@@ -124,8 +124,8 @@ struct ObjectTableEntry {
   /// Pointer to the object data. Needed to free the object.
   uint8_t* pointer;
 #ifdef PLASMA_GPU
-  /// GPU handle to share with clients.
-  std::shared_ptr<CudaBuffer> gpu_handle;
+  /// IPC GPU handle to share with clients.
+  std::shared_ptr<CudaIpcMemHandle> ipc_handle;
 #endif
   /// Set of clients currently using this object.
   std::unordered_set<Client*> clients;

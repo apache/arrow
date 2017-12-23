@@ -86,7 +86,7 @@ Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object, int e
                                  object->metadata_offset, object->metadata_size,
                                  object->device_num);
   if (object->device_num != 0) {
-#ifdef ARROW_GPU
+#ifdef PLASMA_GPU
     std::shared_ptr<arrow::Buffer> handle;
     object->handle.ipc_handle->Serialize(arrow::default_memory_pool(), &handle);
     auto ipc_handle = CreateCudaHandle(fbb, fbb.CreateVector(handle->data(), handle->size()));

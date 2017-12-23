@@ -214,11 +214,11 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 #ifdef PLASMA_GPU
     std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
-    manager_->GetContext(device_num - 1, &context);
+    RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
     GpuProcessHandle* handle = new GpuProcessHandle();
-    context->OpenIpcBuffer(*object.handle.ipc_handle, &handle->ptr);
+    RETURN_NOT_OK(context->OpenIpcBuffer(*object.handle.ipc_handle, &handle->ptr));
     gpu_object_map[object_id] = handle;
-    *data = std::make_shared<CudaBuffer>(handle->ptr, 0, data_size);
+    *data = handle->ptr;
     if (metadata != NULL) {
       // Copy the metadata to the buffer.
       CudaBufferWriter writer(std::dynamic_pointer_cast<CudaBuffer>(*data));
@@ -268,7 +268,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
         object_buffers[i].metadata = std::make_shared<Buffer>(
             data + object->data_offset + object->data_size, object->metadata_size);
       } else {
-#ifdef ARROW_GPU
+#ifdef PLASMA_GPU
         std::shared_ptr<CudaBuffer> gpu_handle = gpu_object_map.find(object_ids[i])->second->ptr;
         object_buffers[i].data = std::make_shared<CudaBuffer>(gpu_handle, 0, object->data_size);
         object_buffers[i].metadata = std::make_shared<CudaBuffer>(gpu_handle, object->data_size, object->metadata_size);
@@ -350,9 +350,9 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
         std::shared_ptr<CudaBuffer> gpu_handle;
         if (handle == gpu_object_map.end()) {
           std::shared_ptr<CudaContext> context;
-          manager_->GetContext(object->device_num - 1, &context);
+          RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
-          context->OpenIpcBuffer(*object->handle.ipc_handle, &obj_handle->ptr);
+          RETURN_NOT_OK(context->OpenIpcBuffer(*object->handle.ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
           gpu_handle = obj_handle->ptr;
         }
@@ -454,6 +454,9 @@ Status PlasmaClient::Release(const ObjectID& object_id) {
   // If there are too many bytes in use by the client or if there are too many
   // pending release calls, and there are at least some pending release calls in
   // the release_history list, then release some objects.
+
+  // TODO(wap) Evicition policy only works on host memory, and thus objects
+  //           on the GPU cannot be released currently.
   while ((in_use_object_bytes_ > std::min(kL3CacheSizeBytes, store_capacity_ / 100) ||
           release_history_.size() > config_.release_delay) &&
          release_history_.size() > 0) {
