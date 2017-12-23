@@ -43,12 +43,15 @@ constexpr int64_t kL3CacheSizeBytes = 100000000;
 
 /// Object buffer data structure.
 struct ObjectBuffer {
+  /// The data buffer.
   std::shared_ptr<Buffer> data;
   /// The size in bytes of the data object.
   int64_t data_size;
+  /// The metadata buffer.
+  std::shared_ptr<Buffer> metadata;
   /// The metadata size in bytes.
   int64_t metadata_size;
-  // Device number.
+  /// The device number.
   int device_num;
 };
 

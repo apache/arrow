@@ -54,6 +54,8 @@
 
 namespace plasma {
 
+using arrow::MutableBuffer;
+
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
 constexpr int64_t kBytesInMB = 1 << 20;
@@ -206,7 +208,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       PlasmaObject* object = &object_entry->second->object;
       uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
       object_buffers[i].data = std::make_shared<Buffer>(data + object->data_offset, object->data_size);
-      object_buffers[i].metadata = std::make_shared<Buffer>(&object_buffers[i].data, object->data_size, object->metadata_size);
+      object_buffers[i].metadata = std::make_shared<Buffer>(data + object->data_offset + object->data_size, object->metadata_size);
       object_buffers[i].data_size = object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
       // Increment the count of the number of instances of this object that this
@@ -259,7 +261,7 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       ARROW_CHECK(fd >= 0);
       // Finish filling out the return values.
       object_buffers[i].data = std::make_shared<Buffer>(data + object->data_offset, object->data_size);
-      object_buffers[i].metadata = std::make_shared<Buffer>(&object_buffers[i].data, object->data_size, object->metadata_size);
+      object_buffers[i].metadata = std::make_shared<Buffer>(data + object->data_offset + object->data_size, object->metadata_size);
       object_buffers[i].data_size = object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
       // Increment the count of the number of instances of this object that this
