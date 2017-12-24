@@ -101,8 +101,8 @@ class ORCFile(object):
                 if 0 <= col < len(schema):
                     col = schema[col].name
                 else:
-                    raise ValueError("Column indices must be in "
-                                     "[0, %d), got %d" % (len(schema), col))
+                    raise ValueError("Column indices must be in 0 <= ind < %d,"
+                                     " got %d" % (len(schema), col))
             if col in self._column_index_lookup:
                 indices.append(self._column_index_lookup[col])
             else:
