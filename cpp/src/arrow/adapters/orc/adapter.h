@@ -55,16 +55,20 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[out] out the returned Schema object
   Status ReadSchema(std::shared_ptr<Schema>* out);
 
-  /// \brief Read the file as a RecordBatch
+  /// \brief Read the file as a Table
+  ///
+  /// The table will be composed of one record batch per stripe.
   ///
   /// \param[out] out the returned RecordBatch
-  Status Read(std::shared_ptr<RecordBatch>* out);
+  Status Read(std::shared_ptr<Table>* out);
 
-  /// \brief Read the file as a RecordBatch
+  /// \brief Read the file as a Table
+  ///
+  /// The table will be composed of one record batch per stripe.
   ///
   /// \param[in] include_indices the selected field indices to read
   /// \param[out] out the returned RecordBatch
-  Status Read(const std::vector<int>& include_indices, std::shared_ptr<RecordBatch>* out);
+  Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out);
 
   /// \brief Read a single stripe as a RecordBatch
   ///

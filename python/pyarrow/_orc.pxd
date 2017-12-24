@@ -24,6 +24,7 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CTable, CMemoryPool,
                                         CKeyValueMetadata,
                                         CRecordBatch,
+                                        CTable,
                                         RandomAccessFile, OutputStream,
                                         TimeUnit)
 
@@ -41,8 +42,8 @@ cdef extern from "arrow/adapters/orc/adapter.h" namespace "arrow::adapters::orc"
         CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
         CStatus ReadStripe(int64_t stripe, std_vector[int], shared_ptr[CRecordBatch]* out)
 
-        CStatus Read(shared_ptr[CRecordBatch]* out)
-        CStatus Read(std_vector[int], shared_ptr[CRecordBatch]* out)
+        CStatus Read(shared_ptr[CTable]* out)
+        CStatus Read(std_vector[int], shared_ptr[CTable]* out)
 
         int64_t NumberOfStripes()
 

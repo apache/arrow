@@ -31,6 +31,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/table_builder.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -279,23 +280,15 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status Read(std::shared_ptr<RecordBatch>* out) {
+  Status Read(std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
-    return ReadBatch(opts, NumberOfRows(), out);
+    return ReadTable(opts, out);
   }
 
-  Status Read(const std::vector<int>& include_indices,
-              std::shared_ptr<RecordBatch>* out) {
+  Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
     liborc::RowReaderOptions opts;
-    std::list<uint64_t> include_indices_list;
-    for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
-      if (*it < 0) {
-        return Status::Invalid("Negative field index");
-      }
-      include_indices_list.push_back(*it);
-    }
-    opts.includeTypes(include_indices_list);
-    return ReadBatch(opts, NumberOfRows(), out);
+    RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    return ReadTable(opts, out);
   }
 
   Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
@@ -307,15 +300,8 @@ class ORCFileReader::Impl {
   Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
                     std::shared_ptr<RecordBatch>* out) {
     liborc::RowReaderOptions opts;
+    RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    std::list<uint64_t> include_indices_list;
-    for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
-      if (*it < 0) {
-        return Status::Invalid("Negative field index");
-      }
-      include_indices_list.push_back(*it);
-    }
-    opts.includeTypes(include_indices_list);
     return ReadBatch(opts, stripes_[stripe].num_rows, out);
   }
 
@@ -327,6 +313,30 @@ class ORCFileReader::Impl {
     }
     opts->range(stripes_[stripe].offset, stripes_[stripe].length);
     return Status::OK();
+  }
+
+  Status SelectIndices(liborc::RowReaderOptions* opts,
+                       const std::vector<int>& include_indices) {
+    std::list<uint64_t> include_indices_list;
+    for (auto it = include_indices.begin(); it != include_indices.end(); ++it) {
+      if (*it < 0) {
+        return Status::Invalid("Negative field index");
+      }
+      include_indices_list.push_back(*it);
+    }
+    opts->includeTypes(include_indices_list);
+    return Status::OK();
+  }
+
+  Status ReadTable(const liborc::RowReaderOptions& row_opts,
+                   std::shared_ptr<Table>* out) {
+    liborc::RowReaderOptions opts(row_opts);
+    std::vector<std::shared_ptr<RecordBatch>> batches(stripes_.size());
+    for (size_t stripe = 0; stripe < stripes_.size(); stripe++) {
+      opts.range(stripes_[stripe].offset, stripes_[stripe].length);
+      RETURN_NOT_OK(ReadBatch(opts, stripes_[stripe].num_rows, &batches[stripe]));
+    }
+    return Table::FromRecordBatches(batches, out);
   }
 
   Status ReadBatch(const liborc::RowReaderOptions& opts, int64_t nrows,
@@ -662,10 +672,10 @@ Status ORCFileReader::ReadSchema(std::shared_ptr<Schema>* out) {
   return impl_->ReadSchema(out);
 }
 
-Status ORCFileReader::Read(std::shared_ptr<RecordBatch>* out) { return impl_->Read(out); }
+Status ORCFileReader::Read(std::shared_ptr<Table>* out) { return impl_->Read(out); }
 
 Status ORCFileReader::Read(const std::vector<int>& include_indices,
-                           std::shared_ptr<RecordBatch>* out) {
+                           std::shared_ptr<Table>* out) {
   return impl_->Read(include_indices, out);
 }
 

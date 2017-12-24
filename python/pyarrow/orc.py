@@ -142,8 +142,8 @@ class ORCFile(object):
 
         Returns
         -------
-        pyarrow.lib.RecordBatch
-            Content of the file as a RecordBatch.
+        pyarrow.lib.Table
+            Content of the file as a Table.
         """
         include_indices = self._select_indices(columns)
         return self.reader.read(include_indices=include_indices)

@@ -27,6 +27,7 @@ from pyarrow.lib cimport (check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Schema, pyarrow_wrap_schema,
                           RecordBatch,
+                          pyarrow_wrap_table,
                           get_reader)
 import six
 
@@ -96,18 +97,15 @@ cdef class ORCReader:
 
     def read(self, include_indices=None):
         cdef:
-            shared_ptr[CRecordBatch] sp_record_batch
-            RecordBatch batch
+            shared_ptr[CTable] sp_table
             std_vector[int] indices
 
         if include_indices is None:
             with nogil:
-                check_status(deref(self.reader).Read(&sp_record_batch))
+                check_status(deref(self.reader).Read(&sp_table))
         else:
             indices = include_indices
             with nogil:
-                check_status(deref(self.reader).Read(indices, &sp_record_batch))
+                check_status(deref(self.reader).Read(indices, &sp_table))
 
-        batch = RecordBatch()
-        batch.init(sp_record_batch)
-        return batch
+        return pyarrow_wrap_table(sp_table)
