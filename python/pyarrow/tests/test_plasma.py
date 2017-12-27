@@ -310,12 +310,14 @@ class TestPlasmaClient(object):
         serialization_context = pa.SerializationContext()
         serialization_context.register_type(CustomType, 20*b"\x00")
 
-        object_id = self.plasma_client.put(val, None, serialization_context)
+        object_id = self.plasma_client.put(
+            val, None, serialization_context=serialization_context)
 
         with pytest.raises(pa.ArrowSerializationError):
             result = self.plasma_client.get(object_id)
 
-        result = self.plasma_client.get(object_id, -1, serialization_context)
+        result = self.plasma_client.get(
+            object_id, -1, serialization_context=serialization_context)
         assert result.val == val.val
 
     def test_store_arrow_objects(self):

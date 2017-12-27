@@ -370,7 +370,7 @@ cdef class PlasmaClient:
                                          object_buffers[i].metadata_size))
         return result
 
-    def put(self, object value, ObjectID object_id=None,
+    def put(self, object value, ObjectID object_id=None, int memcopy_threads=6,
             serialization_context=None):
         """
         Store a Python value into the object store.
@@ -382,6 +382,9 @@ cdef class PlasmaClient:
         object_id : ObjectID, default None
             If this is provided, the specified object ID will be used to refer
             to the object.
+        memcopy_threads : int, default 6
+            The number of threads to use to write the serialized object into
+            the object store for large objects.
         serialization_context : pyarrow.SerializationContext, default None
             Custom serialization and deserialization context.
 
@@ -394,7 +397,7 @@ cdef class PlasmaClient:
         serialized = pyarrow.serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferWriter(buffer)
-        stream.set_memcopy_threads(4)
+        stream.set_memcopy_threads(memcopy_threads)
         serialized.write_to(stream)
         self.seal(target_id)
         return target_id
