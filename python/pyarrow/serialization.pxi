@@ -72,7 +72,6 @@ cdef class SerializationContext:
         result.whitelisted_types = self.whitelisted_types.copy()
         result.custom_serializers = self.custom_serializers.copy()
         result.custom_deserializers = self.custom_deserializers.copy()
-        result.memcopy_threads = self.memcopy_threads
 
         return result
 
