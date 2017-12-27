@@ -50,6 +50,7 @@ cdef class SerializationContext:
         object types_to_pickle
         object custom_serializers
         object custom_deserializers
+        int memcopy_threads
 
     def __init__(self):
         # Types with special serialization handlers
@@ -58,6 +59,7 @@ cdef class SerializationContext:
         self.types_to_pickle = set()
         self.custom_serializers = dict()
         self.custom_deserializers = dict()
+        self.memcopy_threads = 6
 
     def clone(self):
         """
@@ -72,6 +74,7 @@ cdef class SerializationContext:
         result.whitelisted_types = self.whitelisted_types.copy()
         result.custom_serializers = self.custom_serializers.copy()
         result.custom_deserializers = self.custom_deserializers.copy()
+        result.memcopy_threads = self.memcopy_threads
 
         return result
 
@@ -102,6 +105,12 @@ cdef class SerializationContext:
         if custom_serializer is not None:
             self.custom_serializers[type_id] = custom_serializer
             self.custom_deserializers[type_id] = custom_deserializer
+
+    def set_memcopy_threads(self, int memcopy_threads):
+        self.memcopy_threads = memcopy_threads
+
+    def get_memcopy_threads(self):
+        return self.memcopy_threads
 
     def _serialize_callback(self, obj):
         found = False

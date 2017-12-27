@@ -394,7 +394,7 @@ cdef class PlasmaClient:
         serialized = pyarrow.serialize(value, serialization_context)
         buffer = self.create(target_id, serialized.total_bytes)
         stream = pyarrow.FixedSizeBufferWriter(buffer)
-        stream.set_memcopy_threads(4)
+        stream.set_memcopy_threads(serialization_context.get_memcopy_threads())
         serialized.write_to(stream)
         self.seal(target_id)
         return target_id
