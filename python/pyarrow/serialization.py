@@ -104,12 +104,9 @@ def register_default_serialization_handlers(serialization_context):
 
     serialization_context.register_type(
         type(lambda: 0), "function",
-        custom_serializer=cloudpickle.dumps,
-        custom_deserializer=cloudpickle.loads)
+        pickle=True)
 
-    serialization_context.register_type(type, "type",
-                                        custom_serializer=cloudpickle.dumps,
-                                        custom_deserializer=cloudpickle.loads)
+    serialization_context.register_type(type, "type", pickle=True)
 
     serialization_context.register_type(
         np.ndarray, 'np.array',

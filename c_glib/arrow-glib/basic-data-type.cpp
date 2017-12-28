@@ -805,6 +805,24 @@ garrow_timestamp_data_type_new(GArrowTimeUnit unit)
   return data_type;
 }
 
+/**
+ * garrow_timestamp_data_type_get_unit:
+ * @timestamp_data_type: The #GArrowTimestampDataType.
+ *
+ * Returns: The unit of the timestamp data type.
+ *
+ * Since: 0.8.0
+ */
+GArrowTimeUnit
+garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(timestamp_data_type));
+  const auto arrow_timestamp_data_type =
+    std::static_pointer_cast<arrow::TimestampType>(arrow_data_type);
+  return garrow_time_unit_from_raw(arrow_timestamp_data_type->unit());
+}
+
 
 G_DEFINE_TYPE(GArrowTimeDataType,               \
               garrow_time_data_type,            \

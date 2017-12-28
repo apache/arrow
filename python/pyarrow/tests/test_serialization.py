@@ -21,9 +21,9 @@ import pytest
 
 from collections import namedtuple, OrderedDict, defaultdict
 import datetime
+import os
 import string
 import sys
-import pickle
 
 import pyarrow as pa
 import numpy as np
@@ -198,9 +198,7 @@ def make_serialization_context():
     context.register_type(Baz, "Baz")
     context.register_type(Qux, "Quz")
     context.register_type(SubQux, "SubQux")
-    context.register_type(SubQuxPickle, "SubQuxPickle",
-                          custom_serializer=pickle.dumps,
-                          custom_deserializer=pickle.loads)
+    context.register_type(SubQuxPickle, "SubQuxPickle", pickle=True)
     context.register_type(Exception, "Exception")
     context.register_type(CustomError, "CustomError")
     context.register_type(Point, "Point")
@@ -519,3 +517,27 @@ def test_serialize_to_components_invalid_cases():
 
     with pytest.raises(pa.ArrowException):
         pa.deserialize_components(components)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="deserialize_regex not pickleable")
+def test_deserialize_in_different_process():
+    from multiprocessing import Process, Queue
+    import re
+
+    regex = re.compile(r"\d+\.\d*")
+
+    serialization_context = pa.SerializationContext()
+    serialization_context.register_type(type(regex), "Regex", pickle=True)
+
+    serialized = pa.serialize(regex, serialization_context)
+    serialized_bytes = serialized.to_buffer().to_pybytes()
+
+    def deserialize_regex(serialized, q):
+        import pyarrow as pa
+        q.put(pa.deserialize(serialized))
+
+    q = Queue()
+    p = Process(target=deserialize_regex, args=(serialized_bytes, q))
+    p.start()
+    assert q.get().pattern == regex.pattern
+    p.join()

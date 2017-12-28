@@ -33,6 +33,10 @@ AM_CFLAGS =					\
 AM_LDFLAGS =						\
 	$(GLIB_LIBS)					\
 	$(builddir)/../arrow-glib/libarrow-glib.la
+if USE_ARROW_BUILD_DIR
+AM_LDFLAGS +=					\
+	$(ARROW_LIBS)
+endif
 
 noinst_PROGRAMS =				\
 	build					\

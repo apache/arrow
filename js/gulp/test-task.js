@@ -36,16 +36,20 @@ argv.coverage && jestArgv.push(`--coverage`);
 
 const debugArgv = [`--runInBand`, `--env`, `jest-environment-node-debug`];
 const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
+const testOptions = {
+    env: { ...process.env },
+    stdio: [`ignore`, `inherit`, `inherit`],
+};
 
 const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format, debug = false) {
     const opts = { ...testOptions };
     const args = !debug ? [...execArgv] : [...debugArgv, ...execArgv];
-    if (!argv.integration) {
-        args.push('test/vector-tests.ts');
-    }
+    args.push(`test/${argv.integration ? `integration/*` : `unit/*`}`);
     opts.env = { ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
+        JSON_PATH: argv.json_file,
+        ARROW_PATH: argv.arrow_file,
         TEST_TS_SOURCE: !!argv.coverage,
         TEST_SOURCES: JSON.stringify(Array.isArray(argv.sources) ? argv.sources : [argv.sources]),
         TEST_FORMATS: JSON.stringify(Array.isArray(argv.formats) ? argv.formats : [argv.formats]),
@@ -53,10 +57,7 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
     return !debug ?
         child_process.spawn(jest, args, opts) :
         child_process.exec(`node --inspect-brk ${jest} ${args.join(` `)}`, opts);
-}))({}, jestArgv, {
-    env: { ...process.env },
-    stdio: [`ignore`, `inherit`, `inherit`],
-});
+}))({}, jestArgv, testOptions);
 
 module.exports = testTask;
 module.exports.testTask = testTask;

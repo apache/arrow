@@ -15,49 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from '../format/Schema';
-import * as Message_ from '../format/Message';
-import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
-
 import { Vector } from './vector';
-import { Utf8Vector as Utf8VectorBase } from './utf8';
-import { StructVector as StructVectorBase } from './struct';
-import { DictionaryVector as DictionaryVectorBase } from './dictionary';
-import {
-    ListVector as ListVectorBase,
-    BinaryVector as BinaryVectorBase,
-    FixedSizeListVector as FixedSizeListVectorBase
-} from './list';
-
-import {
-    BoolVector as BoolVectorBase,
-    Int8Vector as Int8VectorBase,
-    Int16Vector as Int16VectorBase,
-    Int32Vector as Int32VectorBase,
-    Int64Vector as Int64VectorBase,
-    Uint8Vector as Uint8VectorBase,
-    Uint16Vector as Uint16VectorBase,
-    Uint32Vector as Uint32VectorBase,
-    Uint64Vector as Uint64VectorBase,
-    Float16Vector as Float16VectorBase,
-    Float32Vector as Float32VectorBase,
-    Float64Vector as Float64VectorBase,
-    Date32Vector as Date32VectorBase,
-    Date64Vector as Date64VectorBase,
-    Time32Vector as Time32VectorBase,
-    Time64Vector as Time64VectorBase,
-    DecimalVector as DecimalVectorBase,
-    TimestampVector as TimestampVectorBase,
-} from './numeric';
-
-import { nullableMixin, fieldMixin } from './traits';
+import * as vectors from './traits/vectors';
+import * as fieldVectors from './traits/field';
+import * as nullableVectors from './traits/nullable';
+import * as nullableFieldVectors from './traits/nullablefield';
+import { Field, FieldNode } from '../format/arrow';
+import { isFieldArgv, isNullableArgv } from './traits/mixins';
 
 function MixinArrowTraits<T extends Vector<any>, TArgv>(
     Base: new (argv: TArgv) => T,
     Field: new (argv: TArgv & { field: Field, fieldNode: FieldNode }) => T,
     Nullable: new (argv: TArgv & { validity: Uint8Array }) => T,
-    NullableField: new (argv: TArgv & { validity: Uint8Array, field: Field, fieldNode: FieldNode }) => T,
+    NullableField: new (argv: TArgv & { validity: Uint8Array, field: Field, fieldNode: FieldNode }) => T
 ) {
     return function(argv: TArgv | (TArgv & { validity: Uint8Array }) | (TArgv & { field: Field, fieldNode: FieldNode })) {
         return new (!isFieldArgv(argv)
@@ -67,179 +37,52 @@ function MixinArrowTraits<T extends Vector<any>, TArgv>(
     } as any as { new (argv: TArgv | (TArgv & { validity: Uint8Array }) | (TArgv & { field: Field, fieldNode: FieldNode })): T };
 }
 
-function isFieldArgv(x: any): x is { field: Field, fieldNode: FieldNode } {
-    return x && x.field instanceof Field && x.fieldNode instanceof FieldNode;
-}
-
-function isNullableArgv(x: any): x is { validity: Uint8Array } {
-    return x && x.validity && ArrayBuffer.isView(x.validity) && x.validity instanceof Uint8Array;
-}
-
 export { Vector };
-export class ListVector extends MixinArrowTraits(
-    ListVectorBase,
-    class ListVector extends fieldMixin(ListVectorBase) {} as any,
-    class ListVector extends nullableMixin(ListVectorBase) {} as any,
-    class ListVector extends nullableMixin(fieldMixin(ListVectorBase)) {} as any
-) {}
-
-export class BinaryVector extends MixinArrowTraits(
-    BinaryVectorBase,
-    class BinaryVector extends fieldMixin(BinaryVectorBase) {} as any,
-    class BinaryVector extends nullableMixin(BinaryVectorBase) {} as any,
-    class BinaryVector extends nullableMixin(fieldMixin(BinaryVectorBase)) {} as any
-) {}
-
-export class Utf8Vector extends MixinArrowTraits(
-    Utf8VectorBase,
-    class Utf8Vector extends fieldMixin(Utf8VectorBase) {} as any,
-    class Utf8Vector extends nullableMixin(Utf8VectorBase) {} as any,
-    class Utf8Vector extends nullableMixin(fieldMixin(Utf8VectorBase)) {} as any
-) {}
-
-export class BoolVector extends MixinArrowTraits(
-    BoolVectorBase,
-    class BoolVector extends fieldMixin(BoolVectorBase) {} as any,
-    class BoolVector extends nullableMixin(BoolVectorBase) {} as any,
-    class BoolVector extends nullableMixin(fieldMixin(BoolVectorBase)) {} as any
-) {}
-
-export class Int8Vector extends MixinArrowTraits(
-    Int8VectorBase,
-    class Int8Vector extends fieldMixin(Int8VectorBase) {} as any,
-    class Int8Vector extends nullableMixin(Int8VectorBase) {} as any,
-    class Int8Vector extends nullableMixin(fieldMixin(Int8VectorBase)) {} as any
-) {}
-
-export class Int16Vector extends MixinArrowTraits(
-    Int16VectorBase,
-    class Int16Vector extends fieldMixin(Int16VectorBase) {} as any,
-    class Int16Vector extends nullableMixin(Int16VectorBase) {} as any,
-    class Int16Vector extends nullableMixin(fieldMixin(Int16VectorBase)) {} as any
-) {}
-
-export class Int32Vector extends MixinArrowTraits(
-    Int32VectorBase,
-    class Int32Vector extends fieldMixin(Int32VectorBase) {} as any,
-    class Int32Vector extends nullableMixin(Int32VectorBase) {} as any,
-    class Int32Vector extends nullableMixin(fieldMixin(Int32VectorBase)) {} as any
-) {}
-
-export class Int64Vector extends MixinArrowTraits(
-    Int64VectorBase,
-    class Int64Vector extends fieldMixin(Int64VectorBase) {} as any,
-    class Int64Vector extends nullableMixin(Int64VectorBase) {} as any,
-    class Int64Vector extends nullableMixin(fieldMixin(Int64VectorBase)) {} as any
-) {}
-
-export class Uint8Vector extends MixinArrowTraits(
-    Uint8VectorBase,
-    class Uint8Vector extends fieldMixin(Uint8VectorBase) {} as any,
-    class Uint8Vector extends nullableMixin(Uint8VectorBase) {} as any,
-    class Uint8Vector extends nullableMixin(fieldMixin(Uint8VectorBase)) {} as any
-) {}
-
-export class Uint16Vector extends MixinArrowTraits(
-    Uint16VectorBase,
-    class Uint16Vector extends fieldMixin(Uint16VectorBase) {} as any,
-    class Uint16Vector extends nullableMixin(Uint16VectorBase) {} as any,
-    class Uint16Vector extends nullableMixin(fieldMixin(Uint16VectorBase)) {} as any
-) {}
-
-export class Uint32Vector extends MixinArrowTraits(
-    Uint32VectorBase,
-    class Uint32Vector extends fieldMixin(Uint32VectorBase) {} as any,
-    class Uint32Vector extends nullableMixin(Uint32VectorBase) {} as any,
-    class Uint32Vector extends nullableMixin(fieldMixin(Uint32VectorBase)) {} as any
-) {}
-
-export class Uint64Vector extends MixinArrowTraits(
-    Uint64VectorBase,
-    class Uint64Vector extends fieldMixin(Uint64VectorBase) {} as any,
-    class Uint64Vector extends nullableMixin(Uint64VectorBase) {} as any,
-    class Uint64Vector extends nullableMixin(fieldMixin(Uint64VectorBase)) {} as any
-) {}
-
-export class Date32Vector extends MixinArrowTraits(
-    Date32VectorBase,
-    class Date32Vector extends fieldMixin(Date32VectorBase) {} as any,
-    class Date32Vector extends nullableMixin(Date32VectorBase) {} as any,
-    class Date32Vector extends nullableMixin(fieldMixin(Date32VectorBase)) {} as any
-) {}
-
-export class Date64Vector extends MixinArrowTraits(
-    Date64VectorBase,
-    class Date64Vector extends fieldMixin(Date64VectorBase) {} as any,
-    class Date64Vector extends nullableMixin(Date64VectorBase) {} as any,
-    class Date64Vector extends nullableMixin(fieldMixin(Date64VectorBase)) {} as any
-) {}
-
-export class Time32Vector extends MixinArrowTraits(
-    Time32VectorBase,
-    class Time32Vector extends fieldMixin(Time32VectorBase) {} as any,
-    class Time32Vector extends nullableMixin(Time32VectorBase) {} as any,
-    class Time32Vector extends nullableMixin(fieldMixin(Time32VectorBase)) {} as any
-) {}
-
-export class Time64Vector extends MixinArrowTraits(
-    Time64VectorBase,
-    class Time64Vector extends fieldMixin(Time64VectorBase) {} as any,
-    class Time64Vector extends nullableMixin(Time64VectorBase) {} as any,
-    class Time64Vector extends nullableMixin(fieldMixin(Time64VectorBase)) {} as any
-) {}
-
-export class Float16Vector extends MixinArrowTraits(
-    Float16VectorBase,
-    class Float16Vector extends fieldMixin(Float16VectorBase) {} as any,
-    class Float16Vector extends nullableMixin(Float16VectorBase) {} as any,
-    class Float16Vector extends nullableMixin(fieldMixin(Float16VectorBase)) {} as any
-) {}
-
-export class Float32Vector extends MixinArrowTraits(
-    Float32VectorBase,
-    class Float32Vector extends fieldMixin(Float32VectorBase) {} as any,
-    class Float32Vector extends nullableMixin(Float32VectorBase) {} as any,
-    class Float32Vector extends nullableMixin(fieldMixin(Float32VectorBase)) {} as any
-) {}
-
-export class Float64Vector extends MixinArrowTraits(
-    Float64VectorBase,
-    class Float64Vector extends fieldMixin(Float64VectorBase) {} as any,
-    class Float64Vector extends nullableMixin(Float64VectorBase) {} as any,
-    class Float64Vector extends nullableMixin(fieldMixin(Float64VectorBase)) {} as any
-) {}
-
-export class StructVector extends MixinArrowTraits(
-    StructVectorBase,
-    class StructVector extends fieldMixin(StructVectorBase) {} as any,
-    class StructVector extends nullableMixin(StructVectorBase) {} as any,
-    class StructVector extends nullableMixin(fieldMixin(StructVectorBase)) {} as any
-) {}
-
-export class DecimalVector extends MixinArrowTraits(
-    DecimalVectorBase,
-    class DecimalVector extends fieldMixin(DecimalVectorBase) {} as any,
-    class DecimalVector extends nullableMixin(DecimalVectorBase) {} as any,
-    class DecimalVector extends nullableMixin(fieldMixin(DecimalVectorBase)) {} as any
-) {}
-
-export class TimestampVector extends MixinArrowTraits(
-    TimestampVectorBase,
-    class TimestampVector extends fieldMixin(TimestampVectorBase) {} as any,
-    class TimestampVector extends nullableMixin(TimestampVectorBase) {} as any,
-    class TimestampVector extends nullableMixin(fieldMixin(TimestampVectorBase)) {} as any
-) {}
-
-export class DictionaryVector extends MixinArrowTraits(
-    DictionaryVectorBase,
-    class DictionaryVector extends fieldMixin(DictionaryVectorBase) {} as any,
-    class DictionaryVector extends nullableMixin(DictionaryVectorBase) {} as any,
-    class DictionaryVector extends nullableMixin(fieldMixin(DictionaryVectorBase)) {} as any
-) {}
-
-export class FixedSizeListVector extends MixinArrowTraits(
-    FixedSizeListVectorBase,
-    class FixedSizeListVector extends fieldMixin(FixedSizeListVectorBase) {} as any,
-    class FixedSizeListVector extends nullableMixin(FixedSizeListVectorBase) {} as any,
-    class FixedSizeListVector extends nullableMixin(fieldMixin(FixedSizeListVectorBase)) {} as any
-) {}
+export const MixinListVector = MixinArrowTraits(vectors.ListVector as any, fieldVectors.ListVector as any, nullableVectors.ListVector as any, nullableFieldVectors.ListVector as any);
+export class ListVector extends MixinListVector {}
+export const MixinBinaryVector = MixinArrowTraits(vectors.BinaryVector as any, fieldVectors.BinaryVector as any, nullableVectors.BinaryVector as any, nullableFieldVectors.BinaryVector as any);
+export class BinaryVector extends MixinBinaryVector {}
+export const MixinUtf8Vector = MixinArrowTraits(vectors.Utf8Vector as any, fieldVectors.Utf8Vector as any, nullableVectors.Utf8Vector as any, nullableFieldVectors.Utf8Vector as any);
+export class Utf8Vector extends MixinUtf8Vector {}
+export const MixinBoolVector = MixinArrowTraits(vectors.BoolVector as any, fieldVectors.BoolVector as any, nullableVectors.BoolVector as any, nullableFieldVectors.BoolVector as any);
+export class BoolVector extends MixinBoolVector {}
+export const MixinInt8Vector = MixinArrowTraits(vectors.Int8Vector as any, fieldVectors.Int8Vector as any, nullableVectors.Int8Vector as any, nullableFieldVectors.Int8Vector as any);
+export class Int8Vector extends MixinInt8Vector {}
+export const MixinInt16Vector = MixinArrowTraits(vectors.Int16Vector as any, fieldVectors.Int16Vector as any, nullableVectors.Int16Vector as any, nullableFieldVectors.Int16Vector as any);
+export class Int16Vector extends MixinInt16Vector {}
+export const MixinInt32Vector = MixinArrowTraits(vectors.Int32Vector as any, fieldVectors.Int32Vector as any, nullableVectors.Int32Vector as any, nullableFieldVectors.Int32Vector as any);
+export class Int32Vector extends MixinInt32Vector {}
+export const MixinInt64Vector = MixinArrowTraits(vectors.Int64Vector as any, fieldVectors.Int64Vector as any, nullableVectors.Int64Vector as any, nullableFieldVectors.Int64Vector as any);
+export class Int64Vector extends MixinInt64Vector {}
+export const MixinUint8Vector = MixinArrowTraits(vectors.Uint8Vector as any, fieldVectors.Uint8Vector as any, nullableVectors.Uint8Vector as any, nullableFieldVectors.Uint8Vector as any);
+export class Uint8Vector extends MixinUint8Vector {}
+export const MixinUint16Vector = MixinArrowTraits(vectors.Uint16Vector as any, fieldVectors.Uint16Vector as any, nullableVectors.Uint16Vector as any, nullableFieldVectors.Uint16Vector as any);
+export class Uint16Vector extends MixinUint16Vector {}
+export const MixinUint32Vector = MixinArrowTraits(vectors.Uint32Vector as any, fieldVectors.Uint32Vector as any, nullableVectors.Uint32Vector as any, nullableFieldVectors.Uint32Vector as any);
+export class Uint32Vector extends MixinUint32Vector {}
+export const MixinUint64Vector = MixinArrowTraits(vectors.Uint64Vector as any, fieldVectors.Uint64Vector as any, nullableVectors.Uint64Vector as any, nullableFieldVectors.Uint64Vector as any);
+export class Uint64Vector extends MixinUint64Vector {}
+export const MixinDate32Vector = MixinArrowTraits(vectors.Date32Vector as any, fieldVectors.Date32Vector as any, nullableVectors.Date32Vector as any, nullableFieldVectors.Date32Vector as any);
+export class Date32Vector extends MixinDate32Vector {}
+export const MixinDate64Vector = MixinArrowTraits(vectors.Date64Vector as any, fieldVectors.Date64Vector as any, nullableVectors.Date64Vector as any, nullableFieldVectors.Date64Vector as any);
+export class Date64Vector extends MixinDate64Vector {}
+export const MixinTime32Vector = MixinArrowTraits(vectors.Time32Vector as any, fieldVectors.Time32Vector as any, nullableVectors.Time32Vector as any, nullableFieldVectors.Time32Vector as any);
+export class Time32Vector extends MixinTime32Vector {}
+export const MixinTime64Vector = MixinArrowTraits(vectors.Time64Vector as any, fieldVectors.Time64Vector as any, nullableVectors.Time64Vector as any, nullableFieldVectors.Time64Vector as any);
+export class Time64Vector extends MixinTime64Vector {}
+export const MixinFloat16Vector = MixinArrowTraits(vectors.Float16Vector as any, fieldVectors.Float16Vector as any, nullableVectors.Float16Vector as any, nullableFieldVectors.Float16Vector as any);
+export class Float16Vector extends MixinFloat16Vector {}
+export const MixinFloat32Vector = MixinArrowTraits(vectors.Float32Vector as any, fieldVectors.Float32Vector as any, nullableVectors.Float32Vector as any, nullableFieldVectors.Float32Vector as any);
+export class Float32Vector extends MixinFloat32Vector {}
+export const MixinFloat64Vector = MixinArrowTraits(vectors.Float64Vector as any, fieldVectors.Float64Vector as any, nullableVectors.Float64Vector as any, nullableFieldVectors.Float64Vector as any);
+export class Float64Vector extends MixinFloat64Vector {}
+export const MixinStructVector = MixinArrowTraits(vectors.StructVector as any, fieldVectors.StructVector as any, nullableVectors.StructVector as any, nullableFieldVectors.StructVector as any);
+export class StructVector extends MixinStructVector {}
+export const MixinDecimalVector = MixinArrowTraits(vectors.DecimalVector as any, fieldVectors.DecimalVector as any, nullableVectors.DecimalVector as any, nullableFieldVectors.DecimalVector as any);
+export class DecimalVector extends MixinDecimalVector {}
+export const MixinTimestampVector = MixinArrowTraits(vectors.TimestampVector as any, fieldVectors.TimestampVector as any, nullableVectors.TimestampVector as any, nullableFieldVectors.TimestampVector as any);
+export class TimestampVector extends MixinTimestampVector {}
+export const MixinDictionaryVector = MixinArrowTraits(vectors.DictionaryVector as any, fieldVectors.DictionaryVector as any, nullableVectors.DictionaryVector as any, nullableFieldVectors.DictionaryVector as any);
+export class DictionaryVector extends MixinDictionaryVector {}
+export const MixinFixedSizeListVector = MixinArrowTraits(vectors.FixedSizeListVector as any, fieldVectors.FixedSizeListVector as any, nullableVectors.FixedSizeListVector as any, nullableFieldVectors.FixedSizeListVector as any);
+export class FixedSizeListVector extends MixinFixedSizeListVector {}

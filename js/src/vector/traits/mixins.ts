@@ -15,13 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { BoolVector } from './numeric';
-import * as Schema_ from '../format/Schema';
-import * as Message_ from '../format/Message';
+import { Vector } from '../vector';
+import { BoolVector } from '../numeric';
+import * as Schema_ from '../../format/fb/Schema';
+import { Field, FieldNode } from '../../format/arrow';
 import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import Field = Schema_.org.apache.arrow.flatbuf.Field;
-import FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
+
+function isField(x: any): x is Field {
+    return x instanceof Field;
+}
+
+function isFieldNode(x: any): x is FieldNode {
+    return x instanceof FieldNode;
+}
+
+export function isFieldArgv(x: any): x is { field: Field, fieldNode: FieldNode } {
+    return x && isField(x.field) && isFieldNode(x.fieldNode);
+}
+
+export function isNullableArgv(x: any): x is { validity: Uint8Array } {
+    return x && x.validity && ArrayBuffer.isView(x.validity) && x.validity instanceof Uint8Array;
+}
 
 type Ctor<TArgv> = new (argv: TArgv) => Vector;
 
@@ -51,19 +65,11 @@ export const fieldMixin = <T extends Vector, TArgv>(superclass: new (argv: TArgv
             const { field, fieldNode } = argv;
             this.field = field;
             this.fieldNode = fieldNode;
-            this.nullable = field.nullable();
-            this.type = Type[field.typeType()];
-            this.length = fieldNode.length().low | 0;
-            this.nullCount = fieldNode.nullCount().low;
+            this.nullable = field.nullable;
+            this.type = Type[field.typeType];
+            this.length = fieldNode.length.low | 0;
+            this.nullCount = fieldNode.nullCount.low;
         }
-        get name() { return this.field.name()!; }
-        get metadata()  {
-            const { field } = this, data = new Map<string, string>();
-            for (let entry, key, i = -1, n = field && field.customMetadataLength() | 0; ++i < n;) {
-                if ((entry = field.customMetadata(i)) && (key = entry.key()) != null) {
-                    data.set(key, entry.value()!);
-                }
-            }
-            return data;
-        }
+        get name() { return this.field.name!; }
+        get metadata()  { return this.field.metadata!; }
     };

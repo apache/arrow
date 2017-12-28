@@ -29,6 +29,10 @@ class TestTimestampDataType < Test::Unit::TestCase
     def test_to_s
       assert_equal("timestamp[s]", @data_type.to_s)
     end
+
+    def test_unit
+      assert_equal(Arrow::TimeUnit::SECOND, @data_type.unit)
+    end
   end
 
   sub_test_case("millisecond") do
@@ -38,6 +42,10 @@ class TestTimestampDataType < Test::Unit::TestCase
 
     def test_to_s
       assert_equal("timestamp[ms]", @data_type.to_s)
+    end
+
+    def test_unit
+      assert_equal(Arrow::TimeUnit::MILLI, @data_type.unit)
     end
   end
 
@@ -49,6 +57,10 @@ class TestTimestampDataType < Test::Unit::TestCase
     def test_to_s
       assert_equal("timestamp[us]", @data_type.to_s)
     end
+
+    def test_unit
+      assert_equal(Arrow::TimeUnit::MICRO, @data_type.unit)
+    end
   end
 
   sub_test_case("nano") do
@@ -58,6 +70,10 @@ class TestTimestampDataType < Test::Unit::TestCase
 
     def test_to_s
       assert_equal("timestamp[ns]", @data_type.to_s)
+    end
+
+    def test_unit
+      assert_equal(Arrow::TimeUnit::NANO, @data_type.unit)
     end
   end
 end
