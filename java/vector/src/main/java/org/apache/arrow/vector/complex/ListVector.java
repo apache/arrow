@@ -124,7 +124,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     ArrowBuf offBuffer = ownBuffers.get(1);
 
     validityBuffer.release();
-    validityBuffer = bitBuffer.retain(allocator);
+    validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     offsetBuffer.release();
     offsetBuffer = offBuffer.retain(allocator);
 
