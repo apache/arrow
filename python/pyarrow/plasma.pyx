@@ -118,9 +118,9 @@ cdef extern from "plasma/client.h" nogil:
 
     cdef struct CObjectBuffer" plasma::ObjectBuffer":
         int64_t data_size
-        uint8_t* data
+        shared_ptr[CBuffer] data
         int64_t metadata_size
-        uint8_t* metadata
+        shared_ptr[CBuffer] metadata
 
 
 def make_object_id(object_id):
@@ -245,10 +245,8 @@ cdef class PlasmaClient:
             check_status(self.client.get().Get(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id, uint8_t* data,
+    cdef _make_plasma_buffer(self, ObjectID object_id, shared_ptr[CBuffer] buffer,
                              int64_t size):
-        cdef shared_ptr[CBuffer] buffer
-        buffer.reset(new CBuffer(data, size))
         result = PlasmaBuffer(object_id, self)
         result.init(buffer)
         return result
