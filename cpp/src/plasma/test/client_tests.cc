@@ -96,7 +96,8 @@ TEST_F(TestPlasmaStore, GetTest) {
   int64_t metadata_size = sizeof(metadata);
   std::shared_ptr<Buffer> data_buffer;
   uint8_t* data;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer));
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size,
+                                &data_buffer));
   data = data_buffer->mutable_data();
   for (int64_t i = 0; i < data_size; i++) {
     data[i] = static_cast<uint8_t>(i % 4);
