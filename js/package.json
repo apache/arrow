@@ -75,7 +75,7 @@
     "esdoc-standard-plugin": "1.0.0",
     "glob": "7.1.2",
     "google-closure-compiler": "20171203.0.0",
-    "gulp": "github:gulpjs/gulp#4.0",
+    "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
     "gulp-sourcemaps": "2.6.1",
