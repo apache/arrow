@@ -350,7 +350,6 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   format::SchemaElement* element = static_cast<format::SchemaElement*>(opaque_element);
 
   element->__set_name(name_);
-  element->__set_num_children(0);
   element->__set_repetition_type(ToThrift(repetition_));
   if (logical_type_ != LogicalType::NONE) {
     element->__set_converted_type(ToThrift(logical_type_));

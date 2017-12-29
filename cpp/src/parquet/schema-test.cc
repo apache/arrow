@@ -47,7 +47,6 @@ static inline SchemaElement NewPrimitive(const std::string& name,
   result.__set_name(name);
   result.__set_repetition_type(repetition);
   result.__set_type(type);
-  result.__set_num_children(0);
 
   return result;
 }
