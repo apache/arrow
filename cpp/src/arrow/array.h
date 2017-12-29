@@ -65,9 +65,9 @@ struct Decimal;
 /// could cast from int64 to float64 like so:
 ///
 /// Int64Array arr = GetMyData();
-/// auto new_data = arr->data()->ShallowCopy();
+/// auto new_data = arr.data()->ShallowCopy();
 /// new_data->type = arrow::float64();
-/// Float64Array double_arr(new_data);
+/// DoubleArray double_arr(new_data);
 ///
 /// This object is also useful in an analytics setting where memory may be
 /// reused. For example, if we had a group of operations all returning doubles,
