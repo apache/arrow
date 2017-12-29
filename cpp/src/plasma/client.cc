@@ -169,7 +169,7 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   *data = std::make_shared<MutableBuffer>(
       lookup_or_mmap(fd, object.handle.store_fd, object.handle.mmap_size) +
           object.data_offset,
-      data_size + metadata_size);
+      data_size);
   // If plasma_create is being called from a transfer, then we will not copy the
   // metadata here. The metadata will be written along with the data streamed
   // from the transfer.
