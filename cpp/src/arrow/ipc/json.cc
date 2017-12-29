@@ -33,6 +33,8 @@ using std::size_t;
 
 namespace arrow {
 namespace ipc {
+namespace internal {
+namespace json {
 
 // ----------------------------------------------------------------------
 // Writer implementation
@@ -45,7 +47,7 @@ class JsonWriter::JsonWriterImpl {
 
   Status Start() {
     writer_->StartObject();
-    RETURN_NOT_OK(json::internal::WriteSchema(*schema_, writer_.get()));
+    RETURN_NOT_OK(json::WriteSchema(*schema_, writer_.get()));
 
     // Record batches
     writer_->Key("batches");
@@ -63,7 +65,7 @@ class JsonWriter::JsonWriterImpl {
 
   Status WriteRecordBatch(const RecordBatch& batch) {
     DCHECK_EQ(batch.num_columns(), schema_->num_fields());
-    return json::internal::WriteRecordBatch(batch, writer_.get());
+    return json::WriteRecordBatch(batch, writer_.get());
   }
 
  private:
@@ -106,7 +108,7 @@ class JsonReader::JsonReaderImpl {
       return Status::IOError("JSON parsing failed");
     }
 
-    RETURN_NOT_OK(json::internal::ReadSchema(doc_, pool_, &schema_));
+    RETURN_NOT_OK(json::ReadSchema(doc_, pool_, &schema_));
 
     auto it = doc_.FindMember("batches");
     RETURN_NOT_ARRAY("batches", it, doc_);
@@ -120,8 +122,7 @@ class JsonReader::JsonReaderImpl {
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
 
-    return json::internal::ReadRecordBatch(record_batches_->GetArray()[i], schema_, pool_,
-                                           batch);
+    return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_, pool_, batch);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -164,5 +165,7 @@ Status JsonReader::ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) c
   return impl_->ReadRecordBatch(i, batch);
 }
 
+}  // namespace json
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

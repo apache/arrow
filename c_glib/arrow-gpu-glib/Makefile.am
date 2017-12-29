@@ -70,8 +70,14 @@ if HAVE_INTROSPECTION
 -include $(INTROSPECTION_MAKEFILE)
 INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS =
-INTROSPECTION_SCANNER_ENV =			\
+INTROSPECTION_SCANNER_ENV =
+if USE_ARROW_BUILD_DIR
+INTROSPECTION_SCANNER_ENV +=			\
+	PKG_CONFIG_PATH=${abs_builddir}/../arrow-glib:$(ARROW_BUILD_DIR)/src/arrow:$${PKG_CONFIG_PATH}
+else
+INTROSPECTION_SCANNER_ENV +=			\
 	PKG_CONFIG_PATH=${abs_builddir}/../arrow-glib:$${PKG_CONFIG_PATH}
+endif
 if OS_MACOS
 INTROSPECTION_SCANNER_ENV +=			\
 	ARCHFLAGS=
@@ -88,6 +94,11 @@ ArrowGPU_1_0_gir_INCLUDES =			\
 	Arrow-1.0
 ArrowGPU_1_0_gir_CFLAGS =			\
 	$(AM_CPPFLAGS)
+ArrowGPU_1_0_gir_LDFLAGS =
+if USE_ARROW_BUILD_DIR
+ArrowGPU_1_0_gir_LDFLAGS +=			\
+	-L$(ARROW_LIB_DIR)
+endif
 ArrowGPU_1_0_gir_LIBS =					\
 	$(abs_builddir)/../arrow-glib/libarrow-glib.la	\
 	libarrow-gpu-glib.la

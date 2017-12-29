@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>0.8.0-SNAPSHOT</version>
+  <version>0.9.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -32,7 +32,7 @@
     <dep.junit.version>4.11</dep.junit.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>18.0</dep.guava.version>
-    <dep.netty.version>4.0.49.Final</dep.netty.version>
+    <dep.netty.version>4.1.17.Final</dep.netty.version>
     <dep.jackson.version>2.7.9</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <fbs.version>1.2.0-3f79e055</fbs.version>
@@ -41,8 +41,8 @@
   </properties>
 
   <scm>
-    <connection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/arrow.git</developerConnection>
+    <connection>scm:git:https://github.com/apache/arrow.git</connection>
+    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
     <url>https://github.com/apache/arrow</url>
     <tag>apache-arrow-0.7.1</tag>
   </scm>

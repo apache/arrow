@@ -24,7 +24,7 @@ import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -89,18 +89,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * vectors have not yet been refactored/removed so moving things to
    * the top class as of now is not a good idea.
    */
-
-  @Override
-  @Deprecated
-  public VariableWidthMutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing into vector");
-  }
-
-  @Override
-  @Deprecated
-  public VariableWidthAccessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
-  }
 
   /**
    * Get buffer that manages the validity (NULL or NON-NULL nature) of

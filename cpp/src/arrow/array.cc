@@ -139,10 +139,14 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset));
 }
 
+#ifndef ARROW_NO_DEPRECATED_API
+
 const uint8_t* PrimitiveArray::raw_values() const {
   return raw_values_ +
          offset() * static_cast<const FixedWidthType&>(*type()).bit_width() / CHAR_BIT;
 }
+
+#endif
 
 template <typename T>
 NumericArray<T>::NumericArray(const std::shared_ptr<ArrayData>& data)

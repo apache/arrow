@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import Arrow from './Arrow';
-import {
+import Arrow, {
     TypedArray,
     TypedArrayConstructor,
     NumericVectorConstructor,
-} from './Arrow';
+} from '../Arrow';
 
 const {
     BoolVector,

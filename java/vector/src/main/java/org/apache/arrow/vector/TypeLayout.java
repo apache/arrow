@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.ipc.message;
+package org.apache.arrow.vector;
 
 import static java.util.Arrays.asList;
 
@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
@@ -41,14 +42,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 
 /**
- * The layout of vectors for a given type
- * It defines its own vectors followed by the vectors for the children
+ * The buffer layout of vectors for a given type
+ * It defines its own buffers followed by the buffers for the children
  * if it is a nested type (Struct_, List, Union)
  */
 public class TypeLayout {
@@ -58,24 +56,24 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Int type) {
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(type.getBitWidth()));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(type.getBitWidth()));
       }
 
       @Override
       public TypeLayout visit(Union type) {
-        List<VectorLayout> vectors;
+        List<BufferLayout> vectors;
         switch (type.getMode()) {
           case Dense:
             vectors = asList(
                 // TODO: validate this
-                VectorLayout.validityVector(),
-                VectorLayout.typeVector(),
-                VectorLayout.offsetVector() // offset to find the vector
+                BufferLayout.validityVector(),
+                BufferLayout.typeBuffer(),
+                BufferLayout.offsetBuffer() // offset to find the vector
             );
             break;
           case Sparse:
             vectors = asList(
-                VectorLayout.typeVector() // type of the value at the index or 0 if null
+                BufferLayout.typeBuffer() // type of the value at the index or 0 if null
             );
             break;
           default:
@@ -86,30 +84,30 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Struct type) {
-        List<VectorLayout> vectors = asList(
-            VectorLayout.validityVector()
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector()
         );
         return new TypeLayout(vectors);
       }
 
       @Override
       public TypeLayout visit(Timestamp type) {
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(64));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
       }
 
       @Override
       public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
-        List<VectorLayout> vectors = asList(
-            VectorLayout.validityVector(),
-            VectorLayout.offsetVector()
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer()
         );
         return new TypeLayout(vectors);
       }
 
       @Override
       public TypeLayout visit(FixedSizeList type) {
-        List<VectorLayout> vectors = asList(
-            VectorLayout.validityVector()
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector()
         );
         return new TypeLayout(vectors);
       }
@@ -130,18 +128,17 @@ public class TypeLayout {
           default:
             throw new UnsupportedOperationException("Unsupported Precision: " + type.getPrecision());
         }
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(bitWidth));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(bitWidth));
       }
 
       @Override
       public TypeLayout visit(Decimal type) {
-        // TODO: check size
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(64)); // actually depends on the type fields
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(128));
       }
 
       @Override
       public TypeLayout visit(Bool type) {
-        return newFixedWidthTypeLayout(VectorLayout.booleanVector());
+        return newFixedWidthTypeLayout(BufferLayout.booleanVector());
       }
 
       @Override
@@ -155,39 +152,46 @@ public class TypeLayout {
       }
 
       private TypeLayout newVariableWidthTypeLayout() {
-        return newPrimitiveTypeLayout(VectorLayout.validityVector(), VectorLayout.offsetVector(), VectorLayout.byteVector());
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(), BufferLayout.byteVector());
       }
 
-      private TypeLayout newPrimitiveTypeLayout(VectorLayout... vectors) {
+      private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
         return new TypeLayout(asList(vectors));
       }
 
-      public TypeLayout newFixedWidthTypeLayout(VectorLayout dataVector) {
-        return newPrimitiveTypeLayout(VectorLayout.validityVector(), dataVector);
+      public TypeLayout newFixedWidthTypeLayout(BufferLayout dataVector) {
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), dataVector);
       }
 
       @Override
       public TypeLayout visit(Null type) {
-        return new TypeLayout(Collections.<VectorLayout>emptyList());
+        return new TypeLayout(Collections.<BufferLayout>emptyList());
       }
 
       @Override
       public TypeLayout visit(Date type) {
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(64));
+        switch (type.getUnit()) {
+          case DAY:
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(32));
+          case MILLISECOND:
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
+          default:
+            throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
+        }
       }
 
       @Override
       public TypeLayout visit(Time type) {
-        return newFixedWidthTypeLayout(VectorLayout.dataVector(type.getBitWidth()));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(type.getBitWidth()));
       }
 
       @Override
-      public TypeLayout visit(Interval type) { // TODO: check size
+      public TypeLayout visit(Interval type) {
         switch (type.getUnit()) {
           case DAY_TIME:
-            return newFixedWidthTypeLayout(VectorLayout.dataVector(64));
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
           case YEAR_MONTH:
-            return newFixedWidthTypeLayout(VectorLayout.dataVector(64));
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(32));
           default:
             throw new UnsupportedOperationException("Unknown unit " + type.getUnit());
         }
@@ -197,39 +201,37 @@ public class TypeLayout {
     return layout;
   }
 
-  private final List<VectorLayout> vectors;
+  private final List<BufferLayout> bufferLayouts;
 
-  @JsonCreator
-  public TypeLayout(@JsonProperty("vectors") List<VectorLayout> vectors) {
+  public TypeLayout(List<BufferLayout> bufferLayouts) {
     super();
-    this.vectors = Preconditions.checkNotNull(vectors);
+    this.bufferLayouts = Preconditions.checkNotNull(bufferLayouts);
   }
 
-  public TypeLayout(VectorLayout... vectors) {
-    this(asList(vectors));
+  public TypeLayout(BufferLayout... bufferLayouts) {
+    this(asList(bufferLayouts));
   }
 
 
-  public List<VectorLayout> getVectors() {
-    return vectors;
+  public List<BufferLayout> getBufferLayouts() {
+    return bufferLayouts;
   }
 
-  @JsonIgnore
-  public List<ArrowVectorType> getVectorTypes() {
-    List<ArrowVectorType> types = new ArrayList<>(vectors.size());
-    for (VectorLayout vector : vectors) {
+  public List<BufferType> getBufferTypes() {
+    List<BufferType> types = new ArrayList<>(bufferLayouts.size());
+    for (BufferLayout vector : bufferLayouts) {
       types.add(vector.getType());
     }
     return types;
   }
 
   public String toString() {
-    return vectors.toString();
+    return bufferLayouts.toString();
   }
 
   @Override
   public int hashCode() {
-    return vectors.hashCode();
+    return bufferLayouts.hashCode();
   }
 
   @Override
@@ -244,7 +246,7 @@ public class TypeLayout {
       return false;
     }
     TypeLayout other = (TypeLayout) obj;
-    return vectors.equals(other.vectors);
+    return bufferLayouts.equals(other.bufferLayouts);
   }
 
 }

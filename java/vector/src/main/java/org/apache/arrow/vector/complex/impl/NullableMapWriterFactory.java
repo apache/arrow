@@ -18,7 +18,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 
 public class NullableMapWriterFactory {
   private final boolean caseSensitive;
@@ -29,7 +29,7 @@ public class NullableMapWriterFactory {
     this.caseSensitive = caseSensitive;
   }
 
-  public NullableMapWriter build(MapVector container) {
+  public NullableMapWriter build(NullableMapVector container) {
     return this.caseSensitive ? new NullableCaseSensitiveMapWriter(container) : new NullableMapWriter(container);
   }
 

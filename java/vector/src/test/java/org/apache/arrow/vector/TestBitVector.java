@@ -232,7 +232,7 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
-          vector.set(i, 1);
+          vector.setToOne(i);
         }
       }
 
@@ -246,12 +246,12 @@ public class TestBitVector {
       }
 
       /* trigger first realloc */
-      vector.setSafe(valueCapacity, 1);
+      vector.setSafeToOne(valueCapacity);
       assertEquals(valueCapacity * 2, vector.getValueCapacity());
 
       for (int i = valueCapacity; i < valueCapacity*2; i++) {
         if ((i & 1) == 1) {
-          vector.set(i, 1);
+          vector.setToOne(i);
         }
       }
 
@@ -265,12 +265,12 @@ public class TestBitVector {
       }
 
       /* trigger second realloc */
-      vector.setSafe(valueCapacity*2, 1);
+      vector.setSafeToOne(valueCapacity*2);
       assertEquals(valueCapacity * 4, vector.getValueCapacity());
 
       for (int i = valueCapacity*2; i < valueCapacity*4; i++) {
         if ((i & 1) == 1) {
-          vector.set(i, 1);
+          vector.setToOne(i);
         }
       }
 
@@ -291,7 +291,7 @@ public class TestBitVector {
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 
       /* realloc the toVector */
-      toVector.setSafe(valueCapacity * 4, 1);
+      toVector.setSafeToOne(valueCapacity * 4);
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i <= valueCapacity * 4) {
@@ -505,9 +505,7 @@ public class TestBitVector {
     try (BitVector bitVector = new BitVector("bits", allocator)) {
       bitVector.reset();
       bitVector.allocateNew(length);
-      for (int i = start; i < start + count; i++) {
-        bitVector.set(i, 1);
-      }
+      bitVector.setRangeToOne(start, count);
       for (int i = 0; i < start; i++) {
         Assert.assertTrue(desc + i, bitVector.isNull(i));
       }

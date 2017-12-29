@@ -79,17 +79,17 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   public void write(${minor.class?cap_first}Holder h) {
     mutator.addSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
   public void write(${minor.class?cap_first}Holder h) {
     mutator.addSafe(idx(), h);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     mutator.addSafe(idx(), <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
-    vector.getMutator().setValueCount(idx()+1);
+    vector.setValueCount(idx()+1);
   }
 
   public void setPosition(int idx) {

@@ -331,7 +331,11 @@ def test_cast_timestamp_unit():
     s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
 
     us_with_tz = pa.timestamp('us', tz='America/New_York')
+
     arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
+
+    # ARROW-1906
+    assert arr.type == us_with_tz
 
     arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
 
@@ -493,6 +497,14 @@ def test_array_conversions_no_sentinel_values():
                     type='float32')
     assert arr3.type == 'float32'
     assert arr3.null_count == 0
+
+
+def test_array_from_numpy_datetimeD():
+    arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
+
+    result = pa.array(arr)
+    expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
+    assert result.equals(expected)
 
 
 def test_array_from_numpy_ascii():

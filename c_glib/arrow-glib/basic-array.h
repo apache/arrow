@@ -68,6 +68,8 @@ GArrowArray   *garrow_array_cast        (GArrowArray *array,
                                          GError **error);
 GArrowArray   *garrow_array_unique      (GArrowArray *array,
                                          GError **error);
+GArrowArray   *garrow_array_dictionary_encode(GArrowArray *array,
+                                              GError **error);
 
 #define GARROW_TYPE_NULL_ARRAY                  \
   (garrow_null_array_get_type())

@@ -30,20 +30,12 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/util/hash-util.h"
+#include "arrow/util/hash.h"
 
 namespace arrow {
 namespace compute {
 
 namespace {
-
-// Initially 1024 elements
-static constexpr int64_t kInitialHashTableSize = 1 << 10;
-
-typedef int32_t hash_slot_t;
-static constexpr hash_slot_t kHashSlotEmpty = std::numeric_limits<int32_t>::max();
-
-// The maximum load factor for the hash table before resizing.
-static constexpr double kMaxHashTableLoad = 0.5;
 
 enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
 
@@ -53,17 +45,6 @@ enum class SIMDMode : char { NOSIMD, SSE4, AVX2 };
     ss << FUNCNAME << " not implemented for " << type->ToString(); \
     return Status::NotImplemented(ss.str());                       \
   }
-
-Status NewHashTable(int64_t size, MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  auto hash_table = std::make_shared<PoolBuffer>(pool);
-
-  RETURN_NOT_OK(hash_table->Resize(sizeof(hash_slot_t) * size));
-  int32_t* slots = reinterpret_cast<hash_slot_t*>(hash_table->mutable_data());
-  std::fill(slots, slots + size, kHashSlotEmpty);
-
-  *out = hash_table;
-  return Status::OK();
-}
 
 // This is a slight design concession -- some hash actions have the possibility
 // of failure. Rather than introduce extra error checking into all actions, we
@@ -129,7 +110,7 @@ class HashTable {
 
 Status HashTable::Init(int64_t elements) {
   DCHECK_EQ(elements, BitUtil::NextPower2(elements));
-  RETURN_NOT_OK(NewHashTable(elements, pool_, &hash_table_));
+  RETURN_NOT_OK(internal::NewHashTable(elements, pool_, &hash_table_));
   hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());
   hash_table_size_ = elements;
   hash_table_load_threshold_ =
@@ -237,44 +218,6 @@ struct HashDictionary<Type, enable_if_has_c_type<Type>> {
       HASH_INNER_LOOP();                                                                 \
     }                                                                                    \
   }
-
-#define DOUBLE_TABLE_SIZE(SETUP_CODE, COMPUTE_HASH)                              \
-  do {                                                                           \
-    int64_t new_size = hash_table_size_ * 2;                                     \
-                                                                                 \
-    std::shared_ptr<Buffer> new_hash_table;                                      \
-    RETURN_NOT_OK(NewHashTable(new_size, pool_, &new_hash_table));               \
-    int32_t* new_hash_slots =                                                    \
-        reinterpret_cast<hash_slot_t*>(new_hash_table->mutable_data());          \
-    int64_t new_mod_bitmask = new_size - 1;                                      \
-                                                                                 \
-    SETUP_CODE;                                                                  \
-                                                                                 \
-    for (int i = 0; i < hash_table_size_; ++i) {                                 \
-      hash_slot_t index = hash_slots_[i];                                        \
-                                                                                 \
-      if (index == kHashSlotEmpty) {                                             \
-        continue;                                                                \
-      }                                                                          \
-                                                                                 \
-      COMPUTE_HASH;                                                              \
-      while (kHashSlotEmpty != new_hash_slots[j]) {                              \
-        ++j;                                                                     \
-        if (ARROW_PREDICT_FALSE(j == new_size)) {                                \
-          j = 0;                                                                 \
-        }                                                                        \
-      }                                                                          \
-                                                                                 \
-      new_hash_slots[j] = index;                                                 \
-    }                                                                            \
-                                                                                 \
-    hash_table_ = new_hash_table;                                                \
-    hash_slots_ = reinterpret_cast<hash_slot_t*>(hash_table_->mutable_data());   \
-    hash_table_size_ = new_size;                                                 \
-    hash_table_load_threshold_ =                                                 \
-        static_cast<int64_t>(static_cast<double>(new_size) * kMaxHashTableLoad); \
-    mod_bitmask_ = new_size - 1;                                                 \
-  } while (false)
 
 template <typename Type, typename Action>
 class HashTableKernel<Type, Action, enable_if_has_c_type<Type>> : public HashTable {

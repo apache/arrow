@@ -1,0 +1,528 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff --git a/build/VS2010/datagen/datagen.vcxproj b/build/VS2010/datagen/datagen.vcxproj
+index bd8a213d..691d39fe 100644
+--- a/build/VS2010/datagen/datagen.vcxproj
++++ b/build/VS2010/datagen/datagen.vcxproj
+@@ -39,15 +39,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -84,6 +88,46 @@
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\programs;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(UniversalCRT_IncludePath);</IncludePath>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/fullbench-dll/fullbench-dll.vcxproj b/build/VS2010/fullbench-dll/fullbench-dll.vcxproj
+index e697318e..a5720189 100644
+--- a/build/VS2010/fullbench-dll/fullbench-dll.vcxproj
++++ b/build/VS2010/fullbench-dll/fullbench-dll.vcxproj
+@@ -39,15 +39,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -84,6 +88,46 @@
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\lib;$(SolutionDir)..\..\programs;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(UniversalCRT_IncludePath);</IncludePath>
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/fullbench/fullbench.vcxproj b/build/VS2010/fullbench/fullbench.vcxproj
+index 2bff4ca4..d64fac81 100644
+--- a/build/VS2010/fullbench/fullbench.vcxproj
++++ b/build/VS2010/fullbench/fullbench.vcxproj
+@@ -39,15 +39,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -84,6 +88,46 @@
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\lib;$(SolutionDir)..\..\programs;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(UniversalCRT_IncludePath);</IncludePath>
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/fuzzer/fuzzer.vcxproj b/build/VS2010/fuzzer/fuzzer.vcxproj
+index 12a4b931..1ffc5941 100644
+--- a/build/VS2010/fuzzer/fuzzer.vcxproj
++++ b/build/VS2010/fuzzer/fuzzer.vcxproj
+@@ -39,15 +39,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -84,6 +88,46 @@
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\lib;$(SolutionDir)..\..\programs;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(SolutionDir)..\..\lib\dictBuilder;$(SolutionDir)..\..\lib\compress;$(UniversalCRT_IncludePath);</IncludePath>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/libzstd-dll/libzstd-dll.vcxproj b/build/VS2010/libzstd-dll/libzstd-dll.vcxproj
+index 364b3bea..1f34e956 100644
+--- a/build/VS2010/libzstd-dll/libzstd-dll.vcxproj
++++ b/build/VS2010/libzstd-dll/libzstd-dll.vcxproj
+@@ -94,15 +94,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>DynamicLibrary</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -143,6 +147,46 @@
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\lib;$(SolutionDir)..\..\programs\legacy;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(SolutionDir)..\..\lib\dictBuilder;$(UniversalCRT_IncludePath);</IncludePath>
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/libzstd/libzstd.vcxproj b/build/VS2010/libzstd/libzstd.vcxproj
+index 6087d737..0d2a6fe0 100644
+--- a/build/VS2010/libzstd/libzstd.vcxproj
++++ b/build/VS2010/libzstd/libzstd.vcxproj
+@@ -91,15 +91,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>StaticLibrary</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -140,6 +144,46 @@
+     <IncludePath>$(IncludePath);$(SolutionDir)..\..\lib;$(SolutionDir)..\..\programs\legacy;$(SolutionDir)..\..\lib\legacy;$(SolutionDir)..\..\lib\common;$(SolutionDir)..\..\lib\dictBuilder;$(UniversalCRT_IncludePath);</IncludePath>
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>
+diff --git a/build/VS2010/zstd/zstd.vcxproj b/build/VS2010/zstd/zstd.vcxproj
+index 438dc617..3fb5bba8 100644
+--- a/build/VS2010/zstd/zstd.vcxproj
++++ b/build/VS2010/zstd/zstd.vcxproj
+@@ -100,15 +100,19 @@
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
+   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+     <ConfigurationType>Application</ConfigurationType>
+     <UseDebugLibraries>false</UseDebugLibraries>
+-    <WholeProgramOptimization>true</WholeProgramOptimization>
+     <CharacterSet>MultiByte</CharacterSet>
+   </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|Win32|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
++  <PropertyGroup Condition="'$(Configuration)|$(Platform)|$(WholeProgramOptimization)'=='Release|x64|true'" Label="Configuration">
++    <WholeProgramOptimization>true</WholeProgramOptimization>
++  </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+   <ImportGroup Label="ExtensionSettings">
+   </ImportGroup>
+@@ -149,6 +153,46 @@
+     <RunCodeAnalysis>false</RunCodeAnalysis>
+     <LibraryPath>$(LibraryPath);</LibraryPath>
+   </PropertyGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|Win32|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|Win32|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreaded'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebug'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Release|x64|MultiThreadedDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)|$(RuntimeLibrary)'=='Debug|x64|MultiThreadedDebugDLL'" Label="Configuration">
++    <ClCompile>
++      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
++    </ClCompile>
++  </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+     <ClCompile>
+       <PrecompiledHeader>

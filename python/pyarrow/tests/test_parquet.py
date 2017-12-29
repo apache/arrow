@@ -16,13 +16,17 @@
 # under the License.
 
 from os.path import join as pjoin
+
 import datetime
+import decimal
 import io
-import os
 import json
+import os
+
 import pytest
 
 from pyarrow.compat import guid, u, BytesIO, unichar, frombytes
+from pyarrow.tests import util
 from pyarrow.filesystem import LocalFileSystem
 import pyarrow as pa
 from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
@@ -112,6 +116,24 @@ def test_pandas_parquet_2_0_rountrip(tmpdir):
 
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
+
+
+@parquet
+def test_chunked_table_write(tmpdir):
+    # ARROW-232
+    df = alltypes_sample(size=10)
+
+    # The nanosecond->ms conversion is a nuisance, so we just avoid it here
+    del df['datetime']
+
+    batch = pa.RecordBatch.from_pandas(df)
+    table = pa.Table.from_batches([batch] * 3)
+    _check_roundtrip(table, version='2.0')
+
+    df, _ = dataframe_with_lists()
+    batch = pa.RecordBatch.from_pandas(df)
+    table = pa.Table.from_batches([batch] * 3)
+    _check_roundtrip(table, version='2.0')
 
 
 @parquet
@@ -1563,4 +1585,69 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     )
     t = _read_table(path)
     result = t.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+@parquet
+def test_backwards_compatible_column_metadata_handling():
+    expected = pd.DataFrame(
+        {'a': [1, 2, 3], 'b': [.1, .2, .3],
+         'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
+    expected.index = pd.MultiIndex.from_arrays(
+        [['a', 'b', 'c'],
+         pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')],
+        names=['index', None])
+
+    path = os.path.join(
+        os.path.dirname(__file__), 'data',
+        'v0.7.1.column-metadata-handling.parquet'
+    )
+    t = _read_table(path)
+    result = t.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+    t = _read_table(path, columns=['a'])
+    result = t.to_pandas()
+    tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
+
+
+@parquet
+def test_decimal_roundtrip(tmpdir):
+    num_values = 10
+
+    columns = {}
+
+    for precision in range(1, 39):
+        for scale in range(0, precision + 1):
+            with util.random_seed(0):
+                random_decimal_values = [
+                    util.randdecimal(precision, scale)
+                    for _ in range(num_values)
+                ]
+            column_name = ('dec_precision_{:d}_scale_{:d}'
+                           .format(precision, scale))
+            columns[column_name] = random_decimal_values
+
+    expected = pd.DataFrame(columns)
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
+    tm.assert_frame_equal(result, expected)
+
+
+@parquet
+@pytest.mark.xfail(
+    raises=pa.ArrowException, reason='Parquet does not support negative scale'
+)
+def test_decimal_roundtrip_negative_scale(tmpdir):
+    expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
+    filename = tmpdir.join('decimals.parquet')
+    string_filename = str(filename)
+    t = pa.Table.from_pandas(expected)
+    _write_table(t, string_filename)
+    result_table = _read_table(string_filename)
+    result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)

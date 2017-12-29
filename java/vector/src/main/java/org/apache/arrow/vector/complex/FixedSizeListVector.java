@@ -151,18 +151,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   @Override
-  @Deprecated
-  public Accessor getAccessor() {
-    throw new UnsupportedOperationException("Accessor is not supported for reading from vector");
-  }
-
-  @Override
-  @Deprecated
-  public Mutator getMutator() {
-    throw new UnsupportedOperationException("Mutator is not supported for writing to vector");
-  }
-
-  @Override
   public UnionFixedSizeListReader getReader() {
     return reader;
   }

@@ -105,6 +105,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
             os.environ.get('PYARROW_WITH_STATIC_PARQUET', '0'))
+        self.with_static_boost = strtobool(
+            os.environ.get('PYARROW_WITH_STATIC_BOOST', '1'))
         self.with_plasma = strtobool(
             os.environ.get('PYARROW_WITH_PLASMA', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -149,6 +151,8 @@ class build_ext(_build_ext):
             cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
         if self.with_static_parquet:
             cmake_options.append('-DPYARROW_PARQUET_USE_SHARED=off')
+        if not self.with_static_boost:
+            cmake_options.append('-DPYARROW_BOOST_USE_SHARED=on')
 
         if self.with_plasma:
             cmake_options.append('-DPYARROW_BUILD_PLASMA=on')
@@ -395,6 +399,16 @@ if sys.version_info.major == 2:
     install_requires.append('futures')
 
 
+def parse_version(root):
+    from setuptools_scm import version_from_scm
+    import setuptools_scm.git
+    describe = setuptools_scm.git.DEFAULT_DESCRIBE + " --match 'apache-arrow-[0-9]*'"
+    version = setuptools_scm.git.parse(root, describe)
+    if not version:
+        return version_from_scm(root)
+    else:
+        return version
+
 setup(
     name="pyarrow",
     packages=['pyarrow', 'pyarrow.tests'],
@@ -413,7 +427,7 @@ setup(
             'plasma_store = pyarrow:_plasma_store_entry_point'
         ]
     },
-    use_scm_version={"root": "..", "relative_to": __file__},
+    use_scm_version={"root": "..", "relative_to": __file__, "parse": parse_version},
     setup_requires=['setuptools_scm', 'cython >= 0.23'],
     install_requires=install_requires,
     tests_require=['pytest'],

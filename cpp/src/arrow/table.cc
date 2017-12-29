@@ -202,7 +202,8 @@ class SimpleTable : public Table {
     std::shared_ptr<Schema> new_schema;
     RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));
 
-    *out = Table::Make(new_schema, internal::DeleteVectorElement(columns_, i));
+    *out = Table::Make(new_schema, internal::DeleteVectorElement(columns_, i),
+                       this->num_rows());
     return Status::OK();
   }
 

@@ -404,6 +404,26 @@ TEST_F(TestTable, RemoveColumn) {
   ASSERT_TRUE(result->Equals(*expected));
 }
 
+TEST_F(TestTable, RemoveColumnEmpty) {
+  // ARROW-1865
+  const int64_t length = 10;
+
+  auto f0 = field("f0", int32());
+  auto schema = ::arrow::schema({f0});
+  auto a0 = MakeRandomArray<Int32Array>(length);
+
+  auto table = Table::Make(schema, {std::make_shared<Column>(f0, a0)});
+
+  std::shared_ptr<Table> empty;
+  ASSERT_OK(table->RemoveColumn(0, &empty));
+
+  ASSERT_EQ(table->num_rows(), empty->num_rows());
+
+  std::shared_ptr<Table> added;
+  ASSERT_OK(empty->AddColumn(0, table->column(0), &added));
+  ASSERT_EQ(table->num_rows(), added->num_rows());
+}
+
 TEST_F(TestTable, AddColumn) {
   const int64_t length = 10;
   MakeExample1(length);

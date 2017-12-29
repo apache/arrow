@@ -42,8 +42,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.NullableMapVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
@@ -70,7 +69,7 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, new ByteArrayOutputStream());
     }
@@ -82,7 +81,7 @@ public class TestArrowFile extends BaseFileTest {
     int count = COUNT;
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
       writeComplexData(count, parent);
       FieldVector root = parent.getChild("root");
       validateComplexContent(count, new VectorSchemaRoot(root));
@@ -98,7 +97,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, stream);
     }
@@ -154,7 +153,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       write(parent.getChild("root"), file, stream);
     }
@@ -195,7 +194,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator);
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator);
          FileOutputStream fileOutputStream = new FileOutputStream(file)) {
       writeData(counts[0], parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
@@ -268,7 +267,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
       writeUnionData(count, parent);
       validateUnionData(count, new VectorSchemaRoot(parent.getChild("root")));
       write(parent.getChild("root"), file, stream);
@@ -382,7 +381,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector vector = (MapVector) field.createVector(originalVectorAllocator)) {
+         NullableMapVector vector = (NullableMapVector) field.createVector(originalVectorAllocator)) {
       vector.allocateNewSafe();
       vector.setValueCount(0);
 
@@ -558,7 +557,7 @@ public class TestArrowFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         MapVector parent = MapVector.empty("parent", originalVectorAllocator)) {
+         NullableMapVector parent = NullableMapVector.empty("parent", originalVectorAllocator)) {
       FixedSizeListVector tuples = parent.addOrGet("float-pairs", FieldType.nullable(new FixedSizeList(2)), FixedSizeListVector.class);
       Float4Vector floats = (Float4Vector) tuples.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
       IntVector ints = parent.addOrGet("ints", FieldType.nullable(new Int(32, true)), IntVector.class);
@@ -618,7 +617,7 @@ public class TestArrowFile extends BaseFileTest {
     // write
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        MapVector parent = MapVector.empty("parent", vectorAllocator)) {
+        NullableMapVector parent = NullableMapVector.empty("parent", vectorAllocator)) {
       writeVarBinaryData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateVarBinary(count, root);

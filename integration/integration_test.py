@@ -111,8 +111,7 @@ class DataType(object):
             ('name', self.name),
             ('type', self._get_type()),
             ('nullable', self.nullable),
-            ('children', self._get_children()),
-            ('typeLayout', self._get_type_layout())
+            ('children', self._get_children())
         ])
 
     def _make_is_valid(self, size):
@@ -157,14 +156,6 @@ class PrimitiveType(DataType):
 
     def _get_children(self):
         return []
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
 
 
 class PrimitiveColumn(Column):
@@ -402,14 +393,6 @@ class DecimalType(PrimitiveType):
             ('scale', self.scale),
         ])
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', self.bit_width)])])])
-
     def generate_column(self, size, name=None):
         min_value, max_value = decimal_range_from_precision(self.precision)
         values = [random.randint(min_value, max_value) for _ in range(size)]
@@ -460,16 +443,6 @@ class BinaryType(PrimitiveType):
 
     def _get_type(self):
         return OrderedDict([('name', 'binary')])
-
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)]),
-              OrderedDict([('type', 'DATA'),
-                           ('typeBitWidth', 8)])])])
 
     def generate_column(self, size, name=None):
         K = 7
@@ -572,14 +545,6 @@ class ListType(DataType):
     def _get_children(self):
         return [self.value_type.get_json()]
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)]),
-              OrderedDict([('type', 'OFFSET'),
-                           ('typeBitWidth', 32)])])])
-
     def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
 
@@ -633,12 +598,6 @@ class StructType(DataType):
     def _get_children(self):
         return [type_.get_json() for type_ in self.field_types]
 
-    def _get_type_layout(self):
-        return OrderedDict([
-            ('vectors',
-             [OrderedDict([('type', 'VALIDITY'),
-                           ('typeBitWidth', 1)])])])
-
     def generate_column(self, size, name=None):
         is_valid = self._make_is_valid(size)
 
@@ -689,12 +648,8 @@ class DictionaryType(DataType):
                 ('id', self.dictionary.id_),
                 ('indexType', self.index_type._get_type()),
                 ('isOrdered', self.dictionary.ordered)
-            ])),
-            ('typeLayout', self.index_type._get_type_layout())
+            ]))
         ])
-
-    def _get_type_layout(self):
-        return self.index_type._get_type_layout()
 
     def generate_column(self, size, name=None):
         if name is None:
@@ -913,8 +868,8 @@ class IntegrationRunner(object):
         self.debug = debug
 
     def run(self):
-        for producer, consumer in itertools.product(self.testers,
-                                                    self.testers):
+        for producer, consumer in itertools.product(filter(lambda t: t.PRODUCER, self.testers),
+                                                    filter(lambda t: t.CONSUMER, self.testers)):
             self._compare_implementations(producer, consumer)
 
     def _compare_implementations(self, producer, consumer):
@@ -954,6 +909,8 @@ class IntegrationRunner(object):
 
 
 class Tester(object):
+    PRODUCER = False
+    CONSUMER = False
 
     def __init__(self, debug=False):
         self.debug = debug
@@ -972,6 +929,8 @@ class Tester(object):
 
 
 class JavaTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
 
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
@@ -1023,6 +982,8 @@ class JavaTester(Tester):
 
 
 class CPPTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
 
     EXE_PATH = os.environ.get(
         'ARROW_CPP_EXE_PATH',
@@ -1070,6 +1031,41 @@ class CPPTester(Tester):
             print(cmd)
         os.system(cmd)
 
+class JSTester(Tester):
+    PRODUCER = False
+    CONSUMER = True
+
+    INTEGRATION_EXE = os.path.join(ARROW_HOME, 'js/bin/integration.js')
+
+    name = 'JS'
+
+    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+        cmd = [self.INTEGRATION_EXE]
+
+        if arrow_path is not None:
+            cmd.extend(['-a', arrow_path])
+
+        if json_path is not None:
+            cmd.extend(['-j', json_path])
+
+        cmd.extend(['--mode', command])
+
+        if self.debug:
+            print(' '.join(cmd))
+
+        run_cmd(cmd)
+
+    def validate(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'VALIDATE')
+
+    def stream_to_file(self, stream_path, file_path):
+        # Just copy stream to file, we can read the stream directly
+        cmd = ['cp', stream_path, file_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
 
 def get_static_json_files():
     glob_pattern = os.path.join(ARROW_HOME, 'integration', 'data', '*.json')
@@ -1077,7 +1073,7 @@ def get_static_json_files():
 
 
 def run_all_tests(debug=False):
-    testers = [CPPTester(debug=debug), JavaTester(debug=debug)]
+    testers = [CPPTester(debug=debug), JavaTester(debug=debug), JSTester(debug=debug)]
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files()
     json_files = static_json_files + generated_json_files

@@ -212,32 +212,6 @@ union Type {
 }
 
 /// ----------------------------------------------------------------------
-/// The possible types of a vector
-
-enum VectorType: short {
-  /// used in List type, Dense Union and variable length primitive types (String, Binary)
-  OFFSET,
-  /// actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
-  DATA,
-  /// Bit vector indicating if each value is null
-  VALIDITY,
-  /// Type vector used in Union type
-  TYPE
-}
-
-/// ----------------------------------------------------------------------
-/// represents the physical layout of a buffer
-/// buffers have fixed width slots of a given type
-
-table VectorLayout {
-  /// the width of a slot in the buffer (typically 1, 8, 16, 32 or 64)
-  bit_width: short;
-  /// the purpose of the vector
-  type: VectorType;
-}
-
-
-/// ----------------------------------------------------------------------
 /// user defined key value pairs to add custom metadata to arrow
 /// key namespacing is the responsibility of the user
 
@@ -285,10 +259,7 @@ table Field {
 
   // children apply only to Nested data types like Struct, List and Union
   children: [Field];
-  /// layout of buffers produced for this type (as derived from the Type)
-  /// does not include children
-  /// each recordbatch will return instances of those Buffers.
-  layout: [ VectorLayout ];
+
   // User-defined metadata
   custom_metadata: [ KeyValue ];
 }

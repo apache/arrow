@@ -140,7 +140,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     for (int i = 0; i < rowCount; i++) {
       row.clear();
       for (FieldVector v : fieldVectors) {
-        row.add(v.getAccessor().getObject(i));
+        row.add(v.getObject(i));
       }
       printRow(sb, row);
     }
