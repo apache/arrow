@@ -71,7 +71,7 @@ TEST_F(TestPlasmaStore, ContainsTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  uint8_t* data;
+  std::shared_ptr<Buffer> data;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
   // Avoid race condition of Plasma Manager waiting for notification.
@@ -94,16 +94,20 @@ TEST_F(TestPlasmaStore, GetTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data_buffer;
   uint8_t* data;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  ARROW_CHECK_OK(
+      client_.Create(object_id, data_size, metadata, metadata_size, &data_buffer));
+  data = data_buffer->mutable_data();
   for (int64_t i = 0; i < data_size; i++) {
     data[i] = static_cast<uint8_t>(i % 4);
   }
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  const uint8_t* object_data = object_buffer.data->data();
   for (int64_t i = 0; i < data_size; i++) {
-    ASSERT_EQ(data[i], object_buffer.data[i]);
+    ASSERT_EQ(data[i], object_data[i]);
   }
 }
 
@@ -116,18 +120,18 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  uint8_t* data;
+  std::shared_ptr<Buffer> data;
   ARROW_CHECK_OK(client_.Create(object_id1, data_size, metadata, metadata_size, &data));
-  data[0] = 1;
+  data->mutable_data()[0] = 1;
   ARROW_CHECK_OK(client_.Seal(object_id1));
 
   ARROW_CHECK_OK(client_.Create(object_id2, data_size, metadata, metadata_size, &data));
-  data[0] = 2;
+  data->mutable_data()[0] = 2;
   ARROW_CHECK_OK(client_.Seal(object_id2));
 
   ARROW_CHECK_OK(client_.Get(object_ids, 2, -1, object_buffer));
-  ASSERT_EQ(object_buffer[0].data[0], 1);
-  ASSERT_EQ(object_buffer[1].data[0], 2);
+  ASSERT_EQ(object_buffer[0].data->data()[0], 1);
+  ASSERT_EQ(object_buffer[1].data->data()[0], 2);
 }
 
 TEST_F(TestPlasmaStore, AbortTest) {
@@ -143,11 +147,13 @@ TEST_F(TestPlasmaStore, AbortTest) {
   int64_t data_size = 4;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  uint8_t* data;
+  std::shared_ptr<Buffer> data;
+  uint8_t* data_ptr;
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  data_ptr = data->mutable_data();
   // Write some data.
   for (int64_t i = 0; i < data_size / 2; i++) {
-    data[i] = static_cast<uint8_t>(i % 4);
+    data_ptr[i] = static_cast<uint8_t>(i % 4);
   }
   // Attempt to abort. Test that this fails before the first release.
   Status status = client_.Abort(object_id);
@@ -162,15 +168,17 @@ TEST_F(TestPlasmaStore, AbortTest) {
 
   // Create the object successfully this time.
   ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+  data_ptr = data->mutable_data();
   for (int64_t i = 0; i < data_size; i++) {
-    data[i] = static_cast<uint8_t>(i % 4);
+    data_ptr[i] = static_cast<uint8_t>(i % 4);
   }
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   // Test that we can get the object.
   ARROW_CHECK_OK(client_.Get(&object_id, 1, -1, &object_buffer));
+  const uint8_t* buffer_ptr = object_buffer.data->data();
   for (int64_t i = 0; i < data_size; i++) {
-    ASSERT_EQ(data[i], object_buffer.data[i]);
+    ASSERT_EQ(data_ptr[i], buffer_ptr[i]);
   }
 }
 
@@ -187,7 +195,7 @@ TEST_F(TestPlasmaStore, MultipleClientTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  uint8_t* data;
+  std::shared_ptr<Buffer> data;
   ARROW_CHECK_OK(client2_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client2_.Seal(object_id));
   // Test that the first client can get the object.
@@ -227,7 +235,7 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     int64_t data_size = 100;
     uint8_t metadata[] = {5};
     int64_t metadata_size = sizeof(metadata);
-    uint8_t* data;
+    std::shared_ptr<Buffer> data;
     ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
 
     if (i % 3 == 0) {

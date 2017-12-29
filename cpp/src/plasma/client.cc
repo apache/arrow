@@ -40,6 +40,7 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
@@ -52,6 +53,8 @@
 #define XXH64_DEFAULT_SEED 0
 
 namespace plasma {
+
+using arrow::MutableBuffer;
 
 // Number of threads used for memcopy and hash computations.
 constexpr int64_t kThreadPoolSize = 8;
@@ -145,7 +148,8 @@ void PlasmaClient::increment_object_count(const ObjectID& object_id, PlasmaObjec
 }
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
-                            uint8_t* metadata, int64_t metadata_size, uint8_t** data) {
+                            uint8_t* metadata, int64_t metadata_size,
+                            std::shared_ptr<Buffer>* data) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
   RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size));
@@ -162,14 +166,16 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
   ARROW_CHECK(object.metadata_size == metadata_size);
   // The metadata should come right after the data.
   ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
-  *data = lookup_or_mmap(fd, object.handle.store_fd, object.handle.mmap_size) +
-          object.data_offset;
+  *data = std::make_shared<MutableBuffer>(
+      lookup_or_mmap(fd, object.handle.store_fd, object.handle.mmap_size) +
+          object.data_offset,
+      data_size);
   // If plasma_create is being called from a transfer, then we will not copy the
   // metadata here. The metadata will be written along with the data streamed
   // from the transfer.
   if (metadata != NULL) {
     // Copy the metadata to the buffer.
-    memcpy(*data + object.data_size, metadata, metadata_size);
+    memcpy((*data)->mutable_data() + object.data_size, metadata, metadata_size);
   }
   // Increment the count of the number of instances of this object that this
   // client is using. A call to PlasmaClient::Release is required to decrement
@@ -203,10 +209,12 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       ARROW_CHECK(object_entry->second->is_sealed)
           << "Plasma client called get on an unsealed object that it created";
       PlasmaObject* object = &object_entry->second->object;
-      object_buffers[i].data = lookup_mmapped_file(object->handle.store_fd);
-      object_buffers[i].data = object_buffers[i].data + object->data_offset;
+      uint8_t* data = lookup_mmapped_file(object->handle.store_fd);
+      object_buffers[i].data =
+          std::make_shared<Buffer>(data + object->data_offset, object->data_size);
+      object_buffers[i].metadata = std::make_shared<Buffer>(
+          data + object->data_offset + object->data_size, object->metadata_size);
       object_buffers[i].data_size = object->data_size;
-      object_buffers[i].metadata = object_buffers[i].data + object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
       // Increment the count of the number of instances of this object that this
       // client is using. A call to PlasmaClient::Release is required to
@@ -254,13 +262,15 @@ Status PlasmaClient::Get(const ObjectID* object_ids, int64_t num_objects,
       // The object was retrieved. The user will be responsible for releasing
       // this object.
       int fd = recv_fd(store_conn_);
-      ARROW_CHECK(fd >= 0);
-      object_buffers[i].data =
+      uint8_t* data =
           lookup_or_mmap(fd, object->handle.store_fd, object->handle.mmap_size);
+      ARROW_CHECK(fd >= 0);
       // Finish filling out the return values.
-      object_buffers[i].data = object_buffers[i].data + object->data_offset;
+      object_buffers[i].data =
+          std::make_shared<Buffer>(data + object->data_offset, object->data_size);
+      object_buffers[i].metadata = std::make_shared<Buffer>(
+          data + object->data_offset + object->data_size, object->metadata_size);
       object_buffers[i].data_size = object->data_size;
-      object_buffers[i].metadata = object_buffers[i].data + object->data_size;
       object_buffers[i].metadata_size = object->metadata_size;
       // Increment the count of the number of instances of this object that this
       // client is using. A call to PlasmaClient::Release is required to
@@ -438,14 +448,16 @@ static uint64_t compute_object_hash(const ObjectBuffer& obj_buffer) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
   if (obj_buffer.data_size >= kBytesInMB) {
-    compute_object_hash_parallel(&hash_state,
-                                 reinterpret_cast<unsigned char*>(obj_buffer.data),
-                                 obj_buffer.data_size);
+    compute_object_hash_parallel(
+        &hash_state, reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
+        obj_buffer.data_size);
   } else {
-    XXH64_update(&hash_state, reinterpret_cast<unsigned char*>(obj_buffer.data),
+    XXH64_update(&hash_state,
+                 reinterpret_cast<const unsigned char*>(obj_buffer.data->data()),
                  obj_buffer.data_size);
   }
-  XXH64_update(&hash_state, reinterpret_cast<unsigned char*>(obj_buffer.metadata),
+  XXH64_update(&hash_state,
+               reinterpret_cast<const unsigned char*>(obj_buffer.metadata->data()),
                obj_buffer.metadata_size);
   return XXH64_digest(&hash_state);
 }

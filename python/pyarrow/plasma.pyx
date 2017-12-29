@@ -81,7 +81,7 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Create(const CUniqueID& object_id, int64_t data_size,
                        const uint8_t* metadata, int64_t metadata_size,
-                       uint8_t** data)
+                       const shared_ptr[CBuffer]* data)
 
         CStatus Get(const CUniqueID* object_ids, int64_t num_objects,
                     int64_t timeout_ms, CObjectBuffer* object_buffers)
@@ -118,9 +118,9 @@ cdef extern from "plasma/client.h" nogil:
 
     cdef struct CObjectBuffer" plasma::ObjectBuffer":
         int64_t data_size
-        uint8_t* data
+        shared_ptr[CBuffer] data
         int64_t metadata_size
-        uint8_t* metadata
+        shared_ptr[CBuffer] metadata
 
 
 def make_object_id(object_id):
@@ -245,10 +245,8 @@ cdef class PlasmaClient:
             check_status(self.client.get().Get(ids.data(), ids.size(),
                          timeout_ms, result[0].data()))
 
-    cdef _make_plasma_buffer(self, ObjectID object_id, uint8_t* data,
+    cdef _make_plasma_buffer(self, ObjectID object_id, shared_ptr[CBuffer] buffer,
                              int64_t size):
-        cdef shared_ptr[CBuffer] buffer
-        buffer.reset(new CBuffer(data, size))
         result = PlasmaBuffer(object_id, self)
         result.init(buffer)
         return result
@@ -296,12 +294,12 @@ cdef class PlasmaClient:
                 not be created because the plasma store is unable to evict
                 enough objects to create room for it.
         """
-        cdef uint8_t* data
+        cdef shared_ptr[CBuffer] data
         with nogil:
             check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
                                                   metadata.size(), &data))
-        return self._make_mutable_plasma_buffer(object_id, data, data_size)
+        return self._make_mutable_plasma_buffer(object_id, data.get().mutable_data(), data_size)
 
     def get_buffers(self, object_ids, timeout_ms=-1):
         """
