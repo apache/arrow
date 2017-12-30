@@ -717,13 +717,6 @@ struct CastFunctor<O, StringType,
     using out_type = typename O::c_type;
     StringArray input_array(input.Copy());
 
-    if (input_array.null_count() > 0) {
-      std::stringstream ss;
-      ss << "Failed to cast NA into " << output->type->ToString();
-      ctx->SetStatus(Status(StatusCode::SerializationError, ss.str()));
-      return;
-    }
-
     auto out_data = GetMutableValues<out_type>(output, 1);
 
     std::function<out_type(const std::string&)> cast_func;
@@ -736,6 +729,11 @@ struct CastFunctor<O, StringType,
     }
 
     for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        out_data++;
+        continue;
+      }
+
       std::string s = input_array.GetString(i);
 
       try {
@@ -762,14 +760,12 @@ struct CastFunctor<O, StringType,
     internal::BitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
                                   input.length);
 
-    if (input_array.null_count() > 0) {
-      std::stringstream ss;
-      ss << "Failed to cast NA into " << output->type->ToString();
-      ctx->SetStatus(Status(StatusCode::SerializationError, ss.str()));
-      return;
-    }
-
     for (int64_t i = 0; i < input.length; ++i) {
+      if (input_array.IsNull(i)) {
+        writer.Next();
+        continue;
+      }
+
       auto s = input_array.GetString(i);
       auto s_lower = boost::algorithm::to_lower_copy(s);
       bool flag;
