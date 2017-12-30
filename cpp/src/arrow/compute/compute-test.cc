@@ -772,7 +772,7 @@ TEST_F(TestCast, OffsetOutputBuffer) {
 TEST_F(TestCast, StringToBoolean) {
   CastOptions options;
 
-  vector<bool> is_valid = {true, true, true, true, true};
+  vector<bool> is_valid = {true, false, true, true, true};
 
   vector<std::string> v1 = {"False", "true", "true", "True", "false"};
   vector<std::string> v2 = {"0", "1", "1", "1", "0"};
@@ -786,7 +786,7 @@ TEST_F(TestCast, StringToBoolean) {
 TEST_F(TestCast, StringToNumber) {
   CastOptions options;
 
-  vector<bool> is_valid = {true, true, true, true, true};
+  vector<bool> is_valid = {true, false, true, true, true};
 
   // string to int
   vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
