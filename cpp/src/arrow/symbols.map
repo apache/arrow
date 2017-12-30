@@ -55,6 +55,8 @@
     ERR_getErrorString;
     # jemalloc
     je_arrow_*;
+    # ORC destructors
+    _ZThn8_N3orc*;
 
     extern "C++" {
       # devtoolset or -static-libstdc++ - the Red Hat devtoolset statically
@@ -65,6 +67,8 @@
 
       # Statically linked C++ dependencies
       boost::*;
+      google::*;
+      orc::*;
       snappy::*;
     };
 };
