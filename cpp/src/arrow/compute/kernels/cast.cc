@@ -709,6 +709,23 @@ struct CastFunctor<T, DictionaryType,
 // ----------------------------------------------------------------------
 // String to Number
 
+template <typename T>
+typename std::enable_if<std::is_arithmetic<T>::value && !std::is_same<T, int8_t>::value &&
+                            !std::is_same<T, uint8_t>::value,
+                        T>::type
+castStringToNumeric(const std::string& s) {
+  return boost::lexical_cast<T>(s);
+}
+
+template <typename T>
+typename std::enable_if<std::is_same<T, int8_t>::value || std::is_same<T, uint8_t>::value,
+                        T>::type
+castStringToNumeric(const std::string& s) {
+  // Convert to int before casting to T
+  // because boost::lexical_cast does not support 8bit int/uint.
+  return boost::numeric_cast<T>(boost::lexical_cast<int>(s));
+}
+
 template <typename O>
 struct CastFunctor<O, StringType,
                    typename std::enable_if<std::is_base_of<Number, O>::value>::type> {
@@ -720,13 +737,6 @@ struct CastFunctor<O, StringType,
     auto out_data = GetMutableValues<out_type>(output, 1);
 
     std::function<out_type(const std::string&)> cast_func;
-    if (output->type->id() == Type::INT8 || output->type->id() == Type::UINT8) {
-      cast_func = [](const std::string& s) {
-        return boost::numeric_cast<out_type>(boost::lexical_cast<int>(s));
-      };
-    } else {
-      cast_func = [](const std::string& s) { return boost::lexical_cast<out_type>(s); };
-    }
 
     for (int64_t i = 0; i < input.length; ++i) {
       if (input_array.IsNull(i)) {
@@ -737,7 +747,7 @@ struct CastFunctor<O, StringType,
       std::string s = input_array.GetString(i);
 
       try {
-        *out_data++ = cast_func(s);
+        *out_data++ = castStringToNumeric<out_type>(s);
       } catch (...) {
         std::stringstream ss;
         ss << "Failed to cast String '" << s << "' into " << output->type->ToString();
