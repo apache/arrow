@@ -196,6 +196,43 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Set the decimal element at given index to the provided array of bytes.
+   * Decimal is now implemented as Little Endian. This API allows the user
+   * to pass a decimal value in the form of byte array in BE byte order.
+   *
+   * Consumers of Arrow code can use this API instead of first swapping
+   * the source bytes (doing a write and read) and then finally writing to
+   * ArrowBuf of decimal vector.
+   *
+   * This method takes care of adding the necessary padding if the length
+   * of byte array is less then 16 (length of decimal type).
+   *
+   * @param index position of element
+   * @param value array of bytes containing decimal in big endian byte order.
+   */
+  public void setBigEndian(int index, byte[] value) {
+    assert value.length <= TYPE_WIDTH;
+    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    final int length = value.length;
+    int startIndex = index * TYPE_WIDTH;
+    if (length == TYPE_WIDTH) {
+      for (int i = TYPE_WIDTH - 1; i >= 3; i-=4) {
+        valueBuffer.setByte(startIndex, value[i]);
+        valueBuffer.setByte(startIndex + 1, value[i-1]);
+        valueBuffer.setByte(startIndex + 2, value[i-2]);
+        valueBuffer.setByte(startIndex + 3, value[i-3]);
+        startIndex += 4;
+      }
+    } else {
+      for (int i = length - 1; i >= 0; i--) {
+        valueBuffer.setByte(startIndex, value[i]);
+        startIndex++;
+      }
+      valueBuffer.setZero(startIndex, TYPE_WIDTH - length);
+    }
+  }
+
+  /**
    * Set the element at the given index to the given value.
    *
    * @param index    position of element
@@ -260,6 +297,16 @@ public class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, ArrowBuf buffer) {
     handleSafe(index);
     set(index, buffer);
+  }
+
+  /**
+   * Same as {@link #setBigEndian(int, byte[])} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   */
+  public void setBigEndianSafe(int index, byte[] value) {
+    handleSafe(index);
+    setBigEndian(index, value);
   }
 
   /**

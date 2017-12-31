@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.types.Types;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 <@pp.dropOutputFile />
@@ -81,6 +83,12 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
+
+  <#if minor.class == "Decimal">
+  public void writeBigEndianBytesToDecimal(byte[] value) {
+    getWriter(Types.MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
+  }
+  </#if>
 
   </#list></#list>
   public void writeNull() {
