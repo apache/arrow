@@ -1317,6 +1317,18 @@ class TestPandasConversion(object):
             result = table_subset2.to_pandas()
             tm.assert_frame_equal(result, df[['a']].reset_index(drop=True))
 
+    def test_empty_list_roundtrip(self):
+        empty_list_array = np.empty((3,), dtype=object)
+        empty_list_array.fill([])
+
+        df = pd.DataFrame({'a': np.array(['1', '2', '3']),
+                           'b': empty_list_array})
+        tbl = pa.Table.from_pandas(df)
+
+        result = tbl.to_pandas()
+
+        tm.assert_frame_equal(result, df)
+
 
 def _fully_loaded_dataframe_example():
     from distutils.version import LooseVersion
