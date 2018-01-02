@@ -90,6 +90,7 @@ struct WrapBytes<FixedSizeBinaryArray> {
 
 static inline bool ListTypeSupported(const DataType& type) {
   switch (type.id()) {
+    case Type::NA:
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
@@ -695,6 +696,7 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->id()) {
+        CONVERTLISTSLIKE_CASE(FloatType, NA)
         CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
         CONVERTLISTSLIKE_CASE(Int8Type, INT8)
         CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
