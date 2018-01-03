@@ -320,6 +320,7 @@ public class UnionVector implements FieldVector {
   @Override
   public void reset() {
     valueCount = 0;
+    typeBuffer.setZero(0, typeBuffer.capacity());
     internalMap.reset();
   }
 

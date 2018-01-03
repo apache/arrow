@@ -516,6 +516,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   @Override
   public void reset() {
     super.reset();
+    validityBuffer.setZero(0, validityBuffer.capacity());
     lastSet = 0;
   }
 

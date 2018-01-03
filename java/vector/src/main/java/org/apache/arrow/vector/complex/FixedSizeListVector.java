@@ -273,6 +273,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public void reset() {
+    validityBuffer.setZero(0, validityBuffer.capacity());
     vector.reset();
     valueCount = 0;
   }

@@ -188,6 +188,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public void reset() {
+    offsetBuffer.setZero(0, offsetBuffer.capacity());
     vector.reset();
     valueCount = 0;
   }
