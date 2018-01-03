@@ -19,8 +19,8 @@
 #define ARROW_ORC_CONVERTER_H
 
 #include <cstdint>
-#include <list>
 #include <memory>
+#include <vector>
 
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
