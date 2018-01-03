@@ -493,8 +493,4 @@ public class NullableMapVector extends MapVector implements FieldVector {
     super.setValueCount(valueCount);
     this.valueCount = valueCount;
   }
-
-  public void reset() {
-    valueCount = 0;
-  }
 }

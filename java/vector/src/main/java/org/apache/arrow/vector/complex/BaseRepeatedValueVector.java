@@ -187,6 +187,12 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   @Override
+  public void reset() {
+    vector.reset();
+    valueCount = 0;
+  }
+
+  @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
     if (getBufferSize() == 0) {

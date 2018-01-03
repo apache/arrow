@@ -272,6 +272,12 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   @Override
+  public void reset() {
+    vector.reset();
+    valueCount = 0;
+  }
+
+  @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     setReaderAndWriterIndex();
     final ArrowBuf[] buffers;

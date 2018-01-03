@@ -105,6 +105,11 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void clear();
 
   /**
+   * Reset the ValueVector to empty.
+   */
+  void reset();
+
+  /**
    * Get information about how this field is materialized.
    *
    * @return the field corresponding to this vector
