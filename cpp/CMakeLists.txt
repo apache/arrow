@@ -119,6 +119,10 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     "Build the Arrow GPU extensions (requires CUDA installation)"
     OFF)
 
+  option(ARROW_ORC
+    "Build the Arrow ORC adapter"
+    ON)
+
   option(ARROW_JEMALLOC
     "Build the Arrow jemalloc-based allocator"
     OFF)
@@ -224,6 +228,17 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_SNAPPY ON)
   set(ARROW_WITH_ZLIB ON)
   set(ARROW_WITH_ZSTD ON)
+endif()
+
+if (MSVC)
+  # ORC doesn't build on windows
+  set(ARROW_ORC OFF)
+endif()
+
+if(ARROW_ORC)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
+  set(ARROW_WITH_ZLIB ON)
 endif()
 
 if(NOT ARROW_BUILD_TESTS)
@@ -523,6 +538,13 @@ if (ARROW_WITH_GRPC)
     grpc_grp
     grpc_grpc
     grpc_grpcpp
+    ${ARROW_STATIC_LINK_LIBS})
+endif()
+
+if (ARROW_ORC)
+  SET(ARROW_STATIC_LINK_LIBS
+    orc
+    protobuf
     ${ARROW_STATIC_LINK_LIBS})
 endif()
 

@@ -82,7 +82,7 @@ fi
 export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 
 pip install -r requirements.txt
-python setup.py build_ext --with-parquet --with-plasma \
+python setup.py build_ext --with-parquet --with-plasma --with-orc\
        install --single-version-externally-managed --record=record.text
 popd
 

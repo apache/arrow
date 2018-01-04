@@ -29,7 +29,9 @@ set(SNAPPY_VERSION "1.1.3")
 set(BROTLI_VERSION "v0.6.0")
 set(LZ4_VERSION "1.7.5")
 set(ZSTD_VERSION "1.2.0")
+set(PROTOBUF_VERSION "2.6.0")
 set(GRPC_VERSION "94582910ad7f82ad447ecc72e6548cb669e4f7a9") # v1.6.5
+set(ORC_VERSION "cf00b67795717ab3eb04e950780ed6d104109017")
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
 
@@ -721,6 +723,7 @@ if (ARROW_WITH_LZ4)
 
   if("${LZ4_HOME}" STREQUAL "")
     set(LZ4_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-prefix/src/lz4_ep")
+    set(LZ4_HOME "${LZ4_BUILD_DIR}")
     set(LZ4_INCLUDE_DIR "${LZ4_BUILD_DIR}/lib")
 
     if (MSVC)
@@ -864,4 +867,74 @@ if (ARROW_WITH_GRPC)
     add_dependencies(grpc_grpcpp grpc_ep)
   endif()
 
+endif()
+
+if (ARROW_ORC)
+  # protobuf
+  if ("${PROTOBUF_HOME}" STREQUAL "")
+    set (PROTOBUF_PREFIX "${THIRDPARTY_DIR}/protobuf_ep-install")
+    set (PROTOBUF_HOME "${PROTOBUF_PREFIX}")
+    set (PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+    set (PROTOBUF_STATIC_LIB "${PROTOBUF_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}protobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (PROTOBUF_SRC_URL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-${PROTOBUF_VERSION}.tar.gz")
+
+    ExternalProject_Add(protobuf_ep
+      CONFIGURE_COMMAND "./configure" "--disable-shared" "--prefix=${PROTOBUF_PREFIX}" "CXXFLAGS=${EP_CXX_FLAGS}"
+      BUILD_IN_SOURCE 1
+      URL ${PROTOBUF_SRC_URL}
+      LOG_DOWNLOAD 1
+      LOG_CONFIGURE 1
+      LOG_BUILD 1
+      LOG_INSTALL 1
+      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}")
+
+    set (PROTOBUF_VENDORED 1)
+  else ()
+    find_package (Protobuf REQUIRED)
+    set (PROTOBUF_VENDORED 0)
+  endif ()
+
+  include_directories (SYSTEM ${PROTOBUF_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(protobuf
+    STATIC_LIB ${PROTOBUF_STATIC_LIB})
+
+  if (PROTOBUF_VENDORED)
+    add_dependencies (protobuf protobuf_ep)
+  endif ()
+
+  # orc
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  # Since LZ4 isn't installed, the header file is in ${LZ4_HOME}/lib instead of
+  # ${LZ4_HOME}/include, which forces us to specify the include directory
+  # manually as well.
+  set (ORC_CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                      -DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}
+                      -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
+                      -DBUILD_LIBHDFSPP=OFF
+                      -DBUILD_JAVA=OFF
+                      -DBUILD_TOOLS=OFF
+                      -DBUILD_CPP_TESTS=OFF
+                      -DINSTALL_VENDORED_LIBS=OFF
+                      -DPROTOBUF_HOME=${PROTOBUF_HOME}
+                      -DLZ4_HOME=${LZ4_HOME}
+                      -DLZ4_INCLUDE_DIR=${LZ4_INCLUDE_DIR}
+                      -DSNAPPY_HOME=${SNAPPY_HOME}
+                      -DZLIB_HOME=${ZLIB_HOME})
+
+  ExternalProject_Add(orc_ep
+    GIT_REPOSITORY "https://github.com/apache/orc"
+    GIT_TAG ${ORC_VERSION}
+    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+    CMAKE_ARGS ${ORC_CMAKE_ARGS})
+
+  include_directories(SYSTEM ${ORC_INCLUDE_DIR})
+  ADD_THIRDPARTY_LIB(orc
+    STATIC_LIB ${ORC_STATIC_LIB})
+
+  add_dependencies(orc_ep protobuf lz4_static snappy zlib)
+  add_dependencies(orc orc_ep)
 endif()

@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-nm -D -C /arrow-dist/lib64/libarrow.so > nm_arrow.log
-grep ' T ' nm_arrow.log | grep -v arrow > visible_symbols.log
+#######################################
+# arrow_orc
+#######################################
 
-if [[ `cat visible_symbols.log | wc -l` -eq 2 ]]
-then
-    exit 0
-fi
-
-cat visible_symbols.log
-
-exit 1
+# Headers: top level
+install(FILES
+        adapter.h
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")

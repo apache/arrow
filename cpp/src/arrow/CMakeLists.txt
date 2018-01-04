@@ -90,6 +90,11 @@ if (ARROW_WITH_ZSTD)
   SET(ARROW_SRCS util/compression_zstd.cc ${ARROW_SRCS})
 endif()
 
+if (ARROW_ORC)
+  add_subdirectory(adapters/orc)
+  SET(ARROW_SRCS adapters/orc/adapter.cc ${ARROW_SRCS})
+endif()
+
 if (NOT ARROW_BOOST_HEADER_ONLY)
   set(ARROW_SRCS ${ARROW_SRCS}
     io/hdfs.cc
