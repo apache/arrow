@@ -19,12 +19,22 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.*;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
+import org.apache.arrow.vector.types.pojo.FieldType;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.nio.charset.StandardCharsets;
 
 public class TestVectorReset {
 
@@ -40,15 +50,100 @@ public class TestVectorReset {
     allocator.close();
   }
 
+  private void resetVectorAndVerify(ValueVector vector, ArrowBuf[] bufs) {
+    int[] sizeBefore = new int[bufs.length];
+    for (int i = 0; i < bufs.length; i++) {
+      sizeBefore[i] = bufs[i].capacity();
+    }
+    vector.reset();
+    for (int i = 0; i < bufs.length; i++) {
+      assertEquals(sizeBefore[i], bufs[i].capacity());
+      verifyBufferZeroed(bufs[i]);
+    }
+    assertEquals(0, vector.getValueCount());
+  }
+
+  private void verifyBufferZeroed(ArrowBuf buf) {
+    for (int i = 0; i < buf.capacity(); i++) {
+      assertTrue((byte) 0 == buf.getByte(i));
+    }
+  }
+
   @Test
   public void testFixedTypeReset() {
-    try (final UInt4Vector vector = new UInt4Vector("", allocator)) {
-      vector.allocateNew();
-      final int sizeBefore = vector.getBufferSize();
-      vector.reAlloc();
-      vector.reset();
-      final int sizeAfter = vector.getBufferSize();
-      assertEquals(sizeBefore, sizeAfter);
+    try (final UInt4Vector vector = new UInt4Vector("UInt4", allocator)) {
+      vector.allocateNewSafe();
+      vector.setNull(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+    }
+  }
+
+  @Test
+  public void testVariableTypeReset() {
+    try (final VarCharVector vector = new VarCharVector("VarChar", allocator)) {
+      vector.allocateNewSafe();
+      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
+      vector.setLastSet(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+      assertEquals(-1, vector.getLastSet());
+    }
+  }
+
+  @Test
+  public void testListTypeReset() {
+    try (final ListVector variableList = new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final FixedSizeListVector fixedList = new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
+    ) {
+      // ListVector
+      variableList.allocateNewSafe();
+      variableList.startNewValue(0);
+      variableList.endValue(0, 0);
+      variableList.setValueCount(1);
+      resetVectorAndVerify(variableList, variableList.getBuffers(false));
+      assertEquals(0, variableList.getLastSet());
+
+      // FixedSizeListVector
+      fixedList.allocateNewSafe();
+      fixedList.setNull(0);
+      fixedList.setValueCount(1);
+      resetVectorAndVerify(fixedList, fixedList.getBuffers(false));
+    }
+  }
+
+  @Test
+  public void testMapTypeReset() {
+    try (final MapVector mapVector = new MapVector("Map", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+         final NullableMapVector nullableMapVector = new NullableMapVector("NullableMap", allocator, FieldType.nullable(MinorType.INT.getType()), null)
+    ) {
+      // MapVector
+      mapVector.allocateNewSafe();
+      IntVector mapChild = mapVector.addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      mapChild.setNull(0);
+      mapVector.setValueCount(1);
+      resetVectorAndVerify(mapVector, mapVector.getBuffers(false));
+
+      // NullableMapVector
+      nullableMapVector.allocateNewSafe();
+      nullableMapVector.setNull(0);
+      nullableMapVector.setValueCount(1);
+      resetVectorAndVerify(nullableMapVector, nullableMapVector.getBuffers(false));
+    }
+  }
+
+  @Test
+  public void testUnionTypeReset() {
+    try (final UnionVector vector = new UnionVector("Union", allocator, null);
+         final IntVector dataVector = new IntVector("Int", allocator)
+    ) {
+      vector.getBufferSize();
+      vector.allocateNewSafe();
+      dataVector.allocateNewSafe();
+      vector.addVector(dataVector);
+      dataVector.setNull(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
     }
   }
 }
