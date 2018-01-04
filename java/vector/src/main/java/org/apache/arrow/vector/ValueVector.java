@@ -100,7 +100,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void close();
 
   /**
-   * Release any owned ArrowBuf and reset the ValueVector to an initial state. If the
+   * Release any owned ArrowBuf and reset the ValueVector to the initial state. If the
    * vector has any child vectors, they will also be cleared.
    */
   void clear();
