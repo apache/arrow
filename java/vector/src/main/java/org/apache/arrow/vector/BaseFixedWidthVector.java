@@ -210,6 +210,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void reset() {
+    valueCount = 0;
     zeroVector();
   }
 
