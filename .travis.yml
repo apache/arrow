@@ -54,6 +54,7 @@ matrix:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_VALGRIND=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_TRAVIS_ORC=1
     - export ARROW_TRAVIS_CLANG_FORMAT=1
     - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - export CC="clang-4.0"
@@ -75,6 +76,7 @@ matrix:
     before_script:
     - export ARROW_TRAVIS_USE_TOOLCHAIN=1
     - export ARROW_TRAVIS_PLASMA=1
+    - export ARROW_TRAVIS_ORC=1
     - export ARROW_BUILD_WARNING_LEVEL=CHECKIN
     - travis_wait 50 $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:

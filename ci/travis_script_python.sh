@@ -63,6 +63,7 @@ cmake -GNinja \
       -DARROW_BUILD_UTILITIES=off \
       -DARROW_PLASMA=on \
       -DARROW_PYTHON=on \
+      -DARROW_ORC=on \
       -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       $ARROW_CPP_DIR
@@ -88,6 +89,7 @@ popd
 
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
+python -c "import pyarrow.orc"
 
 if [ $TRAVIS_OS_NAME == "linux" ]; then
   export PLASMA_VALGRIND=1
