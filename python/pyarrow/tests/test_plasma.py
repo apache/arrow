@@ -750,6 +750,6 @@ class TestPlasmaClient(object):
 @pytest.mark.plasma
 def test_object_id_size():
     import pyarrow.plasma as plasma
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         plasma.ObjectID("hello")
     plasma.ObjectID(20 * b"0")
