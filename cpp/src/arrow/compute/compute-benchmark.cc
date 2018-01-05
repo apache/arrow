@@ -191,7 +191,7 @@ static void BM_UniqueString100bytes(benchmark::State& state) {
 BENCHMARK(BM_BuildDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(BM_BuildStringDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 
-constexpr int64_t kHashBenchmarkLength = 1 << 24;
+constexpr int kHashBenchmarkLength = 1 << 24;
 
 #define ADD_HASH_ARGS(WHAT)                        \
   WHAT->Args({kHashBenchmarkLength, 50})           \
