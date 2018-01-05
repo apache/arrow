@@ -513,6 +513,13 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     lastSet = 0;
   }
 
+  @Override
+  public void reset() {
+    super.reset();
+    validityBuffer.setZero(0, validityBuffer.capacity());
+    lastSet = 0;
+  }
+
   /**
    * Return the underlying buffers associated with this vector. Note that this doesn't
    * impact the reference counts for this buffer so it only should be used for in-context

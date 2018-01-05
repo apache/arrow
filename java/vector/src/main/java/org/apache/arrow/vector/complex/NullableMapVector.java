@@ -306,6 +306,15 @@ public class NullableMapVector extends MapVector implements FieldVector {
   }
 
   /**
+   * Reset this vector to empty, does not release buffers
+   */
+  @Override
+  public void reset() {
+    super.reset();
+    validityBuffer.setZero(0, validityBuffer.capacity());
+  }
+
+  /**
    * Release the validity buffer
    */
   private void clearValidityBuffer() {
@@ -492,9 +501,5 @@ public class NullableMapVector extends MapVector implements FieldVector {
     }
     super.setValueCount(valueCount);
     this.valueCount = valueCount;
-  }
-
-  public void reset() {
-    valueCount = 0;
   }
 }

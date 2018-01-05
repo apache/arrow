@@ -100,9 +100,18 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void close();
 
   /**
-   * Release the underlying ArrowBuf and reset the ValueVector to empty.
+   * Release any owned ArrowBuf and reset the ValueVector to the initial state. If the
+   * vector has any child vectors, they will also be cleared.
    */
   void clear();
+
+  /**
+   * Reset the ValueVector to the initial state without releasing any owned ArrowBuf.
+   * Buffer capacities will remain unchanged and any previous data will be zeroed out.
+   * This includes buffers for data, validity, offset, etc. If the vector has any
+   * child vectors, they will also be reset.
+   */
+  void reset();
 
   /**
    * Get information about how this field is materialized.

@@ -193,6 +193,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void zeroVector() {
     initValidityBuffer();
     initOffsetBuffer();
+    valueBuffer.setZero(0, valueBuffer.capacity());
   }
 
   /* zero out the validity buffer */
@@ -212,6 +213,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void reset() {
     zeroVector();
     lastSet = -1;
+    valueCount = 0;
   }
 
   /**

@@ -208,7 +208,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * Reset the vector to initial state. Same as {@link #zeroVector()}.
    * Note that this method doesn't release any memory.
    */
+  @Override
   public void reset() {
+    valueCount = 0;
     zeroVector();
   }
 
