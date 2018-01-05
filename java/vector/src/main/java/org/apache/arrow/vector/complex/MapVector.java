@@ -303,6 +303,14 @@ public class MapVector extends AbstractMapVector {
   }
 
   @Override
+  public void reset() {
+    for (final ValueVector v : getChildren()) {
+      v.reset();
+    }
+    valueCount = 0;
+  }
+
+  @Override
   public Field getField() {
     List<Field> children = new ArrayList<>();
     for (ValueVector child : getChildren()) {

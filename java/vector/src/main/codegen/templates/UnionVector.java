@@ -29,7 +29,6 @@ import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import org.apache.arrow.vector.BaseDataValueVector;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -316,6 +315,13 @@ public class UnionVector implements FieldVector {
     typeBuffer.release();
     typeBuffer = allocator.getEmpty();
     internalMap.clear();
+  }
+
+  @Override
+  public void reset() {
+    valueCount = 0;
+    typeBuffer.setZero(0, typeBuffer.capacity());
+    internalMap.reset();
   }
 
   @Override
