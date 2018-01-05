@@ -41,6 +41,21 @@ for (let { name, buffers} of config) {
     suites.push(getByIndexSuite, iterateSuite, sliceSuite, parseSuite);
 }
 
+for (let {name, buffers, tests} of require('./table_config')) {
+    const tableIterateSuite = new Benchmark.Suite(`Table Iterate ${name}`, { async: true });
+    const tableCountBySuite = new Benchmark.Suite(`Table Count By ${name}`, { async: true });
+    const vectorCountBySuite = new Benchmark.Suite(`Vector Count By ${name}`, { async: true });
+    const table = Table.from(buffers);
+
+    tableIterateSuite.add(createTableIterateTest(table));
+    for (test of tests) {
+        tableCountBySuite.add(createTableCountByTest(table, test.col, test.test, test.value))
+        vectorCountBySuite.add(createVectorCountByTest(table.columns[test.col], test.test, test.value))
+    }
+
+    suites.push(tableIterateSuite, tableCountBySuite, vectorCountBySuite)
+}
+
 console.log('Running apache-arrow performance tests...\n');
 
 run();
@@ -107,5 +122,68 @@ function createGetByIndexTest(vector) {
                 value = vector.get(i);
             }
         }
+    };
+}
+
+function createVectorCountByTest(vector, test, value) {
+    let op;
+    if (test == 'gteq') {
+        op = function () {
+            sum = 0;
+            for (cell of vector) {
+                sum += (cell >= value)
+            }
+        }
+    } else if (test == 'eq') {
+        op = function () {
+            sum = 0;
+            for (cell of vector) {
+                sum += (cell == value)
+            }
+        }
+    } else {
+        throw new Error(`Unrecognized test "$test"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${vector.name}', length: ${vector.length}, type: ${vector.type}, test: ${test}, value: ${value}`,
+        fn: op
+    };
+}
+
+function createTableIterateTest(table) {
+    let row;
+    return {
+        async: true,
+        name: `length: ${table.length}`,
+        fn() { for (row of table) {} }
+    };
+}
+
+function createTableCountByTest(table, column, test, value) {
+    let op;
+    if (test == 'gteq') {
+        op = function () {
+            sum = 0;
+            for (row of table) {
+                sum += (row.get(column) >= value)
+            }
+        }
+    } else if (test == 'eq') {
+        op = function() {
+            sum = 0;
+            for (row of table) {
+                sum += (row.get(column) == value)
+            }
+        }
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
+        fn: op
     };
 }
