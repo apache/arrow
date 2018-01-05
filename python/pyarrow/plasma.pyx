@@ -136,6 +136,9 @@ cdef class ObjectID:
         CUniqueID data
 
     def __cinit__(self, object_id):
+        if not isinstance(object_id, bytes) or len(object_id) != 20:
+            raise ValueError("Object ID must by 20 bytes,"
+                             " is " + str(object_id))
         self.data = CUniqueID.from_binary(object_id)
 
     def __richcmp__(ObjectID self, ObjectID object_id, operation):

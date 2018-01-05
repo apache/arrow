@@ -362,7 +362,7 @@ class TestPlasmaClient(object):
         # Read the DataFrame.
         [data] = self.plasma_client.get_buffers([object_id])
         reader = pa.RecordBatchStreamReader(pa.BufferReader(data))
-        result = reader.get_next_batch().to_pandas()
+        result = reader.read_next_batch().to_pandas()
 
         pd.util.testing.assert_frame_equal(df, result)
 
@@ -747,3 +747,11 @@ class TestPlasmaClient(object):
         with pytest.raises(pa.lib.PlasmaStoreFull):
             create_object(self.plasma_client, DEFAULT_PLASMA_STORE_MEMORY + 1,
                           0)
+
+
+@pytest.mark.plasma
+def test_object_id_size():
+    import pyarrow.plasma as plasma
+    with pytest.raises(ValueError):
+        plasma.ObjectID("hello")
+    plasma.ObjectID(20 * b"0")
