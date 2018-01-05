@@ -57,6 +57,11 @@ if (ARROW_BUILD_BENCHMARKS)
     target_link_libraries(arrow_benchmark_main
       benchmark
     )
+  elseif(MSVC)
+    target_link_libraries(arrow_benchmark_main
+      benchmark
+      Shlwapi.lib
+  )
   else()
 	  target_link_libraries(arrow_benchmark_main
       benchmark
