@@ -23,6 +23,8 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
+#include <arrow-glib/data-type.hpp>
+#include <arrow-glib/type.hpp>
 
 G_BEGIN_DECLS
 
@@ -161,6 +163,39 @@ garrow_chunked_array_equal(GArrowChunkedArray *chunked_array,
   const auto arrow_other_chunked_array =
     garrow_chunked_array_get_raw(other_chunked_array);
   return arrow_chunked_array->Equals(arrow_other_chunked_array);
+}
+
+/**
+ * garrow_chunked_array_get_value_data_type:
+ * @chunked_array: A #GArrowChunkedArray.
+ *
+ * Returns: (transfer full): The #GArrowDataType of the value of
+ *   the chunked array.
+ *
+ * Since: 0.9.0
+ */
+GArrowDataType *
+garrow_chunked_array_get_value_data_type(GArrowChunkedArray *chunked_array)
+{
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_type = arrow_chunked_array->type();
+  return garrow_data_type_new_raw(&arrow_type);
+}
+
+/**
+ * garrow_chunked_array_get_value_type:
+ * @chunked_array: A #GArrowChunkedArray.
+ *
+ * Returns: The #GArrowType of the value of the chunked array.
+ *
+ * Since: 0.9.0
+ */
+GArrowType
+garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array)
+{
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_type = arrow_chunked_array->type();
+  return garrow_type_from_raw(arrow_type->id());
 }
 
 /**
