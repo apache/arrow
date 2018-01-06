@@ -21,7 +21,6 @@ import sys
 
 import numpy as np
 
-from pyarrow import serialize_pandas, deserialize_pandas
 from pyarrow.compat import builtin_pickle
 from pyarrow.lib import _default_serialization_context, frombuffer
 
@@ -63,36 +62,6 @@ _deserialize_numpy_array_pickle = _load_pickle_from_buffer
 
 # ----------------------------------------------------------------------
 # pandas-specific serialization matters
-
-def _register_pandas_arrow_handlers(context):
-    try:
-        import pandas as pd
-    except ImportError:
-        return
-
-    def _serialize_pandas_series(obj):
-        return serialize_pandas(pd.DataFrame({obj.name: obj}))
-
-    def _deserialize_pandas_series(data):
-        deserialized = deserialize_pandas(data)
-        return deserialized[deserialized.columns[0]]
-
-    def _serialize_pandas_dataframe(obj):
-        return serialize_pandas(obj)
-
-    def _deserialize_pandas_dataframe(data):
-        return deserialize_pandas(data)
-
-    context.register_type(
-        pd.Series, 'pd.Series',
-        custom_serializer=_serialize_pandas_series,
-        custom_deserializer=_deserialize_pandas_series)
-
-    context.register_type(
-        pd.DataFrame, 'pd.DataFrame',
-        custom_serializer=_serialize_pandas_dataframe,
-        custom_deserializer=_deserialize_pandas_dataframe)
-
 
 def _register_custom_pandas_handlers(context):
     # ARROW-1784, faster path for pandas-only visibility
@@ -208,15 +177,12 @@ def register_default_serialization_handlers(serialization_context):
         # no torch
         pass
 
-    _register_pandas_arrow_handlers(serialization_context)
+    _register_custom_pandas_handlers(serialization_context)
 
 
 register_default_serialization_handlers(_default_serialization_context)
 
 pandas_serialization_context = _default_serialization_context.clone()
-
-_register_custom_pandas_handlers(pandas_serialization_context)
-
 
 pandas_serialization_context.register_type(
     np.ndarray, 'np.array',
