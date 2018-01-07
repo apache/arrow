@@ -108,6 +108,21 @@ TEST_F(TestChunkedArray, EqualsDifferingLengths) {
   ASSERT_TRUE(one_->Equals(*another_.get()));
 }
 
+TEST_F(TestChunkedArray, SliceEquals) {
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  Construct();
+
+  std::shared_ptr<ChunkedArray> slice = one_->Slice(125, 50);
+  ASSERT_EQ(slice->length(), 50);
+  ASSERT_TRUE(slice->Equals(one_->Slice(125, 50)));
+
+  std::shared_ptr<ChunkedArray> slice2 = one_->Slice(75)->Slice(25)->Slice(25, 50);
+  ASSERT_EQ(slice2->length(), 50);
+  ASSERT_TRUE(slice2->Equals(slice));
+}
+
 class TestColumn : public TestChunkedArray {
  protected:
   void Construct() override {
@@ -156,6 +171,22 @@ TEST_F(TestColumn, ChunksInhomogeneous) {
   arrays.push_back(MakeRandomArray<Int16Array>(100, 10));
   column_.reset(new Column(f0, arrays));
   ASSERT_RAISES(Invalid, column_->ValidateData());
+}
+
+TEST_F(TestColumn, SliceEquals) {
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  one_field_ = field("column", int32());
+  Construct();
+
+  std::shared_ptr<Column> slice = one_col_->Slice(125, 50);
+  ASSERT_EQ(slice->length(), 50);
+  ASSERT_TRUE(slice->Equals(one_col_->Slice(125, 50)));
+
+  std::shared_ptr<Column> slice2 = one_col_->Slice(75)->Slice(25)->Slice(25, 50);
+  ASSERT_EQ(slice2->length(), 50);
+  ASSERT_TRUE(slice2->Equals(slice));
 }
 
 TEST_F(TestColumn, Equals) {

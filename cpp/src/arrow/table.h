@@ -53,6 +53,20 @@ class ARROW_EXPORT ChunkedArray {
 
   const ArrayVector& chunks() const { return chunks_; }
 
+  /// Construct a zero-copy slice of the chunked array with the indicated offset and
+  /// length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the chunked array, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<ChunkedArray>
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset, int64_t length) const;
+
+  /// Slice from offset until end of the chunked array
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
+
   std::shared_ptr<DataType> type() const;
 
   bool Equals(const ChunkedArray& other) const;
@@ -96,6 +110,24 @@ class ARROW_EXPORT Column {
   /// \brief The column data as a chunked array
   /// \return the column's data as a chunked logical array
   std::shared_ptr<ChunkedArray> data() const { return data_; }
+
+  /// Construct a zero-copy slice of the column with the indicated offset and
+  /// length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the column, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Column>
+  std::shared_ptr<Column> Slice(int64_t offset, int64_t length) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset, length));
+  }
+
+  /// Slice from offset until end of the column
+  std::shared_ptr<Column> Slice(int64_t offset) const {
+    return std::make_shared<Column>(field_, data_->Slice(offset));
+  }
 
   bool Equals(const Column& other) const;
   bool Equals(const std::shared_ptr<Column>& other) const;
