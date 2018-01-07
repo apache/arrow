@@ -546,23 +546,9 @@ def test_deserialize_buffer_in_different_process():
     import tempfile
     import subprocess
 
-    class BufferClass(object):
-        pass
-
-    def serialize_buffer_class(obj):
-        return pa.frombuffer(b"hello")
-
-    def deserialize_buffer_class(serialized_obj):
-        return serialized_obj
-
-    pa._default_serialization_context.register_type(
-        BufferClass, "BufferClass",
-        custom_serializer=serialize_buffer_class,
-        custom_deserializer=deserialize_buffer_class)
-
     f = tempfile.NamedTemporaryFile(delete=False)
-    b = pa.serialize(BufferClass()).to_buffer()
+    b = pa.serialize(pa.frombuffer(b'hello')).to_buffer()
     f.write(b.to_pybytes())
     f.close()
 
-    subprocess.check_call(["python", "deserialize_buffer.py", f.name])
+    subprocess.check_call(['python', 'deserialize_buffer.py', f.name])
