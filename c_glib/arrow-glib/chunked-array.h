@@ -70,6 +70,11 @@ GArrowChunkedArray *garrow_chunked_array_new(GList *chunks);
 gboolean garrow_chunked_array_equal(GArrowChunkedArray *chunked_array,
                                     GArrowChunkedArray *other_chunked_array);
 
+GArrowDataType *
+garrow_chunked_array_get_value_data_type(GArrowChunkedArray *chunked_array);
+GArrowType
+garrow_chunked_array_get_value_type(GArrowChunkedArray *chunked_array);
+
 guint64 garrow_chunked_array_get_length (GArrowChunkedArray *chunked_array);
 guint64 garrow_chunked_array_get_n_nulls(GArrowChunkedArray *chunked_array);
 guint   garrow_chunked_array_get_n_chunks (GArrowChunkedArray *chunked_array);
