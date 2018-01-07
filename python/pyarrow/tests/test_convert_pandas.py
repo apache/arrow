@@ -254,6 +254,16 @@ class TestPandasConversion(object):
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
 
+    def test_datetimetz_row_index(self):
+        df = pd.DataFrame({
+            'a': pd.date_range(
+                start='2017-01-01', periods=3, tz='America/New_York'
+            )
+        })
+        df = df.set_index('a')
+
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_categorical_row_index(self):
         df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
         df['a'] = df.a.astype('category')

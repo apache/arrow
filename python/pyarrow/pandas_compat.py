@@ -459,6 +459,8 @@ def _make_datetimetz(tz):
 
 def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                           categoricals=None):
+    from pyarrow.compat import DatetimeTZDtype
+
     index_columns = []
     columns = []
     column_indexes = []
@@ -517,7 +519,12 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
                 # non-writeable arrays when calling MultiIndex.from_arrays
                 values = values.copy()
 
-            index_arrays.append(pd.Series(values, dtype=col_pandas.dtype))
+            if isinstance(col_pandas.dtype, DatetimeTZDtype):
+                index_array = (pd.Series(values).dt.tz_localize('utc')
+                               .dt.tz_convert(col_pandas.dtype.tz))
+            else:
+                index_array = pd.Series(values, dtype=col_pandas.dtype)
+            index_arrays.append(index_array)
             index_names.append(
                 _backwards_compatible_index_name(raw_name, logical_name)
             )
