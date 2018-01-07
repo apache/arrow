@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# This file is called from a test in test_serialization.py.
+
 import sys
 
 import pyarrow as pa
