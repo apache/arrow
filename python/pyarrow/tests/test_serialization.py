@@ -542,6 +542,7 @@ def test_deserialize_in_different_process():
     assert q.get().pattern == regex.pattern
     p.join()
 
+
 def test_deserialize_buffer_in_different_process():
     import tempfile
     import subprocess
@@ -551,4 +552,6 @@ def test_deserialize_buffer_in_different_process():
     f.write(b.to_pybytes())
     f.close()
 
-    subprocess.check_call(['python', 'deserialize_buffer.py', f.name])
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    python_file = os.path.join(dir_path, 'deserialize_buffer.py')
+    subprocess.check_call(['python', python_file, f.name])
