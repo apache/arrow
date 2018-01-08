@@ -145,6 +145,13 @@ The CUDA toolchain used to build the library can be customized by using the
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
 
+### Building Apache ORC integration (optional)
+
+The optional arrow reader for the Apache ORC format (found in the
+`arrow::adapters::orc` namespace) can be built by passing `-DARROW_ORC=on`.
+This is currently not supported on windows. Note that this functionality is
+still in Alpha stages, and subject to API changes without deprecation warnings.
+
 ### API documentation
 
 To generate the (html) API documentation, run the following command in the apidoc

@@ -175,6 +175,9 @@ Now build and install the Arrow C++ libraries:
 If you don't want to build and install the Plasma in-memory object store,
 you can omit the ``-DARROW_PLASMA=on`` flag.
 
+To add support for the experimental Apache ORC integration, include
+``-DARROW_ORC=on`` in these flags.
+
 Now, optionally build and install the Apache Parquet libraries in your
 toolchain:
 
@@ -204,6 +207,9 @@ Now, build pyarrow:
 
 If you did not build parquet-cpp, you can omit ``--with-parquet`` and if
 you did not build with plasma, you can omit ``--with-plasma``.
+
+If you built with the experimental Apache ORC integration, include
+``--with-orc`` in these flags.
 
 You should be able to run the unit tests with:
 
