@@ -41,7 +41,7 @@ conda config --add channels conda-forge
 Now, you can bootstrap a build environment
 
 ```shell
-conda create -n arrow-dev python=3 cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd -c conda-forge
+conda create -n arrow-dev cmake git boost-cpp flatbuffers rapidjson cmake thrift-cpp snappy zlib brotli gflags lz4-c zstd -c conda-forge
 ```
 
 ***Note:***
