@@ -16,44 +16,52 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// const { Table, readVectors } = require('../targets/es5/umd');
-// const { Table, readVectors } = require('../targets/es5/cjs');
-const { Table, readVectors } = require('../targets/es2015/umd');
-// const { Table, readVectors } = require('../targets/es2015/cjs');
+// const { DataFrame, Table, readVectors } = require('../targets/es5/umd');
+// const { DataFrame, Table, readVectors } = require('../targets/es5/cjs');
+// const { DataFrame, Table, readVectors } = require('../targets/es2015/umd');
+const { DataFrame, Table, readVectors } = require('../targets/es2015/cjs');
 
 const config = require('./config');
 const Benchmark = require('benchmark');
 
 const suites = [];
 
-for (let { name, buffers} of config) {
-    const parseSuite = new Benchmark.Suite(`Parse ${name}`, { async: true });
-    const sliceSuite = new Benchmark.Suite(`Slice ${name} vectors`, { async: true });
-    const iterateSuite = new Benchmark.Suite(`Iterate ${name} vectors`, { async: true });
-    const getByIndexSuite = new Benchmark.Suite(`Get ${name} values by index`, { async: true });
-    parseSuite.add(createFromTableTest(name, buffers));
-    parseSuite.add(createReadVectorsTest(name, buffers));
-    for (const vector of Table.from(buffers).columns) {
-        sliceSuite.add(createSliceTest(vector));
-        iterateSuite.add(createIterateTest(vector));
-        getByIndexSuite.add(createGetByIndexTest(vector));
-    }
-    suites.push(getByIndexSuite, iterateSuite, sliceSuite, parseSuite);
-}
+//for (let { name, buffers} of config) {
+//    const parseSuite = new Benchmark.Suite(`Parse "${name}"`, { async: true });
+//    const sliceSuite = new Benchmark.Suite(`Slice "${name}" vectors`, { async: true });
+//    const iterateSuite = new Benchmark.Suite(`Iterate "${name}" vectors`, { async: true });
+//    const getByIndexSuite = new Benchmark.Suite(`Get "${name}" values by index`, { async: true });
+//    parseSuite.add(createFromTableTest(name, buffers));
+//    parseSuite.add(createReadVectorsTest(name, buffers));
+//    for (const vector of Table.from(buffers).columns) {
+//        sliceSuite.add(createSliceTest(vector));
+//        iterateSuite.add(createIterateTest(vector));
+//        getByIndexSuite.add(createGetByIndexTest(vector));
+//    }
+//    suites.push(getByIndexSuite, iterateSuite, sliceSuite, parseSuite);
+//}
 
 for (let {name, buffers, tests} of require('./table_config')) {
-    const tableIterateSuite = new Benchmark.Suite(`Table Iterate ${name}`, { async: true });
-    const tableCountBySuite = new Benchmark.Suite(`Table Count By ${name}`, { async: true });
-    const vectorCountBySuite = new Benchmark.Suite(`Vector Count By ${name}`, { async: true });
+    const tableIteratorSuite = new Benchmark.Suite(`Table Iterator "${name}"`, { async: true });
+    const tableCountSuite = new Benchmark.Suite(`Table Count "${name}"`, { async: true });
+    const dfIteratorSuite = new Benchmark.Suite(`DataFrame Iterator "${name}"`, { async: true });
+    const dfIteratorCountSuite = new Benchmark.Suite(`DataFrame Iterator Count "${name}"`, { async: true });
+    const dfDirectCountSuite = new Benchmark.Suite(`DataFrame Direct Count "${name}"`, { async: true });
+    const dfScanCountSuite = new Benchmark.Suite(`DataFrame Scan Count "${name}"`, { async: true });
+    const vectorCountSuite = new Benchmark.Suite(`Vector Count "${name}"`, { async: true });
     const table = Table.from(buffers);
 
-    tableIterateSuite.add(createTableIterateTest(table));
+    tableIteratorSuite.add(createTableIteratorTest(table));
+    dfIteratorSuite.add(createDataFrameIteratorTest(table));
     for (test of tests) {
-        tableCountBySuite.add(createTableCountByTest(table, test.col, test.test, test.value))
-        vectorCountBySuite.add(createVectorCountByTest(table.columns[test.col], test.test, test.value))
+        tableCountSuite.add(createTableCountTest(table, test.col, test.test, test.value))
+        dfIteratorCountSuite.add(createDataFrameIteratorCountTest(table, test.col, test.test, test.value))
+        dfDirectCountSuite.add(createDataFrameDirectCountTest(table, test.col, test.test, test.value))
+        dfScanCountSuite.add(createDataFrameScanCountTest(table, test.col, test.test, test.value))
+        vectorCountSuite.add(createVectorCountTest(table.columns[test.col], test.test, test.value))
     }
 
-    suites.push(tableIterateSuite, tableCountBySuite, vectorCountBySuite)
+    suites.push(tableIteratorSuite, tableCountSuite, dfIteratorSuite, dfIteratorCountSuite, dfDirectCountSuite, dfScanCountSuite, vectorCountSuite)
 }
 
 console.log('Running apache-arrow performance tests...\n');
@@ -125,7 +133,7 @@ function createGetByIndexTest(vector) {
     };
 }
 
-function createVectorCountByTest(vector, test, value) {
+function createVectorCountTest(vector, test, value) {
     let op;
     if (test == 'gteq') {
         op = function () {
@@ -152,7 +160,7 @@ function createVectorCountByTest(vector, test, value) {
     };
 }
 
-function createTableIterateTest(table) {
+function createTableIteratorTest(table) {
     let row;
     return {
         async: true,
@@ -161,7 +169,7 @@ function createTableIterateTest(table) {
     };
 }
 
-function createTableCountByTest(table, column, test, value) {
+function createTableCountTest(table, column, test, value) {
     let op;
     if (test == 'gteq') {
         op = function () {
@@ -175,6 +183,113 @@ function createTableCountByTest(table, column, test, value) {
             sum = 0;
             for (row of table) {
                 sum += (row.get(column) == value)
+            }
+        }
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
+        fn: op
+    };
+}
+
+function createDataFrameIteratorTest(table) {
+    let df = DataFrame.from(table);
+    let idx;
+    return {
+        async: true,
+        name: `length: ${table.length}`,
+        fn() { for (idx of table) {} }
+    };
+}
+
+function createDataFrameDirectCountTest(table, column, test, value) {
+    let df = DataFrame.from(table);
+
+    if (test == 'gteq') {
+        op = function () {
+            sum = 0;
+            for (let batch = -1; ++batch < df.lengths.length;) {
+                const length = df.lengths[batch];
+
+                // load batches
+                const columns = df.getBatch(batch);
+
+                // yield all indices
+                for (let idx = -1; ++idx < length;) {
+                    sum += (columns[column].get(idx) >= value);
+                }
+            }
+        }
+    } else if (test == 'eq') {
+        op = function() {
+            sum = 0;
+            for (let batch = -1; ++batch < df.lengths.length;) {
+                const length = df.lengths[batch];
+
+                // load batches
+                const columns = df.getBatch(batch);
+
+                // yield all indices
+                for (let idx = -1; ++idx < length;) {
+                    sum += (columns[column].get(idx) == value);
+                }
+            }
+        }
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
+        fn: op
+    };
+}
+
+function createDataFrameScanCountTest(table, column, test, value) {
+    let df = DataFrame.from(table);
+
+    if (test == 'gteq') {
+        op = function () {
+            sum = 0;
+            df.scan((idx, cols)=>{sum += cols[column].get(idx) >= value});
+        }
+    } else if (test == 'eq') {
+        op = function() {
+            sum = 0;
+            df.scan((idx, cols)=>{sum += cols[column].get(idx) == value});
+            console.log(sum);
+        }
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
+        fn: op
+    };
+}
+
+function createDataFrameIteratorCountTest(table, column, test, value) {
+    let df = DataFrame.from(table);
+
+    if (test == 'gteq') {
+        op = function () {
+            sum = 0;
+            for (idx of df) {
+                sum += (df.columns[column].get(idx) >= value);
+            }
+        }
+    } else if (test == 'eq') {
+        op = function() {
+            sum = 0;
+            for (idx of df) {
+                sum += (df.columns[column].get(idx) == value);
             }
         }
     } else {

@@ -115,6 +115,9 @@ export class VirtualVector<T> implements Vector<T> {
         }
         return new ArrayType(0);
     }
+    aligned(other: VirtualVector<any>): boolean {
+        return this.offsets.every((offset, i) => offset === other.offsets[i]);
+    }
 }
 
 function arraySet<T>(source: T[], target: T[], index: number) {
