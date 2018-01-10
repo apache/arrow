@@ -1,4 +1,5 @@
 import { Vector } from "../vector/vector";
+import { DictionaryVector } from "../vector/dictionary";
 
 export type ValueFunc<T> = (idx: number, cols: Vector[]) => T|null;
 export type PredicateFunc = (idx: number, cols: Vector[]) => boolean;
@@ -118,7 +119,30 @@ class Equals extends ComparisonPredicate {
 
     protected _bindColLit(cols: Vector<any>[], col: Col     , lit: Literal  ): PredicateFunc {
         const col_func = col.bind(cols);
-        return (idx: number, cols: Vector[]) => col_func(idx, cols) == lit.v;
+        if (col.vector instanceof DictionaryVector) {
+            // Assume that there is only one key with the value `lit.v`
+            let key = -1
+            for (; ++key < col.vector.data.length;) {
+                if (col.vector.data.get(key) === lit.v) {
+                    break;
+                }
+            }
+
+            if (key == col.vector.data.length) {
+                // the value doesn't exist in the dictionary - always return
+                // false
+                // TODO: special-case of PredicateFunc that encapsulates this
+                // "always false" behavior. That way filtering operations don't
+                // have to bother checking
+                return () => false;
+            } else {
+                return (idx: number) => {
+                    return (col.vector as DictionaryVector<any>).getKey(idx) === key;
+                }
+            }
+        } else {
+            return (idx: number, cols: Vector[]) => col_func(idx, cols) == lit.v;
+        }
     }
 }
 

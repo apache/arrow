@@ -25,7 +25,7 @@ const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.a
 tests = [
     {col: 0, test: 'gteq', value: 0        },
     {col: 1, test: 'gteq', value: 0        },
-    //{col: 2, test:   'eq', value: 'Seattle'},
+    {col: 2, test:   'eq', value: 'Seattle'},
 ]
 
 for (const filename of filenames) {
