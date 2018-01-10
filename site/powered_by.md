@@ -43,11 +43,9 @@ names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
 in descriptions is also always allowed, as in "BigCoProduct is a widget for
 Apache Arrow".
 
-### Open Source Projects
-
-To add yourself to the list, please email dev@arrow.apache.org with your
+To add yourself to the list, please open a pull request adding your
 organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case.
+short description of your use case. See the following for some examples.
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
   in the Hadoop ecosystem, regardless of the choice of data processing
@@ -61,10 +59,23 @@ short description of your use case.
 * **[Dask][15]:** Python library for parallel and distributed execution of
   dynamic task graphs. Dask supports using pyarrow for accessing Parquet
   files
+* **[Dremio][9]:** A self-service data platform. Dremio makes it easy for
+  users to discover, curate, accelerate, and share data from any source.
+  It includes a distributed SQL execution engine based on Apache Arrow.
+  Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
+  buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
+  Python, R, and more (all backed by Apache Arrow).
 * **[GeoMesa][8]:** A suite of tools that enables large-scale geospatial query
   and analytics on distributed computing systems. GeoMesa supports query
   results in the Arrow IPC format, which can then be used for in-browser
   visualizations and/or further analytics.
+* **[GOAI][19]:** Open GPU-Accelerated Analytics Initiative for Arrow-powered
+  analytics across GPU tools and vendors
+* **[Graphistry][18]:** Supercharged Visual Investigation Platform used by
+  teams for security, anti-fraud, and related investigations. The Graphistry
+  team uses Arrow in its NodeJS GPU backend and client libraries, and is an
+  early contributing member to GOAI and Arrow\[JS\] focused on bringing these
+  technologies to the enterprise.
 * **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
@@ -75,6 +86,9 @@ short description of your use case.
 * **[pandas][12]:** data analysis toolkit for Python programmers. pandas
   supports reading and writing Parquet files using pyarrow. Several pandas
   core developers are also contributors to Apache Arrow.
+* **[Quilt Data][13]:** Quilt is a data package manager, designed to make
+  managing data as easy as managing code. It supports Parquet format via
+  pyarrow for data access.
 * **[Ray][5]:** A flexible, high-performance distributed execution framework
   with a focus on machine learning and AI applications. Uses Arrow to
   efficiently store Python data structures containing large arrays of numerical
@@ -90,29 +104,6 @@ short description of your use case.
   Database Connectivity (ODBC) interface. It provides the ability to return
   Arrow Tables and RecordBatches in addition to the Python Database API
   Specification 2.0.
-
-### Companies and Organizations
-
-To add yourself to the list, please email dev@arrow.apache.org with your
-organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case.
-
-* **[Dremio][9]:** A self-service data platform. Dremio makes it easy for
-  users to discover, curate, accelerate, and share data from any source.
-  It includes a distributed SQL execution engine based on Apache Arrow.
-  Dremio reads data from any source (RDBMS, HDFS, S3, NoSQL) into Arrow
-  buffers, and provides fast SQL access via ODBC, JDBC, and REST for BI,
-  Python, R, and more (all backed by Apache Arrow).
-* **[GOAI][19]:** Open GPU-Accelerated Analytics Initiative for Arrow-powered 
-  analytics across GPU tools and vendors  
-* **[Graphistry][18]:** Supercharged Visual Investigation Platform used by
-  teams for security, anti-fraud, and related investigations. The Graphistry
-  team uses Arrow in its NodeJS GPU backend and client libraries, and is an
-  early contributing member to GOAI and Arrow\[JS\] focused on bringing these 
-  technologies to the enterprise.  
-* **[Quilt Data][13]:** Quilt is a data package manager, designed to make
-  managing data as easy as managing code. It supports Parquet format via
-  pyarrow for data access.
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
