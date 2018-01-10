@@ -70,9 +70,8 @@ TEST_F(TestPlasmaStore, DeleteTest) {
   int64_t data_size = 100;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
-  uint8_t* data;
-  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata,
-                                metadata_size, &data));
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
   ARROW_CHECK_OK(client_.Seal(object_id));
 
   // Object is in use, can't be delete.
