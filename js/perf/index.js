@@ -16,10 +16,10 @@
 // under the License.
 
 // Use the ES5 UMD target as perf baseline
-// const { DataFrame, Table, readVectors } = require('../targets/es5/umd');
-// const { DataFrame, Table, readVectors } = require('../targets/es5/cjs');
-// const { DataFrame, Table, readVectors } = require('../targets/es2015/umd');
-const { DataFrame, Table, readVectors } = require('../targets/es2015/cjs');
+// const { lit, col, DataFrame, Table, readVectors } = require('../targets/es5/umd');
+// const { lit, col, DataFrame, Table, readVectors } = require('../targets/es5/cjs');
+// const { lit, col, DataFrame, Table, readVectors } = require('../targets/es2015/umd');
+const { lit, col, DataFrame, Table, readVectors } = require('../targets/es2015/cjs');
 
 const config = require('./config');
 const Benchmark = require('benchmark');
@@ -280,9 +280,9 @@ function createDataFrameScanCountTest(table, column, test, value) {
 function createDataFrameFilterCountTest(table, column, test, value) {
     let df = DataFrame.from(table);
     if (test == 'gteq') {
-        df = df.filter((idx, cols)=>cols[column].get(idx) >= value);
+        df = df.filter(col(table.columns[column].name).gteq(value));
     } else if (test == 'eq') {
-        df = df.filter((idx, cols)=>cols[column].get(idx) == value);
+        df = df.filter(col(table.columns[column].name).eq(value));
     } else {
         throw new Error(`Unrecognized test "${test}"`);
     }

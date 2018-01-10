@@ -46,6 +46,7 @@ import {
 } from './vector/numeric';
 
 import { DataFrame } from './dataframe/dataframe';
+import { lit, col } from './dataframe/predicate';
 
 // closure compiler always erases static method names:
 // https://github.com/google/closure-compiler/issues/1776
@@ -88,12 +89,16 @@ export {
 };
 
 export { DataFrame } from './dataframe/dataframe';
+export { lit, col } from './dataframe/predicate';
+
 
 /* These exports are needed for the closure umd targets */
 try {
     const Arrow = eval('exports');
     if (typeof Arrow === 'object') {
         // string indexers tell closure compiler not to rename these properties
+        Arrow['lit'] = lit;
+        Arrow['col'] = col;
         Arrow['read'] = read;
         Arrow['readAsync'] = readAsync;
         Arrow['Table'] = Table;

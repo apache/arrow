@@ -2,15 +2,16 @@ import { Vector } from "../vector/vector";
 import { StructVector } from "../vector/struct";
 import { VirtualVector } from "../vector/virtual";
 
+import { Predicate } from "./predicate"
+
 export type NextFunc = (idx: number, cols: Vector[]) => void;
-export type PredicateFunc = (idx: number, cols: Vector[]) => boolean;
 
 export abstract class DataFrame {
     constructor(readonly lengths: Uint32Array) {}
     public abstract columns: Vector<any>[];
     public abstract getBatch(batch: number): Vector[];
     public abstract scan(next: NextFunc): void;
-    public filter(predicate: PredicateFunc): DataFrame {
+    public filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(this, predicate);
     }
 
@@ -120,7 +121,7 @@ class ChunkedDataFrame extends DataFrame {
 
 class FilteredDataFrame extends DataFrame {
     public columns: Vector<any>[];
-    constructor (readonly parent: DataFrame, private predicate: PredicateFunc) {
+    constructor (readonly parent: DataFrame, private predicate: Predicate) {
         super(parent.lengths);
     }
 
@@ -138,10 +139,11 @@ class FilteredDataFrame extends DataFrame {
 
             // load batches
             const columns = this.parent.getBatch(batch);
+            const predicate = this.predicate.bind(columns);
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                if (this.predicate(idx, columns)) next(idx, columns);
+                if (predicate(idx, columns)) next(idx, columns);
             }
         }
     }
@@ -159,19 +161,20 @@ class FilteredDataFrame extends DataFrame {
 
             // load batches
             const columns = this.parent.getBatch(batch);
+            const predicate = this.predicate.bind(columns);
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                if (this.predicate(idx, columns)) ++sum;
+                if (predicate(idx, columns)) ++sum;
             }
         }
         return sum;
     }
 
-    filter(predicate: PredicateFunc): DataFrame {
+    filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(
             this.parent,
-            (idx, cols) => this.predicate(idx, cols) && predicate(idx, cols)
+            this.predicate.and(predicate)
         );
     }
 }
