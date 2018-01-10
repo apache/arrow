@@ -76,7 +76,11 @@ enum PlasmaError:int {
   // Trying to access an object that doesn't exist.
   ObjectNonexistent,
   // Trying to create an object but there isn't enough space in the store.
-  OutOfMemory
+  OutOfMemory,
+  // Trying to delete an object but it's not sealed.
+  ObjectNotSealed,
+  // Trying to delete an object but it's in use.
+  ObjectInUse
 }
 
 // Plasma store messages

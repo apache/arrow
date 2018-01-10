@@ -120,6 +120,11 @@ class EvictionPolicy {
   int64_t choose_objects_to_evict(int64_t num_bytes_required,
                                   std::vector<ObjectID>* objects_to_evict);
 
+  /// This method will be called when an object is going to be removed
+  ///
+  /// @param object_id The ID of the object that is now being used.
+  void remove_object(const ObjectID& object_id);
+
  private:
   /// The amount of memory (in bytes) currently being used.
   int64_t memory_used_;
