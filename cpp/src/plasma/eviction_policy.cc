@@ -108,7 +108,7 @@ void EvictionPolicy::remove_object(const ObjectID& object_id) {
 
   auto entry = store_info_->objects[object_id].get();
   int64_t size = entry->info.data_size + entry->info.metadata_size;
-  ARROW_CHECK(memory_used_ > size);
+  ARROW_CHECK(memory_used_ >= size);
   memory_used_ -= size;
 }
 
