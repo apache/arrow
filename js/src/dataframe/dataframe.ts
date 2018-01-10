@@ -2,10 +2,18 @@ import { Vector } from "../vector/vector";
 import { StructVector } from "../vector/struct";
 import { VirtualVector } from "../vector/virtual";
 
+export type NextFunc = (idx: number, cols: Vector[]) => void;
+export type PredicateFunc = (idx: number, cols: Vector[]) => boolean;
+
 export abstract class DataFrame {
+    constructor(readonly lengths: Uint32Array) {}
     public abstract columns: Vector<any>[];
     public abstract getBatch(batch: number): Vector[];
-    public abstract scan(next: (idx: number, cols: Vector[])=>void): void;
+    public abstract scan(next: NextFunc): void;
+    public filter(predicate: PredicateFunc): DataFrame {
+        return new FilteredDataFrame(this, predicate);
+    }
+
     static from(table: Vector<any>): DataFrame {
         // There are two types of Vectors we might want to make into
         // a ChunkedDataFrame:
@@ -31,23 +39,26 @@ export abstract class DataFrame {
             return new SimpleDataFrame([table]);
         }
     }
+
+    count(): number {
+        return this.lengths.reduce((acc, val) => acc + val);
+    }
 }
 
 class SimpleDataFrame extends DataFrame {
     readonly lengths: Uint32Array;
     constructor(public columns: Vector<any>[]) {
-        super();
+        super(new Uint32Array([0, columns[0].length]));
         if (!this.columns.slice(1).every((v) => v.length === this.columns[0].length)) {
             throw new Error("Attempted to create a DataFrame with un-aligned vectors");
         }
-        this.lengths = new Uint32Array([0, this.columns[0].length]);
     }
 
     public getBatch() {
         return this.columns;
     }
 
-    public scan(next: (idx: number, cols: Vector[])=>void) {
+    public scan(next: NextFunc) {
         for (let idx = -1; ++idx < this.lengths[1];) {
             next(idx, this.columns)
         }
@@ -62,24 +73,16 @@ class SimpleDataFrame extends DataFrame {
 
 class ChunkedDataFrame extends DataFrame {
     public columns: Vector<any>[];
-    readonly lengths: Uint32Array;
     constructor(private virtuals: VirtualVector<any>[]) {
-        super();
-        const offsets = virtuals[0].offsets;
-        if (!this.virtuals.slice(1).every((v) => v.aligned(virtuals[0]))) {
-            throw new Error("Attempted to create a DataFrame with un-aligned vectors");
-        }
-        this.lengths = new Uint32Array(offsets.length);
-        offsets.forEach((offset, i) => {
-            this.lengths[i] = offsets[i+1] - offset;;
-        });
+        super(ChunkedDataFrame.getLengths(virtuals));
+        this.virtuals = virtuals;
     }
 
     getBatch(batch: number): Vector[] {
         return this.virtuals.map((virt) => virt.vectors[batch]);
     }
 
-    scan(next: (idx: number, cols: Vector[])=>void) {
+    scan(next: NextFunc) {
         for (let batch = -1; ++batch < this.lengths.length;) {
             const length = this.lengths[batch];
 
@@ -105,5 +108,70 @@ class ChunkedDataFrame extends DataFrame {
                 yield idx;
             }
         }
+    }
+
+    private static getLengths(virtuals: VirtualVector<any>[]): Uint32Array {
+        if (!virtuals.slice(1).every((v) => v.aligned(virtuals[0]))) {
+            throw new Error("Attempted to create a DataFrame with un-aligned vectors");
+        }
+        return new Uint32Array(virtuals[0].vectors.map((v)=>v.length));
+    }
+}
+
+class FilteredDataFrame extends DataFrame {
+    public columns: Vector<any>[];
+    constructor (readonly parent: DataFrame, private predicate: PredicateFunc) {
+        super(parent.lengths);
+    }
+
+    getBatch(batch: number): Vector[] {
+        return this.parent.getBatch(batch);
+    };
+
+    scan(next: NextFunc) {
+        // inlined version of this:
+        // this.parent.scan((idx, columns) => {
+        //     if (this.predicate(idx, columns)) next(idx, columns);
+        // });
+        for (let batch = -1; ++batch < this.parent.lengths.length;) {
+            const length = this.parent.lengths[batch];
+
+            // load batches
+            const columns = this.parent.getBatch(batch);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                if (this.predicate(idx, columns)) next(idx, columns);
+            }
+        }
+    }
+
+    count(): number {
+        // inlined version of this:
+        // let sum = 0;
+        // this.parent.scan((idx, columns) => {
+        //     if (this.predicate(idx, columns)) ++sum;
+        // });
+        // return sum;
+        let sum = 0;
+        for (let batch = -1; ++batch < this.parent.lengths.length;) {
+            const length = this.parent.lengths[batch];
+
+            // load batches
+            const columns = this.parent.getBatch(batch);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                if (this.predicate(idx, columns)) ++sum;
+            }
+        }
+        return sum;
+    }
+
+    filter(predicate: PredicateFunc): DataFrame {
+        return new FilteredDataFrame(
+            this.parent,
+            (idx, cols) => this.predicate(idx, cols) && predicate(idx, cols)
+        );
     }
 }

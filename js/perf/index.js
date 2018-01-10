@@ -48,6 +48,7 @@ for (let {name, buffers, tests} of require('./table_config')) {
     const dfIteratorCountSuite = new Benchmark.Suite(`DataFrame Iterator Count "${name}"`, { async: true });
     const dfDirectCountSuite = new Benchmark.Suite(`DataFrame Direct Count "${name}"`, { async: true });
     const dfScanCountSuite = new Benchmark.Suite(`DataFrame Scan Count "${name}"`, { async: true });
+    const dfFilterCountSuite = new Benchmark.Suite(`DataFrame Filter Scan Count "${name}"`, { async: true });
     const vectorCountSuite = new Benchmark.Suite(`Vector Count "${name}"`, { async: true });
     const table = Table.from(buffers);
 
@@ -58,10 +59,11 @@ for (let {name, buffers, tests} of require('./table_config')) {
         dfIteratorCountSuite.add(createDataFrameIteratorCountTest(table, test.col, test.test, test.value))
         dfDirectCountSuite.add(createDataFrameDirectCountTest(table, test.col, test.test, test.value))
         dfScanCountSuite.add(createDataFrameScanCountTest(table, test.col, test.test, test.value))
+        dfFilterCountSuite.add(createDataFrameFilterCountTest(table, test.col, test.test, test.value))
         vectorCountSuite.add(createVectorCountTest(table.columns[test.col], test.test, test.value))
     }
 
-    suites.push(tableIteratorSuite, tableCountSuite, dfIteratorSuite, dfIteratorCountSuite, dfDirectCountSuite, dfScanCountSuite, vectorCountSuite)
+    suites.push(tableIteratorSuite, tableCountSuite, dfIteratorSuite, dfIteratorCountSuite, dfDirectCountSuite, dfScanCountSuite, dfFilterCountSuite, vectorCountSuite)
 }
 
 console.log('Running apache-arrow performance tests...\n');
@@ -272,6 +274,25 @@ function createDataFrameScanCountTest(table, column, test, value) {
         async: true,
         name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
         fn: op
+    };
+}
+
+function createDataFrameFilterCountTest(table, column, test, value) {
+    let df = DataFrame.from(table);
+    if (test == 'gteq') {
+        df = df.filter((idx, cols)=>cols[column].get(idx) >= value);
+    } else if (test == 'eq') {
+        df = df.filter((idx, cols)=>cols[column].get(idx) == value);
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${table.columns[column].name}', length: ${table.length}, type: ${table.columns[column].type}, test: ${test}, value: ${value}`,
+        fn() {
+            df.count();
+        }
     };
 }
 
