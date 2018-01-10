@@ -76,6 +76,18 @@ module ArrayBuilderAppendNullsTests
   end
 end
 
+module ArrayBuilderValueTypeTests
+  def test_value_data_type
+    assert_equal(value_data_type,
+                 build_array(sample_values).value_data_type)
+  end
+
+  def test_value_type
+    assert_equal(value_data_type.id,
+                 build_array(sample_values).value_type)
+  end
+end
+
 class TestArrayBuilder < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Omittable
@@ -93,12 +105,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::BooleanArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::BooleanDataType.new
+    end
+
     def builder_class_name
       "boolean-array-builder"
     end
 
     def sample_values
       [true, false, true]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -115,12 +135,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::IntArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Int8DataType.new
+    end
+
     def builder_class_name
       "int-array-builder"
     end
 
     def sample_values
       [1, -2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -137,12 +165,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::UIntArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::UInt8DataType.new
+    end
+
     def builder_class_name
       "uint-array-builder"
     end
 
     def sample_values
       [1, 2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -159,12 +195,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Int8ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Int8DataType.new
+    end
+
     def builder_class_name
       "int8-array-builder"
     end
 
     def sample_values
       [1, -2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -181,12 +225,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::UInt8ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::UInt8DataType.new
+    end
+
     def builder_class_name
       "uint8-array-builder"
     end
 
     def sample_values
       [1, 2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -203,12 +255,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Int16ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Int16DataType.new
+    end
+
     def builder_class_name
       "int16-array-builder"
     end
 
     def sample_values
       [1, -2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -225,12 +285,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::UInt16ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::UInt16DataType.new
+    end
+
     def builder_class_name
       "uint16-array-builder"
     end
 
     def sample_values
       [1, 2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -247,12 +315,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Int32ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Int32DataType.new
+    end
+
     def builder_class_name
       "int32-array-builder"
     end
 
     def sample_values
       [1, -2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -269,12 +345,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::UInt32ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::UInt32DataType.new
+    end
+
     def builder_class_name
       "uint32-array-builder"
     end
 
     def sample_values
       [1, 2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -291,12 +375,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Int64ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Int64DataType.new
+    end
+
     def builder_class_name
       "int64-array-builder"
     end
 
     def sample_values
       [1, -2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -313,12 +405,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::UInt64ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::UInt64DataType.new
+    end
+
     def builder_class_name
       "uint64-array-builder"
     end
 
     def sample_values
       [1, 2, 3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -335,12 +435,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::FloatArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::FloatDataType.new
+    end
+
     def builder_class_name
       "float-array-builder"
     end
 
     def sample_values
       [1.1, -2.2, 3.3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -357,12 +465,20 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::DoubleArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::DoubleDataType.new
+    end
+
     def builder_class_name
       "double-array-builder"
     end
 
     def sample_values
       [1.1, -2.2, 3.3]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -379,6 +495,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Date32ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Date32DataType.new
+    end
+
     def builder_class_name
       "date32-array-builder"
     end
@@ -389,6 +509,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         17406, # 2017-08-28
         17427, # 2017-09-18
       ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -405,6 +529,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Date64ArrayBuilder.new
     end
 
+    def value_data_type
+      Arrow::Date64DataType.new
+    end
+
     def builder_class_name
       "date64-array-builder"
     end
@@ -415,6 +543,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         0,             # epoch
         1503878400000, # 2017-08-28T00:00:00Z
       ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -432,6 +564,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::TimestampArrayBuilder.new(data_type)
     end
 
+    def value_data_type
+      Arrow::TimestampDataType.new(:milli)
+    end
+
     def builder_class_name
       "timestamp-array-builder"
     end
@@ -442,6 +578,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         1504953190854, # 2017-09-09T10:33:10.854Z
         1505660812942, # 2017-09-17T15:06:52.942Z
       ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -459,6 +599,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Time32ArrayBuilder.new(data_type)
     end
 
+    def value_data_type
+      Arrow::Time32DataType.new(:second)
+    end
+
     def builder_class_name
       "time32-array-builder"
     end
@@ -469,6 +613,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         60 * 10,          # 00:10:00
         60 * 60 * 2 + 30, # 02:00:30
       ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
@@ -486,6 +634,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       Arrow::Time64ArrayBuilder.new(data_type)
     end
 
+    def value_data_type
+      Arrow::Time64DataType.new(:micro)
+    end
+
     def builder_class_name
       "time64-array-builder"
     end
@@ -496,6 +648,10 @@ class TestArrayBuilder < Test::Unit::TestCase
         60 * 10 * 1000 * 1000,            # 00:10:00.000000
         (60 * 60 * 2 + 30) * 1000 * 1000, # 02:00:30.000000
       ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
