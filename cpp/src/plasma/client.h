@@ -174,7 +174,8 @@ class ARROW_EXPORT PlasmaClient {
   Status Seal(const ObjectID& object_id);
 
   /// Delete an object from the object store. This currently assumes that the
-  /// object is present and has been sealed.
+  /// object is present, has been sealed and not used by another client. Otherwise,
+  /// it is a no operation.
   ///
   /// @todo We may want to allow the deletion of objects that are not present or
   ///       haven't been sealed.
