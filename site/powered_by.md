@@ -43,9 +43,9 @@ names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
 in descriptions is also always allowed, as in "BigCoProduct is a widget for
 Apache Arrow".
 
-To add yourself to the list, please email dev@arrow.apache.org with your
+To add yourself to the list, please open a pull request adding your
 organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case.
+short description of your use case. See the following for some examples.
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
   in the Hadoop ecosystem, regardless of the choice of data processing
