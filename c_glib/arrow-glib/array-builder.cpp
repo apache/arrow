@@ -24,6 +24,7 @@
 #include <arrow-glib/array-builder.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/type.hpp>
 
 template <typename BUILDER, typename VALUE>
 gboolean
@@ -325,6 +326,39 @@ garrow_array_builder_release_ownership(GArrowArrayBuilder *builder)
 
   priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
   priv->have_ownership = FALSE;
+}
+
+/**
+ * garrow_array_builder_get_value_data_type:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: (transfer full): The #GArrowDataType of the value of
+ *   the array builder.
+ *
+ * Since: 0.9.0
+ */
+GArrowDataType *
+garrow_array_builder_get_value_data_type(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto arrow_type = arrow_builder->type();
+  return garrow_data_type_new_raw(&arrow_type);
+}
+
+/**
+ * garrow_array_builder_get_value_type:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The #GArrowType of the value of the array builder.
+ *
+ * Since: 0.9.0
+ */
+GArrowType
+garrow_array_builder_get_value_type(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto arrow_type = arrow_builder->type();
+  return garrow_type_from_raw(arrow_type->id());
 }
 
 /**
