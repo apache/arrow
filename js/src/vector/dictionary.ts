@@ -15,34 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { VirtualVector } from './virtual';
+import { View, Vector } from '../vector';
+import { IterableArrayLike, DataType, Int } from '../type';
 
-export class DictionaryVector<T> extends Vector<T> {
-    readonly length: number;
-    readonly data: Vector<T>;
-    readonly keys: Vector<number>;
-    constructor(argv: { data: Vector<T>, keys: Vector<number> }) {
-        super();
-        this.data = argv.data;
-        this.keys = argv.keys;
-        this.length = this.keys.length;
+export class DictionaryView<T extends DataType> implements View<T> {
+    public indicies: Vector<Int>;
+    public dictionary: Vector<T>;
+    constructor(dictionary: Vector<T>, indicies: Vector<Int>) {
+        this.indicies = indicies;
+        this.dictionary = dictionary;
     }
-    get(index: number) {
-        return this.getValue(this.getKey(index)!);
+    public isValid(index: number): boolean {
+        return this.dictionary.isValid(index);
     }
-    getKey(index: number) {
-        return this.keys.get(index);
+    public get(index: number): T['TValue'] {
+        return this.dictionary.get(this.indicies.get(index));
     }
-    getValue(key: number) {
-        return this.data.get(key);
+    public toArray(): IterableArrayLike<T['TValue']> {
+        return [...this];
     }
-    concat(...vectors: Vector<T>[]): Vector<T> {
-        return new VirtualVector(Array, this, ...vectors);
-    }
-    *[Symbol.iterator]() {
-        for (let i = -1, n = this.length; ++i < n;) {
-            yield this.get(i);
+    public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const values = this.dictionary, indicies = this.indicies;
+        for (let index = -1, n = indicies.length; ++index < n;) {
+            yield values.get(indicies.get(index));
         }
     }
 }

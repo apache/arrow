@@ -16,7 +16,7 @@
 // under the License.
 
 import { TextEncoder } from 'text-encoding-utf-8';
-import { TypedArrayConstructor, TypedArray } from '../vector/types';
+import { TypedArrayConstructor, TypedArray } from '../type';
 
 export function align(value: number, alignment: number) {
     return value + padding(value, alignment);
