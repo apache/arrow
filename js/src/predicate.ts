@@ -180,15 +180,6 @@ class GTeq extends ComparisonPredicate {
         const col_func = col.bind(cols);
         return (idx: number, cols: Vector[]) => col_func(idx, cols) >= lit.v;
     }
-    //eval(idx: number, cols: Vector[]) {
-    //    return this.left.eval(idx, cols) >= this.right.eval(idx, cols);
-    //}
-    //emitString() {
-    //    return `${this.left.emitString()} >= ${this.right.emitString()}`
-    //}
-    //createDictionaryEval(schema, lit: Literal, col: Col): (idx: number, cols: Vector[]) => boolean {
-    //    return this.eval;
-    //}
 }
 
 export function lit(n: number): Value<any> { return new Literal(n); }
