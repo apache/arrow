@@ -1,29 +1,29 @@
-import { Vector } from "./vector/vector";
-import { DictionaryVector } from "./vector/dictionary";
+import { Vector } from './vector/vector';
+import { DictionaryVector } from './vector/dictionary';
 
 export type ValueFunc<T> = (idx: number, cols: Vector[]) => T|null;
 export type PredicateFunc = (idx: number, cols: Vector[]) => boolean;
 
 export abstract class Value<T> {
     eq(other: Value<T>|T): Predicate {
-        if (!(other instanceof Value)) other = new Literal(other);
+        if (!(other instanceof Value)) { other = new Literal(other); }
         return new Equals(this, other);
     }
     lteq(other: Value<T>|T): Predicate {
-        if (!(other instanceof Value)) other = new Literal(other);
+        if (!(other instanceof Value)) { other = new Literal(other); }
         return new LTeq(this, other);
     }
     gteq(other: Value<T>|T): Predicate {
-        if (!(other instanceof Value)) other = new Literal(other);
+        if (!(other instanceof Value)) { other = new Literal(other); }
         return new GTeq(this, other);
     }
 }
 
-class Literal<T=any> extends Value<T> {
+class Literal<T= any> extends Value<T> {
     constructor(public v: T) { super(); }
 }
 
-class Col<T=any> extends Value<T> {
+class Col<T= any> extends Value<T> {
     vector: Vector<T>;
     colidx: number;
 
@@ -39,9 +39,9 @@ class Col<T=any> extends Value<T> {
                     break;
                 }
             }
-            if (this.colidx < 0) throw new Error(`Failed to bind Col "${this.name}"`)
+            if (this.colidx < 0) { throw new Error(`Failed to bind Col "${this.name}"`); }
         }
-        this.vector = cols[this.colidx]
+        this.vector = cols[this.colidx];
         return this.vector.get.bind(this.vector);
     }
 
@@ -55,7 +55,7 @@ export abstract class Predicate {
     ands(): Predicate[] { return [this]; }
 }
 
-abstract class ComparisonPredicate<T=any> extends Predicate {
+abstract class ComparisonPredicate<T= any> extends Predicate {
     constructor(public readonly left: Value<T>, public readonly right: Value<T>) {
         super();
     }
@@ -94,7 +94,7 @@ class And extends CombinationPredicate {
         const right = this.right.bind(cols);
         return (idx: number, cols: Vector[]) => left(idx, cols) && right(idx, cols);
     }
-    ands() : Predicate[] { return this.left.ands().concat(this.right.ands()); }
+    ands(): Predicate[] { return this.left.ands().concat(this.right.ands()); }
 }
 
 class Or extends CombinationPredicate {
@@ -121,7 +121,7 @@ class Equals extends ComparisonPredicate {
         const col_func = col.bind(cols);
         if (col.vector instanceof DictionaryVector) {
             // Assume that there is only one key with the value `lit.v`
-            let key = -1
+            let key = -1;
             for (; ++key < col.vector.data.length;) {
                 if (col.vector.data.get(key) === lit.v) {
                     break;
@@ -138,7 +138,7 @@ class Equals extends ComparisonPredicate {
             } else {
                 return (idx: number) => {
                     return (col.vector as DictionaryVector<any>).getKey(idx) === key;
-                }
+                };
             }
         } else {
             return (idx: number, cols: Vector[]) => col_func(idx, cols) == lit.v;

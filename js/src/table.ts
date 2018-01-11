@@ -86,12 +86,13 @@ export class Table implements DataFrame {
     }
     get(idx: number): TableRow {
         let batch = 0;
-        while (idx > this.lengths[batch] && batch < this.lengths.length)
+        while (idx > this.lengths[batch] && batch < this.lengths.length) {
             idx -= this.lengths[batch++];
+        }
 
-        if (batch === this.lengths.length) throw new Error("Overflow")
+        if (batch === this.lengths.length) { throw new Error('Overflow'); }
 
-        else return new TableRow(this.batches[batch], idx);
+        return new TableRow(this.batches[batch], idx);
     }
     filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(this, predicate);
@@ -105,7 +106,7 @@ export class Table implements DataFrame {
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                next(idx, columns)
+                next(idx, columns);
             }
         }
     }
@@ -149,7 +150,7 @@ class FilteredDataFrame implements DataFrame {
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                if (predicate(idx, columns)) next(idx, columns);
+                if (predicate(idx, columns)) { next(idx, columns); }
             }
         }
     }
@@ -171,7 +172,7 @@ class FilteredDataFrame implements DataFrame {
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                if (predicate(idx, columns)) ++sum;
+                if (predicate(idx, columns)) { ++sum; }
             }
         }
         return sum;

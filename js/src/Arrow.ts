@@ -87,8 +87,6 @@ export {
     FixedSizeListVector,
 };
 
-
-
 /* These exports are needed for the closure umd targets */
 try {
     const Arrow = eval('exports');
