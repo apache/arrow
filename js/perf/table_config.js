@@ -22,15 +22,23 @@ const glob = require('glob');
 const config = [];
 const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
 
-tests = [
-    {col: 0, test: 'gteq', value: 0        },
-    {col: 1, test: 'gteq', value: 0        },
-    {col: 2, test:   'eq', value: 'Seattle'},
-]
+tests = {
+    "tracks": [
+        {col: 'lat',    test: 'gteq', value: 0        },
+        {col: 'lng',    test: 'gteq', value: 0        },
+        {col: 'origin', test:   'eq', value: 'Seattle'},
+    ]
+}
 
 for (const filename of filenames) {
     const { name } = path.parse(filename);
-    config.push({ name, buffers: [fs.readFileSync(filename)], tests });
+    if (name in tests) {
+        config.push({
+            name,
+            buffers: [fs.readFileSync(filename)],
+            tests: tests[name]
+        });
+    }
 }
 
 module.exports = config;

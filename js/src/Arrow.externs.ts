@@ -82,3 +82,19 @@ let DictionaryVector = function() {};
 DictionaryVector.prototype.getKey;
 /** @type {?} */
 DictionaryVector.prototype.getValue;
+
+let DataFrame = function () {};
+/** @type {?} */
+DataFrame.prototype.lengths;
+/** @type {?} */
+DataFrame.prototype.columns;
+/** @type {?} */
+DataFrame.prototype.batches;
+
+let Col = function() {};
+/** @type {?} */
+Col.prototype.gteq;
+/** @type {?} */
+Col.prototype.lteq;
+/** @type {?} */
+Col.prototype.eq;
