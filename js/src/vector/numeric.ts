@@ -34,10 +34,10 @@ export class NumericVector<T, TArray extends TypedArray> extends Vector<T> {
     concat(...vectors: Vector<T>[]): Vector<T> {
         return new VirtualVector(this.data.constructor as TypedArrayConstructor, this, ...vectors);
     }
-    slice(start?: number, end?: number) {
+    slice<R = TArray>(start?: number, end?: number): R {
         const { data, stride } = this, from = start! | 0;
         const to = end === undefined ? data.length : Math.max(end | 0, from);
-        return data.subarray(Math.min(from, to) * stride | 0, to * stride | 0);
+        return data.subarray(Math.min(from, to) * stride | 0, to * stride | 0) as any as R;
     }
 }
 
@@ -49,7 +49,8 @@ export class FixedWidthNumericVector<T, TArray extends TypedArray> extends Numer
 
 export class BoolVector extends NumericVector<boolean, Uint8Array> {
     static pack(values: Iterable<any>) {
-        let xs = [], n, i = 0;
+        let n = 0, i = 0;
+        let xs: number[] = [];
         let bit = 0, byte = 0;
         for (const value of values) {
             value && (byte |= 1 << bit);
