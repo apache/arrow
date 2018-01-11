@@ -37,7 +37,7 @@ const arrowBuffers: Uint8Array[] = [fs.readFileSync(arrowPath)];
 
 import Arrow from '../Arrow';
 import { zip } from 'ix/iterable/zip';
-import { toArray } from 'ix/iterable/toArray';
+import { toArray } from 'ix/iterable/toarray';
 
 const { Table, read } = Arrow;
 
