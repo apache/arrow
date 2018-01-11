@@ -1,15 +1,29 @@
 import { Vector } from "../vector/vector";
-import { StructVector } from "../vector/struct";
+import { StructVector, StructRow } from "../vector/struct";
 import { VirtualVector } from "../vector/virtual";
 
 import { Predicate } from "./predicate"
 
 export type NextFunc = (idx: number, cols: Vector[]) => void;
 
-export class DataFrame {
+export class DataFrameRow extends StructRow<any> {
+    constructor (batches: Vector[], idx: number) {
+        super(new StructVector({columns: batches}), idx);
+    }
+}
+
+export interface DataFrameOps {
+    readonly batches: Vector[][];
     readonly lengths: Uint32Array;
-    public columns: Vector<any>[];
-    constructor(readonly batches: Vector<any>[][]) {
+    filter(predicate: Predicate): DataFrameOps;
+    scan(next: NextFunc): void;
+    count(): number;
+}
+
+export class DataFrame extends Vector<DataFrameRow> implements DataFrameOps {
+    readonly lengths: Uint32Array;
+    constructor(readonly batches: Vector[][]) {
+        super();
         // for each batch
         this.lengths = new Uint32Array(batches.map((batch)=>{
             // verify that every vector has the same length, and return that
@@ -23,7 +37,17 @@ export class DataFrame {
         }));
     }
 
-    public filter(predicate: Predicate): DataFrame {
+    get(idx: number): DataFrameRow|null {
+        let batch = 0;
+        while (idx > this.lengths[batch] && batch < this.lengths.length)
+            idx -= this.lengths[batch++];
+
+        if (batch === this.lengths.length) return null;
+
+        else return new DataFrameRow(this.batches[batch], idx);
+    }
+
+    filter(predicate: Predicate): DataFrameOps {
         return new FilteredDataFrame(this, predicate);
     }
 
@@ -50,11 +74,11 @@ export class DataFrame {
             const length = this.lengths[batch];
 
             // load batches
-            this.columns = this.batches[batch];
+            const columns = this.batches[batch];
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                yield idx;
+                yield new DataFrameRow(columns, idx);
             }
         }
     }
@@ -85,10 +109,12 @@ export class DataFrame {
     }
 }
 
-class FilteredDataFrame extends DataFrame {
-    public columns: Vector<any>[];
-    constructor (readonly parent: DataFrame, private predicate: Predicate) {
-        super(parent.batches);
+class FilteredDataFrame implements DataFrameOps {
+    readonly lengths: Uint32Array;
+    readonly batches: Vector[][];
+    constructor (readonly parent: DataFrameOps, private predicate: Predicate) {
+        this.batches = parent.batches;
+        this.lengths = parent.lengths;
     }
 
     scan(next: NextFunc) {
@@ -133,7 +159,7 @@ class FilteredDataFrame extends DataFrame {
         return sum;
     }
 
-    filter(predicate: Predicate): DataFrame {
+    filter(predicate: Predicate): DataFrameOps {
         return new FilteredDataFrame(
             this.parent,
             this.predicate.and(predicate)
