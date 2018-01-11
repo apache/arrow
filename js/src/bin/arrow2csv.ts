@@ -97,7 +97,7 @@ files.forEach((source) => {
     printTable(table);
 });
 
-function printTable(table: Arrow.Table<any>) {
+function printTable(table: Arrow.Table) {
     let header = [...table.columns.map((_, i) => table.key(i))].map(stringify);
     let maxColumnWidths = header.map(x => x.length);
     // Pass one to convert to strings and count max column widths

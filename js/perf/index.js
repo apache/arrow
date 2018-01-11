@@ -124,17 +124,16 @@ function createGetByIndexTest(vector) {
 }
 
 function createDataFrameDirectCountTest(table, column, test, value) {
-    let df = DataFrame.from(table);
     let colidx = table.columns.findIndex((c)=>c.name === column);
 
     if (test == 'gteq') {
         op = function () {
             sum = 0;
-            for (let batch = -1; ++batch < df.lengths.length;) {
-                const length = df.lengths[batch];
+            for (let batch = -1; ++batch < table.lengths.length;) {
+                const length = table.lengths[batch];
 
                 // load batches
-                const columns = df.batches[batch];
+                const columns = table.batches[batch];
 
                 // yield all indices
                 for (let idx = -1; ++idx < length;) {
@@ -145,11 +144,11 @@ function createDataFrameDirectCountTest(table, column, test, value) {
     } else if (test == 'eq') {
         op = function() {
             sum = 0;
-            for (let batch = -1; ++batch < df.lengths.length;) {
-                const length = df.lengths[batch];
+            for (let batch = -1; ++batch < table.lengths.length;) {
+                const length = table.lengths[batch];
 
                 // load batches
-                const columns = df.batches[batch]
+                const columns = table.batches[batch]
 
                 // yield all indices
                 for (let idx = -1; ++idx < length;) {
@@ -169,13 +168,13 @@ function createDataFrameDirectCountTest(table, column, test, value) {
 }
 
 function createDataFrameFilterCountTest(table, column, test, value) {
-    let df = DataFrame.from(table);
     let colidx = table.columns.findIndex((c)=>c.name === column);
+    let df;
 
     if (test == 'gteq') {
-        df = df.filter(col(column).gteq(value));
+        df = table.filter(col(column).gteq(value));
     } else if (test == 'eq') {
-        df = df.filter(col(column).eq(value));
+        df = table.filter(col(column).eq(value));
     } else {
         throw new Error(`Unrecognized test "${test}"`);
     }

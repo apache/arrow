@@ -50,6 +50,10 @@ Table.prototype.key;
 Table.prototype.select;
 /** @type {?} */
 Table.prototype.toString;
+/** @type {?} */
+Table.prototype.lengths;
+/** @type {?} */
+Table.prototype.batches;
 
 let Vector = function() {};
 /** @type {?} */
@@ -82,14 +86,6 @@ let DictionaryVector = function() {};
 DictionaryVector.prototype.getKey;
 /** @type {?} */
 DictionaryVector.prototype.getValue;
-
-let DataFrame = function () {};
-/** @type {?} */
-DataFrame.prototype.lengths;
-/** @type {?} */
-DataFrame.prototype.columns;
-/** @type {?} */
-DataFrame.prototype.batches;
 
 let Col = function() {};
 /** @type {?} */

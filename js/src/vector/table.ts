@@ -18,44 +18,164 @@
 import { Vector } from './vector';
 import { StructVector, StructRow } from './struct';
 import { read, readAsync } from '../reader/arrow';
+import { Predicate } from './predicate';
 
-function concatVectors(tableVectors: Vector<any>[], batchVectors: Vector<any>[]) {
-    return tableVectors.length === 0 ? batchVectors : batchVectors.map((vec, i, _vs, col = tableVectors[i]) =>
-        vec && col && col.concat(vec) || col || vec
-    ) as Vector<any>[];
-}
+export type NextFunc = (idx: number, cols: Vector[]) => void;
 
-export class Table<T> extends StructVector<T> {
-    static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
-        let columns: Vector<any>[] = [];
-        if (sources) {
-            for (let vectors of read(sources)) {
-                columns = concatVectors(columns, vectors);
-            }
-        }
-        return new Table({ columns });
+export class DataFrameRow extends StructRow<any> {
+    constructor (batch: Vector[], idx: number) {
+        super(new StructVector({columns: batch}), idx);
     }
-    static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
-        let columns: Vector<any>[] = [];
-        if (sources) {
-            for await (let vectors of readAsync(sources)) {
-                columns = columns = concatVectors(columns, vectors);
-            }
-        }
-        return new Table({ columns });
-    }
-    readonly length: number;
-    constructor(argv: { columns: Vector<any>[] }) {
-        super(argv);
-        this.length = Math.max(...this.columns.map((col) => col.length)) | 0;
-    }
-    get(index: number): TableRow<T> {
-        return new TableRow(this, index);
-    }
-}
-
-export class TableRow<T> extends StructRow<T> {
     toString() {
         return this.toArray().map((x) => JSON.stringify(x)).join(', ');
+    }
+}
+
+export interface DataFrame {
+    readonly batches: Vector[][];
+    readonly lengths: Uint32Array;
+    filter(predicate: Predicate): DataFrame;
+    scan(next: NextFunc): void;
+    count(): number;
+}
+
+function columnsFromBatches(batches: Vector[][]) {
+    const remaining = batches.slice(1);
+    return batches[0].map((vec, colidx) =>
+        vec.concat(...remaining.map((batch) => batch[colidx]))
+    );
+}
+
+export class Table extends StructVector<any> implements DataFrame {
+    static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
+        let batches: Vector<any>[][] = [[]];
+        if (sources) {
+            batches = Array.from(read(sources));
+        }
+        return new Table({ batches });
+    }
+    static async fromAsync(sources?: AsyncIterable<Uint8Array | Buffer | string>) {
+        let batches: Vector<any>[][] = [[]];
+        if (sources) {
+            batches = [];
+            for await (let batch of readAsync(sources)) {
+                batches.push(batch);
+            }
+        }
+        return new Table({ batches });
+    }
+
+    // VirtualVector of each column, spanning batches
+    readonly columns: Vector<any>[];
+
+    // List of batches, where each batch is a list of Vectors
+    readonly batches: Vector<any>[][];
+    readonly lengths: Uint32Array;
+    readonly length: number;
+    constructor(argv: { batches: Vector<any>[][] }) {
+        super({columns: columnsFromBatches(argv.batches)});
+        this.batches = argv.batches;
+        this.lengths = new Uint32Array(this.batches.map((batch) => batch[0].length));
+
+        this.length = this.lengths.reduce((acc, length) => acc + length);
+    }
+    get(idx: number): DataFrameRow {
+        let batch = 0;
+        while (idx > this.lengths[batch] && batch < this.lengths.length)
+            idx -= this.lengths[batch++];
+
+        if (batch === this.lengths.length) throw new Error("Overflow")
+
+        else return new DataFrameRow(this.batches[batch], idx);
+    }
+    filter(predicate: Predicate): DataFrame {
+        return new FilteredDataFrame(this, predicate);
+    }
+    scan(next: NextFunc) {
+        for (let batch = -1; ++batch < this.lengths.length;) {
+            const length = this.lengths[batch];
+
+            // load batches
+            const columns = this.batches[batch];
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                next(idx, columns)
+            }
+        }
+    }
+    count(): number {
+        return this.lengths.reduce((acc, val) => acc + val);
+    }
+    *[Symbol.iterator]() {
+        for (let batch = -1; ++batch < this.lengths.length;) {
+            const length = this.lengths[batch];
+
+            // load batches
+            const columns = this.batches[batch];
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                yield new DataFrameRow(columns, idx);
+            }
+        }
+    }
+}
+
+class FilteredDataFrame implements DataFrame {
+    readonly lengths: Uint32Array;
+    readonly batches: Vector[][];
+    constructor (readonly parent: DataFrame, private predicate: Predicate) {
+        this.batches = parent.batches;
+        this.lengths = parent.lengths;
+    }
+
+    scan(next: NextFunc) {
+        // inlined version of this:
+        // this.parent.scan((idx, columns) => {
+        //     if (this.predicate(idx, columns)) next(idx, columns);
+        // });
+        for (let batch = -1; ++batch < this.lengths.length;) {
+            const length = this.lengths[batch];
+
+            // load batches
+            const columns = this.batches[batch];
+            const predicate = this.predicate.bind(columns);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                if (predicate(idx, columns)) next(idx, columns);
+            }
+        }
+    }
+
+    count(): number {
+        // inlined version of this:
+        // let sum = 0;
+        // this.parent.scan((idx, columns) => {
+        //     if (this.predicate(idx, columns)) ++sum;
+        // });
+        // return sum;
+        let sum = 0;
+        for (let batch = -1; ++batch < this.lengths.length;) {
+            const length = this.lengths[batch];
+
+            // load batches
+            const columns = this.batches[batch];
+            const predicate = this.predicate.bind(columns);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                if (predicate(idx, columns)) ++sum;
+            }
+        }
+        return sum;
+    }
+
+    filter(predicate: Predicate): DataFrame {
+        return new FilteredDataFrame(
+            this.parent,
+            this.predicate.and(predicate)
+        );
     }
 }

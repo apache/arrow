@@ -45,8 +45,7 @@ import {
     TimestampVector,
 } from './vector/numeric';
 
-import { DataFrame } from './dataframe/dataframe';
-import { lit, col } from './dataframe/predicate';
+import { lit, col } from './vector/predicate';
 
 // closure compiler always erases static method names:
 // https://github.com/google/closure-compiler/issues/1776
@@ -54,7 +53,6 @@ import { lit, col } from './dataframe/predicate';
 Table['from'] = Table.from;
 Table['fromAsync'] = Table.fromAsync;
 BoolVector['pack'] = BoolVector.pack;
-DataFrame['from'] = DataFrame.from;
 
 export { read, readAsync };
 export { Table, Vector, StructRow };
@@ -88,8 +86,7 @@ export {
     FixedSizeListVector,
 };
 
-export { DataFrame } from './dataframe/dataframe';
-export { lit, col } from './dataframe/predicate';
+export { lit, col } from './vector/predicate';
 
 
 /* These exports are needed for the closure umd targets */
@@ -103,7 +100,6 @@ try {
         Arrow['readAsync'] = readAsync;
         Arrow['Table'] = Table;
         Arrow['Vector'] = Vector;
-        Arrow['DataFrame'] = DataFrame;
         Arrow['StructRow'] = StructRow;
         Arrow['BoolVector'] = BoolVector;
         Arrow['ListVector'] = ListVector;
