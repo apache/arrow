@@ -46,9 +46,11 @@ export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export BOOST_ROOT=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 
-rm -rf arrow/cpp/build_docs
-mkdir arrow/cpp/build_docs
-pushd arrow/cpp/build_docs
+CPP_BUILD_DIR=$(pwd)/arrow/cpp/build_docs
+
+rm -rf $CPP_BUILD_DIR
+mkdir $CPP_BUILD_DIR
+pushd $CPP_BUILD_DIR
 cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_PYTHON=on \
@@ -57,6 +59,19 @@ cmake -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
       ..
 make -j4
 make install
+popd
+
+# Build c_glib documentation
+pushd arrow/c_glib
+rm -rf doc/reference/html/*
+./autogen.sh
+./configure \
+    --with-arrow-cpp-build-dir=$CPP_BUILD_DIR \
+    --with-arrow-cpp-build-type=$ARROW_BUILD_TYPE \
+    --enable-gtk-doc
+LD_LIBRARY_PATH=$CPP_BUILD_DIR/$ARROW_BUILD_TYPE make GTK_DOC_V_XREF=": "
+mkdir -p ../site/asf-site/docs/c_glib
+rsync -r doc/reference/html/ ../site/asf-site/docs/c_glib
 popd
 
 # Build Parquet C++
@@ -82,19 +97,6 @@ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
 python setup.py build_sphinx -s doc/source
 mkdir -p ../site/asf-site/docs/python
 rsync -r doc/_build/html/ ../site/asf-site/docs/python
-popd
-
-# Build c_glib documentation
-pushd arrow/c_glib
-rm -rf doc/reference/html/*
-./autogen.sh
-./configure \
-    --with-arrow-cpp-build-dir=$(pwd)/../cpp/build \
-    --with-arrow-cpp-build-type=$ARROW_BUILD_TYPE \
-    --enable-gtk-doc
-LD_LIBRARY_PATH=$(pwd)/../cpp/build/$ARROW_BUILD_TYPE make GTK_DOC_V_XREF=": "
-mkdir -p ../site/asf-site/docs/c_glib
-rsync -r doc/reference/html/ ../site/asf-site/docs/c_glib
 popd
 
 # Make C++ documentation
