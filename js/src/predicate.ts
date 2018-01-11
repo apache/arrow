@@ -1,5 +1,5 @@
-import { Vector } from "../vector/vector";
-import { DictionaryVector } from "../vector/dictionary";
+import { Vector } from "./vector/vector";
+import { DictionaryVector } from "./vector/dictionary";
 
 export type ValueFunc<T> = (idx: number, cols: Vector[]) => T|null;
 export type PredicateFunc = (idx: number, cols: Vector[]) => boolean;

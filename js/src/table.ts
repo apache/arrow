@@ -15,19 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { StructVector, StructRow } from './struct';
-import { read, readAsync } from '../reader/arrow';
+import { Vector } from './vector/vector';
+import { read, readAsync } from './reader/arrow';
 import { Predicate } from './predicate';
 
 export type NextFunc = (idx: number, cols: Vector[]) => void;
 
-export class DataFrameRow extends StructRow<any> {
-    constructor (batch: Vector[], idx: number) {
-        super(new StructVector({columns: batch}), idx);
+export class TableRow {
+    constructor (readonly batch: Vector[], readonly idx: number) {}
+    toArray() {
+        return this.batch.map((vec) => vec.get(this.idx));
     }
     toString() {
         return this.toArray().map((x) => JSON.stringify(x)).join(', ');
+    }
+    *[Symbol.iterator]() {
+        for (const vec of this.batch) {
+            yield vec.get(this.idx);
+        }
     }
 }
 
@@ -46,7 +51,7 @@ function columnsFromBatches(batches: Vector[][]) {
     );
 }
 
-export class Table extends StructVector<any> implements DataFrame {
+export class Table implements DataFrame {
     static from(sources?: Iterable<Uint8Array | Buffer | string> | object | string) {
         let batches: Vector<any>[][] = [[]];
         if (sources) {
@@ -73,20 +78,20 @@ export class Table extends StructVector<any> implements DataFrame {
     readonly lengths: Uint32Array;
     readonly length: number;
     constructor(argv: { batches: Vector<any>[][] }) {
-        super({columns: columnsFromBatches(argv.batches)});
         this.batches = argv.batches;
+        this.columns = columnsFromBatches(this.batches);
         this.lengths = new Uint32Array(this.batches.map((batch) => batch[0].length));
 
         this.length = this.lengths.reduce((acc, length) => acc + length);
     }
-    get(idx: number): DataFrameRow {
+    get(idx: number): TableRow {
         let batch = 0;
         while (idx > this.lengths[batch] && batch < this.lengths.length)
             idx -= this.lengths[batch++];
 
         if (batch === this.lengths.length) throw new Error("Overflow")
 
-        else return new DataFrameRow(this.batches[batch], idx);
+        else return new TableRow(this.batches[batch], idx);
     }
     filter(predicate: Predicate): DataFrame {
         return new FilteredDataFrame(this, predicate);
@@ -116,7 +121,7 @@ export class Table extends StructVector<any> implements DataFrame {
 
             // yield all indices
             for (let idx = -1; ++idx < length;) {
-                yield new DataFrameRow(columns, idx);
+                yield new TableRow(columns, idx);
             }
         }
     }

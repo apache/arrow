@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table } from './vector/table';
+import { Table, TableRow } from './table';
+import { lit, col } from './predicate';
 import { Vector } from './vector/vector';
 import { Utf8Vector } from './vector/utf8';
 import { DictionaryVector } from './vector/dictionary';
@@ -45,8 +46,6 @@ import {
     TimestampVector,
 } from './vector/numeric';
 
-import { lit, col } from './vector/predicate';
-
 // closure compiler always erases static method names:
 // https://github.com/google/closure-compiler/issues/1776
 // set them via string indexers to save them from the mangler
@@ -55,7 +54,9 @@ Table['fromAsync'] = Table.fromAsync;
 BoolVector['pack'] = BoolVector.pack;
 
 export { read, readAsync };
-export { Table, Vector, StructRow };
+export { Table, TableRow };
+export { lit, col };
+export { Vector, StructRow };
 export { Uint64, Int64, Int128 };
 export { NumericVectorConstructor } from './vector/numeric';
 export { List, TypedArray, TypedArrayConstructor } from './vector/types';
@@ -86,7 +87,6 @@ export {
     FixedSizeListVector,
 };
 
-export { lit, col } from './vector/predicate';
 
 
 /* These exports are needed for the closure umd targets */
