@@ -43,6 +43,7 @@ popd
 source activate pyarrow-dev
 
 export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
+export BOOST_ROOT=$CONDA_PREFIX
 export PARQUET_BUILD_TOOLCHAIN=$CONDA_PREFIX
 
 rm -rf arrow/cpp/build_docs
