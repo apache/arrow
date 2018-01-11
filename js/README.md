@@ -178,7 +178,7 @@ The base `apache-arrow` package includes all the compilation targets for conveni
 The targets are also published under the `@apache-arrow` namespace:
 
 ```sh
-npm install apache-arrow # <-- combined es5/CommonJS + UMD, es2015/ESModules + UMD, and TypeScript package
+npm install apache-arrow # <-- combined es5/UMD, es2015/CommonJS/ESModules/UMD, and TypeScript package
 npm install @apache-arrow/ts # standalone TypeScript package
 npm install @apache-arrow/es5-cjs # standalone es5/CommonJS package
 npm install @apache-arrow/es5-esm # standalone es5/ESModules package

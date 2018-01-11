@@ -34,7 +34,7 @@ argv.update && jestArgv.push(`-u`);
 argv.verbose && jestArgv.push(`--verbose`);
 argv.coverage && jestArgv.push(`--coverage`);
 
-const debugArgv = [`--runInBand`, `--env`, `jest-environment-node-debug`];
+const debugArgv = [`--runInBand`, `--env`, `node-debug`];
 const jest = require.resolve(path.join(`..`, `node_modules`, `.bin`, `jest`));
 const testOptions = {
     env: { ...process.env },

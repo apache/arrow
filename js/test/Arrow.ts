@@ -16,7 +16,7 @@
 // under the License.
 
 /* tslint:disable */
-// Dynamically load an Ix target build based on command line arguments
+// Dynamically load an Arrow target build based on command line arguments
 
 const path = require('path');
 const target = process.env.TEST_TARGET!;

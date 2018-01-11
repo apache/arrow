@@ -93,7 +93,7 @@ export class VirtualVector<T> implements Vector<T> {
                 // this is a significant improvement as we avoid the memcpy 🎉
                 if ((source.length / vector.stride | 0) < total) {
                     let vectorsLength = vectors.length;
-                    let count = 0, length = 0, sources = [];
+                    let count = 0, length = 0, sources = [] as any[];
                     do {
                         sources.push(source);
                         length += source.length;

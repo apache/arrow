@@ -49,10 +49,8 @@
     "gulpfile.js",
     "npm-release.sh"
   ],
-  "peerDependencies": {
-    "command-line-usage": "4.0.1"
-  },
   "dependencies": {
+    "@types/text-encoding-utf-8": "1.0.1",
     "command-line-args": "4.0.7",
     "command-line-usage": "4.0.2",
     "flatbuffers": "trxcllnt/flatbuffers-esm",
@@ -61,45 +59,44 @@
     "tslib": "1.8.1"
   },
   "devDependencies": {
-    "@std/esm": "0.18.0",
+    "@std/esm": "0.19.1",
     "@types/flatbuffers": "1.6.5",
     "@types/glob": "5.0.34",
-    "@types/jest": "21.1.8",
-    "@types/node": "8.5.0",
-    "@types/text-encoding": "0.0.32",
+    "@types/jest": "22.0.1",
+    "@types/node": "9.3.0",
     "ast-types": "0.10.1",
     "benchmark": "2.1.4",
     "coveralls": "3.0.0",
     "del": "3.0.0",
-    "esdoc": "1.0.3",
+    "esdoc": "1.0.4",
     "esdoc-standard-plugin": "1.0.0",
     "glob": "7.1.2",
-    "google-closure-compiler": "20171203.0.0",
+    "google-closure-compiler": "20180101.0.0",
     "gulp": "github:gulpjs/gulp#6d71a658c61edb3090221579d8f97dbe086ba2ed",
     "gulp-json-transform": "0.4.5",
     "gulp-rename": "1.2.2",
-    "gulp-sourcemaps": "2.6.1",
+    "gulp-sourcemaps": "2.6.3",
     "gulp-transform-js-ast": "1.0.2",
     "gulp-typescript": "3.2.3",
     "ix": "2.3.4",
-    "jest": "21.2.1",
+    "jest": "22.0.5",
     "jest-environment-node-debug": "2.0.0",
     "json": "9.0.6",
-    "lerna": "2.5.1",
+    "lerna": "2.6.0",
     "lint-staged": "6.0.0",
-    "merge2": "1.2.0",
+    "merge2": "1.2.1",
     "mkdirp": "0.5.1",
     "npm-run-all": "4.1.2",
     "pump": "1.0.2",
     "rimraf": "2.6.2",
-    "rxjs": "5.5.5",
+    "rxjs": "5.5.6",
     "shx": "0.2.2",
     "source-map-loader": "0.2.3",
     "trash": "4.2.1",
-    "ts-jest": "21.2.4",
-    "tslint": "5.8.0",
+    "ts-jest": "22.0.1",
+    "tslint": "5.9.1",
     "typescript": "2.6.2",
-    "uglifyjs-webpack-plugin": "1.1.2",
+    "uglifyjs-webpack-plugin": "1.1.6",
     "webpack": "3.10.0",
     "xml2js": "0.4.19"
   },
@@ -134,9 +131,12 @@
       "/node_modules/"
     ],
     "transform": {
-      ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js",
-      ".(js|jsx)": "<rootDir>/node_modules/babel-jest/build/index.js"
+      ".(ts|tsx)": "./node_modules/ts-jest/preprocessor.js",
+      ".(js|jsx)": "./node_modules/babel-jest/build/index.js"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/", "/(es2015|esnext)\/umd/"
+    ],
     "testRegex": "(.*(-|\\.)(test|spec)s?)\\.(ts|tsx|js)$"
   }
 }
