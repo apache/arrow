@@ -21,10 +21,6 @@ import { View, Vector, createVector } from '../vector';
 import { DataType, NestedType, DenseUnion, SparseUnion, Struct, Map_ } from '../type';
 
 export abstract class NestedView<T extends NestedType> implements View<T> {
-    // @ts-ignore
-    public typeIds: Int8Array;
-    // @ts-ignore
-    public valueOffsets: any;
     public readonly numChildren: number;
     public readonly childData: Data<any>[];
     protected children: { [k: number]: Vector<any> } = Object.create(null);
@@ -56,9 +52,15 @@ export abstract class NestedView<T extends NestedType> implements View<T> {
 }
 
 export class UnionView<T extends (DenseUnion | SparseUnion) = SparseUnion> extends NestedView<T> {
+    public length: number;
+    // @ts-ignore
+    public typeIds: Int8Array;
+    // @ts-ignore
+    public valueOffsets?: Int32Array;
     constructor(data: Data<T>) {
         super(data);
-        this.typeIds = this.typeIds;
+        this.length = data.length;
+        this.typeIds = data.typeIds;
     }
     public getNested(view: NestedView<T>, index: number): T['TValue'] {
         return this.getUnionValue(view, index, this.typeIds, this.valueOffsets);
@@ -68,8 +70,8 @@ export class UnionView<T extends (DenseUnion | SparseUnion) = SparseUnion> exten
         return child ? child.get(index) : null;
     }
     public *[Symbol.iterator](): IterableIterator<T['TValue']> {
+        const length = this.length;
         const get = this.getUnionValue;
-        const length = this.data.length;
         const { typeIds, valueOffsets } = this;
         for (let index = -1; ++index < length;) {
             yield get(this, index, typeIds, valueOffsets);
@@ -78,6 +80,8 @@ export class UnionView<T extends (DenseUnion | SparseUnion) = SparseUnion> exten
 }
 
 export class DenseUnionView extends UnionView<DenseUnion> {
+    // @ts-ignore
+    public valueOffsets: Int32Array;
     constructor(data: Data<DenseUnion>) {
         super(data);
         this.valueOffsets = data.valueOffsets;
@@ -91,41 +95,38 @@ export class DenseUnionView extends UnionView<DenseUnion> {
     }
 }
 
-export abstract class TabularView<T extends NestedType> extends NestedView<T> {
-    constructor(data: Data<T>) {
-        super(data);
-        this.typeIds = new Int8Array(data.childData.map((x) => x.typeId));
-        this.valueOffsets = data.type.children.reduce((xs, x) =>
-            (xs[x.name] = x.typeId) && xs || xs, Object.create(null));
+export class StructView extends NestedView<Struct> {
+    public getNested(view: StructView, index: number) {
+        return new RowView(view as any, index);
     }
 }
 
-export class MapView extends TabularView<Map_> {
+export class MapView extends NestedView<Map_> {
+    // @ts-ignore
+    public typeIds: { [k: string]: number };
+    constructor(data: Data<Map_>) {
+        super(data);
+        this.typeIds = data.type.children.reduce((xs, x, i) =>
+            (xs[x.name] = i) && xs || xs, Object.create(null));
+    }
     public getNested(view: MapView, index: number) {
-        return new MapRow(view as any, index);
+        return new MapRowView(view as any, index);
     }
 }
 
-export class MapRow extends DenseUnionView {
-    constructor(data: Data<DenseUnion>, protected rowIndex: number) {
+export class RowView extends UnionView<SparseUnion> {
+    constructor(data: Data<SparseUnion> & NestedView<any>, protected rowIndex: number) {
         super(data);
+        this.length = data.numChildren;
     }
-    protected getUnionValue(view: NestedView<DenseUnion>, index: number, typeIds: Int8Array, valueOffsets: any): any | null {
-        const child = view.getChildAt(typeIds[valueOffsets[index]]);
+    protected getUnionValue(view: NestedView<SparseUnion>, index: number, _typeIds: any, _valueOffsets?: any): any | null {
+        const child = view.getChildAt(index);
         return child ? child.get(this.rowIndex) : null;
     }
 }
-export class StructView extends TabularView<Struct> {
-    public getNested(view: StructView, index: number) {
-        return new StructRow(view as any, index);
-    }
-}
 
-export class StructRow extends UnionView<SparseUnion> {
-    constructor(data: Data<SparseUnion>, protected rowIndex: number) {
-        super(data);
-    }
-    protected getUnionValue(view: NestedView<SparseUnion>, index: number, typeIds: Int8Array, _valueOffsets?: any): any | null {
+export class MapRowView extends RowView {
+    protected getUnionValue(view: NestedView<SparseUnion>, index: number, typeIds: any, _valueOffsets: any): any | null {
         const child = view.getChildAt(typeIds[index]);
         return child ? child.get(this.rowIndex) : null;
     }

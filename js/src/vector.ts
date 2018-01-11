@@ -80,10 +80,10 @@ export abstract class ListVectorBase<T extends ListType> extends Vector<T> {
     public get values() { return this._data.values; }
     public get valueOffsets() { return this._data.valueOffsets; }
     public getValueOffset(index: number) {
-        return this.data.valueOffsets[index];
+        return this.valueOffsets[index];
     }
     public getValueLength(index: number) {
-        return this.data.valueOffsets[index + 1] - this.data.valueOffsets[index];
+        return this.valueOffsets[index + 1] - this.valueOffsets[index];
     }
 }
 
