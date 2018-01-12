@@ -37,8 +37,6 @@ export class TableRow {
 }
 
 export interface DataFrame {
-    readonly batches: Vector[][];
-    readonly lengths: Uint32Array;
     filter(predicate: Predicate): DataFrame;
     scan(next: NextFunc): void;
     count(): number;
@@ -129,23 +127,18 @@ export class Table implements DataFrame {
 }
 
 class FilteredDataFrame implements DataFrame {
-    readonly lengths: Uint32Array;
-    readonly batches: Vector[][];
-    constructor (readonly parent: DataFrame, private predicate: Predicate) {
-        this.batches = parent.batches;
-        this.lengths = parent.lengths;
-    }
+    constructor (readonly parent: Table, private predicate: Predicate) {}
 
     scan(next: NextFunc) {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
         // });
-        for (let batch = -1; ++batch < this.lengths.length;) {
-            const length = this.lengths[batch];
+        for (let batch = -1; ++batch < this.parent.lengths.length;) {
+            const length = this.parent.lengths[batch];
 
             // load batches
-            const columns = this.batches[batch];
+            const columns = this.parent.batches[batch];
             const predicate = this.predicate.bind(columns);
 
             // yield all indices
@@ -163,11 +156,11 @@ class FilteredDataFrame implements DataFrame {
         // });
         // return sum;
         let sum = 0;
-        for (let batch = -1; ++batch < this.lengths.length;) {
-            const length = this.lengths[batch];
+        for (let batch = -1; ++batch < this.parent.lengths.length;) {
+            const length = this.parent.lengths[batch];
 
             // load batches
-            const columns = this.batches[batch];
+            const columns = this.parent.batches[batch];
             const predicate = this.predicate.bind(columns);
 
             // yield all indices

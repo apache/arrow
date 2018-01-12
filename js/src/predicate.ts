@@ -19,11 +19,11 @@ export abstract class Value<T> {
     }
 }
 
-class Literal<T= any> extends Value<T> {
+export class Literal<T= any> extends Value<T> {
     constructor(public v: T) { super(); }
 }
 
-class Col<T= any> extends Value<T> {
+export class Col<T= any> extends Value<T> {
     vector: Vector<T>;
     colidx: number;
 
@@ -55,7 +55,7 @@ export abstract class Predicate {
     ands(): Predicate[] { return [this]; }
 }
 
-abstract class ComparisonPredicate<T= any> extends Predicate {
+export abstract class ComparisonPredicate<T= any> extends Predicate {
     constructor(public readonly left: Value<T>, public readonly right: Value<T>) {
         super();
     }
@@ -105,7 +105,7 @@ class Or extends CombinationPredicate {
     }
 }
 
-class Equals extends ComparisonPredicate {
+export class Equals extends ComparisonPredicate {
     protected _bindLitLit(_: Vector<any>[], left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v == right.v;
         return () => rtrn;
@@ -121,6 +121,9 @@ class Equals extends ComparisonPredicate {
         const col_func = col.bind(cols);
         if (col.vector instanceof DictionaryVector) {
             // Assume that there is only one key with the value `lit.v`
+            // TODO: add lazily-computed reverse dictionary lookups, associated
+            // with col.vector.data so that we only have to do this once per
+            // dictionary
             let key = -1;
             for (; ++key < col.vector.data.length;) {
                 if (col.vector.data.get(key) === lit.v) {
@@ -146,7 +149,7 @@ class Equals extends ComparisonPredicate {
     }
 }
 
-class LTeq extends ComparisonPredicate {
+export class LTeq extends ComparisonPredicate {
     protected _bindLitLit(_: Vector<any>[], left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v <= right.v;
         return () => rtrn;
@@ -164,7 +167,7 @@ class LTeq extends ComparisonPredicate {
     }
 }
 
-class GTeq extends ComparisonPredicate {
+export class GTeq extends ComparisonPredicate {
     protected _bindLitLit(_: Vector<any>[], left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v >= right.v;
         return () => rtrn;
@@ -183,4 +186,4 @@ class GTeq extends ComparisonPredicate {
 }
 
 export function lit(n: number): Value<any> { return new Literal(n); }
-export function col(n: string): Value<any> { return new Col(n); }
+export function col(n: string): Col<any> { return new Col(n); }
