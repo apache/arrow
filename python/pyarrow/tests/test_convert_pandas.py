@@ -518,6 +518,11 @@ class TestPandasConversion(object):
 
         _check_pandas_roundtrip(df, expected_schema=schema)
 
+    def test_unicode_with_unicode_column_and_index(self):
+        df = pd.DataFrame({u'あ': [u'い']}, index=[u'う'])
+
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_bytes_to_binary(self):
         values = [u('qux'), b'foo', None, 'bar', 'qux', np.nan]
         df = pd.DataFrame({'strings': values})
