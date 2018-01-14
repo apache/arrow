@@ -170,9 +170,12 @@ def get_column_metadata(column, name, arrow_type, field_name):
             )
         )
 
+    if not isinstance(field_name, six.string_types):
+        field_name = str(field_name)
+
     return {
         'name': name,
-        'field_name': str(field_name),
+        'field_name': field_name,
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -543,9 +546,14 @@ def table_to_blockmanager(options, table, memory_pool, nthreads=1,
 
     column_strings = [x.name for x in block_table.itercolumns()]
     if columns:
-        columns_name_dict = {
-            c.get('field_name', str(c['name'])): c['name'] for c in columns
-        }
+        columns_name_dict = {}
+        for c in columns:
+            column_name = c['name']
+            if not isinstance(column_name, six.text_type):
+                column_name = str(column_name)
+
+            columns_name_dict[c.get('field_name', column_name)] = c['name']
+
         columns_values = [
             columns_name_dict.get(name, name) for name in column_strings
         ]
