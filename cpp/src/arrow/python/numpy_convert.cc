@@ -146,7 +146,10 @@ Status GetNumPyType(const DataType& type, int* type_num) {
 
 Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out) {
   PyArray_Descr* descr = reinterpret_cast<PyArray_Descr*>(dtype);
+  return NumPyDtypeToArrow(descr, out);
+}
 
+Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
   int type_num = cast_npy_type_compat(descr->type_num);
 
   switch (type_num) {
