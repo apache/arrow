@@ -22,7 +22,10 @@ const glob = require('glob');
 const config = [];
 const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
 
-tests = {
+countBys = {
+    "tracks": ['origin', 'destination']
+}
+counts = {
     "tracks": [
         {col: 'lat',    test: 'gteq', value: 0        },
         {col: 'lng',    test: 'gteq', value: 0        },
@@ -32,11 +35,12 @@ tests = {
 
 for (const filename of filenames) {
     const { name } = path.parse(filename);
-    if (name in tests) {
+    if (name in counts) {
         config.push({
             name,
             buffers: [fs.readFileSync(filename)],
-            tests: tests[name]
+            countBys: countBys[name],
+            counts: counts[name],
         });
     }
 }

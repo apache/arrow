@@ -41,17 +41,23 @@ for (let { name, buffers} of config) {
     suites.push(getByIndexSuite, iterateSuite, sliceSuite, parseSuite);
 }
 
-for (let {name, buffers, tests} of require('./table_config')) {
-    const dfFilterCountSuite = new Benchmark.Suite(`DataFrame Filter-Scan Count "${name}"`, { async: true });
-    const dfDirectCountSuite = new Benchmark.Suite(`DataFrame Direct Count "${name}"`, { async: true });
+for (let {name, buffers, countBys, counts} of require('./table_config')) {
     const table = Table.from(buffers);
 
-    for (test of tests) {
+    const dfCountBySuite = new Benchmark.Suite(`DataFrame Count By "${name}"`, { async: true });
+    for (countBy of countBys) {
+        dfCountBySuite.add(createDataFrameCountByTest(table, countBy));
+    }
+
+    const dfFilterCountSuite = new Benchmark.Suite(`DataFrame Filter-Scan Count "${name}"`, { async: true });
+    const dfDirectCountSuite = new Benchmark.Suite(`DataFrame Direct Count "${name}"`, { async: true });
+
+    for (test of counts) {
         dfFilterCountSuite.add(createDataFrameFilterCountTest(table, test.col, test.test, test.value))
         dfDirectCountSuite.add(createDataFrameDirectCountTest(table, test.col, test.test, test.value))
     }
 
-    suites.push(dfFilterCountSuite, dfDirectCountSuite)
+    suites.push(dfCountBySuite, dfFilterCountSuite, dfDirectCountSuite)
 }
 
 console.log('Running apache-arrow performance tests...\n');
@@ -164,6 +170,18 @@ function createDataFrameDirectCountTest(table, column, test, value) {
         async: true,
         name: `name: '${column}', length: ${table.length}, type: ${table.columns[colidx].type}, test: ${test}, value: ${value}`,
         fn: op
+    };
+}
+
+function createDataFrameCountByTest(table, column) {
+    let colidx = table.columns.findIndex((c)=>c.name === column);
+
+    return {
+        async: true,
+        name: `name: '${column}', length: ${table.length}, type: ${table.columns[colidx].type}`,
+        fn() {
+            table.countBy(col(column));
+        }
     };
 }
 

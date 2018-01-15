@@ -16,8 +16,10 @@
 // under the License.
 
 import { Vector } from './vector/vector';
+import { DictionaryVector } from './vector/dictionary';
+import { Uint32Vector } from './vector/numeric';
 import { read, readAsync } from './reader/arrow';
-import { Predicate } from './predicate';
+import { Col, Predicate } from './predicate';
 
 export type NextFunc = (idx: number, cols: Vector[]) => void;
 
@@ -40,6 +42,7 @@ export interface DataFrame {
     filter(predicate: Predicate): DataFrame;
     scan(next: NextFunc): void;
     count(): number;
+    countBy(col: (Col|string)): Table;
 }
 
 function columnsFromBatches(batches: Vector[][]) {
@@ -111,6 +114,40 @@ export class Table implements DataFrame {
     count(): number {
         return this.lengths.reduce((acc, val) => acc + val);
     }
+    countBy(count_by: (Col|string)): Table {
+        if (count_by instanceof String) {
+            count_by = new Col(count_by);
+        }
+
+        // the last batch will have the most complete dictionary, use it's data
+        // vector as our count by keys
+        count_by.bind(this.batches[this.batches.length - 1]);
+        if (!(count_by.vector instanceof DictionaryVector)) {
+            throw new Error("countBy currently only supports dictionary-encoded columns");
+        }
+
+        let keys: Vector = (count_by.vector as DictionaryVector<any>).data;
+        // TODO: Adjust array byte width based on overall length
+        // (e.g. if this.length <= 255 use Uint8Array, etc...)
+        let counts: Uint32Array = new Uint32Array(keys.length);
+
+
+        for (let batch = -1; ++batch < this.lengths.length;) {
+            const length = this.lengths[batch];
+
+            // load batches
+            const columns = this.batches[batch];
+            count_by.bind(columns);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                let key = (count_by.vector as DictionaryVector<any>).getKey(idx)
+                if (key !== null) { counts[key]++; }
+            }
+        }
+
+        return new Table({batches: [[keys, new Uint32Vector({data: counts})]]})
+    }
     *[Symbol.iterator]() {
         for (let batch = -1; ++batch < this.lengths.length;) {
             const length = this.lengths[batch];
@@ -176,5 +213,39 @@ class FilteredDataFrame implements DataFrame {
             this.parent,
             this.predicate.and(predicate)
         );
+    }
+
+    countBy(count_by: (Col|string)): Table {
+        if (count_by instanceof String) {
+            count_by = new Col(count_by);
+        }
+
+        // the last batch will have the most complete dictionary, use it's data
+        // vector as our count by keys
+        count_by.bind(this.parent.batches[this.parent.batches.length - 1]);
+        if (!(count_by.vector instanceof DictionaryVector)) {
+            throw new Error("countBy currently only supports dictionary-encoded columns");
+        }
+
+        let keys: Vector = (count_by.vector as DictionaryVector<any>).data;
+        let counts: Uint32Array = new Uint32Array(keys.length);
+
+
+        for (let batch = -1; ++batch < this.parent.lengths.length;) {
+            const length = this.parent.lengths[batch];
+
+            // load batches
+            const columns = this.parent.batches[batch];
+            const predicate = this.predicate.bind(columns);
+            count_by.bind(columns);
+
+            // yield all indices
+            for (let idx = -1; ++idx < length;) {
+                let key = (count_by.vector as DictionaryVector<any>).getKey(idx)
+                if (key !== null && predicate(idx, columns)) { counts[key]++; }
+            }
+        }
+
+        return new Table({batches: [[keys, new Uint32Vector({data: counts})]]})
     }
 }
